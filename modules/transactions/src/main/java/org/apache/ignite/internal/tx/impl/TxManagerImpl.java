@@ -333,7 +333,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         txCleanupRequestSender = new TxCleanupRequestSender(txMessageSender, placementDriverHelper, writeIntentSwitchProcessor);
 
-        this.cursorCleanupRequestHandler = new CursorCleanupRequestHandler(messagingService, resourcesRegistry);
+        cursorCleanupRequestHandler =
+                new CursorCleanupRequestHandler(messagingService, resourcesRegistry, clock, this::executeCleanupAsync);
     }
 
     private CompletableFuture<Boolean> primaryReplicaEventListener(PrimaryReplicaEventParameters eventParameters) {

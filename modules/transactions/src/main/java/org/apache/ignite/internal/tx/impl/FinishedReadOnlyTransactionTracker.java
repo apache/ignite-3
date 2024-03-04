@@ -20,34 +20,34 @@ package org.apache.ignite.internal.tx.impl;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.stream.Collectors.toSet;
 
+import java.util.Collection;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.LinkedBlockingQueue;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.tx.message.CloseCursorsBatchMessage;
+import org.apache.ignite.internal.tx.message.FinishedTransactionsBatchMessage;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.TopologyService;
 
 /**
- * Keeps track of all closed RO transactions.
+ * Keeps track of all finished RO transactions.
  */
-public class ClosedTransactionTracker {
+public class FinishedReadOnlyTransactionTracker {
 
-    private static final int maxClosedTransactionsInBatch = 10_000;
+    private static final int MAX_FINISHED_TRANSACTIONS_IN_BATCH = 10_000;
 
     private static final long RPC_TIMEOUT = 3000;
 
     /** Tx messages factory. */
     private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
 
-    private final Set<UUID> closedTransactions = ConcurrentHashMap.newKeySet();
+    /** A collection of finished read only transactions ordered by the time when when they were finished. */
+    private final Collection<UUID> finishedTransactions = new LinkedBlockingQueue<>();
 
-    /**
-     * Topology service.
-     */
+    /** Topology service. */
     private final TopologyService topologyService;
 
     /** Messaging service. */
@@ -59,7 +59,7 @@ public class ClosedTransactionTracker {
      * @param topologyService Topology service.
      * @param messagingService Messaging service.
      */
-    public ClosedTransactionTracker(TopologyService topologyService, MessagingService messagingService) {
+    public FinishedReadOnlyTransactionTracker(TopologyService topologyService, MessagingService messagingService) {
         this.topologyService = topologyService;
         this.messagingService = messagingService;
     }
@@ -68,11 +68,15 @@ public class ClosedTransactionTracker {
      * Send close cursors batch message to all cluster nodes.
      */
     public void broadcastClosedTransactions() {
-        Set<UUID> txToSend = closedTransactions.stream()
-                .limit(maxClosedTransactionsInBatch)
+        if (finishedTransactions.isEmpty()) {
+            return;
+        }
+
+        Set<UUID> txToSend = finishedTransactions.stream()
+                .limit(MAX_FINISHED_TRANSACTIONS_IN_BATCH)
                 .collect(toSet());
 
-        CloseCursorsBatchMessage message = FACTORY.closeCursorsBatchMessage()
+        FinishedTransactionsBatchMessage message = FACTORY.finishedTransactionsBatchMessage()
                 .transactions(txToSend)
                 .build();
 
@@ -80,14 +84,14 @@ public class ClosedTransactionTracker {
                 .stream()
                 .map(clusterNode -> sendCursorCleanupCommand(clusterNode, message))
                 .toArray(CompletableFuture[]::new);
-        allOf(messages).thenRun(() -> closedTransactions.removeAll(txToSend));
+        allOf(messages).thenRun(() -> finishedTransactions.removeAll(txToSend));
     }
 
-    private CompletableFuture<NetworkMessage> sendCursorCleanupCommand(ClusterNode node, CloseCursorsBatchMessage message) {
+    private CompletableFuture<NetworkMessage> sendCursorCleanupCommand(ClusterNode node, FinishedTransactionsBatchMessage message) {
         return messagingService.invoke(node.name(), message, RPC_TIMEOUT);
     }
 
     public void onTransactionFinished(UUID id) {
-        closedTransactions.add(id);
+        finishedTransactions.add(id);
     }
 }

@@ -52,7 +52,7 @@ public class ResourceCleanupManager implements IgniteComponent {
     private final int resourceCleanupIntervalMilliseconds = IgniteSystemProperties
             .getInteger(RESOURCE_CLEANUP_INTERVAL_MILLISECONDS_PROPERTY, 30_000);
 
-    private final ClosedTransactionTracker closedTransactionTracker;
+    private final FinishedReadOnlyTransactionTracker finishedReadOnlyTransactionTracker;
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -81,7 +81,7 @@ public class ResourceCleanupManager implements IgniteComponent {
                 RESOURCE_CLEANUP_EXECUTOR_SIZE,
                 NamedThreadFactory.create(nodeName, "resource-cleanup-executor", LOG)
         );
-        this.closedTransactionTracker = new ClosedTransactionTracker(topologyService, messagingService);
+        this.finishedReadOnlyTransactionTracker = new FinishedReadOnlyTransactionTracker(topologyService, messagingService);
     }
 
     @Override
@@ -94,7 +94,7 @@ public class ResourceCleanupManager implements IgniteComponent {
         );
 
         resourceCleanupExecutor.scheduleAtFixedRate(
-                closedTransactionTracker::broadcastClosedTransactions,
+                finishedReadOnlyTransactionTracker::broadcastClosedTransactions,
                 0,
                 resourceCleanupIntervalMilliseconds,
                 TimeUnit.MILLISECONDS
@@ -111,7 +111,7 @@ public class ResourceCleanupManager implements IgniteComponent {
     }
 
     public void onTransactionFinished(UUID id) {
-        closedTransactionTracker.onTransactionFinished(id);
+        finishedReadOnlyTransactionTracker.onTransactionFinished(id);
     }
 
     private void runCleanupOperations() {

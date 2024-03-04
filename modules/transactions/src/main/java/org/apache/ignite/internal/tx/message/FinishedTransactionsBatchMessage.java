@@ -25,13 +25,13 @@ import org.apache.ignite.internal.replicator.message.TimestampAware;
 /**
  * Close transaction cursors message.
  */
-@Transferable(TxMessageGroup.TX_CLOSE_CURSORS)
-public interface CloseCursorsBatchMessage extends TimestampAware {
+@Transferable(TxMessageGroup.TX_FINISHED_BATCH)
+public interface FinishedTransactionsBatchMessage extends TimestampAware {
 
     /**
      * Retrieves a collection of transaction UUIDs.
      *
-     * @return  a collection of transaction UUIDs
+     * @return  A collection of transaction UUIDs.
      */
     Collection<UUID> transactions();
 
