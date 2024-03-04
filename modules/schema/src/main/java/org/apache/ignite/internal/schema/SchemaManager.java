@@ -96,12 +96,6 @@ public class SchemaManager implements IgniteComponent {
     }
 
     private void registerExistingTables() {
-        CompletableFuture<Long> recoveryFinishFuture = metastorageMgr.recoveryFinishedFuture();
-
-        assert recoveryFinishFuture.isDone();
-
-        long causalityToken = recoveryFinishFuture.join();
-
         for (int catalogVer = catalogService.latestCatalogVersion(); catalogVer >= catalogService.earliestCatalogVersion(); catalogVer--) {
             Collection<CatalogTableDescriptor> tables = catalogService.tables(catalogVer);
 
