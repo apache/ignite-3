@@ -30,7 +30,6 @@ import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.PartitionSet;
 
 /** Auxiliary class for working with indexes that can contain useful methods and constants. */
-// TODO: IGNITE-21635 проверить может SchemaRegistry можно будет доставить из TableViewInternal
 public class IndexUtils {
     /**
      * Registers an index to a table.

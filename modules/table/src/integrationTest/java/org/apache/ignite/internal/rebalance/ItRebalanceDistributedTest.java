@@ -1241,7 +1241,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     schemaManager,
                     tableManager,
                     catalogManager,
-                    metaStorageManager,
                     threadPoolsManager.tableIoExecutor(),
                     registry
             );

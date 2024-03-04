@@ -722,7 +722,6 @@ public class IgniteImpl implements Ignite {
                 schemaManager,
                 distributedTblMgr,
                 catalogManager,
-                metaStorageMgr,
                 threadPoolsManager.tableIoExecutor(),
                 registry
         );

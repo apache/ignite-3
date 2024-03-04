@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.index;
 
-import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_CREATE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_DESTROY;
@@ -26,24 +25,15 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 
-import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
-import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
-import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
-import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
-import it.unimi.dsi.fastutil.ints.IntSet;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongFunction;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
@@ -52,7 +42,6 @@ import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -66,6 +55,9 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 /**
  * An Ignite component that is responsible for handling index-related commands like CREATE or DROP
  * as well as managing indexes' lifecycle.
+ *
+ * <p>To avoid errors when using indexes while applying replication log during node recovery, the registration of indexes was moved to the
+ * start of the tables.</p>
  */
 // TODO: IGNITE-19082 Delete this class
 public class IndexManager implements IgniteComponent {
@@ -80,9 +72,6 @@ public class IndexManager implements IgniteComponent {
     /** Catalog service. */
     private final CatalogService catalogService;
 
-    /** Meta storage manager. */
-    private final MetaStorageManager metaStorageManager;
-
     /** Separate executor for IO operations like storage initialization. */
     private final ExecutorService ioExecutor;
 
@@ -92,11 +81,8 @@ public class IndexManager implements IgniteComponent {
     /** Prevents double stopping of the component. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
-    /** Versioned value used only at the start of the manager. */
-    private final IncrementalVersionedValue<Void> startVv;
-
-    /** Version value of multi-version table storages by ID for which indexes were created. */
-    private final IncrementalVersionedValue<Int2ObjectMap<MvTableStorage>> mvTableStoragesByIdVv;
+    /** Versioned value to prevent races when registering/unregistering indexes when processing metastore or catalog events. */
+    private final IncrementalVersionedValue<Void> handleMetastoreEventVv;
 
     /**
      * Constructor.
@@ -110,26 +96,20 @@ public class IndexManager implements IgniteComponent {
             SchemaManager schemaManager,
             TableManager tableManager,
             CatalogService catalogService,
-            MetaStorageManager metaStorageManager,
             ExecutorService ioExecutor,
             Consumer<LongFunction<CompletableFuture<?>>> registry
     ) {
         this.schemaManager = schemaManager;
         this.tableManager = tableManager;
         this.catalogService = catalogService;
-        this.metaStorageManager = metaStorageManager;
         this.ioExecutor = ioExecutor;
 
-        startVv = new IncrementalVersionedValue<>(registry);
-        mvTableStoragesByIdVv = new IncrementalVersionedValue<>(registry, Int2ObjectMaps::emptyMap);
+        handleMetastoreEventVv = new IncrementalVersionedValue<>(registry);
     }
 
     @Override
     public CompletableFuture<Void> start() {
         LOG.debug("Index manager is about to start");
-
-        // TODO: IGNITE-21635 По идее нам уже не нужно, тейбл менеджер будет сам делать на старте и на ребалансе надо тоже
-        // startIndexes();
 
         catalogService.listen(INDEX_CREATE, (CreateIndexEventParameters parameters) -> onIndexCreate(parameters));
         catalogService.listen(INDEX_DESTROY, (DestroyIndexEventParameters parameters) -> onIndexDestroy(parameters));
@@ -170,8 +150,6 @@ public class IndexManager implements IgniteComponent {
      */
     CompletableFuture<MvTableStorage> getMvTableStorage(long causalityToken, int tableId) {
         return tableManager.tableAsync(causalityToken, tableId).thenApply(table -> table.internalTable().storage());
-        // TODO: IGNITE-21635 вот тут возможно нужно просто удалить
-        // return mvTableStoragesByIdVv.get(causalityToken).thenApply(mvTableStoragesById -> mvTableStoragesById.get(tableId));
     }
 
     private CompletableFuture<Boolean> onIndexDestroy(DestroyIndexEventParameters parameters) {
@@ -182,17 +160,15 @@ public class IndexManager implements IgniteComponent {
 
         CompletableFuture<TableViewInternal> tableFuture = tableManager.tableAsync(causalityToken, tableId);
 
-        return inBusyLockAsync(busyLock, () -> mvTableStoragesByIdVv.update(
+        return inBusyLockAsync(busyLock, () -> handleMetastoreEventVv.update(
                 causalityToken,
-                updater(mvTableStorageById -> tableFuture.thenApply(table -> inBusyLock(busyLock, () -> {
+                updater(unused -> tableFuture.thenApply(table -> inBusyLock(busyLock, () -> {
                     if (table != null) {
                         // In case of DROP TABLE the table will be removed first.
                         table.unregisterIndex(indexId);
-
-                        return mvTableStorageById;
-                    } else {
-                        return removeMvTableStorageIfPresent(mvTableStorageById, tableId);
                     }
+
+                    return null;
                 })))
         )).thenApply(unused -> false);
     }
@@ -222,29 +198,6 @@ public class IndexManager implements IgniteComponent {
         });
     }
 
-    @SuppressWarnings("unused")
-    private void startIndexes() {
-        CompletableFuture<Long> recoveryFinishedFuture = metaStorageManager.recoveryFinishedFuture();
-
-        assert recoveryFinishedFuture.isDone();
-
-        long causalityToken = recoveryFinishedFuture.join();
-
-        List<CompletableFuture<?>> startIndexFutures = new ArrayList<>();
-
-        acceptAliveIndexes(catalogService, (table, index) -> startIndexFutures.add(startIndexAsync(table, index, causalityToken)));
-
-        // Forces to wait until recovery is complete before the metastore watches are deployed to avoid races with other components.
-        startVv.update(causalityToken, (unused, throwable) -> allOf(startIndexFutures.toArray(CompletableFuture[]::new)))
-                .whenComplete((unused, throwable) -> {
-                    if (throwable != null) {
-                        LOG.error("Error starting indexes", throwable);
-                    } else {
-                        LOG.info("Indexes started successfully");
-                    }
-                });
-    }
-
     private CompletableFuture<?> startIndexAsync(
             CatalogTableDescriptor table,
             CatalogIndexDescriptor index,
@@ -257,13 +210,13 @@ public class IndexManager implements IgniteComponent {
 
         CompletableFuture<SchemaRegistry> schemaRegistryFuture = schemaManager.schemaRegistry(causalityToken, tableId);
 
-        return mvTableStoragesByIdVv.update(
+        return handleMetastoreEventVv.update(
                 causalityToken,
                 updater(mvTableStorageById -> tablePartitionFuture.thenCombineAsync(schemaRegistryFuture,
                         (partitionSet, schemaRegistry) -> inBusyLock(busyLock, () -> {
                             registerIndex(table, index, partitionSet, schemaRegistry);
 
-                            return addMvTableStorageIfAbsent(mvTableStorageById, getTableViewStrict(tableId).internalTable().storage());
+                            return null;
                         }), ioExecutor))
         );
     }
@@ -277,38 +230,6 @@ public class IndexManager implements IgniteComponent {
         TableViewInternal tableView = getTableViewStrict(table.id());
 
         registerIndexToTable(tableView, table, index, partitionSet, schemaRegistry);
-    }
-
-    private static Int2ObjectMap<MvTableStorage> addMvTableStorageIfAbsent(
-            Int2ObjectMap<MvTableStorage> mvTableStorageById,
-            MvTableStorage mvTableStorage
-    ) {
-        int tableId = mvTableStorage.getTableDescriptor().getId();
-
-        if (mvTableStorageById.containsKey(tableId)) {
-            return mvTableStorageById;
-        }
-
-        Int2ObjectMap<MvTableStorage> newMap = new Int2ObjectOpenHashMap<>(mvTableStorageById);
-
-        newMap.put(tableId, mvTableStorage);
-
-        return newMap;
-    }
-
-    private static Int2ObjectMap<MvTableStorage> removeMvTableStorageIfPresent(
-            Int2ObjectMap<MvTableStorage> mvTableStorageById,
-            int tableId
-    ) {
-        if (!mvTableStorageById.containsKey(tableId)) {
-            return mvTableStorageById;
-        }
-
-        Int2ObjectMap<MvTableStorage> newMap = new Int2ObjectOpenHashMap<>(mvTableStorageById);
-
-        newMap.remove(tableId);
-
-        return newMap;
     }
 
     private TableViewInternal getTableViewStrict(int tableId) {
@@ -327,29 +248,5 @@ public class IndexManager implements IgniteComponent {
 
             return updateFunction.apply(t);
         };
-    }
-
-    /**
-     * Collects indexes (including deleted ones) for tables (tables from the latest version of the catalog) from the earliest to the latest
-     * version of the catalog that need to be started on node recovery.
-     *
-     * @param catalogService Catalog service.
-     */
-    static void acceptAliveIndexes(CatalogService catalogService, BiConsumer<CatalogTableDescriptor, CatalogIndexDescriptor> consumer) {
-        int earliestCatalogVersion = catalogService.earliestCatalogVersion();
-        int latestCatalogVersion = catalogService.latestCatalogVersion();
-
-        IntSet processedObjects = new IntOpenHashSet();
-        catalogService.indexes(latestCatalogVersion).stream()
-                .filter(idx -> processedObjects.add(idx.id()))
-                .forEach(idx -> consumer.accept(catalogService.table(idx.tableId(), latestCatalogVersion), idx));
-
-        for (int ver = earliestCatalogVersion; ver < latestCatalogVersion; ver++) {
-            int ver0 = ver;
-            catalogService.indexes(ver).stream()
-                    .filter(idx -> idx.status() == CatalogIndexStatus.AVAILABLE)
-                    .filter(idx -> processedObjects.add(idx.id()))
-                    .forEach(idx -> consumer.accept(catalogService.table(idx.tableId(), ver0), idx));
-        }
     }
 }
