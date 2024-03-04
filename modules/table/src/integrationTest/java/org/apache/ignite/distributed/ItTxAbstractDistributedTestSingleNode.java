@@ -19,21 +19,29 @@ package org.apache.ignite.distributed;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCode;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runMultiThreadedAsync;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.internal.table.TxAbstractTest;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.RepeatedTest;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
 /**
@@ -164,6 +172,43 @@ public abstract class ItTxAbstractDistributedTestSingleNode extends TxAbstractTe
         }, threadNum, "txCommitTestThread");
 
         assertThat(futFinishes, willSucceedFast());
+    }
+
+    @Test
+    public void testImplicitTransactionRetry() {
+        var rv = accounts.recordView();
+
+        Transaction tx = igniteTransactions.begin();
+
+        assertNull(rv.get(tx, makeKey(1)));
+
+        CompletableFuture<Void> implicitOpFut = rv.upsertAsync(null, makeValue(1, 1.));
+
+        assertFalse(implicitOpFut.isDone());
+
+        tx.commit();
+
+        assertThat(implicitOpFut, willCompleteSuccessfully());
+
+        assertNotNull(rv.get(null, makeKey(1)));
+    }
+
+    @Test
+    @WithSystemProperty(key = "IGNITE_IMPLICIT_TRANSACTION_TIMEOUT", value = "100")
+    public void testImplicitTransactionTimeout() {
+        var rv = accounts.recordView();
+
+        Transaction tx = igniteTransactions.begin();
+
+        assertNull(rv.get(tx, makeKey(1)));
+
+        CompletableFuture<Void> implicitOpFut = rv.upsertAsync(null, makeValue(1, 1.));
+
+        assertFalse(implicitOpFut.isDone());
+
+        assertThat(implicitOpFut, willThrow(TransactionException.class));
+
+        assertNull(rv.get(null, makeKey(1)));
     }
 
     /**
