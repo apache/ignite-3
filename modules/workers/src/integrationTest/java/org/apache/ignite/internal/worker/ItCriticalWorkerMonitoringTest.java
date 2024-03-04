@@ -98,7 +98,7 @@ class ItCriticalWorkerMonitoringTest extends ClusterPerTestIntegrationTest {
 
         firstNode.clusterService().messagingService().addMessageHandler(
                 TableMessageGroup.class,
-                (message, senderConsistentId, correlationId) -> {
+                (message, sender, correlationId) -> {
                     if (message instanceof SnapshotMetaResponse) {
                         try {
                             unblockLatch.await(10, TimeUnit.SECONDS);

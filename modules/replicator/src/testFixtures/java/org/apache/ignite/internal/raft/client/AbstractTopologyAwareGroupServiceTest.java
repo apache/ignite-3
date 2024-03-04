@@ -490,8 +490,7 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
                 if (msg instanceof LeaderChangeNotification) {
                     LeaderChangeNotification msg0 = (LeaderChangeNotification) msg;
 
-                    ClusterNode node = localClusterService.topologyService().getByConsistentId(sender);
-                    finalEventsClientListener.onLeaderElected(msg0.groupId(), node, msg0.term());
+                    finalEventsClientListener.onLeaderElected(msg0.groupId(), sender, msg0.term());
                 }
             });
         }

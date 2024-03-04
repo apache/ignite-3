@@ -343,7 +343,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
     private void sendToSelf(NetworkMessage message, @Nullable Long correlationId) {
         for (HandlerContext context : getHandlerContexts(message.groupType())) {
             // Invoking on the same thread, ignoring the executor chooser registered with the handler.
-            context.handler().onReceived(message, topologyService.localMember().name(), correlationId);
+            context.handler().onReceived(message, topologyService.localMember(), correlationId);
         }
     }
 
@@ -396,7 +396,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
             } finally {
                 long tookMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedNanos);
                 if (tookMillis > 100) {
-                    LOG.warn("Processing of {} from {} took {} ms", inNetworkObject.message(), inNetworkObject.consistentId(), tookMillis);
+                    LOG.warn("Processing of {} from {} took {} ms", inNetworkObject.message(), inNetworkObject.sender(), tookMillis);
                 }
             }
         });
@@ -457,12 +457,10 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         unmarshalMessage(obj);
 
-        String senderConsistentId = obj.consistentId();
-
         // Unfortunately, since the Messaging Service is used by ScaleCube itself, some messages can be sent
         // before the node is added to the topology. ScaleCubeMessage handler guarantees to handle null sender consistent ID
         // without throwing an exception.
-        assert payload instanceof ScaleCubeMessage || senderConsistentId != null;
+        assert payload instanceof ScaleCubeMessage || obj.consistentId() != null;
 
         // If other handlers have the same chooser as the first handler, this means that we can execute them on the same
         // executor that was chosen for the first one. This will save us some resubmissions: we'll just execute on the same
@@ -479,24 +477,24 @@ public class DefaultMessagingService extends AbstractMessagingService {
                 handlersWithSameChooserAsFirst.add(handlerContext.handler());
             } else {
                 Executor executor = chooseExecutorFor(payload, obj, handlerContext.executorChooser());
-                executor.execute(() -> handlerContext.handler().onReceived(payload, senderConsistentId, correlationId));
+                executor.execute(() -> handlerContext.handler().onReceived(payload, obj.sender(), correlationId));
             }
         }
 
-        firstHandlerContext.handler().onReceived(payload, senderConsistentId, correlationId);
+        firstHandlerContext.handler().onReceived(payload, obj.sender(), correlationId);
 
         // Now execute those handlers that have the same chooser as the first one.
         for (NetworkMessageHandler handler : handlersWithSameChooserAsFirst) {
-            handler.onReceived(payload, senderConsistentId, correlationId);
+            handler.onReceived(payload, obj.sender(), correlationId);
         }
     }
 
     private static void logAndRethrowIfError(InNetworkObject obj, Throwable e) {
         if (e instanceof UnresolvableConsistentIdException && obj.message() instanceof InvokeRequest) {
             LOG.info("onMessage() failed while processing {} from {} as the sender has left the topology",
-                    obj.message(), obj.consistentId());
+                    obj.message(), obj.sender());
         } else {
-            LOG.error("onMessage() failed while processing {} from {}", e, obj.message(), obj.consistentId());
+            LOG.error("onMessage() failed while processing {} from {}", e, obj.message(), obj.sender());
         }
 
         if (e instanceof Error) {

@@ -229,10 +229,12 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         );
     }
 
-    private void onReplicaMessageReceived(NetworkMessage message, String senderConsistentId, @Nullable Long correlationId) {
+    private void onReplicaMessageReceived(NetworkMessage message, ClusterNode sender, @Nullable Long correlationId) {
         if (!(message instanceof ReplicaRequest)) {
             return;
         }
+
+        String senderConsistentId = sender.name();
 
         assert correlationId != null;
 
@@ -397,10 +399,12 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         return ex instanceof TimeoutException || ex instanceof IOException;
     }
 
-    private void onPlacementDriverMessageReceived(NetworkMessage msg0, String senderConsistentId, @Nullable Long correlationId) {
+    private void onPlacementDriverMessageReceived(NetworkMessage msg0, ClusterNode sender, @Nullable Long correlationId) {
         if (!(msg0 instanceof PlacementDriverReplicaMessage)) {
             return;
         }
+
+        String senderConsistentId = sender.name();
 
         assert correlationId != null;
 

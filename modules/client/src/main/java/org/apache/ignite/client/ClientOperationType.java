@@ -126,7 +126,7 @@ public enum ClientOperationType {
     TUPLE_CONTAINS_KEY,
 
     /**
-     * Compute Execute ({@link org.apache.ignite.compute.IgniteCompute#executeAsync(Set, List, String, Object...)}).
+     * Compute Execute ({@link org.apache.ignite.compute.IgniteCompute#submit(Set, List, String, Object...)}).
      */
     COMPUTE_EXECUTE,
 

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network.netty;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -195,10 +196,7 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
      */
     @Test
     public void testHandshakeManagerInvoked() throws Exception {
-        HandshakeManager handshakeManager = mock(HandshakeManager.class);
-
-        when(handshakeManager.localHandshakeFuture()).thenReturn(CompletableFuture.completedFuture(mock(NettySender.class)));
-        when(handshakeManager.finalHandshakeFuture()).thenReturn(CompletableFuture.completedFuture(mock(NettySender.class)));
+        HandshakeManager handshakeManager = mockHandshakeManager();
 
         MessageSerializationRegistry registry = mock(MessageSerializationRegistry.class);
 
@@ -271,6 +269,15 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
         order.verify(handshakeManager, timeout()).onMessage(any());
     }
 
+    private HandshakeManager mockHandshakeManager() {
+        HandshakeManager handshakeManager = mock(HandshakeManager.class);
+
+        when(handshakeManager.localHandshakeFuture()).thenReturn(completedFuture(mock(NettySender.class)));
+        when(handshakeManager.finalHandshakeFuture()).thenReturn(completedFuture(mock(NettySender.class)));
+
+        return handshakeManager;
+    }
+
     /**
      * Returns verification mode for a one call with a 3-second timeout.
      *
@@ -290,11 +297,13 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
         bootstrapFactory = new NettyBootstrapFactory(serverCfg, "");
         bootstrapFactory.start();
 
+        MessageSerializationRegistry registry = mock(MessageSerializationRegistry.class);
+
         var server = new NettyServer(
                 serverCfg.value(),
-                () -> mock(HandshakeManager.class),
-                null,
-                null,
+                this::mockHandshakeManager,
+                (message) -> {},
+                new SerializationService(registry, mock(UserObjectSerializationContext.class)),
                 bootstrapFactory
         );
 

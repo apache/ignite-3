@@ -195,7 +195,7 @@ public class ColocationHashTests : IgniteTestsBase
             using var writer = ProtoCommon.GetMessageWriter();
             var clientColocationHash = ser.Write(writer, null, schema, key);
 
-            var serverColocationHashExec = await Client.Compute.ExecuteAsync<int>(
+            var serverColocationHashExec = await Client.Compute.Submit<int>(
                 clusterNodes,
                 Array.Empty<DeploymentUnit>(),
                 TableRowColocationHashJob,
@@ -330,7 +330,7 @@ public class ColocationHashTests : IgniteTestsBase
     {
         var nodes = await Client.GetClusterNodesAsync();
 
-        IJobExecution<int> jobExecution = await Client.Compute.ExecuteAsync<int>(
+        IJobExecution<int> jobExecution = await Client.Compute.Submit<int>(
             nodes,
             Array.Empty<DeploymentUnit>(),
             ColocationHashJob,
