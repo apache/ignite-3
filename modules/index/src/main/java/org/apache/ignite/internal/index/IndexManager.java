@@ -169,7 +169,9 @@ public class IndexManager implements IgniteComponent {
      *      parameters.
      */
     CompletableFuture<MvTableStorage> getMvTableStorage(long causalityToken, int tableId) {
-        return mvTableStoragesByIdVv.get(causalityToken).thenApply(mvTableStoragesById -> mvTableStoragesById.get(tableId));
+        return tableManager.tableAsync(causalityToken, tableId).thenApply(table -> table.internalTable().storage());
+        // TODO: IGNITE-21635 вот тут возможно нужно просто удалить
+        // return mvTableStoragesByIdVv.get(causalityToken).thenApply(mvTableStoragesById -> mvTableStoragesById.get(tableId));
     }
 
     private CompletableFuture<Boolean> onIndexDestroy(DestroyIndexEventParameters parameters) {
