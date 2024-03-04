@@ -259,8 +259,6 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
 
         RelDataType rowTypes = table.getRowType(Commons.typeFactory());
 
-        assert exprProjections == null || vals == null;
-
         List<List<RexNode>> dataRows = vals != null ? Commons.cast(vals.getTuples()) : exprProjections;
 
         for (List<RexNode> items : dataRows) {
