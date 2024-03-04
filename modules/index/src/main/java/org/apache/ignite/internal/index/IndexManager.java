@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_CREATE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_DESTROY;
+import static org.apache.ignite.internal.table.distributed.index.IndexUtils.registerIndexInTable;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
@@ -52,21 +53,11 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.schema.BinaryRowConverter;
-import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.ColumnsExtractor;
-import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
-import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
-import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
-import org.apache.ignite.internal.storage.index.StorageIndexDescriptor.StorageColumnDescriptor;
-import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.PartitionSet;
 import org.apache.ignite.internal.table.distributed.TableManager;
@@ -92,9 +83,7 @@ public class IndexManager implements IgniteComponent {
     /** Meta storage manager. */
     private final MetaStorageManager metaStorageManager;
 
-    /**
-     * Separate executor for IO operations like storage initialization.
-     */
+    /** Separate executor for IO operations like storage initialization. */
     private final ExecutorService ioExecutor;
 
     /** Busy lock to stop synchronously. */
@@ -139,6 +128,7 @@ public class IndexManager implements IgniteComponent {
     public CompletableFuture<Void> start() {
         LOG.debug("Index manager is about to start");
 
+        // TODO: IGNITE-21635 По идее нам уже не нужно, тейбл менеджер будет сам делать на старте и на ребалансе надо тоже
         startIndexes();
 
         catalogService.listen(INDEX_CREATE, (CreateIndexEventParameters parameters) -> onIndexCreate(parameters));
@@ -230,91 +220,6 @@ public class IndexManager implements IgniteComponent {
         });
     }
 
-    /**
-     * This class encapsulates the logic of conversion from table row to a particular index key.
-     */
-    private static class TableRowToIndexKeyConverter implements ColumnsExtractor {
-        private final SchemaRegistry registry;
-        private final String[] indexedColumns;
-        private final Object mutex = new Object();
-
-        private volatile VersionedConverter converter = new VersionedConverter(-1, null);
-
-        TableRowToIndexKeyConverter(SchemaRegistry registry, String[] indexedColumns) {
-            this.registry = registry;
-            this.indexedColumns = indexedColumns;
-        }
-
-        @Override
-        public BinaryTuple extractColumns(BinaryRow row) {
-            return converter(row).extractColumns(row);
-        }
-
-        private ColumnsExtractor converter(BinaryRow row) {
-            int schemaVersion = row.schemaVersion();
-
-            VersionedConverter converter = this.converter;
-
-            if (converter.version != schemaVersion) {
-                synchronized (mutex) {
-                    converter = this.converter;
-
-                    if (converter.version != schemaVersion) {
-                        converter = createConverter(schemaVersion);
-
-                        this.converter = converter;
-                    }
-                }
-            }
-
-            return converter;
-        }
-
-        /** Creates converter for given version of the schema. */
-        private VersionedConverter createConverter(int schemaVersion) {
-            SchemaDescriptor descriptor = registry.schema(schemaVersion);
-
-            int[] indexedColumns = resolveColumnIndexes(descriptor);
-
-            var rowConverter = BinaryRowConverter.columnsExtractor(descriptor, indexedColumns);
-
-            return new VersionedConverter(descriptor.version(), rowConverter);
-        }
-
-        private int[] resolveColumnIndexes(SchemaDescriptor descriptor) {
-            int[] result = new int[indexedColumns.length];
-
-            for (int i = 0; i < indexedColumns.length; i++) {
-                Column column = descriptor.column(indexedColumns[i]);
-
-                assert column != null : "schemaVersion=" + descriptor.version() + ", column=" + indexedColumns[i];
-
-                result[i] = column.schemaIndex();
-            }
-
-            return result;
-        }
-
-        /**
-         * Convenient wrapper which glues together a function which actually converts one row to another,
-         * and a version of the schema the function was build upon.
-         */
-        private static class VersionedConverter implements ColumnsExtractor {
-            private final int version;
-            private final ColumnsExtractor delegate;
-
-            private VersionedConverter(int version, ColumnsExtractor delegate) {
-                this.version = version;
-                this.delegate = delegate;
-            }
-
-            @Override
-            public BinaryTuple extractColumns(BinaryRow row) {
-                return delegate.extractColumns(row);
-            }
-        }
-    }
-
     private void startIndexes() {
         CompletableFuture<Long> recoveryFinishedFuture = metaStorageManager.recoveryFinishedFuture();
 
@@ -368,29 +273,7 @@ public class IndexManager implements IgniteComponent {
     ) {
         TableViewInternal tableView = getTableViewStrict(table.id());
 
-        var storageIndexDescriptor = StorageIndexDescriptor.create(table, index);
-
-        TableRowToIndexKeyConverter tableRowConverter = new TableRowToIndexKeyConverter(
-                schemaRegistry,
-                storageIndexDescriptor.columns().stream().map(StorageColumnDescriptor::name).toArray(String[]::new)
-        );
-
-        if (storageIndexDescriptor instanceof StorageSortedIndexDescriptor) {
-            tableView.registerSortedIndex(
-                    (StorageSortedIndexDescriptor) storageIndexDescriptor,
-                    tableRowConverter,
-                    partitionSet
-            );
-        } else {
-            boolean unique = index.unique();
-
-            tableView.registerHashIndex(
-                    (StorageHashIndexDescriptor) storageIndexDescriptor,
-                    unique,
-                    tableRowConverter,
-                    partitionSet
-            );
-        }
+        registerIndexInTable(tableView, table, index, partitionSet, schemaRegistry);
     }
 
     private static Int2ObjectMap<MvTableStorage> addMvTableStorageIfAbsent(
