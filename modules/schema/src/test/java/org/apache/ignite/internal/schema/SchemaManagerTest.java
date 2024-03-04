@@ -105,7 +105,7 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
         doNothing().when(catalogService).listen(eq(CatalogEvent.TABLE_ALTER), tableAlteredListener.capture());
         doNothing().when(catalogService).listen(eq(CatalogEvent.TABLE_DESTROY), tableDestroyedListener.capture());
 
-        schemaManager = new SchemaManager(registry, catalogService, metaStorageManager);
+        schemaManager = new SchemaManager(registry, catalogService);
         schemaManager.start();
 
         assertThat("Watches were not deployed", metaStorageManager.deployWatches(), willCompleteSuccessfully());
@@ -281,7 +281,7 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
         when(catalogService.tables(anyInt())).thenReturn(List.of(tableDescriptorAfterColumnAddition()));
         doReturn(CompletableFuture.completedFuture(CAUSALITY_TOKEN_2)).when(metaStorageManager).recoveryFinishedFuture();
 
-        schemaManager = new SchemaManager(registry, catalogService, metaStorageManager);
+        schemaManager = new SchemaManager(registry, catalogService);
         schemaManager.start();
 
         completeCausalityToken(CAUSALITY_TOKEN_2);
