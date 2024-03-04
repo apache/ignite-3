@@ -32,6 +32,9 @@ import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommand;
 import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnCommand;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
+import org.apache.ignite.internal.catalog.commands.CatalogHashPrimaryKey;
+import org.apache.ignite.internal.catalog.commands.CatalogPrimaryKey;
+import org.apache.ignite.internal.catalog.commands.CatalogSortedPrimaryKey;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexCommand;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexCommand;
@@ -47,6 +50,7 @@ import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterZoneSetCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.ColumnDefinition;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateIndexCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateTableCommand;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateTableCommand.PrimaryKeyIndexType;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateZoneCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DefaultValueDefinition;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropIndexCommand;
@@ -63,12 +67,33 @@ class DdlToCatalogCommandConverter {
     static CatalogCommand convert(CreateTableCommand cmd) {
         List<ColumnParams> columns = cmd.columns().stream().map(DdlToCatalogCommandConverter::convert).collect(Collectors.toList());
 
+        PrimaryKeyIndexType pkIndexType = cmd.primaryIndexType();
+        CatalogPrimaryKey primaryKey;
+
+        if (pkIndexType == PrimaryKeyIndexType.SORTED) {
+            List<CatalogColumnCollation> collations = cmd.primaryKeyCollations().stream()
+                    .map(DdlToCatalogCommandConverter::convert)
+                    .collect(Collectors.toList());
+
+            primaryKey = CatalogSortedPrimaryKey.builder()
+                    .columns(cmd.primaryKeyColumns())
+                    .collations(collations)
+                    .build();
+
+        } else if (pkIndexType == PrimaryKeyIndexType.HASH) {
+            primaryKey = CatalogHashPrimaryKey.builder()
+                    .columns(cmd.primaryKeyColumns())
+                    .build();
+        } else {
+            throw new IllegalArgumentException("Unexpected primary key index type: " + pkIndexType);
+        }
+
         return org.apache.ignite.internal.catalog.commands.CreateTableCommand.builder()
                 .schemaName(cmd.schemaName())
                 .tableName(cmd.tableName())
 
                 .columns(columns)
-                .primaryKeyColumns(cmd.primaryKeyColumns())
+                .primaryKey(primaryKey)
                 .colocationColumns(cmd.colocationColumns())
 
                 .zone(cmd.zone())

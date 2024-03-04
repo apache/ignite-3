@@ -33,6 +33,8 @@ import java.util.Set;
 import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
@@ -62,6 +64,12 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
     @Test
     public void pkWithNullableColumns() {
+        IgniteImpl ignite = CLUSTER.aliveNode();
+        CatalogManager catalogManager = ignite.catalogManager();
+        int version = catalogManager.latestCatalogVersion();
+        Catalog catalog = catalogManager.catalog(version);
+
+
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
                 "Primary key cannot contain nullable column [col=ID0]",

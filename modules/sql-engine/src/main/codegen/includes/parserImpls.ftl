@@ -96,11 +96,12 @@ void TableElement(List<SqlNode> list) :
 {
     final SqlDataTypeSpec type;
     final Boolean nullable;
-    final SqlNodeList columnList;
     final Span s = Span.of();
     final ColumnStrategy strategy;
     final SqlNode dflt;
     SqlIdentifier id = null;
+    SqlNodeList columnList = new SqlNodeList(s.end(this));
+    IgniteSqlIndexType primaryIndexType = IgniteSqlIndexType.HASH;
 }
 {
     id = SimpleIdentifier() type = DataTypeEx() nullable = NullableOptDefaultNull()
@@ -126,7 +127,7 @@ void TableElement(List<SqlNode> list) :
     [
         <PRIMARY> { s.add(this); } <KEY> {
             columnList = SqlNodeList.of(id);
-            list.add(SqlDdlNodes.primary(s.end(columnList), null, columnList));
+            list.add(new IgniteSqlPrimaryKeyConstraint(s.end(columnList), null, columnList, primaryIndexType));
         }
     ]
     {
@@ -137,8 +138,24 @@ void TableElement(List<SqlNode> list) :
 |
     [ <CONSTRAINT> { s.add(this); } id = SimpleIdentifier() ]
     <PRIMARY> { s.add(this); } <KEY>
-    columnList = ParenthesizedSimpleIdentifierList() {
-        list.add(SqlDdlNodes.primary(s.end(columnList), id, columnList));
+    (
+        LOOKAHEAD(2)
+        <USING> <TREE> {
+            s.add(this);
+            primaryIndexType = IgniteSqlIndexType.TREE;
+        }
+        columnList = ColumnNameWithSortDirectionList()
+     |
+        LOOKAHEAD(2)
+        <USING> <HASH> {
+            s.add(this);
+            primaryIndexType = IgniteSqlIndexType.HASH;
+        }
+        columnList = ColumnNameList()
+    |
+       columnList = ParenthesizedSimpleIdentifierList()
+    ) {
+       list.add(new IgniteSqlPrimaryKeyConstraint(s.end(columnList), id, columnList, primaryIndexType));
     }
 }
 
@@ -209,16 +226,6 @@ SqlNode ColumnNameWithSortDirection() :
         <ASC>
     |   <DESC> {
             col = SqlStdOperatorTable.DESC.createCall(getPos(), col);
-        }
-    )?
-    (
-        LOOKAHEAD(2)
-        <NULLS> <FIRST> {
-            col = SqlStdOperatorTable.NULLS_FIRST.createCall(getPos(), col);
-        }
-    |
-        <NULLS> <LAST> {
-            col = SqlStdOperatorTable.NULLS_LAST.createCall(getPos(), col);
         }
     )?
     {

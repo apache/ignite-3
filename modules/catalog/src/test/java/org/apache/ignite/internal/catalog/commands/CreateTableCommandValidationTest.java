@@ -21,11 +21,14 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThr
 import static org.apache.ignite.sql.ColumnType.INT32;
 
 import java.util.List;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
@@ -115,31 +118,64 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
         );
     }
 
-    @Test
-    void pkColumnShouldNotHaveDuplicates() {
+    @ParameterizedTest(name = "[{index}] {arguments}")
+    @MethodSource("nullAndEmptyPrimaryKeys")
+    void tableShouldHaveAtLeastOnePrimaryKeyColumn2(CatalogPrimaryKey pk) {
         CreateTableCommandBuilder builder = CreateTableCommand.builder();
 
-        builder = fillProperties(builder)
-                .primaryKeyColumns(List.of("C", "C"));
+        builder = fillProperties(builder).primaryKey(pk);
 
         assertThrowsWithCause(
                 builder::build,
                 CatalogValidationException.class,
-                "PK column 'C' specified more that once"
+                "Table should have primary key"
         );
     }
 
-    @Test
-    void pkColumnShouldBePresentedInColumnsList() {
+    private static Stream<CatalogPrimaryKey> nullAndEmptyPrimaryKeys() {
+        return Stream.of(
+                null,
+                CatalogSortedPrimaryKey.builder().build(),
+                CatalogHashPrimaryKey.builder().build()
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("columnsAndCollations")
+    void tableWithSortedPrimaryKey(List<String> columns, List<CatalogColumnCollation> collations) {
         CreateTableCommandBuilder builder = CreateTableCommand.builder();
 
+        CatalogSortedPrimaryKey primaryKey = CatalogSortedPrimaryKey.builder()
+                .columns(columns)
+                .collations(collations)
+                .build();
+
         builder = fillProperties(builder)
-                .primaryKeyColumns(List.of("foo"));
+                .columns(List.of(
+                        ColumnParams.builder()
+                                .name("C1")
+                                .type(INT32)
+                                .build(),
+                        ColumnParams.builder()
+                                .name("C2")
+                                .type(INT32)
+                                .build()
+                ))
+                .colocationColumns(primaryKey.columns())
+                .primaryKey(primaryKey);
 
         assertThrowsWithCause(
                 builder::build,
                 CatalogValidationException.class,
-                "PK column 'foo' is not part of table"
+                "Number of collations does not match"
+        );
+    }
+
+    private static Stream<Arguments> columnsAndCollations() {
+        return Stream.of(
+                Arguments.of(List.of("C1"), List.of()),
+                Arguments.of(List.of("C1"), List.of(CatalogColumnCollation.ASC_NULLS_LAST, CatalogColumnCollation.ASC_NULLS_LAST)),
+                Arguments.of(List.of("C1", "C2"), List.of(CatalogColumnCollation.ASC_NULLS_LAST))
         );
     }
 

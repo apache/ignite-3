@@ -42,6 +42,7 @@ import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -52,6 +53,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -65,8 +67,10 @@ import org.apache.calcite.sql.SqlDdl;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateTableCommand.PrimaryKeyIndexType;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DefaultValueDefinition.FunctionCall;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DefaultValueDefinition.Type;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.lang.IgniteException;
@@ -79,6 +83,9 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestFactory;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * For {@link DdlSqlToCommandConverter} testing.
@@ -190,6 +197,96 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
                 createTable.primaryKeyColumns(),
                 hasItem(Commons.IMPLICIT_PK_COL_NAME)
         );
+
+        assertEquals(createTable.primaryIndexType(), PrimaryKeyIndexType.SORTED);
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "ASC, ASC_NULLS_LAST",
+            "DESC, DESC_NULLS_FIRST"
+    })
+    public void tableWithSortedPk(String sqlCol, Collation collation) throws SqlParseException {
+        String query = format("CREATE TABLE t (id int, val int, PRIMARY KEY USING TREE (id {}))", sqlCol);
+        var node = parse(query);
+
+        assertThat(node, instanceOf(SqlDdl.class));
+
+        var cmd = converter.convert((SqlDdl) node, createContext());
+
+        assertThat(cmd, Matchers.instanceOf(CreateTableCommand.class));
+
+        var createTable = (CreateTableCommand) cmd;
+
+        assertEquals(createTable.primaryIndexType(), PrimaryKeyIndexType.SORTED);
+        assertEquals(createTable.primaryKeyColumns(), List.of("ID"));
+        assertEquals(createTable.primaryKeyCollations(), List.of(collation));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "CREATE TABLE t (c1 int PRIMARY KEY, c2 int PRIMARY KEY, c3 int)",
+            "CREATE TABLE t (c1 int, c2 int, c3 int, PRIMARY KEY (c1), PRIMARY KEY (c1) )",
+            "CREATE TABLE t (c1 int, c2 int, c3 int, PRIMARY KEY (c1), PRIMARY KEY (c2) )",
+    })
+    public void tablePkAppearsOnlyOnce(String stmt) throws SqlParseException {
+        var node = parse(stmt);
+        assertThat(node, instanceOf(SqlDdl.class));
+
+        assertThrowsSqlException(STMT_VALIDATION_ERR,
+                "Unexpected number of primary key constraints [expected at most one, but was 2",
+                () -> converter.convert((SqlDdl) node, createContext())
+        );
+    }
+
+    @Test
+    public void tableWithHashPk() throws SqlParseException {
+        var node = parse("CREATE TABLE t (id int, val int, PRIMARY KEY USING HASH (id))");
+
+        assertThat(node, instanceOf(SqlDdl.class));
+
+        var cmd = converter.convert((SqlDdl) node, createContext());
+
+        assertThat(cmd, Matchers.instanceOf(CreateTableCommand.class));
+
+        var createTable = (CreateTableCommand) cmd;
+
+        assertEquals(createTable.primaryIndexType(), PrimaryKeyIndexType.HASH);
+        assertEquals(createTable.primaryKeyColumns(), List.of("ID"));
+        assertEquals(createTable.primaryKeyCollations(), Collections.emptyList());
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "ASC, ASC_NULLS_LAST",
+            "DESC, DESC_NULLS_FIRST",
+    })
+    public void indexTree(String sqlCol, Collation collation) throws SqlParseException {
+        String query = format("CREATE INDEX t_idx ON t USING TREE (id {}) ", sqlCol);
+        var node = parse(query);
+
+        assertThat(node, instanceOf(SqlDdl.class));
+        DdlCommand command = converter.convert((SqlDdl) node, createContext());
+        CreateIndexCommand createIndex = assertInstanceOf(CreateIndexCommand.class, command);
+
+        assertEquals(createIndex.indexName(), "T_IDX");
+        assertEquals(createIndex.tableName(), "T");
+        assertEquals(createIndex.columns(), List.of("ID"));
+        assertEquals(createIndex.collations(), List.of(collation));
+    }
+
+    @Test
+    public void indexHash() throws SqlParseException {
+        var node = parse("CREATE INDEX t_idx ON t USING HASH (id1, id2)");
+
+        assertThat(node, instanceOf(SqlDdl.class));
+        DdlCommand command = converter.convert((SqlDdl) node, createContext());
+        CreateIndexCommand createIndex = assertInstanceOf(CreateIndexCommand.class, command);
+
+        assertEquals(createIndex.indexName(), "T_IDX");
+        assertEquals(createIndex.tableName(), "T");
+        assertEquals(createIndex.columns(), List.of("ID1", "ID2"));
+        assertEquals(createIndex.collations(), Collections.emptyList());
     }
 
     @SuppressWarnings({"ThrowableNotThrown"})
