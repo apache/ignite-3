@@ -92,13 +92,13 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 fieldCount: keyOnly ? schema.KeyColumnCount : schema.Columns.Count);
 
         /// <inheritdoc/>
-        public void Write(ref BinaryTupleBuilder tupleBuilder, IIgniteTuple record, Schema schema, int columnCount, Span<byte> noValueSet)
+        public void Write(ref BinaryTupleBuilder tupleBuilder, IIgniteTuple record, Schema schema, bool keyOnly, Span<byte> noValueSet)
         {
             int written = 0;
+            var columns = keyOnly ? schema.KeyColumns : schema.Columns;
 
-            for (var index = 0; index < columnCount; index++)
+            foreach (var col in columns)
             {
-                var col = schema.Columns[index];
                 var colIdx = record.GetOrdinal(col.Name);
 
                 if (colIdx >= 0)
@@ -112,7 +112,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 }
             }
 
-            ValidateMappedCount(record, schema, columnCount, written);
+            ValidateMappedCount(record, schema, columns.Count, written);
         }
 
         private static void ValidateMappedCount(IIgniteTuple record, Schema schema, int columnCount, int written)
