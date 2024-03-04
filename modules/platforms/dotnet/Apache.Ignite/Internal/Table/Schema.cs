@@ -25,27 +25,52 @@ namespace Apache.Ignite.Internal.Table
     /// </summary>
     /// <param name="Version">Version.</param>
     /// <param name="TableId">Table id.</param>
-    /// <param name="KeyColumnCount">Key column count.</param>
-    /// <param name="ColocationColumnCount">Colocation column count.</param>
+    /// <param name="HashedColumnCount">Hashed column count.</param>
     /// <param name="Columns">Columns in schema order.</param>
+    /// <param name="KeyColumns">Key part columns.</param>
+    /// <param name="ValColumns">Val part columns.</param>
     internal sealed record Schema(
         int Version,
         int TableId,
-        int KeyColumnCount,
-        int ColocationColumnCount,
-        IReadOnlyList<Column> Columns) : IHashedColumnIndexProvider
+        int HashedColumnCount,
+        IReadOnlyList<Column> Columns,
+        IReadOnlyList<Column> KeyColumns,
+        IReadOnlyList<Column> ValColumns) : IHashedColumnIndexProvider
     {
+        /// <inheritdoc/>
+        public int HashedColumnOrder(int index) => Columns[index].ColocationIndex;
+
         /// <summary>
-        /// Gets the value column count.
+        /// Create schema instance.
         /// </summary>
-        public int ValueColumnCount => Columns.Count - KeyColumnCount;
+        /// <param name="version">Version.</param>
+        /// <param name="tableId">Table ID.</param>
+        /// <param name="columns">Columns.</param>
+        /// <returns>Schema.</returns>
+        public static Schema CreateInstance(int version, int tableId, IReadOnlyList<Column> columns)
+        {
+            var keyColumns = new List<Column>();
+            var valColumns = new List<Column>();
+            int hashedColumnCount = 0;
 
-        /// <inheritdoc/>
-        public int HashedColumnCount => ColocationColumnCount;
+            foreach (var column in columns)
+            {
+                if (column.KeyIndex >= 0)
+                {
+                    keyColumns.Add(column);
+                }
+                else
+                {
+                    valColumns.Add(column);
+                }
 
-        /// <inheritdoc/>
-        public int HashedColumnOrder(int index) => index < KeyColumnCount
-            ? Columns[index].ColocationIndex
-            : -1;
+                if (column.ColocationIndex >= 0)
+                {
+                    hashedColumnCount++;
+                }
+            }
+
+            return new Schema(version, tableId, hashedColumnCount, columns, keyColumns, valColumns);
+        }
     }
 }
