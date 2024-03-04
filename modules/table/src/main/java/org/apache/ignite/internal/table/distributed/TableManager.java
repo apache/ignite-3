@@ -1258,7 +1258,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }));
 
         // NB: all vv.update() calls must be made from the synchronous part of the method (not in thenCompose()/etc!).
-        CompletableFuture<Map<Integer, PartitionSet>> localPartsUpdateFuture = localPartitionsVv.update(causalityToken,
+        CompletableFuture<?> localPartsUpdateFuture = localPartitionsVv.update(causalityToken,
                 (ignore, throwable) -> inBusyLock(busyLock, () -> assignmentsFuture.thenComposeAsync(newAssignments -> {
                     PartitionSet parts = new BitSetPartitionSet();
 
@@ -1282,24 +1282,16 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             startedTables.put(tableId, table);
 
-            return allOf(localPartsUpdateFuture, tablesByIdFuture)
-                    .thenComposeAsync(ignore -> inBusyLock(
-                            busyLock,
-                            () -> startLocalPartitionsAndClients(assignmentsFuture, table, zoneDescriptor.id())
-                    ), ioExecutor);
-
-            return localPartsUpdateFuture.thenCompose(localPartsByTableId ->
-                    tablesByIdFuture.thenComposeAsync(tablesById -> inBusyLock(busyLock, () -> {
+            return allOf(localPartsUpdateFuture, tablesByIdFuture).thenComposeAsync(ignore -> inBusyLock(busyLock, () -> {
                         if (onNodeRecovery) {
-                            PartitionSet partitionSet = localPartsByTableId.get(tableId);
                             SchemaRegistry schemaRegistry = table.schemaView();
+                            PartitionSet partitionSet = localPartsByTableId.get(tableId);
 
                             registerIndexesToTableOnNodeRecovery(table, catalogService, partitionSet, schemaRegistry);
                         }
-
                         return startLocalPartitionsAndClients(assignmentsFuture, table, zoneDescriptor.id());
-                    }), ioExecutor)
-            );
+                    }
+            ), ioExecutor);
         });
 
         tables.put(tableId, table);
