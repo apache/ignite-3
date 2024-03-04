@@ -158,6 +158,6 @@ public class IgniteSender extends SingleRel implements IgniteRel {
     }
 
     @Override public String getRelTypeName() {
-        return Commons.trimRelTypeName(super.getRelTypeName());
+        return Commons.makeRelTypeName(getClass());
     }
 }

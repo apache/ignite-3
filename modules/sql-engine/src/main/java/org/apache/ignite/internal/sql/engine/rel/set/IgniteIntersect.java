@@ -70,6 +70,6 @@ public abstract class IgniteIntersect extends Intersect implements IgniteSetOp {
     }
 
     @Override public String getRelTypeName() {
-        return Commons.trimRelTypeName(super.getRelTypeName());
+        return Commons.makeRelTypeName(getClass());
     }
 }

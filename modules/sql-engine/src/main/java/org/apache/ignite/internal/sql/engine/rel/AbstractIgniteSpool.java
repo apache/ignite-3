@@ -51,6 +51,6 @@ public abstract class AbstractIgniteSpool extends Spool implements IgniteRel {
     }
 
     @Override public String getRelTypeName() {
-        return Commons.trimRelTypeName(super.getRelTypeName());
+        return Commons.makeRelTypeName(getClass());
     }
 }

@@ -294,6 +294,6 @@ public abstract class AbstractIgniteJoin extends Join implements TraitsAwareIgni
     }
 
     @Override public String getRelTypeName() {
-        return Commons.trimRelTypeName(super.getRelTypeName());
+        return Commons.makeRelTypeName(getClass());
     }
 }

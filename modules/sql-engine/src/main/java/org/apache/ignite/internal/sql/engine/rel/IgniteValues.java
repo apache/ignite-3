@@ -133,6 +133,6 @@ public class IgniteValues extends Values implements SourceAwareIgniteRel {
     }
 
     @Override public String getRelTypeName() {
-        return Commons.trimRelTypeName(super.getRelTypeName());
+        return Commons.makeRelTypeName(getClass());
     }
 }

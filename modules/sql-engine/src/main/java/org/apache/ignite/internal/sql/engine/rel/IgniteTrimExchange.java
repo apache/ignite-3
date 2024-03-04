@@ -138,6 +138,6 @@ public class IgniteTrimExchange extends Exchange implements SourceAwareIgniteRel
     }
 
     @Override public String getRelTypeName() {
-        return Commons.trimRelTypeName(super.getRelTypeName());
+        return Commons.makeRelTypeName(getClass());
     }
 }

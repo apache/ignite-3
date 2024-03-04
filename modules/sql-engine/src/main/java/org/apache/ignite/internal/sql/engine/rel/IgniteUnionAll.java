@@ -129,6 +129,6 @@ public class IgniteUnionAll extends Union implements TraitsAwareIgniteRel {
     }
 
     @Override public String getRelTypeName() {
-        return Commons.trimRelTypeName(super.getRelTypeName());
+        return Commons.makeRelTypeName(getClass());
     }
 }

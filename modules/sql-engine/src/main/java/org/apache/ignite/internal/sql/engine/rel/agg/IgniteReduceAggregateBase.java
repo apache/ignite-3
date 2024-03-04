@@ -175,6 +175,6 @@ public abstract class IgniteReduceAggregateBase extends SingleRel implements Tra
     }
 
     @Override public String getRelTypeName() {
-        return Commons.trimRelTypeName(super.getRelTypeName());
+        return Commons.makeRelTypeName(getClass());
     }
 }

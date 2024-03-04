@@ -143,6 +143,6 @@ public class IgniteTableFunctionScan extends TableFunctionScan implements Source
     }
 
     @Override public String getRelTypeName() {
-        return Commons.trimRelTypeName(super.getRelTypeName());
+        return Commons.makeRelTypeName(getClass());
     }
 }

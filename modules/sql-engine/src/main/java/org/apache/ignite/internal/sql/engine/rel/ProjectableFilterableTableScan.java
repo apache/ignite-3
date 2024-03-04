@@ -219,6 +219,6 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
     }
 
     @Override public String getRelTypeName() {
-        return Commons.trimRelTypeName(super.getRelTypeName());
+        return Commons.makeRelTypeName(getClass());
     }
 }

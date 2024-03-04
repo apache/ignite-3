@@ -832,13 +832,34 @@ public final class Commons {
         }
     }
 
-    /** Removes 'Ignite' prefix from type name. */
-    public static String trimRelTypeName(String typeName) {
-        // TODO improve
-        if (typeName.startsWith("Ignite")) {
-            return typeName.substring(6);
+    /** Removes the 'Ignite' prefix from the provided string. */
+    public static String removeIgnitePrefix(String str) {
+        if (str.startsWith("Ignite")) {
+            return str.substring(6);
         }
 
-        return typeName;
+        return str;
+    }
+
+    /** Creates a rel type name without 'Ignite' prefix for the provided class. */
+    public static String makeRelTypeName(Class<?> cls) {
+        String cn = cls.getName();
+        int i = cn.length();
+        while (--i >= 0) {
+            if (cn.charAt(i) == '$' || cn.charAt(i) == '.') {
+                if (cn.length() - i > 7
+                        && cn.charAt(i + 1) == 'I'
+                        && cn.charAt(i + 2) == 'g'
+                        && cn.charAt(i + 3) == 'n'
+                        && cn.charAt(i + 4) == 'i'
+                        && cn.charAt(i + 5) == 't'
+                        && cn.charAt(i + 6) == 'e') {
+                    i = i + 6;
+                }
+
+                return cn.substring(i + 1);
+            }
+        }
+        return cn;
     }
 }

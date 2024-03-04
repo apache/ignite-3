@@ -125,6 +125,6 @@ public class IgniteKeyValueModify extends AbstractRelNode implements IgniteRel {
     }
 
     @Override public String getRelTypeName() {
-        return Commons.trimRelTypeName(super.getRelTypeName());
+        return Commons.makeRelTypeName(getClass());
     }
 }

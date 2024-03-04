@@ -74,6 +74,14 @@ public class CommonsTest {
         assertEquals(vals, Commons.arrayToMap(new Object[]{1, null, "3"}));
     }
 
+    @Test
+    public void testMakeRelTypeName() {
+        assertEquals("N", Commons.makeRelTypeName(IgniteN.class));
+        assertEquals("Ignite", Commons.makeRelTypeName(Ignite.class));
+        assertEquals("Ignit", Commons.makeRelTypeName(Ignit.class));
+        assertEquals(Commons.class.getSimpleName(), Commons.makeRelTypeName(Commons.class));
+    }
+
     private static void expectMapped(Mapping mapping, ImmutableBitSet bitSet, ImmutableBitSet expected) {
         assertEquals(expected, Mappings.apply(mapping, bitSet), "direct mapping");
 
@@ -86,4 +94,10 @@ public class CommonsTest {
 
         assertEquals(expected, Mappings.apply(mapping, source));
     }
+
+    private static class IgniteN {}
+
+    private static class Ignite {}
+
+    private static class Ignit {}
 }
