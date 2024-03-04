@@ -346,7 +346,8 @@ namespace Apache.Ignite.Internal.Table
 
                 var name = r.ReadString();
                 var type = r.ReadInt32();
-                var isKey = r.ReadBoolean();
+                var keyIndex = r.ReadInt32();
+                var isKey = keyIndex >= 0;
                 var isNullable = r.ReadBoolean();
                 var colocationIndex = r.ReadInt32();
                 var scale = r.ReadInt32();
