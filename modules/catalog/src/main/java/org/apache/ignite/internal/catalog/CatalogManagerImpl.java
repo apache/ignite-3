@@ -20,8 +20,13 @@ package org.apache.ignite.internal.catalog;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.clusterWideEnsuredActivationTimestamp;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
+import static org.apache.ignite.internal.type.NativeTypes.BOOLEAN;
+import static org.apache.ignite.internal.type.NativeTypes.INT32;
+import static org.apache.ignite.internal.type.NativeTypes.STRING;
+import static org.apache.ignite.internal.type.NativeTypes.stringOf;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
@@ -41,10 +46,14 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
 import java.util.function.Predicate;
+import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor.CatalogIndexDescriptorType;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexViewDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -69,7 +78,6 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViewProvider;
 import org.apache.ignite.internal.systemview.api.SystemViews;
-import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.SubscriptionUtils;
@@ -437,7 +445,8 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         return List.of(
                 createSystemViewsView(),
                 createSystemViewColumnsView(),
-                createSystemViewZonesView()
+                createSystemViewZonesView(),
+                createSystemViewIndexesView()
         );
     }
 
@@ -632,12 +641,12 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
         return SystemViews.<SchemaAwareDescriptor<CatalogSystemViewDescriptor>>clusterViewBuilder()
                 .name("SYSTEM_VIEWS")
-                .addColumn("ID", NativeTypes.INT32, entry -> entry.descriptor.id())
-                .addColumn("SCHEMA", NativeTypes.stringOf(SYSTEM_VIEW_STRING_COLUMN_LENGTH),
+                .addColumn("ID", INT32, entry -> entry.descriptor.id())
+                .addColumn("SCHEMA", stringOf(SYSTEM_VIEW_STRING_COLUMN_LENGTH),
                         entry -> entry.schema)
-                .addColumn("NAME", NativeTypes.stringOf(SYSTEM_VIEW_STRING_COLUMN_LENGTH),
+                .addColumn("NAME", stringOf(SYSTEM_VIEW_STRING_COLUMN_LENGTH),
                         entry -> entry.descriptor.name())
-                .addColumn("TYPE", NativeTypes.stringOf(SYSTEM_VIEW_STRING_COLUMN_LENGTH),
+                .addColumn("TYPE", stringOf(SYSTEM_VIEW_STRING_COLUMN_LENGTH),
                         entry -> entry.descriptor.systemViewType().name())
                 .dataProvider(viewDataPublisher)
                 .build();
@@ -661,13 +670,13 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
         return SystemViews.<ParentIdAwareDescriptor<CatalogTableColumnDescriptor>>clusterViewBuilder()
                 .name("SYSTEM_VIEW_COLUMNS")
-                .addColumn("VIEW_ID", NativeTypes.INT32, entry -> entry.id)
-                .addColumn("NAME", NativeTypes.stringOf(SYSTEM_VIEW_STRING_COLUMN_LENGTH), entry -> entry.descriptor.name())
-                .addColumn("TYPE", NativeTypes.stringOf(SYSTEM_VIEW_STRING_COLUMN_LENGTH), entry -> entry.descriptor.type().name())
-                .addColumn("NULLABLE", NativeTypes.BOOLEAN, entry -> entry.descriptor.nullable())
-                .addColumn("PRECISION", NativeTypes.INT32, entry -> entry.descriptor.precision())
-                .addColumn("SCALE", NativeTypes.INT32, entry -> entry.descriptor.scale())
-                .addColumn("LENGTH", NativeTypes.INT32, entry -> entry.descriptor.length())
+                .addColumn("VIEW_ID", INT32, entry -> entry.id)
+                .addColumn("NAME", stringOf(SYSTEM_VIEW_STRING_COLUMN_LENGTH), entry -> entry.descriptor.name())
+                .addColumn("TYPE", stringOf(SYSTEM_VIEW_STRING_COLUMN_LENGTH), entry -> entry.descriptor.type().name())
+                .addColumn("NULLABLE", BOOLEAN, entry -> entry.descriptor.nullable())
+                .addColumn("PRECISION", INT32, entry -> entry.descriptor.precision())
+                .addColumn("SCALE", INT32, entry -> entry.descriptor.scale())
+                .addColumn("LENGTH", INT32, entry -> entry.descriptor.length())
                 .dataProvider(viewDataPublisher)
                 .build();
     }
@@ -675,15 +684,69 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     private SystemView<?> createSystemViewZonesView() {
         return SystemViews.<CatalogZoneDescriptor>clusterViewBuilder()
                 .name("ZONES")
-                .addColumn("NAME", NativeTypes.STRING, CatalogZoneDescriptor::name)
-                .addColumn("PARTITIONS", NativeTypes.INT32, CatalogZoneDescriptor::partitions)
-                .addColumn("REPLICAS", NativeTypes.INT32, CatalogZoneDescriptor::replicas)
-                .addColumn("DATA_NODES_AUTO_ADJUST_SCALE_UP", NativeTypes.INT32, CatalogZoneDescriptor::dataNodesAutoAdjustScaleUp)
-                .addColumn("DATA_NODES_AUTO_ADJUST_SCALE_DOWN", NativeTypes.INT32, CatalogZoneDescriptor::dataNodesAutoAdjustScaleDown)
-                .addColumn("DATA_NODES_FILTER", NativeTypes.STRING, CatalogZoneDescriptor::filter)
-                .addColumn("IS_DEFAULT_ZONE", NativeTypes.BOOLEAN, isDefaultZone())
+                .addColumn("NAME", STRING, CatalogZoneDescriptor::name)
+                .addColumn("PARTITIONS", INT32, CatalogZoneDescriptor::partitions)
+                .addColumn("REPLICAS", INT32, CatalogZoneDescriptor::replicas)
+                .addColumn("DATA_NODES_AUTO_ADJUST_SCALE_UP", INT32, CatalogZoneDescriptor::dataNodesAutoAdjustScaleUp)
+                .addColumn("DATA_NODES_AUTO_ADJUST_SCALE_DOWN", INT32, CatalogZoneDescriptor::dataNodesAutoAdjustScaleDown)
+                .addColumn("DATA_NODES_FILTER", STRING, CatalogZoneDescriptor::filter)
+                .addColumn("IS_DEFAULT_ZONE", BOOLEAN, isDefaultZone())
                 .dataProvider(SubscriptionUtils.fromIterable(() -> catalog(latestCatalogVersion()).zones().iterator()))
                 .build();
+    }
+
+    private SystemView<?> createSystemViewIndexesView() {
+        return SystemViews.<CatalogIndexViewDescriptor>clusterViewBuilder()
+                .name("INDEXES")
+                .addColumn("INDEX_ID", INT32, CatalogIndexViewDescriptor::id)
+                .addColumn("INDEX_NAME", STRING, CatalogIndexViewDescriptor::name)
+                .addColumn("TABLE_ID", INT32, CatalogIndexViewDescriptor::tableId)
+                .addColumn("TABLE_NAME", STRING, CatalogIndexViewDescriptor::tableName)
+                .addColumn("SCHEMA_ID", INT32, CatalogIndexViewDescriptor::schemaId)
+                .addColumn("SCHEMA_NAME", STRING, CatalogIndexViewDescriptor::schemaName)
+                .addColumn("TYPE", STRING, CatalogIndexViewDescriptor::type)
+                .addColumn("UNIQUE", BOOLEAN, CatalogIndexViewDescriptor::unique)
+                .addColumn("COLUMNS", STRING, CatalogIndexViewDescriptor::columns)
+                .dataProvider(getIndexesDataProvider())
+                .build();
+    }
+
+    private Publisher<CatalogIndexViewDescriptor> getIndexesDataProvider() {
+        return SubscriptionUtils.fromIterable(() ->
+                catalog(latestCatalogVersion())
+                        .indexes()
+                        .stream()
+                        .filter(it -> it.status() == CatalogIndexStatus.AVAILABLE)
+                        .map(this::toCatalogIndexView)
+                        .iterator()
+        );
+    }
+
+    private CatalogIndexViewDescriptor toCatalogIndexView(CatalogIndexDescriptor index) {
+        Catalog catalog = catalog(latestCatalogVersion());
+        CatalogTableDescriptor table = catalog.table(index.tableId());
+
+        return new CatalogIndexViewDescriptor(
+                index.id(),
+                index.name(),
+                index.indexType().name(),
+                index.tableId(),
+                table.name(),
+                table.schemaId(),
+                catalog.schema(table.schemaId()).name(),
+                index.unique(),
+                getIndexColumns(index)
+        );
+    }
+
+    private static List<String> getIndexColumns(CatalogIndexDescriptor indexDescriptor) {
+        return indexDescriptor.indexType() == CatalogIndexDescriptorType.HASH
+                ? ((CatalogHashIndexDescriptor) indexDescriptor).columns()
+                : ((CatalogSortedIndexDescriptor) indexDescriptor)
+                        .columns()
+                        .stream()
+                        .map(column -> column.name() + " " + column.collation())
+                        .collect(toList());
     }
 
     private static Function<CatalogZoneDescriptor, Boolean> isDefaultZone() {
