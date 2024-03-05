@@ -22,6 +22,8 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.clusterWideEnsuredActivationTimestamp;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.STOPPING;
 import static org.apache.ignite.internal.type.NativeTypes.BOOLEAN;
 import static org.apache.ignite.internal.type.NativeTypes.INT32;
 import static org.apache.ignite.internal.type.NativeTypes.STRING;
@@ -575,7 +577,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         // All indexes, which were ever in available state.
         catalogByVer.tailMap(startVersion, true).values().stream()
                 .flatMap(c -> c.indexes().stream())
-                .filter(idx -> idx.status() == CatalogIndexStatus.AVAILABLE)
+                .filter(idx -> idx.status() == AVAILABLE)
                 .forEach(action);
     }
 
@@ -717,12 +719,13 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                 catalog(latestCatalogVersion())
                         .indexes()
                         .stream()
-                        .map(this::toCatalogIndexViewDescriptor)
+                        .filter(it -> it.status() != STOPPING)
+                        .map(this::toCatalogIndexView)
                         .iterator()
         );
     }
 
-    private CatalogIndexViewDescriptor toCatalogIndexViewDescriptor(CatalogIndexDescriptor index) {
+    private CatalogIndexViewDescriptor toCatalogIndexView(CatalogIndexDescriptor index) {
         Catalog catalog = catalog(latestCatalogVersion());
         CatalogTableDescriptor table = catalog.table(index.tableId());
 
