@@ -185,6 +185,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
+import org.apache.ignite.internal.tx.impl.ResourceCleanupManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
@@ -1089,6 +1090,13 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             var resourcesRegistry = new RemotelyTriggeredResourceRegistry();
 
+            ResourceCleanupManager resourceCleanupManager = new ResourceCleanupManager(
+                    name,
+                    resourcesRegistry,
+                    clusterService.topologyService(),
+                    clusterService.messagingService()
+            );
+
             txManager = new TxManagerImpl(
                     txConfiguration,
                     clusterService,
@@ -1099,7 +1107,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     placementDriver,
                     partitionIdleSafeTimePropagationPeriodMsSupplier,
                     new TestLocalRwTxCounter(),
-                    resourcesRegistry
+                    resourcesRegistry,
+                    resourceCleanupManager
             );
 
             cfgStorage = new DistributedConfigurationStorage("test", metaStorageManager);
