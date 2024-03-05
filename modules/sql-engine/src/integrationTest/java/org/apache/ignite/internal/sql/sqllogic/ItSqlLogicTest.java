@@ -339,6 +339,10 @@ public class ItSqlLogicTest extends IgniteIntegrationTest {
                 .destinationNodeName(metaStorageNodeName)
                 .metaStorageNodeNames(List.of(metaStorageNodeName))
                 .clusterName("cluster")
+                .clusterConfiguration("{"
+                        + "gc.lowWatermark.dataAvailabilityTime: 1010,\n"
+                        + "gc.lowWatermark.updateFrequency: 3000\n"
+                        + "}")
                 .build();
         TestIgnitionManager.init(initParameters);
 
