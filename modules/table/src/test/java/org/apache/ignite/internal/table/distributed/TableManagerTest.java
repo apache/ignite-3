@@ -119,6 +119,7 @@ import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorage
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.table.TestLowWatermark;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -130,7 +131,6 @@ import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.CursorUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
@@ -244,8 +244,11 @@ public class TableManagerTest extends IgniteAbstractTest {
 
     private ExecutorService partitionOperationsExecutor;
 
+    private TestLowWatermark lowWatermark;
+
     @BeforeEach
     void before() throws NodeStoppingException {
+        lowWatermark = new TestLowWatermark();
         catalogMetastore = StandaloneMetaStorageManager.create(new SimpleInMemoryKeyValueStorage(NODE_NAME));
         catalogManager = CatalogTestUtils.createTestCatalogManager(NODE_NAME, clock, catalogMetastore);
 
@@ -745,8 +748,6 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     private TableManager createTableManager(CompletableFuture<TableManager> tblManagerFut, Consumer<MvTableStorage> tableStorageDecorator,
             Consumer<TxStateTableStorage> txStateTableStorageDecorator) {
-        VaultManager vaultManager = mock(VaultManager.class);
-
         TableManager tableManager = new TableManager(
                 NODE_NAME,
                 revisionUpdater,
@@ -778,7 +779,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 () -> mock(IgniteSql.class),
                 new RemotelyTriggeredResourceRegistry(),
                 mock(ScheduledExecutorService.class),
-                new LowWatermark(NODE_NAME, gcConfig.lowWatermark(), clock, tm, vaultManager, mock(FailureProcessor.class)),
+                lowWatermark,
                 ForkJoinPool.commonPool()
         ) {
 
