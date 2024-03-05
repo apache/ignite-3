@@ -15,20 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.thread;
+package org.apache.ignite.internal.worker;
 
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.stream.Collectors.toUnmodifiableList;
+
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.thread.AbstractStripedThreadPoolExecutor;
+import org.apache.ignite.internal.thread.StripedExecutor;
+import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 
 /**
- * An {@link ExecutorService} that executes submitted tasks using pooled grid threads.
+ * Same as {@link StripedThreadPoolExecutor}, but each stripe is a critical worker monitored for being blocked.
  */
-public class StripedThreadPoolExecutor extends AbstractStripedThreadPoolExecutor<ExecutorService> implements StripedExecutor {
+public class CriticalStripedThreadPoolExecutor extends AbstractStripedThreadPoolExecutor<ExecutorService> implements StripedExecutor {
     /**
-     * Create striped thread pool.
+     * Create a blockage-monitored striped thread pool.
      *
      * @param concurrencyLvl          Concurrency level.
      * @param threadFactory Factory used to create threads.
@@ -37,7 +44,7 @@ public class StripedThreadPoolExecutor extends AbstractStripedThreadPoolExecutor
      * @param keepAliveTime          When the number of threads is greater than the core, this is the maximum time that excess idle threads
      *                               will wait for new tasks before terminating.
      */
-    public StripedThreadPoolExecutor(
+    public CriticalStripedThreadPoolExecutor(
             int concurrencyLvl,
             ThreadFactory threadFactory,
             boolean allowCoreThreadTimeOut,
@@ -53,11 +60,9 @@ public class StripedThreadPoolExecutor extends AbstractStripedThreadPoolExecutor
         ExecutorService[] execs = new ExecutorService[concurrencyLvl];
 
         for (int i = 0; i < concurrencyLvl; i++) {
-            ThreadPoolExecutor executor = new ThreadPoolExecutor(
-                    1,
-                    1,
+            ThreadPoolExecutor executor = new CriticalSingleThreadExecutor(
                     keepAliveTime,
-                    TimeUnit.MILLISECONDS,
+                    MILLISECONDS,
                     new LinkedBlockingQueue<>(),
                     threadFactory
             );
@@ -68,5 +73,14 @@ public class StripedThreadPoolExecutor extends AbstractStripedThreadPoolExecutor
         }
 
         return execs;
+    }
+
+    /**
+     * Returns workers corresponding to this thread pool.
+     */
+    public Collection<CriticalWorker> workers() {
+        return Arrays.stream(execs)
+                .map(CriticalWorker.class::cast)
+                .collect(toUnmodifiableList());
     }
 }
