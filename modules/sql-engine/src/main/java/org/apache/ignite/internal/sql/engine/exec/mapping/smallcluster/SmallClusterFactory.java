@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.exec.mapping.smallcluster;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 import java.util.List;
+import java.util.Map;
 import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTarget;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTargetFactory;
@@ -86,7 +87,7 @@ public class SmallClusterFactory implements ExecutionTargetFactory {
     }
 
     @Override
-    public List<NodeWithConsistencyToken> resolveAssignments(ExecutionTarget target) {
+    public Map<Integer, NodeWithConsistencyToken> resolveAssignments(ExecutionTarget target) {
         target = target.finalise();
 
         assert target instanceof AbstractTarget : target == null ? "<null>" : target.getClass().getCanonicalName();

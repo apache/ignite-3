@@ -1044,7 +1044,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     return super.visit(rel);
                 }
 
-                private void enlist(int tableId, List<NodeWithConsistencyToken> assignments) {
+                private void enlist(int tableId, Map<Integer, NodeWithConsistencyToken> assignments) {
                     if (assignments.isEmpty()) {
                         return;
                     }
@@ -1053,14 +1053,10 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
                     tx.assignCommitPartition(new TablePartitionId(tableId, ThreadLocalRandom.current().nextInt(partsCnt)));
 
-                    for (int p = 0; p < partsCnt; p++) {
-                        TablePartitionId tablePartId = new TablePartitionId(tableId, p);
+                    for (Map.Entry<Integer, NodeWithConsistencyToken> partWithToken : assignments.entrySet()) {
+                        TablePartitionId tablePartId = new TablePartitionId(tableId, partWithToken.getKey());
 
-                        NodeWithConsistencyToken assignment = assignments.get(p);
-
-                        if (assignment == null) {
-                            continue;
-                        }
+                        NodeWithConsistencyToken assignment = partWithToken.getValue();
 
                         tx.enlist(tablePartId,
                                 new IgniteBiTuple<>(
@@ -1074,7 +1070,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     int tableId = rel.getTable().unwrap(IgniteTable.class).id();
 
                     ColocationGroup colocationGroup = mappedFragment.groupsBySourceId().get(rel.sourceId());
-                    List<NodeWithConsistencyToken> assignments = colocationGroup.assignments();
+                    Map<Integer, NodeWithConsistencyToken> assignments = colocationGroup.assignments();
 
                     enlist(tableId, assignments);
                 }

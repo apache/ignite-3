@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.prepare.pruning;
 import static org.apache.ignite.internal.util.IgniteUtils.newHashMap;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntArraySet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import java.time.Instant;
@@ -89,15 +90,13 @@ public final class PartitionPruningPredicate {
 
         Map<String, List<PartitionWithConsistencyToken>> partitionsPerNode = newHashMap(colocationGroup.nodeNames().size());
         Set<String> newNodes = new HashSet<>();
-        List<NodeWithConsistencyToken> newAssignments = new ArrayList<>(colocationGroup.assignments().size());
+        Int2ObjectMap<NodeWithConsistencyToken> newAssignments = new Int2ObjectOpenHashMap<>(remainingPartitions.size());
 
         for (int p = 0; p < colocationGroup.assignments().size(); p++) {
             NodeWithConsistencyToken nodeWithConsistencyToken = colocationGroup.assignments().get(p);
 
             if (remainingPartitions.contains(p)) {
-                newAssignments.add(nodeWithConsistencyToken);
-            } else {
-                newAssignments.add(null);
+                newAssignments.put(p, nodeWithConsistencyToken);
             }
         }
 

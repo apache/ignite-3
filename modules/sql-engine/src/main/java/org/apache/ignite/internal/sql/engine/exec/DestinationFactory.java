@@ -20,8 +20,9 @@ package org.apache.ignite.internal.sql.engine.exec;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.Collections;
-import java.util.List;
 import java.util.Objects;
 import java.util.function.Supplier;
 import org.apache.calcite.util.ImmutableIntList;
@@ -36,7 +37,6 @@ import org.apache.ignite.internal.sql.engine.trait.Identity;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.Partitioned;
 import org.apache.ignite.internal.sql.engine.trait.RandomNode;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
  * Factory that resolves {@link IgniteDistribution} trait, which represents logical {@link DistributionFunction} function, into its
@@ -91,8 +91,6 @@ class DestinationFactory<RowT> {
 
                 assert !nullOrEmpty(group.assignments()) && !nullOrEmpty(keys);
 
-                List<String> assignments = Commons.transformNullAware(group.assignments(), NodeWithConsistencyToken::name);
-
                 if (function.affinity()) {
                     int tableId = ((AffinityDistribution) function).tableId();
                     Supplier<PartitionCalculator> calculator = dependencies.partitionCalculator(tableId);
@@ -100,12 +98,19 @@ class DestinationFactory<RowT> {
 
                     var resolver = new TablePartitionExtractor<>(calculator.get(), keys.toIntArray(), tableDescriptor, rowHandler);
 
-                    return new Partitioned<>(assignments, resolver);
+                    return new Partitioned<>(group.assignments(), resolver);
                 }
 
                 var resolver = new RehashingPartitionExtractor<>(group.nodeNames().size(), keys.toIntArray(), rowHandler);
 
-                return new Partitioned<>(group.nodeNames(), resolver);
+                Int2ObjectMap<NodeWithConsistencyToken> assignments = new Int2ObjectOpenHashMap<>();
+                int pos = 0;
+
+                for (String name : group.nodeNames()) {
+                    assignments.put(pos++, new NodeWithConsistencyToken(name, 0));
+                }
+
+                return new Partitioned<>(assignments, resolver);
             }
             default:
                 throw new IllegalStateException("Unsupported distribution function.");

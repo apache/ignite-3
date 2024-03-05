@@ -40,12 +40,12 @@ public class ColocationGroup implements Serializable {
 
     private final List<String> nodeNames;
 
-    private final List<NodeWithConsistencyToken> assignments;
+    private final Map<Integer, NodeWithConsistencyToken> assignments;
 
     private final Map<String, List<PartitionWithConsistencyToken>> partitionsPerNode;
 
     /** Constructor. */
-    public ColocationGroup(List<Long> sourceIds, List<String> nodeNames, List<NodeWithConsistencyToken> assignments) {
+    public ColocationGroup(List<Long> sourceIds, List<String> nodeNames, Map<Integer, NodeWithConsistencyToken> assignments) {
         this.sourceIds = Objects.requireNonNull(sourceIds, "sourceIds");
         this.nodeNames = Objects.requireNonNull(nodeNames, "nodeNames");
         this.assignments = Objects.requireNonNull(assignments, "assignments");
@@ -56,7 +56,7 @@ public class ColocationGroup implements Serializable {
     public ColocationGroup(
             List<Long> sourceIds,
             List<String> nodeNames,
-            List<NodeWithConsistencyToken> assignments,
+            Map<Integer, NodeWithConsistencyToken> assignments,
             Map<String, List<PartitionWithConsistencyToken>> partitionsPerNode
     ) {
         this.sourceIds = Objects.requireNonNull(sourceIds, "sourceIds");
@@ -80,10 +80,10 @@ public class ColocationGroup implements Serializable {
     }
 
     /**
-     * Get list of partitions (index) and nodes (items) having an appropriate partition in OWNING state, calculated for
+     * Get map of partitions per and nodes having an appropriate partition in OWNING state, calculated for
      * distributed tables, involved in query execution.
      */
-    public List<NodeWithConsistencyToken> assignments() {
+    public Map<Integer, NodeWithConsistencyToken> assignments() {
         return assignments;
     }
 

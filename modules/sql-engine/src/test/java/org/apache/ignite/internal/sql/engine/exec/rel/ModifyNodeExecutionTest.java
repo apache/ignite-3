@@ -32,6 +32,7 @@ import static org.mockito.Mockito.when;
 
 import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.apache.calcite.rel.core.TableModify.Operation;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
@@ -284,7 +285,7 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
 
     @Override
     protected FragmentDescription getFragmentDescription() {
-        ColocationGroup colocationGroup = new ColocationGroup(List.of(), List.of(), List.of());
+        ColocationGroup colocationGroup = new ColocationGroup(List.of(), List.of(), Map.of());
         return new FragmentDescription(0, true, Long2ObjectMaps.singleton(SOURCE_ID, colocationGroup), null, null);
     }
 }

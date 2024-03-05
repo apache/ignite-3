@@ -19,8 +19,11 @@ package org.apache.ignite.internal.sql.engine.exec.mapping.smallcluster;
 
 import static org.apache.ignite.internal.util.IgniteUtils.isPow2;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationMappingException;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTarget;
@@ -57,14 +60,14 @@ abstract class AbstractTarget implements ExecutionTarget {
         return result;
     }
 
-    List<NodeWithConsistencyToken> assignments(List<String> nodeNames) {
+    Map<Integer, NodeWithConsistencyToken> assignments(List<String> nodeNames) {
         if (!(this instanceof PartitionedTarget)) {
-            return List.of();
+            return Map.of();
         }
 
         PartitionedTarget partitionedTarget = (PartitionedTarget) this;
 
-        List<NodeWithConsistencyToken> result = new ArrayList<>(partitionedTarget.partitionsNodes.length);
+        Int2ObjectMap<NodeWithConsistencyToken> result = new Int2ObjectOpenHashMap<>(partitionedTarget.partitionsNodes.length);
 
         for (int partNo = 0; partNo < partitionedTarget.partitionsNodes.length; partNo++) {
             long partitionNodes = partitionedTarget.partitionsNodes[partNo];
@@ -73,7 +76,7 @@ abstract class AbstractTarget implements ExecutionTarget {
 
             int idx = Long.numberOfTrailingZeros(partitionNodes);
 
-            result.add(new NodeWithConsistencyToken(
+            result.put(partNo, new NodeWithConsistencyToken(
                     nodeNames.get(idx),
                     partitionedTarget.enlistmentConsistencyTokens[partNo]
             ));

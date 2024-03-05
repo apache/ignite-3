@@ -225,27 +225,6 @@ public final class Commons {
     }
 
     /**
-     * Transforms a given list using map function, just a stub need to be removed.
-     */
-    public static <T, R> List<R> transformNullAware(List<T> src, Function<T, R> mapFun) {
-        if (nullOrEmpty(src)) {
-            return Collections.emptyList();
-        }
-
-        List<R> list = new ArrayList<>(src.size());
-
-        for (T t : src) {
-            if (t != null) {
-                list.add(mapFun.apply(t));
-            } else {
-                list.add(null);
-            }
-        }
-
-        return list;
-    }
-
-    /**
      * Extracts type factory.
      */
     public static IgniteTypeFactory typeFactory(RelNode rel) {

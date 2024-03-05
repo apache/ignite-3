@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.calcite.avatica.util.ByteString;
@@ -118,7 +119,7 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
         PartitionPruningPredicate predicate = new PartitionPruningPredicate(table, columns, new Object[0]);
 
         List<String> nodeNames = List.of("n1", "n2", "n3");
-        List<NodeWithConsistencyToken> assignments = randomAssignments(table, nodeNames);
+        Map<Integer, NodeWithConsistencyToken> assignments = randomAssignments(table, nodeNames);
         ColocationGroup group = new ColocationGroup(List.of(0L), nodeNames, assignments);
 
         expectPartitionsPruned(table, predicate, group, val);
@@ -148,7 +149,7 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
         PartitionPruningPredicate predicate = new PartitionPruningPredicate(table, columns, dynamicParameters);
 
         List<String> nodeNames = List.of("n1", "n2", "n3");
-        List<NodeWithConsistencyToken> assignments = randomAssignments(table, nodeNames);
+        Map<Integer, NodeWithConsistencyToken> assignments = randomAssignments(table, nodeNames);
         ColocationGroup group = new ColocationGroup(List.of(0L), nodeNames, assignments);
 
         expectPartitionsPruned(table, predicate, group, val);
@@ -160,7 +161,7 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
             ColocationGroup group,
             Object... values
     ) {
-        List<NodeWithConsistencyToken> assignments = group.assignments();
+        Map<Integer, NodeWithConsistencyToken> assignments = group.assignments();
 
         // Compute expected partitions using table's PartitionCalculator.
         PartitionWithConsistencyToken expectedPartition = computeExpectedPartition(table, group.assignments(), values);
@@ -189,7 +190,7 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
 
     private static PartitionWithConsistencyToken computeExpectedPartition(
             IgniteTable table,
-            List<NodeWithConsistencyToken> assignments,
+            Map<Integer, NodeWithConsistencyToken> assignments,
             Object[] values
     ) {
         PartitionCalculator calculator = table.partitionCalculator().get();
@@ -205,13 +206,13 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
         return new PartitionWithConsistencyToken(p, expected.enlistmentConsistencyToken());
     }
 
-    private static List<NodeWithConsistencyToken> randomAssignments(IgniteTable table, List<String> nodeNames) {
+    private static Map<Integer, NodeWithConsistencyToken> randomAssignments(IgniteTable table, List<String> nodeNames) {
         return IntStream.range(0, table.partitions())
                 .mapToObj(i -> {
                     String nodeName = nodeNames.get(i % nodeNames.size());
                     return new NodeWithConsistencyToken(nodeName, i);
                 })
-                .collect(Collectors.toList());
+                .collect(Collectors.toMap(k -> (int) k.enlistmentConsistencyToken(), Function.identity()));
     }
 
     private Object generateFieldValue(IgniteTable table, int index) {

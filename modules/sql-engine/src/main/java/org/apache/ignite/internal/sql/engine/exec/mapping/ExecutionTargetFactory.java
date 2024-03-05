@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec.mapping;
 
 import java.util.List;
+import java.util.Map;
 import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
 
 /**
@@ -76,10 +77,10 @@ public interface ExecutionTargetFactory {
     List<String> resolveNodes(ExecutionTarget target);
 
     /**
-     * Derives a list of assignments from given target.
+     * Derives assignments from given target.
      *
      * @param target A target to resolve assignments from.
-     * @return The list of assignments the target represents. Never null.
+     * @return Assignments the target represents. Never null.
      */
-    List<NodeWithConsistencyToken> resolveAssignments(ExecutionTarget target);
+    Map<Integer, NodeWithConsistencyToken> resolveAssignments(ExecutionTarget target);
 }

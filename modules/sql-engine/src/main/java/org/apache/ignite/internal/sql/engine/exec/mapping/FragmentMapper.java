@@ -23,6 +23,7 @@ import it.unimi.dsi.fastutil.longs.LongSet;
 import it.unimi.dsi.fastutil.longs.LongSets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import org.apache.calcite.plan.RelOptCost;
 import org.apache.calcite.rel.BiRel;
 import org.apache.calcite.rel.RelNode;
@@ -556,7 +557,7 @@ class FragmentMapper {
             ExecutionTarget finalised = target.finalise();
 
             List<String> nodes = context.targetFactory().resolveNodes(finalised);
-            List<NodeWithConsistencyToken> assignments = context.targetFactory().resolveAssignments(finalised);
+            Map<Integer, NodeWithConsistencyToken> assignments = context.targetFactory().resolveAssignments(finalised);
 
             return List.of(
                     new ColocationGroup(

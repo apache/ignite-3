@@ -25,6 +25,7 @@ import static org.hamcrest.Matchers.is;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import org.apache.calcite.rel.RelDistribution.Type;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
@@ -54,7 +55,7 @@ public class IdentityDistributionFunctionSelfTest {
             .addField(NativeTypes.STRING)
             .build();
 
-    private final ColocationGroup colocationGroup = new ColocationGroup(List.of(1L), List.of(NODE_1, NODE_2, NODE_3), List.of());
+    private final ColocationGroup colocationGroup = new ColocationGroup(List.of(1L), List.of(NODE_1, NODE_2, NODE_3), Map.of());
     private final DestinationFactory<Object[]> destinationFactory = new DestinationFactory<>(rowHandler, null);
 
     @Test
