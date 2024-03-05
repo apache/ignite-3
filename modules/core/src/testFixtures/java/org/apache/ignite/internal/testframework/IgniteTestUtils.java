@@ -815,6 +815,10 @@ public final class IgniteTestUtils {
     public static void runRace(long timeoutMillis, RunnableX... actions) {
         int length = actions.length;
 
+        if (length == 0) {
+            return; // Nothing to run.
+        }
+
         CyclicBarrier barrier = new CyclicBarrier(length);
 
         Set<Throwable> throwables = ConcurrentHashMap.newKeySet();
