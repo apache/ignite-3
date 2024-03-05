@@ -174,7 +174,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
     @Override
     public void onConnectionOpen() {
         // Sending a probe to make sure we detect a channel that ends up in a strange state upon creation:
-        // the client sees it as a normally open channel, but the server (at least, Netty) did inot even notice that it accepted it.
+        // the client sees it as a normally open channel, but the server (at least, Netty) did not even notice that it accepted it.
         // This happens if the client tries to connect a server that is stopping its network (and closing its server socket) just
         // the same exact moment, but then starts its network (binding to the port again) still staying in the same OS process.
         sendProbeToServer();
