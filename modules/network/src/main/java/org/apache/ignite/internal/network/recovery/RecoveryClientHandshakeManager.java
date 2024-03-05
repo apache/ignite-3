@@ -21,12 +21,14 @@ import static java.util.Collections.emptyList;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
+import static org.apache.ignite.internal.network.netty.NettyUtils.toCompletableFuture;
 import static org.apache.ignite.internal.network.recovery.HandshakeManagerUtils.clusterNodeToMessage;
 import static org.apache.ignite.internal.network.recovery.HandshakeManagerUtils.switchEventLoopIfNeeded;
 
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelHandlerContext;
+import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -50,13 +52,13 @@ import org.apache.ignite.internal.network.netty.ChannelKey;
 import org.apache.ignite.internal.network.netty.HandshakeHandler;
 import org.apache.ignite.internal.network.netty.MessageHandler;
 import org.apache.ignite.internal.network.netty.NettySender;
-import org.apache.ignite.internal.network.netty.NettyUtils;
 import org.apache.ignite.internal.network.netty.PipelineUtils;
 import org.apache.ignite.internal.network.recovery.message.HandshakeFinishMessage;
 import org.apache.ignite.internal.network.recovery.message.HandshakeRejectedMessage;
 import org.apache.ignite.internal.network.recovery.message.HandshakeRejectionReason;
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartMessage;
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartResponseMessage;
+import org.apache.ignite.internal.network.recovery.message.ProbeMessage;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.TestOnly;
 
@@ -167,6 +169,30 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
         this.ctx = handlerContext;
         this.channel = handlerContext.channel();
         this.handler = (HandshakeHandler) ctx.handler();
+    }
+
+    @Override
+    public void onConnectionOpen() {
+        // Sending a probe to make sure we detect a channel that ends up in a strange state upon creation:
+        // the client sees it as a normally open channel, but the server (at least, Netty) did not even notice that it accepted it.
+        // This happens if the client tries to connect a server that is stopping its network (and closing its server socket) just
+        // the same exact moment, but then starts its network (binding to the port again) still staying in the same OS process.
+        sendProbeToServer();
+    }
+
+    private void sendProbeToServer() {
+        ProbeMessage probe = MESSAGE_FACTORY.probeMessage().build();
+
+        toCompletableFuture(channel.writeAndFlush(new OutNetworkObject(probe, List.of(), false))).whenComplete((res, ex) -> {
+            if (ex != null) {
+                if (ex instanceof IOException) {
+                    // We don't care: the channel will be reopened.
+                    LOG.debug("Could not send a probe message via {}", ex, channel);
+                } else {
+                    LOG.info("Could not send a probe message via {}", ex, channel);
+                }
+            }
+        });
     }
 
     /** {@inheritDoc} */
@@ -400,7 +426,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
 
         ChannelFuture sendFuture = ctx.channel().writeAndFlush(new OutNetworkObject(response, emptyList(), false));
 
-        NettyUtils.toCompletableFuture(sendFuture).whenComplete((unused, throwable) -> {
+        toCompletableFuture(sendFuture).whenComplete((unused, throwable) -> {
             if (throwable != null) {
                 localHandshakeCompleteFuture.completeExceptionally(
                         new HandshakeException("Failed to send handshake response: " + throwable.getMessage(), throwable)
