@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Predicate;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -184,62 +185,38 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
         this.lastAppliedTerm = lastAppliedTerm;
     }
 
-    @Override
-    protected List<AutoCloseable> getResourcesToClose(boolean goingToDestroy) {
-        List<AutoCloseable> resourcesToClose = super.getResourcesToClose(goingToDestroy);
-
-        if (!goingToDestroy) {
-            // If we are going to destroy after closure, we should retain indices because the destruction logic
-            // will need to destroy them as well. It will clean the maps after it starts the destruction.
-
-            resourcesToClose.add(hashIndexes::clear);
-            resourcesToClose.add(sortedIndexes::clear);
-        }
-
-        return resourcesToClose;
-    }
-
-    /**
-     * Cleans data backing this partition. Indices are destroyed, but index descriptors are
-     * not removed from this partition so that they can be refilled with data later.
-     */
-    public void cleanStructuresData() {
-        destroyStructures(false);
-    }
-
     /**
      * Destroys internal structures (including indices) backing this partition.
      */
-    public void destroyStructures() {
-        destroyStructures(true);
-    }
+    public CompletableFuture<Void> destroyStructures() {
+        Stream<CompletableFuture<?>> destroyFutures = Stream.of(
+                startMvDataDestruction(),
+                startIndexMetaTreeDestruction(),
+                startGarbageCollectionTreeDestruction()
+        );
 
-    /**
-     * Destroys internal structures (including indices) backing this partition.
-     *
-     * @param removeIndexDescriptors Whether indices should be completely removed, not just their contents destroyed.
-     */
-    private void destroyStructures(boolean removeIndexDescriptors) {
-        startMvDataDestruction();
-        startIndexMetaTreeDestruction();
-        startGarbageCollectionTreeDestruction();
+        Stream<CompletableFuture<Void>> hashIndexDestroyFutures = hashIndexes.values()
+                .stream()
+                .map(indexStorage -> indexStorage.startDestructionOn(destructionExecutor));
 
-        hashIndexes.values().forEach(indexStorage -> indexStorage.startDestructionOn(destructionExecutor));
-        sortedIndexes.values().forEach(indexStorage -> indexStorage.startDestructionOn(destructionExecutor));
+        Stream<CompletableFuture<Void>> sortedIndexDestroyFutures = sortedIndexes.values()
+                .stream()
+                .map(indexStorage -> indexStorage.startDestructionOn(destructionExecutor));
+
+        Stream<CompletableFuture<Void>> indexDestroyFutures = Stream.concat(hashIndexDestroyFutures, sortedIndexDestroyFutures);
+
+        CompletableFuture<?>[] allDestroyFutures = Stream.concat(destroyFutures, indexDestroyFutures).toArray(CompletableFuture[]::new);
 
         lastAppliedIndex = 0;
         lastAppliedTerm = 0;
         groupConfig = null;
 
-        if (removeIndexDescriptors) {
-            hashIndexes.clear();
-            sortedIndexes.clear();
-        }
+        return CompletableFuture.allOf(allDestroyFutures);
     }
 
-    private void startMvDataDestruction() {
+    private CompletableFuture<Void> startMvDataDestruction() {
         try {
-            destructionExecutor.execute(
+            return destructionExecutor.execute(
                     versionChainTree.startGradualDestruction(chainKey -> destroyVersionChain((VersionChain) chainKey), false)
             ).whenComplete((res, e) -> {
                 if (e != null) {
@@ -279,9 +256,9 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
         }
     }
 
-    private void startIndexMetaTreeDestruction() {
+    private CompletableFuture<Void> startIndexMetaTreeDestruction() {
         try {
-            destructionExecutor.execute(
+            return destructionExecutor.execute(
                     indexMetaTree.startGradualDestruction(null, false)
             ).whenComplete((res, e) -> {
                 if (e != null) {
@@ -301,9 +278,9 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
         }
     }
 
-    private void startGarbageCollectionTreeDestruction() {
+    private CompletableFuture<Void> startGarbageCollectionTreeDestruction() {
         try {
-            destructionExecutor.execute(
+            return destructionExecutor.execute(
                     gcQueue.startGradualDestruction(null, false)
             ).whenComplete((res, e) -> {
                 if (e != null) {

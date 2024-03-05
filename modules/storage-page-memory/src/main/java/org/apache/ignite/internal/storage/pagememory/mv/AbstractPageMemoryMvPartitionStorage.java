@@ -685,24 +685,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         });
     }
 
-    /**
-     * Closes the partition in preparation for its destruction.
-     */
-    public void closeForDestruction() {
-        close(true);
-    }
-
     @Override
     public void close() {
-        close(false);
-    }
-
-    /**
-     * Closes the storage.
-     *
-     * @param goingToDestroy If the closure is in preparation for destruction.
-     */
-    private void close(boolean goingToDestroy) {
         StorageState previous = state.getAndSet(StorageState.CLOSED);
 
         if (previous == StorageState.CLOSED) {
@@ -712,7 +696,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         busyLock.block();
 
         try {
-            IgniteUtils.closeAll(getResourcesToClose(goingToDestroy));
+            IgniteUtils.closeAll(getResourcesToClose());
         } catch (Exception e) {
             throw new StorageException(e);
         }
@@ -720,10 +704,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     /**
      * Returns resources that should be closed on {@link #close()}.
-     *
-     * @param goingToDestroy If the closure is in preparation for destruction.
      */
-    protected List<AutoCloseable> getResourcesToClose(boolean goingToDestroy) {
+    protected List<AutoCloseable> getResourcesToClose() {
         List<AutoCloseable> resources = new ArrayList<>();
 
         resources.add(destructionExecutor::close);
@@ -734,8 +716,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         hashIndexes.values().forEach(index -> resources.add(index::close));
         sortedIndexes.values().forEach(index -> resources.add(index::close));
 
-        // We do not clear hashIndexes and sortedIndexes here because we leave the decision about when to clear them
-        // to the subclasses.
+        resources.add(hashIndexes::clear);
+        resources.add(sortedIndexes::clear);
 
         return resources;
     }
