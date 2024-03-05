@@ -21,6 +21,7 @@ import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.pagememory.util.GradualTask;
 import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.StorageException;
 
 /**
  * A {@link GradualTaskExecutor} that wraps every task step into {@link MvPartitionStorage#runConsistently}.
@@ -42,7 +43,7 @@ class ConsistentGradualTaskExecutor extends GradualTaskExecutor {
 
                 return null;
             } catch (Exception e) {
-                throw new RuntimeException(e);
+                throw new StorageException(e);
             }
         });
     }

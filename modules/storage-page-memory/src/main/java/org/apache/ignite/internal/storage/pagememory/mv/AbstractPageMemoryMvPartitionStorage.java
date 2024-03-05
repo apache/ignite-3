@@ -988,7 +988,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                         .whenComplete((v, e) -> sortedIndexStorage.close());
             }
 
-            return result.thenRun(() -> runConsistently(locker -> {
+            return result.thenRunAsync(() -> runConsistently(locker -> {
                 try {
                     indexMetaTree.removex(new IndexMetaKey(indexId));
                 } catch (IgniteInternalCheckedException e) {
@@ -996,7 +996,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                 }
 
                 return null;
-            }));
+            }), destructionExecutor.executorService());
         });
     }
 }

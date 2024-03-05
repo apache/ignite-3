@@ -105,4 +105,11 @@ public class GradualTaskExecutor implements ManuallyCloseable {
 
         inFlightFutures.cancelInFlightFutures();
     }
+
+    /**
+     * Returns the internal thread pool that is actually used to execute tasks.
+     */
+    public ExecutorService executorService() {
+        return executor;
+    }
 }

@@ -150,6 +150,7 @@ public class PageMemoryHashIndexStorage extends AbstractPageMemoryIndexStorage<H
      * Starts destruction of the data stored by this index partition.
      *
      * @param executor {@link GradualTaskExecutor} on which to destroy.
+     * @return Future that gets completed when the destruction operation finishes.
      * @throws StorageException If something goes wrong.
      */
     public CompletableFuture<Void> startDestructionOn(GradualTaskExecutor executor) throws StorageException {
