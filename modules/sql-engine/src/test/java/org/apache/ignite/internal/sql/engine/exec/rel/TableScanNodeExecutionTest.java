@@ -146,11 +146,8 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
 
             RemotelyTriggeredResourceRegistry resourcesRegistry = new RemotelyTriggeredResourceRegistry();
 
-            HybridClockImpl clock = new HybridClockImpl();
-
             ResourceCleanupManager resourceCleanupManager = new ResourceCleanupManager(
                     leaseholder,
-                    clock,
                     resourcesRegistry,
                     clusterService.topologyService(),
                     clusterService.messagingService()
@@ -161,7 +158,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     clusterService,
                     replicaSvc,
                     new HeapLockManager(),
-                    clock,
+                    new HybridClockImpl(),
                     new TransactionIdGenerator(0xdeadbeef),
                     new TestPlacementDriver(leaseholder, leaseholder),
                     () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,

@@ -1092,7 +1092,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             ResourceCleanupManager resourceCleanupManager = new ResourceCleanupManager(
                     name,
-                    hybridClock,
                     resourcesRegistry,
                     clusterService.topologyService(),
                     clusterService.messagingService()

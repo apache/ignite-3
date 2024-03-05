@@ -18,29 +18,19 @@
 package org.apache.ignite.internal.tx.impl;
 
 import java.util.concurrent.Executor;
-import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.network.MessagingService;
-import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.tx.message.FinishedTransactionsBatchMessage;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
-import org.apache.ignite.internal.tx.message.TxMessagesFactory;
-import org.apache.ignite.network.ClusterNode;
 
 /**
  * Handles Cursor Cleanup request ({@link FinishedTransactionsBatchMessage}).
  */
 public class FinishedTransactionBatchRequestHandler {
-    /** Tx messages factory. */
-    private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
-
     /** Messaging service. */
     private final MessagingService messagingService;
 
     /** Resources registry. */
     private final RemotelyTriggeredResourceRegistry resourcesRegistry;
-
-    /** Hybrid clock. */
-    private final HybridClock hybridClock;
 
     private final Executor asyncExecutor;
 
@@ -49,18 +39,15 @@ public class FinishedTransactionBatchRequestHandler {
      *
      * @param messagingService Messaging service.
      * @param resourcesRegistry Resources registry.
-     * @param hybridClock Hybrid clock.
      * @param asyncExecutor Executor to run cleanup commands.
      */
     public FinishedTransactionBatchRequestHandler(
             MessagingService messagingService,
             RemotelyTriggeredResourceRegistry resourcesRegistry,
-            HybridClock hybridClock,
             Executor asyncExecutor
     ) {
         this.messagingService = messagingService;
         this.resourcesRegistry = resourcesRegistry;
-        this.hybridClock = hybridClock;
         this.asyncExecutor = asyncExecutor;
     }
 
@@ -70,26 +57,13 @@ public class FinishedTransactionBatchRequestHandler {
     public void start() {
         messagingService.addMessageHandler(TxMessageGroup.class, (msg, sender, correlationId) -> {
             if (msg instanceof FinishedTransactionsBatchMessage) {
-                processTxCleanup((FinishedTransactionsBatchMessage) msg, sender, correlationId);
+                processTxCleanup((FinishedTransactionsBatchMessage) msg);
             }
         });
     }
 
-    public void stop() {
+    private void processTxCleanup(FinishedTransactionsBatchMessage closeCursorsMessage) {
+        asyncExecutor.execute(() -> closeCursorsMessage.transactions().forEach(resourcesRegistry::close));
     }
 
-    private void processTxCleanup(FinishedTransactionsBatchMessage closeCursorsMessage, ClusterNode sender, Long correlationId) {
-        asyncExecutor.execute(() -> {
-            closeCursorsMessage.transactions().forEach(resourcesRegistry::close);
-
-            messagingService.respond(sender, prepareResponse(), correlationId);
-        });
-    }
-
-    private NetworkMessage prepareResponse() {
-        return FACTORY
-                .finishedTransactionsBatchResponse()
-                .timestampLong(hybridClock.nowLong())
-                .build();
-    }
 }

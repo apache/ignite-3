@@ -27,7 +27,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -72,14 +71,12 @@ public class ResourceCleanupManager implements IgniteComponent {
      * Constructor.
      *
      * @param nodeName Ignite node name.
-     * @param clock Hybrid clock.
      * @param resourceRegistry Resources registry.
      * @param topologyService Topology service.
      * @param messagingService Messaging service.
      */
     public ResourceCleanupManager(
             String nodeName,
-            HybridClock clock,
             RemotelyTriggeredResourceRegistry resourceRegistry,
             TopologyService topologyService,
             MessagingService messagingService
@@ -92,7 +89,7 @@ public class ResourceCleanupManager implements IgniteComponent {
         );
         this.finishedReadOnlyTransactionTracker = new FinishedReadOnlyTransactionTracker(topologyService, messagingService);
         this.finishedTransactionBatchRequestHandler =
-                new FinishedTransactionBatchRequestHandler(messagingService, resourceRegistry, clock, resourceCleanupExecutor);
+                new FinishedTransactionBatchRequestHandler(messagingService, resourceRegistry, resourceCleanupExecutor);
     }
 
     @Override

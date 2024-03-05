@@ -26,7 +26,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
 import org.apache.ignite.internal.network.MessagingService;
-import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.tx.message.FinishedTransactionsBatchMessage;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.network.ClusterNode;
@@ -38,8 +37,6 @@ import org.apache.ignite.network.TopologyService;
 public class FinishedReadOnlyTransactionTracker {
 
     private static final int MAX_FINISHED_TRANSACTIONS_IN_BATCH = 10_000;
-
-    private static final long RPC_TIMEOUT = 3000;
 
     /** Tx messages factory. */
     private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
@@ -87,8 +84,8 @@ public class FinishedReadOnlyTransactionTracker {
         allOf(messages).thenRun(() -> finishedTransactions.removeAll(txToSend));
     }
 
-    private CompletableFuture<NetworkMessage> sendCursorCleanupCommand(ClusterNode node, FinishedTransactionsBatchMessage message) {
-        return messagingService.invoke(node.name(), message, RPC_TIMEOUT);
+    private CompletableFuture<Void> sendCursorCleanupCommand(ClusterNode node, FinishedTransactionsBatchMessage message) {
+        return messagingService.send(node, message);
     }
 
     public void onTransactionFinished(UUID id) {

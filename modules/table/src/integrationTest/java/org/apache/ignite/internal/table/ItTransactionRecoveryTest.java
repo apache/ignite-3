@@ -74,7 +74,6 @@ import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.message.FinishedTransactionsBatchMessage;
-import org.apache.ignite.internal.tx.message.FinishedTransactionsBatchResponse;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxRecoveryMessage;
 import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequest;
@@ -982,7 +981,6 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         preloadData(txCrdNode.tables().table(TABLE_NAME), 10);
 
         CompletableFuture<Void> txRequestCaptureFut = new CompletableFuture<>();
-        CompletableFuture<Void> txResponseCaptureFut = new CompletableFuture<>();
 
         InternalTransaction roTx = (InternalTransaction) txCrdNode.transactions().begin(new TransactionOptions().readOnly(true));
 
@@ -1003,18 +1001,6 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
             return false;
         });
 
-        txExecNode.dropMessages((nodeName, msg) -> {
-            if (msg instanceof FinishedTransactionsBatchResponse) {
-                // Now make sure we received the response for the request with roTx.
-                // By this time the resources should have been cleaned.
-                if (txRequestCaptureFut.isDone()) {
-                    txResponseCaptureFut.complete(null);
-                }
-            }
-
-            return false;
-        });
-
         scanSingleEntryAndLeaveCursorOpen(txExecNode, (TableViewInternal) txCrdNode.tables().table(TABLE_NAME), roTx);
 
         // After the RO scan there should be one open cursor.
@@ -1024,10 +1010,12 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         // Wait for the cursor cleanup message to arrive.
         assertThat(txRequestCaptureFut, willCompleteSuccessfully());
-        assertThat(txResponseCaptureFut, willCompleteSuccessfully());
 
         // Now check that the cursor is closed.
-        assertEquals(0, txExecNode.resourcesRegistry().resources().size());
+        assertTrue(waitForCondition(
+                () -> txExecNode.resourcesRegistry().resources().isEmpty(),
+                10_000)
+        );
     }
 
     private DefaultMessagingService messaging(IgniteImpl node) {

@@ -667,7 +667,6 @@ public class IgniteImpl implements Ignite {
 
         resourceCleanupManager = new ResourceCleanupManager(
                 name,
-                clock,
                 resourcesRegistry,
                 clusterSvc.topologyService(),
                 messagingServiceReturningToStorageOperationsPool

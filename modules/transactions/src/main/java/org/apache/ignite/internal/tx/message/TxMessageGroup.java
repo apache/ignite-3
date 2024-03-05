@@ -79,8 +79,4 @@ public class TxMessageGroup {
      */
     public static final short TX_FINISHED_BATCH = 10;
 
-    /**
-     * Message type for {@link FinishedTransactionsBatchResponse}.
-     */
-    public static final short TX_FINISHED_BATCH_RESPONSE = 11;
 }

@@ -145,7 +145,6 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         ResourceCleanupManager cleanupManager = new ResourceCleanupManager(
                 LOCAL_NODE.name(),
-                clock,
                 resourceRegistry,
                 clusterService.topologyService(),
                 clusterService.messagingService()
