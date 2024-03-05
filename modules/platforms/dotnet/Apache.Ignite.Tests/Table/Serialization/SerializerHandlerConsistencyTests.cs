@@ -43,7 +43,7 @@ public class SerializerHandlerConsistencyTests
         });
 
     [Test]
-    public void TestSerializationAndHashing()
+    public void TestSerializationAndHashing([Values(true, false)] bool keyOnly)
     {
         var tupleHandler = TupleSerializerHandler.Instance;
         var tupleKvHandler = TuplePairSerializerHandler.Instance;
@@ -74,11 +74,15 @@ public class SerializerHandlerConsistencyTests
 
         var tuple = new IgniteTuple
         {
-            ["val1"] = poco.Val1,
             ["key1"] = poco.Key1,
-            ["val2"] = poco.Val2,
             ["key2"] = poco.Key2
         };
+
+        if (!keyOnly)
+        {
+            tuple["val1"] = poco.Val1;
+            tuple["val2"] = poco.Val2;
+        }
 
         var tupleKv = new KvPair<IIgniteTuple, IIgniteTuple>(
             new IgniteTuple
@@ -86,16 +90,18 @@ public class SerializerHandlerConsistencyTests
                 ["key1"] = poco.Key1,
                 ["key2"] = poco.Key2
             },
-            new IgniteTuple
-            {
-                ["val1"] = poco.Val1,
-                ["val2"] = poco.Val2
-            });
+            new IgniteTuple());
 
-        var (tupleBuf, tupleHash) = Serialize(tupleHandler, tuple);
-        var (tupleKvBuf, tupleKvHash) = Serialize(tupleKvHandler, tupleKv);
-        var (pocoBuf, pocoHash) = Serialize(objectHandler, poco);
-        var (pocoKvBuf, pocoKvHash) = Serialize(objectKvHandler, pocoKv);
+        if (!keyOnly)
+        {
+            tupleKv.Val["val1"] = poco.Val1;
+            tupleKv.Val["val2"] = poco.Val2;
+        }
+
+        var (tupleBuf, tupleHash) = Serialize(tupleHandler, tuple, keyOnly);
+        var (tupleKvBuf, tupleKvHash) = Serialize(tupleKvHandler, tupleKv, keyOnly);
+        var (pocoBuf, pocoHash) = Serialize(objectHandler, poco, keyOnly);
+        var (pocoKvBuf, pocoKvHash) = Serialize(objectKvHandler, pocoKv, keyOnly);
 
         Assert.AreEqual(tupleHash, tupleKvHash);
         Assert.AreEqual(tupleHash, pocoHash);
