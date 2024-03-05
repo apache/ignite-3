@@ -79,6 +79,7 @@ public class CommonsTest {
         assertEquals("N", Commons.makeRelTypeName(IgniteN.class));
         assertEquals("Ignite", Commons.makeRelTypeName(Ignite.class));
         assertEquals("Ignit", Commons.makeRelTypeName(Ignit.class));
+        assertEquals("NonIgniteRel", Commons.makeRelTypeName(NonIgniteRel.class));
         assertEquals(Commons.class.getSimpleName(), Commons.makeRelTypeName(Commons.class));
     }
 
@@ -100,4 +101,6 @@ public class CommonsTest {
     private static class Ignite {}
 
     private static class Ignit {}
+
+    private static class NonIgniteRel {}
 }
