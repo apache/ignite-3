@@ -318,6 +318,13 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     @Override
+    public int earliestCatalogVersion(long timestamp) {
+        Entry<Long, Catalog> earliestEntry = catalogByTs.floorEntry(timestamp);
+
+        return (earliestEntry == null) ? earliestCatalogVersion() : earliestEntry.getValue().version();
+    }
+
+    @Override
     public int earliestCatalogVersion() {
         return catalogByVer.firstEntry().getKey();
     }
