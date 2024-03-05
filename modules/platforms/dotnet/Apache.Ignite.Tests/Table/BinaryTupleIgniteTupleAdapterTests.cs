@@ -68,11 +68,26 @@ public class BinaryTupleIgniteTupleAdapterTests : IgniteTupleTests
     [Test]
     public void TestKeyOnlyReverseOrder()
     {
-        // TODO
         var cols = new[]
         {
             new Column("val1", ColumnType.String, false, KeyIndex: -1, ColocationIndex: -1, SchemaIndex: 0, 0, 0),
+            new Column("key1", ColumnType.Int32, false, KeyIndex: 1, ColocationIndex: 0, SchemaIndex: 1, 0, 0),
+            new Column("val2", ColumnType.Uuid, false, KeyIndex: -1, ColocationIndex: -1, SchemaIndex: 2, 0, 0),
+            new Column("key2", ColumnType.Int64, false, KeyIndex: 0, ColocationIndex: 1, SchemaIndex: 3, 0, 0)
         };
+
+        var schema = Schema.CreateInstance(0, 0, cols);
+
+        using var builder = new BinaryTupleBuilder(schema.KeyColumns.Count);
+        builder.AppendLong(2);
+        builder.AppendInt(1);
+
+        var buf = builder.Build().ToArray();
+        var keyTuple = new BinaryTupleIgniteTupleAdapter(buf, schema, keyOnly: true);
+
+        Assert.AreEqual(2, keyTuple.FieldCount);
+        Assert.AreEqual(1, keyTuple["key1"]);
+        Assert.AreEqual(2L, keyTuple["key2"]);
     }
 
     protected override string GetShortClassName() => nameof(BinaryTupleIgniteTupleAdapter);
