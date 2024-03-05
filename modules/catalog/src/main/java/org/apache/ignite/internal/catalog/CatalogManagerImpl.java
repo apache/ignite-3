@@ -20,7 +20,6 @@ package org.apache.ignite.internal.catalog;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.clusterWideEnsuredActivationTimestamp;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
 import static org.apache.ignite.internal.type.NativeTypes.BOOLEAN;
@@ -46,6 +45,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor.CatalogIndexDescriptorType;
@@ -706,7 +706,8 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                 .addColumn("SCHEMA_NAME", STRING, CatalogIndexViewDescriptor::schemaName)
                 .addColumn("TYPE", STRING, CatalogIndexViewDescriptor::type)
                 .addColumn("UNIQUE", BOOLEAN, CatalogIndexViewDescriptor::unique)
-                .addColumn("COLUMNS", STRING, CatalogIndexViewDescriptor::columns)
+                .addColumn("COLUMNS", STRING, CatalogIndexViewDescriptor::columnsString)
+                .addColumn("STATUS", STRING, CatalogIndexViewDescriptor::status)
                 .dataProvider(getIndexesDataProvider())
                 .build();
     }
@@ -716,13 +717,12 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                 catalog(latestCatalogVersion())
                         .indexes()
                         .stream()
-                        .filter(it -> it.status() == CatalogIndexStatus.AVAILABLE)
-                        .map(this::toCatalogIndexView)
+                        .map(this::toCatalogIndexViewDescriptor)
                         .iterator()
         );
     }
 
-    private CatalogIndexViewDescriptor toCatalogIndexView(CatalogIndexDescriptor index) {
+    private CatalogIndexViewDescriptor toCatalogIndexViewDescriptor(CatalogIndexDescriptor index) {
         Catalog catalog = catalog(latestCatalogVersion());
         CatalogTableDescriptor table = catalog.table(index.tableId());
 
@@ -735,18 +735,22 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                 table.schemaId(),
                 catalog.schema(table.schemaId()).name(),
                 index.unique(),
-                getIndexColumns(index)
+                getIndexColumns(index),
+                index.status().name()
         );
     }
 
-    private static List<String> getIndexColumns(CatalogIndexDescriptor indexDescriptor) {
+    private static String getIndexColumns(CatalogIndexDescriptor indexDescriptor) {
         return indexDescriptor.indexType() == CatalogIndexDescriptorType.HASH
-                ? ((CatalogHashIndexDescriptor) indexDescriptor).columns()
+                ? ((CatalogHashIndexDescriptor) indexDescriptor)
+                .columns()
+                .stream()
+                .collect(Collectors.joining(", "))
                 : ((CatalogSortedIndexDescriptor) indexDescriptor)
                         .columns()
                         .stream()
                         .map(column -> column.name() + " " + column.collation())
-                        .collect(toList());
+                        .collect(Collectors.joining(", "));
     }
 
     private static Function<CatalogZoneDescriptor, Boolean> isDefaultZone() {

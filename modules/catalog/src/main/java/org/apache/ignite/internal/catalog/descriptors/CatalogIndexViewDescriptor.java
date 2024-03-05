@@ -1,7 +1,5 @@
 package org.apache.ignite.internal.catalog.descriptors;
 
-import java.util.List;
-
 /** Descriptor for the index system view. */
 public class CatalogIndexViewDescriptor {
     /** Index ID. */
@@ -28,8 +26,11 @@ public class CatalogIndexViewDescriptor {
     /** Unique constraint flag. */
     private final boolean unique;
 
-    /** List of columns used in the index. For sorted index format is "{column_name} {collation}". */
-    private final List<String> columns;
+    /** Columns used in the index separated by comma. For sorted index format is "{column_name} {collation}". */
+    private final String columnsString;
+
+    /** Status of the index. */
+    private final String status;
 
     public CatalogIndexViewDescriptor(
             int id,
@@ -40,7 +41,8 @@ public class CatalogIndexViewDescriptor {
             int schemaId,
             String schemaName,
             boolean unique,
-            List<String> columns
+            String columnsString,
+            String status
     ) {
         this.id = id;
         this.name = name;
@@ -50,7 +52,8 @@ public class CatalogIndexViewDescriptor {
         this.schemaId = schemaId;
         this.schemaName = schemaName;
         this.unique = unique;
-        this.columns = columns;
+        this.columnsString = columnsString;
+        this.status = status;
     }
 
     /** Returns ID of the index. */
@@ -64,8 +67,8 @@ public class CatalogIndexViewDescriptor {
     }
 
     /** Returns list of columns used in the index. For sorted index format is "{column_name} {collation}". */
-    public List<String> columns() {
-        return columns;
+    public String columnsString() {
+        return columnsString;
     }
 
     /** Returns type of the index. */
@@ -96,5 +99,10 @@ public class CatalogIndexViewDescriptor {
     /** Returns name of the schema. */
     public String schemaName() {
         return schemaName;
+    }
+
+    /** Returns status of the index. */
+    public String status() {
+        return status;
     }
 }
