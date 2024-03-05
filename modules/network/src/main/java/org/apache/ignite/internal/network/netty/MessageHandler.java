@@ -22,6 +22,7 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.recovery.message.AcknowledgementMessage;
+import org.apache.ignite.internal.network.recovery.message.ProbeMessage;
 import org.apache.ignite.internal.network.serialization.PerSessionSerializationService;
 import org.apache.ignite.network.ClusterNode;
 
@@ -66,12 +67,16 @@ public class MessageHandler extends ChannelInboundHandlerAdapter {
     public void channelRead(ChannelHandlerContext ctx, Object msg) {
         NetworkMessage message = (NetworkMessage) msg;
 
-        if (message instanceof AcknowledgementMessage) {
+        if (notPayloadMessage(message)) {
             return;
         }
 
         messageListener.accept(
                 new InNetworkObject(message, remoteNode, connectionIndex, serializationService.compositeDescriptorRegistry())
         );
+    }
+
+    private static boolean notPayloadMessage(NetworkMessage message) {
+        return message instanceof AcknowledgementMessage || message instanceof ProbeMessage;
     }
 }
