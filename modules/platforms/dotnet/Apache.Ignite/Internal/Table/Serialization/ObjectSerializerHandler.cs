@@ -116,7 +116,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
 
                 il.Emit(OpCodes.Call, directWriteMethod);
 
-                for (var index = 1; index < columns.Count; index++)
+                for (var index = 1; index < columns.Length; index++)
                 {
                     il.Emit(OpCodes.Ldarg_0); // writer
                     il.Emit(OpCodes.Ldarg_1); // noValueSet

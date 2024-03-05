@@ -114,7 +114,7 @@ namespace Apache.Ignite.Internal.Table
         /// </summary>
         /// <param name="keyOnly">Key only flag.</param>
         /// <returns>Columns according to the key flag.</returns>
-        public IReadOnlyList<Column> GetColumnsFor(bool keyOnly) =>
+        public Column[] GetColumnsFor(bool keyOnly) =>
             keyOnly ? KeyColumns : Columns;
 
         /// <summary>

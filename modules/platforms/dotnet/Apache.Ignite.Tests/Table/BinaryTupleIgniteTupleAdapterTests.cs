@@ -78,7 +78,7 @@ public class BinaryTupleIgniteTupleAdapterTests : IgniteTupleTests
 
         var schema = Schema.CreateInstance(0, 0, cols);
 
-        using var builder = new BinaryTupleBuilder(schema.GetColumnsFor(keyOnly).Count);
+        using var builder = new BinaryTupleBuilder(schema.GetColumnsFor(keyOnly).Length);
 
         if (keyOnly)
         {

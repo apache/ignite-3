@@ -53,8 +53,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
         public static IgniteTuple ReadTuple(ReadOnlySpan<byte> buf, Schema schema, bool keyOnly)
         {
             var columns = schema.GetColumnsFor(keyOnly);
-            var tuple = new IgniteTuple(columns.Count);
-            var tupleReader = new BinaryTupleReader(buf, columns.Count);
+            var tuple = new IgniteTuple(columns.Length);
+            var tupleReader = new BinaryTupleReader(buf, columns.Length);
 
             foreach (var column in columns)
             {
@@ -75,7 +75,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         public static object? ReadObject(ReadOnlySpan<byte> buf, Schema schema, bool keyOnly, int index)
         {
             var columns = schema.GetColumnsFor(keyOnly);
-            var tupleReader = new BinaryTupleReader(buf, columns.Count);
+            var tupleReader = new BinaryTupleReader(buf, columns.Length);
             var column = columns[index];
 
             return tupleReader.GetObject(index, column.Type, column.Scale);

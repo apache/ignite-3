@@ -112,7 +112,7 @@ internal sealed class TuplePairSerializerHandler : IRecordSerializerHandler<KvPa
             }
         }
 
-        ValidateMappedCount(record, schema, columns.Count, written);
+        ValidateMappedCount(record, schema, columns.Length, written);
     }
 
     private static void ValidateMappedCount(KvPair<IIgniteTuple, IIgniteTuple> record, Schema schema, int columnCount, int written)
