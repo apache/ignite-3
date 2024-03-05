@@ -2159,11 +2159,13 @@ public class InternalTableImpl implements InternalTable {
     private boolean isRestartTransactionPossible(Throwable e) {
         if (e instanceof LockException) {
             return true;
+        } else if (e instanceof TransactionException && e.getCause() instanceof LockException) {
+            return true;
         } else if (e instanceof CompletionException && e.getCause() instanceof LockException) {
             return true;
-        } else if (e instanceof CompletionException &&
-                e.getCause() instanceof TransactionException &&
-                e.getCause().getCause() instanceof LockException) {
+        } else if (e instanceof CompletionException
+                && e.getCause() instanceof TransactionException
+                && e.getCause().getCause() instanceof LockException) {
             return true;
         }
 

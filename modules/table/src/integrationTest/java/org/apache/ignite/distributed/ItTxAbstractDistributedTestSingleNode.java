@@ -34,6 +34,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.internal.table.TxAbstractTest;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.apache.ignite.internal.util.CollectionUtils;
@@ -182,7 +183,7 @@ public abstract class ItTxAbstractDistributedTestSingleNode extends TxAbstractTe
 
         assertNull(rv.get(tx, makeKey(1)));
 
-        CompletableFuture<Void> implicitOpFut = rv.upsertAsync(null, makeValue(1, 1.));
+        CompletableFuture<Void> implicitOpFut = IgniteTestUtils.runAsync(() -> rv.upsert(null, makeValue(1, 1.)));
 
         assertFalse(implicitOpFut.isDone());
 
@@ -202,7 +203,7 @@ public abstract class ItTxAbstractDistributedTestSingleNode extends TxAbstractTe
 
         assertNull(rv.get(tx, makeKey(1)));
 
-        CompletableFuture<Void> implicitOpFut = rv.upsertAsync(null, makeValue(1, 1.));
+        CompletableFuture<Void> implicitOpFut = IgniteTestUtils.runAsync(() -> rv.upsert(null, makeValue(1, 1.)));
 
         assertFalse(implicitOpFut.isDone());
 
