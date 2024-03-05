@@ -27,7 +27,7 @@ namespace Apache.Ignite.Internal.Table
     /// </summary>
     /// <param name="Version">Version.</param>
     /// <param name="TableId">Table id.</param>
-    /// <param name="HashedColumnCount">Hashed column count.</param>
+    /// <param name="ColocationColumnCount">Colocation column count.</param>
     /// <param name="Columns">Columns in schema order.</param>
     /// <param name="KeyColumns">Key part columns.</param>
     /// <param name="ValColumns">Val part columns.</param>
@@ -35,15 +35,12 @@ namespace Apache.Ignite.Internal.Table
     internal sealed record Schema(
         int Version,
         int TableId,
-        int HashedColumnCount,
+        int ColocationColumnCount,
         IReadOnlyList<Column> Columns,
         IReadOnlyList<Column> KeyColumns,
         IReadOnlyList<Column> ValColumns,
-        IReadOnlyDictionary<string, Column> ColumnsByName) : IHashedColumnIndexProvider
+        IReadOnlyDictionary<string, Column> ColumnsByName)
     {
-        /// <inheritdoc/>
-        public int HashedColumnOrder(int index) => Columns[index].ColocationIndex;
-
         /// <summary>
         /// Gets column by name.
         /// </summary>
@@ -63,7 +60,7 @@ namespace Apache.Ignite.Internal.Table
             var keyColumnCount = columns.Count(static x => x.IsKey);
             var keyColumns = new Column[keyColumnCount];
             var valColumns = new List<Column>();
-            int hashedColumnCount = 0;
+            int colocationColumnCount = 0;
 
             foreach (var column in columns)
             {
@@ -79,13 +76,13 @@ namespace Apache.Ignite.Internal.Table
 
                 if (column.IsColocation)
                 {
-                    hashedColumnCount++;
+                    colocationColumnCount++;
                 }
             }
 
             // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
             Debug.Assert(keyColumns.All(x => x != null), "Some key columns are missing");
-            Debug.Assert(columns.Count == 0 || hashedColumnCount > 0, "No hashed columns");
+            Debug.Assert(columns.Count == 0 || colocationColumnCount > 0, "No hashed columns");
 
             var columnMap = new Dictionary<string, Column>(columns.Count);
             foreach (var column in columns)
@@ -93,7 +90,7 @@ namespace Apache.Ignite.Internal.Table
                 columnMap[IgniteTupleCommon.ParseColumnName(column.Name)] = column;
             }
 
-            return new Schema(version, tableId, hashedColumnCount, columns, keyColumns, valColumns, columnMap);
+            return new Schema(version, tableId, colocationColumnCount, columns, keyColumns, valColumns, columnMap);
         }
 
         /// <summary>
