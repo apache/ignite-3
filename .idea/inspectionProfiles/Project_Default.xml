@@ -731,6 +731,15 @@
     <inspection_tool class="JUnit5Converter" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="JUnit5Platform" enabled="false" level="WARNING" enabled_by_default="false" />
     <inspection_tool class="JUnitDatapoint" enabled="true" level="WARNING" enabled_by_default="true" />
+    <inspection_tool class="JUnitMalformedDeclaration" enabled="true" level="ERROR" enabled_by_default="true">
+      <option name="ignorableAnnotations">
+        <list>
+          <option value="mockit.Mocked" />
+          <option value="org.junit.jupiter.api.io.TempDir" />
+          <option value="org.apache.ignite.internal.configuration.testframework.InjectConfiguration" />
+        </list>
+      </option>
+    </inspection_tool>
     <inspection_tool class="JUnitRule" enabled="true" level="ERROR" enabled_by_default="true" />
     <inspection_tool class="Java8ArraySetAll" enabled="false" level="INFORMATION" enabled_by_default="false" />
     <inspection_tool class="Java9CollectionFactory" enabled="true" level="WARNING" enabled_by_default="true" />
@@ -1047,9 +1056,7 @@
     <inspection_tool class="SystemGetenv" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="TestCaseInProductCode" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="TestCaseWithConstructor" enabled="true" level="WARNING" enabled_by_default="true" />
-    <inspection_tool class="TestCaseWithNoTestMethods" enabled="true" level="WARNING" enabled_by_default="true">
-      <option name="ignoreSupers" value="true" />
-    </inspection_tool>
+    <inspection_tool class="TestCaseWithNoTestMethods" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="TestMethodInProductCode" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="TestNGDataProvider" enabled="false" level="WARNING" enabled_by_default="false" />
     <inspection_tool class="TestOnlyProblems" enabled="true" level="WARNING" enabled_by_default="true" />

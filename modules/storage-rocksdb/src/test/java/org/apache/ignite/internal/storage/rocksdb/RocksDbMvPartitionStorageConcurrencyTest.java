@@ -59,8 +59,6 @@ public class RocksDbMvPartitionStorageConcurrencyTest extends AbstractMvPartitio
                 new StorageIndexDescriptorSupplier(mock(CatalogService.class))
         );
 
-        table.start();
-
         initialize(table);
     }
 

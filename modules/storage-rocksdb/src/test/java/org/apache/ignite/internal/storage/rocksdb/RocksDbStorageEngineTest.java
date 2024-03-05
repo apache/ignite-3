@@ -76,8 +76,6 @@ public class RocksDbStorageEngineTest extends BaseIgniteAbstractTest {
                 new StorageIndexDescriptorSupplier(mock(CatalogService.class))
         );
 
-        table.start();
-
         getOrCreateMvPartition(table, 1);
     }
 
@@ -94,8 +92,6 @@ public class RocksDbStorageEngineTest extends BaseIgniteAbstractTest {
                 new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, customRegionName),
                 new StorageIndexDescriptorSupplier(mock(CatalogService.class))
         );
-
-        table.start();
 
         getOrCreateMvPartition(table, 1);
     }
