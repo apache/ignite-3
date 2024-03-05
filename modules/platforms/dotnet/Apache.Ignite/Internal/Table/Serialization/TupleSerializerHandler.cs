@@ -109,7 +109,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 }
             }
 
-            ValidateMappedCount(record, schema, columns.Count, written);
+            ValidateMappedCount(record, schema, columns.Length, written);
         }
 
         private static void ValidateMappedCount(IIgniteTuple record, Schema schema, int columnCount, int written)

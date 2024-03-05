@@ -47,7 +47,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// <returns>Key hash when <paramref name="computeHash"/> is <c>true</c>; 0 otherwise.</returns>
         int Write(ref MsgPackWriter writer, Schema schema, T record, bool keyOnly = false, bool computeHash = false)
         {
-            var count = keyOnly ? schema.KeyColumns.Count : schema.Columns.Count;
+            var count = keyOnly ? schema.KeyColumns.Length : schema.Columns.Length;
             var noValueSet = writer.WriteBitSet(count);
 
             var hashedColumnsPredicate = computeHash

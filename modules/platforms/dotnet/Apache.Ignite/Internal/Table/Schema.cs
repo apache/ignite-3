@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal.Table
 {
     using System.Collections.Generic;
     using System.Diagnostics;
+    using System.Diagnostics.CodeAnalysis;
     using System.Linq;
     using Proto.BinaryTuple;
 
@@ -34,13 +35,14 @@ namespace Apache.Ignite.Internal.Table
     /// <param name="ColumnsByName">Column name map.</param>
     /// <param name="HashedColumnIndexProvider">Hashed column index provider.</param>
     /// <param name="KeyOnlyHashedColumnIndexProvider">Hashed column index provider for key-only mode.</param>
+    [SuppressMessage("Performance", "CA1819:Properties should not return arrays", Justification = "Reviewed.")]
     internal sealed record Schema(
         int Version,
         int TableId,
         int ColocationColumnCount,
-        IReadOnlyList<Column> Columns,
-        IReadOnlyList<Column> KeyColumns,
-        IReadOnlyList<Column> ValColumns,
+        Column[] Columns,
+        Column[] KeyColumns,
+        Column[] ValColumns,
         IReadOnlyDictionary<string, Column> ColumnsByName,
         IHashedColumnIndexProvider HashedColumnIndexProvider,
         IHashedColumnIndexProvider KeyOnlyHashedColumnIndexProvider)
@@ -59,12 +61,13 @@ namespace Apache.Ignite.Internal.Table
         /// <param name="tableId">Table ID.</param>
         /// <param name="columns">Columns.</param>
         /// <returns>Schema.</returns>
-        public static Schema CreateInstance(int version, int tableId, IReadOnlyList<Column> columns)
+        public static Schema CreateInstance(int version, int tableId, Column[] columns)
         {
             var keyColumnCount = columns.Count(static x => x.IsKey);
             var keyColumns = new Column[keyColumnCount];
-            var valColumns = new List<Column>();
+            var valColumns = new Column[columns.Length - keyColumnCount];
             int colocationColumnCount = 0;
+            int valIdx = 0;
 
             foreach (var column in columns)
             {
@@ -75,7 +78,7 @@ namespace Apache.Ignite.Internal.Table
                 }
                 else
                 {
-                    valColumns.Add(column);
+                    valColumns[valIdx++] = column;
                 }
 
                 if (column.IsColocation)
@@ -86,9 +89,9 @@ namespace Apache.Ignite.Internal.Table
 
             // ReSharper disable once ConditionIsAlwaysTrueOrFalseAccordingToNullableAPIContract
             Debug.Assert(keyColumns.All(x => x != null), "Some key columns are missing");
-            Debug.Assert(columns.Count == 0 || colocationColumnCount > 0, "No hashed columns");
+            Debug.Assert(columns.Length == 0 || colocationColumnCount > 0, "No hashed columns");
 
-            var columnMap = new Dictionary<string, Column>(columns.Count);
+            var columnMap = new Dictionary<string, Column>(columns.Length);
             foreach (var column in columns)
             {
                 columnMap[IgniteTupleCommon.ParseColumnName(column.Name)] = column;

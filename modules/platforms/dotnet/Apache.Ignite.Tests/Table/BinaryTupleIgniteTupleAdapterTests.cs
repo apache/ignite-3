@@ -133,7 +133,7 @@ public class BinaryTupleIgniteTupleAdapterTests : IgniteTupleTests
         }
 
         var buf = builder.Build().ToArray();
-        var schema = Schema.CreateInstance(0, 0, cols);
+        var schema = Schema.CreateInstance(0, 0, cols.ToArray());
 
         return new BinaryTupleIgniteTupleAdapter(buf, schema, keyOnly: false);
 
