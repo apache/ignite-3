@@ -173,9 +173,4 @@ public abstract class IgniteReduceAggregateBase extends SingleRel implements Tra
         // cluster parallelism at the model (devide source rows by nodes for partitioned data).
         return mq.getRowCount(getInput());
     }
-
-    /** {@inheritDoc} */
-    @Override public String getRelTypeName() {
-        return Commons.makeRelTypeName(getClass());
-    }
 }

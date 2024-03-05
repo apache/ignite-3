@@ -54,6 +54,8 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class IgniteMergeJoin extends AbstractIgniteJoin {
+    private static final String REL_TYPE_NAME = "MergeJoin";
+
     /**
      * Collation of a left child. Keep it here to restore after deserialization.
      */
@@ -296,6 +298,12 @@ public class IgniteMergeJoin extends AbstractIgniteJoin {
         return super.explainTerms(pw)
                 .item("leftCollation", leftCollation)
                 .item("rightCollation", rightCollation);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 
     /**

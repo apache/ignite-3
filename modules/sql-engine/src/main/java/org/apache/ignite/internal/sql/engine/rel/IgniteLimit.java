@@ -38,10 +38,11 @@ import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /** Relational expression that applies a limit and/or offset to its input. */
 public class IgniteLimit extends SingleRel implements IgniteRel {
+    private static final String REL_TYPE_NAME = "Limit";
+
     /** Offset. */
     private final RexNode offset;
 
@@ -198,7 +199,8 @@ public class IgniteLimit extends SingleRel implements IgniteRel {
     }
 
     /** {@inheritDoc} */
-    @Override public String getRelTypeName() {
-        return Commons.makeRelTypeName(getClass());
+    @Override
+    public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 }

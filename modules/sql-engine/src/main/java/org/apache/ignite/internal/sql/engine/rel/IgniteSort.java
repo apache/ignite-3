@@ -40,12 +40,13 @@ import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
  * Ignite sort operator.
  */
 public class IgniteSort extends Sort implements IgniteRel {
+    private static final String REL_TYPE_NAME = "Sort";
+
     /**
      * Constructor.
      *
@@ -190,7 +191,8 @@ public class IgniteSort extends Sort implements IgniteRel {
     }
 
     /** {@inheritDoc} */
-    @Override public String getRelTypeName() {
-        return Commons.makeRelTypeName(getClass());
+    @Override
+    public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 }

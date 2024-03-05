@@ -33,7 +33,6 @@ import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.trait.TraitsAwareIgniteRel;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
  * Relational expression that iterates over its input and returns elements for which <code>condition</code> evaluates to
@@ -43,6 +42,8 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
  * false.</p>
  */
 public class IgniteFilter extends Filter implements TraitsAwareIgniteRel {
+    private static final String REL_TYPE_NAME = "Filter";
+
     /**
      * Creates a filter.
      *
@@ -109,6 +110,6 @@ public class IgniteFilter extends Filter implements TraitsAwareIgniteRel {
 
     /** {@inheritDoc} */
     @Override public String getRelTypeName() {
-        return Commons.makeRelTypeName(getClass());
+        return REL_TYPE_NAME;
     }
 }

@@ -28,7 +28,6 @@ import org.apache.calcite.rel.core.Intersect;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
  * Base class for physical INTERSECT set op.
@@ -67,10 +66,5 @@ public abstract class IgniteIntersect extends Intersect implements IgniteSetOp {
     @Override
     public boolean all() {
         return all;
-    }
-
-    /** {@inheritDoc} */
-    @Override public String getRelTypeName() {
-        return Commons.makeRelTypeName(getClass());
     }
 }

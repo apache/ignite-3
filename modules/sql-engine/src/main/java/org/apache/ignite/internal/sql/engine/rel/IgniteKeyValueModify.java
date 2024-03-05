@@ -30,7 +30,6 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingService;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.tx.InternalTransaction;
 
 /**
@@ -49,6 +48,8 @@ import org.apache.ignite.internal.tx.InternalTransaction;
  * </ul>
  */
 public class IgniteKeyValueModify extends AbstractRelNode implements IgniteRel {
+    private static final String REL_TYPE_NAME = "KeyValueModify";
+
     /** Enumeration of supported modification operations. */
     public enum Operation {
         PUT
@@ -114,6 +115,12 @@ public class IgniteKeyValueModify extends AbstractRelNode implements IgniteRel {
                 .item("expressions", expressions);
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public String getRelTypeName() {
+        return REL_TYPE_NAME;
+    }
+
     /**
      * Returns a list of expressions representing either full row or only a key
      * depending on particular operation.
@@ -122,10 +129,5 @@ public class IgniteKeyValueModify extends AbstractRelNode implements IgniteRel {
      */
     public List<RexNode> expressions() {
         return expressions;
-    }
-
-    /** {@inheritDoc} */
-    @Override public String getRelTypeName() {
-        return Commons.makeRelTypeName(getClass());
     }
 }

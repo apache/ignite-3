@@ -43,6 +43,8 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class IgniteUnionAll extends Union implements TraitsAwareIgniteRel {
+    private static final String REL_TYPE_NAME = "UnionAll";
+
     /**
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
@@ -129,7 +131,8 @@ public class IgniteUnionAll extends Union implements TraitsAwareIgniteRel {
     }
 
     /** {@inheritDoc} */
-    @Override public String getRelTypeName() {
-        return Commons.makeRelTypeName(getClass());
+    @Override
+    public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 }

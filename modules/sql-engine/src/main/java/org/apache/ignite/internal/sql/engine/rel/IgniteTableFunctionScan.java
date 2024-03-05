@@ -34,12 +34,13 @@ import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexNode;
 import org.apache.ignite.internal.sql.engine.exec.mapping.QuerySplitter;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
  * Relational operator for table function scan.
  */
 public class IgniteTableFunctionScan extends TableFunctionScan implements SourceAwareIgniteRel {
+    private static final String REL_TYPE_NAME = "TableFunctionScan";
+
     /** Default estimate row count. */
     private static final int ESTIMATE_ROW_COUNT = 100;
 
@@ -143,7 +144,8 @@ public class IgniteTableFunctionScan extends TableFunctionScan implements Source
     }
 
     /** {@inheritDoc} */
-    @Override public String getRelTypeName() {
-        return Commons.makeRelTypeName(getClass());
+    @Override
+    public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 }

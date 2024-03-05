@@ -33,12 +33,13 @@ import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
  * Relational expression that imposes a particular distribution on its input without otherwise changing its content.
  */
 public class IgniteExchange extends Exchange implements IgniteRel {
+    private static final String REL_TYPE_NAME = "Exchange";
+
     /**
      * Creates an Exchange.
      *
@@ -106,7 +107,8 @@ public class IgniteExchange extends Exchange implements IgniteRel {
     }
 
     /** {@inheritDoc} */
-    @Override public String getRelTypeName() {
-        return Commons.makeRelTypeName(getClass());
+    @Override
+    public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 }

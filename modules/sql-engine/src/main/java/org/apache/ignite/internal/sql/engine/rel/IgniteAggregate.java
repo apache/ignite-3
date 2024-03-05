@@ -32,7 +32,6 @@ import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
  * IgniteAggregate.
@@ -128,10 +127,5 @@ public abstract class IgniteAggregate extends Aggregate implements IgniteRel {
                 estimateMemoryForGroup(mq),
                 0
         );
-    }
-
-    /** {@inheritDoc} */
-    @Override public String getRelTypeName() {
-        return Commons.makeRelTypeName(getClass());
     }
 }

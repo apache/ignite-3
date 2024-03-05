@@ -49,12 +49,13 @@ import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.trait.TraitsAwareIgniteRel;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
  * Relational expression that computes a set of 'select expressions' from its input relational expression.
  */
 public class IgniteProject extends Project implements TraitsAwareIgniteRel {
+    private static final String REL_TYPE_NAME = "Project";
+
     /**
      * Creates a Project.
      *
@@ -203,7 +204,8 @@ public class IgniteProject extends Project implements TraitsAwareIgniteRel {
     }
 
     /** {@inheritDoc} */
-    @Override public String getRelTypeName() {
-        return Commons.makeRelTypeName(getClass());
+    @Override
+    public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 }

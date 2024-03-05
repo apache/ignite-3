@@ -79,9 +79,4 @@ public abstract class IgniteMinus extends Minus implements IgniteSetOp {
     public boolean all() {
         return all;
     }
-
-    /** {@inheritDoc} */
-    @Override public String getRelTypeName() {
-        return Commons.makeRelTypeName(getClass());
-    }
 }

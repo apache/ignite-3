@@ -184,7 +184,8 @@ public class IgniteTableModify extends TableModify implements SourceAwareIgniteR
     }
 
     /** {@inheritDoc} */
-    @Override public String getRelTypeName() {
-        return Commons.makeRelTypeName(getClass());
+    @Override
+    public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 }

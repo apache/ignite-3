@@ -30,13 +30,14 @@ import org.apache.calcite.rel.core.Values;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.ignite.internal.sql.engine.exec.mapping.QuerySplitter;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
  * IgniteValues.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class IgniteValues extends Values implements SourceAwareIgniteRel {
+    private static final String REL_TYPE_NAME = "Values";
+
     private final long sourceId;
 
     /**
@@ -133,7 +134,8 @@ public class IgniteValues extends Values implements SourceAwareIgniteRel {
     }
 
     /** {@inheritDoc} */
-    @Override public String getRelTypeName() {
-        return Commons.makeRelTypeName(getClass());
+    @Override
+    public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 }
