@@ -133,8 +133,8 @@ class CreateFromAnnotationsTest {
     void nameGeneration() {
         assertThat(
                 createTable().processRecordClass(NameGeneration.class).toSqlString(),
-                is("CREATE TABLE IF NOT EXISTS NameGeneration (col1 int, col2 varchar);"
-                        + "CREATE INDEX IF NOT EXISTS ix_col1_col2 ON NameGeneration (col1, col2);")
+                is("CREATE TABLE IF NOT EXISTS public.NameGeneration (col1 int, col2 varchar);"
+                        + "CREATE INDEX IF NOT EXISTS ix_col1_col2 ON public.NameGeneration (col1, col2);")
         );
     }
 
@@ -142,8 +142,8 @@ class CreateFromAnnotationsTest {
     void nameGenerationQuoted() {
         assertThat(
                 createTableQuoted().processRecordClass(NameGeneration.class).toSqlString(),
-                is("CREATE TABLE IF NOT EXISTS \"NameGeneration\" (\"col1\" int, \"col2\" varchar);"
-                        + "CREATE INDEX IF NOT EXISTS \"ix_col1_col2\" ON \"NameGeneration\" (\"col1\", \"col2\");")
+                is("CREATE TABLE IF NOT EXISTS \"public\".\"NameGeneration\" (\"col1\" int, \"col2\" varchar);"
+                        + "CREATE INDEX IF NOT EXISTS \"ix_col1_col2\" ON \"public\".\"NameGeneration\" (\"col1\", \"col2\");")
         );
     }
 
@@ -239,7 +239,10 @@ class CreateFromAnnotationsTest {
         String str;
     }
 
-    @Table(indexes = @Index(columns = {@ColumnRef("col1"), @ColumnRef("col2")}))
+    @Table(
+            schemaName = "public",
+            indexes = @Index(columns = {@ColumnRef("col1"), @ColumnRef("col2")})
+    )
     private static class NameGeneration {
         Integer col1;
         String col2;

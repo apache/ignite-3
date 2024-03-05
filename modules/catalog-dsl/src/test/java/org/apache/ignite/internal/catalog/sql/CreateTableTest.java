@@ -40,21 +40,28 @@ class CreateTableTest {
 
     @Test
     void names() {
-        String sql = createTable().name("public", "table1").addColumn("col1", INTEGER).toSqlString();
+        String sql = createTable().name("", "table1").addColumn("col1", INTEGER).toSqlString();
+        assertThat(sql, is("CREATE TABLE table1 (col1 int);"));
+
+        sql = createTable().name(null, "table1").addColumn("col1", INTEGER).toSqlString();
+        assertThat(sql, is("CREATE TABLE table1 (col1 int);"));
+
+        sql = createTable().name("public", "table1").addColumn("col1", INTEGER).toSqlString();
         assertThat(sql, is("CREATE TABLE public.table1 (col1 int);"));
 
         // quote identifiers
+        sql = createTableQuoted().name("", "table1").addColumn("col1", INTEGER).toSqlString();
+        assertThat(sql, is("CREATE TABLE \"table1\" (\"col1\" int);"));
+
+        sql = createTableQuoted().name(null, "table1").addColumn("col1", INTEGER).toSqlString();
+        assertThat(sql, is("CREATE TABLE \"table1\" (\"col1\" int);"));
+
         sql = createTableQuoted().name("public", "table1").addColumn("col1", INTEGER).toSqlString();
         assertThat(sql, is("CREATE TABLE \"public\".\"table1\" (\"col1\" int);"));
     }
 
     @Test
     void invalidNames() {
-        assertThrows(IllegalArgumentException.class, () -> createTable().name("", "table"));
-        assertThrows(IllegalArgumentException.class, () -> createTable().name("table", ""));
-        assertThrows(IllegalArgumentException.class, () -> createTable().name(null, "table"));
-        assertThrows(IllegalArgumentException.class, () -> createTable().name("table", null));
-        assertThrows(IllegalArgumentException.class, () -> createTable().name((String) null));
         assertThrows(NullPointerException.class, () -> createTable().name((String[]) null));
 
         assertThrows(IllegalArgumentException.class, () -> createTable().name("table;1--test\n\r\t;"));

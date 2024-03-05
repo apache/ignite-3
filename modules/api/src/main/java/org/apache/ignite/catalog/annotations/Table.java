@@ -39,6 +39,13 @@ public @interface Table {
     String value() default "";
 
     /**
+     * The schema name.
+     *
+     * @return The schema name.
+     */
+    String schemaName() default "";
+
+    /**
      * Indexes to create on this table.
      *
      * @return Indexes to create on this table.

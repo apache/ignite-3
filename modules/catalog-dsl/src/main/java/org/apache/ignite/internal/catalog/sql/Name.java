@@ -44,7 +44,8 @@ class Name extends QueryPart {
 
         for (String name : names) {
             if (StringUtils.nullOrBlank(name)) {
-                throw new IllegalArgumentException("Name part must not be null or blank");
+                // Skip parts instead of failure as nulls can be used as defaults from annotations or builders.
+                continue;
             }
             // We need to sanitize the identifiers to prevent SQL injection.
             // Ignite DDL doesn't have prepared statements yet which could be used instead of creating a raw query.
