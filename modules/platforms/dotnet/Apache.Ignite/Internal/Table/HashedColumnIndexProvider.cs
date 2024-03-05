@@ -17,35 +17,30 @@
 
 namespace Apache.Ignite.Internal.Table;
 
-using Ignite.Sql;
+using System.Collections.Generic;
+using Proto.BinaryTuple;
 
 /// <summary>
-/// Schema column.
+/// Schema-based hashed column index provider.
 /// </summary>
-internal record Column(
-    string Name,
-    ColumnType Type,
-    bool IsNullable,
-    int KeyIndex,
-    int ColocationIndex,
-    int SchemaIndex,
-    int Scale,
-    int Precision)
+internal sealed class HashedColumnIndexProvider : IHashedColumnIndexProvider
 {
-    /// <summary>
-    /// Gets a value indicating whether this column is a part of the key.
-    /// </summary>
-    public bool IsKey => KeyIndex >= 0;
+    private readonly IReadOnlyList<Column> _columns;
 
     /// <summary>
-    /// Gets a value indicating whether this column is a part of the colocation key.
+    /// Initializes a new instance of the <see cref="HashedColumnIndexProvider"/> class.
     /// </summary>
-    public bool IsColocation => ColocationIndex >= 0;
+    /// <param name="columns">Columns.</param>
+    /// <param name="hashedColumnCount">Hashed column count.</param>
+    public HashedColumnIndexProvider(IReadOnlyList<Column> columns, int hashedColumnCount)
+    {
+        _columns = columns;
+        HashedColumnCount = hashedColumnCount;
+    }
 
-    /// <summary>
-    /// Gets the column index within a binary tuple.
-    /// </summary>
-    /// <param name="keyOnly">Whether a key-only binary tuple is used.</param>
-    /// <returns>Index within a binary tuple.</returns>
-    public int GetBinaryTupleIndex(bool keyOnly) => keyOnly ? KeyIndex : SchemaIndex;
+    /// <inheritdoc/>
+    public int HashedColumnCount { get; init; }
+
+    /// <inheritdoc/>
+    public int HashedColumnOrder(int index) => _columns[index].ColocationIndex;
 }

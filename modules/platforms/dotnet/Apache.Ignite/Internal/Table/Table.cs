@@ -332,8 +332,6 @@ namespace Apache.Ignite.Internal.Table
         {
             var schemaVersion = r.ReadInt32();
             var columnCount = r.ReadInt32();
-            var keyColumnCount = 0;
-            var colocationColumnCount = 0;
 
             var columns = new Column[columnCount];
 
@@ -347,7 +345,6 @@ namespace Apache.Ignite.Internal.Table
                 var name = r.ReadString();
                 var type = r.ReadInt32();
                 var keyIndex = r.ReadInt32();
-                var isKey = keyIndex >= 0;
                 var isNullable = r.ReadBoolean();
                 var colocationIndex = r.ReadInt32();
                 var scale = r.ReadInt32();
@@ -355,27 +352,10 @@ namespace Apache.Ignite.Internal.Table
 
                 r.Skip(propertyCount - expectedCount);
 
-                var column = new Column(name, (ColumnType)type, isNullable, isKey, colocationIndex, i, scale, precision);
-
-                columns[i] = column;
-
-                if (isKey)
-                {
-                    keyColumnCount++;
-                }
-
-                if (colocationIndex >= 0)
-                {
-                    colocationColumnCount++;
-                }
+                columns[i] = new Column(name, (ColumnType)type, isNullable, keyIndex, colocationIndex, i, scale, precision);
             }
 
-            var schema = new Schema(
-                Version: schemaVersion,
-                TableId: Id,
-                KeyColumnCount: keyColumnCount,
-                ColocationColumnCount: colocationColumnCount,
-                Columns: columns);
+            var schema = Schema.CreateInstance(schemaVersion, Id, columns);
 
             _schemas[schemaVersion] = Task.FromResult(schema);
 
