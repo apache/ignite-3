@@ -78,7 +78,7 @@ autoService = "1.1.1"
 awaitility = "4.2.0"
 progressBar = "0.9.4"
 guava = "33.0.0-jre"
-jna = "5.13.0"
+jna = "5.14.0"
 
 #Tools
 pmdTool = "6.55.0"
