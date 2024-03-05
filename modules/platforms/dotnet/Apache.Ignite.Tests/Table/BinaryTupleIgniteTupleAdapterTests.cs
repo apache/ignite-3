@@ -66,7 +66,7 @@ public class BinaryTupleIgniteTupleAdapterTests : IgniteTupleTests
     }
 
     [Test]
-    public void TestKeyOnlyReverseOrder()
+    public void TestReverseKeyColumnOrder([Values(true, false)] bool keyOnly)
     {
         var cols = new[]
         {
@@ -78,14 +78,25 @@ public class BinaryTupleIgniteTupleAdapterTests : IgniteTupleTests
 
         var schema = Schema.CreateInstance(0, 0, cols);
 
-        using var builder = new BinaryTupleBuilder(schema.KeyColumns.Count);
-        builder.AppendLong(456L);
-        builder.AppendInt(123);
+        using var builder = new BinaryTupleBuilder(schema.GetColumnsFor(keyOnly).Count);
+
+        if (keyOnly)
+        {
+            builder.AppendLong(456L);
+            builder.AppendInt(123);
+        }
+        else
+        {
+            builder.AppendString("v1");
+            builder.AppendInt(123);
+            builder.AppendGuid(Guid.NewGuid());
+            builder.AppendLong(456L);
+        }
 
         var buf = builder.Build().ToArray();
-        var keyTuple = new BinaryTupleIgniteTupleAdapter(buf, schema, keyOnly: true);
+        var keyTuple = new BinaryTupleIgniteTupleAdapter(buf, schema, keyOnly: keyOnly);
 
-        Assert.AreEqual(2, keyTuple.FieldCount);
+        Assert.AreEqual(keyOnly ? 2 : 4, keyTuple.FieldCount);
         Assert.AreEqual(123, keyTuple["key1"]);
         Assert.AreEqual(456L, keyTuple["key2"]);
     }
