@@ -17,11 +17,22 @@
 
 package org.apache.ignite.internal.catalog.sql;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.regex.Pattern;
+import org.apache.ignite.internal.util.StringUtils;
+
 /**
  * SQL identifier.
  */
 class Name extends QueryPart {
-    private final String[] names;
+    /**
+     * Pattern to find possible SQL injections in identifiers.
+     */
+    private static final Pattern PATTERN = Pattern.compile("[';\r\n\t\\s\\/]|(--[^\r\n]*)");
+
+    private final List<String> names = new ArrayList<>();
 
     /**
      * Identifier name. E.g [db, schema, table] become 'db.schema.table' or '"db"."schema"."table"' depending on DDL options.
@@ -29,7 +40,19 @@ class Name extends QueryPart {
      * @param names name parts of qualified identifier.
      */
     Name(String... names) {
-        this.names = names;
+        Objects.requireNonNull(names, "Names must not be null");
+
+        for (String name : names) {
+            if (StringUtils.nullOrBlank(name)) {
+                throw new IllegalArgumentException("Name part must not be null or blank");
+            }
+            // We need to sanitize the identifiers to prevent SQL injection.
+            // Ignite DDL doesn't have prepared statements yet which could be used instead of creating a raw query.
+            if (PATTERN.matcher(name).find()) {
+                throw new IllegalArgumentException("Name part " + name + " is invalid");
+            }
+            this.names.add(name);
+        }
     }
 
     @Override
@@ -37,10 +60,7 @@ class Name extends QueryPart {
         String quote = ctx.isQuoteNames() ? "\"" : "";
         String separator = "";
         for (String name : names) {
-            if (name == null || name.isBlank()) {
-                continue;
-            }
-            ctx.sql(separator).sql(quote).sqlSanitized(name).sql(quote);
+            ctx.sql(separator).sql(quote).sql(name).sql(quote);
             separator = ".";
         }
     }

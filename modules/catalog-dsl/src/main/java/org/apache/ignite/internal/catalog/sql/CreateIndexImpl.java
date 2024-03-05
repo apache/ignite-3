@@ -50,6 +50,7 @@ class CreateIndexImpl extends AbstractCatalogQuery {
 
     CreateIndexImpl name(String... names) {
         Objects.requireNonNull(names, "Index name must not be null.");
+
         indexName = new Name(names);
         return this;
     }

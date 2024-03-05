@@ -23,6 +23,7 @@ import org.apache.ignite.sql.IgniteSql;
 
 class DropZoneImpl extends AbstractCatalogQuery {
     private Name zoneName;
+
     private boolean ifExists;
 
     DropZoneImpl(IgniteSql sql, Options options) {

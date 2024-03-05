@@ -21,6 +21,7 @@ import static org.apache.ignite.catalog.ColumnType.INTEGER;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.endsWith;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.apache.ignite.catalog.IndexType;
 import org.apache.ignite.catalog.Options;
@@ -42,15 +43,21 @@ class CreateTableTest {
         String sql = createTable().name("public", "table1").addColumn("col1", INTEGER).toSqlString();
         assertThat(sql, is("CREATE TABLE public.table1 (col1 int);"));
 
-        sql = createTable().name("", "table;1--test\n\r\t;").addColumn("col1", INTEGER).toSqlString();
-        assertThat(sql, is("CREATE TABLE table1 (col1 int);"));
-
         // quote identifiers
         sql = createTableQuoted().name("public", "table1").addColumn("col1", INTEGER).toSqlString();
         assertThat(sql, is("CREATE TABLE \"public\".\"table1\" (\"col1\" int);"));
+    }
 
-        sql = createTableQuoted().name("", "table;1--test\n\r\t;").addColumn("col1", INTEGER).toSqlString();
-        assertThat(sql, is("CREATE TABLE \"table1\" (\"col1\" int);"));
+    @Test
+    void invalidNames() {
+        assertThrows(IllegalArgumentException.class, () -> createTable().name("", "table"));
+        assertThrows(IllegalArgumentException.class, () -> createTable().name("table", ""));
+        assertThrows(IllegalArgumentException.class, () -> createTable().name(null, "table"));
+        assertThrows(IllegalArgumentException.class, () -> createTable().name("table", null));
+        assertThrows(IllegalArgumentException.class, () -> createTable().name((String) null));
+        assertThrows(NullPointerException.class, () -> createTable().name((String[]) null));
+
+        assertThrows(IllegalArgumentException.class, () -> createTable().name("table;1--test\n\r\t;"));
     }
 
     @Test

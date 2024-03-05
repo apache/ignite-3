@@ -17,14 +17,9 @@
 
 package org.apache.ignite.internal.catalog.sql;
 
-import java.util.regex.Pattern;
 import org.apache.ignite.catalog.Options;
 
 class QueryContext {
-    /**
-     * Pattern to replace possible SQL injections in identifiers.
-     */
-    private static final Pattern PATTERN = Pattern.compile("[';\r\n\t\\s\\/]|(--[^\r\n]*)");
 
     private final Options options;
 
@@ -75,12 +70,6 @@ class QueryContext {
         sql.append(d);
         resetSeparatorFlags();
         return this;
-    }
-
-    QueryContext sqlSanitized(String s) {
-        // We need to sanitize the identifiers to prevent SQL injection.
-        // Ignite DDL doesn't have prepared statements yet which could be used instead of creating a raw query.
-        return sql(PATTERN.matcher(s).replaceAll(""));
     }
 
     QueryContext formatSeparator() {
