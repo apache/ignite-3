@@ -31,6 +31,8 @@ using NUnit.Framework;
 /// </summary>
 public class SerializerHandlerConsistencyTests
 {
+    private const int ExpectedColocationHash = 141415887;
+
     private static readonly Schema Schema = Schema.CreateInstance(
         version: 0,
         tableId: 0,
@@ -103,9 +105,10 @@ public class SerializerHandlerConsistencyTests
         var (pocoBuf, pocoHash) = Serialize(objectHandler, poco, keyOnly);
         var (pocoKvBuf, pocoKvHash) = Serialize(objectKvHandler, pocoKv, keyOnly);
 
-        Assert.AreEqual(tupleHash, tupleKvHash);
-        Assert.AreEqual(tupleHash, pocoHash);
-        Assert.AreEqual(tupleHash, pocoKvHash);
+        Assert.AreEqual(ExpectedColocationHash, tupleHash);
+        Assert.AreEqual(ExpectedColocationHash, tupleKvHash);
+        Assert.AreEqual(ExpectedColocationHash, pocoHash);
+        Assert.AreEqual(ExpectedColocationHash, pocoKvHash);
 
         CollectionAssert.AreEqual(tupleBuf, tupleKvBuf);
         CollectionAssert.AreEqual(tupleBuf, pocoBuf);
