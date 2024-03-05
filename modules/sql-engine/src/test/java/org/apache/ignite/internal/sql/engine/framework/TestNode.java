@@ -121,7 +121,7 @@ public class TestNode implements LifecycleAware {
                 nodeName, messagingService, taskExecutor, holdLock
         ));
         ExchangeService exchangeService = registerService(new ExchangeServiceImpl(
-                nodeName, mailboxRegistry, messageService, new HybridClockImpl()
+                mailboxRegistry, messageService, nodeName, new HybridClockImpl()
         ));
         ExecutionDependencyResolver dependencyResolver = new ExecutionDependencyResolverImpl(
                 tableRegistry, view -> () -> systemViewManager.scanView(view.name())

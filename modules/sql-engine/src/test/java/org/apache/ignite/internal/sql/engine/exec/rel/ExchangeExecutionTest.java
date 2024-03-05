@@ -615,17 +615,19 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
             ClusterService clusterService,
             MailboxRegistry mailboxRegistry
     ) {
+        String localNodeName = clusterService.topologyService().localMember().name();
+
         MessageService messageService = new MessageServiceImpl(
-                clusterService.topologyService().localMember().name(),
+                localNodeName,
                 clusterService.messagingService(),
                 taskExecutor,
                 new IgniteSpinBusyLock()
         );
 
         ExchangeService exchangeService = new ExchangeServiceImpl(
-                clusterService.topologyService().localMember().name(),
                 mailboxRegistry,
                 messageService,
+                localNodeName,
                 new HybridClockImpl()
         );
 

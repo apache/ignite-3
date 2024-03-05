@@ -58,20 +58,20 @@ public class ExchangeServiceImpl implements ExchangeService {
     /**
      * Creates the object.
      *
-     * @param localNodeName Local node name.
      * @param mailboxRegistry A registry of mailboxes created on the node.
      * @param messageService A messaging service to exchange messages between mailboxes.
+     * @param localNodeName Local node name.
      * @param clock Hybrid clock.
      */
     public ExchangeServiceImpl(
-            String localNodeName,
             MailboxRegistry mailboxRegistry,
             MessageService messageService,
+            String localNodeName,
             HybridClock clock
     ) {
-        this.localNodeName = localNodeName;
         this.mailboxRegistry = mailboxRegistry;
         this.messageService = messageService;
+        this.localNodeName = localNodeName;
         this.clock = clock;
     }
 

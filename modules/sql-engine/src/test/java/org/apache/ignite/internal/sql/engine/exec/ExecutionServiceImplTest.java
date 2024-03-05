@@ -45,6 +45,7 @@ import static org.mockito.ArgumentMatchers.isA;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -62,6 +63,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -72,6 +74,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.metrics.MetricManager;
@@ -177,6 +180,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     private RuntimeException mappingException;
 
     private final List<QueryTaskExecutor> executers = new ArrayList<>();
+    private final List<HybridClock> clocks = new ArrayList<>(nodeNames.size());
 
     private ClusterNode firstNode;
 
@@ -799,17 +803,54 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         assertThat(debugInfo3, equalTo(expectedOnNonCoordinator));
     }
 
+    /**
+     * Test ensures that clock is updated on query initiator node
+     * when a batch of rows is received from another node.
+     */
     @Test
     public void testClockUpdatesOnInitiator() {
-        // TODO
+        long yearDurationMs = ChronoUnit.YEARS.getDuration().toMillis();
+
+        AtomicInteger updatesCounter = new AtomicInteger();
+        HybridTimestamp maxTs = clocks.get(0).now();
+        long[] expectedPhysTimes = new long[testCluster.nodes.size()];
+
+        // Setting a different time point on each node
+        // (initiator must have the lowest time).
+        for (int i = 0; i < clocks.size(); i++) {
+            HybridClock clock = clocks.get(i);
+
+            maxTs = maxTs.addPhysicalTime(yearDurationMs);
+            expectedPhysTimes[i] = maxTs.getPhysical();
+
+            clock.update(maxTs);
+            clock.addUpdateListener(ignore -> updatesCounter.incrementAndGet());
+        }
+
+        ExecutionService execService = executionServices.get(0);
+        BaseQueryContext ctx = createContext();
+
+        QueryPlan plan = prepare("SELECT * FROM test_tbl", ctx);
+
+        InternalTransaction tx = new NoOpTransaction(nodeNames.get(0));
+        AsyncCursor<InternalSqlRow> cursor = execService.executePlan(tx, plan, ctx);
+
+        await(cursor.requestNextAsync(100));
+
+        // Clock must be updated only on initiator node.
+        expectedPhysTimes[0] = maxTs.getPhysical();
+
+        for (int i = 0; i < clocks.size(); i++) {
+            assertEquals(expectedPhysTimes[i], clocks.get(i).now().getPhysical(), "node#" + i);
+        }
+
+        assertEquals(clocks.size() - 1, updatesCounter.get());
+
+        await(cursor.closeAsync());
     }
 
     /** Creates an execution service instance for the node with given consistent id. */
-    public ExecutionServiceImpl<Object[]> create(String nodeName) {
-        return create(nodeName, new HybridClockImpl());
-    }
-
-    ExecutionServiceImpl<Object[]> create(String nodeName, HybridClock clock) {
+    ExecutionServiceImpl<Object[]> create(String nodeName) {
         if (!nodeNames.contains(nodeName)) {
             throw new IllegalArgumentException(format("Node id should be one of {}, but was '{}'", nodeNames, nodeName));
         }
@@ -825,7 +866,10 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         var mailboxRegistry = new CapturingMailboxRegistry(new MailboxRegistryImpl());
         mailboxes.add(mailboxRegistry);
 
-        var exchangeService = new ExchangeServiceImpl(nodeName, mailboxRegistry, messageService, clock);
+        HybridClockImpl clock = new HybridClockImpl();
+        clocks.add(clock);
+
+        var exchangeService = new ExchangeServiceImpl(mailboxRegistry, messageService, nodeName, clock);
 
         var schemaManagerMock = mock(SqlSchemaManager.class);
 
