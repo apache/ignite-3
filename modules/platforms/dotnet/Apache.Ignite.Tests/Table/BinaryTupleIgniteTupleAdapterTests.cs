@@ -89,7 +89,7 @@ public class BinaryTupleIgniteTupleAdapterTests : IgniteTupleTests
         {
             builder.AppendString("v1");
             builder.AppendInt(123);
-            builder.AppendGuid(Guid.NewGuid());
+            builder.AppendGuid(Guid.Empty);
             builder.AppendLong(456L);
         }
 
@@ -99,6 +99,19 @@ public class BinaryTupleIgniteTupleAdapterTests : IgniteTupleTests
         Assert.AreEqual(keyOnly ? 2 : 4, keyTuple.FieldCount);
         Assert.AreEqual(123, keyTuple["key1"]);
         Assert.AreEqual(456L, keyTuple["key2"]);
+
+        if (keyOnly)
+        {
+            Assert.AreEqual(123, keyTuple[1]);
+            Assert.AreEqual(456L, keyTuple[0]);
+        }
+        else
+        {
+            Assert.AreEqual("v1", keyTuple[0]);
+            Assert.AreEqual(123, keyTuple[1]);
+            Assert.AreEqual(Guid.Empty, keyTuple[2]);
+            Assert.AreEqual(456L, keyTuple[3]);
+        }
     }
 
     protected override string GetShortClassName() => nameof(BinaryTupleIgniteTupleAdapter);
