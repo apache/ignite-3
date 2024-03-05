@@ -38,7 +38,7 @@ public class SerializerHandlerConsistencyTests
             new Column("val1", ColumnType.String, false, KeyIndex: -1, ColocationIndex: -1, SchemaIndex: 0, 0, 0),
             new Column("key1", ColumnType.Int32, false, KeyIndex: 1, ColocationIndex: 0, SchemaIndex: 1, 0, 0),
             new Column("val2", ColumnType.Uuid, false, KeyIndex: -1, ColocationIndex: -1, SchemaIndex: 2, 0, 0),
-            new Column("key2", ColumnType.Int64, false, KeyIndex: 0, ColocationIndex: 1, SchemaIndex: 3, 0, 0)
+            new Column("key2", ColumnType.String, false, KeyIndex: 0, ColocationIndex: 1, SchemaIndex: 3, 0, 0)
         });
 
     [Test]
