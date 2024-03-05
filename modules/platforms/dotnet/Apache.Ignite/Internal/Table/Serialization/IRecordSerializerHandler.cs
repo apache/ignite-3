@@ -50,8 +50,13 @@ namespace Apache.Ignite.Internal.Table.Serialization
             var count = keyOnly ? schema.KeyColumns.Count : schema.Columns.Count;
             var noValueSet = writer.WriteBitSet(count);
 
-            // TODO: hashedColumnsPredicate depends on keyOnly.
-            var tupleBuilder = new BinaryTupleBuilder(count, hashedColumnsPredicate: computeHash ? schema : null);
+            var hashedColumnsPredicate = computeHash
+                ? keyOnly
+                    ? schema.KeyOnlyHashedColumnIndexProvider
+                    : schema.HashedColumnIndexProvider
+                : null;
+
+            var tupleBuilder = new BinaryTupleBuilder(count, hashedColumnsPredicate: hashedColumnsPredicate);
 
             try
             {

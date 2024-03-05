@@ -25,22 +25,21 @@ using Proto.BinaryTuple;
 /// </summary>
 internal sealed class HashedColumnIndexProvider : IHashedColumnIndexProvider
 {
-    private readonly Schema _schema;
     private readonly IReadOnlyList<Column> _columns;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="HashedColumnIndexProvider"/> class.
     /// </summary>
-    /// <param name="schema">Schema.</param>
-    /// <param name="keyOnly">Key only.</param>
-    public HashedColumnIndexProvider(Schema schema, bool keyOnly)
+    /// <param name="columns">Columns.</param>
+    /// <param name="hashedColumnCount">Hashed column count.</param>
+    public HashedColumnIndexProvider(IReadOnlyList<Column> columns, int hashedColumnCount)
     {
-        _schema = schema;
-        _columns = schema.GetColumnsFor(keyOnly);
+        _columns = columns;
+        HashedColumnCount = hashedColumnCount;
     }
 
     /// <inheritdoc/>
-    public int HashedColumnCount => _schema.ColocationColumnCount;
+    public int HashedColumnCount { get; init; }
 
     /// <inheritdoc/>
     public int HashedColumnOrder(int index) => _columns[index].ColocationIndex;

@@ -39,7 +39,9 @@ namespace Apache.Ignite.Internal.Table
         IReadOnlyList<Column> Columns,
         IReadOnlyList<Column> KeyColumns,
         IReadOnlyList<Column> ValColumns,
-        IReadOnlyDictionary<string, Column> ColumnsByName)
+        IReadOnlyDictionary<string, Column> ColumnsByName,
+        IHashedColumnIndexProvider HashedColumnIndexProvider,
+        IHashedColumnIndexProvider KeyOnlyHashedColumnIndexProvider)
     {
         /// <summary>
         /// Gets column by name.
@@ -90,7 +92,16 @@ namespace Apache.Ignite.Internal.Table
                 columnMap[IgniteTupleCommon.ParseColumnName(column.Name)] = column;
             }
 
-            return new Schema(version, tableId, colocationColumnCount, columns, keyColumns, valColumns, columnMap);
+            return new Schema(
+                version,
+                tableId,
+                colocationColumnCount,
+                columns,
+                keyColumns,
+                valColumns,
+                columnMap,
+                new HashedColumnIndexProvider(columns, colocationColumnCount),
+                new HashedColumnIndexProvider(keyColumns, colocationColumnCount));
         }
 
         /// <summary>
