@@ -49,6 +49,8 @@ namespace Apache.Ignite.Internal.Table.Serialization
         {
             var count = keyOnly ? schema.KeyColumns.Count : schema.Columns.Count;
             var noValueSet = writer.WriteBitSet(count);
+
+            // TODO: hashedColumnsPredicate depends on keyOnly.
             var tupleBuilder = new BinaryTupleBuilder(count, hashedColumnsPredicate: computeHash ? schema : null);
 
             try
