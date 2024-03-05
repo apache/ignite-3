@@ -298,7 +298,8 @@
   </Match>
   <Match>
     <!-- TODO: -->
-    <!-- H D UC_USELESS_CONDITION UC: Useless condition: it's known that dirty == false at this point  At RandomLruPageReplacementPolicy.java:[line 134]-->
+    <!-- H D UC_USELESS_CONDITION UC: Useless condition: it's known that dirty == false at this point
+         At RandomLruPageReplacementPolicy.java:[line 134]-->
     <Bug pattern="UC_USELESS_CONDITION"/>
     <Class name="org.apache.ignite.internal.pagememory.persistence.replacement.RandomLruPageReplacementPolicy"/>
     <Method name="replace"/>
