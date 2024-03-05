@@ -189,6 +189,7 @@ public class IgniteSort extends Sort implements IgniteRel {
         return Math.min(inputRows, fetch + offset);
     }
 
+    /** {@inheritDoc} */
     @Override public String getRelTypeName() {
         return Commons.makeRelTypeName(getClass());
     }

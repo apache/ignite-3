@@ -38,6 +38,7 @@ import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /** Relational expression that applies a limit and/or offset to its input. */
 public class IgniteLimit extends SingleRel implements IgniteRel {
@@ -194,5 +195,10 @@ public class IgniteLimit extends SingleRel implements IgniteRel {
     @Override
     public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
         return new IgniteLimit(cluster, getTraitSet(), sole(inputs), offset, fetch);
+    }
+
+    /** {@inheritDoc} */
+    @Override public String getRelTypeName() {
+        return Commons.makeRelTypeName(getClass());
     }
 }

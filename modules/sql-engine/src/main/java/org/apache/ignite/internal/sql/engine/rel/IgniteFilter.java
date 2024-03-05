@@ -107,6 +107,7 @@ public class IgniteFilter extends Filter implements TraitsAwareIgniteRel {
         return new IgniteFilter(cluster, getTraitSet(), sole(inputs), getCondition());
     }
 
+    /** {@inheritDoc} */
     @Override public String getRelTypeName() {
         return Commons.makeRelTypeName(getClass());
     }

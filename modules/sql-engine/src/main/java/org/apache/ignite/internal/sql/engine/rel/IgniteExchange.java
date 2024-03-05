@@ -105,6 +105,7 @@ public class IgniteExchange extends Exchange implements IgniteRel {
         return new IgniteExchange(cluster, getTraitSet(), sole(inputs), distribution);
     }
 
+    /** {@inheritDoc} */
     @Override public String getRelTypeName() {
         return Commons.makeRelTypeName(getClass());
     }

@@ -137,6 +137,7 @@ public class IgniteTrimExchange extends Exchange implements SourceAwareIgniteRel
         return new IgniteTrimExchange(sourceId, cluster, getTraitSet(), sole(inputs), getDistribution());
     }
 
+    /** {@inheritDoc} */
     @Override public String getRelTypeName() {
         return Commons.makeRelTypeName(getClass());
     }

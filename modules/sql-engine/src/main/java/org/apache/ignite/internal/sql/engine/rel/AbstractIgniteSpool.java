@@ -50,6 +50,7 @@ public abstract class AbstractIgniteSpool extends Spool implements IgniteRel {
                 .item("writeType", writeType.name());
     }
 
+    /** {@inheritDoc} */
     @Override public String getRelTypeName() {
         return Commons.makeRelTypeName(getClass());
     }

@@ -174,6 +174,7 @@ public abstract class IgniteReduceAggregateBase extends SingleRel implements Tra
         return mq.getRowCount(getInput());
     }
 
+    /** {@inheritDoc} */
     @Override public String getRelTypeName() {
         return Commons.makeRelTypeName(getClass());
     }

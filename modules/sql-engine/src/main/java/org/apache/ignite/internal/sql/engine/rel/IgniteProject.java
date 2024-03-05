@@ -202,6 +202,7 @@ public class IgniteProject extends Project implements TraitsAwareIgniteRel {
         return new IgniteProject(cluster, getTraitSet(), sole(inputs), getProjects(), getRowType());
     }
 
+    /** {@inheritDoc} */
     @Override public String getRelTypeName() {
         return Commons.makeRelTypeName(getClass());
     }

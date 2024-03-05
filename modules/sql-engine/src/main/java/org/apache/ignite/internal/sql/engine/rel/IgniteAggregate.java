@@ -130,6 +130,7 @@ public abstract class IgniteAggregate extends Aggregate implements IgniteRel {
         );
     }
 
+    /** {@inheritDoc} */
     @Override public String getRelTypeName() {
         return Commons.makeRelTypeName(getClass());
     }

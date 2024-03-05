@@ -149,6 +149,7 @@ public class IgniteReceiver extends AbstractRelNode implements IgniteRel {
         return new IgniteReceiver(cluster, getTraitSet(), rowType, exchangeId, sourceFragmentId, collation);
     }
 
+    /** {@inheritDoc} */
     @Override public String getRelTypeName() {
         return Commons.makeRelTypeName(getClass());
     }

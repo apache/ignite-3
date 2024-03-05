@@ -142,6 +142,7 @@ public class IgniteTableFunctionScan extends TableFunctionScan implements Source
         return ESTIMATE_ROW_COUNT;
     }
 
+    /** {@inheritDoc} */
     @Override public String getRelTypeName() {
         return Commons.makeRelTypeName(getClass());
     }
