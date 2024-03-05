@@ -762,23 +762,22 @@ public class TableManagerTest extends IgniteAbstractTest {
                 dsm = createDataStorageManager(configRegistry, workDir, storageEngineConfig),
                 workDir,
                 msm,
-                sm = new SchemaManager(revisionUpdater, catalogManager, msm),
+                sm = new SchemaManager(revisionUpdater, catalogManager),
                 budgetView -> new LocalLogStorageFactory(),
                 partitionOperationsExecutor,
                 partitionOperationsExecutor,
                 clock,
                 new OutgoingSnapshotsManager(clusterService.messagingService()),
                 mock(TopologyAwareRaftGroupServiceFactory.class),
-                vaultManager,
                 distributionZoneManager,
                 new AlwaysSyncedSchemaSyncService(),
                 catalogManager,
                 new HybridTimestampTracker(),
                 new TestPlacementDriver(node),
                 () -> mock(IgniteSql.class),
-                mock(FailureProcessor.class),
                 new RemotelyTriggeredResourceRegistry(),
-                mock(ScheduledExecutorService.class)
+                mock(ScheduledExecutorService.class),
+                new LowWatermark(NODE_NAME, gcConfig.lowWatermark(), clock, tm, vaultManager, mock(FailureProcessor.class))
         ) {
 
             @Override

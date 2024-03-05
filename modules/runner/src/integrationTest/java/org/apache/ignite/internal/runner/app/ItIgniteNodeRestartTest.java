@@ -161,6 +161,7 @@ import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.table.distributed.LowWatermark;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
@@ -505,7 +506,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 partitionIdleSafeTimePropagationPeriodMsSupplier
         );
 
-        SchemaManager schemaManager = new SchemaManager(registry, catalogManager, metaStorageMgr);
+        SchemaManager schemaManager = new SchemaManager(registry, catalogManager);
 
         var dataNodesMock = dataNodesMockByNode.get(idx);
 
@@ -534,6 +535,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var sqlRef = new AtomicReference<IgniteSqlImpl>();
 
+        LowWatermark lowWatermark = new LowWatermark(name, gcConfig.lowWatermark(), hybridClock, txManager, vault, failureProcessor);
+
         TableManager tableManager = new TableManager(
                 name,
                 registry,
@@ -557,16 +560,15 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 hybridClock,
                 new OutgoingSnapshotsManager(clusterSvc.messagingService()),
                 topologyAwareRaftGroupServiceFactory,
-                vault,
                 distributionZoneManager,
                 schemaSyncService,
                 catalogManager,
                 new HybridTimestampTracker(),
                 placementDriverManager.placementDriver(),
                 sqlRef::get,
-                failureProcessor,
                 resourcesRegistry,
-                rebalanceScheduler
+                rebalanceScheduler,
+                lowWatermark
         );
 
         var indexManager = new IndexManager(
@@ -626,6 +628,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 cmgManager,
                 replicaMgr,
                 txManager,
+                lowWatermark,
                 metaStorageMgr,
                 clusterCfgMgr,
                 dataStorageManager,
@@ -644,6 +647,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
             components.add(component);
         }
+
+        lowWatermark.scheduleUpdates();
 
         PartialNode partialNode = partialNode(
                 name,
@@ -1074,7 +1079,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * @param tableName Table name.
      */
     private void assertTablePresent(TableManager tableManager, String tableName) {
-        Collection<TableImpl> tables = tableManager.latestTables().values();
+        Collection<TableImpl> tables = tableManager.startedTables().values();
 
         boolean isPresent = false;
 

@@ -17,19 +17,24 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
+import static org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.SnapshotMetaUtils.collectNextRowIdToBuildIndexes;
+import static org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.SnapshotMetaUtils.snapshotMetaAt;
+
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.Executor;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.raft.storage.SnapshotStorageFactory;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.SnapshotMetaUtils;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Snapshot storage factory for {@link MvPartitionStorage}. Utilizes the fact that every partition already stores its latest applied index
@@ -106,10 +111,6 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
 
     @Override
     public PartitionSnapshotStorage createSnapshotStorage(String uri, RaftOptions raftOptions) {
-        SnapshotMeta startupSnapshotMeta = lastIncludedRaftIndex == 0 ? null : SnapshotMetaUtils.snapshotMetaAt(
-                lastIncludedRaftIndex, lastIncludedRaftTerm, lastIncludedConfiguration, lastCatalogVersionAtStart
-        );
-
         return new PartitionSnapshotStorage(
                 topologyService,
                 outgoingSnapshotsManager,
@@ -117,8 +118,26 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
                 raftOptions,
                 partition,
                 catalogService,
-                startupSnapshotMeta,
+                createStartupSnapshotMeta(),
                 incomingSnapshotsExecutor
         );
+    }
+
+    private @Nullable SnapshotMeta createStartupSnapshotMeta() {
+        if (lastIncludedRaftIndex == 0) {
+            return null;
+        }
+
+        return snapshotMetaAt(
+                lastIncludedRaftIndex,
+                lastIncludedRaftTerm,
+                lastIncludedConfiguration,
+                lastCatalogVersionAtStart,
+                collectNextRowIdToBuildIndexesAtStart()
+        );
+    }
+
+    private Map<Integer, UUID> collectNextRowIdToBuildIndexesAtStart() {
+        return collectNextRowIdToBuildIndexes(catalogService, partition, lastCatalogVersionAtStart);
     }
 }

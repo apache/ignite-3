@@ -53,7 +53,7 @@ struct column {
         column res{};
         res.name = reader.read_string();
         res.type = static_cast<ignite_type>(reader.read_int32());
-        res.is_key = reader.read_bool();
+        res.is_key = reader.read_int32() >= 0;
         res.nullable = reader.read_bool();
         reader.skip(); // Colocation index.
         res.scale = reader.read_int32();
