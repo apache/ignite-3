@@ -102,7 +102,7 @@ public class BinaryTupleIgniteTupleAdapterTests : IgniteTupleTests
             var name = source.GetName(i);
             var val = source[i]!;
             var type = GetColumnType(val);
-            var col = new Column(Name: name, Type: type, IsNullable: true, KeyIndex: -1, ColocationIndex: i, SchemaIndex: i, Scale: 0, Precision: 0);
+            var col = new Column(Name: name, Type: type, IsNullable: true, KeyIndex: i, ColocationIndex: i, SchemaIndex: i, Scale: 0, Precision: 0);
 
             cols.Add(col);
             builder.AppendObject(val, type);
