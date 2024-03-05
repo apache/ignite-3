@@ -68,7 +68,6 @@ import org.apache.ignite.internal.catalog.storage.UpdateLogEvent;
 import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.HybridClock;
-import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -134,15 +133,20 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     /**
      * Constructor.
      */
-    public CatalogManagerImpl(UpdateLog updateLog, ClockWaiter clockWaiter) {
-        this(updateLog, clockWaiter, DEFAULT_DELAY_DURATION, DEFAULT_PARTITION_IDLE_SAFE_TIME_PROPAGATION_PERIOD);
+    public CatalogManagerImpl(UpdateLog updateLog, ClockWaiter clockWaiter, HybridClock clock) {
+        this(updateLog, clockWaiter, DEFAULT_DELAY_DURATION, DEFAULT_PARTITION_IDLE_SAFE_TIME_PROPAGATION_PERIOD, clock);
     }
 
     /**
      * Constructor.
      */
-    CatalogManagerImpl(UpdateLog updateLog, ClockWaiter clockWaiter, long delayDurationMs, long partitionIdleSafeTimePropagationPeriod) {
-        this(updateLog, clockWaiter, () -> delayDurationMs, () -> partitionIdleSafeTimePropagationPeriod);
+    CatalogManagerImpl(UpdateLog updateLog,
+            ClockWaiter clockWaiter,
+            long delayDurationMs,
+            long partitionIdleSafeTimePropagationPeriod,
+            HybridClock clock
+    ) {
+        this(updateLog, clockWaiter, () -> delayDurationMs, () -> partitionIdleSafeTimePropagationPeriod, clock);
     }
 
     /**
@@ -152,13 +156,14 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
             UpdateLog updateLog,
             ClockWaiter clockWaiter,
             LongSupplier delayDurationMsSupplier,
-            LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier
+            LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier,
+            HybridClock clock
     ) {
         this.updateLog = updateLog;
         this.clockWaiter = clockWaiter;
         this.delayDurationMsSupplier = delayDurationMsSupplier;
         this.partitionIdleSafeTimePropagationPeriodMsSupplier = partitionIdleSafeTimePropagationPeriodMsSupplier;
-        this.clock = new HybridClockImpl();
+        this.clock = clock;
     }
 
     @Override
@@ -447,7 +452,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     public List<SystemView<?>> systemViews() {
         return List.of(
                 createSystemViewsView(),
-                createColumnsView(),
+                createSystemViewColumnsView(),
                 createZonesView(),
                 createIndexesView()
         );
@@ -653,7 +658,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                 .build();
     }
 
-    private SystemView<?> createColumnsView() {
+    private SystemView<?> createSystemViewColumnsView() {
         Iterable<ParentIdAwareDescriptor<CatalogTableColumnDescriptor>> viewData = () -> {
             Catalog catalog = catalogAt(clock.nowLong());
 
