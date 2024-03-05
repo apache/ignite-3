@@ -35,6 +35,7 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
  * Relational operator that represents DML operation (such as INSERT, UPDATE, DELETE, etc.)
  */
 public class IgniteTableModify extends TableModify implements SourceAwareIgniteRel {
+    private static final String REL_TYPE_NAME = "TableModify";
 
     private final long sourceId;
 
