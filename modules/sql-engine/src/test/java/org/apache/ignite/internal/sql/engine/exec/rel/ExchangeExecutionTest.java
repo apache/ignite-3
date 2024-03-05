@@ -41,6 +41,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
@@ -622,8 +623,10 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
         );
 
         ExchangeService exchangeService = new ExchangeServiceImpl(
+                clusterService.topologyService().localMember().name(),
                 mailboxRegistry,
-                messageService
+                messageService,
+                new HybridClockImpl()
         );
 
         messageService.start();

@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.apache.calcite.tools.Frameworks;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
@@ -120,7 +121,7 @@ public class TestNode implements LifecycleAware {
                 nodeName, messagingService, taskExecutor, holdLock
         ));
         ExchangeService exchangeService = registerService(new ExchangeServiceImpl(
-                mailboxRegistry, messageService
+                nodeName, mailboxRegistry, messageService, new HybridClockImpl()
         ));
         ExecutionDependencyResolver dependencyResolver = new ExecutionDependencyResolverImpl(
                 tableRegistry, view -> () -> systemViewManager.scanView(view.name())

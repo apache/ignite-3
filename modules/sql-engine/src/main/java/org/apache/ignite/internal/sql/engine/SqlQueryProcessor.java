@@ -292,8 +292,10 @@ public class SqlQueryProcessor implements QueryProcessor {
         ));
 
         var exchangeService = registerService(new ExchangeServiceImpl(
+                nodeName,
                 mailboxRegistry,
-                msgSrvc
+                msgSrvc,
+                clock
         ));
 
         this.prepareSvc = prepareSvc;
