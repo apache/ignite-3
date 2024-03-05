@@ -17,6 +17,10 @@
 
 namespace Apache.Ignite.Tests.Table.Serialization;
 
+using System;
+using Internal.Table.Serialization;
+using NUnit.Framework;
+
 /// <summary>
 /// Tests that different serializers produce consistent results.
 /// </summary>
@@ -26,4 +30,37 @@ public class SerializerHandlerConsistencyTests
     // * Use schema with interleaved columns
     // * Check full and key-only modes
     // * Check hashing
+    [Test]
+    public void TestConsistency()
+    {
+        var tupleHandler = TupleSerializerHandler.Instance;
+        var tupleKvHandler = TuplePairSerializerHandler.Instance;
+        var objectHandler = new ObjectSerializerHandler<Poco>();
+        var objectKvHandler = new ObjectSerializerHandler<KvPair<PocoKey, PocoVal>>();
+    }
+
+    private class Poco
+    {
+        public string? Val1 { get; set; }
+
+        public int Key1 { get; set; }
+
+        public Guid Val2 { get; set; }
+
+        public string Key2 { get; set; } = string.Empty;
+    }
+
+    private class PocoKey
+    {
+        public int Key1 { get; set; }
+
+        public string Key2 { get; set; } = string.Empty;
+    }
+
+    private class PocoVal
+    {
+        public string? Val1 { get; set; }
+
+        public Guid Val2 { get; set; }
+    }
 }
