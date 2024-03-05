@@ -71,7 +71,7 @@ public:
      * @param args Job arguments.
      * @param callback A callback called on operation completion with job execution result.
      */
-    void submit_colocated(const std::string &table_name, const ignite_tuple &key,
+    void execute_colocated_async(const std::string &table_name, const ignite_tuple &key,
         const std::vector<deployment_unit> &units, const std::string &job_class_name,
         const std::vector<primitive> &args, ignite_callback<std::optional<primitive>> callback);
 

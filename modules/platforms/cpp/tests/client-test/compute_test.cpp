@@ -133,7 +133,7 @@ TEST_F(compute_test, execute_on_specific_node) {
 }
 
 TEST_F(compute_test, execute_broadcast_one_node) {
-    auto res = m_client.get_compute().execute_broadcast({get_node(1)}, {}, NODE_NAME_JOB, {"42"});
+    auto res = m_client.get_compute().broadcast({get_node(1)}, {}, NODE_NAME_JOB, {"42"});
 
     ASSERT_EQ(res.size(), 1);
 
@@ -144,7 +144,7 @@ TEST_F(compute_test, execute_broadcast_one_node) {
 }
 
 TEST_F(compute_test, execute_broadcast_all_nodes) {
-    auto res = m_client.get_compute().execute_broadcast(get_node_set(), {}, NODE_NAME_JOB, {"42"});
+    auto res = m_client.get_compute().broadcast(get_node_set(), {}, NODE_NAME_JOB, {"42"});
 
     ASSERT_EQ(res.size(), 4);
 
@@ -206,7 +206,7 @@ TEST_F(compute_test, DISABLED_unknown_node_broadcast_throws) {
     EXPECT_THROW(
         {
             try {
-                m_client.get_compute().execute_broadcast({unknown_node}, {}, ECHO_JOB, {"unused"});
+                m_client.get_compute().broadcast({unknown_node}, {}, ECHO_JOB, {"unused"});
             } catch (const ignite_error &e) {
                 EXPECT_THAT(e.what_str(),
                     testing::HasSubstr("None of the specified nodes are present in the cluster: [random]"));
@@ -365,7 +365,7 @@ TEST_F(compute_test, execute_colocated_unknown_unit_and_version) {
 }
 
 TEST_F(compute_test, broadcast_unknown_unit_and_version) {
-    auto res = m_client.get_compute().execute_broadcast({get_node(1)}, {{"unknown", "1.2.3"}}, NODE_NAME_JOB, {});
+    auto res = m_client.get_compute().broadcast({get_node(1)}, {{"unknown", "1.2.3"}}, NODE_NAME_JOB, {});
 
     ASSERT_EQ(res.size(), 1);
 
@@ -404,7 +404,7 @@ TEST_F(compute_test, broadcast_empty_unit_name) {
     EXPECT_THROW(
         {
             try {
-                (void) m_client.get_compute().execute_broadcast({get_node(1)}, {{""}}, NODE_NAME_JOB, {});
+                (void) m_client.get_compute().broadcast({get_node(1)}, {{""}}, NODE_NAME_JOB, {});
             } catch (const ignite_error &e) {
                 EXPECT_EQ("Deployment unit name can not be empty", e.what_str());
                 throw;
@@ -417,7 +417,7 @@ TEST_F(compute_test, broadcast_empty_unit_version) {
     EXPECT_THROW(
         {
             try {
-                (void) m_client.get_compute().execute_broadcast({get_node(1)}, {{"some", ""}}, NODE_NAME_JOB, {});
+                (void) m_client.get_compute().broadcast({get_node(1)}, {{"some", ""}}, NODE_NAME_JOB, {});
             } catch (const ignite_error &e) {
                 EXPECT_EQ("Deployment unit version can not be empty", e.what_str());
                 throw;
