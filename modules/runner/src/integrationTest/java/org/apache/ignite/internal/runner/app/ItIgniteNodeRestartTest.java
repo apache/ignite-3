@@ -565,7 +565,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 schemaManager,
                 tableManager,
                 catalogManager,
-                metaStorageMgr,
                 threadPoolsManager.tableIoExecutor(),
                 registry
         );
