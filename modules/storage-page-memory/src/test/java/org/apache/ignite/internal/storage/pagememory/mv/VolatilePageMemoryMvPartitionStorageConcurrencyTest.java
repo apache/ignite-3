@@ -43,10 +43,8 @@ class VolatilePageMemoryMvPartitionStorageConcurrencyTest extends AbstractMvPart
 
     @BeforeEach
     void setUp(
-            @InjectConfiguration
-            VolatilePageMemoryStorageEngineConfiguration engineConfig,
-            @InjectConfiguration("mock.profiles.default = {engine = \"aimem\"}")
-            StorageConfiguration storageConfiguration
+            @InjectConfiguration VolatilePageMemoryStorageEngineConfiguration engineConfig,
+            @InjectConfiguration("mock.profiles.default = {engine = \"aimem\"}") StorageConfiguration storageConfiguration
     ) {
         var ioRegistry = new PageIoRegistry();
 
@@ -61,8 +59,6 @@ class VolatilePageMemoryMvPartitionStorageConcurrencyTest extends AbstractMvPart
                 new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, DEFAULT_STORAGE_PROFILE),
                 new StorageIndexDescriptorSupplier(mock(CatalogService.class))
         );
-
-        table.start();
 
         initialize(table);
     }

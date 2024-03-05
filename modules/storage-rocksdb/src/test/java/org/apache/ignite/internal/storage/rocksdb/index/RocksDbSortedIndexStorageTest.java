@@ -60,8 +60,6 @@ public class RocksDbSortedIndexStorageTest extends AbstractSortedIndexStorageTes
                 new StorageIndexDescriptorSupplier(catalogService)
         );
 
-        tableStorage.start();
-
         initialize(tableStorage);
     }
 

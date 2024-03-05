@@ -565,6 +565,22 @@ public class JraftServerImpl implements RaftServer {
         });
     }
 
+    /**
+     * Performs a {@code resetPeers} operation on raft node.
+     *
+     * @param raftNodeId Raft node ID.
+     * @param peersAndLearners New node configuration.
+     */
+    public void resetPeers(RaftNodeId raftNodeId, PeersAndLearners peersAndLearners) {
+        RaftGroupService raftGroupService = nodes.get(raftNodeId);
+
+        List<PeerId> peerIds = peersAndLearners.peers().stream().map(PeerId::fromPeer).collect(toList());
+
+        List<PeerId> learnerIds = peersAndLearners.learners().stream().map(PeerId::fromPeer).collect(toList());
+
+        raftGroupService.getRaftNode().resetPeers(new Configuration(peerIds, learnerIds));
+    }
+
     /** {@inheritDoc} */
     @Override
     public List<Peer> localPeers(ReplicationGroupId groupId) {

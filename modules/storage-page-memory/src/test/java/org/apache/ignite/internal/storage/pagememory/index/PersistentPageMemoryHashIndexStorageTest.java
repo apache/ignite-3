@@ -68,8 +68,6 @@ class PersistentPageMemoryHashIndexStorageTest extends AbstractPageMemoryHashInd
                 new StorageIndexDescriptorSupplier(catalogService)
         );
 
-        tableStorage.start();
-
         initialize(tableStorage, engineConfig.pageSize().value());
     }
 

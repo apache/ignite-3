@@ -61,8 +61,6 @@ class VolatilePageMemoryMvPartitionStorageGcTest extends AbstractMvPartitionStor
                 new StorageIndexDescriptorSupplier(mock(CatalogService.class))
         );
 
-        table.start();
-
         initialize(table);
     }
 

@@ -61,8 +61,6 @@ public class RocksDbMvPartitionStorageTest extends AbstractMvPartitionStorageTes
                 new StorageIndexDescriptorSupplier(mock(CatalogService.class))
         );
 
-        table.start();
-
         initialize(table);
     }
 

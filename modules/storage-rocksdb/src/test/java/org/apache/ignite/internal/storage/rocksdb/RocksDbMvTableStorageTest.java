@@ -147,8 +147,6 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
 
         tableStorage = createMvTableStorage();
 
-        tableStorage.start();
-
         assertThat(tableStorage.getMvPartition(PARTITION_ID), is(nullValue()));
 
         assertThat(tableStorage.createMvPartition(PARTITION_ID), willCompleteSuccessfully());

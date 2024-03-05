@@ -15,35 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.dsl;
+package org.apache.ignite.internal.network.recovery.message;
 
-import org.apache.ignite.internal.network.NetworkMessage;
+import static org.apache.ignite.internal.network.NetworkMessageTypes.PROBE_MESSAGE;
+
+import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
- * Interface for boolean conditions.
- *
- * @see Iif
- * @see SimpleCondition
- * @see CompoundCondition
+ * Sent to make sure the established channel is still alive.
  */
-public interface Condition extends NetworkMessage {
+@Transferable(PROBE_MESSAGE)
+public interface ProbeMessage extends InternalMessage {
     /**
-     * Shortcut for {@link Conditions#and(Condition, Condition)}.
-     *
-     * @param other Other condition.
-     * @return Conjunction of two conditions.
+     * A dummy field to overcome inability to send 'empty' messages.
+     * TODO: remove when IGNITE-21667 is fixed.
      */
-    default Condition and(Condition other) {
-        return Conditions.and(this, other);
-    }
-
-    /**
-     * Shortcut for {@link Conditions#or(Condition, Condition)}.
-     *
-     * @param other Other condition.
-     * @return Disjunction of two conditions.
-     */
-    default Condition or(Condition other) {
-        return Conditions.or(this, other);
-    }
+    byte dummy();
 }

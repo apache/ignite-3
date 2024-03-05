@@ -232,8 +232,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             return;
         }
 
-        String senderConsistentId = sender.name();
-
         assert correlationId != null;
 
         ReplicaRequest request = (ReplicaRequest) message;
@@ -242,9 +240,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         // and writes.
         // But if this is a local call (in the same Ignite instance), we might still be in a thread that does not have those permissions.
         if (currentThreadCannotDoStorageReadsAndWrites()) {
-            requestsExecutor.execute(() -> handleReplicaRequest(request, senderConsistentId, correlationId));
+            requestsExecutor.execute(() -> handleReplicaRequest(request, sender, correlationId));
         } else {
-            handleReplicaRequest(request, senderConsistentId, correlationId);
+            handleReplicaRequest(request, sender, correlationId);
         }
     }
 
@@ -258,7 +256,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         }
     }
 
-    private void handleReplicaRequest(ReplicaRequest request, String senderConsistentId, @Nullable Long correlationId) {
+    private void handleReplicaRequest(ReplicaRequest request, ClusterNode sender, @Nullable Long correlationId) {
         if (!busyLock.enterBusy()) {
             if (LOG.isInfoEnabled()) {
                 LOG.info("Failed to process replica request (the node is stopping) [request={}].", request);
@@ -266,6 +264,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
             return;
         }
+
+        String senderConsistentId = sender.name();
 
         try {
             // Notify the sender that the Replica is created and ready to process requests.
@@ -316,11 +316,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
             // replicaFut is always completed here.
             Replica replica = replicaFut.join();
-
-            // TODO IGNITE-20296 Id of the node should come along with the message itself.
-            ClusterNode sender = clusterNetSvc.topologyService().getByConsistentId(senderConsistentId);
-
-            assert sender != null : "The sender is undefined (should be fixed by https://issues.apache.org/jira/browse/IGNITE-20296 )";
 
             String senderId = sender.id();
 

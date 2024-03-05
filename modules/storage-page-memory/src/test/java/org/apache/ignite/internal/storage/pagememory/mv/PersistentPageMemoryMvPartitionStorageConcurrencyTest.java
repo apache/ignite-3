@@ -68,8 +68,6 @@ class PersistentPageMemoryMvPartitionStorageConcurrencyTest extends AbstractMvPa
                 new StorageIndexDescriptorSupplier(mock(CatalogService.class))
         );
 
-        table.start();
-
         initialize(table);
     }
 

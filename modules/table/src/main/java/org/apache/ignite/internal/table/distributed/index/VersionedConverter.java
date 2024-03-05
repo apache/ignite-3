@@ -15,35 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.dsl;
+package org.apache.ignite.internal.table.distributed.index;
 
-import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.ColumnsExtractor;
 
 /**
- * Interface for boolean conditions.
- *
- * @see Iif
- * @see SimpleCondition
- * @see CompoundCondition
+ * Convenient wrapper which glues together a function which actually converts one row to another, and a version of the schema the function
+ * was build upon.
  */
-public interface Condition extends NetworkMessage {
-    /**
-     * Shortcut for {@link Conditions#and(Condition, Condition)}.
-     *
-     * @param other Other condition.
-     * @return Conjunction of two conditions.
-     */
-    default Condition and(Condition other) {
-        return Conditions.and(this, other);
+class VersionedConverter implements ColumnsExtractor {
+    private final int version;
+
+    private final ColumnsExtractor delegate;
+
+    VersionedConverter(int version, ColumnsExtractor delegate) {
+        this.version = version;
+        this.delegate = delegate;
     }
 
-    /**
-     * Shortcut for {@link Conditions#or(Condition, Condition)}.
-     *
-     * @param other Other condition.
-     * @return Disjunction of two conditions.
-     */
-    default Condition or(Condition other) {
-        return Conditions.or(this, other);
+    @Override
+    public BinaryTuple extractColumns(BinaryRow row) {
+        return delegate.extractColumns(row);
+    }
+
+    int version() {
+        return version;
     }
 }

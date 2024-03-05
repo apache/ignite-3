@@ -19,6 +19,7 @@ package org.apache.ignite.internal.network.netty;
 
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.handler.codec.DecoderException;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -78,13 +79,25 @@ public class HandshakeHandler extends ChannelInboundHandlerAdapter {
 
         manager.localHandshakeFuture().whenComplete((unused, throwable) -> {
             if (throwable != null) {
-                LOG.debug("Error when performing handshake", throwable);
+                if (unexpectedException(throwable)) {
+                    LOG.error("Error when performing handshake", throwable);
+                } else {
+                    LOG.debug("Error when performing handshake", throwable);
+                }
 
                 ctx.close();
             }
         });
 
         ctx.fireChannelActive();
+    }
+
+    private static boolean unexpectedException(Throwable ex) {
+        return ex instanceof Error
+                || ex instanceof DecoderException
+                || ex instanceof NullPointerException
+                || ex instanceof IllegalArgumentException
+                || ex instanceof IllegalStateException;
     }
 
     /** {@inheritDoc} */

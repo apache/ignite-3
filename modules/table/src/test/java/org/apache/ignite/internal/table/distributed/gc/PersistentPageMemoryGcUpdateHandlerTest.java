@@ -78,8 +78,6 @@ class PersistentPageMemoryGcUpdateHandlerTest extends AbstractGcUpdateHandlerTes
                 new StorageIndexDescriptorSupplier(mock(CatalogService.class))
         );
 
-        table.start();
-
         initialize(table);
     }
 

@@ -60,8 +60,6 @@ public class RocksDbHashIndexStorageTest extends AbstractHashIndexStorageTest {
                 new StorageIndexDescriptorSupplier(catalogService)
         );
 
-        tableStorage.start();
-
         initialize(tableStorage);
     }
 

@@ -73,8 +73,6 @@ class PersistentPageMemorySortedIndexStorageTest extends AbstractPageMemorySorte
                 new StorageIndexDescriptorSupplier(catalogService)
         );
 
-        tableStorage.start();
-
         initialize(tableStorage, engineConfig.pageSize().value());
     }
 
