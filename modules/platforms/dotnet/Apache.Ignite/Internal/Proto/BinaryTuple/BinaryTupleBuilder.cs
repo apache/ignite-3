@@ -113,6 +113,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 hash = HashUtils.Combine(hash, colHash);
             }
 
+            // TODO: Remove
             Console.WriteLine("hash: " + hash);
 
             return hash;
@@ -1307,7 +1308,9 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             Debug.Assert(index >= 0, "index >= 0");
             Debug.Assert(index < _hashedColumnsPredicate.HashedColumnCount, "index < _hashedColumnsPredicate.HashedColumnCount");
 
+            // TODO: Remove
             Console.WriteLine($"PutHash: index={index}, hash={hash}");
+
             GetHashSpan()[index] = hash;
         }
 
