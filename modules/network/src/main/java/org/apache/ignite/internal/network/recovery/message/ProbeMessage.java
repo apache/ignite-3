@@ -15,16 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.raft.snapshot.message;
+package org.apache.ignite.internal.network.recovery.message;
 
-import org.apache.ignite.internal.network.NetworkMessage;
+import static org.apache.ignite.internal.network.NetworkMessageTypes.PROBE_MESSAGE;
+
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 
-/** Snapshot meta response message. */
-@Transferable(TableMessageGroup.SNAPSHOT_META_RESPONSE)
-public interface SnapshotMetaResponse extends NetworkMessage {
-    /** Snapshot meta. */
-    SnapshotMeta meta();
+/**
+ * Sent to make sure the established channel is still alive.
+ */
+@Transferable(PROBE_MESSAGE)
+public interface ProbeMessage extends InternalMessage {
+    /**
+     * A dummy field to overcome inability to send 'empty' messages.
+     * TODO: remove when IGNITE-21667 is fixed.
+     */
+    byte dummy();
 }

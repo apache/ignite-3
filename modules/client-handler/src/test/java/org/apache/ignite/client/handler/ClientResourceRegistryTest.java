@@ -15,6 +15,8 @@
  * limitations under the License.
  */
 
+package org.apache.ignite.client.handler;
+
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -22,8 +24,6 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.concurrent.atomic.AtomicLong;
-import org.apache.ignite.client.handler.ClientResource;
-import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.junit.jupiter.api.Test;

@@ -20,12 +20,17 @@ package org.apache.ignite.internal.table.distributed.raft.snapshot.incoming;
 import static java.util.concurrent.CompletableFuture.anyOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.table.distributed.schema.CatalogVersionSufficiency.isMetadataAvailableFor;
+import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -157,7 +162,8 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                             assert snapshotSender != null;
 
                             return loadSnapshotMvData(snapshotSender, executor)
-                                    .thenCompose(unused1 -> loadSnapshotTxData(snapshotSender, executor));
+                                    .thenCompose(unused1 -> loadSnapshotTxData(snapshotSender, executor))
+                                    .thenRunAsync(this::setNextRowIdToBuildIndexes, executor);
                         });
             } else {
                 return nullCompletedFuture();
@@ -504,6 +510,25 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         } else {
             // Writes committed version.
             partition.addWriteCommitted(rowId, binaryRow, hybridTimestamp(entry.timestamps()[i]), snapshotCatalogVersion);
+        }
+    }
+
+    private void setNextRowIdToBuildIndexes() {
+        if (!busyLock.enterBusy()) {
+            return;
+        }
+
+        try {
+            Map<Integer, UUID> nextRowIdToBuildByIndexId = snapshotMeta.nextRowIdToBuildByIndexId();
+
+            if (!nullOrEmpty(nextRowIdToBuildByIndexId)) {
+                Map<Integer, RowId> nextRowIdToBuildByIndexId0 = nextRowIdToBuildByIndexId.entrySet().stream()
+                        .collect(toMap(Entry::getKey, e -> new RowId(partId(), e.getValue())));
+
+                partitionSnapshotStorage.partition().setNextRowIdToBuildIndex(nextRowIdToBuildByIndexId0);
+            }
+        } finally {
+            busyLock.leaveBusy();
         }
     }
 }

@@ -55,6 +55,7 @@ import org.apache.ignite.internal.network.recovery.message.HandshakeRejectedMess
 import org.apache.ignite.internal.network.recovery.message.HandshakeRejectionReason;
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartMessage;
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartResponseMessage;
+import org.apache.ignite.internal.network.recovery.message.ProbeMessage;
 import org.apache.ignite.network.ClusterNode;
 
 /**
@@ -181,6 +182,11 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
     /** {@inheritDoc} */
     @Override
     public void onMessage(NetworkMessage message) {
+        if (message instanceof ProbeMessage) {
+            // No action required, just ignore it.
+            return;
+        }
+
         if (message instanceof HandshakeRejectedMessage) {
             onHandshakeRejectedMessage((HandshakeRejectedMessage) message);
 
@@ -420,7 +426,7 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
      * @return New message handler.
      */
     private MessageHandler createMessageHandler() {
-        return handler.createMessageHandler(remoteNode.id(), remoteNode.name(), remoteChannelId);
+        return handler.createMessageHandler(remoteNode, remoteChannelId);
     }
 
     /** {@inheritDoc} */

@@ -15,16 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.raft.snapshot.message;
+package org.apache.ignite.internal.client.compute;
 
-import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.client.PayloadInputChannel;
 
-/** Snapshot meta response message. */
-@Transferable(TableMessageGroup.SNAPSHOT_META_RESPONSE)
-public interface SnapshotMetaResponse extends NetworkMessage {
-    /** Snapshot meta. */
-    SnapshotMeta meta();
+/**
+ * Result of the job submission. Contains unpacked job id and notification future.
+ */
+class SubmitResult {
+    private final UUID jobId;
+    private final CompletableFuture<PayloadInputChannel> notificationFuture;
+
+    SubmitResult(UUID jobId, CompletableFuture<PayloadInputChannel> notificationFuture) {
+        this.jobId = jobId;
+        this.notificationFuture = notificationFuture;
+    }
+
+    UUID jobId() {
+        return jobId;
+    }
+
+    CompletableFuture<PayloadInputChannel> notificationFuture() {
+        return notificationFuture;
+    }
 }

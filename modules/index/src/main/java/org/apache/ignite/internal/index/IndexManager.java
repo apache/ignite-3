@@ -25,14 +25,13 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 
-import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
-import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
-import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BiConsumer;
@@ -106,8 +105,11 @@ public class IndexManager implements IgniteComponent {
     /** Versioned value used only at the start of the manager. */
     private final IncrementalVersionedValue<Void> startVv;
 
-    /** Version value of multi-version table storages by ID for which indexes were created. */
-    private final IncrementalVersionedValue<Int2ObjectMap<MvTableStorage>> mvTableStoragesByIdVv;
+    /** Versioned value for linearizing index partition changing events. */
+    private final IncrementalVersionedValue<Void> tableStoragesVv;
+
+    /** Table storages by ID for which indexes were created. */
+    private final Map<Integer, MvTableStorage> tableStoragesById = new ConcurrentHashMap<>();
 
     /**
      * Constructor.
@@ -132,7 +134,7 @@ public class IndexManager implements IgniteComponent {
         this.ioExecutor = ioExecutor;
 
         startVv = new IncrementalVersionedValue<>(registry);
-        mvTableStoragesByIdVv = new IncrementalVersionedValue<>(registry, Int2ObjectMaps::emptyMap);
+        tableStoragesVv = new IncrementalVersionedValue<>(registry);
     }
 
     @Override
@@ -179,7 +181,7 @@ public class IndexManager implements IgniteComponent {
      *      parameters.
      */
     CompletableFuture<MvTableStorage> getMvTableStorage(long causalityToken, int tableId) {
-        return mvTableStoragesByIdVv.get(causalityToken).thenApply(mvTableStoragesById -> mvTableStoragesById.get(tableId));
+        return tableStoragesVv.get(causalityToken).thenApply(ignore -> tableStoragesById.get(tableId));
     }
 
     private CompletableFuture<Boolean> onIndexDestroy(DestroyIndexEventParameters parameters) {
@@ -190,16 +192,14 @@ public class IndexManager implements IgniteComponent {
 
         CompletableFuture<TableViewInternal> tableFuture = tableManager.tableAsync(causalityToken, tableId);
 
-        return inBusyLockAsync(busyLock, () -> mvTableStoragesByIdVv.update(
+        return inBusyLockAsync(busyLock, () -> tableStoragesVv.update(
                 causalityToken,
-                updater(mvTableStorageById -> tableFuture.thenApply(table -> inBusyLock(busyLock, () -> {
+                updater(ignore -> tableFuture.thenAccept(table -> inBusyLock(busyLock, () -> {
                     if (table != null) {
                         // In case of DROP TABLE the table will be removed first.
                         table.unregisterIndex(indexId);
-
-                        return mvTableStorageById;
                     } else {
-                        return removeMvTableStorageIfPresent(mvTableStorageById, tableId);
+                        tableStoragesById.remove(tableId);
                     }
                 })))
         )).thenApply(unused -> false);
@@ -349,13 +349,17 @@ public class IndexManager implements IgniteComponent {
 
         CompletableFuture<SchemaRegistry> schemaRegistryFuture = schemaManager.schemaRegistry(causalityToken, tableId);
 
-        return mvTableStoragesByIdVv.update(
+        return tableStoragesVv.update(
                 causalityToken,
-                updater(mvTableStorageById -> tablePartitionFuture.thenCombineAsync(schemaRegistryFuture,
+                updater(ignore -> tablePartitionFuture.thenCombineAsync(schemaRegistryFuture,
                         (partitionSet, schemaRegistry) -> inBusyLock(busyLock, () -> {
                             registerIndex(table, index, partitionSet, schemaRegistry);
 
-                            return addMvTableStorageIfAbsent(mvTableStorageById, getTableViewStrict(tableId).internalTable().storage());
+                            MvTableStorage storage = getTableViewStrict(tableId).internalTable().storage();
+
+                            tableStoragesById.putIfAbsent(tableId, storage);
+
+                            return null;
                         }), ioExecutor))
         );
     }
@@ -391,38 +395,6 @@ public class IndexManager implements IgniteComponent {
                     partitionSet
             );
         }
-    }
-
-    private static Int2ObjectMap<MvTableStorage> addMvTableStorageIfAbsent(
-            Int2ObjectMap<MvTableStorage> mvTableStorageById,
-            MvTableStorage mvTableStorage
-    ) {
-        int tableId = mvTableStorage.getTableDescriptor().getId();
-
-        if (mvTableStorageById.containsKey(tableId)) {
-            return mvTableStorageById;
-        }
-
-        Int2ObjectMap<MvTableStorage> newMap = new Int2ObjectOpenHashMap<>(mvTableStorageById);
-
-        newMap.put(tableId, mvTableStorage);
-
-        return newMap;
-    }
-
-    private static Int2ObjectMap<MvTableStorage> removeMvTableStorageIfPresent(
-            Int2ObjectMap<MvTableStorage> mvTableStorageById,
-            int tableId
-    ) {
-        if (!mvTableStorageById.containsKey(tableId)) {
-            return mvTableStorageById;
-        }
-
-        Int2ObjectMap<MvTableStorage> newMap = new Int2ObjectOpenHashMap<>(mvTableStorageById);
-
-        newMap.remove(tableId);
-
-        return newMap;
     }
 
     private TableViewInternal getTableViewStrict(int tableId) {

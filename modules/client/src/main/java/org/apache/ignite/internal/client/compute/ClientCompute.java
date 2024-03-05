@@ -85,7 +85,7 @@ public class ClientCompute implements IgniteCompute {
 
     /** {@inheritDoc} */
     @Override
-    public <R> JobExecution<R> executeAsync(
+    public <R> JobExecution<R> submit(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
@@ -113,7 +113,7 @@ public class ClientCompute implements IgniteCompute {
             Object... args
     ) {
         try {
-            return this.<R>executeAsync(nodes, units, jobClassName, options, args).resultAsync().join();
+            return this.<R>submit(nodes, units, jobClassName, options, args).resultAsync().join();
         } catch (CompletionException e) {
             throw ExceptionUtils.sneakyThrow(ClientUtils.ensurePublicException(e));
         }
@@ -121,7 +121,7 @@ public class ClientCompute implements IgniteCompute {
 
     /** {@inheritDoc} */
     @Override
-    public <R> JobExecution<R> executeColocatedAsync(
+    public <R> JobExecution<R> submitColocated(
             String tableName,
             Tuple key,
             List<DeploymentUnit> units,
@@ -140,7 +140,7 @@ public class ClientCompute implements IgniteCompute {
 
     /** {@inheritDoc} */
     @Override
-    public <K, R> JobExecution<R> executeColocatedAsync(
+    public <K, R> JobExecution<R> submitColocated(
             String tableName,
             K key,
             Mapper<K> keyMapper,
@@ -159,7 +159,7 @@ public class ClientCompute implements IgniteCompute {
         return new ClientJobExecution<>(ch, doExecuteColocatedAsync(tableName, key, keyMapper, units, jobClassName, options, args));
     }
 
-    private CompletableFuture<PayloadInputChannel> doExecuteColocatedAsync(
+    private CompletableFuture<SubmitResult> doExecuteColocatedAsync(
             String tableName,
             Tuple key,
             List<DeploymentUnit> units,
@@ -178,7 +178,7 @@ public class ClientCompute implements IgniteCompute {
                 .thenCompose(Function.identity());
     }
 
-    private <K> CompletableFuture<PayloadInputChannel> doExecuteColocatedAsync(
+    private <K> CompletableFuture<SubmitResult> doExecuteColocatedAsync(
             String tableName,
             K key,
             Mapper<K> keyMapper,
@@ -209,7 +209,7 @@ public class ClientCompute implements IgniteCompute {
             Object... args
     ) {
         try {
-            return this.<R>executeColocatedAsync(tableName, key, units, jobClassName, options, args).resultAsync().join();
+            return this.<R>submitColocated(tableName, key, units, jobClassName, options, args).resultAsync().join();
         } catch (CompletionException e) {
             throw ExceptionUtils.sneakyThrow(ClientUtils.ensurePublicException(e));
         }
@@ -227,7 +227,7 @@ public class ClientCompute implements IgniteCompute {
             Object... args
     ) {
         try {
-            return this.<K, R>executeColocatedAsync(tableName, key, keyMapper, units, jobClassName, options, args).resultAsync().join();
+            return this.<K, R>submitColocated(tableName, key, keyMapper, units, jobClassName, options, args).resultAsync().join();
         } catch (CompletionException e) {
             throw ExceptionUtils.sneakyThrow(ClientUtils.ensurePublicException(e));
         }
@@ -235,7 +235,7 @@ public class ClientCompute implements IgniteCompute {
 
     /** {@inheritDoc} */
     @Override
-    public <R> Map<ClusterNode, JobExecution<R>> broadcastAsync(
+    public <R> Map<ClusterNode, JobExecution<R>> submitBroadcast(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
@@ -261,7 +261,7 @@ public class ClientCompute implements IgniteCompute {
         return map;
     }
 
-    private CompletableFuture<PayloadInputChannel> executeOnNodesAsync(
+    private CompletableFuture<SubmitResult> executeOnNodesAsync(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
@@ -276,10 +276,11 @@ public class ClientCompute implements IgniteCompute {
                     packNodeNames(w.out(), nodes);
                     packJob(w.out(), units, jobClassName, options, args);
                 },
-                ch -> ch,
+                ClientCompute::unpackSubmitResult,
                 node.name(),
                 null,
-                true);
+                true
+        );
     }
 
     private static ClusterNode randomNode(Set<ClusterNode> nodes) {
@@ -297,7 +298,7 @@ public class ClientCompute implements IgniteCompute {
         return iterator.next();
     }
 
-    private static <K> CompletableFuture<PayloadInputChannel> executeColocatedObjectKey(
+    private static <K> CompletableFuture<SubmitResult> executeColocatedObjectKey(
             ClientTable t,
             K key,
             Mapper<K> keyMapper,
@@ -315,7 +316,7 @@ public class ClientCompute implements IgniteCompute {
                 args);
     }
 
-    private static CompletableFuture<PayloadInputChannel> executeColocatedTupleKey(
+    private static CompletableFuture<SubmitResult> executeColocatedTupleKey(
             ClientTable t,
             Tuple key,
             List<DeploymentUnit> units,
@@ -332,7 +333,7 @@ public class ClientCompute implements IgniteCompute {
                 args);
     }
 
-    private static CompletableFuture<PayloadInputChannel> executeColocatedInternal(
+    private static CompletableFuture<SubmitResult> executeColocatedInternal(
             ClientTable t,
             BiConsumer<PayloadOutputChannel, ClientSchema> keyWriter,
             PartitionAwarenessProvider partitionAwarenessProvider,
@@ -352,7 +353,7 @@ public class ClientCompute implements IgniteCompute {
 
                     packJob(w, units, jobClassName, options, args);
                 },
-                ch -> ch,
+                ClientCompute::unpackSubmitResult,
                 partitionAwarenessProvider,
                 true);
     }
@@ -377,11 +378,11 @@ public class ClientCompute implements IgniteCompute {
         });
     }
 
-    private CompletableFuture<PayloadInputChannel> handleMissingTable(
+    private CompletableFuture<SubmitResult> handleMissingTable(
             String tableName,
-            PayloadInputChannel res,
+            SubmitResult res,
             Throwable err,
-            Supplier<CompletableFuture<PayloadInputChannel>> retry
+            Supplier<CompletableFuture<SubmitResult>> retry
     ) {
         if (err instanceof CompletionException) {
             err = err.getCause();
@@ -427,5 +428,16 @@ public class ClientCompute implements IgniteCompute {
         w.packInt(options.priority());
         w.packInt(options.maxRetries());
         w.packObjectArrayAsBinaryTuple(args);
+    }
+
+    /**
+     * Unpacks job id from channel and gets notification future. This is needed because we need to unpack message response in the payload
+     * reader because the unpacker will be closed after the response is processed.
+     *
+     * @param ch Payload channel.
+     * @return Result of the job submission.
+     */
+    private static SubmitResult unpackSubmitResult(PayloadInputChannel ch) {
+        return new SubmitResult(ch.in().unpackUuid(), ch.notificationFuture());
     }
 }

@@ -15,16 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.raft.snapshot.message;
+package org.apache.ignite.internal.table.distributed;
 
-import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.table.distributed.TableMessageGroup;
-import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 
-/** Snapshot meta response message. */
-@Transferable(TableMessageGroup.SNAPSHOT_META_RESPONSE)
-public interface SnapshotMetaResponse extends NetworkMessage {
-    /** Snapshot meta. */
-    SnapshotMeta meta();
+/**
+ * LWM event listener interface.
+ *
+ * @see LowWatermark
+ */
+@FunctionalInterface
+public interface LowWatermarkChangedListener {
+    /**
+     * Low watermark changed callback.
+     *
+     * @param ts New low watermark.
+     * @return A future, which completes after the event has been processed.
+     */
+    CompletableFuture<Void> onLwmChanged(HybridTimestamp ts);
 }
