@@ -104,6 +104,7 @@ import org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropTable;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropZone;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlIndexType;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlPrimaryKeyConstraint;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlPrimaryKeyIndexType;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOption;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
@@ -305,7 +306,7 @@ public class DdlSqlToCommandConverter {
             SqlIdentifier colName = new SqlIdentifier(Commons.IMPLICIT_PK_COL_NAME, SqlParserPos.ZERO);
 
             pkConstraints.add(new IgniteSqlPrimaryKeyConstraint(SqlParserPos.ZERO, null, SqlNodeList.of(colName),
-                    IgniteSqlIndexType.IMPLICIT_TREE));
+                    IgniteSqlPrimaryKeyIndexType.IMPLICIT_HASH));
 
             SqlDataTypeSpec type = new SqlDataTypeSpec(new SqlBasicTypeNameSpec(SqlTypeName.VARCHAR, SqlParserPos.ZERO), SqlParserPos.ZERO);
             SqlNode col = SqlDdlNodes.column(SqlParserPos.ZERO, colName, type, null, ColumnStrategy.DEFAULT);
@@ -321,6 +322,7 @@ public class DdlSqlToCommandConverter {
                     + "querySql=\"" + ctx.query() + "\"]");
         }
 
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-21673 Remove dedupSetPk after this issue is fixed.
         Set<String> dedupSetPk;
         List<String> pkColumns;
 
@@ -570,6 +572,7 @@ public class DdlSqlToCommandConverter {
 
             String columnName = ((SqlIdentifier) col).getSimple();
             columns.add(columnName);
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-21673 Remove dedupSetPk after this issue is fixed.
             if (dedup != null && !dedup.add(columnName)) {
                 continue;
             }
@@ -872,12 +875,12 @@ public class DdlSqlToCommandConverter {
         }
     }
 
-    private PrimaryKeyIndexType convertPrimaryIndexType(IgniteSqlIndexType type) {
+    private PrimaryKeyIndexType convertPrimaryIndexType(IgniteSqlPrimaryKeyIndexType type) {
         switch (type) {
-            case TREE:
-            case IMPLICIT_TREE:
+            case SORTED:
                 return PrimaryKeyIndexType.SORTED;
             case HASH:
+            case IMPLICIT_HASH:
                 return PrimaryKeyIndexType.HASH;
             default:
                 throw new AssertionError("Unknown index type [type=" + type + "]");

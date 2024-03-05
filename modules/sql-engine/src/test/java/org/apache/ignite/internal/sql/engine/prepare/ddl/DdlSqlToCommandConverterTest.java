@@ -42,7 +42,6 @@ import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -198,7 +197,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
                 hasItem(Commons.IMPLICIT_PK_COL_NAME)
         );
 
-        assertEquals(createTable.primaryIndexType(), PrimaryKeyIndexType.SORTED);
+        assertEquals(createTable.primaryIndexType(), PrimaryKeyIndexType.HASH);
     }
 
     @ParameterizedTest
@@ -207,7 +206,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
             "DESC, DESC_NULLS_FIRST"
     })
     public void tableWithSortedPk(String sqlCol, Collation collation) throws SqlParseException {
-        String query = format("CREATE TABLE t (id int, val int, PRIMARY KEY USING TREE (id {}))", sqlCol);
+        String query = format("CREATE TABLE t (id int, val int, PRIMARY KEY USING SORTED (id {}))", sqlCol);
         var node = parse(query);
 
         assertThat(node, instanceOf(SqlDdl.class));
@@ -254,39 +253,6 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         assertEquals(createTable.primaryIndexType(), PrimaryKeyIndexType.HASH);
         assertEquals(createTable.primaryKeyColumns(), List.of("ID"));
         assertEquals(createTable.primaryKeyCollations(), Collections.emptyList());
-    }
-
-    @ParameterizedTest
-    @CsvSource({
-            "ASC, ASC_NULLS_LAST",
-            "DESC, DESC_NULLS_FIRST",
-    })
-    public void indexTree(String sqlCol, Collation collation) throws SqlParseException {
-        String query = format("CREATE INDEX t_idx ON t USING TREE (id {}) ", sqlCol);
-        var node = parse(query);
-
-        assertThat(node, instanceOf(SqlDdl.class));
-        DdlCommand command = converter.convert((SqlDdl) node, createContext());
-        CreateIndexCommand createIndex = assertInstanceOf(CreateIndexCommand.class, command);
-
-        assertEquals(createIndex.indexName(), "T_IDX");
-        assertEquals(createIndex.tableName(), "T");
-        assertEquals(createIndex.columns(), List.of("ID"));
-        assertEquals(createIndex.collations(), List.of(collation));
-    }
-
-    @Test
-    public void indexHash() throws SqlParseException {
-        var node = parse("CREATE INDEX t_idx ON t USING HASH (id1, id2)");
-
-        assertThat(node, instanceOf(SqlDdl.class));
-        DdlCommand command = converter.convert((SqlDdl) node, createContext());
-        CreateIndexCommand createIndex = assertInstanceOf(CreateIndexCommand.class, command);
-
-        assertEquals(createIndex.indexName(), "T_IDX");
-        assertEquals(createIndex.tableName(), "T");
-        assertEquals(createIndex.columns(), List.of("ID1", "ID2"));
-        assertEquals(createIndex.collations(), Collections.emptyList());
     }
 
     @SuppressWarnings({"ThrowableNotThrown"})

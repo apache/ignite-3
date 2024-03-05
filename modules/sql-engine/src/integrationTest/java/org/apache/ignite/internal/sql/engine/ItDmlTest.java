@@ -723,12 +723,14 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
             "id2,id1; id2,id1",
     }, delimiter = ';')
     void insertGetDeleteComplexKey(String pkDefinition, String colocateByDefinition) {
+        // We are using hash indexes here to make plans across all given pkDefinition stable.
+        // Because by default index is sorted and using a sorted index can be cheaper than a table scan,
         sql(format(
-                "CREATE TABLE test1 (id1 INT, id2 INT, val INT, PRIMARY KEY ({})) COLOCATE BY ({})",
+                "CREATE TABLE test1 (id1 INT, id2 INT, val INT, PRIMARY KEY USING HASH ({})) COLOCATE BY ({})",
                 pkDefinition, colocateByDefinition
         ));
         sql(format(
-                "CREATE TABLE test2 (id1 INT, id2 INT, val INT, PRIMARY KEY ({})) COLOCATE BY ({})",
+                "CREATE TABLE test2 (id1 INT, id2 INT, val INT, PRIMARY KEY USING HASH ({})) COLOCATE BY ({})",
                 pkDefinition, colocateByDefinition
         ));
 

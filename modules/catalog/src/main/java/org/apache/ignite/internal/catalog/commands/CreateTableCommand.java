@@ -251,21 +251,6 @@ public class CreateTableCommand extends AbstractTableCommand {
         }
 
         @Override
-        public CreateTableCommandBuilder primaryKeyColumns(List<String> primaryKeyColumns) {
-            CatalogPrimaryKey pk;
-
-            if (primaryKeyColumns == null) {
-                pk = CatalogHashPrimaryKey.builder().build();
-            } else {
-                pk = CatalogHashPrimaryKey.builder()
-                        .columns(primaryKeyColumns)
-                        .build();
-            }
-
-            return primaryKey(pk);
-        }
-
-        @Override
         public CreateTableCommandBuilder primaryKey(CatalogPrimaryKey primaryKey) {
             this.primaryKey = primaryKey;
 

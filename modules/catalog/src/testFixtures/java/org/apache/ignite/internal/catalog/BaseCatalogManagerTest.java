@@ -33,6 +33,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.catalog.commands.CatalogHashPrimaryKey;
+import org.apache.ignite.internal.catalog.commands.CatalogPrimaryKey;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexCommand;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexCommand;
@@ -190,12 +192,16 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
             List<ColumnParams> columns,
             List<String> primaryKeys, @Nullable List<String> colocationColumns) {
 
+        CatalogPrimaryKey primaryKey = CatalogHashPrimaryKey.builder()
+                .columns(primaryKeys)
+                .build();
+
         return CreateTableCommand.builder()
                 .schemaName(DEFAULT_SCHEMA_NAME)
                 .zone(DEFAULT_ZONE_NAME)
                 .tableName(tableName)
                 .columns(columns)
-                .primaryKeyColumns(primaryKeys)
+                .primaryKey(primaryKey)
                 .colocationColumns(colocationColumns);
     }
 

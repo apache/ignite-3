@@ -102,25 +102,9 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
         );
     }
 
-    @ParameterizedTest(name = "[{index}] {argumentsWithNames}")
-    @MethodSource("nullAndEmptyLists")
-    void tableShouldHaveAtLeastOnePrimaryKeyColumn(List<String> columns) {
-        CreateTableCommandBuilder builder = CreateTableCommand.builder();
-
-        builder = fillProperties(builder);
-
-        builder.primaryKeyColumns(columns);
-
-        assertThrowsWithCause(
-                builder::build,
-                CatalogValidationException.class,
-                "Table should have primary key"
-        );
-    }
-
     @ParameterizedTest(name = "[{index}] {arguments}")
     @MethodSource("nullAndEmptyPrimaryKeys")
-    void tableShouldHaveAtLeastOnePrimaryKeyColumn2(CatalogPrimaryKey pk) {
+    void tableShouldHaveAtLeastOnePrimaryKeyColumn(CatalogPrimaryKey pk) {
         CreateTableCommandBuilder builder = CreateTableCommand.builder();
 
         builder = fillProperties(builder).primaryKey(pk);
@@ -141,8 +125,8 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
     }
 
     @ParameterizedTest
-    @MethodSource("columnsAndCollations")
-    void tableWithSortedPrimaryKey(List<String> columns, List<CatalogColumnCollation> collations) {
+    @MethodSource("notMatchingNumberOfColumnsAndCollations")
+    void tableWithSortedPrimaryKeyWithNotMatchColumnsCollations(List<String> columns, List<CatalogColumnCollation> collations) {
         CreateTableCommandBuilder builder = CreateTableCommand.builder();
 
         CatalogSortedPrimaryKey primaryKey = CatalogSortedPrimaryKey.builder()
@@ -171,7 +155,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
         );
     }
 
-    private static Stream<Arguments> columnsAndCollations() {
+    private static Stream<Arguments> notMatchingNumberOfColumnsAndCollations() {
         return Stream.of(
                 Arguments.of(List.of("C1"), List.of()),
                 Arguments.of(List.of("C1"), List.of(CatalogColumnCollation.ASC_NULLS_LAST, CatalogColumnCollation.ASC_NULLS_LAST)),
@@ -223,7 +207,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
 
         builder = fillProperties(builder)
                 .columns(List.of(c1, c2))
-                .primaryKeyColumns(List.of("C1"))
+                .primaryKey(primaryKey("C1"))
                 .colocationColumns(List.of("C2"));
 
         assertThrowsWithCause(
@@ -244,7 +228,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
                                 .type(INT32)
                                 .build()
                 ))
-                .primaryKeyColumns(List.of("C"))
+                .primaryKey(primaryKey("C"))
                 .colocationColumns(List.of("C"));
     }
 

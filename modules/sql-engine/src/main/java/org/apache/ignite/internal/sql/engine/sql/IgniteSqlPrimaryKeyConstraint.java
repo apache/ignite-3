@@ -37,10 +37,10 @@ public class IgniteSqlPrimaryKeyConstraint extends IgniteSqlKeyConstraint {
     /** Primary key constraint. */
     protected static class Operator extends IgniteSqlSpecialOperator {
 
-        private final IgniteSqlIndexType indexType;
+        private final IgniteSqlPrimaryKeyIndexType indexType;
 
         /** Constructor. */
-        protected Operator(IgniteSqlIndexType indexType) {
+        protected Operator(IgniteSqlPrimaryKeyIndexType indexType) {
             super("PRIMARY KEY", SqlKind.PRIMARY_KEY);
             this.indexType = Objects.requireNonNull(indexType, "indexType");
         }
@@ -60,7 +60,7 @@ public class IgniteSqlPrimaryKeyConstraint extends IgniteSqlKeyConstraint {
     public IgniteSqlPrimaryKeyConstraint(SqlParserPos pos,
             @Nullable SqlIdentifier name,
             SqlNodeList columnList,
-            IgniteSqlIndexType indexType
+            IgniteSqlPrimaryKeyIndexType indexType
     ) {
         super(new Operator(indexType), pos, name, columnList);
     }
@@ -72,7 +72,7 @@ public class IgniteSqlPrimaryKeyConstraint extends IgniteSqlKeyConstraint {
     }
 
     /** Type of this primary key index. */
-    public IgniteSqlIndexType getIndexType() {
+    public IgniteSqlPrimaryKeyIndexType getIndexType() {
         return operator().indexType;
     }
 
@@ -86,7 +86,7 @@ public class IgniteSqlPrimaryKeyConstraint extends IgniteSqlKeyConstraint {
         writer.keyword(getOperator().getName());
 
         Operator operator = operator();
-        if (operator.indexType != IgniteSqlIndexType.IMPLICIT_TREE) {
+        if (operator.indexType != IgniteSqlPrimaryKeyIndexType.IMPLICIT_HASH) {
             writer.keyword("USING");
 
             writer.keyword(operator.indexType.name());

@@ -48,6 +48,9 @@ import org.apache.calcite.schema.Table;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
+import org.apache.ignite.internal.catalog.commands.CatalogHashPrimaryKey;
+import org.apache.ignite.internal.catalog.commands.CatalogPrimaryKey;
+import org.apache.ignite.internal.catalog.commands.CatalogSortedPrimaryKey;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexCommand;
@@ -212,7 +215,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
                         ColumnParams.builder().name("ID").type(ColumnType.INT32).nullable(false).build(),
                         ColumnParams.builder().name("VAL").type(ColumnType.INT32).build()
                 ))
-                .primaryKeyColumns(List.of("ID"))
+                .primaryKey(primaryKey("ID"))
                 .zone("ABC")
                 .build()));
 
@@ -248,7 +251,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
                                 column("VAL_NULLABLE", columnType, precision, scale, true),
                                 column("VAL_NOT_NULLABLE", columnType, precision, scale, false)
                         ))
-                        .primaryKeyColumns(List.of("ID"))
+                        .primaryKey(primaryKey("ID"))
                         .zone("Default")
                         .build()
         )));
@@ -317,7 +320,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
                                 ColumnParams.builder().name("C4").type(ColumnType.STRING).length(256)
                                         .defaultValue(DefaultValue.functionCall(DefaultValueGenerator.GEN_RANDOM_UUID.name())).build()
                         ))
-                        .primaryKeyColumns(List.of("C1"))
+                        .primaryKey(primaryKey("C1"))
                         .zone("Default")
                         .build()
         )));
@@ -353,8 +356,9 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
     /**
      * Table with primary key but w/o colocation key columns are legal.
      */
-    @Test
-    public void testTableWithPrimaryKey() {
+    @ParameterizedTest
+    @MethodSource("primaryKeyTypesColumnsC1C3")
+    public void testTableWithPrimaryKey(CatalogPrimaryKey primaryKey) {
         int versionBefore = catalogManager.latestCatalogVersion();
         await(catalogManager.execute(List.of(
                 CreateTableCommand.builder()
@@ -369,7 +373,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
                                 ColumnParams.builder().name("C4").type(ColumnType.STRING).length(256)
                                         .defaultValue(DefaultValue.functionCall(DefaultValueGenerator.GEN_RANDOM_UUID.name())).build()
                         ))
-                        .primaryKeyColumns(List.of("C1", "C3"))
+                        .primaryKey(primaryKey)
                         .zone("Default")
                         .build()
         )));
@@ -391,6 +395,18 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         assertFalse(table.descriptor().columnDescriptor(3).key());
     }
 
+    private static Stream<CatalogPrimaryKey> primaryKeyTypesColumnsC1C3() {
+        return Stream.of(
+                CatalogHashPrimaryKey.builder()
+                        .columns(List.of("C1", "C3"))
+                        .build(),
+                CatalogSortedPrimaryKey.builder()
+                        .columns(List.of("C1", "C3"))
+                        .collations(List.of(CatalogColumnCollation.ASC_NULLS_LAST, CatalogColumnCollation.DESC_NULLS_FIRST))
+                        .build()
+        );
+    }
+
     /**
      * Table distribution.
      */
@@ -404,7 +420,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
                         ColumnParams.builder().name("C3").type(ColumnType.INT32).build(),
                         ColumnParams.builder().name("C4").type(ColumnType.INT32).build()
                 ))
-                .primaryKeyColumns(List.of("C1", "C2", "C3", "C4"))
+                .primaryKey(primaryKey("C1", "C2", "C3", "C4"))
                 .zone("Default");
 
         int versionBefore = catalogManager.latestCatalogVersion();
@@ -751,7 +767,9 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
                         ColumnParams.builder().name("VAL1").type(ColumnType.INT32).nullable(false).build(),
                         ColumnParams.builder().name("VAL2").type(ColumnType.INT32).nullable(false).build()
                 ))
-                .primaryKeyColumns(List.of("ID"))
+                .primaryKey(CatalogHashPrimaryKey.builder()
+                        .columns(List.of("ID"))
+                        .build())
                 .zone("Default")
                 .build();
     }
@@ -827,5 +845,16 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         }
 
         return builder.build();
+    }
+
+    private static CatalogPrimaryKey primaryKey(String column, String... columns) {
+        List<String> pkColumns = new ArrayList<>();
+        pkColumns.add(column);
+        pkColumns.addAll(Arrays.asList(columns));
+
+        // There is no d
+        return CatalogHashPrimaryKey.builder()
+                .columns(pkColumns)
+                .build();
     }
 }

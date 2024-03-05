@@ -22,7 +22,6 @@ import org.apache.ignite.internal.tostring.S;
 
 /** Primary key that uses hash index. */
 public class CatalogHashPrimaryKey extends CatalogPrimaryKey {
-
     /**
      * Constructor.
      *

@@ -33,8 +33,6 @@ import java.util.Set;
 import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.catalog.Catalog;
-import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
@@ -64,12 +62,6 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
     @Test
     public void pkWithNullableColumns() {
-        IgniteImpl ignite = CLUSTER.aliveNode();
-        CatalogManager catalogManager = ignite.catalogManager();
-        int version = catalogManager.latestCatalogVersion();
-        Catalog catalog = catalogManager.catalog(version);
-
-
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
                 "Primary key cannot contain nullable column [col=ID0]",
@@ -355,5 +347,18 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
         sql("DROP TABLE test");
 
         sql(tx, "SELECT COUNT(*) FROM test");
+    }
+
+    @Test
+    public void testPrimaryKeyIndexTypes() {
+        sql("CREATE TABLE test1 (id1 INT, id2 INT, val INT, PRIMARY KEY (id2, id1))");
+        sql("CREATE TABLE test2 (id1 INT, id2 INT, val INT, PRIMARY KEY USING SORTED (id1 DESC, id2 ASC))");
+        sql("CREATE TABLE test3 (id1 INT, id2 INT, val INT, PRIMARY KEY USING HASH (id2, id1))");
+
+        assertQuery("SELECT index_name, type, COLUMNS FROM SYSTEM.INDEXES ORDER BY INDEX_ID")
+                .returns("TEST1_PK", "HASH", "ID2, ID1")
+                .returns("TEST2_PK", "SORTED", "ID1 DESC, ID2 ASC")
+                .returns("TEST3_PK", "HASH", "ID2, ID1")
+                .check();
     }
 }

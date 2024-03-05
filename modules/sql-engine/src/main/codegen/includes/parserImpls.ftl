@@ -101,7 +101,7 @@ void TableElement(List<SqlNode> list) :
     final SqlNode dflt;
     SqlIdentifier id = null;
     SqlNodeList columnList = new SqlNodeList(s.end(this));
-    IgniteSqlIndexType primaryIndexType = IgniteSqlIndexType.HASH;
+    IgniteSqlPrimaryKeyIndexType primaryIndexType = IgniteSqlPrimaryKeyIndexType.IMPLICIT_HASH;
 }
 {
     id = SimpleIdentifier() type = DataTypeEx() nullable = NullableOptDefaultNull()
@@ -140,16 +140,16 @@ void TableElement(List<SqlNode> list) :
     <PRIMARY> { s.add(this); } <KEY>
     (
         LOOKAHEAD(2)
-        <USING> <TREE> {
+        <USING> <SORTED> {
             s.add(this);
-            primaryIndexType = IgniteSqlIndexType.TREE;
+            primaryIndexType = IgniteSqlPrimaryKeyIndexType.SORTED;
         }
         columnList = ColumnNameWithSortDirectionList()
      |
         LOOKAHEAD(2)
         <USING> <HASH> {
             s.add(this);
-            primaryIndexType = IgniteSqlIndexType.HASH;
+            primaryIndexType = IgniteSqlPrimaryKeyIndexType.HASH;
         }
         columnList = ColumnNameList()
     |

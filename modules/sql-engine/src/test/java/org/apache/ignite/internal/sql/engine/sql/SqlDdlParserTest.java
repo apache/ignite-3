@@ -99,7 +99,7 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
                 constraint -> hasItem(ofTypeMatching("identifier \"ID\"", SqlIdentifier.class, id -> "ID".equals(id.names.get(0))))
                         .matches(constraint.getOperandList().get(1))
                         && constraint.getOperandList().get(0) == null
-                        && constraint.getIndexType() == IgniteSqlIndexType.IMPLICIT_TREE
+                        && constraint.getIndexType() == IgniteSqlPrimaryKeyIndexType.IMPLICIT_HASH
                         && constraint.isA(singleton(SqlKind.PRIMARY_KEY)))));
 
         expectUnparsed(node, "CREATE TABLE \"MY_TABLE\" ("
@@ -176,7 +176,7 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
                 constraint -> hasItem(ofTypeMatching("identifier \"ID\"", SqlIdentifier.class, id -> "ID".equals(id.names.get(0))))
                         .matches(constraint.getOperandList().get(1))
                         && constraint.getOperandList().get(0) == null
-                        && constraint.getIndexType() == IgniteSqlIndexType.IMPLICIT_TREE
+                        && constraint.getIndexType() == IgniteSqlPrimaryKeyIndexType.IMPLICIT_HASH
                         && constraint.isA(singleton(SqlKind.PRIMARY_KEY)))));
 
         expectUnparsed(node, "CREATE TABLE \"MY_TABLE\" ("
@@ -206,7 +206,7 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
                 constraint -> hasItem(ofTypeMatching("identifier \"ID\"", SqlIdentifier.class, id -> "ID".equals(id.names.get(0))))
                         .matches(constraint.getOperandList().get(1))
                         && constraint.getOperandList().get(0) == null
-                        && constraint.getIndexType() == IgniteSqlIndexType.IMPLICIT_TREE
+                        && constraint.getIndexType() == IgniteSqlPrimaryKeyIndexType.IMPLICIT_HASH
                         && constraint.isA(singleton(SqlKind.PRIMARY_KEY)))));
 
         expectUnparsed(node, "CREATE TABLE \"MY_TABLE\" "
@@ -236,7 +236,7 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
                 constraint -> hasItem(ofTypeMatching("identifier \"ID\"", SqlIdentifier.class, id -> "ID".equals(id.names.get(0))))
                         .matches(constraint.getOperandList().get(1))
                         && "PK_KEY".equals(((SqlIdentifier) constraint.getOperandList().get(0)).names.get(0))
-                        && constraint.getIndexType() == IgniteSqlIndexType.IMPLICIT_TREE
+                        && constraint.getIndexType() == IgniteSqlPrimaryKeyIndexType.IMPLICIT_HASH
                         && constraint.isA(singleton(SqlKind.PRIMARY_KEY)))));
 
         expectUnparsed(node, "CREATE TABLE \"MY_TABLE\" ("
@@ -267,7 +267,7 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
                         .matches(constraint.getOperandList().get(1))
                         && hasItem(ofTypeMatching("identifier \"ID2\"", SqlIdentifier.class, id -> "ID2".equals(id.names.get(0))))
                         .matches(constraint.getOperandList().get(1))
-                        && constraint.getIndexType() == IgniteSqlIndexType.IMPLICIT_TREE
+                        && constraint.getIndexType() == IgniteSqlPrimaryKeyIndexType.IMPLICIT_HASH
                         && constraint.getOperandList().get(0) == null
                         && constraint.isA(singleton(SqlKind.PRIMARY_KEY)))));
 
@@ -279,11 +279,11 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
     }
 
     /**
-     * Parsing of CREATE TABLE with primary key index type TREE.
+     * Parsing of CREATE TABLE with primary key index type SORTED.
      */
     @Test
-    public void createTableWithPkTree() {
-        String query = "create table my_table(id1 int, id2 int, val varchar, primary key using tree (id1 ASC, id2 DESC))";
+    public void createTableWithSortedPk() {
+        String query = "create table my_table(id1 int, id2 int, val varchar, primary key using sorted (id1 ASC, id2 DESC))";
         SqlNode node = parse(query);
 
         assertThat(node, instanceOf(IgniteSqlCreateTable.class));
@@ -296,7 +296,7 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
                 "PK constraint without name containing column \"ID1\"", IgniteSqlPrimaryKeyConstraint.class,
                 constraint -> hasItem(ofTypeMatching("identifier \"ID1\"", SqlIdentifier.class, id -> "ID1".equals(id.names.get(0))))
                         .matches(constraint.getOperandList().get(1))
-                        && constraint.getIndexType() == IgniteSqlIndexType.TREE
+                        && constraint.getIndexType() == IgniteSqlPrimaryKeyIndexType.SORTED
                         && constraint.getOperandList().get(0) == null
                         && constraint.isA(singleton(SqlKind.PRIMARY_KEY)))));
 
@@ -304,7 +304,7 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
                 + "(\"ID1\" INTEGER, "
                 + "\"ID2\" INTEGER, "
                 + "\"VAL\" VARCHAR, "
-                + "PRIMARY KEY USING TREE (\"ID1\", \"ID2\" DESC))"
+                + "PRIMARY KEY USING SORTED (\"ID1\", \"ID2\" DESC))"
         );
     }
 
@@ -312,7 +312,7 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
      * Parsing of CREATE TABLE with primary key index type HASH.
      */
     @Test
-    public void createTableWithPkHash() {
+    public void createTableWithHashPk() {
         String query = "create table my_table(id int, val varchar, primary key using hash (id))";
         SqlNode node = parse(query);
 
@@ -326,7 +326,7 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
                 constraint -> hasItem(ofTypeMatching("identifier \"ID\"", SqlIdentifier.class, id -> "ID".equals(id.names.get(0))))
                         .matches(constraint.getOperandList().get(1))
                         && constraint.getOperandList().get(0) == null
-                        && constraint.getIndexType() == IgniteSqlIndexType.HASH
+                        && constraint.getIndexType() == IgniteSqlPrimaryKeyIndexType.HASH
                         && constraint.isA(singleton(SqlKind.PRIMARY_KEY)))));
 
         expectUnparsed(node, "CREATE TABLE \"MY_TABLE\" "
@@ -342,10 +342,10 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
     }
 
     /**
-     * Parsing of CREATE TABLE with primary key index of unsupported type.
+     * Parsing of CREATE TABLE with primary key index of unsupported type should return an error.
      */
     @Test
-    public void createTableWithPkUnknown() {
+    public void createTableWithSomeOtherPkFails() {
         assertThrowsSqlException(
                 Sql.STMT_PARSE_ERR,
                 "Encountered \"using\"",

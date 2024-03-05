@@ -408,7 +408,11 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
                 .zone(DEFAULT_ZONE_NAME)
                 .tableName(tableName)
                 .columns(List.of(ColumnParams.builder().name(COLUMN_NAME).type(INT32).build()))
-                .primaryKeyColumns(List.of(COLUMN_NAME))
+                // Any type of a primary key index can be used.
+                .primaryKey(CatalogHashPrimaryKey.builder()
+                        .columns(List.of(COLUMN_NAME))
+                        .build()
+                )
                 .colocationColumns(List.of(COLUMN_NAME))
                 .build();
 

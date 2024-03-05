@@ -150,7 +150,7 @@ public class AlterTableAddColumnCommandValidationTest extends AbstractCommandVal
                 .schemaName(SCHEMA_NAME)
                 .tableName(tableName)
                 .columns(List.of(columnParams))
-                .primaryKeyColumns(List.of(columnName))
+                .primaryKey(primaryKey(columnName))
         );
 
         AlterTableAddColumnCommandBuilder builder = AlterTableAddColumnCommand.builder()
