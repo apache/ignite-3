@@ -132,8 +132,8 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                         resourceCleanupManager
                 ) {
                     @Override
-                    public CompletableFuture<Void> executeCleanupAsync(Runnable runnable) {
-                        CompletableFuture<Void> cleanupFuture = super.executeCleanupAsync(runnable);
+                    public CompletableFuture<Void> executeWriteIntentSwitchAsync(Runnable runnable) {
+                        CompletableFuture<Void> cleanupFuture = super.executeWriteIntentSwitchAsync(runnable);
 
                         cleanupFutures.add(cleanupFuture);
 

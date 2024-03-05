@@ -3485,7 +3485,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         CompletableFuture<?> future = rowCleanupMap.computeIfAbsent(rowId, k -> {
             // The cleanup for this row has already been triggered. For example, we are resolving a write intent for an RW transaction
             // and a concurrent RO transaction resolves the same row, hence computeIfAbsent.
-            return txManager.executeCleanupAsync(() -> inBusyLock(busyLock,
+            return txManager.executeWriteIntentSwitchAsync(() -> inBusyLock(busyLock,
                     () -> storageUpdateHandler.switchWriteIntents(
                             txId,
                             txState == COMMITTED,

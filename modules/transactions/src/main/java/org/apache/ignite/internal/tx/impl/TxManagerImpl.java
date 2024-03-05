@@ -309,7 +309,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 100,
                 TimeUnit.MILLISECONDS,
                 new LinkedBlockingQueue<>(),
-                IgniteThreadFactory.create(nodeName, "tx-async-cleanup", LOG, STORAGE_READ, STORAGE_WRITE)
+                IgniteThreadFactory.create(nodeName, "tx-async-write-intent", LOG, STORAGE_READ, STORAGE_WRITE)
         );
 
         orphanDetector = new OrphanDetector(topologyService, replicaService, placementDriverHelper, lockManager);
@@ -797,7 +797,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     }
 
     @Override
-    public CompletableFuture<Void> executeCleanupAsync(Runnable runnable) {
+    public CompletableFuture<Void> executeWriteIntentSwitchAsync(Runnable runnable) {
         return runAsync(runnable, writeIntentSwitchPool);
     }
 
