@@ -18,6 +18,10 @@
 namespace Apache.Ignite.Tests.Table.Serialization;
 
 using System;
+using Ignite.Sql;
+using Ignite.Table;
+using Internal.Buffers;
+using Internal.Table;
 using Internal.Table.Serialization;
 using NUnit.Framework;
 
@@ -26,17 +30,89 @@ using NUnit.Framework;
 /// </summary>
 public class SerializerHandlerConsistencyTests
 {
-    // TODO:
-    // * Use schema with interleaved columns
-    // * Check full and key-only modes
-    // * Check hashing
+    private static readonly Schema Schema = Schema.CreateInstance(
+        version: 0,
+        tableId: 0,
+        columns: new[]
+        {
+            new Column("val1", ColumnType.String, false, KeyIndex: -1, ColocationIndex: -1, SchemaIndex: 0, 0, 0),
+            new Column("key1", ColumnType.Int32, false, KeyIndex: 1, ColocationIndex: 0, SchemaIndex: 1, 0, 0),
+            new Column("val2", ColumnType.Uuid, false, KeyIndex: -1, ColocationIndex: -1, SchemaIndex: 2, 0, 0),
+            new Column("key2", ColumnType.Int64, false, KeyIndex: 0, ColocationIndex: 1, SchemaIndex: 3, 0, 0)
+        });
+
     [Test]
-    public void TestConsistency()
+    public void TestSerializationAndHashing()
     {
         var tupleHandler = TupleSerializerHandler.Instance;
         var tupleKvHandler = TuplePairSerializerHandler.Instance;
         var objectHandler = new ObjectSerializerHandler<Poco>();
         var objectKvHandler = new ObjectSerializerHandler<KvPair<PocoKey, PocoVal>>();
+
+        var poco = new Poco
+        {
+            Val1 = "v1",
+            Key1 = 123,
+            Val2 = Guid.NewGuid(),
+            Key2 = "k2"
+        };
+
+        var pocoKv = new KvPair<PocoKey, PocoVal>
+        {
+            Key = new PocoKey
+            {
+                Key1 = poco.Key1,
+                Key2 = poco.Key2
+            },
+            Val = new PocoVal
+            {
+                Val1 = poco.Val1,
+                Val2 = poco.Val2
+            }
+        };
+
+        var tuple = new IgniteTuple
+        {
+            ["val1"] = poco.Val1,
+            ["key1"] = poco.Key1,
+            ["val2"] = poco.Val2,
+            ["key2"] = poco.Key2
+        };
+
+        var tupleKv = new KvPair<IIgniteTuple, IIgniteTuple>(
+            new IgniteTuple
+            {
+                ["key1"] = poco.Key1,
+                ["key2"] = poco.Key2
+            },
+            new IgniteTuple
+            {
+                ["val1"] = poco.Val1,
+                ["val2"] = poco.Val2
+            });
+
+        var (tupleBuf, tupleHash) = Serialize(tupleHandler, tuple);
+        var (tupleKvBuf, tupleKvHash) = Serialize(tupleKvHandler, tupleKv);
+        var (pocoBuf, pocoHash) = Serialize(objectHandler, poco);
+        var (pocoKvBuf, pocoKvHash) = Serialize(objectKvHandler, pocoKv);
+
+        Assert.AreEqual(tupleHash, tupleKvHash);
+        Assert.AreEqual(tupleHash, pocoHash);
+        Assert.AreEqual(tupleHash, pocoKvHash);
+
+        CollectionAssert.AreEqual(tupleBuf, tupleKvBuf);
+        CollectionAssert.AreEqual(tupleBuf, pocoBuf);
+        CollectionAssert.AreEqual(tupleBuf, pocoKvBuf);
+    }
+
+    private static (byte[] Buf, int Hash) Serialize<T>(IRecordSerializerHandler<T> handler, T obj, bool keyOnly = false)
+    {
+        using var buf = new PooledArrayBuffer();
+
+        var writer = buf.MessageWriter;
+        var hash = handler.Write(ref writer, Schema, obj, keyOnly, computeHash: true);
+
+        return (buf.GetWrittenMemory().ToArray(), hash);
     }
 
     private class Poco
