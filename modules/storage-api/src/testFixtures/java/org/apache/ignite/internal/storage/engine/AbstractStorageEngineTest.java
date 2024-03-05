@@ -73,7 +73,6 @@ public abstract class AbstractStorageEngineTest extends BaseMvStoragesTest {
 
         MvTableStorage mvTableStorage = storageEngine.createMvTable(tableDescriptor, indexSupplier);
 
-        mvTableStorage.start();
         try (AutoCloseable ignored0 = mvTableStorage::close) {
             CompletableFuture<MvPartitionStorage> mvPartitionStorageFuture = mvTableStorage.createMvPartition(0);
 
@@ -102,7 +101,6 @@ public abstract class AbstractStorageEngineTest extends BaseMvStoragesTest {
 
         mvTableStorage = storageEngine.createMvTable(tableDescriptor, indexSupplier);
 
-        mvTableStorage.start();
         try (AutoCloseable ignored0 = mvTableStorage::close) {
             CompletableFuture<MvPartitionStorage> mvPartitionStorageFuture = mvTableStorage.createMvPartition(0);
 

@@ -1313,14 +1313,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         assert engine != null : "tableId=" + tableDescriptor.id() + ", engine=" + dataStorage.engine();
 
-        MvTableStorage tableStorage = engine.createMvTable(
+        return engine.createMvTable(
                 new StorageTableDescriptor(tableDescriptor.id(), zoneDescriptor.partitions(), dataStorage.dataRegion()),
                 new StorageIndexDescriptorSupplier(catalogService)
         );
-
-        tableStorage.start();
-
-        return tableStorage;
     }
 
     /**

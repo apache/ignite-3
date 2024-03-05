@@ -58,8 +58,6 @@ class RocksDbGcUpdateHandlerTest extends AbstractGcUpdateHandlerTest {
                 new StorageIndexDescriptorSupplier(mock(CatalogService.class))
         );
 
-        table.start();
-
         initialize(table);
     }
 
