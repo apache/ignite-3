@@ -32,6 +32,8 @@ namespace Apache.Ignite.Internal.Table
     /// <param name="KeyColumns">Key part columns.</param>
     /// <param name="ValColumns">Val part columns.</param>
     /// <param name="ColumnsByName">Column name map.</param>
+    /// <param name="HashedColumnIndexProvider">Hashed column index provider.</param>
+    /// <param name="KeyOnlyHashedColumnIndexProvider">Hashed column index provider for key-only mode.</param>
     internal sealed record Schema(
         int Version,
         int TableId,
@@ -109,6 +111,15 @@ namespace Apache.Ignite.Internal.Table
         /// </summary>
         /// <param name="keyOnly">Key only flag.</param>
         /// <returns>Columns according to the key flag.</returns>
-        public IReadOnlyList<Column> GetColumnsFor(bool keyOnly) => keyOnly ? KeyColumns : Columns;
+        public IReadOnlyList<Column> GetColumnsFor(bool keyOnly) =>
+            keyOnly ? KeyColumns : Columns;
+
+        /// <summary>
+        /// Gets the hashed column index provider for the specified key-only flag.
+        /// </summary>
+        /// <param name="keyOnly">Key only flag.</param>
+        /// <returns>Hashed column index provider.</returns>
+        public IHashedColumnIndexProvider GetHashedColumnIndexProviderFor(bool keyOnly) =>
+            keyOnly ? KeyOnlyHashedColumnIndexProvider : HashedColumnIndexProvider;
     }
 }

@@ -162,7 +162,7 @@ internal static class DataStreamer
         (Batch<T> Batch, string Partition) Add(T item)
         {
             var schema0 = schema;
-            var tupleBuilder = new BinaryTupleBuilder(schema0.Columns.Count, hashedColumnsPredicate: schema0);
+            var tupleBuilder = new BinaryTupleBuilder(schema0.Columns.Count, hashedColumnsPredicate: schema0.HashedColumnIndexProvider);
 
             try
             {

@@ -31,7 +31,7 @@ using NUnit.Framework;
 /// </summary>
 public class SerializerHandlerConsistencyTests
 {
-    private const int ExpectedColocationHash = 141415887;
+    private const int ExpectedColocationHash = 1326971215;
 
     private static readonly Schema Schema = Schema.CreateInstance(
         version: 0,
