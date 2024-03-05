@@ -150,12 +150,12 @@ public class FakeCatalogService implements CatalogService {
     }
 
     @Override
-    public int latestCatalogVersion() {
+    public int earliestCatalogVersion(long timestamp) {
         return 0;
     }
 
     @Override
-    public int earliestCatalogVersion(long timestamp) {
+    public int latestCatalogVersion() {
         return 0;
     }
 

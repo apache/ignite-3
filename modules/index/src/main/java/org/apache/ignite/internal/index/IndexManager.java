@@ -17,14 +17,18 @@
 
 package org.apache.ignite.internal.index;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.concurrent.CompletableFuture.runAsync;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_CREATE;
-import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_DESTROY;
+import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_REMOVED;
 import static org.apache.ignite.internal.table.distributed.index.IndexUtils.registerIndexToTable;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -32,13 +36,15 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongFunction;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
-import org.apache.ignite.internal.catalog.events.DestroyIndexEventParameters;
+import org.apache.ignite.internal.catalog.events.RemoveIndexEventParameters;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -47,7 +53,9 @@ import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
+import org.apache.ignite.internal.table.DeferredEventsQueue;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.table.distributed.LowWatermark;
 import org.apache.ignite.internal.table.distributed.PartitionSet;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -84,6 +92,12 @@ public class IndexManager implements IgniteComponent {
     /** Versioned value to prevent races when registering/unregistering indexes when processing metastore or catalog events. */
     private final IncrementalVersionedValue<Void> handleMetastoreEventVv;
 
+    /** Low watermark. */
+    private final LowWatermark lowWatermark;
+
+    /** Deferred destruction queue. */
+    private final DeferredEventsQueue<DestroyIndexEvent> deferredQueue = new DeferredEventsQueue<>(DestroyIndexEvent::catalogVersion);
+
     /**
      * Constructor.
      *
@@ -97,12 +111,14 @@ public class IndexManager implements IgniteComponent {
             TableManager tableManager,
             CatalogService catalogService,
             ExecutorService ioExecutor,
-            Consumer<LongFunction<CompletableFuture<?>>> registry
+            Consumer<LongFunction<CompletableFuture<?>>> registry,
+            LowWatermark lowWatermark
     ) {
         this.schemaManager = schemaManager;
         this.tableManager = tableManager;
         this.catalogService = catalogService;
         this.ioExecutor = ioExecutor;
+        this.lowWatermark = lowWatermark;
 
         handleMetastoreEventVv = new IncrementalVersionedValue<>(registry);
     }
@@ -111,8 +127,11 @@ public class IndexManager implements IgniteComponent {
     public CompletableFuture<Void> start() {
         LOG.debug("Index manager is about to start");
 
+        recoverDeferredQueue();
+
         catalogService.listen(INDEX_CREATE, (CreateIndexEventParameters parameters) -> onIndexCreate(parameters));
-        catalogService.listen(INDEX_DESTROY, (DestroyIndexEventParameters parameters) -> onIndexDestroy(parameters));
+        catalogService.listen(INDEX_REMOVED, (RemoveIndexEventParameters parameters) -> onIndexRemoved(parameters));
+        lowWatermark.addUpdateListener(this::onLwmChanged);
 
         LOG.info("Index manager started");
 
@@ -152,27 +171,6 @@ public class IndexManager implements IgniteComponent {
         return tableManager.tableAsync(causalityToken, tableId).thenApply(table -> table.internalTable().storage());
     }
 
-    private CompletableFuture<Boolean> onIndexDestroy(DestroyIndexEventParameters parameters) {
-        int indexId = parameters.indexId();
-        int tableId = parameters.tableId();
-
-        long causalityToken = parameters.causalityToken();
-
-        CompletableFuture<TableViewInternal> tableFuture = tableManager.tableAsync(causalityToken, tableId);
-
-        return inBusyLockAsync(busyLock, () -> handleMetastoreEventVv.update(
-                causalityToken,
-                updater(unused -> tableFuture.thenApply(table -> inBusyLock(busyLock, () -> {
-                    if (table != null) {
-                        // In case of DROP TABLE the table will be removed first.
-                        table.unregisterIndex(indexId);
-                    }
-
-                    return null;
-                })))
-        )).thenApply(unused -> false);
-    }
-
     private CompletableFuture<Boolean> onIndexCreate(CreateIndexEventParameters parameters) {
         return inBusyLockAsync(busyLock, () -> {
             CatalogIndexDescriptor index = parameters.indexDescriptor();
@@ -196,6 +194,58 @@ public class IndexManager implements IgniteComponent {
 
             return startIndexAsync(table, index, causalityToken).thenApply(unused -> false);
         });
+    }
+
+    private CompletableFuture<Boolean> onIndexRemoved(RemoveIndexEventParameters parameters) {
+        return inBusyLockAsync(busyLock, () -> {
+            int indexId = parameters.indexId();
+            int version = parameters.catalogVersion();
+            int prevVersion = version - 1;
+
+            // Retrieve descriptor during synchronous call, before the previous catalog version could be concurrently compacted.
+            CatalogIndexDescriptor indexDescriptor = catalogService.index(indexId, prevVersion);
+            assert indexDescriptor != null : "index";
+
+            int tableId = indexDescriptor.tableId();
+
+            if (catalogService.table(tableId, version) == null) {
+                // Nothing to do. Index will be destroyed along with the table.
+                return falseCompletedFuture();
+            }
+
+            deferredQueue.enqueue(new DestroyIndexEvent(version, indexId, tableId));
+
+            return falseCompletedFuture();
+        });
+    }
+
+    private CompletableFuture<Void> onLwmChanged(HybridTimestamp ts) {
+        return inBusyLockAsync(busyLock, () -> {
+            int earliestVersion = catalogService.earliestCatalogVersion(HybridTimestamp.hybridTimestampToLong(ts));
+
+            List<DestroyIndexEvent> events = deferredQueue.drainUpTo(earliestVersion);
+
+            if (events.isEmpty()) {
+                return nullCompletedFuture();
+            }
+
+            List<CompletableFuture<Void>> futures = events.stream()
+                    .map(event -> destroyIndexAsync(event.indexId(), event.tableId()))
+                    .collect(Collectors.toList());
+
+            return allOf(futures.toArray(CompletableFuture[]::new));
+        });
+    }
+
+    private CompletableFuture<Void> destroyIndexAsync(int indexId, int tableId) {
+        return runAsync(() -> inBusyLock(busyLock, () -> {
+            TableViewInternal table = tableManager.cachedTable(tableId);
+
+            if (table != null) {
+                // In case of DROP TABLE the table will be removed with all it's indexes.
+                table.unregisterIndex(indexId);
+            }
+        }), ioExecutor);
     }
 
     private CompletableFuture<?> startIndexAsync(
@@ -247,5 +297,45 @@ public class IndexManager implements IgniteComponent {
 
             return updateFunction.apply(t);
         };
+    }
+
+    /** Recover deferred destroy events. */
+    private void recoverDeferredQueue() {
+        int earliestVersion = catalogService.earliestCatalogVersion(HybridTimestamp.hybridTimestampToLong(lowWatermark.getLowWatermark()));
+        int latestVersion = catalogService.latestCatalogVersion();
+
+        synchronized ((deferredQueue)) {
+            for (int version = latestVersion - 1; version >= earliestVersion; version--) {
+                int nextVersion = version + 1;
+                catalogService.indexes(version).stream()
+                        .filter(idx -> catalogService.index(idx.id(), nextVersion) == null)
+                        .forEach(idx -> deferredQueue.enqueue(new DestroyIndexEvent(nextVersion, idx.id(), idx.tableId())));
+            }
+        }
+    }
+
+    /** Internal event. */
+    private static class DestroyIndexEvent {
+        final int catalogVersion;
+        final int indexId;
+        final int tableId;
+
+        DestroyIndexEvent(int catalogVersion, int indexId, int tableId) {
+            this.catalogVersion = catalogVersion;
+            this.indexId = indexId;
+            this.tableId = tableId;
+        }
+
+        public int catalogVersion() {
+            return catalogVersion;
+        }
+
+        public int indexId() {
+            return indexId;
+        }
+
+        public int tableId() {
+            return tableId;
+        }
     }
 }

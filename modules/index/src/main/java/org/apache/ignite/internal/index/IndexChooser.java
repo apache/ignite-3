@@ -156,6 +156,7 @@ class IndexChooser implements ManuallyCloseable {
     private void addListeners() {
         catalogService.listen(CatalogEvent.INDEX_REMOVED, EventListener.fromConsumer(this::onIndexRemoved));
 
+        // TODO IGNITE-21585 Subscribe to LWM updates.
         catalogService.listen(CatalogEvent.INDEX_DESTROY, EventListener.fromConsumer(this::onIndexDestroy));
     }
 

@@ -34,6 +34,7 @@ public enum CatalogEvent implements Event {
     TABLE_ALTER,
 
     /** This event is fired when a table has been dropped from all catalog versions and can be destroyed. */
+    @Deprecated
     TABLE_DESTROY,
 
     /** This event is fired, when an index was created in Catalog. */
@@ -59,6 +60,7 @@ public enum CatalogEvent implements Event {
     INDEX_REMOVED,
 
     /** This event is fired when an index has been dropped from all catalog versions and can be destroyed. */
+    @Deprecated
     INDEX_DESTROY,
 
     /** This event is fired, when a distribution zone was created in Catalog. */

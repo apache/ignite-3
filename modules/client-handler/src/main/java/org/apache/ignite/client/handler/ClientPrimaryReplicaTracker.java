@@ -250,6 +250,7 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
         maxStartTime.set(clock.nowLong());
 
         placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, (EventListener) this);
+        // TODO IGNITE-21585 replace with LWM update
         catalogService.listen(CatalogEvent.TABLE_DESTROY, (EventListener) this);
     }
 

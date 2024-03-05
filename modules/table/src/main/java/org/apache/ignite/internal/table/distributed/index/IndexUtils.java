@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.table.distributed.index;
 
-import java.util.HashSet;
+import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
@@ -28,6 +30,7 @@ import org.apache.ignite.internal.storage.index.StorageIndexDescriptor.StorageCo
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.PartitionSet;
+import org.jetbrains.annotations.Nullable;
 
 /** Auxiliary class for working with indexes that can contain useful methods and constants. */
 public class IndexUtils {
@@ -84,32 +87,34 @@ public class IndexUtils {
      * @param catalogService Catalog service.
      * @param partitionSet Partitions for which index storages will need to be created if they are missing.
      * @param schemaRegistry Table schema register.
+     * @param lwm Low watermark.
      */
     public static void registerIndexesToTable(
             TableViewInternal table,
             CatalogService catalogService,
             PartitionSet partitionSet,
-            SchemaRegistry schemaRegistry
+            SchemaRegistry schemaRegistry,
+            @Nullable HybridTimestamp lwm
     ) {
-        int earliestCatalogVersion = catalogService.earliestCatalogVersion();
+        int earliestCatalogVersion = catalogService.activeCatalogVersion(HybridTimestamp.hybridTimestampToLong(lwm));
         int latestCatalogVersion = catalogService.latestCatalogVersion();
 
         int tableId = table.tableId();
 
-        var indexIds = new HashSet<Integer>();
+        var indexIds = new IntOpenHashSet();
 
-        for (int catalogVersion = earliestCatalogVersion; catalogVersion <= latestCatalogVersion; catalogVersion++) {
+        for (int catalogVersion = latestCatalogVersion; catalogVersion >= earliestCatalogVersion; catalogVersion--) {
             CatalogTableDescriptor tableDescriptor = catalogService.table(tableId, catalogVersion);
 
             if (tableDescriptor == null) {
                 continue;
             }
 
-            for (CatalogIndexDescriptor indexDescriptor : catalogService.indexes(catalogVersion, tableId)) {
-                if (indexIds.add(indexDescriptor.id())) {
-                    registerIndexToTable(table, tableDescriptor, indexDescriptor, partitionSet, schemaRegistry);
-                }
-            }
+            int ver0 = catalogVersion;
+            catalogService.indexes(catalogVersion, tableId).stream()
+                    .filter(idx -> ver0 == latestCatalogVersion || idx.status() == CatalogIndexStatus.AVAILABLE) // Alive index
+                    .filter(idx -> indexIds.add(idx.id())) // Filter duplicates
+                    .forEach(idx -> registerIndexToTable(table, tableDescriptor, idx, partitionSet, schemaRegistry));
         }
     }
 }

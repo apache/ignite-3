@@ -291,8 +291,6 @@ public class ItSqlLogicTest extends IgniteIntegrationTest {
                     }
                 }
             }
-
-            forceCleanupAbandonedResources(CLUSTER_NODES.get(0));
         }
     }
 

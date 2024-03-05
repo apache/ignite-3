@@ -742,7 +742,8 @@ public class IgniteImpl implements Ignite {
                 distributedTblMgr,
                 catalogManager,
                 threadPoolsManager.tableIoExecutor(),
-                registry
+                registry,
+                lowWatermark
         );
 
         indexBuildingManager = new IndexBuildingManager(
@@ -1470,7 +1471,7 @@ public class IgniteImpl implements Ignite {
         return resourcesRegistry;
     }
 
-    /** Returns low watermark */
+    /** Returns low watermark. */
     @TestOnly
     public LowWatermarkImpl lowWatermark() {
         return lowWatermark;

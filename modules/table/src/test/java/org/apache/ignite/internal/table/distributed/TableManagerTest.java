@@ -360,7 +360,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         verify(txStateTableStorage, atMost(0)).destroy();
         verify(replicaMgr, atMost(0)).stopReplica(any());
 
-        assertTrue(CatalogTestUtils.waitCatalogCompaction(catalogManager, Long.MAX_VALUE));
+        assertThat(fireDestroyEvent(), willCompleteSuccessfully());
 
         verify(mvTableStorage, timeout(TimeUnit.SECONDS.toMillis(10))).destroy();
         verify(txStateTableStorage, timeout(TimeUnit.SECONDS.toMillis(10))).destroy();
@@ -868,5 +868,9 @@ public class TableManagerTest extends IgniteAbstractTest {
 
     private Collection<CatalogTableDescriptor> allTableDescriptors() {
         return catalogManager.tables(catalogManager.latestCatalogVersion());
+    }
+
+    private CompletableFuture<Void> fireDestroyEvent() {
+        return lowWatermark.updateAndNotify(clock.now());
     }
 }
