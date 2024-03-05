@@ -92,9 +92,9 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
         manager = new CatalogManagerImpl(
                 updateLog,
                 clockWaiter,
+                clock,
                 delayDuration::get,
-                () -> CatalogManagerImpl.DEFAULT_PARTITION_IDLE_SAFE_TIME_PROPAGATION_PERIOD,
-                clock
+                () -> CatalogManagerImpl.DEFAULT_PARTITION_IDLE_SAFE_TIME_PROPAGATION_PERIOD
         );
 
         metastore.start();

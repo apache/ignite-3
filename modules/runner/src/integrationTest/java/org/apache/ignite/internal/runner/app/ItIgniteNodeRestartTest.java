@@ -494,6 +494,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         var catalogManager = new CatalogManagerImpl(
                 new UpdateLogImpl(metaStorageMgr),
                 clockWaiter,
+                hybridClock,
                 delayDurationMsSupplier,
                 partitionIdleSafeTimePropagationPeriodMsSupplier
         );

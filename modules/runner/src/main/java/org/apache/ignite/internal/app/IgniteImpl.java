@@ -622,9 +622,9 @@ public class IgniteImpl implements Ignite {
         CatalogManagerImpl catalogManager = new CatalogManagerImpl(
                 new UpdateLogImpl(metaStorageMgr),
                 clockWaiter,
+                clock,
                 delayDurationMsSupplier,
-                partitionIdleSafeTimePropagationPeriodMsSupplier,
-                clock
+                partitionIdleSafeTimePropagationPeriodMsSupplier
         );
 
         systemViewManager = new SystemViewManagerImpl(name, catalogManager);

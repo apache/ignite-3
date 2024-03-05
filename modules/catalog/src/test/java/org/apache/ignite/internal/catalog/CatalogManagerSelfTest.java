@@ -1120,7 +1120,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     public void catalogActivationTime() throws Exception {
         long delayDuration = TimeUnit.DAYS.toMillis(365);
 
-        CatalogManagerImpl manager = new CatalogManagerImpl(updateLog, clockWaiter, delayDuration, 0, clock);
+        CatalogManagerImpl manager = new CatalogManagerImpl(updateLog, clockWaiter, clock, delayDuration, 0);
 
         manager.start();
 
@@ -1542,7 +1542,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         HybridTimestamp startTs = clock.now();
 
-        CatalogManagerImpl manager = new CatalogManagerImpl(updateLog, clockWaiter, delayDuration, 0, clock);
+        CatalogManagerImpl manager = new CatalogManagerImpl(updateLog, clockWaiter, clock, delayDuration, 0);
 
         manager.start();
 
@@ -1575,9 +1575,9 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         CatalogManagerImpl manager = new CatalogManagerImpl(
                 updateLog,
                 clockWaiter,
+                clock,
                 delayDuration,
-                partitionIdleSafeTimePropagationPeriod,
-                clock
+                partitionIdleSafeTimePropagationPeriod
         );
 
         manager.start();

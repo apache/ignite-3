@@ -134,7 +134,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
      * Constructor.
      */
     public CatalogManagerImpl(UpdateLog updateLog, ClockWaiter clockWaiter, HybridClock clock) {
-        this(updateLog, clockWaiter, DEFAULT_DELAY_DURATION, DEFAULT_PARTITION_IDLE_SAFE_TIME_PROPAGATION_PERIOD, clock);
+        this(updateLog, clockWaiter, clock, DEFAULT_DELAY_DURATION, DEFAULT_PARTITION_IDLE_SAFE_TIME_PROPAGATION_PERIOD);
     }
 
     /**
@@ -142,11 +142,11 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
      */
     CatalogManagerImpl(UpdateLog updateLog,
             ClockWaiter clockWaiter,
+            HybridClock clock,
             long delayDurationMs,
-            long partitionIdleSafeTimePropagationPeriod,
-            HybridClock clock
+            long partitionIdleSafeTimePropagationPeriod
     ) {
-        this(updateLog, clockWaiter, () -> delayDurationMs, () -> partitionIdleSafeTimePropagationPeriod, clock);
+        this(updateLog, clockWaiter, clock, () -> delayDurationMs, () -> partitionIdleSafeTimePropagationPeriod);
     }
 
     /**
@@ -155,15 +155,15 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     public CatalogManagerImpl(
             UpdateLog updateLog,
             ClockWaiter clockWaiter,
+            HybridClock clock,
             LongSupplier delayDurationMsSupplier,
-            LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier,
-            HybridClock clock
+            LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier
     ) {
         this.updateLog = updateLog;
         this.clockWaiter = clockWaiter;
+        this.clock = clock;
         this.delayDurationMsSupplier = delayDurationMsSupplier;
         this.partitionIdleSafeTimePropagationPeriodMsSupplier = partitionIdleSafeTimePropagationPeriodMsSupplier;
-        this.clock = clock;
     }
 
     @Override
