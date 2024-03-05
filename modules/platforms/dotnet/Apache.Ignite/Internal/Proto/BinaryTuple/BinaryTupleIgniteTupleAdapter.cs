@@ -61,7 +61,7 @@ internal sealed class BinaryTupleIgniteTupleAdapter : IIgniteTuple, IEquatable<B
     {
         get => _tuple != null
             ? _tuple[ordinal]
-            : TupleSerializerHandler.ReadObject(_data.Span, _schema!, Columns.Count, ordinal);
+            : TupleSerializerHandler.ReadObject(_data.Span, _schema!, _keyOnly, ordinal);
 
         set => InitTuple()[ordinal] = value;
     }

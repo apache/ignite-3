@@ -69,13 +69,14 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// </summary>
         /// <param name="buf">Binary tuple buffer.</param>
         /// <param name="schema">Schema.</param>
-        /// <param name="count">Column count.</param>
+        /// <param name="keyOnly">Whether <paramref name="buf"/> is a key-only binary tuple.</param>
         /// <param name="index">Column index.</param>
         /// <returns>Column value.</returns>
-        public static object? ReadObject(ReadOnlySpan<byte> buf, Schema schema, int count, int index)
+        public static object? ReadObject(ReadOnlySpan<byte> buf, Schema schema, bool keyOnly, int index)
         {
-            var tupleReader = new BinaryTupleReader(buf, count);
-            var column = schema.Columns[index];
+            var columns = schema.GetColumnsFor(keyOnly);
+            var tupleReader = new BinaryTupleReader(buf, columns.Count);
+            var column = columns[index];
 
             return tupleReader.GetObject(index, column.Type, column.Scale);
         }

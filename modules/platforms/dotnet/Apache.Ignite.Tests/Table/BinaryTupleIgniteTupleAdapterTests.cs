@@ -79,15 +79,15 @@ public class BinaryTupleIgniteTupleAdapterTests : IgniteTupleTests
         var schema = Schema.CreateInstance(0, 0, cols);
 
         using var builder = new BinaryTupleBuilder(schema.KeyColumns.Count);
-        builder.AppendLong(2);
-        builder.AppendInt(1);
+        builder.AppendLong(456L);
+        builder.AppendInt(123);
 
         var buf = builder.Build().ToArray();
         var keyTuple = new BinaryTupleIgniteTupleAdapter(buf, schema, keyOnly: true);
 
         Assert.AreEqual(2, keyTuple.FieldCount);
-        Assert.AreEqual(1, keyTuple["key1"]);
-        Assert.AreEqual(2L, keyTuple["key2"]);
+        Assert.AreEqual(123, keyTuple["key1"]);
+        Assert.AreEqual(456L, keyTuple["key2"]);
     }
 
     protected override string GetShortClassName() => nameof(BinaryTupleIgniteTupleAdapter);
