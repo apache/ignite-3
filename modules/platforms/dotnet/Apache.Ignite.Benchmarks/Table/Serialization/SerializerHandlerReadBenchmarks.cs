@@ -24,7 +24,7 @@ namespace Apache.Ignite.Benchmarks.Table.Serialization
     using Internal.Table.Serialization;
 
     /// <summary>
-    /// Benchmarks for <see cref="IRecordSerializerHandler{T}.Read"/> implementations.
+    /// Benchmarks for <see cref="IRecordSerializerHandler{T}"/> read methods.
     ///
     /// Results on i9-12900H, .NET SDK 6.0.419, Ubuntu 22.04:
     ///
