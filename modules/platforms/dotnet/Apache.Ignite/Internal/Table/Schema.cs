@@ -31,16 +31,25 @@ namespace Apache.Ignite.Internal.Table
     /// <param name="Columns">Columns in schema order.</param>
     /// <param name="KeyColumns">Key part columns.</param>
     /// <param name="ValColumns">Val part columns.</param>
+    /// <param name="ColumnsByName">Column name map.</param>
     internal sealed record Schema(
         int Version,
         int TableId,
         int HashedColumnCount,
         IReadOnlyList<Column> Columns,
         IReadOnlyList<Column> KeyColumns,
-        IReadOnlyList<Column> ValColumns) : IHashedColumnIndexProvider
+        IReadOnlyList<Column> ValColumns,
+        IReadOnlyDictionary<string, Column> ColumnsByName) : IHashedColumnIndexProvider
     {
         /// <inheritdoc/>
         public int HashedColumnOrder(int index) => Columns[index].ColocationIndex;
+
+        /// <summary>
+        /// Gets column by name.
+        /// </summary>
+        /// <param name="name">Column name.</param>
+        /// <returns>Column or null.</returns>
+        public Column? GetColumn(string name) => ColumnsByName!.GetValueOrDefault(IgniteTupleCommon.ParseColumnName(name), null);
 
         /// <summary>
         /// Create schema instance.
@@ -80,7 +89,13 @@ namespace Apache.Ignite.Internal.Table
             // TODO: Use key columns when colocation columns are missing? Better handle this on the server.
             Debug.Assert(hashedColumnCount > 0, "No hashed columns");
 
-            return new Schema(version, tableId, hashedColumnCount, columns, keyColumns, valColumns);
+            var columnMap = new Dictionary<string, Column>(columns.Count);
+            foreach (var column in columns)
+            {
+                columnMap[IgniteTupleCommon.ParseColumnName(column.Name)] = column;
+            }
+
+            return new Schema(version, tableId, hashedColumnCount, columns, keyColumns, valColumns, columnMap);
         }
 
         /// <summary>

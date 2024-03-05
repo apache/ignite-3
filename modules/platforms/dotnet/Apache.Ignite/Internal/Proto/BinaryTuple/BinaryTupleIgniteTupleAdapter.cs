@@ -36,8 +36,6 @@ internal sealed class BinaryTupleIgniteTupleAdapter : IIgniteTuple, IEquatable<B
 
     private Schema? _schema;
 
-    private Dictionary<string, int>? _indexes;
-
     private IgniteTuple? _tuple;
 
     /// <summary>
@@ -93,17 +91,13 @@ internal sealed class BinaryTupleIgniteTupleAdapter : IIgniteTuple, IEquatable<B
             return _tuple.GetOrdinal(name);
         }
 
-        if (_indexes == null)
+        var column = _schema!.GetColumn(name);
+        if (column == null)
         {
-            _indexes = new Dictionary<string, int>(_schema!.Columns.Count);
-
-            for (var i = 0; i < _schema.Columns.Count; i++)
-            {
-                _indexes[IgniteTupleCommon.ParseColumnName(_schema.Columns[i].Name)] = i;
-            }
+            return -1;
         }
 
-        return _indexes.GetValueOrDefault(IgniteTupleCommon.ParseColumnName(name), -1);
+        return _keyOnly ? column.KeyIndex : column.SchemaIndex;
     }
 
     /// <inheritdoc/>
@@ -135,7 +129,6 @@ internal sealed class BinaryTupleIgniteTupleAdapter : IIgniteTuple, IEquatable<B
 
         // Release schema and data.
         _schema = default;
-        _indexes = default;
         _data = default;
 
         return _tuple;
