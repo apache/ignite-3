@@ -23,7 +23,6 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.clusterWideEnsuredActivationTimestamp;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
-import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.STOPPING;
 import static org.apache.ignite.internal.type.NativeTypes.BOOLEAN;
 import static org.apache.ignite.internal.type.NativeTypes.INT32;
 import static org.apache.ignite.internal.type.NativeTypes.STRING;
@@ -47,15 +46,11 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
-import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor.CatalogIndexDescriptorType;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexViewDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -72,6 +67,8 @@ import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
 import org.apache.ignite.internal.catalog.storage.UpdateLogEvent;
 import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
 import org.apache.ignite.internal.event.AbstractEventProducer;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -131,6 +128,9 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
+    /** Clock. */
+    private final HybridClock clock;
+
     /**
      * Constructor.
      */
@@ -158,6 +158,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         this.clockWaiter = clockWaiter;
         this.delayDurationMsSupplier = delayDurationMsSupplier;
         this.partitionIdleSafeTimePropagationPeriodMsSupplier = partitionIdleSafeTimePropagationPeriodMsSupplier;
+        this.clock = new HybridClockImpl();
     }
 
     @Override
@@ -446,9 +447,9 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     public List<SystemView<?>> systemViews() {
         return List.of(
                 createSystemViewsView(),
-                createSystemViewColumnsView(),
-                createSystemViewZonesView(),
-                createSystemViewIndexesView()
+                createColumnsView(),
+                createZonesView(),
+                createIndexesView()
         );
     }
 
@@ -628,9 +629,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
     private SystemView<?> createSystemViewsView() {
         Iterable<SchemaAwareDescriptor<CatalogSystemViewDescriptor>> viewData = () -> {
-            int version = latestCatalogVersion();
-
-            Catalog catalog = catalog(version);
+            Catalog catalog = catalogAt(clock.nowLong());
 
             return catalog.schemas().stream()
                     .flatMap(schema -> Arrays.stream(schema.systemViews())
@@ -654,11 +653,9 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                 .build();
     }
 
-    private SystemView<?> createSystemViewColumnsView() {
+    private SystemView<?> createColumnsView() {
         Iterable<ParentIdAwareDescriptor<CatalogTableColumnDescriptor>> viewData = () -> {
-            int version = latestCatalogVersion();
-
-            Catalog catalog = catalog(version);
+            Catalog catalog = catalogAt(clock.nowLong());
 
             return catalog.schemas().stream()
                     .flatMap(schema -> Arrays.stream(schema.systemViews()))
@@ -683,7 +680,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                 .build();
     }
 
-    private SystemView<?> createSystemViewZonesView() {
+    private SystemView<?> createZonesView() {
         return SystemViews.<CatalogZoneDescriptor>clusterViewBuilder()
                 .name("ZONES")
                 .addColumn("NAME", STRING, CatalogZoneDescriptor::name)
@@ -693,11 +690,11 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                 .addColumn("DATA_NODES_AUTO_ADJUST_SCALE_DOWN", INT32, CatalogZoneDescriptor::dataNodesAutoAdjustScaleDown)
                 .addColumn("DATA_NODES_FILTER", STRING, CatalogZoneDescriptor::filter)
                 .addColumn("IS_DEFAULT_ZONE", BOOLEAN, isDefaultZone())
-                .dataProvider(SubscriptionUtils.fromIterable(() -> catalog(latestCatalogVersion()).zones().iterator()))
+                .dataProvider(SubscriptionUtils.fromIterable(() -> catalogAt(clock.nowLong()).zones().iterator()))
                 .build();
     }
 
-    private SystemView<?> createSystemViewIndexesView() {
+    private SystemView<?> createIndexesView() {
         return SystemViews.<CatalogIndexViewDescriptor>clusterViewBuilder()
                 .name("INDEXES")
                 .addColumn("INDEX_ID", INT32, CatalogIndexViewDescriptor::id)
@@ -707,7 +704,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                 .addColumn("SCHEMA_ID", INT32, CatalogIndexViewDescriptor::schemaId)
                 .addColumn("SCHEMA_NAME", STRING, CatalogIndexViewDescriptor::schemaName)
                 .addColumn("TYPE", STRING, CatalogIndexViewDescriptor::type)
-                .addColumn("UNIQUE", BOOLEAN, CatalogIndexViewDescriptor::unique)
+                .addColumn("IS_UNIQUE", BOOLEAN, CatalogIndexViewDescriptor::unique)
                 .addColumn("COLUMNS", STRING, CatalogIndexViewDescriptor::columnsString)
                 .addColumn("STATUS", STRING, CatalogIndexViewDescriptor::status)
                 .dataProvider(getIndexesDataProvider())
@@ -715,45 +712,15 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     private Publisher<CatalogIndexViewDescriptor> getIndexesDataProvider() {
-        return SubscriptionUtils.fromIterable(() ->
-                catalog(latestCatalogVersion())
-                        .indexes()
-                        .stream()
-                        .filter(it -> it.status() != STOPPING)
-                        .map(this::toCatalogIndexView)
-                        .iterator()
-        );
-    }
+        return SubscriptionUtils.fromIterable(() -> {
+            Catalog catalog = catalogAt(clock.nowLong());
 
-    private CatalogIndexViewDescriptor toCatalogIndexView(CatalogIndexDescriptor index) {
-        Catalog catalog = catalog(latestCatalogVersion());
-        CatalogTableDescriptor table = catalog.table(index.tableId());
-
-        return new CatalogIndexViewDescriptor(
-                index.id(),
-                index.name(),
-                index.indexType().name(),
-                index.tableId(),
-                table.name(),
-                table.schemaId(),
-                catalog.schema(table.schemaId()).name(),
-                index.unique(),
-                getIndexColumns(index),
-                index.status().name()
-        );
-    }
-
-    private static String getIndexColumns(CatalogIndexDescriptor indexDescriptor) {
-        return indexDescriptor.indexType() == CatalogIndexDescriptorType.HASH
-                ? ((CatalogHashIndexDescriptor) indexDescriptor)
-                .columns()
-                .stream()
-                .collect(Collectors.joining(", "))
-                : ((CatalogSortedIndexDescriptor) indexDescriptor)
-                        .columns()
-                        .stream()
-                        .map(column -> column.name() + " " + column.collation())
-                        .collect(Collectors.joining(", "));
+            return catalog.indexes()
+                    .stream()
+                    .filter(index -> index.status().isAlive())
+                    .map(index -> CatalogIndexViewDescriptor.fromCatalogIndexDescriptor(index, catalog))
+                    .iterator();
+        });
     }
 
     private static Function<CatalogZoneDescriptor, Boolean> isDefaultZone() {

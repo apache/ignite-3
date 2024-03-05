@@ -17,7 +17,12 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
-/** Descriptor for the index system view. */
+import static java.util.stream.Collectors.joining;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor.CatalogIndexDescriptorType.HASH;
+
+import org.apache.ignite.internal.catalog.Catalog;
+
+/** Descriptor for the indexes system view. */
 public class CatalogIndexViewDescriptor {
     /** Index ID. */
     private final int id;
@@ -25,7 +30,7 @@ public class CatalogIndexViewDescriptor {
     /** Index name. */
     private final String name;
 
-    /** index type. */
+    /** index type (SORTED/HASH). */
     private final String type;
 
     /** ID of the table the index is created for. */
@@ -50,7 +55,7 @@ public class CatalogIndexViewDescriptor {
     private final String status;
 
     /** Constructor. */
-    public CatalogIndexViewDescriptor(
+    private CatalogIndexViewDescriptor(
             int id,
             String name,
             String type,
@@ -72,6 +77,24 @@ public class CatalogIndexViewDescriptor {
         this.unique = unique;
         this.columnsString = columnsString;
         this.status = status;
+    }
+
+    /** Creates a CatalogIndexViewDescriptor. */
+    public static CatalogIndexViewDescriptor fromCatalogIndexDescriptor(CatalogIndexDescriptor index, Catalog catalog) {
+        CatalogTableDescriptor table = catalog.table(index.tableId());
+
+        return new CatalogIndexViewDescriptor(
+                index.id(),
+                index.name(),
+                index.indexType().name(),
+                index.tableId(),
+                table.name(),
+                table.schemaId(),
+                catalog.schema(table.schemaId()).name(),
+                index.unique(),
+                getColumnsString(index),
+                index.status().name()
+        );
     }
 
     /** Returns ID of the index. */
@@ -122,5 +145,15 @@ public class CatalogIndexViewDescriptor {
     /** Returns status of the index. */
     public String status() {
         return status;
+    }
+
+    private static String getColumnsString(CatalogIndexDescriptor indexDescriptor) {
+        return indexDescriptor.indexType() == HASH
+                ? String.join(", ", ((CatalogHashIndexDescriptor) indexDescriptor).columns())
+                : ((CatalogSortedIndexDescriptor) indexDescriptor)
+                        .columns()
+                        .stream()
+                        .map(column -> column.name() + (column.collation().asc() ? " ASC" : " DESC"))
+                        .collect(joining(", "));
     }
 }

@@ -215,6 +215,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     /** Test table name. */
     private static final String TABLE_NAME = "Table1";
 
+    /** Assume that the table id will always be 8 for the test table. There is an assertion to check if this is true. */
+    private static final int TABLE_ID = 8;
+
     /** Test table name. */
     private static final String TABLE_NAME_2 = "Table2";
 
@@ -1420,10 +1423,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
             );
         }
 
-        // Assume that the table id will always be 7 for the test table. There is an assertion below to check this is true.
-        int tableId = 8;
-
-        var partId = new TablePartitionId(tableId, 0);
+        var partId = new TablePartitionId(TABLE_ID, 0);
 
         // Populate the stable assignments before calling table create, if needed.
         if (populateStableAssignmentsBeforeTableCreation) {
@@ -1447,7 +1447,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                     + "(id INT PRIMARY KEY, name VARCHAR) WITH PRIMARY_ZONE='" + zoneName + "';");
         }
 
-        assertEquals(tableId, tableId(node, TABLE_NAME));
+        assertEquals(TABLE_ID, tableId(node, TABLE_NAME));
 
         node.metaStorageManager().put(new ByteArray(testPrefix.getBytes(StandardCharsets.UTF_8)), new byte[0]);
 
@@ -1525,10 +1525,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         String tableName = "TEST";
         String zoneName = "ZONE_TEST";
 
-        // Assume that the table id is always 7, there is an assertion below to ensure this.
-        int tableId = 8;
-
-        var assignmentsKey = stablePartAssignmentsKey(new TablePartitionId(tableId, 0));
+        var assignmentsKey = stablePartAssignmentsKey(new TablePartitionId(TABLE_ID, 0));
 
         var metaStorageInterceptorFut = new CompletableFuture<>();
         var metaStorageInterceptorInnerFut = new CompletableFuture<>();
@@ -1603,7 +1600,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         nodeInhibitor0.stopInhibit();
         waitForValueInLocalMs(node0.metaStorageManager(), assignmentsKey);
 
-        assertEquals(tableId, tableId(node0, tableName));
+        assertEquals(TABLE_ID, tableId(node0, tableName));
 
         Set<Assignment> expectedAssignments = dataNodesMockByNode.get(nodeThatWrittenAssignments).get().join()
                 .stream().map(Assignment::forPeer).collect(toSet());
@@ -1633,10 +1630,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         nodeInhibitor0.startInhibit();
         nodeInhibitor1.startInhibit();
 
-        // Assume that the table id is always 7, there is an assertion below to ensure this.
-        int tableId = 8;
-
-        var assignmentsKey = stablePartAssignmentsKey(new TablePartitionId(tableId, 0));
+        var assignmentsKey = stablePartAssignmentsKey(new TablePartitionId(TABLE_ID, 0));
 
         var tableFut = createTableInCatalog(node0.catalogManager(), tableName, zoneName);
 
@@ -1671,7 +1665,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         assertThat(tableFut, willCompleteSuccessfully());
         assertThat(alterZoneFut, willCompleteSuccessfully());
 
-        assertEquals(tableId, tableId(node0, tableName));
+        assertEquals(TABLE_ID, tableId(node0, tableName));
 
         waitForValueInLocalMs(node0.metaStorageManager(), assignmentsKey);
 
