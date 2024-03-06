@@ -831,13 +831,4 @@ public final class Commons {
                 return null;
         }
     }
-
-    /** Removes the 'Ignite' prefix from the provided string. */
-    public static String removeIgnitePrefix(String str) {
-        if (str.startsWith("Ignite")) {
-            return str.substring(6);
-        }
-
-        return str;
-    }
 }
