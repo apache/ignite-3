@@ -78,7 +78,6 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.IgniteSql;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -136,12 +135,11 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
         verify(tableViewInternal, never()).unregisterIndex(anyInt());
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21576")
     @Test
     void testDestroyIndex() throws Exception {
         createIndex(TABLE_NAME, INDEX_NAME);
 
-        CatalogIndexDescriptor indexDescriptor = catalogManager.aliveIndex(INDEX_NAME, catalogManager.latestCatalogVersion());
+        CatalogIndexDescriptor indexDescriptor = catalogManager.aliveIndex(INDEX_NAME, clock.nowLong());
         int indexId = indexDescriptor.id();
         int tableId = indexDescriptor.tableId();
 
@@ -154,12 +152,11 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
         verify(mvTableStorage).destroyIndex(indexId);
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21576")
     @Test
     void testIndexDestroyedWithTable() throws Exception {
         createIndex(TABLE_NAME, INDEX_NAME);
 
-        CatalogIndexDescriptor indexDescriptor = catalogManager.aliveIndex(INDEX_NAME, catalogManager.latestCatalogVersion());
+        CatalogIndexDescriptor indexDescriptor = catalogManager.aliveIndex(INDEX_NAME, clock.nowLong());
         int indexId = indexDescriptor.id();
         int tableId = indexDescriptor.tableId();
 
