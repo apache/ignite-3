@@ -22,10 +22,10 @@ import static java.util.stream.Collectors.toUnmodifiableList;
 
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.ThreadPoolExecutor;
 import org.apache.ignite.internal.thread.AbstractStripedThreadPoolExecutor;
 import org.apache.ignite.internal.thread.StripedExecutor;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
@@ -34,7 +34,7 @@ import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
  * Same as {@link StripedThreadPoolExecutor}, but each stripe is a critical worker monitored for being blocked.
  */
 public class CriticalStripedThreadPoolExecutor extends AbstractStripedThreadPoolExecutor<ExecutorService> implements StripedExecutor {
-    private final ExecutorService[] executors;
+    private final List<CriticalWorker> workers;
 
     /**
      * Create a blockage-monitored striped thread pool.
@@ -55,22 +55,24 @@ public class CriticalStripedThreadPoolExecutor extends AbstractStripedThreadPool
         this(createExecutors(concurrencyLvl, threadFactory, allowCoreThreadTimeOut, keepAliveTime));
     }
 
-    private CriticalStripedThreadPoolExecutor(ExecutorService[] executors) {
+    private CriticalStripedThreadPoolExecutor(CriticalSingleThreadExecutor[] executors) {
         super(executors);
 
-        this.executors = executors;
+        this.workers = Arrays.stream(executors)
+                .map(CriticalWorker.class::cast)
+                .collect(toUnmodifiableList());
     }
 
-    private static ExecutorService[] createExecutors(
+    private static CriticalSingleThreadExecutor[] createExecutors(
             int concurrencyLvl,
             ThreadFactory threadFactory,
             boolean allowCoreThreadTimeOut,
             long keepAliveTime
     ) {
-        ExecutorService[] execs = new ExecutorService[concurrencyLvl];
+        CriticalSingleThreadExecutor[] execs = new CriticalSingleThreadExecutor[concurrencyLvl];
 
         for (int i = 0; i < concurrencyLvl; i++) {
-            ThreadPoolExecutor executor = new CriticalSingleThreadExecutor(
+            CriticalSingleThreadExecutor executor = new CriticalSingleThreadExecutor(
                     keepAliveTime,
                     MILLISECONDS,
                     new LinkedBlockingQueue<>(),
@@ -89,8 +91,6 @@ public class CriticalStripedThreadPoolExecutor extends AbstractStripedThreadPool
      * Returns workers corresponding to this thread pool.
      */
     public Collection<CriticalWorker> workers() {
-        return Arrays.stream(executors)
-                .map(CriticalWorker.class::cast)
-                .collect(toUnmodifiableList());
+        return workers;
     }
 }
