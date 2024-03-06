@@ -288,7 +288,6 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
                 andNodes.add(eq);
             }
             if (andNodes.size() > 1) {
-                assert andNodes.size() % 2 == 0;
                 RexNode node0 = rexBuilder.makeCall(SqlStdOperatorTable.AND, andNodes);
                 andEqNodes.add(node0);
             } else {

@@ -130,18 +130,21 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
     }
 
     enum TestCaseBasicInsert {
-        SIMPLE_1a("t(C1) VALUES (SELECT 1)", TABLE_C1_NULLABLE_C2),
-        SIMPLE_1b("t(C1) VALUES (1), (2)", TABLE_C1_NULLABLE_C2, "[c1=1]", "[c1=2]"),
-        SIMPLE_1ba("t(C1) VALUES (1), (SELECT 1)", TABLE_C1_NULLABLE_C2),
-        SIMPLE_1c("t(C1) VALUES (?), (?), (?)", TABLE_C1_NULLABLE_C2, "[c1=?0]", "[c1=?1]", "[c1=?2]"),
+        SIMPLE_1a1("t(C1) VALUES (SELECT 1)", TABLE_C1_NULLABLE_C2),
+        SIMPLE_1a2("t(C1) VALUES (1), (2)", TABLE_C1_NULLABLE_C2, "[c1=1]", "[c1=2]"),
+        SIMPLE_1a3("t(C1) VALUES (1), (SELECT 1)", TABLE_C1_NULLABLE_C2),
+        SIMPLE_1a4("t(C1) VALUES (?), (?), (?)", TABLE_C1_NULLABLE_C2, "[c1=?0]", "[c1=?1]", "[c1=?2]"),
+        SIMPLE_1a5("t(C2, C1) VALUES (null, 1), (null, 2)", TABLE_C1_NULLABLE_C2, "[c1=1]", "[c1=2]"),
 
         SIMPLE_1d("t(C1) VALUES (OCTET_LENGTH('TEST')), (2)", TABLE_C1_NULLABLE_C2),
         SIMPLE_1e("t(C1) VALUES (SELECT 1), (2)", TABLE_C1_NULLABLE_C2),
 
-        SIMPLE_1f("t(C1, C2, C3) VALUES (1, ?, 1), (2, ?, 2), (3, ?, 3)", TABLE_C1_C2,
+        SIMPLE_1f1("t(C1, C2, C3) VALUES (1, ?, 1), (2, ?, 2), (3, ?, 3)", TABLE_C1_C2,
                 "[c1=1, c2=?0]", "[c1=2, c2=?1]", "[c1=3, c2=?2]"),
-        SIMPLE_1j("t(C2, C1, C3) VALUES (1, ?, 1), (2, ?, 2), (3, ?, 3)", TABLE_C1_C2,
+        SIMPLE_1f2("t(C2, C1, C3) VALUES (1, ?, 1), (2, ?, 2), (3, ?, 3)", TABLE_C1_C2,
                 "[c1=?0, c2=1]", "[c1=?1, c2=2]", "[c1=?2, c2=3]"),
+
+        SIMPLE_1j1("t(C4, C2, C3, C1) VALUES (1, 2, 3, 4), (2, 3, 4, 5)", TABLE_C1_C2_C3, "[c1=4, c2=2, c3=3]", "[c1=5, c2=3, c3=4]"),
         ;
 
         private final TestCase data;
