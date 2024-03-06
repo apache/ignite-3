@@ -57,6 +57,7 @@ import org.apache.ignite.internal.sql.engine.rule.ProjectConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.SetOpConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.SortAggregateConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.SortConverterRule;
+import org.apache.ignite.internal.sql.engine.rule.SortExchangeTransposeRule;
 import org.apache.ignite.internal.sql.engine.rule.TableFunctionScanConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.TableModifyConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.TableModifyToKeyValuePutRule;
@@ -183,6 +184,8 @@ public enum PlannerPhase {
                     .withOperandSupplier(b ->
                             b.operand(LogicalSort.class)
                                     .anyInputs()).toRule(),
+
+            SortExchangeTransposeRule.INSTANCE,
 
             CoreRules.UNION_MERGE,
             CoreRules.MINUS_MERGE,

@@ -31,10 +31,7 @@ import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelHomogeneousShuttle;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelRoot;
-import org.apache.calcite.rel.hint.RelHint;
-import org.apache.calcite.rel.logical.LogicalAggregate;
 import org.apache.calcite.rel.logical.LogicalCorrelate;
-import org.apache.calcite.rel.logical.LogicalJoin;
 import org.apache.calcite.rel.rules.CoreRules;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexNode;
@@ -43,7 +40,6 @@ import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.hint.Hints;
-import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
@@ -104,8 +100,6 @@ public final class PlannerHelper {
             rel = planner.replaceCorrelatesCollisions(rel);
 
             rel = planner.trimUnusedFields(root.withRel(rel)).rel;
-
-            rel = new SortedAlgorithmDisabler().visit(rel);
 
             boolean amountOfJoinsAreBig = hasTooMuchJoins(rel);
             boolean enforceJoinOrder = hints.present(ENFORCE_JOIN_ORDER);
@@ -214,81 +208,6 @@ public final class PlannerHelper {
 
         int sizeOfBiggestJoin() {
             return Math.max(countOfSources, maxCountOfSourcesInSubQuery);
-        }
-    }
-
-    /**
-     * Traverses relational tree and assign {@link IgniteHint#DISABLE_SORTED_ALGORITHM} hint
-     * to every {@link LogicalAggregate} and {@link LogicalJoin} node on right side of the
-     * {@link LogicalCorrelate} node.
-     *
-     * <p>This is workaround of a deadlock caused by preserving sorting on a correlated path.
-     *
-     * <pre>
-     * Legend:
-     *      [f#1] -- fragment #1
-     *      (n#1) -- node #1
-     *      [f#2 (n#1) (n#2) ] -- fragment #2 mapped on nodes #1 and #2
-     *
-     * Problematic subtree:
-     *       [f#1 (n#1) ]
-     *            /   \
-     *    [f#2 (n#1) (n#2) ]
-     *           |  X  |
-     *    [f#3 (n#1) (n#2) ]
-     *
-     * Problematic sequence of events:
-     *      1) f#1n#1 sets the correlated variable and requests data from f#2.
-     *      2) Request messages arrives at n#1 and n#2 accordingly. Since they are the first
-     *      requests, the nodes start processing immediately.
-     *      3) Processing of f#2 requires data to be pulled from f#3, thus requests will be sent.
-     *      4) Here comes the first factor: fragment may process only one correlated request at a time.
-     *      So, f#3 start processing of request from f#2n#1 immediately, while request from f#2n#2 will
-     *      be postponed.
-     *      5) f#3 prepares first batch of data, sends it to the f#2n#1 and waits until the next batch will be
-     *      requested. Request from f#2n#2 still postponed until all data for correlate from f#2n#1 will be processed.
-     *      6) f#2n#1 propagates received batch to f#1n#1 and waits for the next request.
-     *      7) Here comes the second and final factor: since f#1n#1 expects data to be sorted, exchange between
-     *      f#1 and f#2 will waits for batches from all parties (f#2n#1 and f#2n#2 in our case).
-     *
-     * </pre>
-     */
-    private static class SortedAlgorithmDisabler extends RelHomogeneousShuttle {
-        private static final RelHint DISABLE_SORTED_ALGORITHM = RelHint.builder(IgniteHint.DISABLE_SORTED_ALGORITHM.name()).build();
-
-        private int correlated = 0;
-
-        @Override
-        public RelNode visit(LogicalAggregate aggregate) {
-            if (correlated > 0) {
-                List<RelHint> hints = new ArrayList<>(aggregate.getHints());
-                hints.add(DISABLE_SORTED_ALGORITHM);
-                aggregate = (LogicalAggregate) aggregate.withHints(hints);
-            }
-
-            return super.visit(aggregate);
-        }
-
-        @Override
-        public RelNode visit(LogicalJoin join) {
-            if (correlated > 0) {
-                List<RelHint> hints = new ArrayList<>(join.getHints());
-                hints.add(DISABLE_SORTED_ALGORITHM);
-                join = (LogicalJoin) join.withHints(hints);
-            }
-
-            return super.visit(join);
-        }
-
-        @Override
-        public RelNode visit(LogicalCorrelate correlate) {
-            RelNode output = visitChild(correlate, 0, correlate.getInput(0));
-
-            correlated++;
-            output = visitChild(output, 1, correlate.getInput(1));
-            correlated--;
-
-            return output;
         }
     }
 }
