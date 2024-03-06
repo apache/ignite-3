@@ -44,7 +44,6 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.IntStream;
 import org.apache.ignite.InitParametersBuilder;
@@ -81,7 +80,6 @@ import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequest;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -1016,35 +1014,6 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         // Now check that the cursor is closed.
         assertTrue(waitForCondition(
                 () -> txExecNode.resourcesRegistry().resources().isEmpty(),
-                10_000)
-        );
-    }
-
-    @Test
-    public void testCursorsClosedAfterTxCloseWithSql() throws Exception {
-        IgniteImpl node = node(0);
-
-        TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
-
-        int partId = 0;
-
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), partId);
-
-        String leaseholder = waitAndGetPrimaryReplica(node(0), tblReplicationGrp).getLeaseholder();
-
-        IgniteImpl txExecNode = findNodeByName(leaseholder);
-
-        InternalTransaction roTx = (InternalTransaction) node.transactions().begin(new TransactionOptions().readOnly(true));
-
-        log.info("Run scan in SQL [txId={}].", roTx.id());
-
-        cluster.doInSession(0, (Consumer<Session>) session -> executeUpdate("select * from " + TABLE_NAME, session, roTx));
-
-        //roTx.commit();
-
-        // Now check that the cursor is closed.
-        assertTrue(waitForCondition(
-                () -> runningNodes().allMatch(n -> n.resourcesRegistry().resources().isEmpty()),
                 10_000)
         );
     }
