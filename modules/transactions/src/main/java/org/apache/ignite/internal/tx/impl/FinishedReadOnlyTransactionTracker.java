@@ -79,7 +79,7 @@ public class FinishedReadOnlyTransactionTracker {
         }
 
         Set<UUID> txToSend = finishedTransactions.stream()
-                .filter(transactionInflights::isReadyToFinish)
+                .filter(transactionInflights::inflightsCompleted)
                 .limit(MAX_FINISHED_TRANSACTIONS_IN_BATCH)
                 .collect(toSet());
 

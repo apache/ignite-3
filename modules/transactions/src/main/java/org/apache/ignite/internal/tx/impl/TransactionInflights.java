@@ -1,11 +1,12 @@
 /*
- * Copyright 2022 GridGain Systems, Inc. and Contributors.
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
  *
- * Licensed under the GridGain Community Edition License (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     https://www.gridgain.com/products/software/community-edition/gridgain-community-edition-license
+ *      http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -37,6 +38,11 @@ import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * Contains counters for in-flight requests of the transactions. Read-write transactions can't finish when some requests are in-flight.
+ * Read-only transactions can't be included into {@link org.apache.ignite.internal.tx.message.FinishedTransactionsBatchMessage} when
+ * some requests are in-flight.
+ */
 public class TransactionInflights {
     /** Hint for maximum concurrent txns. */
     private static final int MAX_CONCURRENT_TXNS = 1024;
@@ -91,7 +97,13 @@ public class TransactionInflights {
         tuple.onRemovedInflights();
     }
 
-    public boolean isReadyToFinish(UUID txId) {
+    /**
+     * Whether the transaction is finishing and there are no in-flight requests for the given transaction.
+     *
+     * @param txId Transaction id.
+     * @return Whether the transaction is finishing and there are no in-flight requests for the given transaction.
+     */
+    public boolean inflightsCompleted(UUID txId) {
         TxContext ctx = requireNonNull(txCtxMap.get(txId));
 
         return ctx.isReadyToFinish();
