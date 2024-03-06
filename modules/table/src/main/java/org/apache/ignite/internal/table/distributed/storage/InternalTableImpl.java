@@ -98,6 +98,7 @@ import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -135,6 +136,8 @@ public class InternalTableImpl implements InternalTable {
 
     /** Transactional manager. */
     protected final TxManager txManager;
+
+    private final TransactionInflights transactionInflights;
 
     /** Storage for table data. */
     private final MvTableStorage tableStorage;
@@ -183,6 +186,7 @@ public class InternalTableImpl implements InternalTable {
      * @param clock A hybrid logical clock.
      * @param placementDriver Placement driver.
      * @param tableRaftService Table raft service.
+     * @param transactionInflights Transaction inflights.
      */
     public InternalTableImpl(
             String tableName,
@@ -196,7 +200,8 @@ public class InternalTableImpl implements InternalTable {
             HybridClock clock,
             HybridTimestampTracker observableTimestampTracker,
             PlacementDriver placementDriver,
-            TableRaftServiceImpl tableRaftService
+            TableRaftServiceImpl tableRaftService,
+            TransactionInflights transactionInflights
     ) {
         this.tableName = tableName;
         this.tableId = tableId;
@@ -211,6 +216,7 @@ public class InternalTableImpl implements InternalTable {
         this.observableTimestampTracker = observableTimestampTracker;
         this.placementDriver = placementDriver;
         this.tableRaftService = tableRaftService;
+        this.transactionInflights = transactionInflights;
     }
 
     /** {@inheritDoc} */
@@ -545,7 +551,7 @@ public class InternalTableImpl implements InternalTable {
 
         if (write && !full) {
             // Track only write requests from explicit transactions.
-            if (!txManager.addInflight(tx.id())) {
+            if (!transactionInflights.addInflight(tx.id(), false)) {
                 return failedFuture(
                         new TransactionException(TX_ALREADY_FINISHED_ERR, format(
                                 "Transaction is already finished [tableName={}, partId={}, txState={}].",
@@ -560,13 +566,13 @@ public class InternalTableImpl implements InternalTable {
 
                 // Remove inflight if no replication was scheduled, otherwise inflight will be removed by delayed response.
                 if (noWriteChecker.test(res, request)) {
-                    txManager.removeInflight(tx.id());
+                    transactionInflights.removeInflight(tx.id());
                 }
 
                 return res;
             }).exceptionally(e -> {
                 if (retryOnLockConflict && e.getCause() instanceof LockException) {
-                    txManager.removeInflight(tx.id()); // Will be retried.
+                    transactionInflights.removeInflight(tx.id()); // Will be retried.
                 }
 
                 ExceptionUtils.sneakyThrow(e);
@@ -1472,7 +1478,10 @@ public class InternalTableImpl implements InternalTable {
                     return replicaSvc.invoke(recipientNode, request);
                 },
                 // TODO: IGNITE-17666 Close cursor tx finish.
-                (intentionallyClose, fut) -> completeScan(txId, tablePartitionId, fut, recipientNode, intentionallyClose)
+                (intentionallyClose, fut) -> completeScan(txId, tablePartitionId, fut, recipientNode, intentionallyClose),
+                transactionInflights,
+                true,
+                txId
         );
     }
 
@@ -1533,7 +1542,10 @@ public class InternalTableImpl implements InternalTable {
                     }
 
                     return postEnlist(opFut, intentionallyClose, actualTx, implicit && !intentionallyClose);
-                }
+                },
+                transactionInflights,
+                false,
+                tx.id()
         );
     }
 
@@ -1575,7 +1587,11 @@ public class InternalTableImpl implements InternalTable {
                     return replicaSvc.invoke(recipient.node(), request);
                 },
                 // TODO: IGNITE-17666 Close cursor tx finish.
-                (intentionallyClose, fut) -> completeScan(txId, tablePartitionId, fut, recipient.node(), intentionallyClose));
+                (intentionallyClose, fut) -> completeScan(txId, tablePartitionId, fut, recipient.node(), intentionallyClose),
+                transactionInflights,
+                false,
+                txId
+        );
     }
 
     /**
@@ -1804,7 +1820,11 @@ public class InternalTableImpl implements InternalTable {
         /** True when the publisher has a subscriber, false otherwise. */
         private final AtomicBoolean subscribed;
 
-        //private final InternalTransaction transaction;
+        private final TransactionInflights transactionInflights;
+
+        private boolean readOnlyTransaction;
+
+        private UUID txId;
 
         /**
          * The constructor.
@@ -1815,10 +1835,16 @@ public class InternalTableImpl implements InternalTable {
          */
         PartitionScanPublisher(
                 BiFunction<Long, Integer, CompletableFuture<Collection<BinaryRow>>> retrieveBatch,
-                BiFunction<Boolean, CompletableFuture<Long>, CompletableFuture<Void>> onClose
+                BiFunction<Boolean, CompletableFuture<Long>, CompletableFuture<Void>> onClose,
+                TransactionInflights transactionInflights,
+                boolean readOnlyTransaction,
+                UUID txId
         ) {
             this.retrieveBatch = retrieveBatch;
             this.onClose = onClose;
+            this.transactionInflights = transactionInflights;
+            this.readOnlyTransaction = readOnlyTransaction;
+            this.txId = txId;
 
             this.subscribed = new AtomicBoolean(false);
         }
@@ -1834,7 +1860,7 @@ public class InternalTableImpl implements InternalTable {
                 subscriber.onError(new IllegalStateException("Scan publisher does not support multiple subscriptions."));
             }
 
-            subscriber.onSubscribe(new PartitionScanSubscription(subscriber));
+            subscriber.onSubscribe(new PartitionScanSubscription(subscriber, transactionInflights, readOnlyTransaction, txId));
         }
 
         /**
@@ -1852,6 +1878,12 @@ public class InternalTableImpl implements InternalTable {
 
             private final AtomicLong requestedItemsCnt;
 
+            private final TransactionInflights transactionInflights;
+
+            private boolean readOnlyTransaction;
+
+            private UUID txId;
+
             private static final int INTERNAL_BATCH_SIZE = 10_000;
 
             /**
@@ -1860,11 +1892,19 @@ public class InternalTableImpl implements InternalTable {
              *
              * @param subscriber The subscriber.
              */
-            private PartitionScanSubscription(Subscriber<? super BinaryRow> subscriber) {
+            private PartitionScanSubscription(
+                    Subscriber<? super BinaryRow> subscriber,
+                    TransactionInflights transactionInflights,
+                    boolean readOnlyTransaction,
+                    UUID txId
+            ) {
                 this.subscriber = subscriber;
                 this.canceled = new AtomicBoolean(false);
                 this.scanId = CURSOR_ID_GENERATOR.getAndIncrement();
                 this.requestedItemsCnt = new AtomicLong(0);
+                this.transactionInflights = transactionInflights;
+                this.readOnlyTransaction = readOnlyTransaction;
+                this.txId = txId;
             }
 
             /** {@inheritDoc} */
@@ -1931,20 +1971,20 @@ public class InternalTableImpl implements InternalTable {
                     return;
                 }
 
-                // Track only write requests from explicit transactions.
-                /*if (!txManager.addInflight(tx.id())) {
-                    return failedFuture(
-                            new TransactionException(TX_ALREADY_FINISHED_ERR, format(
-                                    "Transaction is already finished [tableName={}, partId={}, txState={}].",
-                                    tableName,
-                                    partId,
-                                    tx.state()
-                            )));
-                }*/
+                // Track read only requests which are able to create cursors.
+                if (readOnlyTransaction && !transactionInflights.addInflight(txId, true)) {
+                    throw new TransactionException(TX_ALREADY_FINISHED_ERR, format(
+                            "Transaction is already finished () [txId={}, readOnly={}].",
+                            txId,
+                            readOnlyTransaction
+                    ));
+                }
 
                 retrieveBatch.apply(scanId, n).thenAccept(binaryRows -> {
                     assert binaryRows != null;
                     assert binaryRows.size() <= n : "Rows more then requested " + binaryRows.size() + " " + n;
+
+                    transactionInflights.removeInflight(txId);
 
                     binaryRows.forEach(subscriber::onNext);
 
@@ -1958,6 +1998,8 @@ public class InternalTableImpl implements InternalTable {
                         }
                     }
                 }).exceptionally(t -> {
+                    transactionInflights.removeInflight(txId);
+
                     cancel(t, false);
 
                     return null;

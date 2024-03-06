@@ -197,6 +197,7 @@ import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
+import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
 import org.apache.ignite.internal.tx.storage.state.ThreadAssertingTxStateTableStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
@@ -391,6 +392,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private final RemotelyTriggeredResourceRegistry remotelyTriggeredResourceRegistry;
 
+    private final TransactionInflights transactionInflights;
+
     /**
      * Creates a new table manager.
      *
@@ -416,6 +419,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param sql A supplier function that returns {@link IgniteSql}.
      * @param rebalanceScheduler Executor for scheduling rebalance routine.
      * @param lowWatermark Low watermark.
+     * @param transactionInflights Transaction inflights.
      */
     public TableManager(
             String nodeName,
@@ -448,7 +452,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             Supplier<IgniteSql> sql,
             RemotelyTriggeredResourceRegistry remotelyTriggeredResourceRegistry,
             ScheduledExecutorService rebalanceScheduler,
-            LowWatermark lowWatermark
+            LowWatermark lowWatermark,
+            TransactionInflights transactionInflights
     ) {
         this.topologyService = topologyService;
         this.raftMgr = raftMgr;
@@ -473,6 +478,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.remotelyTriggeredResourceRegistry = remotelyTriggeredResourceRegistry;
         this.rebalanceScheduler = rebalanceScheduler;
         this.lowWatermark = lowWatermark;
+        this.transactionInflights = transactionInflights;
 
         this.executorInclinedSchemaSyncService = new ExecutorInclinedSchemaSyncService(schemaSyncService, partitionOperationsExecutor);
         this.executorInclinedPlacementDriver = new ExecutorInclinedPlacementDriver(placementDriver, partitionOperationsExecutor);
@@ -1264,7 +1270,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 clock,
                 observableTimestampTracker,
                 executorInclinedPlacementDriver,
-                tableRaftService
+                tableRaftService,
+                transactionInflights
         );
 
         var table = new TableImpl(internalTable, lockMgr, schemaVersions, marshallers, sql.get(), tableDescriptor.primaryKeyIndexId());

@@ -199,6 +199,7 @@ import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.ResourceCleanupManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
+import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -668,11 +669,14 @@ public class IgniteImpl implements Ignite {
 
         resourcesRegistry = new RemotelyTriggeredResourceRegistry();
 
+        TransactionInflights transactionInflights = new TransactionInflights(placementDriverMgr.placementDriver());
+
         resourceCleanupManager = new ResourceCleanupManager(
                 name,
                 resourcesRegistry,
                 clusterSvc.topologyService(),
-                messagingServiceReturningToStorageOperationsPool
+                messagingServiceReturningToStorageOperationsPool,
+                transactionInflights
         );
 
         // TODO: IGNITE-19344 - use nodeId that is validated on join (and probably generated differently).
@@ -690,7 +694,8 @@ public class IgniteImpl implements Ignite {
                 indexNodeFinishedRwTransactionsChecker,
                 threadPoolsManager.partitionOperationsExecutor(),
                 resourcesRegistry,
-                resourceCleanupManager
+                resourceCleanupManager,
+                transactionInflights
         );
 
         StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry.getConfiguration(StorageUpdateConfiguration.KEY);
@@ -728,7 +733,8 @@ public class IgniteImpl implements Ignite {
                 this::sql,
                 resourcesRegistry,
                 rebalanceScheduler,
-                lowWatermark
+                lowWatermark,
+                transactionInflights
         );
 
         indexManager = new IndexManager(
@@ -769,7 +775,7 @@ public class IgniteImpl implements Ignite {
                 placementDriverMgr.placementDriver(),
                 clusterConfigRegistry.getConfiguration(SqlDistributedConfiguration.KEY),
                 nodeConfigRegistry.getConfiguration(SqlLocalConfiguration.KEY),
-                txManager
+                transactionInflights
         );
 
         sql = new IgniteSqlImpl(name, qryEngine, new IgniteTransactionsImpl(txManager, observableTimestampTracker));

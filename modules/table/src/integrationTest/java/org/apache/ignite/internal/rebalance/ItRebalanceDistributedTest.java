@@ -187,6 +187,7 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.ResourceCleanupManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
+import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
@@ -1090,11 +1091,14 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             var resourcesRegistry = new RemotelyTriggeredResourceRegistry();
 
+            TransactionInflights transactionInflights = new TransactionInflights(placementDriver);
+
             ResourceCleanupManager resourceCleanupManager = new ResourceCleanupManager(
                     name,
                     resourcesRegistry,
                     clusterService.topologyService(),
-                    clusterService.messagingService()
+                    clusterService.messagingService(),
+                    transactionInflights
             );
 
             txManager = new TxManagerImpl(
@@ -1108,7 +1112,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     partitionIdleSafeTimePropagationPeriodMsSupplier,
                     new TestLocalRwTxCounter(),
                     resourcesRegistry,
-                    resourceCleanupManager
+                    resourceCleanupManager,
+                    transactionInflights
             );
 
             cfgStorage = new DistributedConfigurationStorage("test", metaStorageManager);
@@ -1214,7 +1219,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     () -> mock(IgniteSql.class),
                     resourcesRegistry,
                     rebalanceScheduler,
-                    lowWatermark
+                    lowWatermark,
+                    transactionInflights
             ) {
                 @Override
                 protected TxStateTableStorage createTxStateTableStorage(

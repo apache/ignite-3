@@ -177,6 +177,7 @@ import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.ResourceCleanupManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
+import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
@@ -450,11 +451,14 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var resourcesRegistry = new RemotelyTriggeredResourceRegistry();
 
+        TransactionInflights transactionInflights = new TransactionInflights(placementDriverManager.placementDriver());
+
         ResourceCleanupManager resourceCleanupManager = new ResourceCleanupManager(
                 name,
                 resourcesRegistry,
                 clusterSvc.topologyService(),
-                clusterSvc.messagingService()
+                clusterSvc.messagingService(),
+                transactionInflights
         );
 
         var txManager = new TxManagerImpl(
@@ -471,7 +475,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 new TestLocalRwTxCounter(),
                 threadPoolsManager.partitionOperationsExecutor(),
                 resourcesRegistry,
-                resourceCleanupManager
+                resourceCleanupManager,
+                transactionInflights
         );
 
         ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
@@ -567,7 +572,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 sqlRef::get,
                 resourcesRegistry,
                 rebalanceScheduler,
-                lowWatermark
+                lowWatermark,
+                transactionInflights
         );
 
         var indexManager = new IndexManager(
@@ -597,7 +603,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 placementDriverManager.placementDriver(),
                 clusterConfigRegistry.getConfiguration(SqlDistributedConfiguration.KEY),
                 nodeCfgMgr.configurationRegistry().getConfiguration(SqlLocalConfiguration.KEY),
-                txManager
+                transactionInflights
         );
 
         sqlRef.set(new IgniteSqlImpl(name, qryEngine, new IgniteTransactionsImpl(txManager, new HybridTimestampTracker())));

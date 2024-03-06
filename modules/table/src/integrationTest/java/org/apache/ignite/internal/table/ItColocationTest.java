@@ -63,6 +63,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -100,6 +101,7 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.ResourceCleanupManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
+import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
@@ -166,11 +168,16 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
         RemotelyTriggeredResourceRegistry resourcesRegistry = new RemotelyTriggeredResourceRegistry();
 
+        PlacementDriver placementDriver = new TestPlacementDriver(clusterNode);
+
+        TransactionInflights transactionInflights = new TransactionInflights(placementDriver);
+
         ResourceCleanupManager resourceCleanupManager = new ResourceCleanupManager(
                 clusterNode.name(),
                 resourcesRegistry,
                 clusterService.topologyService(),
-                clusterService.messagingService()
+                clusterService.messagingService(),
+                transactionInflights
         );
 
         txManager = new TxManagerImpl(
@@ -180,11 +187,12 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 new HeapLockManager(),
                 new HybridClockImpl(),
                 new TransactionIdGenerator(0xdeadbeef),
-                new TestPlacementDriver(clusterNode),
+                placementDriver,
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
                 new TestLocalRwTxCounter(),
                 resourcesRegistry,
-                resourceCleanupManager
+                resourceCleanupManager,
+                transactionInflights
         ) {
             @Override
             public CompletableFuture<Void> finish(
@@ -292,7 +300,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 new HybridClockImpl(),
                 observableTimestampTracker,
                 new TestPlacementDriver(clusterNode),
-                new TableRaftServiceImpl("PUBLIC.TEST", PARTS, partRafts, new SingleClusterNodeResolver(clusterNode))
+                new TableRaftServiceImpl("PUBLIC.TEST", PARTS, partRafts, new SingleClusterNodeResolver(clusterNode)),
+                transactionInflights
         );
     }
 

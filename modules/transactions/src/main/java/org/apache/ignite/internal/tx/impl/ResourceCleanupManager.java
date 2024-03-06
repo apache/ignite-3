@@ -74,12 +74,14 @@ public class ResourceCleanupManager implements IgniteComponent {
      * @param resourceRegistry Resources registry.
      * @param topologyService Topology service.
      * @param messagingService Messaging service.
+     * @param transactionInflights Transaction inflights.
      */
     public ResourceCleanupManager(
             String nodeName,
             RemotelyTriggeredResourceRegistry resourceRegistry,
             TopologyService topologyService,
-            MessagingService messagingService
+            MessagingService messagingService,
+            TransactionInflights transactionInflights
     ) {
         this.resourceRegistry = resourceRegistry;
         this.clusterNodeResolver = topologyService;
@@ -87,7 +89,11 @@ public class ResourceCleanupManager implements IgniteComponent {
                 RESOURCE_CLEANUP_EXECUTOR_SIZE,
                 NamedThreadFactory.create(nodeName, "resource-cleanup-executor", LOG)
         );
-        this.finishedReadOnlyTransactionTracker = new FinishedReadOnlyTransactionTracker(topologyService, messagingService);
+        this.finishedReadOnlyTransactionTracker = new FinishedReadOnlyTransactionTracker(
+                topologyService,
+                messagingService,
+                transactionInflights
+        );
         this.finishedTransactionBatchRequestHandler =
                 new FinishedTransactionBatchRequestHandler(messagingService, resourceRegistry, resourceCleanupExecutor);
     }

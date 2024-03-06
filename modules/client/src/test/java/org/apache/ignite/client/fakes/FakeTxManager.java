@@ -216,21 +216,6 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
-    public boolean addInflight(UUID txId) {
-        return false;
-    }
-
-    @Override
-    public void removeInflight(UUID txId) {
-        // No-op.
-    }
-
-    @Override
-    public boolean isReadyToFinish(UUID txId) {
-        return false;
-    }
-
-    @Override
     public HybridClock clock() {
         return clock;
     }

@@ -50,15 +50,24 @@ public class FinishedReadOnlyTransactionTracker {
     /** Messaging service. */
     private final MessagingService messagingService;
 
+    /** Transaction inflights. */
+    private final TransactionInflights transactionInflights;
+
     /**
      * Constructor.
      *
      * @param topologyService Topology service.
      * @param messagingService Messaging service.
+     * @param transactionInflights Transaction inflights.
      */
-    public FinishedReadOnlyTransactionTracker(TopologyService topologyService, MessagingService messagingService) {
+    public FinishedReadOnlyTransactionTracker(
+            TopologyService topologyService,
+            MessagingService messagingService,
+            TransactionInflights transactionInflights
+    ) {
         this.topologyService = topologyService;
         this.messagingService = messagingService;
+        this.transactionInflights = transactionInflights;
     }
 
     /**
@@ -70,18 +79,21 @@ public class FinishedReadOnlyTransactionTracker {
         }
 
         Set<UUID> txToSend = finishedTransactions.stream()
+                .filter(transactionInflights::isReadyToFinish)
                 .limit(MAX_FINISHED_TRANSACTIONS_IN_BATCH)
                 .collect(toSet());
 
-        FinishedTransactionsBatchMessage message = FACTORY.finishedTransactionsBatchMessage()
-                .transactions(txToSend)
-                .build();
+        if (!txToSend.isEmpty()) {
+            FinishedTransactionsBatchMessage message = FACTORY.finishedTransactionsBatchMessage()
+                    .transactions(txToSend)
+                    .build();
 
-        CompletableFuture<?>[] messages = topologyService.allMembers()
-                .stream()
-                .map(clusterNode -> sendCursorCleanupCommand(clusterNode, message))
-                .toArray(CompletableFuture[]::new);
-        allOf(messages).thenRun(() -> finishedTransactions.removeAll(txToSend));
+            CompletableFuture<?>[] messages = topologyService.allMembers()
+                    .stream()
+                    .map(clusterNode -> sendCursorCleanupCommand(clusterNode, message))
+                    .toArray(CompletableFuture[]::new);
+            allOf(messages).thenRun(() -> finishedTransactions.removeAll(txToSend));
+        }
     }
 
     private CompletableFuture<Void> sendCursorCleanupCommand(ClusterNode node, FinishedTransactionsBatchMessage message) {
