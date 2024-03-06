@@ -37,12 +37,12 @@ public class CriticalStripedThreadPoolExecutor extends AbstractStripedThreadPool
     /**
      * Create a blockage-monitored striped thread pool.
      *
-     * @param concurrencyLvl          Concurrency level.
+     * @param concurrencyLvl Concurrency level (number of stripes).
      * @param threadFactory Factory used to create threads.
      * @param allowCoreThreadTimeOut Sets the policy governing whether core threads may time out and terminate if no tasks arrive within the
-     *                               keep-alive time.
-     * @param keepAliveTime          When the number of threads is greater than the core, this is the maximum time that excess idle threads
-     *                               will wait for new tasks before terminating.
+     *     keep-alive time.
+     * @param keepAliveTime When the number of threads is greater than the core, this is the maximum time that excess idle threads
+     *     will wait for new tasks before terminating.
      */
     public CriticalStripedThreadPoolExecutor(
             int concurrencyLvl,
