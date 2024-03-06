@@ -71,14 +71,14 @@ public class IndexUtils {
     }
 
     /**
-     * Registers indexes to a table on node recovery..
+     * Registers indexes to a table on node recovery or rebalance.
      *
      * @param table Table into which the index will be registered.
      * @param catalogService Catalog service.
      * @param partitionSet Partitions for which index storages will need to be created if they are missing.
      * @param schemaRegistry Table schema register.
      */
-    public static void registerIndexesToTableOnNodeRecovery(
+    public static void registerIndexesToTableOnNodeRecoveryOrRebalance(
             TableViewInternal table,
             CatalogService catalogService,
             PartitionSet partitionSet,
