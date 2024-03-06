@@ -55,7 +55,7 @@ public class ItKeyValuePutTest extends BaseSqlIntegrationTest {
     void insertConstantSimpleKey() {
         for (int i = 0; i < TABLE_SIZE; i++) {
             assertQuery(format("INSERT INTO simple_key VALUES ({}, {})", i, i))
-                    .matches(containsSubPlan("IgniteKeyValueModify"))
+                    .matches(containsSubPlan("KeyValueModify"))
                     .returns(1L)
                     .check();
         }
@@ -72,7 +72,7 @@ public class ItKeyValuePutTest extends BaseSqlIntegrationTest {
     void insertDynamicParamsSimpleKey() {
         for (int i = 0; i < TABLE_SIZE; i++) {
             assertQuery("INSERT INTO simple_key VALUES (?, ?)")
-                    .matches(containsSubPlan("IgniteKeyValueModify"))
+                    .matches(containsSubPlan("KeyValueModify"))
                     .withParams(i, i)
                     .returns(1L)
                     .check();
@@ -90,7 +90,7 @@ public class ItKeyValuePutTest extends BaseSqlIntegrationTest {
     void insertSimpleKeyWithCast() {
         for (int i = 0; i < TABLE_SIZE; i++) {
             assertQuery("INSERT INTO simple_key VALUES (?, ?)")
-                    .matches(containsSubPlan("IgniteKeyValueModify"))
+                    .matches(containsSubPlan("KeyValueModify"))
                     .withParams((byte) i, (byte) i)
                     .returns(1L)
                     .check();
@@ -108,7 +108,7 @@ public class ItKeyValuePutTest extends BaseSqlIntegrationTest {
     void insertComplexKey() {
         for (int i = 0; i < TABLE_SIZE; i++) {
             assertQuery("INSERT INTO complex_key VALUES (?, ?, ?)")
-                    .matches(containsSubPlan("IgniteKeyValueModify"))
+                    .matches(containsSubPlan("KeyValueModify"))
                     .withParams(i, 2 * i, i)
                     .returns(1L)
                     .check();

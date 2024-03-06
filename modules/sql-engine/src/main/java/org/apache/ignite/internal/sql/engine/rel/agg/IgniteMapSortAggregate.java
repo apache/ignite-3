@@ -45,6 +45,8 @@ import org.apache.ignite.internal.sql.engine.util.PlanUtils;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class IgniteMapSortAggregate extends IgniteMapAggregateBase implements IgniteSortAggregateBase {
+    private static final String REL_TYPE_NAME = "MapSortAggregate";
+
     /** Collation. */
     private final RelCollation collation;
 
@@ -137,5 +139,10 @@ public class IgniteMapSortAggregate extends IgniteMapAggregateBase implements Ig
     @Override
     public RelCollation collation() {
         return collation;
+    }
+
+    /** {@inheritDoc} */
+    @Override public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 }
