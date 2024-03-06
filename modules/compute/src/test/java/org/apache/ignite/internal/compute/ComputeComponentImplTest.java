@@ -44,7 +44,6 @@ import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
@@ -175,6 +174,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     @Captor
     private ArgumentCaptor<JobChangePriorityResponse> jobChangePriorityResponseCaptor;
 
+    private final ClusterNode testNode = new ClusterNodeImpl("test", "test", new NetworkAddress("test-host", 1));
     private final ClusterNode remoteNode = new ClusterNodeImpl("remote", "remote", new NetworkAddress("remote-host", 1));
 
     private final AtomicReference<NetworkMessageHandler> computeMessageHandlerRef = new AtomicReference<>();
@@ -459,37 +459,35 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         markResponseSentOnResponseSend();
         assertThat(computeMessageHandlerRef.get(), is(notNullValue()));
 
-        String sender = "test";
-
         ExecuteRequest executeRequest = new ComputeMessagesFactory().executeRequest()
                 .executeOptions(DEFAULT)
                 .deploymentUnits(List.of())
                 .jobClassName(SimpleJob.class.getName())
                 .args(new Object[]{"a", 42})
                 .build();
-        computeMessageHandlerRef.get().onReceived(executeRequest, sender, 123L);
+        computeMessageHandlerRef.get().onReceived(executeRequest, testNode, 123L);
 
-        UUID jobId = assertThatExecuteResponseIsSentTo(sender);
+        UUID jobId = assertThatExecuteResponseIsSentTo(testNode);
         responseSent.set(false);
         markResponseSentOnResponseSend();
 
         JobResultRequest jobResultRequest = new ComputeMessagesFactory().jobResultRequest()
                 .jobId(jobId)
                 .build();
-        computeMessageHandlerRef.get().onReceived(jobResultRequest, sender, 456L);
+        computeMessageHandlerRef.get().onReceived(jobResultRequest, testNode, 456L);
 
-        assertThatJobResultResponseIsSentTo(sender);
+        assertThatJobResultResponseIsSentTo(testNode);
     }
 
     private void markResponseSentOnResponseSend() {
-        when(messagingService.respond(anyString(), any(), anyLong()))
+        when(messagingService.respond(any(ClusterNode.class), any(), anyLong()))
                 .thenAnswer(invocation -> {
                     responseSent.set(true);
                     return nullCompletedFuture();
                 });
     }
 
-    private UUID assertThatExecuteResponseIsSentTo(String sender) throws InterruptedException {
+    private UUID assertThatExecuteResponseIsSentTo(ClusterNode sender) throws InterruptedException {
         assertTrue(waitForCondition(responseSent::get, 1000), "No response sent");
 
         verify(messagingService).respond(eq(sender), executeResponseCaptor.capture(), eq(123L));
@@ -501,7 +499,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         return jobId;
     }
 
-    private void assertThatJobResultResponseIsSentTo(String sender) throws InterruptedException {
+    private void assertThatJobResultResponseIsSentTo(ClusterNode sender) throws InterruptedException {
         assertTrue(waitForCondition(responseSent::get, 1000), "No response sent");
 
         verify(messagingService).respond(eq(sender), jobResultResponseCaptor.capture(), eq(456L));
@@ -554,20 +552,18 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         markResponseSentOnResponseSend();
         assertThat(computeMessageHandlerRef.get(), is(notNullValue()));
 
-        String sender = "test";
-
         ExecuteRequest request = new ComputeMessagesFactory().executeRequest()
                 .executeOptions(DEFAULT)
                 .deploymentUnits(List.of())
                 .jobClassName(SimpleJob.class.getName())
                 .args(new Object[]{"a", 42})
                 .build();
-        computeMessageHandlerRef.get().onReceived(request, sender, 123L);
+        computeMessageHandlerRef.get().onReceived(request, testNode, 123L);
 
-        assertThatExecuteRequestSendsNodeStoppingExceptionTo(sender);
+        assertThatExecuteRequestSendsNodeStoppingExceptionTo(testNode);
     }
 
-    private void assertThatExecuteRequestSendsNodeStoppingExceptionTo(String sender) throws InterruptedException {
+    private void assertThatExecuteRequestSendsNodeStoppingExceptionTo(ClusterNode sender) throws InterruptedException {
         assertTrue(waitForCondition(responseSent::get, 1000), "No response sent");
 
         verify(messagingService).respond(eq(sender), executeResponseCaptor.capture(), eq(123L));
@@ -585,17 +581,15 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         markResponseSentOnResponseSend();
         assertThat(computeMessageHandlerRef.get(), is(notNullValue()));
 
-        String sender = "test";
-
         JobResultRequest jobResultRequest = new ComputeMessagesFactory().jobResultRequest()
                 .jobId(UUID.randomUUID())
                 .build();
-        computeMessageHandlerRef.get().onReceived(jobResultRequest, sender, 123L);
+        computeMessageHandlerRef.get().onReceived(jobResultRequest, testNode, 123L);
 
-        assertThatJobResultRequestSendsNodeStoppingExceptionTo(sender);
+        assertThatJobResultRequestSendsNodeStoppingExceptionTo(testNode);
     }
 
-    private void assertThatJobResultRequestSendsNodeStoppingExceptionTo(String sender) throws InterruptedException {
+    private void assertThatJobResultRequestSendsNodeStoppingExceptionTo(ClusterNode sender) throws InterruptedException {
         assertTrue(waitForCondition(responseSent::get, 1000), "No response sent");
 
         verify(messagingService).respond(eq(sender), jobResultResponseCaptor.capture(), eq(123L));
@@ -613,17 +607,15 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         markResponseSentOnResponseSend();
         assertThat(computeMessageHandlerRef.get(), is(notNullValue()));
 
-        String sender = "test";
-
         JobStatusRequest jobStatusRequest = new ComputeMessagesFactory().jobStatusRequest()
                 .jobId(UUID.randomUUID())
                 .build();
-        computeMessageHandlerRef.get().onReceived(jobStatusRequest, sender, 123L);
+        computeMessageHandlerRef.get().onReceived(jobStatusRequest, testNode, 123L);
 
-        assertThatJobStatusRequestSendsNodeStoppingExceptionTo(sender);
+        assertThatJobStatusRequestSendsNodeStoppingExceptionTo(testNode);
     }
 
-    private void assertThatJobStatusRequestSendsNodeStoppingExceptionTo(String sender) throws InterruptedException {
+    private void assertThatJobStatusRequestSendsNodeStoppingExceptionTo(ClusterNode sender) throws InterruptedException {
         assertTrue(waitForCondition(responseSent::get, 1000), "No response sent");
 
         verify(messagingService).respond(eq(sender), jobStatusResponseCaptor.capture(), eq(123L));
@@ -641,17 +633,15 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         markResponseSentOnResponseSend();
         assertThat(computeMessageHandlerRef.get(), is(notNullValue()));
 
-        String sender = "test";
-
         JobCancelRequest jobCancelRequest = new ComputeMessagesFactory().jobCancelRequest()
                 .jobId(UUID.randomUUID())
                 .build();
-        computeMessageHandlerRef.get().onReceived(jobCancelRequest, sender, 456L);
+        computeMessageHandlerRef.get().onReceived(jobCancelRequest, testNode, 456L);
 
-        assertThatJobCancelRequestSendsNodeStoppingExceptionTo(sender);
+        assertThatJobCancelRequestSendsNodeStoppingExceptionTo(testNode);
     }
 
-    private void assertThatJobCancelRequestSendsNodeStoppingExceptionTo(String sender) throws InterruptedException {
+    private void assertThatJobCancelRequestSendsNodeStoppingExceptionTo(ClusterNode sender) throws InterruptedException {
         assertTrue(waitForCondition(responseSent::get, 1000), "No response sent");
 
         verify(messagingService).respond(eq(sender), jobCancelResponseCaptor.capture(), eq(456L));
@@ -668,18 +658,16 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         markResponseSentOnResponseSend();
         assertThat(computeMessageHandlerRef.get(), is(notNullValue()));
 
-        String sender = "test";
-
         JobChangePriorityRequest jobChangePriorityRequest = new ComputeMessagesFactory().jobChangePriorityRequest()
                 .jobId(UUID.randomUUID())
                 .priority(1)
                 .build();
-        computeMessageHandlerRef.get().onReceived(jobChangePriorityRequest, sender, 456L);
+        computeMessageHandlerRef.get().onReceived(jobChangePriorityRequest, testNode, 456L);
 
-        assertThatJobChangePriorityRequestSendsNodeStoppingExceptionTo(sender);
+        assertThatJobChangePriorityRequestSendsNodeStoppingExceptionTo(testNode);
     }
 
-    private void assertThatJobChangePriorityRequestSendsNodeStoppingExceptionTo(String sender) throws InterruptedException {
+    private void assertThatJobChangePriorityRequestSendsNodeStoppingExceptionTo(ClusterNode sender) throws InterruptedException {
         assertTrue(waitForCondition(responseSent::get, 1000), "No response sent");
 
         verify(messagingService).respond(eq(sender), jobChangePriorityResponseCaptor.capture(), eq(456L));

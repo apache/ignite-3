@@ -59,8 +59,6 @@ public class RocksDbMvPartitionStorageGcTest extends AbstractMvPartitionStorageG
                 new StorageIndexDescriptorSupplier(mock(CatalogService.class))
         );
 
-        table.start();
-
         initialize(table);
     }
 

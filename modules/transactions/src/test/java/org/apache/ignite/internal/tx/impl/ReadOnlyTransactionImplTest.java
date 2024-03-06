@@ -36,12 +36,22 @@ class ReadOnlyTransactionImplTest extends BaseIgniteAbstractTest {
     @Mock
     private TxManagerImpl txManager;
 
+    @Mock
+    private ResourceCleanupManager resourceCleanupManager;
+
     @Test
     void effectiveSchemaTimestampIsReadTimestamp() {
         HybridTimestamp readTimestamp = new HybridClockImpl().now();
         UUID txId = TestTransactionIds.TRANSACTION_ID_GENERATOR.transactionIdFor(readTimestamp);
 
-        var tx = new ReadOnlyTransactionImpl(txManager, new HybridTimestampTracker(), txId, "localId", readTimestamp);
+        var tx = new ReadOnlyTransactionImpl(
+                txManager,
+                new HybridTimestampTracker(),
+                txId,
+                "localId",
+                readTimestamp,
+                resourceCleanupManager
+        );
 
         assertThat(tx.startTimestamp(), is(readTimestamp));
     }

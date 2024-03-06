@@ -80,7 +80,7 @@ class IndexChooser implements ManuallyCloseable {
      *
      * <p>Updated on {@link #recover() node recovery} and a catalog events processing.</p>
      */
-    // TODO: IGNITE-20121 We may need to worry about parallel map changes when deleting catalog version
+    // TODO: IGNITE-21608 We may need to worry about parallel map changes when deleting catalog version
     // TODO: IGNITE-20934 Worry about cleaning up removed indexes earlier
     private final NavigableMap<TableIdCatalogVersion, List<CatalogIndexDescriptor>> removedAvailableTableIndexes
             = new ConcurrentSkipListMap<>();
@@ -212,7 +212,7 @@ class IndexChooser implements ManuallyCloseable {
 
         // For now, there is no need to worry about parallel changes to the map, it will change on recovery and in catalog event listeners
         // and won't interfere with each other.
-        // TODO: IGNITE-20121 We may need to worry about parallel map changes when deleting catalog version
+        // TODO: IGNITE-21608 We may need to worry about parallel map changes when deleting catalog version
         List<CatalogIndexDescriptor> previousCatalogVersionRemovedIndexes = getRemovedAvailableIndexes(catalogVersion - 1, tableId);
 
         removedAvailableTableIndexes.compute(

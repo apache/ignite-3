@@ -166,7 +166,7 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
-    public CompletableFuture<Void> executeCleanupAsync(Runnable runnable) {
+    public CompletableFuture<Void> executeWriteIntentSwitchAsync(Runnable runnable) {
         return CompletableFuture.runAsync(runnable);
     }
 

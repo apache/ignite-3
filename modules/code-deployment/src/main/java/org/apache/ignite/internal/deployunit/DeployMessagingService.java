@@ -91,11 +91,11 @@ public class DeployMessagingService {
      */
     public void subscribe() {
         clusterService.messagingService().addMessageHandler(DeployUnitMessageTypes.class,
-                (message, senderConsistentId, correlationId) -> {
+                (message, sender, correlationId) -> {
                     if (message instanceof DownloadUnitRequest) {
-                        processDownloadRequest((DownloadUnitRequest) message, senderConsistentId, correlationId);
+                        processDownloadRequest((DownloadUnitRequest) message, sender, correlationId);
                     } else if (message instanceof StopDeployRequest) {
-                        processStopDeployRequest((StopDeployRequest) message, senderConsistentId, correlationId);
+                        processStopDeployRequest((StopDeployRequest) message, sender, correlationId);
                     }
                 });
     }
@@ -156,16 +156,16 @@ public class DeployMessagingService {
                 });
     }
 
-    private void processStopDeployRequest(StopDeployRequest request, String senderConsistentId, long correlationId) {
+    private void processStopDeployRequest(StopDeployRequest request, ClusterNode sender, long correlationId) {
         tracker.cancelIfDownloading(request.id(), Version.parseVersion(request.version()));
         clusterService.messagingService()
-                .respond(senderConsistentId, messageFactory.stopDeployResponse().build(), correlationId);
+                .respond(sender, messageFactory.stopDeployResponse().build(), correlationId);
     }
 
-    private void processDownloadRequest(DownloadUnitRequest request, String senderConsistentId, long correlationId) {
+    private void processDownloadRequest(DownloadUnitRequest request, ClusterNode sender, long correlationId) {
         deployerService.getUnitContent(request.id(), Version.parseVersion(request.version()))
                 .thenApply(content -> clusterService.messagingService()
-                        .respond(senderConsistentId,
+                        .respond(sender,
                                 messageFactory.downloadUnitResponse().unitContent(content).build(),
                                 correlationId)
                 );

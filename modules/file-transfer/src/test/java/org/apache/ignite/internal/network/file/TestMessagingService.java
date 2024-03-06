@@ -69,13 +69,13 @@ public class TestMessagingService extends AbstractMessagingService {
     }
 
     /**
-     * Calls {@link NetworkMessageHandler#onReceived(NetworkMessage, String, Long)} on all registered.
+     * Calls {@link NetworkMessageHandler#onReceived(NetworkMessage, ClusterNode, Long)} on all registered.
      *
      * @param msg Message.
-     * @param senderConsistentId Sender consistent ID.
+     * @param sender Sender node.
      * @param correlationId Correlation ID.
      */
-    public void fireMessage(NetworkMessage msg, String senderConsistentId, @Nullable Long correlationId) {
-        getMessageHandlers(msg.groupType()).forEach(h -> h.onReceived(msg, senderConsistentId, correlationId));
+    public void fireMessage(NetworkMessage msg, ClusterNode sender, @Nullable Long correlationId) {
+        getMessageHandlers(msg.groupType()).forEach(h -> h.onReceived(msg, sender, correlationId));
     }
 }

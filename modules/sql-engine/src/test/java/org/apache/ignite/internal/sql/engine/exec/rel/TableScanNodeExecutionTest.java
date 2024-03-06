@@ -72,6 +72,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
+import org.apache.ignite.internal.tx.impl.ResourceCleanupManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
@@ -143,6 +144,15 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
 
             ReplicaService replicaSvc = mock(ReplicaService.class, RETURNS_DEEP_STUBS);
 
+            RemotelyTriggeredResourceRegistry resourcesRegistry = new RemotelyTriggeredResourceRegistry();
+
+            ResourceCleanupManager resourceCleanupManager = new ResourceCleanupManager(
+                    leaseholder,
+                    resourcesRegistry,
+                    clusterService.topologyService(),
+                    clusterService.messagingService()
+            );
+
             TxManagerImpl txManager = new TxManagerImpl(
                     txConfiguration,
                     clusterService,
@@ -153,7 +163,8 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     new TestPlacementDriver(leaseholder, leaseholder),
                     () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
                     new TestLocalRwTxCounter(),
-                    new RemotelyTriggeredResourceRegistry()
+                    resourcesRegistry,
+                    resourceCleanupManager
             );
 
             txManager.start();

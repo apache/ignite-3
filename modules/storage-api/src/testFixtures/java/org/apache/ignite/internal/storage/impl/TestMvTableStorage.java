@@ -202,10 +202,6 @@ public class TestMvTableStorage implements MvTableStorage {
     }
 
     @Override
-    public void start() throws StorageException {
-    }
-
-    @Override
     public void close() throws StorageException {
         try {
             closeAllManually(mvPartitionStorages.getAllForCloseOrDestroy().get(10, TimeUnit.SECONDS));

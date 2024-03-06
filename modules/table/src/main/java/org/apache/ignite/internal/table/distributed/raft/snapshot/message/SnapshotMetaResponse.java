@@ -22,9 +22,7 @@ import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 
-/**
- * Snapshot meta response message.
- */
+/** Snapshot meta response message. */
 @Transferable(TableMessageGroup.SNAPSHOT_META_RESPONSE)
 public interface SnapshotMetaResponse extends NetworkMessage {
     /** Snapshot meta. */

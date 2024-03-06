@@ -168,6 +168,7 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableRaftService;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.table.distributed.LowWatermark;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
@@ -184,6 +185,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
+import org.apache.ignite.internal.tx.impl.ResourceCleanupManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
@@ -682,7 +684,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         assertTrue(waitForCondition(
                 () -> nodes.stream().allMatch(n ->
                         n.tableManager
-                                .latestTables()
+                                .startedTables()
                                 .get(getTableId(node, TABLE_NAME))
                                 .internalTable()
                                 .tableRaftService()
@@ -738,7 +740,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         assertTrue(waitForCondition(
                 () -> nodes.stream().allMatch(n ->
                         n.tableManager
-                                .latestTables()
+                                .startedTables()
                                 .get(getTableId(node, TABLE_NAME))
                                 .internalTable()
                                 .tableRaftService()
@@ -823,7 +825,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     try {
                         return nodes.stream().allMatch(n ->
                                 n.tableManager
-                                        .latestTables()
+                                        .startedTables()
                                         .get(getTableId(n, tableName))
                                         .internalTable()
                                         .tableRaftService()
@@ -953,6 +955,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 = new ConcurrentHashMap<>();
 
         private final NetworkAddress networkAddress;
+
+        private final LowWatermark lowWatermark;
 
         /** The future have to be complete after the node start and all Meta storage watches are deployd. */
         private CompletableFuture<Void> deployWatchesFut;
@@ -1086,6 +1090,13 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             var resourcesRegistry = new RemotelyTriggeredResourceRegistry();
 
+            ResourceCleanupManager resourceCleanupManager = new ResourceCleanupManager(
+                    name,
+                    resourcesRegistry,
+                    clusterService.topologyService(),
+                    clusterService.messagingService()
+            );
+
             txManager = new TxManagerImpl(
                     txConfiguration,
                     clusterService,
@@ -1096,7 +1107,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     placementDriver,
                     partitionIdleSafeTimePropagationPeriodMsSupplier,
                     new TestLocalRwTxCounter(),
-                    resourcesRegistry
+                    resourcesRegistry,
+                    resourceCleanupManager
             );
 
             cfgStorage = new DistributedConfigurationStorage("test", metaStorageManager);
@@ -1150,7 +1162,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     partitionIdleSafeTimePropagationPeriodMsSupplier
             );
 
-            schemaManager = new SchemaManager(registry, catalogManager, metaStorageManager);
+            schemaManager = new SchemaManager(registry, catalogManager);
 
             schemaSyncService = new SchemaSyncServiceImpl(metaStorageManager.clusterTime(), delayDurationMsSupplier);
 
@@ -1167,6 +1179,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             );
 
             StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry.getConfiguration(StorageUpdateConfiguration.KEY);
+
+            HybridClockImpl clock = new HybridClockImpl();
+            lowWatermark = new LowWatermark(name, gcConfig.lowWatermark(), clock, txManager, vaultManager, failureProcessor);
 
             tableManager = new TableManager(
                     name,
@@ -1188,19 +1203,18 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     view -> new LocalLogStorageFactory(),
                     threadPoolsManager.tableIoExecutor(),
                     threadPoolsManager.partitionOperationsExecutor(),
-                    new HybridClockImpl(),
+                    clock,
                     new OutgoingSnapshotsManager(clusterService.messagingService()),
                     topologyAwareRaftGroupServiceFactory,
-                    vaultManager,
                     distributionZoneManager,
                     schemaSyncService,
                     catalogManager,
                     new HybridTimestampTracker(),
                     placementDriver,
                     () -> mock(IgniteSql.class),
-                    failureProcessor,
                     resourcesRegistry,
-                    rebalanceScheduler
+                    rebalanceScheduler,
+                    lowWatermark
             ) {
                 @Override
                 protected TxStateTableStorage createTxStateTableStorage(
@@ -1241,7 +1255,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     schemaManager,
                     tableManager,
                     catalogManager,
-                    metaStorageManager,
                     threadPoolsManager.tableIoExecutor(),
                     registry
             );
@@ -1271,6 +1284,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             deployWatchesFut = CompletableFuture.supplyAsync(() -> {
                 List<IgniteComponent> secondComponents = List.of(
+                        lowWatermark,
                         metaStorageManager,
                         clusterCfgMgr,
                         clockWaiter,
@@ -1297,6 +1311,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 });
 
                 assertThat(configurationNotificationFut, willSucceedIn(1, TimeUnit.MINUTES));
+
+                lowWatermark.scheduleUpdates();
 
                 return metaStorageManager.deployWatches();
             }).thenCompose(identity());
