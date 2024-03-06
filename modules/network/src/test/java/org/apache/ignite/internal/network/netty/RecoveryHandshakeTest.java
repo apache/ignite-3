@@ -37,6 +37,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
@@ -58,6 +59,7 @@ import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.serialization.UserObjectSerializationContext;
 import org.apache.ignite.internal.network.serialization.marshal.DefaultUserObjectMarshaller;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -71,6 +73,11 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
 
     private static final UUID LOWER_UUID = new UUID(100, 200);
     private static final UUID HIGHER_UUID = new UUID(300, 400);
+
+    private static final String SERVER_HOST = "server-host";
+    private static final String CLIENT_HOST = "client-host";
+
+    private static final int PORT = 1000;
 
     /** Serialization registry. */
     private static final MessageSerializationRegistry MESSAGE_REGISTRY = defaultSerializationRegistry();
@@ -97,6 +104,7 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
 
         assertTrue(serverSideChannel.isActive());
 
+        exchangeClientToServer(serverSideChannel, clientSideChannel);
         exchangeServerToClient(serverSideChannel, clientSideChannel);
         exchangeClientToServer(serverSideChannel, clientSideChannel);
         exchangeServerToClient(serverSideChannel, clientSideChannel);
@@ -147,6 +155,7 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
 
         assertTrue(serverSideChannel.isActive());
 
+        exchangeClientToServer(serverSideChannel, clientSideChannel);
         exchangeServerToClient(serverSideChannel, clientSideChannel);
         exchangeClientToServer(serverSideChannel, clientSideChannel);
         exchangeServerToClient(serverSideChannel, clientSideChannel);
@@ -207,6 +216,7 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
 
         assertTrue(serverSideChannel.isActive());
 
+        exchangeClientToServer(serverSideChannel, clientSideChannel);
         exchangeServerToClient(serverSideChannel, clientSideChannel);
         exchangeClientToServer(serverSideChannel, clientSideChannel);
         exchangeServerToClient(serverSideChannel, clientSideChannel);
@@ -263,6 +273,9 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
         // Channel 2.
         setupChannel(channel2Src, chm2, noMessageListener);
         setupChannel(channel2Dst, shm1, noMessageListener);
+
+        exchangeClientToServer(channel2Dst, channel2Src);
+        exchangeClientToServer(channel1Dst, channel1Src);
 
         exchangeServerToClient(channel2Dst, channel2Src);
         exchangeServerToClient(channel1Dst, channel1Src);
@@ -325,10 +338,12 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
         setupChannel(channel2Dst, shm1, noMessageListener);
 
         // Channel 2's handshake acquires both locks.
+        exchangeClientToServer(channel2Dst, channel2Src);
         exchangeServerToClient(channel2Dst, channel2Src);
         exchangeClientToServer(channel2Dst, channel2Src);
 
         // Now Channel 1's handshake cannot acquire even first lock.
+        exchangeClientToServer(channel1Dst, channel1Src);
         exchangeServerToClient(channel1Dst, channel1Src);
 
         // 2 -> 1 is alive, while 1 -> 2 closes because it is late.
@@ -394,6 +409,7 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
         setupChannel(serverSideChannel, serverHandshakeManager, serverDidntReceiveAck ?  noMessageListener : listener1);
 
         // Normal handshake
+        exchangeClientToServer(serverSideChannel, clientSideChannel);
         exchangeServerToClient(serverSideChannel, clientSideChannel);
         exchangeClientToServer(serverSideChannel, clientSideChannel);
         exchangeServerToClient(serverSideChannel, clientSideChannel);
@@ -439,6 +455,7 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
         setupChannel(serverSideChannel, serverHandshakeManager, serverDidntReceiveAck ? noMessageListener : listener2);
 
         // Handshake
+        exchangeClientToServer(serverSideChannel, clientSideChannel);
         exchangeServerToClient(serverSideChannel, clientSideChannel);
         exchangeClientToServer(serverSideChannel, clientSideChannel);
         exchangeServerToClient(serverSideChannel, clientSideChannel);
@@ -488,6 +505,7 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
 
         assertTrue(serverSideChannel.isActive());
 
+        exchangeClientToServer(serverSideChannel, clientSideChannel);
         exchangeServerToClient(serverSideChannel, clientSideChannel);
         exchangeClientToServer(serverSideChannel, clientSideChannel);
         exchangeServerToClient(serverSideChannel, clientSideChannel);
@@ -527,6 +545,7 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
 
         assertTrue(serverSideChannel.isActive());
 
+        exchangeClientToServer(serverSideChannel, clientSideChannel);
         exchangeServerToClient(serverSideChannel, clientSideChannel);
         exchangeClientToServer(serverSideChannel, clientSideChannel);
 
@@ -682,8 +701,7 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
             StaleIdDetector staleIdDetector
     ) {
         return new RecoveryClientHandshakeManager(
-                launchId,
-                consistentId,
+                new ClusterNodeImpl(launchId.toString(), consistentId, new NetworkAddress(CLIENT_HOST, PORT)),
                 CONNECTION_ID,
                 provider,
                 () -> List.of(clientSideChannel.eventLoop()),
@@ -718,8 +736,7 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
             StaleIdDetector staleIdDetector
     ) {
         return new RecoveryServerHandshakeManager(
-                launchId,
-                consistentId,
+                new ClusterNodeImpl(launchId.toString(), consistentId, new NetworkAddress(SERVER_HOST, PORT)),
                 MESSAGE_FACTORY,
                 provider,
                 () -> List.of(serverSideChannel.eventLoop()),

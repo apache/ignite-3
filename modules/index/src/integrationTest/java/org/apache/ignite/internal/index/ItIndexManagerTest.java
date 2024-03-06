@@ -18,17 +18,18 @@
 package org.apache.ignite.internal.index;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.index.IndexManager.collectIndexesForRecovery;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.table.Table;
@@ -113,10 +114,16 @@ public class ItIndexManagerTest extends ClusterPerClassIntegrationTest {
     }
 
     private static List<Integer> collectIndexIdsFromCatalogForRecovery(IgniteImpl ignite, TableImpl table) {
-        return collectIndexesForRecovery(ignite.catalogManager()).entrySet().stream()
-                .filter(e -> e.getKey().id() == table.tableId())
-                .flatMap(e -> e.getValue().stream())
+        CatalogManager catalogManager = ignite.catalogManager();
+
+        int earliestCatalogVersion = catalogManager.earliestCatalogVersion();
+        int latestCatalogVersion = catalogManager.latestCatalogVersion();
+
+        return IntStream.rangeClosed(earliestCatalogVersion, latestCatalogVersion)
+                .mapToObj(catalogVersion -> catalogManager.indexes(catalogVersion, table.tableId()))
+                .flatMap(Collection::stream)
                 .map(CatalogObjectDescriptor::id)
+                .distinct()
                 .sorted()
                 .collect(toList());
     }

@@ -124,7 +124,7 @@ public interface Mapper<T> {
      * @return {@code this} for chaining.
      */
     static <O> Mapper<O> of(Function<O, Tuple> objectToRow, Function<Tuple, O> rowToObject) {
-        //TODO: implement custom user mapping https://issues.apache.org/jira/browse/IGNITE-16116
+        // TODO: implement custom user mapping https://issues.apache.org/jira/browse/IGNITE-16116
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 

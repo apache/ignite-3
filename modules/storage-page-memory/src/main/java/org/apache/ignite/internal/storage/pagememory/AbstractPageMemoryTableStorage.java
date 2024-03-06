@@ -53,7 +53,7 @@ import org.jetbrains.annotations.Nullable;
  * Abstract table storage implementation based on {@link PageMemory}.
  */
 public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
-    private volatile MvPartitionStorages<AbstractPageMemoryMvPartitionStorage> mvPartitionStorages;
+    private final MvPartitionStorages<AbstractPageMemoryMvPartitionStorage> mvPartitionStorages;
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -78,6 +78,7 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
     ) {
         this.tableDescriptor = tableDescriptor;
         this.indexDescriptorSupplier = indexDescriptorSupplier;
+        this.mvPartitionStorages = new MvPartitionStorages<>(tableDescriptor.getId(), tableDescriptor.getPartitions());
     }
 
     /**
@@ -91,15 +92,6 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
      * Returns a data region instance for the table.
      */
     public abstract DataRegion<?> dataRegion();
-
-    @Override
-    public void start() throws StorageException {
-        busy(() -> {
-            mvPartitionStorages = new MvPartitionStorages<>(getTableId(), tableDescriptor.getPartitions());
-
-            return null;
-        });
-    }
 
     @Override
     public CompletableFuture<Void> destroy() {

@@ -25,7 +25,7 @@ import org.apache.ignite.raft.messages.TestRaftMessagesFactory;
 /**
  * Increment and get command.
  */
-//TODO IGNITE-18357 Move to integration test directory when Maven build is not supported anymore.
+// TODO IGNITE-18357 Move to integration test directory when Maven build is not supported anymore.
 @Transferable(TestMessageGroup.INCREMENT_AND_GET_COMMAND)
 public interface IncrementAndGetCommand extends WriteCommand {
     /**

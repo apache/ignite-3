@@ -75,8 +75,6 @@ class PersistentPageMemoryMvPartitionStorageTest extends AbstractPageMemoryMvPar
                 new StorageIndexDescriptorSupplier(mock(CatalogService.class))
         );
 
-        table.start();
-
         initialize(table);
     }
 

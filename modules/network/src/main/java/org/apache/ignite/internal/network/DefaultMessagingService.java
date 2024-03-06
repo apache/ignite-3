@@ -22,24 +22,26 @@ import static org.apache.ignite.internal.network.NettyBootstrapFactory.isInNetwo
 import static org.apache.ignite.internal.network.serialization.PerSessionSerializationService.createClassDescriptorsMessages;
 import static org.apache.ignite.internal.thread.ThreadOperation.NOTHING_ALLOWED;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.safeAbs;
 
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
-import org.apache.ignite.internal.future.OrderingFuture;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -52,11 +54,13 @@ import org.apache.ignite.internal.network.netty.InNetworkObject;
 import org.apache.ignite.internal.network.netty.NettySender;
 import org.apache.ignite.internal.network.recovery.StaleIdDetector;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
-import org.apache.ignite.internal.network.serialization.DescriptorRegistry;
 import org.apache.ignite.internal.network.serialization.marshal.UserObjectMarshaller;
+import org.apache.ignite.internal.thread.ExecutorChooser;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
+import org.apache.ignite.internal.thread.StripedExecutor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.worker.CriticalSingleThreadExecutor;
+import org.apache.ignite.internal.worker.CriticalStripedThreadPoolExecutor;
 import org.apache.ignite.internal.worker.CriticalWorker;
 import org.apache.ignite.internal.worker.CriticalWorkerRegistry;
 import org.apache.ignite.lang.IgniteException;
@@ -68,6 +72,12 @@ import org.jetbrains.annotations.TestOnly;
 /** Default messaging service implementation. */
 public class DefaultMessagingService extends AbstractMessagingService {
     private static final IgniteLogger LOG = Loggers.forClass(DefaultMessagingService.class);
+
+    /**
+     * Maximum number of stripes in the thread pool in which incoming network messages for the {@link ChannelType#DEFAULT} channel
+     * are handled.
+     */
+    private static final int DEFAULT_CHANNEL_INBOUND_WORKERS = 4;
 
     /** Network messages factory. */
     private final NetworkMessagesFactory factory;
@@ -98,7 +108,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
     private final CriticalSingleThreadExecutor outboundExecutor;
 
     /** Executors for inbound messages. */
-    private final LazyStripedExecutor inboundExecutors;
+    private final LazyStripedExecutors inboundExecutors;
 
     // TODO: IGNITE-18493 - remove/move this
     @Nullable
@@ -129,12 +139,10 @@ public class DefaultMessagingService extends AbstractMessagingService {
         this.marshaller = marshaller;
         this.criticalWorkerRegistry = criticalWorkerRegistry;
 
-        this.outboundExecutor = new CriticalSingleThreadExecutor(
+        outboundExecutor = new CriticalSingleThreadExecutor(
                 IgniteThreadFactory.create(nodeName, "MessagingService-outbound", LOG, NOTHING_ALLOWED)
         );
-        // TODO asch the implementation of delayed acks relies on absence of reordering on subsequent messages delivery.
-        // TODO asch This invariant should be preserved while working on IGNITE-20373
-        inboundExecutors = new CriticalLazyStripedExecutor(nodeName, "MessagingService-inbound", criticalWorkerRegistry);
+        inboundExecutors = new CriticalLazyStripedExecutors(nodeName, "MessagingService-inbound", criticalWorkerRegistry);
     }
 
     /**
@@ -144,7 +152,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
      */
     public void setConnectionManager(ConnectionManager connectionManager) {
         this.connectionManager = connectionManager;
-        connectionManager.addListener(this::onMessage);
+        connectionManager.addListener(this::handleMessageFromNetwork);
     }
 
     @Override
@@ -322,8 +330,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
                 ));
     }
 
-    private OrderingFuture<NettySender> triggerChannelCreation(@Nullable String consistentId, ChannelType type, InetSocketAddress addr) {
-        return connectionManager.channel(consistentId, type, addr);
+    private void triggerChannelCreation(@Nullable String consistentId, ChannelType type, InetSocketAddress addr) {
+        connectionManager.channel(consistentId, type, addr);
     }
 
     private List<ClassDescriptorMessage> prepareMarshal(NetworkMessage msg) throws Exception {
@@ -337,90 +345,166 @@ public class DefaultMessagingService extends AbstractMessagingService {
     /**
      * Sends a message to the current node.
      *
-     * @param msg Message.
+     * @param message Message.
      * @param correlationId Correlation id.
      */
-    private void sendToSelf(NetworkMessage msg, @Nullable Long correlationId) {
-        for (NetworkMessageHandler networkMessageHandler : getMessageHandlers(msg.groupType())) {
-            networkMessageHandler.onReceived(msg, topologyService.localMember().name(), correlationId);
+    private void sendToSelf(NetworkMessage message, @Nullable Long correlationId) {
+        for (HandlerContext context : getHandlerContexts(message.groupType())) {
+            // Invoking on the same thread, ignoring the executor chooser registered with the handler.
+            context.handler().onReceived(message, topologyService.localMember(), correlationId);
         }
     }
 
     /**
-     * Handles an incoming message.
+     * Handles a message coming from the network (not from the same node).
      *
-     * @param obj Incoming message wrapper.
+     * @param inNetworkObject Incoming message wrapper.
      */
-    private void onMessage(InNetworkObject obj) {
-        assert isInNetworkThread();
+    private void handleMessageFromNetwork(InNetworkObject inNetworkObject) {
+        assert isInNetworkThread() : Thread.currentThread().getName();
 
-        inboundExecutors.execute(obj.connectionIndex(), () -> {
+        if (senderIdIsStale(inNetworkObject)) {
+            logMessageSkipDueToSenderLeft(inNetworkObject);
+            return;
+        }
+
+        if (inNetworkObject.message() instanceof InvokeResponse) {
+            Executor executor = chooseExecutorInInboundPool(inNetworkObject);
+            executor.execute(() -> handleInvokeResponse(inNetworkObject));
+            return;
+        }
+
+        NetworkMessage payload;
+        Long correlationId = null;
+        if (inNetworkObject.message() instanceof InvokeRequest) {
+            InvokeRequest invokeRequest = (InvokeRequest) inNetworkObject.message();
+            payload = invokeRequest.message();
+            correlationId = invokeRequest.correlationId();
+        } else {
+            payload = inNetworkObject.message();
+        }
+
+        Iterator<HandlerContext> handlerContexts = getHandlerContexts(payload.groupType()).iterator();
+        if (!handlerContexts.hasNext()) {
+            // No need to handle this.
+            return;
+        }
+
+        HandlerContext firstHandlerContext = handlerContexts.next();
+        Executor firstHandlerExecutor = chooseExecutorFor(payload, inNetworkObject, firstHandlerContext.executorChooser());
+
+        Long finalCorrelationId = correlationId;
+        firstHandlerExecutor.execute(() -> {
             long startedNanos = System.nanoTime();
 
             try {
-                handleIncomingMessage(obj);
+                handleStartingWithFirstHandler(payload, finalCorrelationId, inNetworkObject, firstHandlerContext, handlerContexts);
             } catch (Throwable e) {
-                logAndRethrowIfError(obj, e);
+                logAndRethrowIfError(inNetworkObject, e);
             } finally {
                 long tookMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedNanos);
                 if (tookMillis > 100) {
-                    LOG.warn("Processing of {} from {} took {} ms", obj.message(), obj.consistentId(), tookMillis);
+                    LOG.warn("Processing of {} from {} took {} ms", inNetworkObject.message(), inNetworkObject.sender(), tookMillis);
                 }
             }
         });
     }
 
-    private void handleIncomingMessage(InNetworkObject obj) {
-        if (senderIdIsStale(obj)) {
-            LOG.info("Sender ID {} ({}) is stale, so skipping message handling: {}", obj.launchId(), obj.consistentId(), obj.message());
-            return;
-        }
-
-        NetworkMessage msg = obj.message();
-        DescriptorRegistry registry = obj.registry();
-        try {
-            msg.unmarshal(marshaller, registry);
-        } catch (Exception e) {
-            throw new IgniteException("Failed to unmarshal message: " + e.getMessage(), e);
-        }
-        if (msg instanceof InvokeResponse) {
-            InvokeResponse response = (InvokeResponse) msg;
-            onInvokeResponse(response.message(), response.correlationId());
-            return;
-        }
-
-        Long correlationId = null;
-        NetworkMessage message = msg;
-
-        if (msg instanceof InvokeRequest) {
-            // Unwrap invocation request
-            InvokeRequest messageWithCorrelation = (InvokeRequest) msg;
-            correlationId = messageWithCorrelation.correlationId();
-            message = messageWithCorrelation.message();
-        }
-
-        String senderConsistentId = obj.consistentId();
-
-        // Unfortunately, since the Messaging Service is used by ScaleCube itself, some messages can be sent
-        // before the node is added to the topology. ScaleCubeMessage handler guarantees to handle null sender consistent ID
-        // without throwing an exception.
-        assert message instanceof ScaleCubeMessage || senderConsistentId != null;
-
-        for (NetworkMessageHandler networkMessageHandler : getMessageHandlers(message.groupType())) {
-            networkMessageHandler.onReceived(message, senderConsistentId, correlationId);
-        }
+    private static void logMessageSkipDueToSenderLeft(InNetworkObject inNetworkObject) {
+        LOG.info("Sender ID {} ({}) is stale, so skipping message handling: {}",
+                inNetworkObject.launchId(), inNetworkObject.consistentId(), inNetworkObject.message()
+        );
     }
 
     private boolean senderIdIsStale(InNetworkObject obj) {
         return staleIdDetector.isIdStale(obj.launchId());
     }
 
+    private void handleInvokeResponse(InNetworkObject inNetworkObject) {
+        unmarshalMessage(inNetworkObject);
+
+        InvokeResponse response = (InvokeResponse) inNetworkObject.message();
+        onInvokeResponse(response.message(), response.correlationId());
+    }
+
+    private void unmarshalMessage(InNetworkObject obj) {
+        try {
+            obj.message().unmarshal(marshaller, obj.registry());
+        } catch (Exception e) {
+            throw new IgniteException("Failed to unmarshal message: " + e.getMessage(), e);
+        }
+    }
+
+    private Executor chooseExecutorFor(NetworkMessage payload, InNetworkObject obj, ExecutorChooser<NetworkMessage> chooser) {
+        if (wantsInboundPool(chooser)) {
+            return chooseExecutorInInboundPool(obj);
+        } else {
+            return chooser.choose(payload);
+        }
+    }
+
+    private Executor chooseExecutorInInboundPool(InNetworkObject obj) {
+        int stripeIndex = safeAbs(obj.sender().id().hashCode());
+
+        return inboundExecutors.executorFor(obj.connectionIndex(), stripeIndex);
+    }
+
+    /**
+     * Finishes unmarshalling the message and handles it on current thread on first handler. Also handles it with other
+     * handlers (second and so on) on executors chosen by their choosers.
+     */
+    private void handleStartingWithFirstHandler(
+            NetworkMessage payload,
+            @Nullable Long correlationId,
+            InNetworkObject obj,
+            HandlerContext firstHandlerContext,
+            Iterator<HandlerContext> remainingContexts
+    ) {
+        if (senderIdIsStale(obj)) {
+            logMessageSkipDueToSenderLeft(obj);
+            return;
+        }
+
+        unmarshalMessage(obj);
+
+        // Unfortunately, since the Messaging Service is used by ScaleCube itself, some messages can be sent
+        // before the node is added to the topology. ScaleCubeMessage handler guarantees to handle null sender consistent ID
+        // without throwing an exception.
+        assert payload instanceof ScaleCubeMessage || obj.consistentId() != null;
+
+        // If other handlers have the same chooser as the first handler, this means that we can execute them on the same
+        // executor that was chosen for the first one. This will save us some resubmissions: we'll just execute on the same
+        // thread (it will be current thread which belongs to the executor chosen for the first handler).
+        List<NetworkMessageHandler> handlersWithSameChooserAsFirst = List.of();
+
+        while (remainingContexts.hasNext()) {
+            HandlerContext handlerContext = remainingContexts.next();
+
+            if (firstHandlerContext.executorChooser() == handlerContext.executorChooser()) {
+                if (handlersWithSameChooserAsFirst.isEmpty()) {
+                    handlersWithSameChooserAsFirst = new ArrayList<>();
+                }
+                handlersWithSameChooserAsFirst.add(handlerContext.handler());
+            } else {
+                Executor executor = chooseExecutorFor(payload, obj, handlerContext.executorChooser());
+                executor.execute(() -> handlerContext.handler().onReceived(payload, obj.sender(), correlationId));
+            }
+        }
+
+        firstHandlerContext.handler().onReceived(payload, obj.sender(), correlationId);
+
+        // Now execute those handlers that have the same chooser as the first one.
+        for (NetworkMessageHandler handler : handlersWithSameChooserAsFirst) {
+            handler.onReceived(payload, obj.sender(), correlationId);
+        }
+    }
+
     private static void logAndRethrowIfError(InNetworkObject obj, Throwable e) {
         if (e instanceof UnresolvableConsistentIdException && obj.message() instanceof InvokeRequest) {
             LOG.info("onMessage() failed while processing {} from {} as the sender has left the topology",
-                    obj.message(), obj.consistentId());
+                    obj.message(), obj.sender());
         } else {
-            LOG.error("onMessage() failed while processing {} from {}", e, obj.message(), obj.consistentId());
+            LOG.error("onMessage() failed while processing {} from {}", e, obj.message(), obj.sender());
         }
 
         if (e instanceof Error) {
@@ -522,6 +606,10 @@ public class DefaultMessagingService extends AbstractMessagingService {
         IgniteUtils.shutdownAndAwaitTermination(outboundExecutor, 10, TimeUnit.SECONDS);
     }
 
+    private static int stripeCountForIndex(int executorIndex) {
+        return executorIndex == ChannelType.DEFAULT.id() ? DEFAULT_CHANNEL_INBOUND_WORKERS : 1;
+    }
+
     // TODO: IGNITE-18493 - remove/move this
     /**
      * Installs a predicate, it will be consulted with for each message being sent; when it returns {@code true}, the
@@ -561,7 +649,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
         return connectionManager;
     }
 
-    private static class CriticalLazyStripedExecutor extends LazyStripedExecutor {
+    private static class CriticalLazyStripedExecutors extends LazyStripedExecutors {
         private final String nodeName;
         private final String poolName;
 
@@ -569,20 +657,23 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         private final List<CriticalWorker> registeredWorkers = new CopyOnWriteArrayList<>();
 
-        CriticalLazyStripedExecutor(String nodeName, String poolName, CriticalWorkerRegistry workerRegistry) {
+        CriticalLazyStripedExecutors(String nodeName, String poolName, CriticalWorkerRegistry workerRegistry) {
             this.nodeName = nodeName;
             this.poolName = poolName;
             this.workerRegistry = workerRegistry;
         }
 
         @Override
-        protected ExecutorService newSingleThreadExecutor(int stripeIndex) {
-            ThreadFactory threadFactory = IgniteThreadFactory.create(nodeName, poolName + "-" + stripeIndex, LOG, NOTHING_ALLOWED);
-            CriticalSingleThreadExecutor executor = new CriticalSingleThreadExecutor(threadFactory);
+        protected StripedExecutor newStripedExecutor(int executorIndex) {
+            int stripeCount = stripeCountForIndex(executorIndex);
 
-            workerRegistry.register(executor);
+            ThreadFactory threadFactory = IgniteThreadFactory.create(nodeName, poolName + "-" + executorIndex, LOG, NOTHING_ALLOWED);
+            CriticalStripedThreadPoolExecutor executor = new CriticalStripedThreadPoolExecutor(stripeCount, threadFactory, false, 0);
 
-            registeredWorkers.add(executor);
+            for (CriticalWorker worker : executor.workers()) {
+                workerRegistry.register(worker);
+                registeredWorkers.add(worker);
+            }
 
             return executor;
         }

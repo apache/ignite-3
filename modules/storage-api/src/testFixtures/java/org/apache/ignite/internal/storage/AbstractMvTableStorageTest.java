@@ -124,7 +124,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         createTestTableAndIndexes(catalogService);
 
         this.tableStorage = createMvTableStorage();
-        this.tableStorage.start();
 
         CatalogTableDescriptor catalogTableDescriptor = catalogService.table(TABLE_NAME, clock.nowLong());
 
@@ -563,8 +562,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         // Let's check that after restarting the table we will have an empty partition.
         tableStorage = createMvTableStorage();
 
-        tableStorage.start();
-
         mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
         hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx);
         sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx);
@@ -600,8 +597,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         tableStorage.close();
 
         tableStorage = createMvTableStorage();
-
-        tableStorage.start();
 
         mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
         hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx);
@@ -744,8 +739,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         tableStorage.close();
 
         tableStorage = createMvTableStorage();
-
-        tableStorage.start();
 
         getOrCreateMvPartition(PARTITION_ID);
 

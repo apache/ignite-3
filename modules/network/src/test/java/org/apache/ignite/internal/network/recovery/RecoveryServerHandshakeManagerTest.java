@@ -48,6 +48,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
@@ -57,6 +58,7 @@ import org.apache.ignite.internal.network.recovery.message.HandshakeRejectedMess
 import org.apache.ignite.internal.network.recovery.message.HandshakeRejectionReason;
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartResponseMessage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -75,6 +77,11 @@ class RecoveryServerHandshakeManagerTest extends BaseIgniteAbstractTest {
     private static final String SERVER_CONSISTENT_ID = "server";
 
     private static final short CONNECTION_INDEX = 0;
+
+    private static final String SERVER_HOST = "server-host";
+    private static final String CLIENT_HOST = "client-host";
+
+    private static final int PORT = 1000;
 
     private static final NetworkMessagesFactory MESSAGE_FACTORY = new NetworkMessagesFactory();
 
@@ -167,8 +174,7 @@ class RecoveryServerHandshakeManagerTest extends BaseIgniteAbstractTest {
 
     private RecoveryServerHandshakeManager serverHandshakeManager(UUID launchId, BooleanSupplier stopping) {
         RecoveryServerHandshakeManager manager = new RecoveryServerHandshakeManager(
-                launchId,
-                SERVER_CONSISTENT_ID,
+                new ClusterNodeImpl(launchId.toString(), SERVER_CONSISTENT_ID, new NetworkAddress(SERVER_HOST, PORT)),
                 MESSAGE_FACTORY,
                 recoveryDescriptorProvider,
                 () -> List.of(channel.eventLoop()),
@@ -185,8 +191,14 @@ class RecoveryServerHandshakeManagerTest extends BaseIgniteAbstractTest {
 
     private static HandshakeStartResponseMessage handshakeStartResponseMessageFrom(UUID clientLaunchId) {
         return MESSAGE_FACTORY.handshakeStartResponseMessage()
-                .launchId(clientLaunchId)
-                .consistentId(CLIENT_CONSISTENT_ID)
+                .clientNode(
+                        MESSAGE_FACTORY.clusterNodeMessage()
+                                .id(clientLaunchId.toString())
+                                .name(CLIENT_CONSISTENT_ID)
+                                .host(CLIENT_HOST)
+                                .port(PORT)
+                                .build()
+                )
                 .connectionId(CONNECTION_INDEX)
                 .receivedCount(0)
                 .build();

@@ -22,7 +22,9 @@ import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.BUILDING;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.REGISTERED;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.STOPPING;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor.INITIAL_TABLE_VERSION;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
+import static org.apache.ignite.internal.table.TableTestUtils.COLUMN_NAME;
 import static org.apache.ignite.internal.table.TableTestUtils.INDEX_NAME;
 import static org.apache.ignite.internal.table.TableTestUtils.PK_INDEX_NAME;
 import static org.apache.ignite.internal.table.TableTestUtils.TABLE_NAME;
@@ -33,7 +35,9 @@ import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
 import static org.apache.ignite.internal.table.TableTestUtils.makeIndexAvailable;
 import static org.apache.ignite.internal.table.TableTestUtils.startBuildingIndex;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CollectionUtils.view;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
+import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.empty;
@@ -41,8 +45,12 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
+import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnCommand;
+import org.apache.ignite.internal.catalog.commands.ColumnParams;
+import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -97,19 +105,22 @@ public class FullStateTransferIndexChooserTest extends BaseIgniteAbstractTest {
     @Test
     void chooseForAddWriteWithSecondaryAndWithoutReadOnlyIndexes() {
         int pkIndexId = indexId(PK_INDEX_NAME);
-        assertThat(chooseForAddWriteLatest(), contains(pkIndexId));
+        assertThat(indexIds(chooseForAddWriteLatest()), contains(pkIndexId));
 
         int registeredIndexId = createSimpleRegisteredIndex(REGISTERED_INDEX_NAME);
-        assertThat(chooseForAddWriteLatest(), contains(pkIndexId, registeredIndexId));
+        assertThat(indexIds(chooseForAddWriteLatest()), contains(pkIndexId, registeredIndexId));
 
         int buildingIndexId = createSimpleBuildingIndex(BUILDING_INDEX_NAME);
-        assertThat(chooseForAddWriteLatest(), contains(pkIndexId, registeredIndexId, buildingIndexId));
+        assertThat(indexIds(chooseForAddWriteLatest()), contains(pkIndexId, registeredIndexId, buildingIndexId));
 
         int availableIndexId = createSimpleAvailableIndex(AVAILABLE_INDEX_NAME);
-        assertThat(chooseForAddWriteLatest(), contains(pkIndexId, registeredIndexId, buildingIndexId, availableIndexId));
+        assertThat(indexIds(chooseForAddWriteLatest()), contains(pkIndexId, registeredIndexId, buildingIndexId, availableIndexId));
 
         int stoppingIndexId = createSimpleStoppingIndex(STOPPING_INDEX_NAME);
-        assertThat(chooseForAddWriteLatest(), contains(pkIndexId, registeredIndexId, buildingIndexId, availableIndexId, stoppingIndexId));
+        assertThat(
+                indexIds(chooseForAddWriteLatest()),
+                contains(pkIndexId, registeredIndexId, buildingIndexId, availableIndexId, stoppingIndexId)
+        );
     }
 
     @Test
@@ -120,14 +131,14 @@ public class FullStateTransferIndexChooserTest extends BaseIgniteAbstractTest {
 
         int pkIndexId = indexId(PK_INDEX_NAME);
 
-        assertThat(chooseForAddWriteLatest(beginTsBeforeCreateRegisteredIndex), contains(pkIndexId));
+        assertThat(indexIds(chooseForAddWriteLatest(beginTsBeforeCreateRegisteredIndex)), contains(pkIndexId));
 
         int catalogVersionBeforeStartBuildingIndex = latestCatalogVersion();
 
         startBuildingIndex(catalogManager, registeredIndexId);
 
         assertThat(
-                indexChooser.chooseForAddWrite(catalogVersionBeforeStartBuildingIndex, tableId(TABLE_NAME), clock.now()),
+                indexIds(indexChooser.chooseForAddWrite(catalogVersionBeforeStartBuildingIndex, tableId(TABLE_NAME), clock.now())),
                 contains(pkIndexId)
         );
     }
@@ -135,19 +146,19 @@ public class FullStateTransferIndexChooserTest extends BaseIgniteAbstractTest {
     @Test
     void chooseForAddWriteCommittedWithSecondaryAndWithoutReadOnlyIndexes() {
         int pkIndexId = indexId(PK_INDEX_NAME);
-        assertThat(chooseForAddWriteCommittedLatest(), contains(pkIndexId));
+        assertThat(indexIds(chooseForAddWriteCommittedLatest()), contains(pkIndexId));
 
         createSimpleRegisteredIndex(REGISTERED_INDEX_NAME);
-        assertThat(chooseForAddWriteCommittedLatest(), contains(pkIndexId));
+        assertThat(indexIds(chooseForAddWriteCommittedLatest()), contains(pkIndexId));
 
         int buildingIndexId = createSimpleBuildingIndex(BUILDING_INDEX_NAME);
-        assertThat(chooseForAddWriteCommittedLatest(), contains(pkIndexId, buildingIndexId));
+        assertThat(indexIds(chooseForAddWriteCommittedLatest()), contains(pkIndexId, buildingIndexId));
 
         int availableIndexId = createSimpleAvailableIndex(AVAILABLE_INDEX_NAME);
-        assertThat(chooseForAddWriteCommittedLatest(), contains(pkIndexId, buildingIndexId, availableIndexId));
+        assertThat(indexIds(chooseForAddWriteCommittedLatest()), contains(pkIndexId, buildingIndexId, availableIndexId));
 
         int stoppingIndexId = createSimpleStoppingIndex(STOPPING_INDEX_NAME);
-        assertThat(chooseForAddWriteCommittedLatest(), contains(pkIndexId, buildingIndexId, availableIndexId, stoppingIndexId));
+        assertThat(indexIds(chooseForAddWriteCommittedLatest()), contains(pkIndexId, buildingIndexId, availableIndexId, stoppingIndexId));
     }
 
     @ParameterizedTest(name = "recovery = {0}")
@@ -172,9 +183,9 @@ public class FullStateTransferIndexChooserTest extends BaseIgniteAbstractTest {
             recoverIndexChooser();
         }
 
-        assertThat(chooseForAddWriteCommittedLatest(commitTsBeforeStoppingIndex), contains(pkIndexId, readOnlyIndexId));
-        assertThat(chooseForAddWriteCommittedLatest(commitTsOnStoppingIndex), contains(pkIndexId));
-        assertThat(chooseForAddWriteCommittedLatest(clock.now()), contains(pkIndexId));
+        assertThat(indexIds(chooseForAddWriteCommittedLatest(commitTsBeforeStoppingIndex)), contains(pkIndexId, readOnlyIndexId));
+        assertThat(indexIds(chooseForAddWriteCommittedLatest(commitTsOnStoppingIndex)), contains(pkIndexId));
+        assertThat(indexIds(chooseForAddWriteCommittedLatest(clock.now())), contains(pkIndexId));
     }
 
     @ParameterizedTest(name = "recovery = {0}")
@@ -199,12 +210,12 @@ public class FullStateTransferIndexChooserTest extends BaseIgniteAbstractTest {
             recoverIndexChooser();
         }
 
-        assertThat(chooseForAddWriteLatest(beginTsBeforeStoppingIndex), contains(pkIndexId, readOnlyIndexId));
-        assertThat(chooseForAddWriteLatest(beginTsOnStoppingIndex), contains(pkIndexId));
-        assertThat(chooseForAddWriteLatest(clock.now()), contains(pkIndexId));
+        assertThat(indexIds(chooseForAddWriteLatest(beginTsBeforeStoppingIndex)), contains(pkIndexId, readOnlyIndexId));
+        assertThat(indexIds(chooseForAddWriteLatest(beginTsOnStoppingIndex)), contains(pkIndexId));
+        assertThat(indexIds(chooseForAddWriteLatest(clock.now())), contains(pkIndexId));
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "recovery = {0}")
     @ValueSource(booleans = {false, true})
     void chooseForAddWriteCommittedForDroppedTable(boolean recovery) {
         HybridTimestamp commitTsBeforeCreateIndexes = clock.now();
@@ -227,19 +238,19 @@ public class FullStateTransferIndexChooserTest extends BaseIgniteAbstractTest {
         }
 
         assertThat(
-                chooseForAddWriteCommittedLatest(tableId, commitTsBeforeCreateIndexes),
+                indexIds(chooseForAddWriteCommittedLatest(tableId, commitTsBeforeCreateIndexes)),
                 contains(pkIndexId, availableIndexId, stoppingIndexId)
         );
 
         assertThat(
-                chooseForAddWriteCommittedLatest(tableId, commitTsBeforeDropTable),
+                indexIds(chooseForAddWriteCommittedLatest(tableId, commitTsBeforeDropTable)),
                 contains(pkIndexId, availableIndexId)
         );
 
-        assertThat(chooseForAddWriteCommittedLatest(tableId, clock.now()), empty());
+        assertThat(indexIds(chooseForAddWriteCommittedLatest(tableId, clock.now())), empty());
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "recovery = {0}")
     @ValueSource(booleans = {false, true})
     void chooseForAddWriteForDroppedTable(boolean recovery) {
         HybridTimestamp beginTsBeforeCreateIndexes = clock.now();
@@ -262,39 +273,75 @@ public class FullStateTransferIndexChooserTest extends BaseIgniteAbstractTest {
         }
 
         assertThat(
-                chooseForAddWriteLatest(tableId, beginTsBeforeCreateIndexes),
+                indexIds(chooseForAddWriteLatest(tableId, beginTsBeforeCreateIndexes)),
                 contains(pkIndexId, availableIndexId, stoppingIndexId)
         );
 
         assertThat(
-                chooseForAddWriteLatest(tableId, beginTsBeforeDropTable),
+                indexIds(chooseForAddWriteLatest(tableId, beginTsBeforeDropTable)),
                 contains(pkIndexId, availableIndexId)
         );
 
-        assertThat(chooseForAddWriteLatest(tableId, clock.now()), empty());
+        assertThat(indexIds(chooseForAddWriteLatest(tableId, clock.now())), empty());
     }
 
-    private List<Integer> chooseForAddWriteCommittedLatest(int tableId, HybridTimestamp commitTs) {
+    @ParameterizedTest(name = "recovery = {0}")
+    @ValueSource(booleans = {false, true})
+    void chooseWithOtherTableVersionsWithoutReadOnlyIndexes(boolean recovery) {
+        addTableColumn(COLUMN_NAME + "_NEW");
+
+        createSimpleAvailableIndex(AVAILABLE_INDEX_NAME);
+
+        var pkIndexIdAndTableVersion = new IndexIdAndTableVersion(indexId(PK_INDEX_NAME), INITIAL_TABLE_VERSION);
+        var availableIndexIdAndTableVersion = new IndexIdAndTableVersion(indexId(AVAILABLE_INDEX_NAME), INITIAL_TABLE_VERSION + 1);
+
+        if (recovery) {
+            recoverIndexChooser();
+        }
+
+        assertThat(chooseForAddWriteLatest(), contains(pkIndexIdAndTableVersion, availableIndexIdAndTableVersion));
+        assertThat(chooseForAddWriteCommittedLatest(), contains(pkIndexIdAndTableVersion, availableIndexIdAndTableVersion));
+    }
+
+    @ParameterizedTest(name = "recovery = {0}")
+    @ValueSource(booleans = {false, true})
+    void chooseWithOtherTableVersionsWithReadOnlyIndexes(boolean recovery) {
+        addTableColumn(COLUMN_NAME + "_NEW");
+
+        int readOnlyIndexId = createSimpleStoppingIndex(READ_ONLY_INDEX_NAME);
+
+        var pkIndexIdAndTableVersion = new IndexIdAndTableVersion(indexId(PK_INDEX_NAME), INITIAL_TABLE_VERSION);
+        var readOnlyIndexIdAndTableVersion = new IndexIdAndTableVersion(readOnlyIndexId, INITIAL_TABLE_VERSION + 1);
+
+        if (recovery) {
+            recoverIndexChooser();
+        }
+
+        assertThat(chooseForAddWriteLatest(), contains(pkIndexIdAndTableVersion, readOnlyIndexIdAndTableVersion));
+        assertThat(chooseForAddWriteCommittedLatest(), contains(pkIndexIdAndTableVersion, readOnlyIndexIdAndTableVersion));
+    }
+
+    private List<IndexIdAndTableVersion> chooseForAddWriteCommittedLatest(int tableId, HybridTimestamp commitTs) {
         return indexChooser.chooseForAddWriteCommitted(latestCatalogVersion(), tableId, commitTs);
     }
 
-    private List<Integer> chooseForAddWriteCommittedLatest(HybridTimestamp commitTs) {
+    private List<IndexIdAndTableVersion> chooseForAddWriteCommittedLatest(HybridTimestamp commitTs) {
         return chooseForAddWriteCommittedLatest(tableId(TABLE_NAME), commitTs);
     }
 
-    private List<Integer> chooseForAddWriteCommittedLatest() {
+    private List<IndexIdAndTableVersion> chooseForAddWriteCommittedLatest() {
         return chooseForAddWriteCommittedLatest(HybridTimestamp.MAX_VALUE);
     }
 
-    private List<Integer> chooseForAddWriteLatest(int tableId, HybridTimestamp beginTs) {
+    private List<IndexIdAndTableVersion> chooseForAddWriteLatest(int tableId, HybridTimestamp beginTs) {
         return indexChooser.chooseForAddWrite(latestCatalogVersion(), tableId, beginTs);
     }
 
-    private List<Integer> chooseForAddWriteLatest(HybridTimestamp beginTs) {
+    private List<IndexIdAndTableVersion> chooseForAddWriteLatest(HybridTimestamp beginTs) {
         return chooseForAddWriteLatest(tableId(TABLE_NAME), beginTs);
     }
 
-    private List<Integer> chooseForAddWriteLatest() {
+    private List<IndexIdAndTableVersion> chooseForAddWriteLatest() {
         return chooseForAddWriteLatest(HybridTimestamp.MAX_VALUE);
     }
 
@@ -366,5 +413,25 @@ public class FullStateTransferIndexChooserTest extends BaseIgniteAbstractTest {
 
     private void dropTable() {
         TableTestUtils.dropTable(catalogManager, DEFAULT_SCHEMA_NAME, TABLE_NAME);
+    }
+
+    private static List<Integer> indexIds(List<IndexIdAndTableVersion> indexIdAndTableVersionList) {
+        return view(indexIdAndTableVersionList, IndexIdAndTableVersion::indexId);
+    }
+
+    private void addTableColumn(String columnName) {
+        ColumnParams columnParams = ColumnParams.builder()
+                .name(columnName)
+                .type(INT32)
+                .defaultValue(DefaultValue.constant(100500))
+                .build();
+
+        CatalogCommand command = AlterTableAddColumnCommand.builder()
+                .tableName(TABLE_NAME)
+                .schemaName(DEFAULT_SCHEMA_NAME)
+                .columns(List.of(columnParams))
+                .build();
+
+        assertThat(catalogManager.execute(command), willCompleteSuccessfully());
     }
 }

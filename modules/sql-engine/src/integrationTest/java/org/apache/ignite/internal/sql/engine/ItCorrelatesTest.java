@@ -37,13 +37,13 @@ public class ItCorrelatesTest extends BaseSqlIntegrationTest {
     public void testCorrelatesAssignedBeforeAccess() {
         sql("create table test_tbl(k INTEGER primary key, v INTEGER)");
 
-        //TODO: IGNITE-16323 When the issue is not fixed the invocation required for update metadata.
+        // TODO: IGNITE-16323 When the issue is not fixed the invocation required for update metadata.
         CLUSTER.aliveNode().tables().tables();
 
         sql("INSERT INTO test_tbl VALUES (1, 1)");
 
         assertQuery("SELECT " + DISABLED_JOIN_RULES + " t0.v, (SELECT t0.v + t1.v FROM test_tbl t1) AS j FROM test_tbl t0")
-                .matches(containsSubPlan("IgniteCorrelatedNestedLoopJoin"))
+                .matches(containsSubPlan("CorrelatedNestedLoopJoin"))
                 .returns(1, 2)
                 .check();
     }

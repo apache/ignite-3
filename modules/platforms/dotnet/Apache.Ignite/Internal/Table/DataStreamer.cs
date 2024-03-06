@@ -162,7 +162,7 @@ internal static class DataStreamer
         (Batch<T> Batch, string Partition) Add(T item)
         {
             var schema0 = schema;
-            var tupleBuilder = new BinaryTupleBuilder(schema0.Columns.Count, hashedColumnsPredicate: schema0);
+            var tupleBuilder = new BinaryTupleBuilder(schema0.Columns.Length, hashedColumnsPredicate: schema0.HashedColumnIndexProvider);
 
             try
             {
@@ -176,14 +176,14 @@ internal static class DataStreamer
 
         (Batch<T> Batch, string Partition) Add0(T item, ref BinaryTupleBuilder tupleBuilder, Schema schema0)
         {
-            var columnCount = schema0.Columns.Count;
+            var columnCount = schema0.Columns.Length;
 
             // Use MemoryMarshal to work around [CS8352]: "Cannot use variable 'noValueSet' in this context
             // because it may expose referenced variables outside of their declaration scope".
             Span<byte> noValueSet = stackalloc byte[columnCount / 8 + 1];
             Span<byte> noValueSetRef = MemoryMarshal.CreateSpan(ref MemoryMarshal.GetReference(noValueSet), columnCount);
 
-            writer.Handler.Write(ref tupleBuilder, item, schema0, columnCount, noValueSetRef);
+            writer.Handler.Write(ref tupleBuilder, item, schema0, keyOnly: false, noValueSetRef);
 
             // ReSharper disable once AccessToModifiedClosure (reviewed)
             var partitionAssignment0 = partitionAssignment;

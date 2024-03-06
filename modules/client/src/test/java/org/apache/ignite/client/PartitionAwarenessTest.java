@@ -447,8 +447,8 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         Tuple t1 = Tuple.create().set("ID", 1L);
         Tuple t2 = Tuple.create().set("ID", 2L);
 
-        assertThat(compute().executeColocatedAsync(table.name(), t1, List.of(), "job").resultAsync(), willBe(nodeKey1));
-        assertThat(compute().executeColocatedAsync(table.name(), t2, List.of(), "job").resultAsync(), willBe(nodeKey2));
+        assertThat(compute().executeColocatedAsync(table.name(), t1, List.of(), "job"), willBe(nodeKey1));
+        assertThat(compute().executeColocatedAsync(table.name(), t2, List.of(), "job"), willBe(nodeKey2));
     }
 
     @Test
@@ -456,8 +456,8 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         var mapper = Mapper.of(Long.class);
         Table table = defaultTable();
 
-        assertThat(compute().executeColocatedAsync(table.name(), 1L, mapper, List.of(), "job").resultAsync(), willBe(nodeKey1));
-        assertThat(compute().executeColocatedAsync(table.name(), 2L, mapper, List.of(), "job").resultAsync(), willBe(nodeKey2));
+        assertThat(compute().executeColocatedAsync(table.name(), 1L, mapper, List.of(), "job"), willBe(nodeKey1));
+        assertThat(compute().executeColocatedAsync(table.name(), 2L, mapper, List.of(), "job"), willBe(nodeKey2));
     }
 
     @Test

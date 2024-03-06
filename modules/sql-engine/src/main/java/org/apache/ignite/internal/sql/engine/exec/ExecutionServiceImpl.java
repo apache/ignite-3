@@ -376,7 +376,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         }
 
         if (e instanceof IgniteInternalCheckedException) {
-            return new IgniteInternalException(INTERNAL_ERR, "Failed to execute DDL statement [stmt=" /*+ qry.sql()*/
+            return new IgniteInternalException(INTERNAL_ERR, "Failed to execute DDL statement [stmt=" /* + qry.sql() */
                     + ", err=" + e.getMessage() + ']', e);
         }
 

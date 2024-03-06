@@ -45,6 +45,7 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager.LockState;
 import org.apache.ignite.internal.tx.impl.HeapUnboundedLockManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
+import org.apache.ignite.internal.tx.impl.ResourceCleanupManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
@@ -84,7 +85,7 @@ public class ItLockTableTest extends IgniteAbstractTest {
 
     protected final TestInfo testInfo;
 
-    //TODO fsync can be turned on again after https://issues.apache.org/jira/browse/IGNITE-20195
+    // TODO fsync can be turned on again after https://issues.apache.org/jira/browse/IGNITE-20195
     @InjectConfiguration("mock: { fsync: false }")
     protected static RaftConfiguration raftConfiguration;
 
@@ -131,7 +132,8 @@ public class ItLockTableTest extends IgniteAbstractTest {
                     TransactionIdGenerator generator,
                     ClusterNode node,
                     PlacementDriver placementDriver,
-                    RemotelyTriggeredResourceRegistry resourcesRegistry
+                    RemotelyTriggeredResourceRegistry resourcesRegistry,
+                    ResourceCleanupManager resourceCleanupManager
             ) {
                 return new TxManagerImpl(
                         txConfiguration,
@@ -147,7 +149,8 @@ public class ItLockTableTest extends IgniteAbstractTest {
                         placementDriver,
                         () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
                         new TestLocalRwTxCounter(),
-                        resourcesRegistry
+                        resourcesRegistry,
+                        resourceCleanupManager
                 );
             }
         };

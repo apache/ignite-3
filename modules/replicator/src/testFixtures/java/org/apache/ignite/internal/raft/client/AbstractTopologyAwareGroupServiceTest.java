@@ -431,7 +431,7 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
 
             RaftGroupEventsClientListener eventsClientListener = new RaftGroupEventsClientListener();
 
-            if (isServerAddress.test(addr)) { //RAFT server node
+            if (isServerAddress.test(addr)) { // RAFT server node
                 var localPeer = peersAndLearners.peers().stream()
                         .filter(peer -> peer.consistentId().equals(cluster.topologyService().localMember().name())).findAny().get();
 
@@ -490,8 +490,7 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
                 if (msg instanceof LeaderChangeNotification) {
                     LeaderChangeNotification msg0 = (LeaderChangeNotification) msg;
 
-                    ClusterNode node = localClusterService.topologyService().getByConsistentId(sender);
-                    finalEventsClientListener.onLeaderElected(msg0.groupId(), node, msg0.term());
+                    finalEventsClientListener.onLeaderElected(msg0.groupId(), sender, msg0.term());
                 }
             });
         }

@@ -28,6 +28,7 @@ import java.math.BigDecimal;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.Instant;
+import java.util.Locale;
 import java.util.TimeZone;
 import java.util.function.Supplier;
 import org.apache.calcite.sql.type.SqlTypeName;
@@ -502,10 +503,10 @@ public class IgniteSqlFunctionsTest {
         TimeZone cyprusTz = TimeZone.getTimeZone("Asia/Nicosia");
         TimeZone utcTz = TimeZone.getTimeZone("UTC");
 
-        SimpleDateFormat dateFormatTz = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        SimpleDateFormat dateFormatTz = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault());
         dateFormatTz.setTimeZone(cyprusTz);
 
-        SimpleDateFormat dateFormatUtc = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+        SimpleDateFormat dateFormatUtc = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault());
         dateFormatUtc.setTimeZone(utcTz);
 
         long expMillis = dateFormatTz.parse(input).getTime();

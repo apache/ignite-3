@@ -39,6 +39,8 @@ import org.apache.ignite.internal.sql.engine.util.PlanUtils;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class IgniteMapHashAggregate extends IgniteMapAggregateBase implements IgniteHashAggregateBase {
+    private static final String REL_TYPE_NAME = "MapHashAggregate";
+
     /**
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
@@ -95,5 +97,10 @@ public class IgniteMapHashAggregate extends IgniteMapAggregateBase implements Ig
     @Override
     public RelOptCost computeSelfCost(RelOptPlanner planner, RelMetadataQuery mq) {
         return computeSelfCostHash(planner, mq);
+    }
+
+    /** {@inheritDoc} */
+    @Override public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 }

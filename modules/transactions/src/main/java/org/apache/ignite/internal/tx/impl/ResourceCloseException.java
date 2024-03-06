@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.lang.ErrorGroups.Common.RESOURCE_CLOSING_ERR;
 
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -31,11 +32,11 @@ public class ResourceCloseException extends IgniteInternalException {
     private final FullyQualifiedResourceId resourceId;
 
     public ResourceCloseException(
-            String message,
             FullyQualifiedResourceId resourceId,
+            String remoteHostId,
             Throwable cause
     ) {
-        super(RESOURCE_CLOSING_ERR, message, cause);
+        super(RESOURCE_CLOSING_ERR, format("Resource close exception [resourceId={}, remoteHostId={}]", resourceId, remoteHostId), cause);
         this.resourceId = resourceId;
     }
 

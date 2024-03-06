@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.network.netty;
 
 import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.network.ChannelType.getChannel;
@@ -32,6 +33,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -40,7 +42,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -66,6 +68,7 @@ import org.apache.ignite.internal.network.recovery.StaleIdDetector;
 import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -105,8 +108,11 @@ public class ConnectionManager implements ChannelCreationListener {
     /** Node consistent id. */
     private final String consistentId;
 
-    /** Node launch id. As opposed to {@link #consistentId}, this identifier changes between restarts. */
-    private final UUID launchId;
+    /**
+     * Completed when local node is set; attempts to initiate a connection to this node from the outside will wait
+     * till it's completed.
+     */
+    private final CompletableFuture<ClusterNode> localNodeFuture = new CompletableFuture<>();
 
     private final NettyBootstrapFactory bootstrapFactory;
 
@@ -141,7 +147,6 @@ public class ConnectionManager implements ChannelCreationListener {
      *
      * @param networkConfiguration          Network configuration.
      * @param serializationService          Serialization service.
-     * @param launchId                      Launch id of this node.
      * @param consistentId                  Consistent id of this node.
      * @param bootstrapFactory              Bootstrap factory.
      * @param staleIdDetector               Detects stale member IDs.
@@ -149,7 +154,6 @@ public class ConnectionManager implements ChannelCreationListener {
     public ConnectionManager(
             NetworkView networkConfiguration,
             SerializationService serializationService,
-            UUID launchId,
             String consistentId,
             NettyBootstrapFactory bootstrapFactory,
             StaleIdDetector staleIdDetector,
@@ -158,7 +162,6 @@ public class ConnectionManager implements ChannelCreationListener {
         this(
                 networkConfiguration,
                 serializationService,
-                launchId,
                 consistentId,
                 bootstrapFactory,
                 staleIdDetector,
@@ -172,7 +175,6 @@ public class ConnectionManager implements ChannelCreationListener {
      *
      * @param networkConfiguration          Network configuration.
      * @param serializationService          Serialization service.
-     * @param launchId                      Launch id of this node.
      * @param consistentId                  Consistent id of this node.
      * @param bootstrapFactory              Bootstrap factory.
      * @param staleIdDetector               Detects stale member IDs.
@@ -181,7 +183,6 @@ public class ConnectionManager implements ChannelCreationListener {
     public ConnectionManager(
             NetworkView networkConfiguration,
             SerializationService serializationService,
-            UUID launchId,
             String consistentId,
             NettyBootstrapFactory bootstrapFactory,
             StaleIdDetector staleIdDetector,
@@ -189,7 +190,6 @@ public class ConnectionManager implements ChannelCreationListener {
             FailureProcessor failureProcessor
     ) {
         this.serializationService = serializationService;
-        this.launchId = launchId;
         this.consistentId = consistentId;
         this.bootstrapFactory = bootstrapFactory;
         this.staleIdDetector = staleIdDetector;
@@ -213,7 +213,7 @@ public class ConnectionManager implements ChannelCreationListener {
                 0,
                 1,
                 1,
-                TimeUnit.SECONDS,
+                SECONDS,
                 new LinkedBlockingQueue<>(),
                 NamedThreadFactory.create(consistentId, "connection-maintenance", LOG)
         );
@@ -447,7 +447,7 @@ public class ConnectionManager implements ChannelCreationListener {
 
         assert stopping.get();
 
-        //noinspection FuseStreamOperations
+        // noinspection FuseStreamOperations
         List<CompletableFuture<Void>> stopFutures = new ArrayList<>(clients.values().stream().map(NettyClient::stop).collect(toList()));
         stopFutures.add(server.stop());
         stopFutures.addAll(channels.values().stream().map(NettySender::closeAsync).collect(toList()));
@@ -461,7 +461,7 @@ public class ConnectionManager implements ChannelCreationListener {
             LOG.warn("Failed to stop connection manager [reason={}]", e.getMessage());
         }
 
-        IgniteUtils.shutdownAndAwaitTermination(connectionMaintenanceExecutor, 10, TimeUnit.SECONDS);
+        IgniteUtils.shutdownAndAwaitTermination(connectionMaintenanceExecutor, 10, SECONDS);
     }
 
     private CompletableFuture<Void> disposeDescriptors() {
@@ -486,10 +486,11 @@ public class ConnectionManager implements ChannelCreationListener {
     }
 
     private HandshakeManager createClientHandshakeManager(short connectionId) {
+        ClusterNode localNode = Objects.requireNonNull(localNodeFuture.getNow(null), "localNode not set");
+
         if (clientHandshakeManagerFactory == null) {
             return new RecoveryClientHandshakeManager(
-                    launchId,
-                    consistentId,
+                    localNode,
                     connectionId,
                     descriptorProvider,
                     bootstrapFactory,
@@ -501,17 +502,18 @@ public class ConnectionManager implements ChannelCreationListener {
         }
 
         return clientHandshakeManagerFactory.create(
-                launchId,
-                consistentId,
+                localNode,
                 connectionId,
                 descriptorProvider
         );
     }
 
     private HandshakeManager createServerHandshakeManager() {
+        // Do not just use localNodeFuture.join() to make sure the wait is time-limited.
+        waitForLocalNodeToBeSet();
+
         return new RecoveryServerHandshakeManager(
-                launchId,
-                consistentId,
+                localNodeFuture.join(),
                 FACTORY,
                 descriptorProvider,
                 bootstrapFactory,
@@ -520,6 +522,18 @@ public class ConnectionManager implements ChannelCreationListener {
                 stopping::get,
                 failureProcessor
         );
+    }
+
+    private void waitForLocalNodeToBeSet() {
+        try {
+            localNodeFuture.get(10, SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+
+            throw new RuntimeException("Interrupted while waiting for local node to be set", e);
+        } catch (ExecutionException | TimeoutException e) {
+            throw new RuntimeException("Could not finish awaiting for local node", e);
+        }
     }
 
     /**
@@ -649,5 +663,12 @@ public class ConnectionManager implements ChannelCreationListener {
         descriptor.dispose(exceptionToFailSendFutures);
 
         return nullCompletedFuture();
+    }
+
+    /**
+     * Sets the local node. Only after this this manager becomes able to accept incoming connections.
+     */
+    public void setLocalNode(ClusterNode localNode) {
+        localNodeFuture.complete(localNode);
     }
 }

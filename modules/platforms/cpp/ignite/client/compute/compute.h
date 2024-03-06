@@ -48,7 +48,7 @@ public:
     compute() = delete;
 
     /**
-     * Executes a compute job represented by the given class on one of the specified nodes asynchronously.
+     * Submits a compute job represented by the given class for an execution on one of the specified nodes.
      *
      * @param nodes Nodes to use for the job execution.
      * @param units Deployment units. Can be empty.
@@ -56,7 +56,7 @@ public:
      * @param args Job arguments.
      * @param callback A callback called on operation completion with job execution result.
      */
-    IGNITE_API void execute_async(const std::vector<cluster_node> &nodes, const std::vector<deployment_unit> &units,
+    IGNITE_API void submit(const std::vector<cluster_node> &nodes, const std::vector<deployment_unit> &units,
         std::string_view job_class_name, const std::vector<primitive> &args,
         ignite_callback<std::optional<primitive>> callback);
 
@@ -73,12 +73,12 @@ public:
         const std::vector<deployment_unit> &units, std::string_view job_class_name,
         const std::vector<primitive> &args) {
         return sync<std::optional<primitive>>([this, &nodes, &units, job_class_name, &args](auto callback) mutable {
-            execute_async(nodes, units, job_class_name, args, std::move(callback));
+            submit(nodes, units, job_class_name, args, std::move(callback));
         });
     }
 
     /**
-     * Executes a compute job represented by the given class on all of the specified nodes asynchronously.
+     * Submits a compute job represented by the given class for an execution on all of the specified nodes.
      *
      * @param nodes Nodes to use for the job execution.
      * @param units Deployment units. Can be empty.
@@ -86,7 +86,7 @@ public:
      * @param args Job arguments.
      * @param callback A callback called on operation completion with jobs execution result.
      */
-    IGNITE_API void broadcast_async(const std::set<cluster_node> &nodes, const std::vector<deployment_unit> &units,
+    IGNITE_API void submit_broadcast(const std::set<cluster_node> &nodes, const std::vector<deployment_unit> &units,
         std::string_view job_class_name, const std::vector<primitive> &args,
         ignite_callback<std::map<cluster_node, ignite_result<std::optional<primitive>>>> callback);
 
@@ -99,12 +99,12 @@ public:
      * @param args Job arguments.
      * @return Job execution result.
      */
-    IGNITE_API std::map<cluster_node, ignite_result<std::optional<primitive>>> broadcast(
+    IGNITE_API std::map<cluster_node, ignite_result<std::optional<primitive>>> execute_broadcast(
         const std::set<cluster_node> &nodes, const std::vector<deployment_unit> &units, std::string_view job_class_name,
         const std::vector<primitive> &args) {
         return sync<std::map<cluster_node, ignite_result<std::optional<primitive>>>>(
             [this, &nodes, &units, job_class_name, &args](
-                auto callback) mutable { broadcast_async(nodes, units, job_class_name, args, std::move(callback)); });
+                auto callback) mutable { submit_broadcast(nodes, units, job_class_name, args, std::move(callback)); });
     }
 
     /**
@@ -117,7 +117,7 @@ public:
      * @param args Job arguments.
      * @param callback A callback called on operation completion with job execution result.
      */
-    IGNITE_API void execute_colocated_async(std::string_view table_name, const ignite_tuple &key,
+    IGNITE_API void submit_colocated(std::string_view table_name, const ignite_tuple &key,
         const std::vector<deployment_unit> &units, std::string_view job_class_name, const std::vector<primitive> &args,
         ignite_callback<std::optional<primitive>> callback);
 
@@ -136,7 +136,7 @@ public:
         const std::vector<primitive> &args) {
         return sync<std::optional<primitive>>(
             [this, &table_name, &key, &units, job_class_name, &args](auto callback) mutable {
-                execute_colocated_async(table_name, key, units, job_class_name, args, std::move(callback));
+                submit_colocated(table_name, key, units, job_class_name, args, std::move(callback));
             });
     }
 

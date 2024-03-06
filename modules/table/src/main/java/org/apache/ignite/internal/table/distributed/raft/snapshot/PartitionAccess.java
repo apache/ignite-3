@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -197,4 +198,20 @@ public interface PartitionAccess {
      * @throws StorageRebalanceException If there are errors when trying to finish rebalancing.
      */
     CompletableFuture<Void> finishRebalance(long lastAppliedIndex, long lastAppliedTerm, RaftGroupConfiguration raftGroupConfig);
+
+    /**
+     * Returns the row ID for which the index needs to be built, {@code null} means that the index building has completed.
+     *
+     * @param indexId Index ID of interest.
+     * @throws StorageException If failed to get the row ID.
+     */
+    @Nullable RowId getNextRowIdToBuildIndex(int indexId);
+
+    /**
+     * Sets the row ID for which the index needs to be built.
+     *
+     * @param nextRowIdToBuildByIndexId Mapping: Index ID -> row ID.
+     * @throws StorageException If failed to set the row ID.
+     */
+    void setNextRowIdToBuildIndex(Map<Integer, RowId> nextRowIdToBuildByIndexId);
 }

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.network.recovery;
 
 import static java.util.Collections.emptyList;
+import static org.apache.ignite.internal.util.IgniteUtils.safeAbs;
 
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
@@ -29,12 +30,14 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
+import org.apache.ignite.internal.network.message.ClusterNodeMessage;
 import org.apache.ignite.internal.network.netty.ChannelEventLoopsSource;
 import org.apache.ignite.internal.network.netty.ChannelKey;
 import org.apache.ignite.internal.network.netty.NettySender;
 import org.apache.ignite.internal.network.netty.NettyUtils;
 import org.apache.ignite.internal.network.recovery.message.HandshakeRejectedMessage;
 import org.apache.ignite.internal.network.recovery.message.HandshakeRejectionReason;
+import org.apache.ignite.network.ClusterNode;
 
 class HandshakeManagerUtils {
     private static final IgniteLogger LOG = Loggers.forClass(HandshakeManagerUtils.class);
@@ -119,8 +122,17 @@ class HandshakeManagerUtils {
     private static EventLoop eventLoopForKey(ChannelKey channelKey, ChannelEventLoopsSource eventLoopsSource) {
         List<EventLoop> eventLoops = eventLoopsSource.channelEventLoops();
 
-        int index = (channelKey.hashCode() & Integer.MAX_VALUE) % eventLoops.size();
+        int index = safeAbs(channelKey.hashCode()) % eventLoops.size();
 
         return eventLoops.get(index);
+    }
+
+    static ClusterNodeMessage clusterNodeToMessage(ClusterNode node) {
+        return MESSAGE_FACTORY.clusterNodeMessage()
+                .id(node.id())
+                .name(node.name())
+                .host(node.address().host())
+                .port(node.address().port())
+                .build();
     }
 }

@@ -109,7 +109,7 @@ public class DistributionMetric extends AbstractMetric implements CompositeMetri
     public void add(long x) {
         assert x >= 0;
 
-        //Expect arrays of few elements.
+        // Expect arrays of few elements.
         for (int i = 0; i < bounds.length; i++) {
             if (x <= bounds[i]) {
                 measurements.incrementAndGet(i);

@@ -58,7 +58,7 @@ public class TestTopologyService extends AbstractTopologyService {
      *
      * @param member Member.
      */
-    public void fairAppearedEvent(ClusterNode member) {
+    public void fireAppearedEvent(ClusterNode member) {
         getEventHandlers().forEach(it -> it.onAppeared(member));
     }
 
@@ -67,7 +67,7 @@ public class TestTopologyService extends AbstractTopologyService {
      *
      * @param member Member.
      */
-    public void fairDisappearedEvent(ClusterNode member) {
+    public void fireDisappearedEvent(ClusterNode member) {
         getEventHandlers().forEach(it -> it.onDisappeared(member));
     }
 }

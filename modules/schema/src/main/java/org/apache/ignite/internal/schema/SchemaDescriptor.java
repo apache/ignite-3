@@ -60,6 +60,9 @@ public class SchemaDescriptor {
     /** Colocation columns. */
     private final @Nullable Map<Column, Integer> colocationColIndexes;
 
+    /** Key columns indexes. */
+    private final Map<Column, Integer> keyColIndexes;
+
     /** Mapping 'Column name' -&gt; Column. */
     private final Map<String, Column> colMap;
 
@@ -138,6 +141,13 @@ public class SchemaDescriptor {
                 this.colocationCols[i] = col;
                 this.colocationColIndexes.put(col, i);
             }
+        }
+
+        // TODO: Move keyIndex and colocationIndex to Column class for faster and simpler access?
+        keyColIndexes = new HashMap<>(keyCols.length);
+
+        for (int i = 0; i < keyCols.length; i++) {
+            keyColIndexes.put(keyCols[i], i);
         }
     }
 
@@ -240,6 +250,16 @@ public class SchemaDescriptor {
         return colocationColIndexes == null
                 ? -1
                 : colocationColIndexes.getOrDefault(col, -1);
+    }
+
+    /**
+     * Get key index of the specified column.
+     *
+     * @param col Column.
+     * @return Index in the keyColumns array, or -1 when not a part of the key.
+     */
+    public int keyIndex(Column col) {
+        return keyColIndexes.getOrDefault(col, -1);
     }
 
     /**

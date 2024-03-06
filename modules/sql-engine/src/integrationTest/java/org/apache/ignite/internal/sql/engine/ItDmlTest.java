@@ -521,7 +521,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
         checkDefaultValue(defaultValueArgs()
                 .filter(a -> !a.sqlType.endsWith("NOT NULL"))
                 // TODO: uncomment after https://issues.apache.org/jira/browse/IGNITE-21243
-                //.map(a -> new DefaultValueArg(a.sqlType, "NULL", null))
+                // .map(a -> new DefaultValueArg(a.sqlType, "NULL", null))
                 .collect(Collectors.toList()));
     }
 
@@ -738,14 +738,14 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
         for (int i = 0; i < tableSize; i++) {
             assertQuery("INSERT INTO test1 VALUES (?, ?, ?)")
                     .withParams(i, i, i)
-                    .matches(containsSubPlan("IgniteKeyValueModify"))
+                    .matches(containsSubPlan("KeyValueModify"))
                     .returns(1L)
                     .check();
         }
 
         // multistep insert
         assertQuery("INSERT INTO test2 SELECT * FROM test1")
-                .matches(containsSubPlan("IgniteTableModify"))
+                .matches(containsSubPlan("TableModify"))
                 .returns((long) tableSize)
                 .check();
 
@@ -760,7 +760,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
 
         // multistep delete
         assertQuery("DELETE FROM test2")
-                .matches(containsSubPlan("IgniteTableModify"))
+                .matches(containsSubPlan("TableModify"))
                 .returns((long) tableSize)
                 .check();
 
@@ -768,7 +768,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
         for (int i = 0; i < tableSize; i++) {
             assertQuery("SELECT * FROM test1 WHERE id1=? AND id2=?")
                     .withParams(i, i)
-                    .matches(containsSubPlan("IgniteKeyValueGet"))
+                    .matches(containsSubPlan("KeyValueGet"))
                     .returns(i, i, i)
                     .check();
         }
@@ -778,7 +778,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
         for (int i = 0; i < tableSize; i++) {
             assertQuery("DELETE FROM test1 WHERE id1=? AND id2=?")
                     .withParams(i, i)
-                    .matches(containsSubPlan("IgniteTableModify"))
+                    .matches(containsSubPlan("TableModify"))
                     .returns(1L)
                     .check();
         }

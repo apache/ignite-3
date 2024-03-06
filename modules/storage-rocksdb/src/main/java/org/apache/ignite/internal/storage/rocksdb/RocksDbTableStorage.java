@@ -135,10 +135,6 @@ public class RocksDbTableStorage implements MvTableStorage {
         return rocksDb.gcQueueCf.handle();
     }
 
-    @Override
-    public void start() {
-    }
-
     /**
      * Returns a future to wait next flush operation from the current point in time. Uses {@link RocksDB#getLatestSequenceNumber()} to
      * achieve this.

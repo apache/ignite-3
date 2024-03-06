@@ -31,6 +31,8 @@ import org.jetbrains.annotations.Nullable;
  * Logical relational expression for reading data from a table.
  */
 public class IgniteLogicalTableScan extends ProjectableFilterableTableScan {
+    private static final String REL_TYPE_NAME = "LogicalTableScan";
+
     /** Creates a IgniteTableScan. */
     public static IgniteLogicalTableScan create(
             RelOptCluster cluster,
@@ -71,5 +73,11 @@ public class IgniteLogicalTableScan extends ProjectableFilterableTableScan {
     @Override
     public IgniteLogicalTableScan withHints(List<RelHint> hintList) {
         return new IgniteLogicalTableScan(getCluster(), getTraitSet(), hintList, getTable(), projects, condition, requiredColumns);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 }

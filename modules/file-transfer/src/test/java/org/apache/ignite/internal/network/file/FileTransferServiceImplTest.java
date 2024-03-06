@@ -61,6 +61,7 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.CompletableFutures;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -76,6 +77,12 @@ class FileTransferServiceImplTest extends BaseIgniteAbstractTest {
     private static final String SOURCE_CONSISTENT_ID = "source";
 
     private static final String TARGET_CONSISTENT_ID = "target";
+
+    private static final ClusterNode TARGET_NODE = new ClusterNodeImpl(
+            UUID.randomUUID().toString(),
+            TARGET_CONSISTENT_ID,
+            new NetworkAddress("target", 1234)
+    );
 
     @WorkDirectory
     private Path workDir;
@@ -127,7 +134,7 @@ class FileTransferServiceImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void fileTransfersCanceledWhenSenderLeft() {
-        topologyService.fairDisappearedEvent(new ClusterNodeImpl("node1", "sender", new NetworkAddress("localhost", 1234)));
+        topologyService.fireDisappearedEvent(new ClusterNodeImpl("node1", "sender", new NetworkAddress("localhost", 1234)));
 
         verify(fileReceiver).cancelTransfersFromSender("sender");
     }
@@ -140,7 +147,7 @@ class FileTransferServiceImplTest extends BaseIgniteAbstractTest {
                 .build();
         doReturn(completedFuture(response))
                 .when(messagingService)
-                .invoke(eq(TARGET_CONSISTENT_ID), eq(Channel.FILE_TRANSFER_CHANNEL), any(FileTransferInitMessage.class), anyLong());
+                .invoke(eq(TARGET_CONSISTENT_ID), eq(FILE_TRANSFER_CHANNEL), any(FileTransferInitMessage.class), anyLong());
 
         // Set file provider to provide a file.
         Path path1 = FileGenerator.randomFile(workDir, 100);
@@ -159,7 +166,7 @@ class FileTransferServiceImplTest extends BaseIgniteAbstractTest {
         FileTransferInitResponse fileTransferInitResponse = messageFactory.fileTransferInitResponse().build();
         doReturn(completedFuture(fileTransferInitResponse))
                 .when(messagingService)
-                .invoke(eq(TARGET_CONSISTENT_ID), eq(Channel.FILE_TRANSFER_CHANNEL), any(FileTransferInitMessage.class), anyLong());
+                .invoke(eq(TARGET_CONSISTENT_ID), eq(FILE_TRANSFER_CHANNEL), any(FileTransferInitMessage.class), anyLong());
 
         doReturn(failedFuture(new RuntimeException("Test exception")))
                 .when(fileSender)
@@ -218,7 +225,7 @@ class FileTransferServiceImplTest extends BaseIgniteAbstractTest {
                 .headers(FileHeader.fromPaths(messageFactory, paths))
                 .build();
 
-        messagingService.fairMessage(uploadRequest, TARGET_CONSISTENT_ID, correlationId);
+        messagingService.fireMessage(uploadRequest, TARGET_NODE, correlationId);
 
         // Check that transfer was registered and canceled.
         assertThat(registeredTransferIdFuture, willCompleteSuccessfully());
@@ -295,7 +302,7 @@ class FileTransferServiceImplTest extends BaseIgniteAbstractTest {
                 .build();
 
         // Send file transfer request.
-        messagingService.fairMessage(fileTransferInitMessage, TARGET_CONSISTENT_ID, 1L);
+        messagingService.fireMessage(fileTransferInitMessage, TARGET_NODE, 1L);
 
         // Check that transfer was registered before response was sent.
         await().untilAtomic(transferLifecycleState, equalTo(2));

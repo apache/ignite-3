@@ -49,7 +49,7 @@ public class DeltaFilePageStoreIoHeader {
 
     /** Size of the common delta file page store header for all versions, in bytes. */
     private static final int COMMON_HEADER_SIZE =
-            8/*SIGNATURE*/ + 4/*version*/ + 4/*index*/ + 4/*page size*/ + 4/*page index array length*/;
+            8/* SIGNATURE */ + 4/* version */ + 4/* index */ + 4/* page size */ + 4/* page index array length */;
 
     private final int version;
 

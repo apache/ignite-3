@@ -30,6 +30,7 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.table.distributed.TableIndexStoragesSupplier;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.util.Cursor;
@@ -65,7 +66,30 @@ public class IndexUpdateHandler {
         }
 
         for (TableSchemaAwareIndexStorage index : indexes(indexIds)) {
+            // TODO: IGNITE-21514 Handle index destruction
             index.put(binaryRow, rowId);
+        }
+    }
+
+    /**
+     * Adds a binary row to the index, if it's a tombstone then skips such operation.
+     *
+     * <p>Must be called inside a {@link MvPartitionStorage#runConsistently(WriteClosure)} closure.</p>
+     *
+     * @param binaryRow Binary row to insert.
+     * @param rowId Row ID.
+     * @param indexId ID of index that will need to be updated.
+     */
+    public void addToIndex(@Nullable BinaryRow binaryRow, RowId rowId, int indexId) {
+        if (binaryRow == null) { // skip removes
+            return;
+        }
+
+        TableSchemaAwareIndexStorage indexStorage = indexes.get().get(indexId);
+
+        if (indexStorage != null) {
+            // TODO: IGNITE-21514 Handle index destruction
+            indexStorage.put(binaryRow, rowId);
         }
     }
 
@@ -163,6 +187,7 @@ public class IndexUpdateHandler {
         return mapIterable(indexIds, indexId -> {
             TableSchemaAwareIndexStorage indexStorage = indexStorageById.get(indexId);
 
+            // TODO: IGNITE-21514 Handle index destruction
             assert indexStorage != null : indexId;
 
             return indexStorage;
@@ -191,5 +216,44 @@ public class IndexUpdateHandler {
         }
 
         return res;
+    }
+
+    /**
+     * Returns the row ID for which the index needs to be built, {@code null} means that the index building has completed.
+     *
+     * @param indexId Index ID of interest.
+     * @throws StorageException If failed to get the row ID.
+     */
+    public @Nullable RowId getNextRowIdToBuildIndex(int indexId) {
+        Map<Integer, TableSchemaAwareIndexStorage> indexStorageById = indexes.get();
+
+        TableSchemaAwareIndexStorage indexStorage = indexStorageById.get(indexId);
+
+        if (indexStorage == null) {
+            return null;
+        }
+
+        // TODO: IGNITE-21514 Handle index destruction
+        return indexStorage.storage().getNextRowIdToBuild();
+    }
+
+    /**
+     * Sets the row ID for which the index needs to be built, {@code null} means that the index is built.
+     *
+     * <p>Must be called inside a {@link MvPartitionStorage#runConsistently(WriteClosure)} closure.</p>
+     *
+     * @param indexId Index ID of interest.
+     * @param rowId Row ID.
+     * @throws StorageException If failed to set the row ID.
+     */
+    public void setNextRowIdToBuildIndex(int indexId, @Nullable RowId rowId) {
+        Map<Integer, TableSchemaAwareIndexStorage> indexStorageById = indexes.get();
+
+        TableSchemaAwareIndexStorage indexStorage = indexStorageById.get(indexId);
+
+        if (indexStorage != null) {
+            // TODO: IGNITE-21514 Handle index destruction
+            indexStorage.storage().setNextRowIdToBuild(rowId);
+        }
     }
 }

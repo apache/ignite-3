@@ -104,11 +104,11 @@ class SessionImplTest extends BaseIgniteAbstractTest {
         SessionImpl session = newSession(2);
         assertThat(session.expired(), is(false));
 
-        //period is small to expire session
+        // Period is small to expire session
         clock.addAndGet(1);
         assertThat(session.expired(), is(false));
 
-        //period is enough to session expired
+        // Period is enough to session expired
         clock.addAndGet(2);
         assertThat(session.expired(), is(true));
     }

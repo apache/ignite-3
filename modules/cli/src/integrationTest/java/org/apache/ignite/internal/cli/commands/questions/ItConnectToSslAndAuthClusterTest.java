@@ -61,7 +61,7 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
         // And answer to the reconnect question is "y", to the SSL configuration question is "y",
         // trust store path and password are provided and answer to key store configuration is "n",
         // answer to auth configuration is "y", username and password is provided and answer to save authentication is "y"
-        //ToDo: check question as well IGNITE-20324
+        // TODO: check question as well IGNITE-20324
         bindAnswers("y", "y", NodeConfig.resolvedTruststorePath, NodeConfig.trustStorePassword, "n", "y", "admin", "password", "y");
 
         // When asked the question
@@ -104,7 +104,7 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
 
         // And answer to the reconnect question is "y", to the SSL configuration question is "y",
         // trust store path and password are provided and key store is not configured
-        //ToDo: check question as well IGNITE-20324
+        // TODO: check question as well IGNITE-20324
         bindAnswers("y", "y", NodeConfig.resolvedTruststorePath, "wrong_password", "n", "y", "admin", "password");
 
         // When asked the question
@@ -143,7 +143,7 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
         // And answer to the reconnect question is "y", to the SSL configuration question is "y",
         // trust store path and password are provided and key store is not configured
         String wrongPath = "wrong-path";
-        //ToDo: check question as well IGNITE-20324
+        // TODO: check question as well IGNITE-20324
         bindAnswers("y", "y", wrongPath, NodeConfig.trustStorePassword, "n", "y", "admin", "password");
 
         // When asked the question
@@ -309,7 +309,7 @@ class ItConnectToSslAndAuthClusterTest extends ItConnectToClusterTestBase {
         // And answer to the SSL configuration question is "y", trust store path and password are provided
         // and answer to key store configuration is "n", answer to auth configuration is "y", username and password is provided
         // and answer to save authentication is "y"
-        //ToDo: check question as well IGNITE-20324
+        // TODO: check question as well IGNITE-20324
         bindAnswers("y", NodeConfig.resolvedTruststorePath, NodeConfig.trustStorePassword, "n", "y", "admin", "password", "y");
 
         // When connect with auth parameters
