@@ -131,10 +131,18 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
 
     enum TestCaseBasicInsert {
         SIMPLE_1a1("t(C1) VALUES (SELECT 1)", TABLE_C1_NULLABLE_C2),
+        // values with rex expression case
         SIMPLE_1a2("t(C1) VALUES (1), (2)", TABLE_C1_NULLABLE_C2, "[c1=1]", "[c1=2]"),
         SIMPLE_1a3("t(C1) VALUES (1), (SELECT 1)", TABLE_C1_NULLABLE_C2),
+        // union can be used here
         SIMPLE_1a4("t(C1) VALUES (?), (?), (?)", TABLE_C1_NULLABLE_C2, "[c1=?0]", "[c1=?1]", "[c1=?2]"),
+        // values with projection and rex expression case
         SIMPLE_1a5("t(C2, C1) VALUES (null, 1), (null, 2)", TABLE_C1_NULLABLE_C2, "[c1=1]", "[c1=2]"),
+
+        // pure values case
+        SIMPLE_1b1("t(C1, C2) VALUES (1, 2), (2, 3)", TABLE_C1, "[c1=1]", "[c1=2]"),
+        // values with projection case
+        SIMPLE_1b2("t(C2, C1) VALUES (2, 1), (3, 2)", TABLE_C1, "[c1=1]", "[c1=2]"),
 
         SIMPLE_1d("t(C1) VALUES (OCTET_LENGTH('TEST')), (2)", TABLE_C1_NULLABLE_C2),
         SIMPLE_1e("t(C1) VALUES (SELECT 1), (2)", TABLE_C1_NULLABLE_C2),
