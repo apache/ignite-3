@@ -1545,7 +1545,7 @@ public class InternalTableImpl implements InternalTable {
                 },
                 transactionInflights,
                 false,
-                tx.id()
+                actualTx.id()
         );
     }
 

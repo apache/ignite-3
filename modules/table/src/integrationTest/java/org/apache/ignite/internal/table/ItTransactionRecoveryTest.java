@@ -1024,6 +1024,16 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     public void testCursorsClosedAfterTxCloseWithSql() throws Exception {
         IgniteImpl node = node(0);
 
+        TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
+
+        int partId = 0;
+
+        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), partId);
+
+        String leaseholder = waitAndGetPrimaryReplica(node(0), tblReplicationGrp).getLeaseholder();
+
+        IgniteImpl txExecNode = findNodeByName(leaseholder);
+
         InternalTransaction roTx = (InternalTransaction) node.transactions().begin(new TransactionOptions().readOnly(true));
 
         log.info("Run scan in SQL [txId={}].", roTx.id());
