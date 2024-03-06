@@ -82,9 +82,9 @@ public class IgniteColocatedMinus extends IgniteMinus implements IgniteColocated
         return getInput(0).getRowType().getFieldCount() + COUNTER_FIELDS_CNT;
     }
 
-//    /** {@inheritDoc} */
-//    @Override
-//    public String getRelTypeName() {
-//        return REL_TYPE_NAME;
-//    }
+    /** {@inheritDoc} */
+    @Override
+    public String getRelTypeName() {
+        return REL_TYPE_NAME;
+    }
 }
