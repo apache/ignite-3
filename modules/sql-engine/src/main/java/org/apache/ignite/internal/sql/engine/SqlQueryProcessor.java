@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFI
 import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.AWAIT_PRIMARY_REPLICA_TIMEOUT;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
@@ -570,7 +571,8 @@ public class SqlQueryProcessor implements QueryProcessor {
 
             InternalTransaction tx = txWrapper.unwrap();
 
-            if (!transactionInflights.addInflight(tx.id(), tx.isReadOnly())) {
+            // Adding inflights only for read-only transactions.
+            if (tx.isReadOnly() && !transactionInflights.addInflight(tx.id(), tx.isReadOnly())) {
                 return failedFuture(new TransactionException(
                         TX_ALREADY_FINISHED_ERR, format("Transaction is already finished [tx={}]", tx)
                 ));
@@ -578,7 +580,13 @@ public class SqlQueryProcessor implements QueryProcessor {
 
             return executeParsedStatement(schemaName, result, txWrapper, queryCancel, timeZoneId, params, null)
                     .handle((executionResult, e) -> {
-                        transactionInflights.removeInflight(txWrapper.unwrap().id());
+                        if (tx.isReadOnly()) {
+                            transactionInflights.removeInflight(txWrapper.unwrap().id());
+                        }
+
+                        if (e != null) {
+                            sneakyThrow(e);
+                        }
 
                         return executionResult;
                     });

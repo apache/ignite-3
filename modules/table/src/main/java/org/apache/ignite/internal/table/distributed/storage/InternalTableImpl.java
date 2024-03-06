@@ -1984,7 +1984,9 @@ public class InternalTableImpl implements InternalTable {
                     assert binaryRows != null;
                     assert binaryRows.size() <= n : "Rows more then requested " + binaryRows.size() + " " + n;
 
-                    transactionInflights.removeInflight(txId);
+                    if (readOnlyTransaction) {
+                        transactionInflights.removeInflight(txId);
+                    }
 
                     binaryRows.forEach(subscriber::onNext);
 
@@ -1998,7 +2000,9 @@ public class InternalTableImpl implements InternalTable {
                         }
                     }
                 }).exceptionally(t -> {
-                    transactionInflights.removeInflight(txId);
+                    if (readOnlyTransaction) {
+                        transactionInflights.removeInflight(txId);
+                    }
 
                     cancel(t, false);
 
