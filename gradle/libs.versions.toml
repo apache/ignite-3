@@ -95,7 +95,7 @@ nebula = "com.netflix.nebula.ospackage:11.8.1"
 docker = "com.palantir.docker:0.35.0"
 checksum = "org.gradle.crypto.checksum:1.4.0"
 setupbuilder = "de.inetsoftware.setupbuilder:7.2.13"
-aggregateJavadoc = "io.freefair.aggregate-javadoc:6.5.1"
+aggregateJavadoc = "io.freefair.aggregate-javadoc:8.6"
 ideaext = "org.jetbrains.gradle.plugin.idea-ext:1.1.7"
 
 [libraries]
