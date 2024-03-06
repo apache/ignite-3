@@ -6690,12 +6690,6 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
     }
 
     private class DestroyTreeTask implements GradualTask {
-        /**
-         * Number of work units per step to execute. Recycling of a node counts as 1 work unit; also, visiting an item
-         * using a Consumer also counts as 1 work unit per item.
-         */
-        private static final int WORK_UNITS_PER_STEP = 1_000_000;
-
         private final LongListReuseBag bag;
         private final @Nullable Consumer<L> actOnEachElement;
         private final int rootLevel;
@@ -6714,7 +6708,12 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
 
         private boolean finished = false;
 
-        private DestroyTreeTask(LongListReuseBag bag, @Nullable Consumer<L> actOnEachElement, int rootLevel, long rootPageId) {
+        private DestroyTreeTask(
+                LongListReuseBag bag,
+                @Nullable Consumer<L> actOnEachElement,
+                int rootLevel,
+                long rootPageId
+        ) {
             this.bag = bag;
             this.actOnEachElement = actOnEachElement;
             this.rootLevel = rootLevel;
@@ -6727,18 +6726,20 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
         }
 
         @Override
-        public void runStep() throws Exception {
-            destroyNextBatch();
+        public void runStep(int workUnits) throws Exception {
+            destroyNextBatch(workUnits);
 
             if (finished) {
                 addForRecycle(bag);
             }
         }
 
-        private void destroyNextBatch() throws IgniteInternalCheckedException {
+        private void destroyNextBatch(int workUnits) throws IgniteInternalCheckedException {
+            // Recycling of a node counts as 1 work unit; also, visiting an item
+            // using a Consumer also counts as 1 work unit per item.
             int workDone = 0;
 
-            while (!finished && workDone < WORK_UNITS_PER_STEP) {
+            while (!finished && workDone < workUnits) {
                 long pageId = currentPageId;
 
                 long page = acquirePage(pageId);

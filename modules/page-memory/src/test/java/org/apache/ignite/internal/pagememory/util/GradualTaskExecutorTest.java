@@ -23,6 +23,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -81,7 +82,7 @@ class GradualTaskExecutorTest extends BaseIgniteAbstractTest {
 
         assertThat(future, willCompleteSuccessfully());
 
-        verify(task, never()).runStep();
+        verify(task, never()).runStep(anyInt());
     }
 
     @Test
@@ -111,7 +112,7 @@ class GradualTaskExecutorTest extends BaseIgniteAbstractTest {
             infiniteTaskStartedExecution.countDown();
 
             return null;
-        }).when(infiniteTask).runStep();
+        }).when(infiniteTask).runStep(anyInt());
 
         CompletableFuture<Void> future = executor.execute(infiniteTask);
 
@@ -133,7 +134,7 @@ class GradualTaskExecutorTest extends BaseIgniteAbstractTest {
         private final AtomicInteger stepsRun = new AtomicInteger(0);
 
         @Override
-        public void runStep() {
+        public void runStep(int workUnits) {
             stepsRun.incrementAndGet();
         }
 

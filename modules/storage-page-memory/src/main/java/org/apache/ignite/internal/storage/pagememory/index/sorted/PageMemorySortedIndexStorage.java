@@ -22,13 +22,9 @@ import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptio
 
 import java.nio.ByteBuffer;
 import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.util.GradualTask;
-import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
@@ -52,8 +48,6 @@ import org.jetbrains.annotations.Nullable;
  */
 public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage<SortedIndexRowKey, SortedIndexRow>
         implements SortedIndexStorage {
-    private static final IgniteLogger LOG = Loggers.forClass(PageMemorySortedIndexStorage.class);
-
     /** Index descriptor. */
     private final StorageSortedIndexDescriptor descriptor;
 
@@ -222,26 +216,9 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
         this.sortedIndexTree = sortedIndexTree;
     }
 
-    /**
-     * Starts destruction of the data stored by this index partition.
-     *
-     * @param executor {@link GradualTaskExecutor} on which to destroy.
-     * @return Future that gets completed when the destruction operation finishes.
-     * @throws StorageException If something goes wrong.
-     */
-    public CompletableFuture<Void> startDestructionOn(GradualTaskExecutor executor) throws StorageException {
-        try {
-            GradualTask task = sortedIndexTree.startGradualDestruction(rowKey -> removeIndexColumns((SortedIndexRow) rowKey), false);
-
-            return executor.execute(task)
-                    .whenComplete((res, ex) -> {
-                        if (ex != null) {
-                            LOG.error("Sorted index " + descriptor.id() + " destruction has failed", ex);
-                        }
-                    });
-        } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Cannot destroy sorted index " + indexDescriptor().id(), e);
-        }
+    @Override
+    protected GradualTask createDestructionTask() throws IgniteInternalCheckedException {
+        return sortedIndexTree.startGradualDestruction(rowKey -> removeIndexColumns((SortedIndexRow) rowKey), false);
     }
 
     private void removeIndexColumns(SortedIndexRow indexRow) {

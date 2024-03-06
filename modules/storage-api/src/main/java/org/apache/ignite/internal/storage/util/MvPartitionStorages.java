@@ -153,8 +153,10 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
             return new DestroyStorageOperation();
         });
 
+        T storage = storageByPartitionId.getAndSet(partitionId, null);
+
         return nullCompletedFuture()
-                .thenCompose(unused -> destroyStorageFunction.apply(storageByPartitionId.getAndSet(partitionId, null)))
+                .thenCompose(unused -> destroyStorageFunction.apply(storage))
                 .whenComplete((unused, throwable) -> {
                     operationByPartitionId.compute(partitionId, (partId, operation) -> {
                         assert operation instanceof DestroyStorageOperation : createStorageInfo(partitionId) + ", op=" + operation;
@@ -434,6 +436,9 @@ public class MvPartitionStorages<T extends MvPartitionStorage> {
 
     /**
      * Returns a list of all existing storages.
+     *
+     * <p>Note: this method may produce races when a rebalance is happening concurrently as the underlying storage array may change.
+     * The callers of this method should resolve these races themselves.
      */
     public List<T> getAll() {
         var list = new ArrayList<T>(storageByPartitionId.length());

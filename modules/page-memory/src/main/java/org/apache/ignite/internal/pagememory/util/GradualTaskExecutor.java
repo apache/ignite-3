@@ -31,6 +31,9 @@ import org.apache.ignite.internal.future.InFlightFutures;
  * @see GradualTask
  */
 public class GradualTaskExecutor implements ManuallyCloseable {
+    /** Number of work units per step to execute. */
+    private static final int WORK_UNITS_PER_STEP = 1_000_000;
+
     private final ExecutorService executor;
 
     private final InFlightFutures inFlightFutures = new InFlightFutures();
@@ -96,7 +99,7 @@ public class GradualTaskExecutor implements ManuallyCloseable {
      * Runs a single step from the given {@code task}.
      */
     protected void runStep(GradualTask task) throws Exception {
-        task.runStep();
+        task.runStep(WORK_UNITS_PER_STEP);
     }
 
     @Override

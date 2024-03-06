@@ -24,7 +24,7 @@ class CompletedGradualTask implements GradualTask {
     static final GradualTask INSTANCE = new CompletedGradualTask();
 
     @Override
-    public void runStep() {
+    public void runStep(int workUnits) {
         // No-op.
     }
 

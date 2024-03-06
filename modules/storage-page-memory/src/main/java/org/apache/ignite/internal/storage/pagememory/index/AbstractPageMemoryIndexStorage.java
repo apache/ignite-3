@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-
 package org.apache.ignite.internal.storage.pagememory.index;
 
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageState;
@@ -24,11 +23,16 @@ import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptio
 
 import java.util.NoSuchElementException;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
+import org.apache.ignite.internal.pagememory.util.GradualTask;
+import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
@@ -48,6 +52,8 @@ import org.jetbrains.annotations.Nullable;
  * Abstract index storage based on Page Memory.
  */
 public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V extends K> implements IndexStorage {
+    private static final IgniteLogger LOG = Loggers.forClass(AbstractPageMemoryIndexStorage.class);
+
     /** Index ID. */
     private final int indexId;
 
@@ -121,15 +127,11 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
         });
     }
 
-    /**
-     * Closes the hash index storage.
-     */
+    /** Closes the index storage. */
     public void close() {
-        if (!state.compareAndSet(StorageState.RUNNABLE, StorageState.CLOSED)) {
-            StorageState state = this.state.get();
+        StorageState prevState = state.getAndSet(StorageState.CLOSED);
 
-            assert state == StorageState.CLOSED : state;
-
+        if (prevState == StorageState.CLOSED) {
             return;
         }
 
@@ -196,6 +198,45 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
         state.compareAndSet(StorageState.CLEANUP, StorageState.RUNNABLE);
     }
 
+    /**
+     * Starts destruction of the data stored by this index partition.
+     *
+     * @param executor {@link GradualTaskExecutor} on which to destroy.
+     * @return Future that gets completed when the destruction operation finishes.
+     * @throws StorageException If something goes wrong.
+     */
+    public final CompletableFuture<Void> startDestructionOn(GradualTaskExecutor executor) throws StorageException {
+        return busy(() -> {
+            try {
+                return executor.execute(createDestructionTask())
+                        .whenComplete((res, e) -> {
+                            if (e != null) {
+                                LOG.error("Unable to destroy index {}", e, indexId);
+                            }
+                        });
+            } catch (IgniteInternalCheckedException e) {
+                throw new StorageException("Unable to destroy index " + indexId, e);
+            }
+        });
+    }
+
+    /**
+     * Transitions this storage to the {@link StorageState#DESTROYING} state.
+     */
+    public void transitionToDestroyingState() {
+        while (true) {
+            StorageState curState = state.get();
+
+            if (curState == StorageState.CLOSED || curState == StorageState.DESTROYING) {
+                throwExceptionDependingOnStorageState(curState, createStorageInfo());
+            } else if (state.compareAndSet(curState, StorageState.DESTROYING)) {
+                return;
+            }
+        }
+    }
+
+    protected abstract GradualTask createDestructionTask() throws IgniteInternalCheckedException;
+
     /** Constant that represents the absence of value in {@link ScanCursor}. Not equivalent to {@code null} value. */
     private static final IndexRowKey NO_INDEX_ROW = () -> null;
 
@@ -212,8 +253,8 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
         private @Nullable Boolean hasNext;
 
         /**
-         * Last row used in mapping in the {@link #next()} call.
-         * {@code null} upon cursor creation or after {@link #hasNext()} returned {@code null}.
+         * Last row used in mapping in the {@link #next()} call. {@code null} upon cursor creation or after {@link #hasNext()} returned
+         * {@code null}.
          */
         private @Nullable V treeRow;
 

@@ -39,6 +39,7 @@ import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointPr
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTimeoutLock;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
+import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
@@ -128,6 +129,11 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                 partitionId,
                 IoStatisticsHolderNoOp.INSTANCE
         );
+    }
+
+    @Override
+    protected GradualTaskExecutor createGradualTaskExecutor(ExecutorService threadPool) {
+        return new ConsistentGradualTaskExecutor(this, threadPool);
     }
 
     @Override

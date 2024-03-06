@@ -184,6 +184,7 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
             }
         });
 
+        // TODO: remove this executor, see https://issues.apache.org/jira/browse/IGNITE-21683
         destructionExecutor = new ThreadPoolExecutor(
                 0,
                 Runtime.getRuntime().availableProcessors(),

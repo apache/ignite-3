@@ -161,12 +161,14 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         this.versionChainTree = versionChainTree;
         this.indexMetaTree = indexMetaTree;
         this.gcQueue = gcQueue;
-        this.destructionExecutor = new ConsistentGradualTaskExecutor(this, destructionExecutor);
+        this.destructionExecutor = createGradualTaskExecutor(destructionExecutor);
 
         PageMemory pageMemory = tableStorage.dataRegion().pageMemory();
 
         rowVersionDataPageReader = new DataPageReader(pageMemory, tableStorage.getTableId(), IoStatisticsHolderNoOp.INSTANCE);
     }
+
+    protected abstract GradualTaskExecutor createGradualTaskExecutor(ExecutorService threadPool);
 
     /**
      * Starts a partition by initializing its internal structures.
@@ -966,16 +968,18 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * @param indexId Index ID which storage will be destroyed.
      * @return Future that will be completed as soon as the storage has been destroyed.
      */
+    // TODO: Index users should be able to handle the case, when an index is being concurrently destroyed, see
+    //  https://issues.apache.org/jira/browse/IGNITE-20126
     public CompletableFuture<Void> destroyIndex(int indexId) {
         return busy(() -> {
-            throwExceptionIfStorageNotInRunnableState();
-
             CompletableFuture<Void> result = nullCompletedFuture();
 
             PageMemoryHashIndexStorage hashIndexStorage = hashIndexes.remove(indexId);
 
             if (hashIndexStorage != null) {
                 assert !sortedIndexes.containsKey(indexId);
+
+                hashIndexStorage.transitionToDestroyingState();
 
                 result = hashIndexStorage.startDestructionOn(destructionExecutor)
                         .whenComplete((v, e) -> hashIndexStorage.close());
@@ -984,6 +988,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             PageMemorySortedIndexStorage sortedIndexStorage = sortedIndexes.remove(indexId);
 
             if (sortedIndexStorage != null) {
+                sortedIndexStorage.transitionToDestroyingState();
+
                 result = sortedIndexStorage.startDestructionOn(destructionExecutor)
                         .whenComplete((v, e) -> sortedIndexStorage.close());
             }

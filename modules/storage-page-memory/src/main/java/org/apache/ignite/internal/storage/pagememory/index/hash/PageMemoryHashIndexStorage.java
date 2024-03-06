@@ -21,12 +21,8 @@ import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptio
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInCleanupOrRebalancedState;
 
 import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.util.GradualTask;
-import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
@@ -45,8 +41,6 @@ import org.apache.ignite.internal.util.Cursor;
  * Implementation of Hash index storage using Page Memory.
  */
 public class PageMemoryHashIndexStorage extends AbstractPageMemoryIndexStorage<HashIndexRowKey, HashIndexRow> implements HashIndexStorage {
-    private static final IgniteLogger LOG = Loggers.forClass(PageMemoryHashIndexStorage.class);
-
     /** Index descriptor. */
     private final StorageHashIndexDescriptor descriptor;
 
@@ -146,26 +140,9 @@ public class PageMemoryHashIndexStorage extends AbstractPageMemoryIndexStorage<H
         });
     }
 
-    /**
-     * Starts destruction of the data stored by this index partition.
-     *
-     * @param executor {@link GradualTaskExecutor} on which to destroy.
-     * @return Future that gets completed when the destruction operation finishes.
-     * @throws StorageException If something goes wrong.
-     */
-    public CompletableFuture<Void> startDestructionOn(GradualTaskExecutor executor) throws StorageException {
-        try {
-            GradualTask task = hashIndexTree.startGradualDestruction(rowKey -> removeIndexColumns((HashIndexRow) rowKey), false);
-
-            return executor.execute(task)
-                    .whenComplete((res, ex) -> {
-                        if (ex != null) {
-                            LOG.error("Hash index " + descriptor.id() + " destruction has failed", ex);
-                        }
-                    });
-        } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Cannot destroy hash index " + indexDescriptor().id(), e);
-        }
+    @Override
+    protected GradualTask createDestructionTask() throws IgniteInternalCheckedException {
+        return hashIndexTree.startGradualDestruction(rowKey -> removeIndexColumns((HashIndexRow) rowKey), false);
     }
 
     private void removeIndexColumns(HashIndexRow indexRow) {

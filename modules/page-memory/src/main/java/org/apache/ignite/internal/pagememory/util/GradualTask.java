@@ -40,9 +40,10 @@ public interface GradualTask {
     /**
      * Runs next task step. This should not take too long to let other gradual tasks in the same executor pass forward.
      *
+     * @param workUnits Amount of "work units" that this step is allowed to perform.
      * @throws Exception If something goes wrong.
      */
-    void runStep() throws Exception;
+    void runStep(int workUnits) throws Exception;
 
     /**
      * Returns {@code true} if the task is completed (so no steps should be run), or {@code false} if there are more

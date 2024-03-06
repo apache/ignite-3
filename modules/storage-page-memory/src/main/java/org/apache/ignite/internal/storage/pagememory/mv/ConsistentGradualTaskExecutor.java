@@ -27,6 +27,9 @@ import org.apache.ignite.internal.storage.StorageException;
  * A {@link GradualTaskExecutor} that wraps every task step into {@link MvPartitionStorage#runConsistently}.
  */
 class ConsistentGradualTaskExecutor extends GradualTaskExecutor {
+    /** Number of work units per step to execute. */
+    private static final int WORK_UNITS_PER_STEP = 1_000;
+
     private final MvPartitionStorage mvPartitionStorage;
 
     ConsistentGradualTaskExecutor(MvPartitionStorage partitionStorage, ExecutorService executor) {
@@ -39,7 +42,7 @@ class ConsistentGradualTaskExecutor extends GradualTaskExecutor {
     protected void runStep(GradualTask task) {
         mvPartitionStorage.runConsistently(locker -> {
             try {
-                super.runStep(task);
+                task.runStep(WORK_UNITS_PER_STEP);
 
                 return null;
             } catch (Exception e) {
