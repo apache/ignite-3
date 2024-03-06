@@ -41,7 +41,8 @@ public class StripedThreadPoolExecutor extends AbstractStripedThreadPoolExecutor
             int concurrencyLvl,
             ThreadFactory threadFactory,
             boolean allowCoreThreadTimeOut,
-            long keepAliveTime) {
+            long keepAliveTime
+    ) {
         super(createExecutors(concurrencyLvl, threadFactory, allowCoreThreadTimeOut, keepAliveTime));
     }
 
@@ -49,7 +50,8 @@ public class StripedThreadPoolExecutor extends AbstractStripedThreadPoolExecutor
             int concurrencyLvl,
             ThreadFactory threadFactory,
             boolean allowCoreThreadTimeOut,
-            long keepAliveTime) {
+            long keepAliveTime
+    ) {
         ExecutorService[] execs = new ExecutorService[concurrencyLvl];
 
         for (int i = 0; i < concurrencyLvl; i++) {

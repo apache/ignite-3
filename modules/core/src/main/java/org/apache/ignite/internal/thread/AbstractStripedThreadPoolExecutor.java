@@ -35,7 +35,7 @@ import org.apache.ignite.internal.tostring.S;
  */
 public abstract class AbstractStripedThreadPoolExecutor<E extends ExecutorService> implements ExecutorService {
     /** Executors. */
-    protected final E[] execs;
+    private final E[] execs;
 
     /** Used to obtain a random executor. */
     private final Random random = new Random();

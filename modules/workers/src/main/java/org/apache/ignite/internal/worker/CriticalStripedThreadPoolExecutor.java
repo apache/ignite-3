@@ -34,6 +34,8 @@ import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
  * Same as {@link StripedThreadPoolExecutor}, but each stripe is a critical worker monitored for being blocked.
  */
 public class CriticalStripedThreadPoolExecutor extends AbstractStripedThreadPoolExecutor<ExecutorService> implements StripedExecutor {
+    private final ExecutorService[] executors;
+
     /**
      * Create a blockage-monitored striped thread pool.
      *
@@ -48,15 +50,23 @@ public class CriticalStripedThreadPoolExecutor extends AbstractStripedThreadPool
             int concurrencyLvl,
             ThreadFactory threadFactory,
             boolean allowCoreThreadTimeOut,
-            long keepAliveTime) {
-        super(createExecutors(concurrencyLvl, threadFactory, allowCoreThreadTimeOut, keepAliveTime));
+            long keepAliveTime
+    ) {
+        this(createExecutors(concurrencyLvl, threadFactory, allowCoreThreadTimeOut, keepAliveTime));
+    }
+
+    private CriticalStripedThreadPoolExecutor(ExecutorService[] executors) {
+        super(executors);
+
+        this.executors = executors;
     }
 
     private static ExecutorService[] createExecutors(
             int concurrencyLvl,
             ThreadFactory threadFactory,
             boolean allowCoreThreadTimeOut,
-            long keepAliveTime) {
+            long keepAliveTime
+    ) {
         ExecutorService[] execs = new ExecutorService[concurrencyLvl];
 
         for (int i = 0; i < concurrencyLvl; i++) {
@@ -79,7 +89,7 @@ public class CriticalStripedThreadPoolExecutor extends AbstractStripedThreadPool
      * Returns workers corresponding to this thread pool.
      */
     public Collection<CriticalWorker> workers() {
-        return Arrays.stream(execs)
+        return Arrays.stream(executors)
                 .map(CriticalWorker.class::cast)
                 .collect(toUnmodifiableList());
     }
