@@ -31,6 +31,6 @@ public class ReplicationGroupStripes {
      * @param stripedExecutor Striped executor from which to take a stripe.
      */
     public static ExecutorService stripeFor(ReplicationGroupId groupId, StripedThreadPoolExecutor stripedExecutor) {
-        return stripedExecutor.commandExecutor(groupId.hashCode());
+        return stripedExecutor.stripeExecutor(groupId.hashCode());
     }
 }

@@ -17,94 +17,77 @@
 
 package org.apache.ignite.internal.network;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
+
 import java.util.Objects;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.thread.StripedExecutor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 
 /**
- * Lazy striped executor indexed with short type. A thread is created on first execution with an index and remains active forever.
+ * Lazy collection of striped executors indexed with short type. A striped executor is created on first execution with an index and remains
+ * active forever (until this executor collection is closed).
  *
  * <p>After having been stopped, it never executes anything.
  */
-abstract class LazyStripedExecutor implements ManuallyCloseable {
+abstract class LazyStripedExecutors implements ManuallyCloseable {
     private static final Executor NO_OP_EXECUTOR = task -> {};
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
     private final AtomicBoolean closed = new AtomicBoolean();
-    private final AtomicReferenceArray<ExecutorService> array = new AtomicReferenceArray<>(Short.MAX_VALUE + 1);
-
-    /**
-     * Executes a command on a stripe with the given index. If the executor is stopped, does nothing.
-     *
-     * @param index Index of the stripe.
-     */
-    public void execute(short index, Runnable command) {
-        assert index >= 0 : "Index is negative: " + index;
-
-        if (!busyLock.enterBusy()) {
-            return;
-        }
-
-        try {
-            executorFor(index).execute(command);
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
+    private final AtomicReferenceArray<StripedExecutor> array = new AtomicReferenceArray<>(Short.MAX_VALUE + 1);
 
     /**
      * Executes a command on a stripe with the given index. If the executor is stopped, returns a special executor that executes nothing.
      *
-     * @param index Index of the stripe.
+     * @param executorIndex Index of the stripe.
      */
-    public Executor stripeFor(short index) {
-        assert index >= 0 : "Index is negative: " + index;
+    public Executor executorFor(short executorIndex, int stripeIndex) {
+        assert executorIndex >= 0 : "Executor index is negative: " + executorIndex;
 
         if (!busyLock.enterBusy()) {
             return NO_OP_EXECUTOR;
         }
 
         try {
-            return executorFor(index);
+            return stripedExecutorFor(executorIndex).stripeExecutor(stripeIndex);
         } finally {
             busyLock.leaveBusy();
         }
     }
 
-    private Executor executorFor(short index) {
-        ExecutorService existing = array.get(index);
+    private StripedExecutor stripedExecutorFor(short executorIndex) {
+        StripedExecutor existing = array.get(executorIndex);
 
         if (existing != null) {
             return existing;
         }
 
         synchronized (array) {
-            existing = array.get(index);
+            existing = array.get(executorIndex);
             if (existing != null) {
                 return existing;
             }
 
-            ExecutorService newExecutor = newSingleThreadExecutor(index);
+            StripedExecutor newExecutor = newStripedExecutor(executorIndex);
 
-            array.set(index, newExecutor);
+            array.set(executorIndex, newExecutor);
 
             return newExecutor;
         }
     }
 
     /**
-     * Creates a new single thread executor to serve a stripe.
+     * Creates a new striped thread pool to serve an index.
      *
-     * @param stripeIndex Stripe index for which the executor is being created.
+     * @param executorIndex Executor index for which the executor is being created.
      */
-    protected abstract ExecutorService newSingleThreadExecutor(int stripeIndex);
+    protected abstract StripedExecutor newStripedExecutor(int executorIndex);
 
     @Override
     public void close() {
@@ -120,7 +103,7 @@ abstract class LazyStripedExecutor implements ManuallyCloseable {
                 .mapToObj(array::get)
                 .filter(Objects::nonNull)
                 .parallel()
-                .forEach(executorService -> IgniteUtils.shutdownAndAwaitTermination(executorService, 10, TimeUnit.SECONDS));
+                .forEach(executorService -> IgniteUtils.shutdownAndAwaitTermination(executorService, 10, SECONDS));
     }
 
     /**

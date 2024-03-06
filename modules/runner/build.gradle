@@ -81,6 +81,7 @@ dependencies {
     implementation project(':ignite-system-view')
     implementation project(':ignite-workers')
     implementation project(':ignite-failure-handler')
+    implementation project(':ignite-catalog-dsl')
     implementation libs.jetbrains.annotations
     implementation libs.micronaut.inject
     implementation libs.micronaut.validation

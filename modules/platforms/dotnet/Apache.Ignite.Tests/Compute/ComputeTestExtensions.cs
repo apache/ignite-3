@@ -28,24 +28,24 @@ using Network;
 /// </summary>
 public static class ComputeTestExtensions
 {
-    public static async Task<IJobExecution<T>> Submit<T>(
+    public static async Task<IJobExecution<T>> SubmitAsync<T>(
         this ICompute compute,
         IEnumerable<IClusterNode> nodes,
         IEnumerable<DeploymentUnit> units,
         string jobClassName,
         params object?[]? args) =>
-        await compute.Submit<T>(nodes, units, jobClassName, JobExecutionOptions.Default, args);
+        await compute.SubmitAsync<T>(nodes, units, jobClassName, JobExecutionOptions.Default, args);
 
-    public static async Task<IJobExecution<T>> SubmitColocated<T>(
+    public static async Task<IJobExecution<T>> SubmitColocatedAsync<T>(
         this ICompute compute,
         string tableName,
         IIgniteTuple key,
         IEnumerable<DeploymentUnit> units,
         string jobClassName,
         params object?[]? args) =>
-        await compute.SubmitColocated<T>(tableName, key, units, jobClassName, JobExecutionOptions.Default, args);
+        await compute.SubmitColocatedAsync<T>(tableName, key, units, jobClassName, JobExecutionOptions.Default, args);
 
-    public static async Task<IJobExecution<T>> SubmitColocated<T, TKey>(
+    public static async Task<IJobExecution<T>> SubmitColocatedAsync<T, TKey>(
         this ICompute compute,
         string tableName,
         TKey key,
@@ -53,7 +53,7 @@ public static class ComputeTestExtensions
         string jobClassName,
         params object?[]? args)
         where TKey : notnull =>
-        await compute.SubmitColocated<T, TKey>(tableName, key, units, jobClassName, JobExecutionOptions.Default, args);
+        await compute.SubmitColocatedAsync<T, TKey>(tableName, key, units, jobClassName, JobExecutionOptions.Default, args);
 
     public static IDictionary<IClusterNode, Task<IJobExecution<T>>> SubmitBroadcast<T>(
         this ICompute compute,

@@ -2007,7 +2007,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             return null;
         }).when(txManager).updateTxMeta(any(), any());
 
-        doAnswer(invocation -> nullCompletedFuture()).when(txManager).executeCleanupAsync(any(Runnable.class));
+        doAnswer(invocation -> nullCompletedFuture()).when(txManager).executeWriteIntentSwitchAsync(any(Runnable.class));
 
         doAnswer(invocation -> nullCompletedFuture()).when(txManager).finish(any(), any(), anyBoolean(), any(), any());
         doAnswer(invocation -> nullCompletedFuture()).when(txManager).cleanup(anyString(), any());

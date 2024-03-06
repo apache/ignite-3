@@ -65,6 +65,7 @@ dependencies {
     testImplementation libs.bytebuddy
     testImplementation libs.compileTesting
     testImplementation libs.awaitility
+    testImplementation libs.bouncycastle.bcpkix.jdk18on;
 
     testFixturesAnnotationProcessor project(":ignite-network-annotation-processor")
     testFixturesImplementation project(':ignite-configuration')
