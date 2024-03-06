@@ -71,7 +71,8 @@ class CreateFromAnnotationsTest {
 
         TableDefinition tableDefinition = TableDefinition.builder("pojo_value_test")
                 .ifNotExists()
-                .keyValueView(PojoKey.class, PojoValue.class)
+                .key(PojoKey.class)
+                .value(PojoValue.class)
                 .colocateBy("id", "id_str")
                 .zone(zoneDefinition.zoneName())
                 .index("ix_pojo", IndexType.DEFAULT, column("f_name"), column("l_name").desc())

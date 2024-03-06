@@ -279,6 +279,11 @@ public class TableDefinition {
          * @return This builder instance.
          */
         public Builder columns(ColumnDefinition... columns) {
+            Objects.requireNonNull(columns, "Columns array must not be null.");
+            for (ColumnDefinition column : columns) {
+                Objects.requireNonNull(column, "Column must not be null.");
+            }
+
             return columns(Arrays.asList(columns));
         }
 
@@ -289,6 +294,11 @@ public class TableDefinition {
          * @return This builder instance.
          */
         public Builder columns(List<ColumnDefinition> columns) {
+            Objects.requireNonNull(columns, "Columns list must not be null.");
+            for (ColumnDefinition column : columns) {
+                Objects.requireNonNull(column, "Column must not be null.");
+            }
+
             this.columns = columns;
             return this;
         }
@@ -300,6 +310,11 @@ public class TableDefinition {
          * @return This builder instance.
          */
         public Builder colocateBy(String... colocationColumns) {
+            Objects.requireNonNull(colocationColumns, "Colocation columns array must not be null.");
+            for (String column : colocationColumns) {
+                Objects.requireNonNull(column, "Colocation column must not be null.");
+            }
+
             return colocateBy(Arrays.asList(colocationColumns));
         }
 
@@ -310,6 +325,11 @@ public class TableDefinition {
          * @return This builder instance.
          */
         public Builder colocateBy(List<String> colocationColumns) {
+            Objects.requireNonNull(colocationColumns, "Colocation columns list must not be null.");
+            for (String column : colocationColumns) {
+                Objects.requireNonNull(column, "Colocation column must not be null.");
+            }
+
             this.colocationColumns = colocationColumns;
             return this;
         }
@@ -326,18 +346,28 @@ public class TableDefinition {
         }
 
         /**
-         * Sets key and value classes to generate columns. If {@code keyClass} is a natively supported class, then the column with the name
-         * "id" will be created and added to the list of columns for the primary key. If {@code valueClass} is a natively supported class,
-         * then the column with the name "val" will be created. If any of the classes are annotated with the
+         * Sets key class to generate columns. If it's a natively supported class, then the column with the name "id" will be created and
+         * added to the list of columns for the primary key. If it's annotated with the {@link org.apache.ignite.catalog.annotations.Table}
+         * annotation, then the annotation will be processed and column definitions will be extracted from it.
+         *
+         * @param keyClass Record class.
+         * @return This builder instance.
+         */
+        public Builder key(Class<?> keyClass) {
+            this.keyClass = keyClass;
+            return this;
+        }
+
+        /**
+         * Sets value class to generate columns. If it's a natively supported class,
+         * then the column with the name "val" will be created. If it's annotated with the
          * {@link org.apache.ignite.catalog.annotations.Table} annotation, then the annotation will be processed and column definitions will
          * be extracted from it.
          *
-         * @param keyClass Key class.
          * @param valueClass Value class.
          * @return This builder instance.
          */
-        public Builder keyValueView(Class<?> keyClass, Class<?> valueClass) {
-            this.keyClass = keyClass;
+        public Builder value(Class<?> valueClass) {
             this.valueClass = valueClass;
             return this;
         }
@@ -350,7 +380,7 @@ public class TableDefinition {
          * @param recordClass Record class.
          * @return This builder instance.
          */
-        public Builder recordView(Class<?> recordClass) {
+        public Builder record(Class<?> recordClass) {
             this.keyClass = recordClass;
             return this;
         }
@@ -362,6 +392,11 @@ public class TableDefinition {
          * @return This builder instance.
          */
         public Builder primaryKey(String... columnNames) {
+            Objects.requireNonNull(columnNames, "Primary key columns array must not be null.");
+            for (String column : columnNames) {
+                Objects.requireNonNull(column, "Primary key column must not be null.");
+            }
+
             return primaryKey(IndexType.DEFAULT, mapToSortedColumns(columnNames));
         }
 
@@ -373,6 +408,12 @@ public class TableDefinition {
          * @return This builder instance.
          */
         public Builder primaryKey(IndexType type, ColumnSorted... columns) {
+            Objects.requireNonNull(type, "Primary key index type must not be null.");
+            Objects.requireNonNull(columns, "Primary key columns array must not be null.");
+            for (ColumnSorted column : columns) {
+                Objects.requireNonNull(column, "Primary key column must not be null.");
+            }
+
             return primaryKey(type, Arrays.asList(columns));
         }
 
@@ -384,6 +425,12 @@ public class TableDefinition {
          * @return This builder instance.
          */
         public Builder primaryKey(IndexType type, List<ColumnSorted> columns) {
+            Objects.requireNonNull(type, "Primary key index type must not be null.");
+            Objects.requireNonNull(columns, "Primary key columns list must not be null.");
+            for (ColumnSorted column : columns) {
+                Objects.requireNonNull(column, "Primary key column must not be null.");
+            }
+
             pkType = type;
             pkColumns = columns;
             return this;
@@ -397,18 +444,29 @@ public class TableDefinition {
          * @return This builder instance.
          */
         public Builder index(String... columnNames) {
+            Objects.requireNonNull(columnNames, "Index columns array must not be null.");
+            for (String column : columnNames) {
+                Objects.requireNonNull(column, "Index column must not be null.");
+            }
+
             return index(null, IndexType.DEFAULT, mapToSortedColumns(columnNames));
         }
 
         /**
          * Adds an index on this table using specified columns with sort order and index type.
          *
-         * @param indexName Name of the index.
+         * @param indexName Name of the index or {@code null} to autogenerate the name.
          * @param type Index type.
          * @param columns An array of columns to use to create index.
          * @return This builder instance.
          */
-        public Builder index(String indexName, IndexType type, ColumnSorted... columns) {
+        public Builder index(@Nullable String indexName, IndexType type, ColumnSorted... columns) {
+            Objects.requireNonNull(type, "Index type must not be null.");
+            Objects.requireNonNull(columns, "Index columns array must not be null.");
+            for (ColumnSorted column : columns) {
+                Objects.requireNonNull(column, "Index column must not be null.");
+            }
+
             return index(indexName, type, Arrays.asList(columns));
         }
 
@@ -421,6 +479,12 @@ public class TableDefinition {
          * @return This builder instance.
          */
         public Builder index(@Nullable String indexName, IndexType type, List<ColumnSorted> columns) {
+            Objects.requireNonNull(type, "Index type must not be null.");
+            Objects.requireNonNull(columns, "Index columns list must not be null.");
+            for (ColumnSorted column : columns) {
+                Objects.requireNonNull(column, "Index column must not be null.");
+            }
+
             indexes.add(new IndexDefinition(indexName, type, columns));
             return this;
         }
@@ -432,6 +496,9 @@ public class TableDefinition {
          */
         public TableDefinition build() {
             Objects.requireNonNull(tableName, "Table name must not be null.");
+            if (tableName.isBlank()) {
+                throw new IllegalArgumentException("Table name must not be blank.");
+            }
 
             return new TableDefinition(
                     tableName,

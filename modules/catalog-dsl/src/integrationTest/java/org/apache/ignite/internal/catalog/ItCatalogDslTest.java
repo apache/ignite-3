@@ -208,7 +208,9 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
     @Test
     void primitiveKeyKvViewFromDefinition() {
         TableDefinition definition = TableDefinition.builder(POJO_KV_TABLE_NAME)
-                .keyValueView(Integer.class, PojoValue.class).build();
+                .key(Integer.class)
+                .value(PojoValue.class)
+                .build();
 
         catalog().createTable(definition).execute();
 
@@ -222,7 +224,9 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
     @Test
     void pojoKeyKvViewFromDefinition() {
         TableDefinition definition = TableDefinition.builder(POJO_KV_TABLE_NAME)
-                .keyValueView(PojoKey.class, PojoValue.class).build();
+                .key(PojoKey.class)
+                .value(PojoValue.class)
+                .build();
 
         catalog().createTable(definition).execute();
 
@@ -245,7 +249,7 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
 
     @Test
     void pojoRecordViewFromDefinition() {
-        TableDefinition definition = TableDefinition.builder(POJO_RECORD_TABLE_NAME).recordView(Pojo.class).build();
+        TableDefinition definition = TableDefinition.builder(POJO_RECORD_TABLE_NAME).record(Pojo.class).build();
 
         catalog().createTable(definition).execute();
 

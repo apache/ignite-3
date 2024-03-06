@@ -17,6 +17,7 @@
 
 package org.apache.ignite.catalog.definitions;
 
+import java.util.Objects;
 import org.apache.ignite.catalog.ZoneEngine;
 
 /**
@@ -163,6 +164,8 @@ public class ZoneDefinition {
          * @return This builder instance.
          */
         public Builder partitions(Integer partitions) {
+            Objects.requireNonNull(partitions, "Number of partitions must not be null.");
+
             this.partitions = partitions;
             return this;
         }
@@ -174,6 +177,8 @@ public class ZoneDefinition {
          * @return This builder instance.
          */
         public Builder replicas(Integer replicas) {
+            Objects.requireNonNull(replicas, "Number of replicas must not be null.");
+
             this.replicas = replicas;
             return this;
         }
@@ -185,6 +190,8 @@ public class ZoneDefinition {
          * @return This builder instance.
          */
         public Builder engine(ZoneEngine engine) {
+            Objects.requireNonNull(engine, "Engine must not be null.");
+
             this.engine = engine;
             return this;
         }
@@ -195,6 +202,11 @@ public class ZoneDefinition {
          * @return Zone definition.
          */
         public ZoneDefinition build() {
+            Objects.requireNonNull(zoneName, "Zone name must not be null.");
+            if (zoneName.isBlank()) {
+                throw new IllegalArgumentException("Zone name must not be blank.");
+            }
+
             return new ZoneDefinition(
                     zoneName,
                     ifNotExists,

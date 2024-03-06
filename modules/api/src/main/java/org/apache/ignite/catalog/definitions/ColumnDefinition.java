@@ -17,6 +17,7 @@
 
 package org.apache.ignite.catalog.definitions;
 
+import java.util.Objects;
 import org.apache.ignite.catalog.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
@@ -44,6 +45,11 @@ public class ColumnDefinition {
      * @return Constructed column definition.
      */
     public static ColumnDefinition column(String name, ColumnType<?> type) {
+        Objects.requireNonNull(name, "Column name must not be null.");
+        if (name.isBlank()) {
+            throw new IllegalArgumentException("Column name must not be blank.");
+        }
+
         return new ColumnDefinition(name, type, null);
     }
 
@@ -55,6 +61,11 @@ public class ColumnDefinition {
      * @return Constructed column definition.
      */
     public static ColumnDefinition column(String name, String definition) {
+        Objects.requireNonNull(name, "Column name must not be null.");
+        if (name.isBlank()) {
+            throw new IllegalArgumentException("Column name must not be blank.");
+        }
+
         return new ColumnDefinition(name, null, definition);
     }
 

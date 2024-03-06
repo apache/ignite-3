@@ -22,9 +22,9 @@ import static org.apache.ignite.catalog.ColumnType.INTEGER;
 import static org.apache.ignite.catalog.ColumnType.VARCHAR;
 import static org.apache.ignite.catalog.SortOrder.DESC_NULLS_LAST;
 import static org.apache.ignite.catalog.definitions.ColumnDefinition.column;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.apache.ignite.catalog.ColumnType;
 import org.apache.ignite.catalog.IndexType;
@@ -37,6 +37,7 @@ import org.apache.ignite.catalog.definitions.ZoneDefinition;
 import org.apache.ignite.internal.catalog.sql.CreateFromAnnotationsTest.Pojo;
 import org.junit.jupiter.api.Test;
 
+@SuppressWarnings("ThrowableNotThrown")
 class CreateFromDefinitionTest {
     @Test
     void createFromZoneBuilderSimple() {
@@ -61,14 +62,10 @@ class CreateFromDefinitionTest {
     }
 
     @Test
-    void createFromTableBuilderEmpty() {
-        assertThrows(
-                NullPointerException.class,
-                () -> TableDefinition.builder(null).build()
-        );
-
-        TableDefinition table = TableDefinition.builder("empty").build();
-        assertThrows(IllegalArgumentException.class, () -> createTable(table));
+    void invalidTableDefinition() {
+        assertThrows(IllegalArgumentException.class,
+                () -> createTable(TableDefinition.builder("empty").build()),
+                "Columns list must not be empty.");
     }
 
     @Test
@@ -120,7 +117,8 @@ class CreateFromDefinitionTest {
     void createFromKeyValueViewPrimitiveKeyAndValue() {
         // primitive/boxed key class is a primary key with default name 'id'
         TableDefinition tableDefinition = TableDefinition.builder("primitive_test")
-                .keyValueView(Integer.class, Integer.class)
+                .key(Integer.class)
+                .value(Integer.class)
                 .build();
 
         assertThat(
@@ -138,7 +136,8 @@ class CreateFromDefinitionTest {
     void createFromKeyValueViewPrimitiveKeyAnnotatedValue() {
         // primitive/boxed key class is a primary key with default name 'id'
         TableDefinition tableDefinition = TableDefinition.builder("pojo_value_test")
-                .keyValueView(Integer.class, PojoValue.class)
+                .key(Integer.class)
+                .value(PojoValue.class)
                 .build();
 
         assertThat(
@@ -159,7 +158,8 @@ class CreateFromDefinitionTest {
         TableDefinition tableDefinition = TableDefinition.builder("pojo_value_test")
                 .colocateBy("id", "id_str")
                 .zone("zone_test")
-                .keyValueView(PojoKey.class, PojoValue.class)
+                .key(PojoKey.class)
+                .value(PojoValue.class)
                 .build();
 
         assertThat(
@@ -184,7 +184,7 @@ class CreateFromDefinitionTest {
                 .ifNotExists()
                 .colocateBy("id", "id_str")
                 .zone("zone_test")
-                .recordView(Pojo.class)
+                .record(Pojo.class)
                 .build();
 
         assertThat(
@@ -206,7 +206,7 @@ class CreateFromDefinitionTest {
     @Test
     void createFromRecordViewPrimitive() {
         TableDefinition tableDefinition = TableDefinition.builder("primitive_test")
-                .recordView(Integer.class)
+                .record(Integer.class)
                 .build();
 
         assertThat(
