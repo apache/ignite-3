@@ -67,7 +67,7 @@ public class ItIndexesSystemViewTest extends BaseSqlIntegrationTest {
 
         Collection<CatalogIndexDescriptor> tableIndexes = catalog.indexes();
 
-        tableIndexes.forEach(index -> {
+        tableIndexes.forEach(index ->
             assertQuery(selectFromIndexesSystemView(index.name())).returns(
                     index.id(),
                     index.name(),
@@ -79,8 +79,8 @@ public class ItIndexesSystemViewTest extends BaseSqlIntegrationTest {
                     index.unique(),
                     index.indexType() == HASH ? COLUMNS : COLUMNS_COLLATIONS,
                     index.status().name()
-            ).check();
-        });
+            ).check()
+        );
     }
 
     private static String createIndexSql(String name, String tableName, String type, String columnString) {

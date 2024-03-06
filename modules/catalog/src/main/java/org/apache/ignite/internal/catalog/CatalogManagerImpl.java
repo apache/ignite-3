@@ -20,8 +20,10 @@ package org.apache.ignite.internal.catalog;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.stream.Collectors.joining;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.clusterWideEnsuredActivationTimestamp;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor.CatalogIndexDescriptorType.HASH;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.type.NativeTypes.BOOLEAN;
 import static org.apache.ignite.internal.type.NativeTypes.INT32;
@@ -46,11 +48,12 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
 import java.util.function.Predicate;
+import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexViewDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -700,32 +703,47 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     private SystemView<?> createIndexesView() {
-        return SystemViews.<CatalogIndexViewDescriptor>clusterViewBuilder()
+        Iterable<CatalogAwareDescriptor<CatalogIndexDescriptor>> viewData = () -> {
+            Catalog catalog = catalogAt(clock.nowLong());
+
+            return catalog.indexes().stream()
+                    .filter(index -> index.status().isAlive())
+                    .map(index -> new CatalogAwareDescriptor<>(index, catalog))
+                    .iterator();
+        };
+
+        return SystemViews.<CatalogAwareDescriptor<CatalogIndexDescriptor>>clusterViewBuilder()
                 .name("INDEXES")
-                .addColumn("INDEX_ID", INT32, CatalogIndexViewDescriptor::id)
-                .addColumn("INDEX_NAME", STRING, CatalogIndexViewDescriptor::name)
-                .addColumn("TABLE_ID", INT32, CatalogIndexViewDescriptor::tableId)
-                .addColumn("TABLE_NAME", STRING, CatalogIndexViewDescriptor::tableName)
-                .addColumn("SCHEMA_ID", INT32, CatalogIndexViewDescriptor::schemaId)
-                .addColumn("SCHEMA_NAME", STRING, CatalogIndexViewDescriptor::schemaName)
-                .addColumn("TYPE", STRING, CatalogIndexViewDescriptor::type)
-                .addColumn("IS_UNIQUE", BOOLEAN, CatalogIndexViewDescriptor::unique)
-                .addColumn("COLUMNS", STRING, CatalogIndexViewDescriptor::columnsString)
-                .addColumn("STATUS", STRING, CatalogIndexViewDescriptor::status)
-                .dataProvider(getIndexesDataProvider())
+                .addColumn("INDEX_ID", INT32, entry -> entry.descriptor.id())
+                .addColumn("INDEX_NAME", STRING, entry -> entry.descriptor.name())
+                .addColumn("TABLE_ID", INT32, entry -> entry.descriptor.tableId())
+                .addColumn("TABLE_NAME", STRING, entry -> getTableDescriptor(entry).name())
+                .addColumn("SCHEMA_ID", INT32, CatalogManagerImpl::getSchemaId)
+                .addColumn("SCHEMA_NAME", STRING, entry -> entry.catalog.schema(getSchemaId(entry)).name())
+                .addColumn("TYPE", STRING, entry -> entry.descriptor.indexType().name())
+                .addColumn("IS_UNIQUE", BOOLEAN, entry -> entry.descriptor.unique())
+                .addColumn("COLUMNS", STRING, CatalogManagerImpl::getColumnsString)
+                .addColumn("STATUS", STRING, entry -> entry.descriptor.status().name())
+                .dataProvider(SubscriptionUtils.fromIterable(viewData))
                 .build();
     }
 
-    private Publisher<CatalogIndexViewDescriptor> getIndexesDataProvider() {
-        return SubscriptionUtils.fromIterable(() -> {
-            Catalog catalog = catalogAt(clock.nowLong());
+    private static int getSchemaId(CatalogAwareDescriptor<CatalogIndexDescriptor> entry) {
+        return getTableDescriptor(entry).schemaId();
+    }
 
-            return catalog.indexes()
-                    .stream()
-                    .filter(index -> index.status().isAlive())
-                    .map(index -> CatalogIndexViewDescriptor.fromCatalogIndexDescriptor(index, catalog))
-                    .iterator();
-        });
+    private static CatalogTableDescriptor getTableDescriptor(CatalogAwareDescriptor<CatalogIndexDescriptor> entry) {
+        return entry.catalog.table(entry.descriptor.tableId());
+    }
+
+    private static String getColumnsString(CatalogAwareDescriptor<CatalogIndexDescriptor> entry) {
+        return entry.descriptor.indexType() == HASH
+                ? String.join(", ", ((CatalogHashIndexDescriptor) entry.descriptor).columns())
+                : ((CatalogSortedIndexDescriptor) entry.descriptor)
+                        .columns()
+                        .stream()
+                        .map(column -> column.name() + (column.collation().asc() ? " ASC" : " DESC"))
+                        .collect(joining(", "));
     }
 
     private static Function<CatalogZoneDescriptor, Boolean> isDefaultZone() {
@@ -756,6 +774,19 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         ParentIdAwareDescriptor(T descriptor, int id) {
             this.descriptor = descriptor;
             this.id = id;
+        }
+    }
+
+    /**
+     * A container that keeps given descriptor along with the catalog it belongs to.
+     */
+    private static class CatalogAwareDescriptor<T> {
+        private final T descriptor;
+        private final Catalog catalog;
+
+        CatalogAwareDescriptor(T descriptor, Catalog catalog) {
+            this.descriptor = descriptor;
+            this.catalog = catalog;
         }
     }
 }
