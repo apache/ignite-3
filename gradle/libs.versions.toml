@@ -86,7 +86,7 @@ checkstyleTool = "10.3.3"
 jacocoTool = "0.8.11"
 
 [plugins]
-openapiGenerator = "org.openapi.generator:5.4.0"
+openapiGenerator = "org.openapi.generator:7.3.0"
 javacc = "com.intershop.gradle.javacc:4.1.3"
 shadow = "com.github.johnrengelman.shadow:7.1.2"
 cmake = "net.freudasoft.gradle-cmake-plugin:0.0.4"
