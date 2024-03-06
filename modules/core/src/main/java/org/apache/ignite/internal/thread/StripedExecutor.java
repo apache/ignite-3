@@ -15,22 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.replicator;
+package org.apache.ignite.internal.thread;
 
 import java.util.concurrent.ExecutorService;
-import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 
 /**
- * Logic used to calculate a stripe (or its index) to use to handle a replication request by its replication group ID.
+ * An executor that has stripes: that is, sub-executors to which work may be submitted by index.
  */
-public class ReplicationGroupStripes {
+public interface StripedExecutor extends ExecutorService {
     /**
-     * Returns an executor that will execute requests belonging to the given replication group ID.
+     * Returns an executor by an index.
      *
-     * @param groupId ID of the group.
-     * @param stripedExecutor Striped executor from which to take a stripe.
+     * @param idx Index of executor.
+     * @return Executor.
      */
-    public static ExecutorService stripeFor(ReplicationGroupId groupId, StripedThreadPoolExecutor stripedExecutor) {
-        return stripedExecutor.stripeExecutor(groupId.hashCode());
-    }
+    ExecutorService stripeExecutor(int idx);
 }

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.network.recovery;
 
 import static java.util.Collections.emptyList;
+import static org.apache.ignite.internal.util.IgniteUtils.safeAbs;
 
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelFuture;
@@ -121,7 +122,7 @@ class HandshakeManagerUtils {
     private static EventLoop eventLoopForKey(ChannelKey channelKey, ChannelEventLoopsSource eventLoopsSource) {
         List<EventLoop> eventLoops = eventLoopsSource.channelEventLoops();
 
-        int index = (channelKey.hashCode() & Integer.MAX_VALUE) % eventLoops.size();
+        int index = safeAbs(channelKey.hashCode()) % eventLoops.size();
 
         return eventLoops.get(index);
     }
