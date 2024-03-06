@@ -39,6 +39,7 @@ import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMe
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryDataRegionView;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTracker;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
@@ -52,6 +53,13 @@ import org.apache.ignite.internal.thread.NamedThreadFactory;
 public class VolatilePageMemoryStorageEngine implements StorageEngine {
     /** Engine name. */
     public static final String ENGINE_NAME = "aimem";
+
+    /** 
+     * Maximum "work units" that are allowed to be used during {@link BplusTree} destruction.
+     *
+     * @see BplusTree#startGradualDestruction
+     */
+    public static final int MAX_DESTRUCTION_WORK_UNITS = 1_000_000;
 
     private static final IgniteLogger LOG = Loggers.forClass(VolatilePageMemoryStorageEngine.class);
 

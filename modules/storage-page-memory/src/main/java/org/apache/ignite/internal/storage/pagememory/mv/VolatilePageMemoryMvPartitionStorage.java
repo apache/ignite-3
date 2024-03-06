@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInCleanupOrRebalancedState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInProgressOfRebalance;
@@ -27,6 +28,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -35,10 +37,12 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
+import org.apache.ignite.internal.pagememory.util.GradualTask;
 import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryTableStorage;
 import org.apache.ignite.internal.storage.pagememory.index.hash.PageMemoryHashIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
@@ -241,25 +245,16 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
     }
 
     private CompletableFuture<Void> startMvDataDestruction() {
-        try {
-            return destructionExecutor.execute(
-                    versionChainTree.startGradualDestruction(chainKey -> destroyVersionChain((VersionChain) chainKey), false)
-            ).whenComplete((res, e) -> {
-                if (e != null) {
-                    LOG.error(
-                            "Version chains destruction failed: [tableId={}, partitionId={}]",
-                            e,
-                            tableStorage.getTableId(), partitionId
-                    );
-                }
-            });
-        } catch (IgniteInternalCheckedException e) {
-            throw new StorageException(
-                    "Cannot destroy MV partition: [tableId={}, partitionId={}]",
-                    e,
-                    tableStorage.getTableId(), partitionId
-            );
-        }
+        return destroyTree(versionChainTree, chainKey -> destroyVersionChain((VersionChain) chainKey))
+                .whenComplete((res, e) -> {
+                    if (e != null) {
+                        LOG.error(
+                                "Version chains destruction failed: [tableId={}, partitionId={}]",
+                                e,
+                                tableStorage.getTableId(), partitionId
+                        );
+                    }
+                });
     }
 
     private void destroyVersionChain(VersionChain chainKey) {
@@ -283,46 +278,38 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
     }
 
     private CompletableFuture<Void> startIndexMetaTreeDestruction() {
-        try {
-            return destructionExecutor.execute(
-                    indexMetaTree.startGradualDestruction(null, false)
-            ).whenComplete((res, e) -> {
-                if (e != null) {
-                    LOG.error(
-                            "Index meta tree destruction failed: [tableId={}, partitionId={}",
-                            e,
-                            tableStorage.getTableId(), partitionId
-                    );
-                }
-            });
-        } catch (IgniteInternalCheckedException e) {
-            throw new StorageException(
-                    "Cannot destroy index meta tree: [tableId={}, partitionId={}]",
-                    e,
-                    tableStorage.getTableId(), partitionId
-            );
-        }
+        return destroyTree(indexMetaTree, null)
+                .whenComplete((res, e) -> {
+                    if (e != null) {
+                        LOG.error(
+                                "Index meta tree destruction failed: [tableId={}, partitionId={}]",
+                                e,
+                                tableStorage.getTableId(), partitionId
+                        );
+                    }
+                });
     }
 
     private CompletableFuture<Void> startGarbageCollectionTreeDestruction() {
+        return destroyTree(gcQueue, null)
+                .whenComplete((res, e) -> {
+                    if (e != null) {
+                        LOG.error(
+                                "Garbage collection tree destruction failed: [tableId={}, partitionId={}]",
+                                e,
+                                tableStorage.getTableId(), partitionId
+                        );
+                    }
+                });
+    }
+
+    private <T> CompletableFuture<Void> destroyTree(BplusTree<T, ?> target, @Nullable Consumer<T> consumer) {
         try {
-            return destructionExecutor.execute(
-                    gcQueue.startGradualDestruction(null, false)
-            ).whenComplete((res, e) -> {
-                if (e != null) {
-                    LOG.error(
-                            "Garbage collection tree destruction failed: [tableId={}, partitionId={}]",
-                            e,
-                            tableStorage.getTableId(), partitionId
-                    );
-                }
-            });
+            GradualTask task = target.startGradualDestruction(consumer, false, VolatilePageMemoryStorageEngine.MAX_DESTRUCTION_WORK_UNITS);
+
+            return destructionExecutor.execute(task);
         } catch (IgniteInternalCheckedException e) {
-            throw new StorageException(
-                    "Cannot destroy garbage collection tree: [tableId={}, partitionId={}]",
-                    e,
-                    tableStorage.getTableId(), partitionId
-            );
+            return failedFuture(e);
         }
     }
 

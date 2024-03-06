@@ -61,9 +61,10 @@ public class PageMemoryHashIndexStorage extends AbstractPageMemoryIndexStorage<H
             StorageHashIndexDescriptor descriptor,
             IndexColumnsFreeList freeList,
             HashIndexTree hashIndexTree,
-            IndexMetaTree indexMetaTree
+            IndexMetaTree indexMetaTree,
+            boolean isVolatile
     ) {
-        super(indexMeta, hashIndexTree.partitionId(), freeList, indexMetaTree);
+        super(indexMeta, hashIndexTree.partitionId(), freeList, indexMetaTree, isVolatile);
 
         this.descriptor = descriptor;
         this.hashIndexTree = hashIndexTree;
@@ -141,8 +142,12 @@ public class PageMemoryHashIndexStorage extends AbstractPageMemoryIndexStorage<H
     }
 
     @Override
-    protected GradualTask createDestructionTask() throws IgniteInternalCheckedException {
-        return hashIndexTree.startGradualDestruction(rowKey -> removeIndexColumns((HashIndexRow) rowKey), false);
+    protected GradualTask createDestructionTask(int maxWorkUnits) throws IgniteInternalCheckedException {
+        return hashIndexTree.startGradualDestruction(
+                rowKey -> removeIndexColumns((HashIndexRow) rowKey),
+                false,
+                maxWorkUnits
+        );
     }
 
     private void removeIndexColumns(HashIndexRow indexRow) {

@@ -48,6 +48,7 @@ import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
+import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
@@ -62,6 +63,13 @@ import org.jetbrains.annotations.Nullable;
 public class PersistentPageMemoryStorageEngine implements StorageEngine {
     /** Engine name. */
     public static final String ENGINE_NAME = "aipersist";
+
+    /**
+     * Maximum "work units" that are allowed to be used during {@link BplusTree} destruction.
+     *
+     * @see BplusTree#startGradualDestruction
+     */
+    public static final int MAX_DESTRUCTION_WORK_UNITS = 1_000;
 
     private static final IgniteLogger LOG = Loggers.forClass(PersistentPageMemoryStorageEngine.class);
 

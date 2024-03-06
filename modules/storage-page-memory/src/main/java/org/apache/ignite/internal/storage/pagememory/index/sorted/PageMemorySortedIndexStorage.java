@@ -68,9 +68,10 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
             StorageSortedIndexDescriptor descriptor,
             IndexColumnsFreeList freeList,
             SortedIndexTree sortedIndexTree,
-            IndexMetaTree indexMetaTree
+            IndexMetaTree indexMetaTree,
+            boolean isVolatile
     ) {
-        super(indexMeta, sortedIndexTree.partitionId(), freeList, indexMetaTree);
+        super(indexMeta, sortedIndexTree.partitionId(), freeList, indexMetaTree, isVolatile);
 
         this.descriptor = descriptor;
         this.sortedIndexTree = sortedIndexTree;
@@ -217,8 +218,12 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
     }
 
     @Override
-    protected GradualTask createDestructionTask() throws IgniteInternalCheckedException {
-        return sortedIndexTree.startGradualDestruction(rowKey -> removeIndexColumns((SortedIndexRow) rowKey), false);
+    protected GradualTask createDestructionTask(int maxWorkUnits) throws IgniteInternalCheckedException {
+        return sortedIndexTree.startGradualDestruction(
+                rowKey -> removeIndexColumns((SortedIndexRow) rowKey),
+                false,
+                maxWorkUnits
+        );
     }
 
     private void removeIndexColumns(SortedIndexRow indexRow) {

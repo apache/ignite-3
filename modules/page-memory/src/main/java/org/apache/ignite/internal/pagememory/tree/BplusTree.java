@@ -2854,7 +2854,9 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      *     execution to a {@link org.apache.ignite.internal.pagememory.util.GradualTaskExecutor}.
      * @throws IgniteInternalCheckedException If failed.
      */
-    public final GradualTask startGradualDestruction(@Nullable Consumer<L> c, boolean forceDestroy) throws IgniteInternalCheckedException {
+    public final GradualTask startGradualDestruction(
+            @Nullable Consumer<L> c, boolean forceDestroy, int maxWorkUnits
+    ) throws IgniteInternalCheckedException {
         close();
 
         if (!markDestroyed() && !forceDestroy) {
@@ -2869,7 +2871,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
 
         RootPageIdAndLevel rootPageIdAndLevel = detachMetaPage(bag);
 
-        return new DestroyTreeTask(bag, c, rootPageIdAndLevel.level, rootPageIdAndLevel.pageId);
+        return new DestroyTreeTask(bag, c, rootPageIdAndLevel.level, rootPageIdAndLevel.pageId, maxWorkUnits);
     }
 
     private RootPageIdAndLevel detachMetaPage(LongListReuseBag bag) throws IgniteInternalCheckedException {
@@ -6693,6 +6695,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
         private final LongListReuseBag bag;
         private final @Nullable Consumer<L> actOnEachElement;
         private final int rootLevel;
+        private final int maxWorkUnits;
 
         /** IDs of pages contained in inner pages on each level. First index is level. */
         private final long[][] childrenPageIds;
@@ -6712,11 +6715,13 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                 LongListReuseBag bag,
                 @Nullable Consumer<L> actOnEachElement,
                 int rootLevel,
-                long rootPageId
+                long rootPageId,
+                int maxWorkUnits
         ) {
             this.bag = bag;
             this.actOnEachElement = actOnEachElement;
             this.rootLevel = rootLevel;
+            this.maxWorkUnits = maxWorkUnits;
 
             childrenPageIds = new long[rootLevel + 1][];
             currentChildIndices = new int[rootLevel + 1];
@@ -6726,20 +6731,20 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
         }
 
         @Override
-        public void runStep(int workUnits) throws Exception {
-            destroyNextBatch(workUnits);
+        public void runStep() throws Exception {
+            destroyNextBatch();
 
             if (finished) {
                 addForRecycle(bag);
             }
         }
 
-        private void destroyNextBatch(int workUnits) throws IgniteInternalCheckedException {
+        private void destroyNextBatch() throws IgniteInternalCheckedException {
             // Recycling of a node counts as 1 work unit; also, visiting an item
             // using a Consumer also counts as 1 work unit per item.
             int workDone = 0;
 
-            while (!finished && workDone < workUnits) {
+            while (!finished && workDone < maxWorkUnits) {
                 long pageId = currentPageId;
 
                 long page = acquirePage(pageId);

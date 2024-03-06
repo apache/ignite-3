@@ -38,6 +38,8 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.PeekCursor;
+import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
+import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.index.common.IndexRowKey;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumnsFreeList;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMeta;
@@ -81,16 +83,20 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
     /** Row ID for which the index needs to be built, {@code null} means that the index building has completed. */
     private volatile @Nullable RowId nextRowIdToBuilt;
 
+    private final boolean isVolatile;
+
     protected AbstractPageMemoryIndexStorage(
             IndexMeta indexMeta,
             int partitionId,
             IndexColumnsFreeList freeList,
-            IndexMetaTree indexMetaTree
+            IndexMetaTree indexMetaTree,
+            boolean isVolatile
     ) {
         this.indexId = indexMeta.indexId();
         this.partitionId = partitionId;
         this.freeList = freeList;
         this.indexMetaTree = indexMetaTree;
+        this.isVolatile = isVolatile;
 
         lowestRowId = RowId.lowestRowId(partitionId);
 
@@ -208,7 +214,11 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
     public final CompletableFuture<Void> startDestructionOn(GradualTaskExecutor executor) throws StorageException {
         return busy(() -> {
             try {
-                return executor.execute(createDestructionTask())
+                int maxWorkUnits = isVolatile
+                        ? VolatilePageMemoryStorageEngine.MAX_DESTRUCTION_WORK_UNITS
+                        : PersistentPageMemoryStorageEngine.MAX_DESTRUCTION_WORK_UNITS;
+
+                return executor.execute(createDestructionTask(maxWorkUnits))
                         .whenComplete((res, e) -> {
                             if (e != null) {
                                 LOG.error("Unable to destroy index {}", e, indexId);
@@ -235,7 +245,7 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
         }
     }
 
-    protected abstract GradualTask createDestructionTask() throws IgniteInternalCheckedException;
+    protected abstract GradualTask createDestructionTask(int maxWorkUnits) throws IgniteInternalCheckedException;
 
     /** Constant that represents the absence of value in {@link ScanCursor}. Not equivalent to {@code null} value. */
     private static final IndexRowKey NO_INDEX_ROW = () -> null;
