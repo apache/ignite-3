@@ -68,18 +68,18 @@ public class ItIndexesSystemViewTest extends BaseSqlIntegrationTest {
         Collection<CatalogIndexDescriptor> tableIndexes = catalog.indexes();
 
         tableIndexes.forEach(index ->
-            assertQuery(selectFromIndexesSystemView(index.name())).returns(
-                    index.id(),
-                    index.name(),
-                    index.indexType().name(),
-                    index.tableId(),
-                    TABLE_NAME,
-                    tableDescriptor.schemaId(),
-                    DEFAULT_SCHEMA_NAME,
-                    index.unique(),
-                    index.indexType() == HASH ? COLUMNS : COLUMNS_COLLATIONS,
-                    index.status().name()
-            ).check()
+                assertQuery(selectFromIndexesSystemView(index.name())).returns(
+                        index.id(),
+                        index.name(),
+                        index.indexType().name(),
+                        index.tableId(),
+                        TABLE_NAME,
+                        tableDescriptor.schemaId(),
+                        DEFAULT_SCHEMA_NAME,
+                        index.unique(),
+                        index.indexType() == HASH ? COLUMNS : COLUMNS_COLLATIONS,
+                        index.status().name()
+                ).check()
         );
     }
 
