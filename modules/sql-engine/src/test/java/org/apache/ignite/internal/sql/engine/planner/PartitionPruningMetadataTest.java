@@ -125,20 +125,22 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
     /** Basic test cases for partition pruning metadata extractor, delete case. */
     @ParameterizedTest(name = "UPDATE: {0}")
     @EnumSource(TestCaseBasicUpdate.class)
-    public void testBasicInsert(TestCaseBasicUpdate testCaseSimple) {
+    public void testBasicUpdate(TestCaseBasicUpdate testCaseSimple) {
         checkPruningMetadata(testCaseSimple.data, SqlKind.UPDATE);
     }
 
     enum TestCaseBasicInsert {
-        SIMPLE_1a("t(C1) VALUES (1), (2)", TABLE_C1_NULLABLE_C2, "[c1=1]", "[c1=2]"),
-        SIMPLE_1b("t(C1) VALUES (?), (?), (?)", TABLE_C1_NULLABLE_C2, "[c1=?0]", "[c1=?1]", "[c1=?2]"),
+        SIMPLE_1a("t(C1) VALUES (SELECT 1)", TABLE_C1_NULLABLE_C2),
+        SIMPLE_1b("t(C1) VALUES (1), (2)", TABLE_C1_NULLABLE_C2, "[c1=1]", "[c1=2]"),
+        SIMPLE_1ba("t(C1) VALUES (1), (SELECT 1)", TABLE_C1_NULLABLE_C2),
+        SIMPLE_1c("t(C1) VALUES (?), (?), (?)", TABLE_C1_NULLABLE_C2, "[c1=?0]", "[c1=?1]", "[c1=?2]"),
 
-        SIMPLE_1c("t(C1) VALUES (OCTET_LENGTH('TEST')), (2)", TABLE_C1_NULLABLE_C2),
-        SIMPLE_1d("t(C1) VALUES (SELECT 1), (2)", TABLE_C1_NULLABLE_C2),
+        SIMPLE_1d("t(C1) VALUES (OCTET_LENGTH('TEST')), (2)", TABLE_C1_NULLABLE_C2),
+        SIMPLE_1e("t(C1) VALUES (SELECT 1), (2)", TABLE_C1_NULLABLE_C2),
 
-        SIMPLE_1e("t(C1, C2, C3) VALUES (1, ?, 1), (2, ?, 2), (3, ?, 3)", TABLE_C1_C2,
+        SIMPLE_1f("t(C1, C2, C3) VALUES (1, ?, 1), (2, ?, 2), (3, ?, 3)", TABLE_C1_C2,
                 "[c1=1, c2=?0]", "[c1=2, c2=?1]", "[c1=3, c2=?2]"),
-        SIMPLE_1f("t(C2, C1, C3) VALUES (1, ?, 1), (2, ?, 2), (3, ?, 3)", TABLE_C1_C2,
+        SIMPLE_1j("t(C2, C1, C3) VALUES (1, ?, 1), (2, ?, 2), (3, ?, 3)", TABLE_C1_C2,
                 "[c1=?0, c2=1]", "[c1=?1, c2=2]", "[c1=?2, c2=3]"),
         ;
 

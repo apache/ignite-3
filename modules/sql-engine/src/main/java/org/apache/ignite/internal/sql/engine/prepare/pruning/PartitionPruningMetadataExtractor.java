@@ -48,6 +48,7 @@ import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.Util;
 import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
@@ -174,6 +175,10 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
         @Override
         public IgniteRel visit(IgniteValues rel) {
             if (!collectExprProjections) {
+                if (values != null) {
+                    // unexpected branch
+                    throw Util.FoundOne.NULL;
+                }
                 values = rel;
             }
             return super.visit(rel);
@@ -199,7 +204,12 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
         RexBuilder rexBuilder = rel.getCluster().getRexBuilder();
 
         ModifyNodeShuttle modify = new ModifyNodeShuttle();
-        rel.accept(modify);
+
+        try {
+            rel.accept(modify);
+        } catch (Util.FoundOne e) {
+            return rel;
+        }
 
         extractFromValues(rel.sourceId(), table, modify.values, modify.projections, modify.exprProjections, rexBuilder);
 
@@ -287,7 +297,13 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
         }
 
         if (!nullOrEmpty(andEqNodes)) {
-            RexNode call = rexBuilder.makeCall(SqlStdOperatorTable.OR, andEqNodes);
+            RexNode call;
+
+            if (andEqNodes.size() > 1) {
+                call = rexBuilder.makeCall(SqlStdOperatorTable.OR, andEqNodes);
+            } else {
+                call = andEqNodes.get(0);
+            }
 
             PartitionPruningColumns metadata = extractMetadata(keysList, call, rexBuilder);
 
