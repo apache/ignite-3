@@ -27,6 +27,7 @@ import static org.hamcrest.Matchers.equalToCompressingWhiteSpace;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.hasValue;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import java.io.IOException;
 import java.io.Serializable;
@@ -505,6 +506,28 @@ public class LocalFileConfigurationStorageTest {
 
         // Expect
         assertThat(storage.readDataOnRecovery().get().values(), aMapWithSize(1));
+    }
+
+    /** File content is parsed using HOCON format regardless of the file extension. */
+    @Test
+    void hoconContentInJsonFile() throws IOException {
+        // Given
+        String fileContent = "top {\n"
+                + "    namedList=[\n"
+                + "        {\n"
+                + "            intVal=-1\n"
+                + "            name=name1\n"
+                + "        }\n"
+                + "    ]\n"
+                + "}\n";
+
+        Path configFile = tmpDir.resolve("ignite-config.json");
+
+        Files.write(configFile, fileContent.getBytes(StandardCharsets.UTF_8));
+
+        LocalFileConfigurationStorage storage = new LocalFileConfigurationStorage(configFile, treeGenerator);
+
+        assertDoesNotThrow(storage::readDataOnRecovery);
     }
 
     private String configFileContent() throws IOException {
