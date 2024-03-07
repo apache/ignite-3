@@ -832,7 +832,8 @@ public class IgniteImpl implements Ignite {
                 schemaSyncService,
                 catalogManager,
                 placementDriverMgr.placementDriver(),
-                clientConnectorConfiguration
+                clientConnectorConfiguration,
+                lowWatermark
         );
 
         restComponent = createRestComponent(name);

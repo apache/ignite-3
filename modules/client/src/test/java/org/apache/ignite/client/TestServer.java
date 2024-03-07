@@ -62,6 +62,7 @@ import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
+import org.apache.ignite.internal.table.TestLowWatermark;
 import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.network.ClusterNode;
@@ -246,7 +247,8 @@ public class TestServer implements AutoCloseable {
                         new AlwaysSyncedSchemaSyncService(),
                         new FakeCatalogService(FakeInternalTable.PARTITIONS),
                         placementDriver,
-                        clientConnectorConfiguration
+                        clientConnectorConfiguration,
+                        new TestLowWatermark()
                 );
 
         module.start().join();
