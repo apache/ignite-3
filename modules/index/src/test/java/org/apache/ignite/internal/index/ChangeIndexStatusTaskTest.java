@@ -123,7 +123,7 @@ public class ChangeIndexStatusTaskTest extends IgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        catalogManager = createTestCatalogManager(NODE_NAME, clockWaiter);
+        catalogManager = createTestCatalogManager(NODE_NAME, clockWaiter, clock);
 
         assertThat(allOf(clockWaiter.start(), catalogManager.start()), willCompleteSuccessfully());
 

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
-import static org.apache.ignite.internal.sql.engine.hint.IgniteHint.DISABLE_SORTED_ALGORITHM;
 import static org.apache.ignite.internal.sql.engine.hint.IgniteHint.EXPAND_DISTINCT_AGG;
 
 import java.util.Arrays;
@@ -82,15 +81,5 @@ public class HintUtils {
 
         return rel.getCluster().getHintStrategies()
                 .apply(hintList, rel);
-    }
-
-    /**
-     * Return {@code true} if {@link IgniteHint#DISABLE_SORTED_ALGORITHM} hint is not presented in provided relational node.
-     *
-     * @param rel Relation of interest.
-     */
-    public static <T extends RelNode & Hintable> boolean isSortedAlgorithmAllowed(T rel) {
-        return rel.getHints().stream()
-                .noneMatch(r -> r.hintName.equals(DISABLE_SORTED_ALGORITHM.name()));
     }
 }
