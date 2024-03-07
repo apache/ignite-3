@@ -522,6 +522,7 @@ public class PersistentPageMemory implements PageMemory {
 
         try {
             FullPageId fullId = new FullPageId(pageId, grpId);
+
             long relPtr = seg.loadedPages.get(
                     grpId,
                     effectivePageId(pageId),

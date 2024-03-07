@@ -179,6 +179,12 @@
     <Bug pattern="INT_BAD_COMPARISON_WITH_NONNEGATIVE_VALUE"/>
     <Source name="DistributionZoneRebalanceEngine.java"/>
   </Match>
+  <Match>
+    <!-- wait/notify condition is atomic, so there is n need to put it into synchronized block for performance reasons -->
+    <Bug pattern="NN_NAKED_NOTIFY"/>
+    <Class name="org.apache.ignite.internal.pagememory.persistence.checkpoint.Checkpointer"/>
+    <Method name="cancel"/>
+  </Match>
   <!-- end of false-positive exclusions -->
 
 
