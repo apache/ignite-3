@@ -20,7 +20,10 @@ package org.apache.ignite.client.fakes;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.catalog.IgniteCatalog;
+import org.apache.ignite.catalog.Options;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.internal.catalog.sql.IgniteCatalogSqlImpl;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
@@ -101,6 +104,11 @@ public class FakeIgnite implements Ignite {
     @Override
     public CompletableFuture<Collection<ClusterNode>> clusterNodesAsync() {
         throw new UnsupportedOperationException("Not implemented yet");
+    }
+
+    @Override
+    public IgniteCatalog catalog(Options options) {
+        return new IgniteCatalogSqlImpl(sql(), options);
     }
 
     /** {@inheritDoc} */

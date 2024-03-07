@@ -56,6 +56,8 @@ public class RootKey<T extends ConfigurationTree<VIEWT, ?>, VIEWT> {
         this.rootName = rootAnnotation.rootName();
         this.storageType = rootAnnotation.type();
 
+        assert rootName != null;
+
         ConfigurationExtension extension = schemaClass.getAnnotation(ConfigurationExtension.class);
         internal = extension != null && extension.internal();
     }

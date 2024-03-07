@@ -34,15 +34,7 @@ public enum IgniteHint {
     /** Disables index usage. **/
     NO_INDEX(true),
     /** Forces index usage. */
-    FORCE_INDEX(true),
-    /**
-     * Disables sorted algorithm for node this hint specified on.
-     *
-     * <p>At the moment, this hint is introduced as workaround to the problem, when sorting
-     * on correlated path may result in deadlock. Assigned by optimizer, should not be specified
-     * explicitly in the query.
-     */
-    DISABLE_SORTED_ALGORITHM;
+    FORCE_INDEX(true);
 
     private final boolean paramSupport;
 

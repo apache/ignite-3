@@ -58,6 +58,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
+import org.apache.ignite.internal.tx.impl.ResourceCleanupManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
@@ -114,7 +115,8 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                     TransactionIdGenerator generator,
                     ClusterNode node,
                     PlacementDriver placementDriver,
-                    RemotelyTriggeredResourceRegistry resourcesRegistry
+                    RemotelyTriggeredResourceRegistry resourcesRegistry,
+                    ResourceCleanupManager resourceCleanupManager
             ) {
                 return new TxManagerImpl(
                         txConfiguration,
@@ -126,11 +128,12 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                         placementDriver,
                         () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
                         new TestLocalRwTxCounter(),
-                        resourcesRegistry
+                        resourcesRegistry,
+                        resourceCleanupManager
                 ) {
                     @Override
-                    public CompletableFuture<Void> executeCleanupAsync(Runnable runnable) {
-                        CompletableFuture<Void> cleanupFuture = super.executeCleanupAsync(runnable);
+                    public CompletableFuture<Void> executeWriteIntentSwitchAsync(Runnable runnable) {
+                        CompletableFuture<Void> cleanupFuture = super.executeWriteIntentSwitchAsync(runnable);
 
                         cleanupFutures.add(cleanupFuture);
 

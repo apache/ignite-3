@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.rule;
 
-import static org.apache.ignite.internal.sql.engine.util.HintUtils.isSortedAlgorithmAllowed;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import org.apache.calcite.plan.RelOptCluster;
@@ -53,8 +52,7 @@ public class MergeJoinConverterRule extends AbstractIgniteConverterRule<LogicalJ
         LogicalJoin logicalJoin = call.rel(0);
 
         return !nullOrEmpty(logicalJoin.analyzeCondition().pairs())
-                && logicalJoin.analyzeCondition().isEqui()
-                && isSortedAlgorithmAllowed(logicalJoin);
+                && logicalJoin.analyzeCondition().isEqui();
     }
 
     /** {@inheritDoc} */

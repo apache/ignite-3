@@ -32,6 +32,8 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
  * Physical node for MAP phase of INTERSECT operator.
  */
 public class IgniteMapIntersect extends IgniteIntersect implements IgniteMapSetOp {
+    private static final String REL_TYPE_NAME = "MapIntersect";
+
     /**
      * Constructor.
      *
@@ -89,5 +91,11 @@ public class IgniteMapIntersect extends IgniteIntersect implements IgniteMapSetO
     @Override
     public int aggregateFieldsCount() {
         return getInput(0).getRowType().getFieldCount() + getInputs().size();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 }

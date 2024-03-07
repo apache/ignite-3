@@ -41,6 +41,8 @@ import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 
 /** Relational expression that applies a limit and/or offset to its input. */
 public class IgniteLimit extends SingleRel implements IgniteRel {
+    private static final String REL_TYPE_NAME = "Limit";
+
     /** Offset. */
     private final RexNode offset;
 
@@ -194,5 +196,11 @@ public class IgniteLimit extends SingleRel implements IgniteRel {
     @Override
     public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
         return new IgniteLimit(cluster, getTraitSet(), sole(inputs), offset, fetch);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 }

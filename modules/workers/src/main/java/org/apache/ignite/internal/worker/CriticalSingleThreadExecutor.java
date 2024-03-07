@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.worker;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
+
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -31,8 +34,14 @@ public class CriticalSingleThreadExecutor extends ThreadPoolExecutor implements 
     private volatile Thread lastSeenThread;
     private volatile long heartbeatNanos = NOT_MONITORED;
 
+    /** Constructor. */
     public CriticalSingleThreadExecutor(ThreadFactory threadFactory) {
-        super(1, 1, 0, TimeUnit.SECONDS, new LinkedBlockingQueue<>(), threadFactory);
+        this(0, SECONDS, new LinkedBlockingQueue<>(), threadFactory);
+    }
+
+    /** Constructor. */
+    public CriticalSingleThreadExecutor(long keepAliveTime, TimeUnit unit, BlockingQueue<Runnable> workQueue, ThreadFactory threadFactory) {
+        super(1, 1, keepAliveTime, unit, workQueue, threadFactory);
     }
 
     @Override
