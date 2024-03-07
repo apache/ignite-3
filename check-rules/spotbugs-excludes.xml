@@ -171,6 +171,7 @@
     <Source name="BinaryTupleSchema.java"/>
   </Match>
   <Match>
+    <!-- consumes buffer data -->
     <Bug pattern="DLS_DEAD_LOCAL_STORE"/>
     <Class name="org.apache.ignite.internal.client.proto.ClientMessageUnpacker"/>
     <Method name="unpackObjectArrayFromBinaryTupleArray"/>
@@ -184,6 +185,12 @@
     <Bug pattern="NN_NAKED_NOTIFY"/>
     <Class name="org.apache.ignite.internal.pagememory.persistence.checkpoint.Checkpointer"/>
     <Method name="cancel"/>
+  </Match>
+  <Match>
+    <!-- suppressed in code as well -->
+    <Bug pattern="VO_VOLATILE_INCREMENT"/>
+    <Class name="org.apache.ignite.internal.tx.impl.TxManagerImpl"/>
+    <Field name="inflights"/>
   </Match>
   <!-- end of false-positive exclusions -->
 
@@ -216,12 +223,6 @@
     <Bug pattern="UPM_UNCALLED_PRIVATE_METHOD"/>
     <Class name="org.apache.ignite.internal.pagememory.freelist.AbstractFreeList"/>
     <Method name="initReusedPage"/>
-  </Match>
-  <Match>
-    <!-- TODO: https://issues.apache.org/jira/browse/IGNITE-21693 -->
-    <Bug pattern="VO_VOLATILE_INCREMENT"/>
-    <Class name="org.apache.ignite.internal.tx.impl.TxManagerImpl"/>
-    <Field name="inflights"/>
   </Match>
   <Match>
     <!-- TODO: https://issues.apache.org/jira/browse/IGNITE-21694 -->
