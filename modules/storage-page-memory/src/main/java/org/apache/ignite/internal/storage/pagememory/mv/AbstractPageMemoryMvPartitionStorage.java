@@ -215,7 +215,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * @param indexDescriptor Index descriptor.
      */
     public PageMemoryHashIndexStorage getOrCreateHashIndex(StorageHashIndexDescriptor indexDescriptor) {
-        assert !sortedIndexes.containsKey(indexDescriptor.id());
+        assert !sortedIndexes.containsKey(indexDescriptor.id()) : indexDescriptor;
 
         return busy(() -> hashIndexes.computeIfAbsent(
                 indexDescriptor.id(),
@@ -229,7 +229,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * @param indexDescriptor Index descriptor.
      */
     public PageMemorySortedIndexStorage getOrCreateSortedIndex(StorageSortedIndexDescriptor indexDescriptor) {
-        assert !hashIndexes.containsKey(indexDescriptor.id());
+        assert !hashIndexes.containsKey(indexDescriptor.id()) : indexDescriptor;
 
         return busy(() -> sortedIndexes.computeIfAbsent(
                 indexDescriptor.id(),
@@ -995,7 +995,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             PageMemoryHashIndexStorage hashIndexStorage = hashIndexes.remove(indexId);
 
             if (hashIndexStorage != null) {
-                assert !sortedIndexes.containsKey(indexId);
+                assert !sortedIndexes.containsKey(indexId) : indexId;
 
                 hashIndexStorage.transitionToDestroyingState();
 

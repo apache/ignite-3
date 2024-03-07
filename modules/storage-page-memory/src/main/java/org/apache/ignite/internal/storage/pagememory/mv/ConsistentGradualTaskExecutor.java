@@ -42,6 +42,8 @@ class ConsistentGradualTaskExecutor extends GradualTaskExecutor {
                 task.runStep();
 
                 return null;
+            } catch (StorageException e) {
+                throw e;
             } catch (Exception e) {
                 throw new StorageException(e);
             }

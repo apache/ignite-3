@@ -2850,6 +2850,8 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      *
      * @param c Visitor closure. Visits only leaf pages.
      * @param forceDestroy Whether to proceed with destroying, even if tree is already marked as destroyed (see {@link #markDestroyed()}).
+     * @param maxWorkUnits Maximum amount of allowed "work units" per every {@link GradualTask} step. Recycling of a node counts as 1
+     *     work unit; also, visiting an item using a Consumer also counts as 1 work unit per item.
      * @return GradualTask that will destroy the tree; it is the responsibility of a caller to pass this task for
      *     execution to a {@link org.apache.ignite.internal.pagememory.util.GradualTaskExecutor}.
      * @throws IgniteInternalCheckedException If failed.

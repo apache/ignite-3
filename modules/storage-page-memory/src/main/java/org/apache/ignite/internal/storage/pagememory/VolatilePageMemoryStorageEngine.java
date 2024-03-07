@@ -59,7 +59,7 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
      *
      * @see BplusTree#startGradualDestruction
      */
-    public static final int MAX_DESTRUCTION_WORK_UNITS = 1_000_000;
+    public static final int MAX_DESTRUCTION_WORK_UNITS = 1_000;
 
     private static final IgniteLogger LOG = Loggers.forClass(VolatilePageMemoryStorageEngine.class);
 

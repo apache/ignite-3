@@ -132,7 +132,7 @@ public class StorageUtils {
             case CLEANUP:
                 throw new StorageException(createStorageInProcessOfCleanupErrorMessage(storageInfo));
             case DESTROYING:
-                throw new StorageException(createStorageDestroyedErrorMessage(storageInfo));
+                throw new StorageClosedException(createStorageDestroyedErrorMessage(storageInfo));
             default:
                 throw new StorageException(createUnexpectedStorageStateErrorMessage(state, storageInfo));
         }
