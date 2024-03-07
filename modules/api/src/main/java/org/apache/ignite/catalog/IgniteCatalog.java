@@ -17,8 +17,12 @@
 
 package org.apache.ignite.catalog;
 
+import org.apache.ignite.catalog.definitions.TableDefinition;
+import org.apache.ignite.catalog.definitions.ZoneDefinition;
+
 /**
- * Provides the ability to create and execute SQL DDL queries from annotated classes. This is an example of the simple table:
+ * Provides the ability to create and execute SQL DDL queries from annotated classes or fluent builders. This is an example of the simple
+ * table created from the annotated class:
  * <pre>
  *    &#064;Table
  *    private static class Value {
@@ -29,6 +33,18 @@ package org.apache.ignite.catalog;
  * This is equivalent to executing the following statement:
  * <pre>
  *     CREATE TABLE IF NOT EXISTS Value (id int, val varchar, PRIMARY KEY (id));
+ * </pre>
+ * The same statement can be produced using builders:
+ * <pre>
+ *    TableDefinition table = TableDefinition.builder("Value")
+ *            .ifNotExists()
+ *            .columns(
+ *                    column("id", INTEGER),
+ *                    column("val", VARCHAR)
+ *            )
+ *            .primaryKey("id")
+ *            .build();
+ *    ignite.catalog().createTable(table).execute();
  * </pre>
  * This is an example of the table created from simple annotated record class.
  * <pre>
@@ -41,6 +57,15 @@ package org.apache.ignite.catalog;
  * When this class is passed to the {@link #create(Class)} method it will produce the following statement:
  * <pre>
  *    CREATE TABLE IF NOT EXISTS Pojo (id int, PRIMARY KEY (id));
+ * </pre>
+ * Again, using builders this can be written as:
+ * <pre>
+ *    TableDefinition table = TableDefinition.builder("Pojo")
+ *            .ifNotExists()
+ *            .columns(column("id", INTEGER))
+ *            .primaryKey("id")
+ *            .build();
+ *    ignite.catalog().createTable(table).execute();
  * </pre>
  * Here's an example of more complex annotations including zones, colocation and indexes:
  * <pre>
@@ -85,13 +110,40 @@ package org.apache.ignite.catalog;
  *    l_name varchar, str varchar, PRIMARY KEY (id, id_str)) COLOCATE BY (id, id_str) WITH PRIMARY_ZONE='ZONE_TEST';
  *    CREATE INDEX IF NOT EXISTS ix_pojo ON table_test (f_name, l_name desc);
  * </pre>
+ * And here's the equivalent definition using builders:
+ * <pre>
+ *    ZoneDefinition zone = ZoneDefinition.builder("zone_test")
+ *             .ifNotExists()
+ *             .partitions(1)
+ *             .replicas(3)
+ *             .engine(ZoneEngine.AIMEM)
+ *             .build();
+ *    TableDefinition table = TableDefinition.builder("table_test")
+ *            .ifNotExists()
+ *            .columns(
+ *                    column("id", ColumnType.INTEGER),
+ *                    column("id_str", ColumnType.varchar(20)),
+ *                    column("f_name", ColumnType.varchar(20).notNull().defaultValue("a")),
+ *                    column("l_name", ColumnType.VARCHAR),
+ *                    column("str", ColumnType.VARCHAR),
+ *            )
+ *            .primaryKey("id", "id_str")
+ *            .colocateBy("id", "id_str")
+ *            .zone("zone_test")
+ *            .index("ix_pojo", IndexType.DEFAULT, column("f_name"), column("l_name").desc())
+ *            .build();
+ *    ignite.catalog().createZone(zone).execute();
+ *    ignite.catalog().createTable(table).execute();
+ * </pre>
+ *
+ *
  */
 public interface IgniteCatalog {
     /**
      * Creates a query object from the annotated record class.
      *
      * @param recordClass Annotated record class.
-     * @return query object
+     * @return Query object.
      */
     Query create(Class<?> recordClass);
 
@@ -100,23 +152,55 @@ public interface IgniteCatalog {
      *
      * @param keyClass Annotated key class.
      * @param valueClass Annotated value class.
-     * @return query object
+     * @return Query object.
      */
     Query create(Class<?> keyClass, Class<?> valueClass);
+
+    /**
+     * Creates a query object from the table definition.
+     *
+     * @param definition Table definition.
+     * @return Query object.
+     */
+    Query createTable(TableDefinition definition);
+
+    /**
+     * Creates a query object from the zone definition.
+     *
+     * @param definition Zone definition.
+     * @return Query object.
+     */
+    Query createZone(ZoneDefinition definition);
+
+    /**
+     * Creates a {@code DROP TABLE} query object from the table definition.
+     *
+     * @param definition Table definition.
+     * @return query object
+     */
+    Query dropTable(TableDefinition definition);
 
     /**
      * Creates a {@code DROP TABLE} query object from the table name.
      *
      * @param name Table name.
-     * @return query object
+     * @return Query object.
      */
     Query dropTable(String name);
+
+    /**
+     * Creates a {@code DROP ZONE} query object from the zone definition.
+     *
+     * @param definition Zone definition.
+     * @return Query object.
+     */
+    Query dropZone(ZoneDefinition definition);
 
     /**
      * Creates a {@code DROP ZONE} query object from the zone name.
      *
      * @param name Zone name.
-     * @return query object
+     * @return Query object.
      */
     Query dropZone(String name);
 }
