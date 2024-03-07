@@ -132,4 +132,19 @@ public class CompletableFutures {
             return completedFuture(result);
         }
     }
+
+    /**
+     * Completes a future either with an exception (if it's not {@code null} or normally.
+     *
+     * @param future Future to complete.
+     * @param result Normal completion result. Only used if the exception is {@code null}.
+     * @param ex Exception. If not {@code null}, the future will be failed with it, otherwise it will be completed normally.
+     */
+    public static <T> void completeOrFailFuture(CompletableFuture<T> future, @Nullable T result, @Nullable Throwable ex) {
+        if (ex != null) {
+            future.completeExceptionally(ex);
+        } else {
+            future.complete(result);
+        }
+    }
 }

@@ -58,6 +58,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -571,7 +572,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 sqlRef::get,
                 resourcesRegistry,
                 rebalanceScheduler,
-                lowWatermark
+                lowWatermark,
+                ForkJoinPool.commonPool()
         );
 
         var indexManager = new IndexManager(

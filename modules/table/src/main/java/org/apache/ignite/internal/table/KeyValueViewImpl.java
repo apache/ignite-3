@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertToPublicFuture;
+
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
@@ -26,6 +28,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
@@ -82,8 +85,10 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
      * @param tbl Table storage.
      * @param schemaRegistry Schema registry.
      * @param schemaVersions Schema versions access.
-     * @param marshallers Marshallers provider.
      * @param sql Ignite SQL facade.
+     * @param marshallers Marshallers provider.
+     * @param asyncContinuationExecutor Executor to which execution will be resubmitted when leaving asynchronous public API
+     *         endpoints (so as to prevent the user from stealing Ignite threads).
      * @param keyMapper Key class mapper.
      * @param valueMapper Value class mapper.
      */
@@ -91,12 +96,13 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
             InternalTable tbl,
             SchemaRegistry schemaRegistry,
             SchemaVersions schemaVersions,
-            MarshallersProvider marshallers,
             IgniteSql sql,
+            MarshallersProvider marshallers,
+            Executor asyncContinuationExecutor,
             Mapper<K> keyMapper,
             Mapper<V> valueMapper
     ) {
-        super(tbl, schemaVersions, schemaRegistry, sql, marshallers);
+        super(tbl, schemaVersions, schemaRegistry, sql, marshallers, asyncContinuationExecutor);
 
         this.keyMapper = keyMapper;
         this.valueMapper = valueMapper;
@@ -115,7 +121,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     public CompletableFuture<V> getAsync(@Nullable Transaction tx, K key) {
         Objects.requireNonNull(key);
 
-        return withSchemaSync(tx, (schemaVersion) -> {
+        return doOperation(tx, (schemaVersion) -> {
             BinaryRowEx keyRow = marshal(key, schemaVersion);
 
             return tbl.get(keyRow, (InternalTransaction) tx).thenApply(binaryRow -> unmarshalValue(binaryRow, schemaVersion));
@@ -133,7 +139,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     public CompletableFuture<NullableValue<V>> getNullableAsync(@Nullable Transaction tx, K key) {
         Objects.requireNonNull(key);
 
-        return withSchemaSync(tx, (schemaVersion) -> {
+        return doOperation(tx, (schemaVersion) -> {
             BinaryRowEx keyRow = marshal(key, schemaVersion);
 
             return tbl.get(keyRow, (InternalTransaction) tx)
@@ -152,7 +158,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     public CompletableFuture<V> getOrDefaultAsync(@Nullable Transaction tx, K key, V defaultValue) {
         Objects.requireNonNull(key);
 
-        return withSchemaSync(tx, (schemaVersion) -> {
+        return doOperation(tx, (schemaVersion) -> {
             BinaryRowEx keyRow = marshal(key, schemaVersion);
 
             return tbl.get(keyRow, (InternalTransaction) tx)
@@ -171,7 +177,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     public CompletableFuture<Map<K, V>> getAllAsync(@Nullable Transaction tx, Collection<K> keys) {
         checkKeysForNulls(keys);
 
-        return withSchemaSync(tx, (schemaVersion) -> {
+        return doOperation(tx, (schemaVersion) -> {
             Collection<BinaryRowEx> rows = marshal(keys, schemaVersion);
 
             return tbl.getAll(rows, (InternalTransaction) tx).thenApply(resultRows -> unmarshalPairs(resultRows, schemaVersion));
@@ -197,7 +203,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     public CompletableFuture<Boolean> containsAsync(@Nullable Transaction tx, K key) {
         Objects.requireNonNull(key);
 
-        return withSchemaSync(tx, (schemaVersion) -> {
+        return doOperation(tx, (schemaVersion) -> {
             BinaryRowEx keyRow = marshal(key, schemaVersion);
 
             return tbl.get(keyRow, (InternalTransaction) tx).thenApply(Objects::nonNull);
@@ -215,7 +221,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     public CompletableFuture<Void> putAsync(@Nullable Transaction tx, K key, @Nullable V val) {
         Objects.requireNonNull(key);
 
-        return withSchemaSync(tx, (schemaVersion) -> {
+        return doOperation(tx, (schemaVersion) -> {
             BinaryRowEx row = marshal(key, val, schemaVersion);
 
             return tbl.upsert(row, (InternalTransaction) tx);
@@ -236,7 +242,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
             Objects.requireNonNull(entry.getKey());
         }
 
-        return withSchemaSync(tx, (schemaVersion) -> {
+        return doOperation(tx, (schemaVersion) -> {
             Collection<BinaryRowEx> rows = marshalPairs(pairs.entrySet(), schemaVersion, null);
 
             return tbl.upsertAll(rows, (InternalTransaction) tx);
@@ -255,7 +261,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
         Objects.requireNonNull(key);
         Objects.requireNonNull(val);
 
-        return withSchemaSync(tx, (schemaVersion) -> {
+        return doOperation(tx, (schemaVersion) -> {
             return tbl.getAndUpsert(marshal(key, val, schemaVersion), (InternalTransaction) tx)
                     .thenApply(binaryRow -> unmarshalValue(binaryRow, schemaVersion));
         });
@@ -272,7 +278,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     public CompletableFuture<NullableValue<V>> getNullableAndPutAsync(@Nullable Transaction tx, K key, @Nullable V val) {
         Objects.requireNonNull(key);
 
-        return withSchemaSync(tx, (schemaVersion) -> {
+        return doOperation(tx, (schemaVersion) -> {
             BinaryRowEx row = marshal(key, val, schemaVersion);
 
             return tbl.getAndUpsert(row, (InternalTransaction) tx)
@@ -291,7 +297,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     public CompletableFuture<Boolean> putIfAbsentAsync(@Nullable Transaction tx, K key, @Nullable V val) {
         Objects.requireNonNull(key);
 
-        return withSchemaSync(tx, (schemaVersion) -> {
+        return doOperation(tx, (schemaVersion) -> {
             BinaryRowEx row = marshal(key, val, schemaVersion);
 
             return tbl.insert(row, (InternalTransaction) tx);
@@ -315,7 +321,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     public CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, K key) {
         Objects.requireNonNull(key);
 
-        return withSchemaSync(tx, (schemaVersion) -> {
+        return doOperation(tx, (schemaVersion) -> {
             BinaryRowEx row = marshal(key, schemaVersion);
 
             return tbl.delete(row, (InternalTransaction) tx);
@@ -327,7 +333,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     public CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, K key, @Nullable V val) {
         Objects.requireNonNull(key);
 
-        return withSchemaSync(tx, (schemaVersion) -> {
+        return doOperation(tx, (schemaVersion) -> {
             BinaryRowEx row = marshal(key, val, schemaVersion);
 
             return tbl.deleteExact(row, (InternalTransaction) tx);
@@ -345,7 +351,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     public CompletableFuture<Collection<K>> removeAllAsync(@Nullable Transaction tx, Collection<K> keys) {
         checkKeysForNulls(keys);
 
-        return withSchemaSync(tx, (schemaVersion) -> {
+        return doOperation(tx, (schemaVersion) -> {
             Collection<BinaryRowEx> rows = marshal(keys, schemaVersion);
 
             return tbl.deleteAll(rows, (InternalTransaction) tx).thenApply(resultRows -> unmarshalKeys(resultRows, schemaVersion));
@@ -363,7 +369,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     public CompletableFuture<V> getAndRemoveAsync(@Nullable Transaction tx, K key) {
         Objects.requireNonNull(key);
 
-        return withSchemaSync(tx, (schemaVersion) -> {
+        return doOperation(tx, (schemaVersion) -> {
             BinaryRowEx keyRow = marshal(key, schemaVersion);
 
             return tbl.getAndDelete(keyRow, (InternalTransaction) tx)
@@ -382,7 +388,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     public CompletableFuture<NullableValue<V>> getNullableAndRemoveAsync(@Nullable Transaction tx, K key) {
         Objects.requireNonNull(key);
 
-        return withSchemaSync(tx, (schemaVersion) -> {
+        return doOperation(tx, (schemaVersion) -> {
             BinaryRowEx keyRow = marshal(key, schemaVersion);
 
             return tbl.getAndDelete(keyRow, (InternalTransaction) tx)
@@ -407,7 +413,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     public CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, K key, @Nullable V val) {
         Objects.requireNonNull(key);
 
-        return withSchemaSync(tx, (schemaVersion) -> {
+        return doOperation(tx, (schemaVersion) -> {
             BinaryRowEx row = marshal(key, val, schemaVersion);
 
             return tbl.replace(row, (InternalTransaction) tx);
@@ -419,7 +425,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     public CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, K key, @Nullable V oldVal, @Nullable V newVal) {
         Objects.requireNonNull(key);
 
-        return withSchemaSync(tx, (schemaVersion) -> {
+        return doOperation(tx, (schemaVersion) -> {
             BinaryRowEx oldRow = marshal(key, oldVal, schemaVersion);
             BinaryRowEx newRow = marshal(key, newVal, schemaVersion);
 
@@ -439,7 +445,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
         Objects.requireNonNull(key);
         Objects.requireNonNull(val);
 
-        return withSchemaSync(tx, (schemaVersion) -> {
+        return doOperation(tx, (schemaVersion) -> {
             return tbl.getAndReplace(marshal(key, val, schemaVersion), (InternalTransaction) tx)
                     .thenApply(binaryRow -> unmarshalValue(binaryRow, schemaVersion));
         });
@@ -456,7 +462,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     public CompletableFuture<NullableValue<V>> getNullableAndReplaceAsync(@Nullable Transaction tx, K key, @Nullable V val) {
         Objects.requireNonNull(key);
 
-        return withSchemaSync(tx, (schemaVersion) -> {
+        return doOperation(tx, (schemaVersion) -> {
             BinaryRowEx row = marshal(key, val, schemaVersion);
 
             return tbl.getAndReplace(row, (InternalTransaction) tx)
@@ -700,9 +706,11 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
         StreamerBatchSender<Entry<K, V>, Integer> batchSender = (partitionId, items, deleted) ->
                 withSchemaSync(
                         null,
-                        schemaVersion -> this.tbl.updateAll(marshalPairs(items, schemaVersion, deleted), deleted, partitionId));
+                        schemaVersion -> this.tbl.updateAll(marshalPairs(items, schemaVersion, deleted), deleted, partitionId)
+                );
 
-        return DataStreamer.streamData(publisher, options, batchSender, partitioner);
+        CompletableFuture<Void> future = DataStreamer.streamData(publisher, options, batchSender, partitioner);
+        return convertToPublicFuture(preventThreadHijack(future));
     }
 
     /** {@inheritDoc} */
