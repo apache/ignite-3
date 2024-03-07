@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.cli.core.exception.handler;
 
+import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -47,7 +48,7 @@ class IgniteCliApiExceptionHandlerTest extends BaseIgniteAbstractTest {
         igniteCliApiExceptionHandler.handle(exceptionWriter, igniteCliApiException);
 
         // Then
-        verify(exceptionWriter, times(1)).write(eq("Missing the required parameter"));
+        verify(exceptionWriter, times(1)).write(contains("Message: Missing the required parameter"));
     }
 
     @Test
