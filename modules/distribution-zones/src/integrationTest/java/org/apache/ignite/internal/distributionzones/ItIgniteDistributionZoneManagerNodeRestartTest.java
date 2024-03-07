@@ -247,7 +247,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         var clockWaiter = new ClockWaiter(name, clock);
 
-        var catalogManager = new CatalogManagerImpl(new UpdateLogImpl(metastore), clockWaiter);
+        var catalogManager = new CatalogManagerImpl(new UpdateLogImpl(metastore), clockWaiter, clock);
 
         ScheduledExecutorService rebalanceScheduler = new ScheduledThreadPoolExecutor(REBALANCE_SCHEDULER_POOL_SIZE,
                 NamedThreadFactory.create(name, "test-rebalance-scheduler", logger()));
