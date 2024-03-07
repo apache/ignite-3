@@ -236,8 +236,9 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
         );
     }
 
+    /** {@inheritDoc} */
     @Override
-    public  <R> CompletableFuture<JobExecution<R>> submitColocatedInternal(
+    public <R> CompletableFuture<JobExecution<R>> submitColocatedInternal(
             TableViewInternal table,
             Tuple key,
             List<DeploymentUnit> units,

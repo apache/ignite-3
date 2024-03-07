@@ -94,13 +94,13 @@ public class ClientComputeExecuteRequest {
         return nodes;
     }
 
-    static void sendResultAndStatus(JobExecution<Object> execution, NotificationSender notificationSender) {
-        execution.resultAsync().whenComplete((val, err) ->
+    static void sendResultAndStatus(CompletableFuture<JobExecution<Object>> executionFut, NotificationSender notificationSender) {
+        executionFut.thenCompose(execution -> execution.resultAsync().whenComplete((val, err) ->
                 execution.statusAsync().whenComplete((status, errStatus) ->
                         notificationSender.sendNotification(w -> {
                             w.packObjectAsBinaryTuple(val);
                             packJobStatus(w, status);
-                        }, err)));
+                        }, err))));
     }
 
     /**
