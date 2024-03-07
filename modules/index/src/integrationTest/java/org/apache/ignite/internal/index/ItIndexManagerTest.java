@@ -18,20 +18,19 @@
 package org.apache.ignite.internal.index;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.index.IndexManager.acceptAliveIndexes;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 
-import it.unimi.dsi.fastutil.ints.IntArrayList;
-import it.unimi.dsi.fastutil.ints.IntComparators;
-import it.unimi.dsi.fastutil.ints.IntList;
+import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterEach;
@@ -115,17 +114,17 @@ public class ItIndexManagerTest extends ClusterPerClassIntegrationTest {
     }
 
     private static List<Integer> collectIndexIdsFromCatalogForRecovery(IgniteImpl ignite, TableImpl table) {
-        IntList list = new IntArrayList();
-        int tableId = table.tableId();
+        CatalogManager catalogManager = ignite.catalogManager();
 
-        acceptAliveIndexes(ignite.catalogManager(), (tbl, idx) -> {
-            if (tableId == idx.tableId()) {
-                list.add(idx.id());
-            }
-        });
+        int earliestCatalogVersion = catalogManager.earliestCatalogVersion();
+        int latestCatalogVersion = catalogManager.latestCatalogVersion();
 
-        list.sort(IntComparators.NATURAL_COMPARATOR);
-
-        return list;
+        return IntStream.rangeClosed(earliestCatalogVersion, latestCatalogVersion)
+                .mapToObj(catalogVersion -> catalogManager.indexes(catalogVersion, table.tableId()))
+                .flatMap(Collection::stream)
+                .map(CatalogObjectDescriptor::id)
+                .distinct()
+                .sorted()
+                .collect(toList());
     }
 }

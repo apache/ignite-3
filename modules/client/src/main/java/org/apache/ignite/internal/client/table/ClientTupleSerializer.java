@@ -130,16 +130,14 @@ public class ClientTupleSerializer {
      * @param keyOnly Key only.
      */
     public static void writeTupleRaw(Tuple tuple, ClientSchema schema, PayloadOutputChannel out, boolean keyOnly) {
-        var columns = schema.columns();
-        var count = keyOnly ? schema.keyColumnCount() : columns.length;
+        var columns = keyOnly ? schema.keyColumns() : schema.columns();
 
-        var builder = new BinaryTupleBuilder(count);
-        var noValueSet = new BitSet(count);
+        var builder = new BinaryTupleBuilder(columns.length);
+        var noValueSet = new BitSet(columns.length);
 
         int usedCols = 0;
 
-        for (var i = 0; i < count; i++) {
-            var col = columns[i];
+        for (ClientColumn col : columns) {
             Object v = tuple.valueOrDefault(col.name(), NO_VALUE);
 
             if (v != NO_VALUE) {
@@ -330,30 +328,24 @@ public class ClientTupleSerializer {
     }
 
     static Tuple readTuple(ClientSchema schema, ClientMessageUnpacker in, boolean keyOnly) {
-        var colCnt = keyOnly ? schema.keyColumnCount() : schema.columns().length;
-        var binTuple = new BinaryTupleReader(colCnt, in.readBinary());
+        var columns = keyOnly ? schema.keyColumns() : schema.columns();
+        var binTuple = new BinaryTupleReader(columns.length, in.readBinary());
 
-        return new ClientTuple(schema, binTuple, 0, colCnt);
+        return new ClientTuple(schema, keyOnly ? TuplePart.KEY : TuplePart.KEY_AND_VAL, binTuple);
     }
 
     static Tuple readValueTuple(ClientSchema schema, ClientMessageUnpacker in) {
-        var keyColCnt = schema.keyColumnCount();
-        var colCnt = schema.columns().length;
+        var binTuple = new BinaryTupleReader(schema.columns().length, in.readBinary());
 
-        var binTuple = new BinaryTupleReader(colCnt, in.readBinary());
-
-        return new ClientTuple(schema, binTuple, keyColCnt, colCnt);
+        return new ClientTuple(schema, TuplePart.VAL, binTuple);
     }
 
     private static IgniteBiTuple<Tuple, Tuple> readKvTuple(ClientSchema schema, ClientMessageUnpacker in) {
-        var keyColCnt = schema.keyColumnCount();
-        var colCnt = schema.columns().length;
+        var binTuple = new BinaryTupleReader(schema.columns().length, in.readBinary());
+        var keyTuple = new ClientTuple(schema, TuplePart.KEY, binTuple);
+        var valTuple = new ClientTuple(schema, TuplePart.VAL, binTuple);
 
-        var binTuple = new BinaryTupleReader(colCnt, in.readBinary());
-        var keyTuple2 = new ClientTuple(schema, binTuple, 0, keyColCnt);
-        var valTuple2 = new ClientTuple(schema, binTuple, keyColCnt, colCnt);
-
-        return new IgniteBiTuple<>(keyTuple2, valTuple2);
+        return new IgniteBiTuple<>(keyTuple, valTuple);
     }
 
     /**
@@ -478,7 +470,7 @@ public class ClientTupleSerializer {
         var marsh = schema.getMarshaller(mapper, TuplePart.KEY, true);
 
         for (ClientColumn col : schema.colocationColumns()) {
-            Object value = marsh.value(rec, col.schemaIndex());
+            Object value = marsh.value(rec, col.keyIndex());
             hashCalc.append(value, col.scale(), col.precision());
         }
 
@@ -486,18 +478,14 @@ public class ClientTupleSerializer {
     }
 
     private static void throwSchemaMismatchException(Tuple tuple, ClientSchema schema, TuplePart part) {
-        ClientColumn[] columns = schema.columns();
         Set<String> extraColumns = new HashSet<>();
-        int start = part == TuplePart.VAL ? schema.keyColumnCount() : 0;
-        int end = part == TuplePart.KEY ? schema.keyColumnCount() : columns.length;
 
         for (int i = 0; i < tuple.columnCount(); i++) {
             extraColumns.add(tuple.columnName(i));
         }
 
-
-        for (int i = start; i < end; i++) {
-            extraColumns.remove(columns[i].name());
+        for (var col : schema.columns(part)) {
+            extraColumns.remove(col.name());
         }
 
         String prefix = "Tuple";

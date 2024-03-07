@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.network.NettyBootstrapFactory.isInNetwo
 import static org.apache.ignite.internal.network.serialization.PerSessionSerializationService.createClassDescriptorsMessages;
 import static org.apache.ignite.internal.thread.ThreadOperation.NOTHING_ALLOWED;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.safeAbs;
 
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
@@ -36,7 +37,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
@@ -57,8 +57,10 @@ import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
 import org.apache.ignite.internal.network.serialization.marshal.UserObjectMarshaller;
 import org.apache.ignite.internal.thread.ExecutorChooser;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
+import org.apache.ignite.internal.thread.StripedExecutor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.worker.CriticalSingleThreadExecutor;
+import org.apache.ignite.internal.worker.CriticalStripedThreadPoolExecutor;
 import org.apache.ignite.internal.worker.CriticalWorker;
 import org.apache.ignite.internal.worker.CriticalWorkerRegistry;
 import org.apache.ignite.lang.IgniteException;
@@ -70,6 +72,12 @@ import org.jetbrains.annotations.TestOnly;
 /** Default messaging service implementation. */
 public class DefaultMessagingService extends AbstractMessagingService {
     private static final IgniteLogger LOG = Loggers.forClass(DefaultMessagingService.class);
+
+    /**
+     * Maximum number of stripes in the thread pool in which incoming network messages for the {@link ChannelType#DEFAULT} channel
+     * are handled.
+     */
+    private static final int DEFAULT_CHANNEL_INBOUND_WORKERS = 4;
 
     /** Network messages factory. */
     private final NetworkMessagesFactory factory;
@@ -100,7 +108,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
     private final CriticalSingleThreadExecutor outboundExecutor;
 
     /** Executors for inbound messages. */
-    private final LazyStripedExecutor inboundExecutors;
+    private final LazyStripedExecutors inboundExecutors;
 
     // TODO: IGNITE-18493 - remove/move this
     @Nullable
@@ -134,7 +142,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
         outboundExecutor = new CriticalSingleThreadExecutor(
                 IgniteThreadFactory.create(nodeName, "MessagingService-outbound", LOG, NOTHING_ALLOWED)
         );
-        inboundExecutors = new CriticalLazyStripedExecutor(nodeName, "MessagingService-inbound", criticalWorkerRegistry);
+        inboundExecutors = new CriticalLazyStripedExecutors(nodeName, "MessagingService-inbound", criticalWorkerRegistry);
     }
 
     /**
@@ -436,7 +444,9 @@ public class DefaultMessagingService extends AbstractMessagingService {
     }
 
     private Executor chooseExecutorInInboundPool(InNetworkObject obj) {
-        return inboundExecutors.stripeFor(obj.connectionIndex());
+        int stripeIndex = safeAbs(obj.sender().id().hashCode());
+
+        return inboundExecutors.executorFor(obj.connectionIndex(), stripeIndex);
     }
 
     /**
@@ -596,6 +606,10 @@ public class DefaultMessagingService extends AbstractMessagingService {
         IgniteUtils.shutdownAndAwaitTermination(outboundExecutor, 10, TimeUnit.SECONDS);
     }
 
+    private static int stripeCountForIndex(int executorIndex) {
+        return executorIndex == ChannelType.DEFAULT.id() ? DEFAULT_CHANNEL_INBOUND_WORKERS : 1;
+    }
+
     // TODO: IGNITE-18493 - remove/move this
     /**
      * Installs a predicate, it will be consulted with for each message being sent; when it returns {@code true}, the
@@ -635,7 +649,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
         return connectionManager;
     }
 
-    private static class CriticalLazyStripedExecutor extends LazyStripedExecutor {
+    private static class CriticalLazyStripedExecutors extends LazyStripedExecutors {
         private final String nodeName;
         private final String poolName;
 
@@ -643,20 +657,23 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         private final List<CriticalWorker> registeredWorkers = new CopyOnWriteArrayList<>();
 
-        CriticalLazyStripedExecutor(String nodeName, String poolName, CriticalWorkerRegistry workerRegistry) {
+        CriticalLazyStripedExecutors(String nodeName, String poolName, CriticalWorkerRegistry workerRegistry) {
             this.nodeName = nodeName;
             this.poolName = poolName;
             this.workerRegistry = workerRegistry;
         }
 
         @Override
-        protected ExecutorService newSingleThreadExecutor(int stripeIndex) {
-            ThreadFactory threadFactory = IgniteThreadFactory.create(nodeName, poolName + "-" + stripeIndex, LOG, NOTHING_ALLOWED);
-            CriticalSingleThreadExecutor executor = new CriticalSingleThreadExecutor(threadFactory);
+        protected StripedExecutor newStripedExecutor(int executorIndex) {
+            int stripeCount = stripeCountForIndex(executorIndex);
 
-            workerRegistry.register(executor);
+            ThreadFactory threadFactory = IgniteThreadFactory.create(nodeName, poolName + "-" + executorIndex, LOG, NOTHING_ALLOWED);
+            CriticalStripedThreadPoolExecutor executor = new CriticalStripedThreadPoolExecutor(stripeCount, threadFactory, false, 0);
 
-            registeredWorkers.add(executor);
+            for (CriticalWorker worker : executor.workers()) {
+                workerRegistry.register(worker);
+                registeredWorkers.add(worker);
+            }
 
             return executor;
         }

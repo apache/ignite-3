@@ -199,11 +199,11 @@ public class PlannerTest extends AbstractPlannerTest {
         RelNode phys = physicalPlan(sql, publicSchema, "CorrelatedNestedLoopJoin");
 
         assertNotNull(phys);
-        assertEquals("IgniteSort(sort0=[$3], sort1=[$0], dir0=[ASC], dir1=[ASC])" + System.lineSeparator()
-                        + "  IgniteProject(DEPTNO=[$3], NAME=[$4], ID=[$0], NAME0=[$1])" + System.lineSeparator()
-                        + "    IgniteNestedLoopJoin(condition=[AND(=($3, $2), >=($1, $4))], joinType=[inner])" + System.lineSeparator()
-                        + "      IgniteTableScan(table=[[PUBLIC, EMP]])" + System.lineSeparator()
-                        + "      IgniteTableScan(table=[[PUBLIC, DEPT]])" + System.lineSeparator(),
+        assertEquals("Sort(sort0=[$3], sort1=[$0], dir0=[ASC], dir1=[ASC])" + System.lineSeparator()
+                        + "  Project(DEPTNO=[$3], NAME=[$4], ID=[$0], NAME0=[$1])" + System.lineSeparator()
+                        + "    NestedLoopJoin(condition=[AND(=($3, $2), >=($1, $4))], joinType=[inner])" + System.lineSeparator()
+                        + "      TableScan(table=[[PUBLIC, EMP]])" + System.lineSeparator()
+                        + "      TableScan(table=[[PUBLIC, DEPT]])" + System.lineSeparator(),
                 RelOptUtil.toString(phys));
     }
 

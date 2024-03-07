@@ -104,12 +104,12 @@ public interface TxManager extends IgniteComponent {
     LockManager lockManager();
 
     /**
-     * Execute transaction cleanup asynchronously.
+     * Execute write intent switch asynchronously.
      *
-     * @param runnable Cleanup action.
-     * @return Future that completes once the cleanup action finishes.
+     * @param runnable Write intent switch action.
+     * @return Future that completes once the write intent switch action finishes.
      */
-    CompletableFuture<Void> executeCleanupAsync(Runnable runnable);
+    CompletableFuture<Void> executeWriteIntentSwitchAsync(Runnable runnable);
 
     /**
      * Finishes a one-phase committed transaction. This method doesn't contain any distributed communication.
