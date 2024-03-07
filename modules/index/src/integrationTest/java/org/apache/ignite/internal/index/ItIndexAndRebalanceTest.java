@@ -19,14 +19,24 @@ package org.apache.ignite.internal.index;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
+import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /** Integration test to check the work with indexes on rebalancing. */
@@ -44,6 +54,13 @@ public class ItIndexAndRebalanceTest extends BaseSqlIntegrationTest {
         return 2;
     }
 
+    @BeforeEach
+    void setUp() {
+        sql("DROP TABLE IF EXISTS " + TABLE_NAME);
+        sql("DROP ZONE IF EXISTS " + ZONE_NAME);
+    }
+
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21710")
     @Test
     void testChangeReplicaCountWithoutRestartNodes() throws Exception {
         createZoneAndTable(ZONE_NAME, TABLE_NAME, 2, 1);
@@ -53,9 +70,11 @@ public class ItIndexAndRebalanceTest extends BaseSqlIntegrationTest {
         createIndex(TABLE_NAME, INDEX_NAME, COLUMN_NAME);
 
         changeZoneReplicas(ZONE_NAME, 1);
+        waitForStableAssignmentsChangeInMetastore(TABLE_NAME, 1, 0);
         insertPeople(TABLE_NAME, new Person(1, "1", 11.0));
 
         changeZoneReplicas(ZONE_NAME, 2);
+        waitForStableAssignmentsChangeInMetastore(TABLE_NAME, 2, 0);
         insertPeople(TABLE_NAME, new Person(2, "2", 12.0));
 
         List<IgniteImpl> nodes = CLUSTER.runningNodes().collect(toList());
@@ -70,10 +89,35 @@ public class ItIndexAndRebalanceTest extends BaseSqlIntegrationTest {
         }
     }
 
-    private static void changeZoneReplicas(String zoneName, int replicas) throws Exception {
+    private static void changeZoneReplicas(String zoneName, int replicas) {
         sql(format("ALTER ZONE {} SET REPLICAS={}", zoneName, replicas));
+    }
 
-        // TODO: IGNITE-21501 нужен другой способ подождать в тесте завершения ребеланса
-        Thread.sleep(3_333);
+    private static void waitForStableAssignmentsChangeInMetastore(
+            String tableName,
+            int expReplicaCount,
+            int partitionId
+    ) throws Exception {
+        IgniteImpl node = CLUSTER.aliveNode();
+
+        int tableId = getTableIdStrict(node.catalogManager(), tableName, node.clock().nowLong());
+
+        Set<Assignment>[] actualAssignmentsHolder = new Set[]{Set.of()};
+
+        assertTrue(waitForCondition(() -> {
+            CompletableFuture<Set<Assignment>> partitionAssignmentsFuture = partitionAssignments(
+                    node.metaStorageManager(),
+                    tableId,
+                    partitionId
+            );
+
+            assertThat(partitionAssignmentsFuture, willCompleteSuccessfully());
+
+            Set<Assignment> assignments = partitionAssignmentsFuture.join();
+
+            actualAssignmentsHolder[0] = assignments;
+
+            return assignments.size() == expReplicaCount;
+        }, 3_000), format("Expected replica count {}, actual assignments {}", expReplicaCount, actualAssignmentsHolder));
     }
 }

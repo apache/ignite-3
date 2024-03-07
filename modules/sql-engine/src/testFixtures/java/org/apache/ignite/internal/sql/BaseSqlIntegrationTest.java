@@ -75,7 +75,7 @@ public class BaseSqlIntegrationTest extends ClusterPerClassIntegrationTest {
     }
 
     protected static QueryChecker assertQuery(IgniteImpl node, @Nullable InternalTransaction tx, String qry) {
-        return queryCheckerFactory.create(node.queryEngine(), node.transactions(), tx, qry);
+        return queryCheckerFactory.create(node.name(), node.queryEngine(), node.transactions(), tx, qry);
     }
 
     /**
