@@ -58,8 +58,6 @@ class VolatilePageMemorySortedIndexStorageTest extends AbstractPageMemorySortedI
                 new StorageIndexDescriptorSupplier(catalogService)
         );
 
-        tableStorage.start();
-
         initialize(tableStorage, engineConfig);
     }
 

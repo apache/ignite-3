@@ -40,6 +40,8 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteRelVisitor;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class IgniteReduceHashAggregate extends IgniteReduceAggregateBase implements IgniteHashAggregateBase {
+    private static final String REL_TYPE_NAME = "ReduceHashAggregate";
+
     /**
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
@@ -119,5 +121,11 @@ public class IgniteReduceHashAggregate extends IgniteReduceAggregateBase impleme
             List<RelTraitSet> inTraits) {
         return List.of(Pair.of(nodeTraits.replace(RelCollations.EMPTY),
                 List.of(inTraits.get(0).replace(RelCollations.EMPTY))));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 }

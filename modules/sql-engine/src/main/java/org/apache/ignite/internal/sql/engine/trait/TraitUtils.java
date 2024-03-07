@@ -22,6 +22,7 @@ import static java.util.Collections.singletonList;
 import static org.apache.calcite.plan.RelOptUtil.permutationPushDownProject;
 import static org.apache.calcite.rel.RelDistribution.Type.BROADCAST_DISTRIBUTED;
 import static org.apache.calcite.rel.RelDistribution.Type.HASH_DISTRIBUTED;
+import static org.apache.calcite.rel.RelDistribution.Type.SINGLETON;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
@@ -165,6 +166,10 @@ public class TraitUtils {
         if (fromTrait.getType() == BROADCAST_DISTRIBUTED && toTrait.getType() == HASH_DISTRIBUTED) {
             return new IgniteTrimExchange(rel.getCluster(), traits, rel, toTrait);
         } else {
+            if (toTrait.getType() != SINGLETON && collation(traits) != RelCollations.EMPTY) {
+                return null;
+            }
+
             return new IgniteExchange(
                     rel.getCluster(),
                     traits,

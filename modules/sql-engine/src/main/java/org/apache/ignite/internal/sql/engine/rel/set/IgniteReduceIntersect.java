@@ -34,6 +34,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteRelVisitor;
  * Physical node for REDUCE phase of INTERSECT operator.
  */
 public class IgniteReduceIntersect extends IgniteIntersect implements IgniteReduceSetOp {
+    private static final String REL_TYPE_NAME = "ReduceIntersect";
 
     /**
      * Constructor.
@@ -105,5 +106,11 @@ public class IgniteReduceIntersect extends IgniteIntersect implements IgniteRedu
     @Override
     public int aggregateFieldsCount() {
         return getInput(0).getRowType().getFieldCount();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 }

@@ -17,9 +17,13 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing;
 
+import static org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.SnapshotMetaUtils.collectNextRowIdToBuildIndexes;
+import static org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.SnapshotMetaUtils.snapshotMetaAt;
+
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Queue;
 import java.util.Set;
@@ -163,7 +167,11 @@ public class OutgoingSnapshot {
 
         assert config != null : "Configuration should never be null when installing a snapshot";
 
-        return SnapshotMetaUtils.snapshotMetaAt(lastAppliedIndex, lastAppliedTerm, config, catalogService.latestCatalogVersion());
+        int catalogVersion = catalogService.latestCatalogVersion();
+
+        Map<Integer, UUID> nextRowIdToBuildByIndexId = collectNextRowIdToBuildIndexes(catalogService, partition, catalogVersion);
+
+        return snapshotMetaAt(lastAppliedIndex, lastAppliedTerm, config, catalogVersion, nextRowIdToBuildByIndexId);
     }
 
     /**

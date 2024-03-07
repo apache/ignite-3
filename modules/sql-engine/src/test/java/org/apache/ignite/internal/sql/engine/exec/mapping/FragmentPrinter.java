@@ -256,7 +256,7 @@ final class FragmentPrinter extends IgniteRelShuttle {
     @Override
     public IgniteRel visit(IgniteRel rel) {
         output.appendPadding();
-        output.writeString(rel.getClass().getSimpleName());
+        output.writeString(rel.getRelTypeName());
         return super.visit(rel);
     }
 

@@ -58,8 +58,6 @@ class VolatilePageMemoryHashIndexStorageTest extends AbstractPageMemoryHashIndex
                 new StorageIndexDescriptorSupplier(catalogService)
         );
 
-        tableStorage.start();
-
         initialize(tableStorage, engineConfig);
     }
 

@@ -29,11 +29,13 @@ import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Server-side client Tuple.
+ * Server-side Tuple implementation, wraps binary data coming from the client to pass to the table internals. This tuple implementation
+ * does not end up in the user's hands, so mutability is not supported.
  */
-class ClientTuple extends MutableTupleBinaryTupleAdapter implements SchemaAware {
-    /** Schema. */
+class ClientHandlerTuple extends MutableTupleBinaryTupleAdapter implements SchemaAware {
     private final SchemaDescriptor schema;
+
+    private final boolean keyOnly;
 
     /**
      * Constructor.
@@ -41,13 +43,15 @@ class ClientTuple extends MutableTupleBinaryTupleAdapter implements SchemaAware 
      * @param schema Schema.
      * @param noValueSet No-value set.
      * @param tuple Tuple.
-     * @param schemaOffset Schema offset.
-     * @param schemaSize Schema size.
+     * @param keyOnly Key only.
      */
-    ClientTuple(SchemaDescriptor schema, BitSet noValueSet, BinaryTupleReader tuple, int schemaOffset, int schemaSize) {
-        super(tuple, schemaOffset, schemaSize, noValueSet);
+    ClientHandlerTuple(SchemaDescriptor schema, @Nullable BitSet noValueSet, BinaryTupleReader tuple, boolean keyOnly) {
+        super(tuple, tuple.elementCount(), noValueSet);
+
+        assert tuple.elementCount() == (keyOnly ? schema.keyColumns().length() : schema.length()) : "Tuple element count mismatch";
 
         this.schema = schema;
+        this.keyOnly = keyOnly;
     }
 
     /** {@inheritDoc} */
@@ -64,28 +68,56 @@ class ClientTuple extends MutableTupleBinaryTupleAdapter implements SchemaAware 
 
     /** {@inheritDoc} */
     @Override
-    protected String schemaColumnName(int internalIndex) {
-        return schema.column(internalIndex).name();
+    protected String schemaColumnName(int binaryTupleIndex) {
+        return schema.column(binaryTupleIndex).name();
     }
 
     /** {@inheritDoc} */
     @Override
-    protected int schemaColumnIndex(String columnName) {
+    protected int binaryTupleIndex(String columnName) {
         Column column = schema.column(columnName);
-        return column == null ? -1 : column.schemaIndex();
+
+        if (column == null) {
+            return -1;
+        }
+
+        if (keyOnly) {
+            return schema.keyIndex(column);
+        }
+
+        return column.schemaIndex();
     }
 
     /** {@inheritDoc} */
     @Override
-    protected ColumnType schemaColumnType(int columnIndex) {
-        NativeTypeSpec spec = schema.column(columnIndex).type().spec();
+    protected int binaryTupleIndex(int publicIndex) {
+        return keyOnly
+                ? schema.keyColumns().column(publicIndex).schemaIndex()
+                : super.binaryTupleIndex(publicIndex);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    protected int publicIndex(int binaryTupleIndex) {
+        if (keyOnly) {
+            var col = schema.keyColumns().column(binaryTupleIndex);
+            return schema.keyIndex(col);
+        }
+
+        return super.publicIndex(binaryTupleIndex);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    protected ColumnType schemaColumnType(int binaryTupleIndex) {
+        NativeTypeSpec spec = schema.column(binaryTupleIndex).type().spec();
 
         return ClientTableCommon.getColumnType(spec);
     }
 
     /** {@inheritDoc} */
     @Override
-    protected int schemaDecimalScale(int columnIndex) {
-        return ClientTableCommon.getDecimalScale(schema.column(columnIndex).type());
+    protected int schemaDecimalScale(int binaryTupleIndex) {
+        return ClientTableCommon.getDecimalScale(schema.column(binaryTupleIndex).type());
     }
 }

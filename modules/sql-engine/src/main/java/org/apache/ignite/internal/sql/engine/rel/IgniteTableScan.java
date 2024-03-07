@@ -34,6 +34,8 @@ import org.jetbrains.annotations.Nullable;
  * Relational operator that returns the contents of a table.
  */
 public class IgniteTableScan extends ProjectableFilterableTableScan implements SourceAwareIgniteRel {
+    private static final String REL_TYPE_NAME = "TableScan";
+
     private final long sourceId;
 
     /**
@@ -151,5 +153,10 @@ public class IgniteTableScan extends ProjectableFilterableTableScan implements S
     @Override
     public IgniteTableScan withHints(List<RelHint> hintList) {
         return new IgniteTableScan(sourceId, getCluster(), getTraitSet(), hintList, getTable(), projects, condition, requiredColumns);
+    }
+
+    /** {@inheritDoc} */
+    @Override public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 }

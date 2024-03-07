@@ -102,6 +102,10 @@ public class AssignmentsTracker {
                     groupAssignments.put(grpId, assignments);
                 }
             }
+        }).whenComplete((res, ex) -> {
+            if (ex != null) {
+                LOG.error("Cannot do recovery", ex);
+            }
         });
 
         LOG.info("Assignment cache initialized for placement driver [groupAssignments={}]", groupAssignments);

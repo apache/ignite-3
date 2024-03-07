@@ -40,7 +40,7 @@ public class ItCorrelatesTest extends BaseSqlIntegrationTest {
         sql("INSERT INTO test_tbl VALUES (1, 1)");
 
         assertQuery("SELECT " + DISABLED_JOIN_RULES + " t0.v, (SELECT t0.v + t1.v FROM test_tbl t1) AS j FROM test_tbl t0")
-                .matches(containsSubPlan("IgniteCorrelatedNestedLoopJoin"))
+                .matches(containsSubPlan("CorrelatedNestedLoopJoin"))
                 .returns(1, 2)
                 .check();
     }

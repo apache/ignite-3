@@ -20,6 +20,8 @@ package org.apache.ignite.internal.affinity;
 import static java.util.Collections.unmodifiableSet;
 
 import java.io.Serializable;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
@@ -37,19 +39,27 @@ public class Assignments implements Serializable {
     private static final long serialVersionUID = -59553172012153869L;
 
     /** Empty assignments. */
-    public static final Assignments EMPTY = new Assignments(Collections.emptySet());
+    public static final Assignments EMPTY = new Assignments(Collections.emptySet(), false);
 
     /** Set of nodes. */
     @IgniteToStringInclude
-    private final Set<Assignment> nodes;
+    private final HashSet<Assignment> nodes;
+
+    /**
+     * Force flag.
+     *
+     * @see #force()
+     */
+    private final boolean force;
 
     /**
      * Constructor.
-     *
-     * @param nodes Set of nodes.
      */
-    private Assignments(Set<Assignment> nodes) {
-        this.nodes = nodes;
+    private Assignments(Collection<Assignment> nodes, boolean force) {
+        // A set of nodes must be a HashSet in order for serialization to produce stable results,
+        // that could be compared as byte arrays.
+        this.nodes = nodes instanceof HashSet ? ((HashSet<Assignment>) nodes) : new HashSet<>(nodes);
+        this.force = force;
     }
 
     /**
@@ -58,7 +68,7 @@ public class Assignments implements Serializable {
      * @param nodes Set of nodes.
      */
     public static Assignments of(Set<Assignment> nodes) {
-        return new Assignments(new HashSet<>(nodes));
+        return new Assignments(nodes, false);
     }
 
     /**
@@ -67,7 +77,17 @@ public class Assignments implements Serializable {
      * @param nodes Array of nodes.
      */
     public static Assignments of(Assignment... nodes) {
-        return new Assignments(Set.of(nodes));
+        return new Assignments(Arrays.asList(nodes), false);
+    }
+
+    /**
+     * Creates a new instance with {@code force} flag set on.
+     *
+     * @param nodes Set of nodes.
+     * @see #force()
+     */
+    public static Assignments forced(Set<Assignment> nodes) {
+        return new Assignments(nodes, true);
     }
 
     /**
@@ -75,6 +95,15 @@ public class Assignments implements Serializable {
      */
     public Set<Assignment> nodes() {
         return unmodifiableSet(nodes);
+    }
+
+    /**
+     * Returns a force flag that indicates ignoring of current stable assignments. Force flag signifies that previous assignments for the
+     * group must be ignored, and new assignments must be accepted without questions. This flag should be used in disaster recovery
+     * situations when there's no way to recover the group using regular reassignment. For example, group majority is lost.
+     */
+    public boolean force() {
+        return force;
     }
 
     /**
@@ -90,7 +119,7 @@ public class Assignments implements Serializable {
      * @see #toBytes()
      */
     public static byte[] toBytes(Set<Assignment> assignments) {
-        return of(assignments).toBytes();
+        return new Assignments(assignments, false).toBytes();
     }
 
     /**

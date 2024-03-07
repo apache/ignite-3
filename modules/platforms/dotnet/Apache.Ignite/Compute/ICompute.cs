@@ -37,7 +37,7 @@ public interface ICompute
     /// <param name="args">Job arguments.</param>
     /// <typeparam name="T">Job result type.</typeparam>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-    Task<IJobExecution<T>> Submit<T>(
+    Task<IJobExecution<T>> SubmitAsync<T>(
         IEnumerable<IClusterNode> nodes,
         IEnumerable<DeploymentUnit> units,
         string jobClassName,
@@ -55,7 +55,7 @@ public interface ICompute
     /// <param name="args">Job arguments.</param>
     /// <typeparam name="T">Job result type.</typeparam>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-    Task<IJobExecution<T>> SubmitColocated<T>(
+    Task<IJobExecution<T>> SubmitColocatedAsync<T>(
         string tableName,
         IIgniteTuple key,
         IEnumerable<DeploymentUnit> units,
@@ -75,7 +75,7 @@ public interface ICompute
     /// <typeparam name="T">Job result type.</typeparam>
     /// <typeparam name="TKey">Key type.</typeparam>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-    Task<IJobExecution<T>> SubmitColocated<T, TKey>(
+    Task<IJobExecution<T>> SubmitColocatedAsync<T, TKey>(
         string tableName,
         TKey key,
         IEnumerable<DeploymentUnit> units,

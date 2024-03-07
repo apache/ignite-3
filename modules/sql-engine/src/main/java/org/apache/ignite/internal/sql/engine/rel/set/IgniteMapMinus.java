@@ -32,6 +32,8 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
  * Physical node for MAP phase of MINUS (EXCEPT) operator.
  */
 public class IgniteMapMinus extends IgniteMinus implements IgniteMapSetOp {
+    private static final String REL_TYPE_NAME = "MapMinus";
+
     /**
      * Constructor.
      *
@@ -88,5 +90,11 @@ public class IgniteMapMinus extends IgniteMinus implements IgniteMapSetOp {
     @Override
     public int aggregateFieldsCount() {
         return getInput(0).getRowType().getFieldCount() + COUNTER_FIELDS_CNT;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 }

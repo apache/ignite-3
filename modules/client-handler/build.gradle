@@ -81,6 +81,7 @@ dependencies {
     integrationTestImplementation libs.msgpack.core
     integrationTestImplementation libs.netty.handler
     integrationTestImplementation libs.jetbrains.annotations
+    integrationTestImplementation libs.bouncycastle.bcpkix.jdk18on;
 
     testFixturesImplementation project(':ignite-core')
     testFixturesImplementation project(':ignite-placement-driver-api')

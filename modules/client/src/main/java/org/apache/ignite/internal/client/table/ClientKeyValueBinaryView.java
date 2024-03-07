@@ -469,8 +469,8 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
     /** {@inheritDoc} */
     @Override
     protected Function<SqlRow, Entry<Tuple, Tuple>> queryMapper(ResultSetMetadata meta, ClientSchema schema) {
-        String[] keyCols = columnNames(schema.columns(), 0, schema.keyColumnCount());
-        String[] valCols = columnNames(schema.columns(), schema.keyColumnCount(), schema.columns().length);
+        String[] keyCols = columnNames(schema.keyColumns());
+        String[] valCols = columnNames(schema.valColumns());
 
         return (row) -> new IgniteBiTuple<>(new SqlRowProjection(row, meta, keyCols), new SqlRowProjection(row, meta, valCols));
     }
