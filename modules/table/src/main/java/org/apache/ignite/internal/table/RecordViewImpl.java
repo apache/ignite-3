@@ -100,7 +100,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
     /** {@inheritDoc} */
     @Override
     public R get(@Nullable Transaction tx, R keyRec) {
-        return sync(getAsync(tx, keyRec));
+        return sync(() -> getAsync(tx, keyRec));
     }
 
     /** {@inheritDoc} */
@@ -117,7 +117,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
 
     @Override
     public List<R> getAll(@Nullable Transaction tx, Collection<R> keyRecs) {
-        return sync(getAllAsync(tx, keyRecs));
+        return sync(() -> getAllAsync(tx, keyRecs));
     }
 
     @Override
@@ -133,7 +133,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
     /** {@inheritDoc} */
     @Override
     public boolean contains(@Nullable Transaction tx, R keyRec) {
-        return sync(containsAsync(tx, keyRec));
+        return sync(() -> containsAsync(tx, keyRec));
     }
 
     /** {@inheritDoc} */
@@ -151,7 +151,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
     /** {@inheritDoc} */
     @Override
     public void upsert(@Nullable Transaction tx, R rec) {
-        sync(upsertAsync(tx, rec));
+        sync(() -> upsertAsync(tx, rec));
     }
 
     /** {@inheritDoc} */
@@ -169,7 +169,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
     /** {@inheritDoc} */
     @Override
     public void upsertAll(@Nullable Transaction tx, Collection<R> recs) {
-        sync(upsertAllAsync(tx, recs));
+        sync(() -> upsertAllAsync(tx, recs));
     }
 
     /** {@inheritDoc} */
@@ -185,7 +185,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
     /** {@inheritDoc} */
     @Override
     public R getAndUpsert(@Nullable Transaction tx, R rec) {
-        return sync(getAndUpsertAsync(tx, rec));
+        return sync(() -> getAndUpsertAsync(tx, rec));
     }
 
     /** {@inheritDoc} */
@@ -203,7 +203,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
     /** {@inheritDoc} */
     @Override
     public boolean insert(@Nullable Transaction tx, R rec) {
-        return sync(insertAsync(tx, rec));
+        return sync(() -> insertAsync(tx, rec));
     }
 
     /** {@inheritDoc} */
@@ -221,7 +221,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
     /** {@inheritDoc} */
     @Override
     public List<R> insertAll(@Nullable Transaction tx, Collection<R> recs) {
-        return sync(insertAllAsync(tx, recs));
+        return sync(() -> insertAllAsync(tx, recs));
     }
 
     /** {@inheritDoc} */
@@ -239,13 +239,13 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
     /** {@inheritDoc} */
     @Override
     public boolean replace(@Nullable Transaction tx, R rec) {
-        return sync(replaceAsync(tx, rec));
+        return sync(() -> replaceAsync(tx, rec));
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean replace(@Nullable Transaction tx, R oldRec, R newRec) {
-        return sync(replaceAsync(tx, oldRec, newRec));
+        return sync(() -> replaceAsync(tx, oldRec, newRec));
     }
 
     /** {@inheritDoc} */
@@ -277,7 +277,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
     /** {@inheritDoc} */
     @Override
     public R getAndReplace(@Nullable Transaction tx, R rec) {
-        return sync(getAndReplaceAsync(tx, rec));
+        return sync(() -> getAndReplaceAsync(tx, rec));
     }
 
     /** {@inheritDoc} */
@@ -295,7 +295,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
     /** {@inheritDoc} */
     @Override
     public boolean delete(@Nullable Transaction tx, R keyRec) {
-        return sync(deleteAsync(tx, keyRec));
+        return sync(() -> deleteAsync(tx, keyRec));
     }
 
     /** {@inheritDoc} */
@@ -313,7 +313,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
     /** {@inheritDoc} */
     @Override
     public boolean deleteExact(@Nullable Transaction tx, R rec) {
-        return sync(deleteExactAsync(tx, rec));
+        return sync(() -> deleteExactAsync(tx, rec));
     }
 
     /** {@inheritDoc} */
@@ -331,7 +331,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
     /** {@inheritDoc} */
     @Override
     public R getAndDelete(@Nullable Transaction tx, R keyRec) {
-        return sync(getAndDeleteAsync(tx, keyRec));
+        return sync(() -> getAndDeleteAsync(tx, keyRec));
     }
 
     /** {@inheritDoc} */
@@ -349,7 +349,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
     /** {@inheritDoc} */
     @Override
     public List<R> deleteAll(@Nullable Transaction tx, Collection<R> keyRecs) {
-        return sync(deleteAllAsync(tx, keyRecs));
+        return sync(() -> deleteAllAsync(tx, keyRecs));
     }
 
     /** {@inheritDoc} */
@@ -367,7 +367,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
     /** {@inheritDoc} */
     @Override
     public List<R> deleteAllExact(@Nullable Transaction tx, Collection<R> recs) {
-        return sync(deleteAllExactAsync(tx, recs));
+        return sync(() -> deleteAllExactAsync(tx, recs));
     }
 
     /** {@inheritDoc} */

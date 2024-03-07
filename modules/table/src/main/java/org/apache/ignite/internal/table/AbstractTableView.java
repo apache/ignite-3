@@ -33,6 +33,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.schema.Column;
@@ -114,13 +115,13 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
      * @param <T> Future result type.
      * @return Future result.
      */
-    protected final <T> T sync(CompletableFuture<T> fut) {
+    protected final <T> T sync(Supplier<CompletableFuture<T>> fut) {
         // Enclose in 'internal call' to prevent resubmission to the async continuation pool on future completion
         // as such a resubmission is useless in the sync case and will just increase latency.
         PublicApiThreading.startInternalCall();
 
         try {
-            return fut.get();
+            return fut.get().get();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt(); // Restore interrupt flag.
 
@@ -251,7 +252,7 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
     /** {@inheritDoc} */
     @Override
     public Cursor<R> query(@Nullable Transaction tx, @Nullable Criteria criteria, @Nullable String indexName, CriteriaQueryOptions opts) {
-        return new CursorAdapter<>(sync(queryAsync(tx, criteria, indexName, opts)));
+        return new CursorAdapter<>(sync(() -> queryAsync(tx, criteria, indexName, opts)));
     }
 
     /** {@inheritDoc} */
