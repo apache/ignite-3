@@ -649,7 +649,14 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         var session = client().sql().sessionBuilder().build();
         session.execute(null, "CREATE TABLE " + tableName + " (key INT PRIMARY KEY, val INT)");
 
-        client().compute().executeColocated(tableName, Tuple.create().set("key", 1), List.of(), NodeNameJob.class.getName());
+        Mapper<TestPojo> mapper = Mapper.of(TestPojo.class);
+        TestPojo pojoKey = new TestPojo(1);
+        Tuple tupleKey = Tuple.create().set("key", pojoKey.key);
+
+        var tupleRes = client().compute().executeColocated(tableName, tupleKey, List.of(), NodeNameJob.class.getName());
+        var pojoRes = client().compute().executeColocated(tableName, pojoKey, mapper, List.of(), NodeNameJob.class.getName());
+
+        assertEquals(tupleRes, pojoRes);
     }
 
     private void testEchoArg(Object arg) {
