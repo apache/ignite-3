@@ -15,31 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.fileio;
+package org.apache.ignite.internal.thread;
 
-import static org.junit.jupiter.api.Assertions.assertThrows;
-
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import java.util.concurrent.ExecutorService;
 
 /**
- * For {@link AsyncFileIo} testing.
+ * An executor that has stripes: that is, sub-executors to which work may be submitted by index.
  */
-public class AsyncFileIoTest extends AbstractFileIoTest {
-    @BeforeEach
-    void setUp() {
-        fileIoFactory = new AsyncFileIoFactory();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    protected Class<? extends FileIo> fileIoClass() {
-        return AsyncFileIo.class;
-    }
-
-    @Test
-    @Override
-    void testMap() {
-        assertThrows(UnsupportedOperationException.class, super::testMap);
-    }
+public interface StripedExecutor extends ExecutorService {
+    /**
+     * Returns an executor by an index.
+     *
+     * @param idx Index of executor.
+     * @return Executor.
+     */
+    ExecutorService stripeExecutor(int idx);
 }

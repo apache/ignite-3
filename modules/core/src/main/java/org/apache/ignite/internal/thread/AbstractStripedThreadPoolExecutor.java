@@ -45,7 +45,7 @@ public abstract class AbstractStripedThreadPoolExecutor<E extends ExecutorServic
      *
      * @param execs Executors.
      */
-    AbstractStripedThreadPoolExecutor(E[] execs) {
+    public AbstractStripedThreadPoolExecutor(E[] execs) {
         this.execs = execs;
     }
 
@@ -58,13 +58,13 @@ public abstract class AbstractStripedThreadPoolExecutor<E extends ExecutorServic
      * @throws NullPointerException If command is null.
      */
     public void execute(Runnable task, int idx) {
-        commandExecutor(idx).execute(task);
+        stripeExecutor(idx).execute(task);
     }
 
     /** {@inheritDoc} */
     @Override
     public void execute(Runnable task) {
-        commandExecutor(random.nextInt(execs.length)).execute(task);
+        stripeExecutor(random.nextInt(execs.length)).execute(task);
     }
 
     /**
@@ -78,7 +78,7 @@ public abstract class AbstractStripedThreadPoolExecutor<E extends ExecutorServic
      * @throws NullPointerException If the task is {@code null}.
      */
     public CompletableFuture<?> submit(Runnable task, int idx) {
-        return CompletableFuture.runAsync(task, commandExecutor(idx));
+        return CompletableFuture.runAsync(task, stripeExecutor(idx));
     }
 
     /** {@inheritDoc} */
@@ -199,7 +199,7 @@ public abstract class AbstractStripedThreadPoolExecutor<E extends ExecutorServic
      * @param idx Index of executor.
      * @return Executor.
      */
-    public E commandExecutor(int idx) {
+    public E stripeExecutor(int idx) {
         return execs[threadId(idx)];
     }
 
@@ -210,6 +210,8 @@ public abstract class AbstractStripedThreadPoolExecutor<E extends ExecutorServic
      * @return Stripped thread ID.
      */
     private int threadId(int idx) {
+        assert idx >= 0 : "Index is negative: " + idx;
+
         return idx < execs.length ? idx : idx % execs.length;
     }
 }

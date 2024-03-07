@@ -46,6 +46,8 @@ import org.jetbrains.annotations.Nullable;
  * </ul>
  */
 public class IgniteKeyValueGet extends ProjectableFilterableTableScan implements IgniteRel {
+    private static final String REL_TYPE_NAME = "KeyValueGet";
+
     private final List<RexNode> keyExpressions;
 
     /**
@@ -99,6 +101,12 @@ public class IgniteKeyValueGet extends ProjectableFilterableTableScan implements
     protected RelWriter explainTerms0(RelWriter pw) {
         return super.explainTerms0(pw)
                 .item("key", keyExpressions);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 
     /**

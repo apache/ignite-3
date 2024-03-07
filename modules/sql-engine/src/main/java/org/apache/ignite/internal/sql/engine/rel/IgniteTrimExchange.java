@@ -39,6 +39,8 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class IgniteTrimExchange extends Exchange implements SourceAwareIgniteRel {
+    private static final String REL_TYPE_NAME = "TrimExchange";
+
     private final long sourceId;
 
     /**
@@ -134,5 +136,11 @@ public class IgniteTrimExchange extends Exchange implements SourceAwareIgniteRel
     @Override
     public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
         return new IgniteTrimExchange(sourceId, cluster, getTraitSet(), sole(inputs), getDistribution());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 }

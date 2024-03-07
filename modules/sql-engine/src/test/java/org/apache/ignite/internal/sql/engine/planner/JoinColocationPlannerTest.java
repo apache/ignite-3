@@ -17,14 +17,12 @@
 
 package org.apache.ignite.internal.sql.engine.planner;
 
-import static org.hamcrest.CoreMatchers.equalTo;
+import static org.apache.ignite.internal.sql.engine.trait.IgniteDistributions.single;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.hasSize;
 
-import java.util.List;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.util.ImmutableIntList;
@@ -32,7 +30,6 @@ import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteMergeJoin;
-import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSort;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
@@ -115,23 +112,19 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
                 + "from COMPLEX_TBL t1 "
                 + "join SIMPLE_TBL t2 on t1.id1 = t2.id and t1.id2 = t2.id2";
 
-        RelNode phys = physicalPlan(sql, schema, "NestedLoopJoinConverter", "CorrelatedNestedLoopJoin");
-
-        IgniteMergeJoin join = findFirstNode(phys, byClass(IgniteMergeJoin.class));
-
-        String invalidPlanMsg = "Invalid plan:\n" + RelOptUtil.toString(phys);
-
-        assertThat(invalidPlanMsg, join, notNullValue());
-        assertThat(invalidPlanMsg, join.distribution().function().affinity(), is(true));
-
-        List<IgniteExchange> exchanges = findNodes(phys, node -> node instanceof IgniteExchange
-                && ((IgniteRel) node).distribution().function().affinity());
-
-        assertThat(invalidPlanMsg, exchanges, hasSize(1));
-        assertThat(invalidPlanMsg, exchanges.get(0).getInput(0), instanceOf(IgniteSort.class));
-        assertThat(invalidPlanMsg, exchanges.get(0).getInput(0).getInput(0), instanceOf(IgniteTableScan.class));
-        assertThat(invalidPlanMsg, exchanges.get(0).getInput(0).getInput(0)
-                .getTable().unwrap(IgniteTable.class), equalTo(simpleTbl));
+        assertPlan(sql, schema, nodeOrAnyChild(isInstanceOf(IgniteMergeJoin.class)
+                .and(hasDistribution(complexTbl.distribution()))
+                .and(input(0, isInstanceOf(IgniteIndexScan.class)
+                        .and(scan -> complexTbl.equals(scan.getTable().unwrap(IgniteTable.class)))
+                ))
+                .and(input(1, isInstanceOf(IgniteSort.class)
+                        .and(input(isInstanceOf(IgniteExchange.class)
+                                .and(input(isInstanceOf(IgniteTableScan.class)
+                                        .and(scan -> simpleTbl.equals(scan.getTable().unwrap(IgniteTable.class)))
+                                ))
+                        ))
+                ))
+        ), "NestedLoopJoinConverter", "CorrelatedNestedLoopJoin");
     }
 
     /**
@@ -157,22 +150,19 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
                 + "from COMPLEX_TBL_DIRECT t1 "
                 + "join COMPLEX_TBL_INDIRECT t2 on t1.id1 = t2.id1 and t1.id2 = t2.id2";
 
-        RelNode phys = physicalPlan(sql, schema, "NestedLoopJoinConverter", "CorrelatedNestedLoopJoin");
-
-        IgniteMergeJoin join = findFirstNode(phys, byClass(IgniteMergeJoin.class));
-
-        String invalidPlanMsg = "Invalid plan:\n" + RelOptUtil.toString(phys);
-
-        assertThat(invalidPlanMsg, join, notNullValue());
-        assertThat(invalidPlanMsg, join.distribution().function().affinity(), is(true));
-
-        List<IgniteExchange> exchanges = findNodes(phys, node -> node instanceof IgniteExchange
-                && ((IgniteRel) node).distribution().function().affinity());
-
-        assertThat(invalidPlanMsg, exchanges, hasSize(1));
-        assertThat(invalidPlanMsg, exchanges.get(0).getInput(0), instanceOf(IgniteIndexScan.class));
-        assertThat(invalidPlanMsg, exchanges.get(0).getInput(0)
-                .getTable().unwrap(IgniteTable.class), equalTo(complexTblIndirect));
+        assertPlan(sql, schema, nodeOrAnyChild(isInstanceOf(IgniteMergeJoin.class)
+                .and(hasDistribution(single()))
+                .and(input(0, isInstanceOf(IgniteExchange.class)
+                        .and(input(isInstanceOf(IgniteIndexScan.class)
+                                .and(scan -> complexTblDirect.equals(scan.getTable().unwrap(IgniteTable.class)))
+                        ))
+                ))
+                .and(input(1, isInstanceOf(IgniteExchange.class)
+                        .and(input(isInstanceOf(IgniteIndexScan.class)
+                                .and(scan -> complexTblIndirect.equals(scan.getTable().unwrap(IgniteTable.class)))
+                        ))
+                ))
+        ), "NestedLoopJoinConverter", "CorrelatedNestedLoopJoin");
     }
 
     private static IgniteTable simpleTable(String tableName, int size) {
