@@ -50,7 +50,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
-import static org.apache.ignite.internal.table.distributed.index.IndexUtils.registerIndexesToTableOnNodeRecoveryOrRebalance;
+import static org.apache.ignite.internal.table.distributed.index.IndexUtils.registerIndexesToTable;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
@@ -1307,7 +1307,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             SchemaRegistry schemaRegistry = table.schemaView();
                             PartitionSet partitionSet = localPartsByTableId.get(tableId);
 
-                            registerIndexesToTableOnNodeRecoveryOrRebalance(table, catalogService, partitionSet, schemaRegistry);
+                            registerIndexesToTable(table, catalogService, partitionSet, schemaRegistry);
                         }
                         return startLocalPartitionsAndClients(assignmentsFuture, table, zoneDescriptor.id());
                     }
@@ -1812,7 +1812,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         int partitionId = replicaGrpId.partitionId();
 
         if (shouldStartLocalGroupNode) {
-            var singlePartitionIdSet = PartitionSet.of(partitionId);
+            PartitionSet singlePartitionIdSet = PartitionSet.of(partitionId);
 
             localServicesStartFuture = localPartitionsVv.get(revision)
                     // TODO https://issues.apache.org/jira/browse/IGNITE-20957 Revisit this code
@@ -1822,7 +1822,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     )
                     .thenComposeAsync(unused -> inBusyLock(busyLock, () -> {
                         if (!isRecovery) {
-                            registerIndexesToTableOnNodeRecoveryOrRebalance(tbl, catalogService, singlePartitionIdSet, tbl.schemaView());
+                            // We create index storages (and also register the necessary structures) for the rebalancing one partition
+                            // before launching the raft node, so that the updates that come when applying the replication log can safely
+                            // update the indexes. On recovery node, we do not need to call this code, since during restoration we raise
+                            // all partitions and already register indexes there.
+                            registerIndexesToTable(tbl, catalogService, singlePartitionIdSet, tbl.schemaView());
                         }
 
                         return startPartitionAndStartClient(

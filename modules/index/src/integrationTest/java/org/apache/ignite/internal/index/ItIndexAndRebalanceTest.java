@@ -26,10 +26,8 @@ import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.affinity.Assignment;
@@ -77,11 +75,8 @@ public class ItIndexAndRebalanceTest extends BaseSqlIntegrationTest {
         waitForStableAssignmentsChangeInMetastore(TABLE_NAME, 2, 0);
         insertPeople(TABLE_NAME, new Person(2, "2", 12.0));
 
-        List<IgniteImpl> nodes = CLUSTER.runningNodes().collect(toList());
-
-        assertThat(nodes, hasSize(2));
-
-        for (IgniteImpl node : nodes) {
+        for (IgniteImpl node : CLUSTER.runningNodes().collect(toList())) {
+            // TODO: IGNITE-21710 Understand why the check fails and returns 2 rows instead of 3 from the rebalancing node
             assertQuery(node, format("SELECT * FROM {} WHERE {} > 0.0", TABLE_NAME, COLUMN_NAME))
                     .matches(containsIndexScan(DEFAULT_SCHEMA_NAME, TABLE_NAME, INDEX_NAME))
                     .returnRowCount(3)

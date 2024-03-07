@@ -71,14 +71,21 @@ public class IndexUtils {
     }
 
     /**
-     * Registers indexes to a table on node recovery or rebalance.
+     * Registers all indexes that were created in the catalog for the table into the table for all partitions from {@code partitionSet}.
+     *
+     * <p>Under the hood, index storages and structures are created to work with them in other components.</p>
+     *
+     * <p>It is recommended to call the method when updating the catalog in parallel cannot occur.</p>
+     *
+     * <p>This method can be used both during node recovery and rebalancing to ensure that indexes are available before they are
+     * accessed.</p>
      *
      * @param table Table into which the index will be registered.
      * @param catalogService Catalog service.
      * @param partitionSet Partitions for which index storages will need to be created if they are missing.
      * @param schemaRegistry Table schema register.
      */
-    public static void registerIndexesToTableOnNodeRecoveryOrRebalance(
+    public static void registerIndexesToTable(
             TableViewInternal table,
             CatalogService catalogService,
             PartitionSet partitionSet,
