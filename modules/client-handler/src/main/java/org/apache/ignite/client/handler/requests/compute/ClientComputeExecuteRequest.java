@@ -105,10 +105,6 @@ public class ClientComputeExecuteRequest {
                         }, err)));
     }
 
-    static void sendResultAndStatus(CompletableFuture<JobExecution<Object>> executionFut, NotificationSender notificationSender) {
-        executionFut.thenCompose(execution -> sendResultAndStatus(execution, notificationSender));
-    }
-
     /**
      * Unpacks args.
      *

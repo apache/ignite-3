@@ -79,6 +79,17 @@ public interface IgniteComputeInternal extends IgniteCompute {
             Object[] args);
 
     /**
+     * Wraps the given future into a job execution object.
+     *
+     * @param fut Future to wrap.
+     * @return Job execution object.
+     * @param <R> Job result type.
+     */
+    default <R> JobExecution<R> wrapJobExecutionFuture(CompletableFuture<JobExecution<R>> fut) {
+        return new JobExecutionFutureWrapper<>(fut);
+    }
+
+    /**
      * Retrieves the current status of all jobs on all nodes in the cluster.
      *
      * @return The collection of job statuses.

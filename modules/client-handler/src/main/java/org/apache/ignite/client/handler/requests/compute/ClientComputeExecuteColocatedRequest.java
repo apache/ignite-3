@@ -72,10 +72,12 @@ public class ClientComputeExecuteColocatedRequest {
                     options,
                     args);
 
-            sendResultAndStatus(jobExecutionFut, notificationSender);
+            var jobExecution = compute.wrapJobExecutionFuture(jobExecutionFut);
+
+            sendResultAndStatus(jobExecution, notificationSender);
 
             // noinspection DataFlowIssue
-            return jobExecutionFut.thenCompose(JobExecution::idAsync).thenAccept(out::packUuid);
+            return jobExecution.idAsync().thenAccept(out::packUuid);
         }));
     }
 }
