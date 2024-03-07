@@ -289,7 +289,6 @@ public class TableImpl implements TableViewInternal {
     public void unregisterIndex(int indexId) {
         indexWrapperById.remove(indexId);
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-21576 Also need to destroy the index storages
-        // tbl.storage().destroyIndex(indexId);
+        tbl.storage().destroyIndex(indexId);
     }
 }
