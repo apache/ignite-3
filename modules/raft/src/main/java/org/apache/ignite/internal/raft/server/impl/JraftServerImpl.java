@@ -39,6 +39,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
+import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -579,6 +580,10 @@ public class JraftServerImpl implements RaftServer {
         List<PeerId> learnerIds = peersAndLearners.learners().stream().map(PeerId::fromPeer).collect(toList());
 
         raftGroupService.getRaftNode().resetPeers(new Configuration(peerIds, learnerIds));
+    }
+
+    public void forEach(BiConsumer<RaftNodeId, RaftGroupService> consumer) {
+        nodes.forEach(consumer);
     }
 
     /** {@inheritDoc} */

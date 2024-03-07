@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.distributionzones.disaster;
+package org.apache.ignite.internal.table.distributed.disaster;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.stream.Collectors.toSet;

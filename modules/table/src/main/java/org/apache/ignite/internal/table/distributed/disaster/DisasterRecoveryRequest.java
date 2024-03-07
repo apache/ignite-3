@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.distributionzones.disaster;
+package org.apache.ignite.internal.table.distributed.disaster;
 
 import java.io.Serializable;
 import java.util.UUID;

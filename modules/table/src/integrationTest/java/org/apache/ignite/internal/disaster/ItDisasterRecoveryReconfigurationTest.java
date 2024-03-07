@@ -30,6 +30,7 @@ import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -40,9 +41,11 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.affinity.RendezvousAffinityFunction;
@@ -56,6 +59,7 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.table.distributed.disaster.messages.LocalPartitionState;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.KeyValueView;
@@ -67,7 +71,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
 /**
- * Tests for scenarios where pajority of peers is not available.
+ * Tests for scenarios where majority of peers is not available.
  */
 public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegrationTest {
     /** Scale-down timeout. */
@@ -136,12 +140,16 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         awaitPrimaryReplica(node0, partId);
 
+        assertEquals(List.of(0, 1, 4), getRealAssignments(node0, partId));
+
         List<Throwable> errors = insertValues(table, partId, 0);
         assertThat(errors, is(empty()));
 
         stopNodesInParallel(1, 4);
 
         waitForScale(node0, 3);
+
+        assertEquals(List.of(0, 2, 3), getRealAssignments(node0, partId));
 
         // Set time in the future to protect us from "getAsync" from the past.
         // Should be replaced with "sleep" when clock skew validation is implemented.
@@ -179,41 +187,50 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         awaitPrimaryReplica(node0, partId);
 
+        assertEquals(List.of(0, 3, 4), getRealAssignments(node0, partId));
+
         stopNodesInParallel(3, 4);
 
         waitForScale(node0, 3);
 
-        CompletableFuture<?> updateFuture = node0.distributionZoneManager().resetPartitions(zoneId, tableId);
+        CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetPartitions(zoneId, tableId);
         assertThat(updateFuture, willCompleteSuccessfully());
 
         awaitPrimaryReplica(node0, partId);
+
+        assertEquals(List.of(0, 1, 2), getRealAssignments(node0, partId));
 
         List<Throwable> errors = insertValues(table, partId, 0);
         assertThat(errors, is(empty()));
     }
 
+    // TODO this piece of crap fails for some reason :(
     /**
      * Tests a scenario where there's a single partition on a node 1, and the node that hosts it is lost. Reconfiguration of the zone should
      * create new raft group on the remaining node, without any data.
      */
     @Test
-    @ZoneParams(nodes = 2, replicas = 1, partitions = 3)
+    @ZoneParams(nodes = 2, replicas = 1, partitions = 1)
     void testManualRebalanceIfPartitionIsLost() throws Exception {
-        int partId = 2;
+        int partId = 0;
 
         IgniteImpl node0 = cluster.node(0);
         Table table = node0.tables().table(TABLE_NAME);
 
         awaitPrimaryReplica(node0, partId);
 
+        assertEquals(List.of(1), getRealAssignments(node0, partId));
+
         stopNodesInParallel(1);
 
         waitForScale(node0, 1);
 
-        CompletableFuture<?> updateFuture = node0.distributionZoneManager().resetPartitions(zoneId, tableId);
+        CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetPartitions(zoneId, tableId);
         assertThat(updateFuture, willCompleteSuccessfully());
 
         awaitPrimaryReplica(node0, partId);
+
+        assertEquals(List.of(0), getRealAssignments(node0, partId));
 
         List<Throwable> errors = insertValues(table, partId, 0);
         assertThat(errors, is(empty()));
@@ -297,19 +314,29 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
             CompletableFuture<Set<String>> dataNodes = dzManager.dataNodes(causalityToken, catalogVersion, zoneId);
 
             try {
-                Set<String> nodes = dataNodes.get(10, SECONDS);
-                boolean res = nodes.size() == targetDataNodesCount;
-                System.out.println("<%> Exiting by getting real dataNodes: " + nodes);
-                return res;
+                return dataNodes.get(10, SECONDS).size() == targetDataNodesCount;
             } catch (Exception e) {
-                System.out.println("<%> Exiting by exception " + e);
                 return false;
             }
         }, 250, SECONDS.toMillis(60)));
     }
 
+    private List<Integer> getRealAssignments(IgniteImpl node0, int partId) {
+        var partitionStatesFut = node0.disasterRecoveryManager().partitionStates(zoneName);
+        assertThat(partitionStatesFut, willCompleteSuccessfully());
+
+        Map<String, LocalPartitionState> partitionStates = partitionStatesFut.join().get(new TablePartitionId(tableId, partId));
+
+        return partitionStates.keySet()
+                .stream()
+                .map(cluster::nodeIndex)
+                .sorted()
+                .collect(Collectors.toList());
+    }
+
     @Retention(RetentionPolicy.RUNTIME)
     @interface ZoneParams {
+
         int replicas();
 
         int partitions();

@@ -27,6 +27,10 @@ import org.apache.ignite.internal.table.distributed.command.TimedBinaryRowMessag
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.command.WriteIntentSwitchCommand;
+import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager;
+import org.apache.ignite.internal.table.distributed.disaster.messages.LocalPartitionState;
+import org.apache.ignite.internal.table.distributed.disaster.messages.LocalPartitionStatesRequest;
+import org.apache.ignite.internal.table.distributed.disaster.messages.LocalPartitionStatesResponse;
 import org.apache.ignite.internal.table.distributed.message.HasDataRequest;
 import org.apache.ignite.internal.table.distributed.message.HasDataResponse;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMetaRequest;
@@ -207,5 +211,19 @@ public interface TableMessageGroup {
         /** Message type for {@link TablePartitionIdMessage}. */
         short TABLE_PARTITION_ID = 61;
 
+    }
+
+    /**
+     * Messages for {@link DisasterRecoveryManager}.
+     */
+    interface DisasterRecoveryMessages {
+        /** Message type for {@link LocalPartitionState}. */
+        short LOCAL_PARTITION_STATE = 100;
+
+        /** Message type for {@link LocalPartitionStatesRequest}. */
+        short LOCAL_PARTITION_STATE_REQUEST = 101;
+
+        /** Message type for {@link LocalPartitionStatesResponse}. */
+        short LOCAL_PARTITION_STATE_RESPONSE = 102;
     }
 }

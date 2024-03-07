@@ -317,4 +317,11 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
      * @return node's current term.
      */
     long getCurrentTerm();
+
+    boolean isInstallingSnapshot();
+
+    // TODO Read diskId, not last log index, because it would makes more practical sense.
+    long lastLogIndex();
+
+    long lastAppliedIndex();
 }
