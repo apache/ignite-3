@@ -66,6 +66,12 @@ public class PartitionPruningColumns implements Serializable {
         return columns;
     }
 
+    /** Returns {@code true} if this columns contain correlated variables. */
+    public boolean containCorrelatedVariables() {
+        return columns.stream()
+                .anyMatch(c -> c.values().stream().anyMatch(PartitionPruningMetadataExtractor::isCorrelatedVariable));
+    }
+
     /** {@inheritDoc} */
     @Override
     public String toString() {

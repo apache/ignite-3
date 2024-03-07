@@ -470,7 +470,7 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
         return node instanceof RexLiteral || node instanceof RexDynamicParam || isCorrelatedVariable(node);
     }
 
-    private static boolean isCorrelatedVariable(RexNode node) {
+    static boolean isCorrelatedVariable(RexNode node) {
         // Correlated variables a referenced via field access expressions
         //
         // SELECT * FROM t1 as cor WHERE EXISTS (SELECT 1 FROM t2 WHERE t2.c1 = cor.c1)

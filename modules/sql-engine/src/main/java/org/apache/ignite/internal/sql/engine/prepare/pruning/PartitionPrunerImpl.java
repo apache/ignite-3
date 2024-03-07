@@ -71,9 +71,13 @@ public class PartitionPrunerImpl implements PartitionPruner {
                 continue;
             }
 
-            // Do not update colocation groups, in case of correlated fragment,
-            // because partitions for such fragments can be removed only at runtime.
-            if (fragment.correlated()) {
+            // Do not update colocation groups, in case when predicates include correlated variables,
+            // because partitions for such case can be removed only at runtime.
+            boolean containCorrelatedVariables = pruningMetadata.data().values()
+                    .stream()
+                    .anyMatch(PartitionPruningColumns::containCorrelatedVariables);
+
+            if (containCorrelatedVariables) {
                 updatedFragments.add(mappedFragment.withPartitionPruningMetadata(pruningMetadata));
                 continue;
             }
