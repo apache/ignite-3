@@ -648,7 +648,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         var session = client().sql().sessionBuilder().build();
         session.execute(null, "CREATE TABLE \"TBL ABC\" (key INT PRIMARY KEY, val INT)");
 
-        var tableName = "TBL ABC";
+        var tableName = "\"TBL ABC\"";
         client().compute().executeColocated(tableName, Tuple.create().set("key", 1), List.of(), NodeNameJob.class.getName());
     }
 
