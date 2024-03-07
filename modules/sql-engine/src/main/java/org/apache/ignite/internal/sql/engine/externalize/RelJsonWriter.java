@@ -69,7 +69,7 @@ public class RelJsonWriter implements RelWriter {
     }
 
     /** Converts the given {@link RexNode} to json. */
-    public static byte[] toExprJson(RexNode node) {
+    public static String toExprJson(RexNode node) {
         ObjectMapper mapper = new ObjectMapper();
 
         try {
@@ -77,7 +77,7 @@ public class RelJsonWriter implements RelWriter {
 
             Object map = relJson.toJson(node);
 
-            return mapper.writeValueAsBytes(map);
+            return mapper.writeValueAsString(map);
         } catch (JsonProcessingException e) {
             throw new IgniteInternalException(INTERNAL_ERR, "RelJson expression serialization error", e);
         }

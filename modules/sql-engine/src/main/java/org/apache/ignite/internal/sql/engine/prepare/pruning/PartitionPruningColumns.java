@@ -110,11 +110,10 @@ public class PartitionPruningColumns implements Serializable {
                     output.writeInt(columnMap.size());
 
                     for (Int2ObjectMap.Entry<RexNode> columnValue : columnMap.int2ObjectEntrySet()) {
-                        byte[] exprJson = RelJsonWriter.toExprJson(columnValue.getValue());
+                        String exprJson = RelJsonWriter.toExprJson(columnValue.getValue());
 
                         output.writeInt(columnValue.getIntKey());
-                        output.writeInt(exprJson.length);
-                        output.write(exprJson);
+                        output.writeUTF(exprJson);
                     }
                 }
 
@@ -150,16 +149,9 @@ public class PartitionPruningColumns implements Serializable {
 
         for (int i = 0; i < numColumns; i++) {
             int key = input.readInt();
+            String exprJson = input.readUTF();
 
-            int rexNodeJsonLength = input.readInt();
-            assert rexNodeJsonLength > 0 : "Invalid rex json length: " + rexNodeJsonLength;
-
-            byte[] exprBytes = new byte[rexNodeJsonLength];
-
-            int r = input.read(exprBytes);
-            assert r == rexNodeJsonLength : format("Not enough data for expression. Expected {} but got {}", rexNodeJsonLength, r);
-
-            RexNode rexNode = RelJsonReader.fromExprJson(exprBytes);
+            RexNode rexNode = RelJsonReader.fromExprJson(exprJson);
             expr.put(key, rexNode);
         }
 

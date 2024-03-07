@@ -87,7 +87,7 @@ public class RelJsonReader {
     }
 
     /** Creates a {@link RexNode} from the given json. */
-    public static RexNode fromExprJson(byte[] json) {
+    public static RexNode fromExprJson(String json) {
         try {
             RelJsonReader reader = new RelJsonReader(null);
 
