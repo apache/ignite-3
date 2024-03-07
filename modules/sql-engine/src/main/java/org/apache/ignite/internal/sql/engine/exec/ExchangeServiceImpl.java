@@ -53,25 +53,21 @@ public class ExchangeServiceImpl implements ExchangeService {
     private final MailboxRegistry mailboxRegistry;
     private final MessageService messageService;
     private final HybridClock clock;
-    private final String localNodeName;
 
     /**
      * Creates the object.
      *
      * @param mailboxRegistry A registry of mailboxes created on the node.
      * @param messageService A messaging service to exchange messages between mailboxes.
-     * @param localNodeName Local node name.
      * @param clock Hybrid clock.
      */
     public ExchangeServiceImpl(
             MailboxRegistry mailboxRegistry,
             MessageService messageService,
-            String localNodeName,
             HybridClock clock
     ) {
         this.mailboxRegistry = mailboxRegistry;
         this.messageService = messageService;
-        this.localNodeName = localNodeName;
         this.clock = clock;
     }
 
@@ -172,11 +168,6 @@ public class ExchangeServiceImpl implements ExchangeService {
     }
 
     private void onMessage(String nodeName, QueryBatchMessage msg) {
-        // TODO https://issues.apache.org/jira/browse/IGNITE-21709
-        if (!nodeName.equals(localNodeName)) {
-            clock.update(msg.timestamp());
-        }
-
         Inbox<?> inbox = mailboxRegistry.inbox(msg.queryId(), msg.exchangeId());
 
         if (inbox != null) {

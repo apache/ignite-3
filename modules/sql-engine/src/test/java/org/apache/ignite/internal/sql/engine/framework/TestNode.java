@@ -117,11 +117,13 @@ public class TestNode implements LifecycleAware {
 
         holdLock = new IgniteSpinBusyLock();
 
+        HybridClockImpl clock = new HybridClockImpl();
+
         messageService = registerService(new MessageServiceImpl(
-                nodeName, messagingService, taskExecutor, holdLock
+                nodeName, messagingService, taskExecutor, holdLock, clock
         ));
         ExchangeService exchangeService = registerService(new ExchangeServiceImpl(
-                mailboxRegistry, messageService, nodeName, new HybridClockImpl()
+                mailboxRegistry, messageService, clock
         ));
         ExecutionDependencyResolver dependencyResolver = new ExecutionDependencyResolverImpl(
                 tableRegistry, view -> () -> systemViewManager.scanView(view.name())
@@ -139,6 +141,7 @@ public class TestNode implements LifecycleAware {
                 mappingService,
                 tableRegistry,
                 dependencyResolver,
+                clock,
                 0
         ));
 

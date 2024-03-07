@@ -80,6 +80,7 @@ import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.NodeLeftException;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
@@ -844,7 +845,8 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
             assertEquals(expectedPhysTimes[i], clocks.get(i).now().getPhysical(), "node#" + i);
         }
 
-        assertEquals(clocks.size() - 1, updatesCounter.get());
+        // TODO top-to-bottom propagation check
+        assertEquals((clocks.size() - 1) * 2, updatesCounter.get());
 
         await(cursor.closeAsync());
     }
@@ -866,10 +868,9 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         var mailboxRegistry = new CapturingMailboxRegistry(new MailboxRegistryImpl());
         mailboxes.add(mailboxRegistry);
 
-        HybridClockImpl clock = new HybridClockImpl();
-        clocks.add(clock);
+        clocks.add(node.clock);
 
-        var exchangeService = new ExchangeServiceImpl(mailboxRegistry, messageService, nodeName, clock);
+        var exchangeService = new ExchangeServiceImpl(mailboxRegistry, messageService, node.clock);
 
         var schemaManagerMock = mock(SqlSchemaManager.class);
 
@@ -931,6 +932,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 executableTableRegistry,
                 dependencyResolver,
                 (ctx, deps) -> node.implementor(ctx, mailboxRegistry, exchangeService, deps),
+                node.clock,
                 SHUTDOWN_TIMEOUT
         );
 
@@ -1021,6 +1023,8 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
             private final QueryTaskExecutor taskExecutor;
             private final String nodeName;
+
+            private final HybridClockImpl clock = new HybridClockImpl();
 
             private boolean scanPaused = false;
 
@@ -1129,6 +1133,10 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
             private CompletableFuture<Void> onReceive(String senderNodeName, NetworkMessage message) {
                 MessageListener original = (nodeName, msg) -> {
+                    if (msg instanceof TimestampAware && !nodeName.equals(this.nodeName)) {
+                        clock.update(((TimestampAware) msg).timestamp());
+                    }
+
                     MessageListener listener = msgListeners.get(msg.messageType());
 
                     if (listener == null) {
