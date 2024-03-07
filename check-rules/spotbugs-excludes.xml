@@ -266,11 +266,6 @@
     </Or>
   </Match>
   <Match>
-    <!-- TODO: https://issues.apache.org/jira/browse/IGNITE-21700 -->
-    <Bug pattern="RV_RETURN_VALUE_IGNORED_NO_SIDE_EFFECT"/>
-    <Source name="IgniteSort.java"/>
-  </Match>
-  <Match>
     <!-- TODO: https://issues.apache.org/jira/browse/IGNITE-21701 -->
     <Bug pattern="EC_UNRELATED_TYPES_USING_POINTER_EQUALITY"/>
     <Class name="org.apache.ignite.internal.sql.engine.rel.IgniteSender"/>
