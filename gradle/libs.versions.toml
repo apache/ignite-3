@@ -259,5 +259,3 @@ awaitility = { module = "org.awaitility:awaitility", version.ref = "awaitility" 
 progressBar = { module = "me.tongfei:progressbar", version.ref = "progressBar" }
 
 jna = { module = "net.java.dev.jna:jna", version.ref = "jna"}
-
-spotbugs-plugins-secbugs = "com.h3xstream.findsecbugs:findsecbugs-plugin:1.12.0"
