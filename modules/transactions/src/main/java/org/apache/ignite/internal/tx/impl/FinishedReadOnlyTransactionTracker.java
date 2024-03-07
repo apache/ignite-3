@@ -100,7 +100,9 @@ public class FinishedReadOnlyTransactionTracker {
         return messagingService.send(node, message);
     }
 
-    public void onTransactionFinished(UUID id) {
+    void onTransactionFinished(UUID id) {
         finishedTransactions.add(id);
+
+        transactionInflights.markReadOnlyTxFinished(id);
     }
 }

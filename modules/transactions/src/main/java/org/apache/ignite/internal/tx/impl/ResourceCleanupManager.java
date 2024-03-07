@@ -126,7 +126,12 @@ public class ResourceCleanupManager implements IgniteComponent {
         shutdownAndAwaitTermination(resourceCleanupExecutor, 10, TimeUnit.SECONDS);
     }
 
-    public void onTransactionFinished(UUID id) {
+    /**
+     * Is called on the finish of read only transaction.
+     *
+     * @param id Transaction id.
+     */
+    void onReadOnlyTransactionFinished(UUID id) {
         finishedReadOnlyTransactionTracker.onTransactionFinished(id);
     }
 

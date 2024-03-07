@@ -180,8 +180,8 @@ public class TransactionInflights {
         abstract boolean isReadyToFinish();
     }
 
-    static class ReadOnlyTxContext extends TxContext {
-        volatile boolean markedFinished;
+    private static class ReadOnlyTxContext extends TxContext {
+        private volatile boolean markedFinished;
 
         @Override
         public void onRemovedInflights() {
@@ -212,8 +212,8 @@ public class TransactionInflights {
     static class ReadWriteTxContext extends TxContext {
         private final CompletableFuture<Void> waitRepFut = new CompletableFuture<>();
         private final PlacementDriver placementDriver;
-        volatile CompletableFuture<Void> finishInProgressFuture = null;
-        volatile Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups;
+        private volatile CompletableFuture<Void> finishInProgressFuture = null;
+        private volatile Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups;
 
         private ReadWriteTxContext(PlacementDriver placementDriver) {
             this.placementDriver = placementDriver;

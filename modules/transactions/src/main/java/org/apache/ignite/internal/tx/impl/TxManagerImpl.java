@@ -399,7 +399,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             );
         }
 
-        return new ReadOnlyTransactionImpl(this, timestampTracker, txId, localNodeId, readTimestamp, resourceCleanupManager);
+        return new ReadOnlyTransactionImpl(this, timestampTracker, txId, localNodeId, readTimestamp);
     }
 
     /**
@@ -786,7 +786,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         readOnlyTxFuture.complete(null);
 
-        transactionInflights.markReadOnlyTxFinished(txIdAndTimestamp.getTxId());
+        UUID txId = txIdAndTimestamp.getTxId();
+
+        resourceCleanupManager.onReadOnlyTransactionFinished(txId);
 
         return readOnlyTxFuture;
     }

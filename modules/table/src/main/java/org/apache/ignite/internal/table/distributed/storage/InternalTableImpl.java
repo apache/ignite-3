@@ -1479,9 +1479,7 @@ public class InternalTableImpl implements InternalTable {
                 },
                 // TODO: IGNITE-17666 Close cursor tx finish.
                 (intentionallyClose, fut) -> completeScan(txId, tablePartitionId, fut, recipientNode, intentionallyClose),
-                transactionInflights,
-                true,
-                txId
+                new ReadOnlyInflightBatchRequestTracker(transactionInflights, txId)
         );
     }
 
@@ -1543,9 +1541,7 @@ public class InternalTableImpl implements InternalTable {
 
                     return postEnlist(opFut, intentionallyClose, actualTx, implicit && !intentionallyClose);
                 },
-                transactionInflights,
-                false,
-                actualTx.id()
+                new ReadWriteInflightBatchRequestTracker()
         );
     }
 
@@ -1588,9 +1584,7 @@ public class InternalTableImpl implements InternalTable {
                 },
                 // TODO: IGNITE-17666 Close cursor tx finish.
                 (intentionallyClose, fut) -> completeScan(txId, tablePartitionId, fut, recipient.node(), intentionallyClose),
-                transactionInflights,
-                false,
-                txId
+                new ReadWriteInflightBatchRequestTracker()
         );
     }
 
@@ -1820,11 +1814,7 @@ public class InternalTableImpl implements InternalTable {
         /** True when the publisher has a subscriber, false otherwise. */
         private final AtomicBoolean subscribed;
 
-        private final TransactionInflights transactionInflights;
-
-        private boolean readOnlyTransaction;
-
-        private UUID txId;
+        private final InflightBatchRequestTracker inflightBatchRequestTracker;
 
         /**
          * The constructor.
@@ -1832,19 +1822,16 @@ public class InternalTableImpl implements InternalTable {
          * @param retrieveBatch Closure that gets a new batch from the remote replica.
          * @param onClose The closure will be applied when {@link Subscription#cancel} is invoked directly or the cursor is
          *         finished.
+         * @param inflightBatchRequestTracker {@link InflightBatchRequestTracker} to track betch requests completion.
          */
         PartitionScanPublisher(
                 BiFunction<Long, Integer, CompletableFuture<Collection<BinaryRow>>> retrieveBatch,
                 BiFunction<Boolean, CompletableFuture<Long>, CompletableFuture<Void>> onClose,
-                TransactionInflights transactionInflights,
-                boolean readOnlyTransaction,
-                UUID txId
+                InflightBatchRequestTracker inflightBatchRequestTracker
         ) {
             this.retrieveBatch = retrieveBatch;
             this.onClose = onClose;
-            this.transactionInflights = transactionInflights;
-            this.readOnlyTransaction = readOnlyTransaction;
-            this.txId = txId;
+            this.inflightBatchRequestTracker = inflightBatchRequestTracker;
 
             this.subscribed = new AtomicBoolean(false);
         }
@@ -1860,7 +1847,7 @@ public class InternalTableImpl implements InternalTable {
                 subscriber.onError(new IllegalStateException("Scan publisher does not support multiple subscriptions."));
             }
 
-            subscriber.onSubscribe(new PartitionScanSubscription(subscriber, transactionInflights, readOnlyTransaction, txId));
+            subscriber.onSubscribe(new PartitionScanSubscription(subscriber));
         }
 
         /**
@@ -1878,12 +1865,6 @@ public class InternalTableImpl implements InternalTable {
 
             private final AtomicLong requestedItemsCnt;
 
-            private final TransactionInflights transactionInflights;
-
-            private boolean readOnlyTransaction;
-
-            private UUID txId;
-
             private static final int INTERNAL_BATCH_SIZE = 10_000;
 
             /**
@@ -1892,19 +1873,11 @@ public class InternalTableImpl implements InternalTable {
              *
              * @param subscriber The subscriber.
              */
-            private PartitionScanSubscription(
-                    Subscriber<? super BinaryRow> subscriber,
-                    TransactionInflights transactionInflights,
-                    boolean readOnlyTransaction,
-                    UUID txId
-            ) {
+            private PartitionScanSubscription(Subscriber<? super BinaryRow> subscriber) {
                 this.subscriber = subscriber;
                 this.canceled = new AtomicBoolean(false);
                 this.scanId = CURSOR_ID_GENERATOR.getAndIncrement();
                 this.requestedItemsCnt = new AtomicLong(0);
-                this.transactionInflights = transactionInflights;
-                this.readOnlyTransaction = readOnlyTransaction;
-                this.txId = txId;
             }
 
             /** {@inheritDoc} */
@@ -1971,22 +1944,13 @@ public class InternalTableImpl implements InternalTable {
                     return;
                 }
 
-                // Track read only requests which are able to create cursors.
-                if (readOnlyTransaction && !transactionInflights.addInflight(txId, true)) {
-                    throw new TransactionException(TX_ALREADY_FINISHED_ERR, format(
-                            "Transaction is already finished () [txId={}, readOnly={}].",
-                            txId,
-                            readOnlyTransaction
-                    ));
-                }
+                inflightBatchRequestTracker.onRequestBegin();
 
                 retrieveBatch.apply(scanId, n).thenAccept(binaryRows -> {
                     assert binaryRows != null;
                     assert binaryRows.size() <= n : "Rows more then requested " + binaryRows.size() + " " + n;
 
-                    if (readOnlyTransaction) {
-                        transactionInflights.removeInflight(txId);
-                    }
+                    inflightBatchRequestTracker.onRequestEnd();
 
                     binaryRows.forEach(subscriber::onNext);
 
@@ -2000,15 +1964,65 @@ public class InternalTableImpl implements InternalTable {
                         }
                     }
                 }).exceptionally(t -> {
-                    if (readOnlyTransaction) {
-                        transactionInflights.removeInflight(txId);
-                    }
+                    inflightBatchRequestTracker.onRequestEnd();
 
                     cancel(t, false);
 
                     return null;
                 });
             }
+        }
+    }
+
+    /**
+     * Created for {@code PartitionScanSubscription} to track inflight batch requests.
+     */
+    private interface InflightBatchRequestTracker {
+        void onRequestBegin();
+
+        void onRequestEnd();
+    }
+
+    /**
+     * This is, in fact, no-op {@code InflightBatchRequestTracker} because tracking batch requests for read-write transactions is not
+     * needed.
+     */
+    private static class ReadWriteInflightBatchRequestTracker implements InflightBatchRequestTracker {
+        @Override
+        public void onRequestBegin() {
+            // No-op.
+        }
+
+        @Override
+        public void onRequestEnd() {
+            // No-op.
+        }
+    }
+
+    private static class ReadOnlyInflightBatchRequestTracker implements InflightBatchRequestTracker {
+        private final TransactionInflights transactionInflights;
+
+        private final UUID txId;
+
+        ReadOnlyInflightBatchRequestTracker(TransactionInflights transactionInflights, UUID txId) {
+            this.transactionInflights = transactionInflights;
+            this.txId = txId;
+        }
+
+        @Override
+        public void onRequestBegin() {
+            // Track read only requests which are able to create cursors.
+            if (!transactionInflights.addInflight(txId, true)) {
+                throw new TransactionException(TX_ALREADY_FINISHED_ERR, format(
+                        "Transaction is already finished () [txId={}, readOnly=true].",
+                        txId
+                ));
+            }
+        }
+
+        @Override
+        public void onRequestEnd() {
+            transactionInflights.removeInflight(txId);
         }
     }
 
