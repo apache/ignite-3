@@ -76,7 +76,7 @@ testkit = "1.10.2"
 openapi = "4.10.0"
 autoService = "1.1.1"
 awaitility = "4.2.0"
-progressBar = "0.9.4"
+progressBar = "0.9.5"
 guava = "33.0.0-jre"
 jna = "5.14.0"
 
