@@ -48,10 +48,10 @@ public class SqlEngineModuleArchTest {
             .should(new ArchCondition<>("override org.apache.calcite.rel.RelNode.getRelTypeName") {
                 @Override
                 public void check(JavaClass javaClass, ConditionEvents conditionEvents) {
-                    boolean overrided = javaClass.getMethods().stream()
-                            .anyMatch(it -> "getRelTypeName".equals(it.getName()));
+                    boolean methodNotImplemented = javaClass.getMethods().stream()
+                            .noneMatch(it -> "getRelTypeName".equals(it.getName()));
 
-                    if (!overrided) {
+                    if (methodNotImplemented) {
                         conditionEvents.add(SimpleConditionEvent.violated(
                                 javaClass,
                                 javaClass.getName() + " must override method 'getRelTypeName()'"

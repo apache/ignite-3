@@ -172,6 +172,7 @@ public class ExchangeServiceImpl implements ExchangeService {
     }
 
     private void onMessage(String nodeName, QueryBatchMessage msg) {
+        // TODO https://issues.apache.org/jira/browse/IGNITE-21709
         if (!nodeName.equals(localNodeName)) {
             clock.update(msg.timestamp());
         }
