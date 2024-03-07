@@ -215,6 +215,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * @param indexDescriptor Index descriptor.
      */
     public PageMemoryHashIndexStorage getOrCreateHashIndex(StorageHashIndexDescriptor indexDescriptor) {
+        assert !sortedIndexes.containsKey(indexDescriptor.id());
+
         return busy(() -> hashIndexes.computeIfAbsent(
                 indexDescriptor.id(),
                 id -> createOrRestoreHashIndex(createIndexMetaForNewIndex(id), indexDescriptor))
@@ -227,6 +229,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * @param indexDescriptor Index descriptor.
      */
     public PageMemorySortedIndexStorage getOrCreateSortedIndex(StorageSortedIndexDescriptor indexDescriptor) {
+        assert !hashIndexes.containsKey(indexDescriptor.id());
+
         return busy(() -> sortedIndexes.computeIfAbsent(
                 indexDescriptor.id(),
                 id -> createOrRestoreSortedIndex(createIndexMetaForNewIndex(id), indexDescriptor))
