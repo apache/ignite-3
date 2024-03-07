@@ -134,6 +134,7 @@ jacocoTestReport {
     }
 }
 
+
 spotbugs {
     ignoreFailures = false
     showStackTraces = true
@@ -141,7 +142,6 @@ spotbugs {
     omitVisitors = ["ConstructorThrow", "FindNullDeref", "SwitchFallthrough", "SerializableIdiom", ""]
     reportsDir = file("$buildDir/reports/spotbugs")
     excludeFilter = file("${rootDir}/check-rules/spotbugs-excludes.xml")
-//    baselineFile = file("baseline.xml")
     maxHeapSize = "1g"
     extraArgs = ["-longBugCodes"]
     toolVersion = libs.versions.spotbugsTool.get()

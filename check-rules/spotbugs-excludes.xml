@@ -157,19 +157,23 @@
     <Class name="org.apache.ignite.internal.client.proto.ClientMessageUnpacker"/>
     <Method name="unpackObjectArrayFromBinaryTupleArray"/>
   </Match>
+  <Match>
+    <Bug pattern="INT_BAD_COMPARISON_WITH_NONNEGATIVE_VALUE"/>
+    <Source name="DistributionZoneRebalanceEngine.java"/>
+  </Match>
   <!-- end of false-positive exclusions -->
 
 
 
   <!-- the list of potential bugs which has to be investigated -->
   <Match>
-    <!-- TODO: https://issues.apache.org/jira/browse/IGNITE-16350 (existing) -->
+    <!-- TODO: https://issues.apache.org/jira/browse/IGNITE-16350 -->
     <Bug pattern="MS_SHOULD_BE_FINAL"/>
     <Class name="org.apache.ignite.internal.pagememory.datastructure.DataStructure"/>
     <Field name="rnd"/>
   </Match>
   <Match>
-    <!-- TODO:  -->
+    <!-- TODO: https://issues.apache.org/jira/browse/IGNITE-21690 -->
     <Bug pattern="IS2_INCONSISTENT_SYNC"/>
     <Class name="org.apache.ignite.internal.configuration.ConfigurationNode"/>
     <Or>
@@ -178,62 +182,57 @@
     </Or>
   </Match>
   <Match>
-    <!-- TODO:  -->
+    <!-- TODO: https://issues.apache.org/jira/browse/IGNITE-21691 -->
     <Bug pattern="IS2_INCONSISTENT_SYNC"/>
     <Class name="org.apache.ignite.internal.metrics.exporters.BasicMetricExporter"/>
     <Field name="configuration"/>
   </Match>
   <Match>
-    <!-- TODO:  -->
+    <!-- TODO: https://issues.apache.org/jira/browse/IGNITE-21692 -->
     <Bug pattern="UPM_UNCALLED_PRIVATE_METHOD"/>
     <Class name="org.apache.ignite.internal.pagememory.freelist.AbstractFreeList"/>
     <Method name="initReusedPage"/>
   </Match>
   <Match>
-    <!-- TODO: -->
+    <!-- TODO: https://issues.apache.org/jira/browse/IGNITE-21693 -->
     <Bug pattern="VO_VOLATILE_INCREMENT"/>
     <Class name="org.apache.ignite.internal.tx.impl.TxManagerImpl"/>
     <Field name="inflights"/>
   </Match>
   <Match>
-    <!-- TODO: -->
+    <!-- TODO: https://issues.apache.org/jira/browse/IGNITE-21694 -->
     <Bug pattern="WMI_WRONG_MAP_ITERATOR"/>
     <Source name="HeapLockManager.java"/>
   </Match>
   <Match>
-    <!-- TODO: -->
+    <!-- TODO: https://issues.apache.org/jira/browse/IGNITE-21694 -->
     <Bug pattern="WMI_WRONG_MAP_ITERATOR"/>
     <Source name="HeapUnboundedLockManager.java"/>
   </Match>
   <Match>
-    <!-- TODO: -->
+    <!-- TODO: https://issues.apache.org/jira/browse/IGNITE-21695 -->
     <Bug pattern="UCF_USELESS_CONTROL_FLOW"/>
     <Class name="org.apache.ignite.internal.pagememory.util.PageHandler"/>
   </Match>
   <Match>
-    <!-- TODO: -->
+    <!-- TODO: https://issues.apache.org/jira/browse/IGNITE-21696 -->
     <Bug pattern="JLM_JSR166_UTILCONCURRENT_MONITORENTER"/>
     <Class name="org.apache.ignite.internal.network.LazyStripedExecutor"/>
     <Method name="executorFor"/>
   </Match>
   <Match>
-    <!-- TODO: -->
+    <!-- TODO: https://issues.apache.org/jira/browse/IGNITE-21697 -->
     <Bug pattern="RV_RETURN_VALUE_IGNORED_BAD_PRACTICE"/>
     <Class name="org.apache.ignite.internal.network.netty.ConnectionManager"/>
     <Method name="handleNodeLeft"/>
   </Match>
   <Match>
-    <!-- TODO: -->
-    <Bug pattern="INT_BAD_COMPARISON_WITH_NONNEGATIVE_VALUE"/>
-    <Source name="DistributionZoneRebalanceEngine.java"/>
-  </Match>
-  <Match>
-    <!-- TODO: -->
+    <!-- TODO: https://issues.apache.org/jira/browse/IGNITE-21698 -->
     <Bug pattern="BX_UNBOXING_IMMEDIATELY_REBOXED"/>
     <Source name="LocalConfigurationStorage.java"/>
   </Match>
   <Match>
-    <!-- TODO: -->
+    <!-- TODO: https://issues.apache.org/jira/browse/IGNITE-21699 -->
     <Bug pattern="ES_COMPARING_STRINGS_WITH_EQ"/>
     <Class name="org.apache.ignite.internal.sql.engine.trait.DistributionFunction"/>
     <Or>
@@ -242,64 +241,49 @@
     </Or>
   </Match>
   <Match>
-    <!-- TODO: -->
+    <!-- TODO: https://issues.apache.org/jira/browse/IGNITE-21700 -->
     <Bug pattern="RV_RETURN_VALUE_IGNORED_NO_SIDE_EFFECT"/>
     <Source name="IgniteSort.java"/>
   </Match>
   <Match>
-    <!-- TODO: -->
+    <!-- TODO: https://issues.apache.org/jira/browse/IGNITE-21701 -->
     <Bug pattern="EC_UNRELATED_TYPES_USING_POINTER_EQUALITY"/>
     <Class name="org.apache.ignite.internal.sql.engine.rel.IgniteSender"/>
   </Match>
   <Match>
-    <!-- TODO: -->
+    <!-- TODO: https://issues.apache.org/jira/browse/IGNITE-21702 -->
     <Bug pattern="SS_SHOULD_BE_STATIC"/>
     <Class name="org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode"/>
     <Field name="inBufSize"/>
   </Match>
   <Match>
-    <!-- TODO: -->
+    <!-- TODO: https://issues.apache.org/jira/browse/IGNITE-21703 -->
     <Bug pattern="DM_DEFAULT_ENCODING"/>
     <Class name="org.apache.ignite.internal.sql.engine.exec.exp.IgniteSqlFunctions"/>
     <Method name="octetLength"/>
   </Match>
   <Match>
-    <!-- TODO: -->
-    <!-- M B BC_EQUALS_METHOD_SHOULD_WORK_FOR_ALL_OBJECTS BC: Equals method for
-         org.apache.ignite.internal.configuration.ConfigurationListenerHolder$1 assumes the argument is of type ConfigurationListenerHolder$1
-         At ConfigurationListenerHolder.java:[line 56]-->
+    <!-- TODO: https://issues.apache.org/jira/browse/IGNITE-21704 -->
     <Bug pattern="BC_EQUALS_METHOD_SHOULD_WORK_FOR_ALL_OBJECTS"/>
     <Source name="ConfigurationListenerHolder.java"/>
   </Match>
   <Match>
-    <!-- TODO: -->
-    <!-- M B NP_EQUALS_SHOULD_HANDLE_NULL_ARGUMENT NP:
-         org.apache.ignite.internal.configuration.ConfigurationListenerHolder$1.equals(Object) does not check for null argument
-         At ConfigurationListenerHolder.java:[line 56] -->
+    <!-- TODO: https://issues.apache.org/jira/browse/IGNITE-21704 -->
     <Bug pattern="NP_EQUALS_SHOULD_HANDLE_NULL_ARGUMENT"/>
     <Source name="ConfigurationListenerHolder.java"/>
   </Match>
   <Match>
-    <!-- TODO: -->
-    <!-- M B BC_EQUALS_METHOD_SHOULD_WORK_FOR_ALL_OBJECTS BC:
-         Equals method for org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointWorkflow$1 assumes the argument is
-         of type CheckpointWorkflow$1
-         At CheckpointWorkflow.java:[line 349] -->
+    <!-- TODO: https://issues.apache.org/jira/browse/IGNITE-21705 -->
     <Bug pattern="BC_EQUALS_METHOD_SHOULD_WORK_FOR_ALL_OBJECTS"/>
     <Source name="CheckpointWorkflow.java"/>
   </Match>
   <Match>
-    <!-- TODO: -->
-    <!-- M B NP_EQUALS_SHOULD_HANDLE_NULL_ARGUMENT NP:
-         org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointWorkflow$1.equals(Object) does not check for null argument
-         At CheckpointWorkflow.java:[line 349] -->
+    <!-- TODO: https://issues.apache.org/jira/browse/IGNITE-21705 -->
     <Bug pattern="NP_EQUALS_SHOULD_HANDLE_NULL_ARGUMENT"/>
     <Source name="CheckpointWorkflow.java"/>
   </Match>
   <Match>
-    <!-- TODO: -->
-    <!-- H D UC_USELESS_CONDITION UC: Useless condition: it's known that dirty == false at this point
-         At RandomLruPageReplacementPolicy.java:[line 134]-->
+    <!-- TODO: https://issues.apache.org/jira/browse/IGNITE-21706 -->
     <Bug pattern="UC_USELESS_CONDITION"/>
     <Class name="org.apache.ignite.internal.pagememory.persistence.replacement.RandomLruPageReplacementPolicy"/>
     <Method name="replace"/>
