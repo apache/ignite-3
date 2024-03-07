@@ -165,7 +165,9 @@ spotbugsMain {
 def reportSpotbugsViolations = tasks.register("reportSpotbugsViolations") {
     onlyIf { spotbugsMain.state.failure != null }
     def spotbugsTextReportFile = file("$buildDir/reports/spotbugs/main.txt")
+
     inputs.file spotbugsTextReportFile
+
     doLast {
         try {
             if (!spotbugsTextReportFile.isFile()) return
@@ -174,9 +176,12 @@ def reportSpotbugsViolations = tasks.register("reportSpotbugsViolations") {
             spotbugsReport.forEach {
                 System.err.println(it)
             }
-            throw new GradleException(spotbugsMain.state.failure);
         } catch (Exception ex) {
             throw new GradleException("Failed to open spotbugs text report", ex);
+        }
+        def failure = spotbugsMain.state.failure
+        if (failure != null) {
+            throw new GradleException(failure.getCause().getMessage(), failure.getCause());
         }
     }
 }
