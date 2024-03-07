@@ -74,7 +74,7 @@ public class ClientComputeExecuteColocatedRequest {
 
             sendResultAndStatus(jobExecutionFut, notificationSender);
 
-            //noinspection DataFlowIssue
+            // noinspection DataFlowIssue
             return jobExecutionFut.thenCompose(JobExecution::idAsync).thenAccept(out::packUuid);
         }));
     }
