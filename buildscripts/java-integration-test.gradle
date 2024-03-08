@@ -30,7 +30,6 @@ testing {
                 implementation libs.junit5.api
                 implementation libs.junit5.impl
                 implementation libs.junit5.params
-
                 implementation libs.junit.pioneer
 
                 implementation libs.mockito.core

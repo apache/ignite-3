@@ -34,7 +34,6 @@ dependencies {
     testImplementation libs.junit5.impl
     testImplementation libs.junit5.api
     testImplementation libs.junit5.params
-
     testImplementation libs.junit.pioneer
 
     testImplementation libs.jansi.core
