@@ -31,6 +31,7 @@ import org.apache.ignite.internal.pagememory.tree.IgniteTree.OperationType;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.gc.GcEntry;
+import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -50,6 +51,10 @@ public class RemoveWriteOnGcInvokeClosure implements InvokeClosure<VersionChain>
 
     private final AbstractPageMemoryMvPartitionStorage storage;
 
+    private final RowVersionFreeList rowVersionFreeList;
+
+    private final GcQueue gcQueue;
+
     private OperationType operationType;
 
     private @Nullable VersionChain newRow;
@@ -67,6 +72,11 @@ public class RemoveWriteOnGcInvokeClosure implements InvokeClosure<VersionChain>
         this.timestamp = timestamp;
         this.link = link;
         this.storage = storage;
+
+        PartitionStorageMutableState localState = storage.mutableState;
+
+        this.rowVersionFreeList = localState.rowVersionFreeList();
+        this.gcQueue = localState.gcQueue();
     }
 
     @Override
@@ -141,7 +151,7 @@ public class RemoveWriteOnGcInvokeClosure implements InvokeClosure<VersionChain>
     public void onUpdate() {
         if (toUpdate != null) {
             try {
-                storage.rowVersionFreeList.updateNextLink(toUpdate.link(), NULL_LINK);
+                rowVersionFreeList.updateNextLink(toUpdate.link(), NULL_LINK);
             } catch (IgniteInternalCheckedException e) {
                 throw new StorageException(
                         "Error updating the next link: [rowId={}, timestamp={}, rowLink={}, nextLink={}, {}]",
@@ -179,7 +189,7 @@ public class RemoveWriteOnGcInvokeClosure implements InvokeClosure<VersionChain>
         toRemove.forEach(storage::removeRowVersion);
 
         if (toDropFromQueue != null) {
-            boolean removed = storage.gcQueue.remove(rowId, toDropFromQueue.timestamp(), toDropFromQueue.link());
+            boolean removed = gcQueue.remove(rowId, toDropFromQueue.timestamp(), toDropFromQueue.link());
 
             assert removed : "Tombstone removal from GC queue should never happen in parallel";
         }

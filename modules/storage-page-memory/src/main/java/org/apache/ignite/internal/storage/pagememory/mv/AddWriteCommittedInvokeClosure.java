@@ -29,6 +29,7 @@ import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -47,6 +48,8 @@ class AddWriteCommittedInvokeClosure implements InvokeClosure<VersionChain> {
     private final HybridTimestamp commitTimestamp;
 
     private final AbstractPageMemoryMvPartitionStorage storage;
+
+    private final GcQueue gcQueue;
 
     private OperationType operationType;
 
@@ -70,6 +73,7 @@ class AddWriteCommittedInvokeClosure implements InvokeClosure<VersionChain> {
         this.row = row;
         this.commitTimestamp = commitTimestamp;
         this.storage = storage;
+        this.gcQueue = storage.mutableState.gcQueue();
     }
 
     @Override
@@ -137,7 +141,7 @@ class AddWriteCommittedInvokeClosure implements InvokeClosure<VersionChain> {
      */
     void afterCompletion() {
         if (rowLinkForAddToGcQueue != NULL_LINK) {
-            storage.gcQueue.add(rowId, commitTimestamp, rowLinkForAddToGcQueue);
+            gcQueue.add(rowId, commitTimestamp, rowLinkForAddToGcQueue);
         }
     }
 }
