@@ -32,7 +32,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -231,7 +230,7 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
     private static class PartitionSnapshotsImpl implements PartitionSnapshots {
         private final List<OutgoingSnapshot> snapshots = new ArrayList<>();
 
-        private final ReadWriteLock lock = new ReentrantReadWriteLock();
+        private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
 
         private void freezeAndAddUnderLock(OutgoingSnapshot snapshot) {
             lock.writeLock().lock();
@@ -266,6 +265,11 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
         @Override
         public void releaseReadLock() {
             lock.readLock().unlock();
+        }
+
+        @Override
+        public boolean holdingReadLock() {
+            return lock.getReadHoldCount() > 0;
         }
 
         @Override

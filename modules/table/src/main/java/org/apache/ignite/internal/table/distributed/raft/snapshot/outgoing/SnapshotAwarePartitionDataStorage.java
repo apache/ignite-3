@@ -164,6 +164,8 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
     private void handleSnapshotInterference(RowId rowId) {
         PartitionSnapshots partitionSnapshots = getPartitionSnapshots();
 
+        assert partitionSnapshots.holdingReadLock() : "Current thread does not hold partition snapshots read lock on " + partitionKey;
+
         for (OutgoingSnapshot snapshot : partitionSnapshots.ongoingSnapshots()) {
             snapshot.acquireMvLock();
 

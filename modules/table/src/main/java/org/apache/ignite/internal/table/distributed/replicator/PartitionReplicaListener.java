@@ -1745,12 +1745,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .requiredCatalogVersion(catalogVersion)
                 .build();
 
-        storageUpdateHandler.switchWriteIntents(
-                transactionId,
-                commit,
-                commitTimestamp,
-                indexIdsAtRwTxBeginTs(transactionId)
-        );
+        switchWriteIntentsUnderSnapshotsLock(transactionId, commit, commitTimestamp);
 
         CompletableFuture<Object> resultFuture = new CompletableFuture<>();
 
@@ -1763,6 +1758,21 @@ public class PartitionReplicaListener implements ReplicaListener {
                     return nullCompletedFuture();
                 })
                 .thenApply(res -> null);
+    }
+
+    private void switchWriteIntentsUnderSnapshotsLock(UUID transactionId, boolean commit, HybridTimestamp commitTimestamp) {
+        storageUpdateHandler.acquirePartitionSnapshotsReadLock();
+
+        try {
+            storageUpdateHandler.switchWriteIntents(
+                    transactionId,
+                    commit,
+                    commitTimestamp,
+                    indexIdsAtRwTxBeginTs(transactionId)
+            );
+        } finally {
+            storageUpdateHandler.releasePartitionSnapshotsReadLock();
+        }
     }
 
     /**
@@ -2540,21 +2550,16 @@ public class PartitionReplicaListener implements ReplicaListener {
             );
 
             if (!cmd.full()) {
-                // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Temporary code below
-                synchronized (safeTime) {
-                    storageUpdateHandler.handleUpdate(
-                            cmd.txId(),
-                            cmd.rowUuid(),
-                            cmd.tablePartitionId().asTablePartitionId(),
-                            cmd.rowToUpdate(),
-                            true,
-                            null,
-                            null,
-                            null,
-                            indexIdsAtRwTxBeginTs(txId)
-                    );
+                // Acquiring partition snapshots read lock before the lock on safeTime because it's the order used everywhere.
+                storageUpdateHandler.acquirePartitionSnapshotsReadLock();
 
-                    updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
+                try {
+                    // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Temporary code below
+                    synchronized (safeTime) {
+                        handleUpdateAndAdvanceSafeTime(txId, cmd, true, null);
+                    }
+                } finally {
+                    storageUpdateHandler.releasePartitionSnapshotsReadLock();
                 }
 
                 CompletableFuture<UUID> fut = applyCmdWithExceptionHandling(cmd, new CompletableFuture<>())
@@ -2576,24 +2581,19 @@ public class PartitionReplicaListener implements ReplicaListener {
                     // This check guaranties the result will never be lost. Currently always null.
                     assert res == null : "Replication result is lost";
 
-                    // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Temporary code below
-                    // Try to avoid double write if an entry is already replicated.
-                    synchronized (safeTime) {
-                        if (cmd.safeTime().compareTo(safeTime.current()) > 0) {
-                            storageUpdateHandler.handleUpdate(
-                                    cmd.txId(),
-                                    cmd.rowUuid(),
-                                    cmd.tablePartitionId().asTablePartitionId(),
-                                    cmd.rowToUpdate(),
-                                    false,
-                                    null,
-                                    cmd.safeTime(),
-                                    null,
-                                    indexIdsAtRwTxBeginTs(txId)
-                            );
+                    // Acquiring partition snapshots read lock before the lock on safeTime because it's the order used everywhere.
+                    storageUpdateHandler.acquirePartitionSnapshotsReadLock();
 
-                            updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
+                    try {
+                        // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Temporary code below
+                        // Try to avoid double write if an entry is already replicated.
+                        synchronized (safeTime) {
+                            if (cmd.safeTime().compareTo(safeTime.current()) > 0) {
+                                handleUpdateAndAdvanceSafeTime(txId, cmd, false, cmd.safeTime());
+                            }
                         }
+                    } finally {
+                        storageUpdateHandler.releasePartitionSnapshotsReadLock();
                     }
 
                     return null;
@@ -2631,6 +2631,27 @@ public class PartitionReplicaListener implements ReplicaListener {
         );
     }
 
+    private void handleUpdateAndAdvanceSafeTime(
+            UUID txId,
+            UpdateCommand cmd,
+            boolean trackWriteIntent,
+            @Nullable HybridTimestamp commitTs
+    ) {
+        storageUpdateHandler.handleUpdate(
+                cmd.txId(),
+                cmd.rowUuid(),
+                cmd.tablePartitionId().asTablePartitionId(),
+                cmd.rowToUpdate(),
+                trackWriteIntent,
+                null,
+                commitTs,
+                null,
+                indexIdsAtRwTxBeginTs(txId)
+        );
+
+        updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
+    }
+
     /**
      * Executes an UpdateAll command.
      *
@@ -2665,37 +2686,11 @@ public class PartitionReplicaListener implements ReplicaListener {
 
             if (!cmd.full()) {
                 if (skipDelayedAck) {
-                    // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Temporary code below
-                    synchronized (safeTime) {
-                        storageUpdateHandler.handleUpdateAll(
-                                cmd.txId(),
-                                cmd.rowsToUpdate(),
-                                cmd.tablePartitionId().asTablePartitionId(),
-                                true,
-                                null,
-                                null,
-                                indexIdsAtRwTxBeginTs(transactionId)
-                        );
-
-                        updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
-                    }
+                    handleUpdateAllUnderLocksOnSnapshotsAndSafeTime(transactionId, cmd);
 
                     return applyCmdWithExceptionHandling(cmd, new CompletableFuture<>()).thenApply(res -> null);
                 } else {
-                    // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Temporary code below
-                    synchronized (safeTime) {
-                        storageUpdateHandler.handleUpdateAll(
-                                cmd.txId(),
-                                cmd.rowsToUpdate(),
-                                cmd.tablePartitionId().asTablePartitionId(),
-                                true,
-                                null,
-                                null,
-                                indexIdsAtRwTxBeginTs(transactionId)
-                        );
-
-                        updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
-                    }
+                    handleUpdateAllUnderLocksOnSnapshotsAndSafeTime(transactionId, cmd);
 
                     CompletableFuture<Object> fut = applyCmdWithExceptionHandling(cmd, new CompletableFuture<>())
                             .thenApply(res -> {
@@ -2714,22 +2709,19 @@ public class PartitionReplicaListener implements ReplicaListener {
                         .thenApply(res -> {
                             assert res == null : "Replication result is lost";
 
-                            // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Temporary code below
-                            // Try to avoid double write if an entry is already replicated.
-                            synchronized (safeTime) {
-                                if (cmd.safeTime().compareTo(safeTime.current()) > 0) {
-                                    storageUpdateHandler.handleUpdateAll(
-                                            cmd.txId(),
-                                            cmd.rowsToUpdate(),
-                                            cmd.tablePartitionId().asTablePartitionId(),
-                                            false,
-                                            null,
-                                            cmd.safeTime(),
-                                            indexIdsAtRwTxBeginTs(transactionId)
-                                    );
+                            // Acquiring partition snapshots read lock before the lock on safeTime because it's the order used everywhere.
+                            storageUpdateHandler.acquirePartitionSnapshotsReadLock();
 
-                                    updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
+                            try {
+                                // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Temporary code below
+                                // Try to avoid double write if an entry is already replicated.
+                                synchronized (safeTime) {
+                                    if (cmd.safeTime().compareTo(safeTime.current()) > 0) {
+                                        handleUpdateAllAndAdvanceSafeTime(transactionId, cmd, false, cmd.safeTime());
+                                    }
                                 }
+                            } finally {
+                                storageUpdateHandler.releasePartitionSnapshotsReadLock();
                             }
 
                             return null;
@@ -2760,6 +2752,39 @@ public class PartitionReplicaListener implements ReplicaListener {
                 catalogVersion,
                 request.skipDelayedAck()
         );
+    }
+
+    private void handleUpdateAllAndAdvanceSafeTime(
+            UUID transactionId,
+            UpdateAllCommand cmd,
+            boolean trackWriteIntent,
+            @Nullable HybridTimestamp commitTs
+    ) {
+        storageUpdateHandler.handleUpdateAll(
+                cmd.txId(),
+                cmd.rowsToUpdate(),
+                cmd.tablePartitionId().asTablePartitionId(),
+                trackWriteIntent,
+                null,
+                commitTs,
+                indexIdsAtRwTxBeginTs(transactionId)
+        );
+
+        updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
+    }
+
+    private void handleUpdateAllUnderLocksOnSnapshotsAndSafeTime(UUID transactionId, UpdateAllCommand cmd) {
+        // Acquiring partition snapshots read lock before the lock on safeTime because it's the order used everywhere.
+        storageUpdateHandler.acquirePartitionSnapshotsReadLock();
+
+        try {
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Temporary code below
+            synchronized (safeTime) {
+                handleUpdateAllAndAdvanceSafeTime(transactionId, cmd, true, null);
+            }
+        } finally {
+            storageUpdateHandler.releasePartitionSnapshotsReadLock();
+        }
     }
 
     /**
@@ -3486,12 +3511,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             // The cleanup for this row has already been triggered. For example, we are resolving a write intent for an RW transaction
             // and a concurrent RO transaction resolves the same row, hence computeIfAbsent.
             return txManager.executeWriteIntentSwitchAsync(() -> inBusyLock(busyLock,
-                    () -> storageUpdateHandler.switchWriteIntents(
-                            txId,
-                            txState == COMMITTED,
-                            commitTimestamp,
-                            indexIdsAtRwTxBeginTs(txId)
-                    )
+                    () -> switchWriteIntentsUnderSnapshotsLock(txId, txState == COMMITTED, commitTimestamp)
             )).whenComplete((unused, e) -> {
                 if (e != null) {
                     LOG.warn("Failed to complete transaction cleanup command [txId=" + txId + ']', e);
