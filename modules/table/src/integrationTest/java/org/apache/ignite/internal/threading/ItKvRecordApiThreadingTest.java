@@ -40,7 +40,6 @@ import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.internal.thread.PublicApiThreading;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
@@ -66,9 +65,7 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
 
     @BeforeAll
     void createTable() {
-        try (Session session = firstNode().sql().createSession()) {
-            session.execute(null, "CREATE TABLE " + TABLE_NAME + " (id INT PRIMARY KEY, val VARCHAR)");
-        }
+        sql("CREATE TABLE " + TABLE_NAME + " (id INT PRIMARY KEY, val VARCHAR)");
     }
 
     private static IgniteImpl firstNode() {
