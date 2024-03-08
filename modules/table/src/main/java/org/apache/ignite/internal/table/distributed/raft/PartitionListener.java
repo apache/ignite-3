@@ -184,6 +184,8 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                             + ", mvAppliedIndex=" + storage.lastAppliedIndex()
                             + ", txStateAppliedIndex=" + txStateStorage.lastAppliedIndex() + "]";
 
+            Serializable result = null;
+
             // NB: Make sure that ANY command we accept here updates lastAppliedIndex+term info in one of the underlying
             // storages!
             // Otherwise, a gap between lastAppliedIndex from the point of view of JRaft and our storage might appear.
@@ -194,8 +196,6 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
             // repeat same thing over and over again.
 
             storage.acquirePartitionSnapshotsReadLock();
-
-            Serializable result = null;
 
             try {
                 if (command instanceof UpdateCommand) {
@@ -213,12 +213,10 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                 } else {
                     assert false : "Command was not found [cmd=" + command + ']';
                 }
-
-                clo.result(result);
             } catch (IgniteInternalException e) {
-                clo.result(e);
+                result = e;
             } catch (CompletionException e) {
-                clo.result(e.getCause());
+                result = e.getCause();
             } catch (Throwable t) {
                 LOG.error(
                         "Unknown error while processing command [commandIndex={}, commandTerm={}, command={}]",
@@ -230,6 +228,10 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
             } finally {
                 storage.releasePartitionSnapshotsReadLock();
             }
+
+            // Completing the closure out of the partition snapshots lock to reduce possibility of deadlocks as it might
+            // trigger other actions taking same locks.
+            clo.result(result);
 
             if (command instanceof SafeTimePropagatingCommand) {
                 SafeTimePropagatingCommand safeTimePropagatingCommand = (SafeTimePropagatingCommand) command;
