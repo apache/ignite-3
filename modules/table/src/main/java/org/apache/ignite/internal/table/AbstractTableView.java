@@ -89,7 +89,7 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
      * @param sql Ignite SQL facade.
      * @param marshallers Marshallers provider.
      * @param asyncContinuationExecutor Executor to which execution will be resubmitted when leaving asynchronous public API endpoints
-     *     (so as to prevent the user from stealing Ignite threads).
+     *     (to prevent the user from stealing Ignite threads).
      */
     AbstractTableView(
             InternalTable tbl,
