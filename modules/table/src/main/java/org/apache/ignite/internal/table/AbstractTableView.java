@@ -21,7 +21,6 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertToPublicFuture;
 import static org.apache.ignite.internal.table.criteria.CriteriaExceptionMapperUtil.mapToPublicCriteriaException;
-import static org.apache.ignite.internal.util.CompletableFutures.completeOrFailFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.isOrCausedBy;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
@@ -214,12 +213,7 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
 
         // The future is not complete yet, so it will be completed on an Ignite thread, so we need to complete the user-facing future
         // in the continuation pool.
-
-        CompletableFuture<T> resultingFuture = new CompletableFuture<>();
-
-        originalFuture.whenComplete((res, ex) -> asyncContinuationExecutor.execute(() -> completeOrFailFuture(resultingFuture, res, ex)));
-
-        return resultingFuture;
+        return originalFuture.whenCompleteAsync((res, ex) -> {}, asyncContinuationExecutor);
     }
 
     /**
