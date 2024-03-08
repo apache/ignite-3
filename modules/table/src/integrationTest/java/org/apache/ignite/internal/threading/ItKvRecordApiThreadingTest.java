@@ -32,7 +32,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
-import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.streamer.SimplePublisher;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
@@ -68,10 +67,6 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
         sql("CREATE TABLE " + TABLE_NAME + " (id INT PRIMARY KEY, val VARCHAR)");
     }
 
-    private static IgniteImpl firstNode() {
-        return CLUSTER.node(0);
-    }
-
     @BeforeEach
     void upsertRecord() {
         plainKeyValueView().put(null, KEY, "one");
@@ -86,7 +81,7 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
     }
 
     private static Table testTable() {
-        return firstNode().tables().table(TABLE_NAME);
+        return CLUSTER.aliveNode().tables().table(TABLE_NAME);
     }
 
     @SuppressWarnings("rawtypes")
@@ -113,7 +108,7 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
     }
 
     private static <T> T forcingSwitchFromUserThread(Supplier<? extends T> action) {
-        return WatchListenerInhibitor.withInhibition(firstNode(), () -> {
+        return WatchListenerInhibitor.withInhibition(CLUSTER.aliveNode(), () -> {
             waitForSchemaSyncRequiringWait();
 
             return action.get();
