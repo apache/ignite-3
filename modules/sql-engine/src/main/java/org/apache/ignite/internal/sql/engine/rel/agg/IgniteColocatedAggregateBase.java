@@ -104,6 +104,10 @@ public abstract class IgniteColocatedAggregateBase extends IgniteAggregate imple
 
         return List.of(
                 Pair.of(
+                        nodeTraits.replace(IgniteDistributions.single()),
+                        List.of(inputTraits.get(0).replace(IgniteDistributions.single()))
+                ),
+                Pair.of(
                         nodeTraits.replace(newOutDistribution),
                         List.of(inputTraits.get(0).replace(newInDistribution))
                 )

@@ -36,6 +36,8 @@ import org.apache.ignite.internal.sql.engine.exec.mapping.QuerySplitter;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class IgniteValues extends Values implements SourceAwareIgniteRel {
+    private static final String REL_TYPE_NAME = "Values";
+
     private final long sourceId;
 
     /**
@@ -129,5 +131,11 @@ public class IgniteValues extends Values implements SourceAwareIgniteRel {
     @Override
     public long sourceId() {
         return sourceId;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 }

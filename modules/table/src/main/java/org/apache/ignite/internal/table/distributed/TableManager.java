@@ -392,6 +392,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private final RemotelyTriggeredResourceRegistry remotelyTriggeredResourceRegistry;
 
+    private final Executor asyncContinuationExecutor;
+
     private final TransactionInflights transactionInflights;
 
     /**
@@ -419,6 +421,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param sql A supplier function that returns {@link IgniteSql}.
      * @param rebalanceScheduler Executor for scheduling rebalance routine.
      * @param lowWatermark Low watermark.
+     * @param asyncContinuationExecutor Executor to which execution will be resubmitted when leaving asynchronous public API endpoints
+     *     (so as to prevent the user from stealing Ignite threads).
      * @param transactionInflights Transaction inflights.
      */
     public TableManager(
@@ -453,6 +457,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             RemotelyTriggeredResourceRegistry remotelyTriggeredResourceRegistry,
             ScheduledExecutorService rebalanceScheduler,
             LowWatermark lowWatermark,
+            Executor asyncContinuationExecutor,
             TransactionInflights transactionInflights
     ) {
         this.topologyService = topologyService;
@@ -478,6 +483,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.remotelyTriggeredResourceRegistry = remotelyTriggeredResourceRegistry;
         this.rebalanceScheduler = rebalanceScheduler;
         this.lowWatermark = lowWatermark;
+        this.asyncContinuationExecutor = asyncContinuationExecutor;
         this.transactionInflights = transactionInflights;
 
         this.executorInclinedSchemaSyncService = new ExecutorInclinedSchemaSyncService(schemaSyncService, partitionOperationsExecutor);
@@ -1274,7 +1280,15 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 transactionInflights
         );
 
-        var table = new TableImpl(internalTable, lockMgr, schemaVersions, marshallers, sql.get(), tableDescriptor.primaryKeyIndexId());
+        var table = new TableImpl(
+                internalTable,
+                lockMgr,
+                schemaVersions,
+                marshallers,
+                sql.get(),
+                tableDescriptor.primaryKeyIndexId(),
+                asyncContinuationExecutor
+        );
 
         tablesVv.update(causalityToken, (ignore, e) -> inBusyLock(busyLock, () -> {
             if (e != null) {

@@ -77,14 +77,13 @@ public class IdentityDistributionPlannerTest extends AbstractPlannerTest {
                 + "from TEST_TBL1 t1 "
                 + "join TEST_TBL2 t2 on t1.id = t2.id";
 
-        assertPlan(sql, schema, nodeOrAnyChild(isInstanceOf(IgniteExchange.class)
+        assertPlan(sql, schema, nodeOrAnyChild(isInstanceOf(IgniteMergeJoin.class)
                 .and(hasDistribution(single()))
-                .and(nodeOrAnyChild(isInstanceOf(IgniteMergeJoin.class)
-                        .and(hasDistribution(IgniteDistributions.identity(0)))
-                        .and(input(0, isInstanceOf(IgniteIndexScan.class)))
-                        .and(input(1, isInstanceOf(IgniteExchange.class)
-                                .and(input(isInstanceOf(IgniteIndexScan.class)))
-                        ))
+                .and(input(0, isInstanceOf(IgniteExchange.class)
+                        .and(input(isInstanceOf(IgniteIndexScan.class)))
+                ))
+                .and(input(1, isInstanceOf(IgniteExchange.class)
+                        .and(input(isInstanceOf(IgniteIndexScan.class)))
                 ))
         ));
     }
@@ -105,14 +104,13 @@ public class IdentityDistributionPlannerTest extends AbstractPlannerTest {
                 + "from TEST_TBL1 t1 "
                 + "join TEST_TBL2 t2 on t1.id = t2.id";
 
-        assertPlan(sql, schema, nodeOrAnyChild(isInstanceOf(IgniteExchange.class)
+        assertPlan(sql, schema, nodeOrAnyChild(isInstanceOf(IgniteMergeJoin.class)
                 .and(hasDistribution(single()))
-                .and(nodeOrAnyChild(isInstanceOf(IgniteMergeJoin.class)
-                        .and(hasDistribution(affinityDistribution))
-                        .and(input(0, isInstanceOf(IgniteExchange.class)
-                                .and(input(isInstanceOf(IgniteIndexScan.class)))
-                        ))
-                        .and(input(1, isInstanceOf(IgniteIndexScan.class)))
+                .and(input(0, isInstanceOf(IgniteExchange.class)
+                        .and(input(isInstanceOf(IgniteIndexScan.class)))
+                ))
+                .and(input(1, isInstanceOf(IgniteExchange.class)
+                        .and(input(isInstanceOf(IgniteIndexScan.class)))
                 ))
         ));
     }

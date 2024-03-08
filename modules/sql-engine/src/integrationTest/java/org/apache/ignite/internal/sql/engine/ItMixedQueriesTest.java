@@ -298,7 +298,7 @@ public class ItMixedQueriesTest extends BaseSqlIntegrationTest {
 
         assertQuery("select c1 from test_tbl ORDER BY c1")
                 .matches(containsIndexScan("PUBLIC", "TEST_TBL", "IDX_ASC"))
-                .matches(not(containsSubPlan("IgniteSort")))
+                .matches(not(containsSubPlan("Sort")))
                 .ordered()
                 .returns(1)
                 .returns(2)
@@ -307,7 +307,7 @@ public class ItMixedQueriesTest extends BaseSqlIntegrationTest {
                 .check();
 
         assertQuery("select c1 from test_tbl ORDER BY c1 asc nulls first")
-                .matches(containsSubPlan("IgniteSort"))
+                .matches(containsSubPlan("Sort"))
                 .ordered()
                 .returns(null)
                 .returns(1)
@@ -317,7 +317,7 @@ public class ItMixedQueriesTest extends BaseSqlIntegrationTest {
 
         assertQuery("select c1 from test_tbl ORDER BY c1 asc nulls last")
                 .matches(containsIndexScan("PUBLIC", "TEST_TBL", "IDX_ASC"))
-                .matches(not(containsSubPlan("IgniteSort")))
+                .matches(not(containsSubPlan("Sort")))
                 .ordered()
                 .returns(1)
                 .returns(2)
@@ -327,7 +327,7 @@ public class ItMixedQueriesTest extends BaseSqlIntegrationTest {
 
         assertQuery("select c1 from test_tbl ORDER BY c1 desc")
                 .matches(containsIndexScan("PUBLIC", "TEST_TBL", "IDX_DESC"))
-                .matches(not(containsSubPlan("IgniteSort")))
+                .matches(not(containsSubPlan("Sort")))
                 .ordered()
                 .returns(null)
                 .returns(3)
@@ -337,7 +337,7 @@ public class ItMixedQueriesTest extends BaseSqlIntegrationTest {
 
         assertQuery("select c1 from test_tbl ORDER BY c1 desc nulls first")
                 .matches(containsIndexScan("PUBLIC", "TEST_TBL", "IDX_DESC"))
-                .matches(not(containsSubPlan("IgniteSort")))
+                .matches(not(containsSubPlan("Sort")))
                 .ordered()
                 .returns(null)
                 .returns(3)
@@ -346,7 +346,7 @@ public class ItMixedQueriesTest extends BaseSqlIntegrationTest {
                 .check();
 
         assertQuery("select c1 from test_tbl ORDER BY c1 desc nulls last")
-                .matches(containsSubPlan("IgniteSort"))
+                .matches(containsSubPlan("Sort"))
                 .ordered()
                 .returns(3)
                 .returns(2)

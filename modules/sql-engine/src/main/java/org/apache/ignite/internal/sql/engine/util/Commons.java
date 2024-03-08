@@ -63,7 +63,6 @@ import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelTraitDef;
 import org.apache.calcite.rel.RelCollationTraitDef;
 import org.apache.calcite.rel.RelNode;
-import org.apache.calcite.rel.hint.HintPredicates;
 import org.apache.calcite.rel.hint.HintStrategyTable;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.sql.SqlKind;
@@ -138,8 +137,8 @@ public final class Commons {
     @SuppressWarnings("rawtypes")
     public static final List<RelTraitDef> DISTRIBUTED_TRAITS_SET = List.of(
             ConventionTraitDef.INSTANCE,
-            RelCollationTraitDef.INSTANCE,
-            DistributionTraitDef.INSTANCE
+            DistributionTraitDef.INSTANCE,
+            RelCollationTraitDef.INSTANCE
     );
 
     public static final FrameworkConfig FRAMEWORK_CONFIG = Frameworks.newConfigBuilder()
@@ -159,7 +158,6 @@ public final class Commons {
                                     .hintStrategy(IgniteHint.EXPAND_DISTINCT_AGG.name(), AGGREGATE)
                                     .hintStrategy(IgniteHint.NO_INDEX.name(), (hint, rel) -> rel instanceof IgniteLogicalTableScan)
                                     .hintStrategy(IgniteHint.FORCE_INDEX.name(), (hint, rel) -> rel instanceof IgniteLogicalTableScan)
-                                    .hintStrategy(IgniteHint.DISABLE_SORTED_ALGORITHM.name(), HintPredicates.and(JOIN, AGGREGATE))
                                     .build()
                     )
             )

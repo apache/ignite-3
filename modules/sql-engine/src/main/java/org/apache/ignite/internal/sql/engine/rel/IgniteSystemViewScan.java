@@ -34,6 +34,7 @@ import org.jetbrains.annotations.Nullable;
  * Relational operator that returns the contents of a system view.
  */
 public class IgniteSystemViewScan extends ProjectableFilterableTableScan implements SourceAwareIgniteRel {
+    private static final String REL_TYPE_NAME = "SystemViewScan";
 
     private final long sourceId;
 
@@ -126,5 +127,11 @@ public class IgniteSystemViewScan extends ProjectableFilterableTableScan impleme
     protected RelWriter explainTerms0(RelWriter pw) {
         return super.explainTerms0(pw)
                 .itemIf("sourceId", sourceId, sourceId != -1);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 }

@@ -54,6 +54,8 @@ import org.apache.ignite.internal.sql.engine.trait.TraitsAwareIgniteRel;
  * Relational expression that computes a set of 'select expressions' from its input relational expression.
  */
 public class IgniteProject extends Project implements TraitsAwareIgniteRel {
+    private static final String REL_TYPE_NAME = "Project";
+
     /**
      * Creates a Project.
      *
@@ -199,5 +201,11 @@ public class IgniteProject extends Project implements TraitsAwareIgniteRel {
     @Override
     public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
         return new IgniteProject(cluster, getTraitSet(), sole(inputs), getProjects(), getRowType());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 }
