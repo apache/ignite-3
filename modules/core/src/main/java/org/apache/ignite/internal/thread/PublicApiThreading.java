@@ -20,7 +20,8 @@ package org.apache.ignite.internal.thread;
 import java.util.function.Supplier;
 
 /**
- * Logic related to the threading concern of Public APIs.
+ * Logic related to the threading concern of public APIs: it allows to raise/clear/check a thread-local flag which gives us ability to
+ * see whether a public API call actually comes from an Ignite internal code and not from an actual user.
  */
 public class PublicApiThreading {
     private static final ThreadLocal<Boolean> INTERNAL_CALL = new ThreadLocal<>();
