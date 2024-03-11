@@ -97,30 +97,30 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     static final Predicate<HybridTimestamp> DONT_LOAD_VALUE = timestamp -> false;
 
     /** Preserved {@link LocalLocker} instance to allow nested calls of {@link #runConsistently(WriteClosure)}. */
-    protected static final ThreadLocal<LocalLocker> THREAD_LOCAL_LOCKER = new ThreadLocal<>();
+    static final ThreadLocal<LocalLocker> THREAD_LOCAL_LOCKER = new ThreadLocal<>();
 
     protected final int partitionId;
 
     protected final AbstractPageMemoryTableStorage tableStorage;
 
-    protected final DataPageReader rowVersionDataPageReader;
+    final ConcurrentMap<Integer, PageMemoryHashIndexStorage> hashIndexes = new ConcurrentHashMap<>();
 
-    protected final ConcurrentMap<Integer, PageMemoryHashIndexStorage> hashIndexes = new ConcurrentHashMap<>();
-
-    protected final ConcurrentMap<Integer, PageMemorySortedIndexStorage> sortedIndexes = new ConcurrentHashMap<>();
-
-    /** Busy lock. */
-    protected final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
+    final ConcurrentMap<Integer, PageMemorySortedIndexStorage> sortedIndexes = new ConcurrentHashMap<>();
 
     /** Current state of the storage. */
-    protected final AtomicReference<StorageState> state = new AtomicReference<>(StorageState.RUNNABLE);
+    final AtomicReference<StorageState> state = new AtomicReference<>(StorageState.RUNNABLE);
 
     /** Version chain update lock by row ID. */
-    protected final LockByRowId lockByRowId = new LockByRowId();
+    final LockByRowId lockByRowId = new LockByRowId();
 
-    protected final GradualTaskExecutor destructionExecutor;
+    final GradualTaskExecutor destructionExecutor;
 
-    protected volatile RenewablePartitionStorageState renewableState;
+    volatile RenewablePartitionStorageState renewableState;
+
+    private final DataPageReader rowVersionDataPageReader;
+
+    /** Busy lock. */
+    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     /**
      * Constructor.
@@ -128,7 +128,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * @param partitionId Partition ID.
      * @param tableStorage Table storage instance.
      */
-    protected AbstractPageMemoryMvPartitionStorage(
+    AbstractPageMemoryMvPartitionStorage(
             int partitionId,
             AbstractPageMemoryTableStorage tableStorage,
             RenewablePartitionStorageState renewableState,
@@ -342,7 +342,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     /**
      * Checks if current thread holds a lock on passed row ID.
      */
-    public static boolean rowIsLocked(RowId rowId) {
+    static boolean rowIsLocked(RowId rowId) {
         LocalLocker locker = THREAD_LOCAL_LOCKER.get();
 
         return locker != null && locker.isLocked(rowId);
@@ -754,7 +754,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * @return Value.
      * @throws StorageClosedException If the storage is closed.
      */
-    protected <V> V busy(Supplier<V> supplier) {
+    <V> V busy(Supplier<V> supplier) {
         if (!busyLock.enterBusy()) {
             throwExceptionDependingOnStorageState(state.get(), createStorageInfo());
         }

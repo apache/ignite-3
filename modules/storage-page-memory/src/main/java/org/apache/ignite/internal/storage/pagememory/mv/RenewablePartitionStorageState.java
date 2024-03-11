@@ -25,7 +25,7 @@ import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
  * Simple holder class that comprises the volatile state of {@link AbstractPageMemoryMvPartitionStorage} that gets re-instantiated on
  * partition rebalance.
  */
-public class RenewablePartitionStorageState {
+class RenewablePartitionStorageState {
     private final VersionChainTree versionChainTree;
 
     private final RowVersionFreeList rowVersionFreeList;
@@ -37,7 +37,7 @@ public class RenewablePartitionStorageState {
     private final GcQueue gcQueue;
 
     /** Creates a new instance. */
-    public RenewablePartitionStorageState(
+    RenewablePartitionStorageState(
             VersionChainTree versionChainTree,
             RowVersionFreeList rowVersionFreeList,
             IndexColumnsFreeList indexFreeList,
