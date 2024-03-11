@@ -37,6 +37,7 @@ import static org.mockito.Mockito.verify;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
@@ -458,7 +459,9 @@ public class KeyValueBinaryViewOperationsTest extends TableKvOperationsTestBase 
                 internalTable,
                 new DummySchemaManagerImpl(schema),
                 schemaVersions,
-                marshallers, mock(IgniteSql.class)
+                mock(IgniteSql.class),
+                marshallers,
+                ForkJoinPool.commonPool()
         );
 
         BinaryRow resultRow = new TupleMarshallerImpl(schema).marshal(Tuple.create().set("ID", 1L).set("VAL", 2L));
