@@ -90,7 +90,7 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
         super(
                 partitionId,
                 tableStorage,
-                new PartitionStorageMutableState(
+                new RenewablePartitionStorageState(
                         versionChainTree,
                         tableStorage.dataRegion().rowVersionFreeList(),
                         tableStorage.dataRegion().indexColumnsFreeList(),
@@ -221,7 +221,7 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
      * Destroys internal structures (including indices) backing this partition.
      */
     public CompletableFuture<Void> destroyStructures() {
-        PartitionStorageMutableState localState = mutableState;
+        RenewablePartitionStorageState localState = renewableState;
 
         Stream<CompletableFuture<?>> destroyFutures = Stream.of(
                 startMvDataDestruction(localState),
@@ -248,8 +248,8 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
         return CompletableFuture.allOf(allDestroyFutures);
     }
 
-    private CompletableFuture<Void> startMvDataDestruction(PartitionStorageMutableState state) {
-        return destroyTree(state.versionChainTree(), chainKey -> destroyVersionChain((VersionChain) chainKey, state))
+    private CompletableFuture<Void> startMvDataDestruction(RenewablePartitionStorageState renewableState) {
+        return destroyTree(renewableState.versionChainTree(), chainKey -> destroyVersionChain((VersionChain) chainKey, renewableState))
                 .whenComplete((res, e) -> {
                     if (e != null) {
                         LOG.error(
@@ -261,29 +261,29 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
                 });
     }
 
-    private void destroyVersionChain(VersionChain chainKey, PartitionStorageMutableState state) {
+    private void destroyVersionChain(VersionChain chainKey, RenewablePartitionStorageState renewableState) {
         try {
-            deleteRowVersionsFromFreeList(chainKey, state);
+            deleteRowVersionsFromFreeList(chainKey, renewableState);
         } catch (IgniteInternalCheckedException e) {
             throw new IgniteInternalException(e);
         }
     }
 
-    private void deleteRowVersionsFromFreeList(VersionChain chain, PartitionStorageMutableState state)
+    private void deleteRowVersionsFromFreeList(VersionChain chain, RenewablePartitionStorageState renewableState)
             throws IgniteInternalCheckedException {
         long rowVersionLink = chain.headLink();
 
         while (rowVersionLink != PageIdUtils.NULL_LINK) {
             RowVersion rowVersion = readRowVersion(rowVersionLink, NEVER_LOAD_VALUE);
 
-            state.rowVersionFreeList().removeDataRowByLink(rowVersion.link());
+            renewableState.rowVersionFreeList().removeDataRowByLink(rowVersion.link());
 
             rowVersionLink = rowVersion.nextLink();
         }
     }
 
-    private CompletableFuture<Void> startIndexMetaTreeDestruction(PartitionStorageMutableState state) {
-        return destroyTree(state.indexMetaTree(), null)
+    private CompletableFuture<Void> startIndexMetaTreeDestruction(RenewablePartitionStorageState renewableState) {
+        return destroyTree(renewableState.indexMetaTree(), null)
                 .whenComplete((res, e) -> {
                     if (e != null) {
                         LOG.error(
@@ -295,8 +295,8 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
                 });
     }
 
-    private CompletableFuture<Void> startGarbageCollectionTreeDestruction(PartitionStorageMutableState state) {
-        return destroyTree(state.gcQueue(), null)
+    private CompletableFuture<Void> startGarbageCollectionTreeDestruction(RenewablePartitionStorageState renewableState) {
+        return destroyTree(renewableState.gcQueue(), null)
                 .whenComplete((res, e) -> {
                     if (e != null) {
                         LOG.error(
@@ -320,7 +320,7 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
 
     @Override
     List<AutoCloseable> getResourcesToCloseOnCleanup() {
-        PartitionStorageMutableState localState = mutableState;
+        RenewablePartitionStorageState localState = renewableState;
 
         return List.of(localState.versionChainTree()::close, localState.indexMetaTree()::close, localState.gcQueue()::close);
     }
@@ -340,9 +340,9 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
     ) {
         throwExceptionIfStorageNotInCleanupOrRebalancedState(state.get(), this::createStorageInfo);
 
-        PartitionStorageMutableState prevState = this.mutableState;
+        RenewablePartitionStorageState prevState = this.renewableState;
 
-        var newState = new PartitionStorageMutableState(
+        var newState = new RenewablePartitionStorageState(
                 versionChainTree,
                 prevState.rowVersionFreeList(),
                 prevState.indexFreeList(),
@@ -350,7 +350,7 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
                 gcQueue
         );
 
-        this.mutableState = newState;
+        this.renewableState = newState;
 
         for (PageMemoryHashIndexStorage indexStorage : hashIndexes.values()) {
             indexStorage.updateDataStructures(

@@ -73,7 +73,7 @@ class AddWriteCommittedInvokeClosure implements InvokeClosure<VersionChain> {
         this.row = row;
         this.commitTimestamp = commitTimestamp;
         this.storage = storage;
-        this.gcQueue = storage.mutableState.gcQueue();
+        this.gcQueue = storage.renewableState.gcQueue();
     }
 
     @Override

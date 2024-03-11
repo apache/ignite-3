@@ -85,7 +85,7 @@ import org.jetbrains.annotations.Nullable;
  * <p>A few words about parallel operations with version chains:
  * <ul>
  *     <li>Reads and updates of version chains (or a single version) must be synchronized by the
- *     {@link PartitionStorageMutableState#versionChainTree()}, for example for
+ *     {@link RenewablePartitionStorageState#versionChainTree()}, for example for
  *     reading you can use {@link #findVersionChain(RowId, Function)} or
  *     {@link AbstractPartitionTimestampCursor#createVersionChainCursorIfMissing()}, and for updates you can use {@link InvokeClosure}
  *     for example {@link AddWriteInvokeClosure} or {@link CommitWriteInvokeClosure}.</li>
@@ -120,7 +120,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     protected final GradualTaskExecutor destructionExecutor;
 
-    protected volatile PartitionStorageMutableState mutableState;
+    protected volatile RenewablePartitionStorageState renewableState;
 
     /**
      * Constructor.
@@ -131,12 +131,12 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     protected AbstractPageMemoryMvPartitionStorage(
             int partitionId,
             AbstractPageMemoryTableStorage tableStorage,
-            PartitionStorageMutableState mutableState,
+            RenewablePartitionStorageState renewableState,
             ExecutorService destructionExecutor
     ) {
         this.partitionId = partitionId;
         this.tableStorage = tableStorage;
-        this.mutableState = mutableState;
+        this.renewableState = renewableState;
         this.destructionExecutor = createGradualTaskExecutor(destructionExecutor);
 
         PageMemory pageMemory = tableStorage.dataRegion().pageMemory();
@@ -153,7 +153,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         busy(() -> {
             throwExceptionIfStorageNotInRunnableState();
 
-            PartitionStorageMutableState localState = mutableState;
+            RenewablePartitionStorageState localState = renewableState;
 
             try (Cursor<IndexMeta> cursor = localState.indexMetaTree().find(null, null)) {
                 for (IndexMeta indexMeta : cursor) {
@@ -203,7 +203,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
         return busy(() -> hashIndexes.computeIfAbsent(
                 indexDescriptor.id(),
-                id -> createOrRestoreHashIndex(createIndexMetaForNewIndex(id), indexDescriptor, mutableState))
+                id -> createOrRestoreHashIndex(createIndexMetaForNewIndex(id), indexDescriptor, renewableState))
         );
     }
 
@@ -217,30 +217,34 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
         return busy(() -> sortedIndexes.computeIfAbsent(
                 indexDescriptor.id(),
-                id -> createOrRestoreSortedIndex(createIndexMetaForNewIndex(id), indexDescriptor, mutableState))
+                id -> createOrRestoreSortedIndex(createIndexMetaForNewIndex(id), indexDescriptor, renewableState))
         );
     }
 
     private PageMemoryHashIndexStorage createOrRestoreHashIndex(
             IndexMeta indexMeta,
             StorageHashIndexDescriptor indexDescriptor,
-            PartitionStorageMutableState state
+            RenewablePartitionStorageState renewableState
     ) {
         throwExceptionIfStorageNotInRunnableState();
 
-        HashIndexTree hashIndexTree = createHashIndexTree(indexDescriptor, indexMeta, state);
+        HashIndexTree hashIndexTree = createHashIndexTree(indexDescriptor, indexMeta, renewableState);
 
         return new PageMemoryHashIndexStorage(
                 indexMeta,
                 indexDescriptor,
-                state.indexFreeList(),
+                renewableState.indexFreeList(),
                 hashIndexTree,
-                state.indexMetaTree(),
+                renewableState.indexMetaTree(),
                 tableStorage.isVolatile()
         );
     }
 
-    HashIndexTree createHashIndexTree(StorageHashIndexDescriptor indexDescriptor, IndexMeta indexMeta, PartitionStorageMutableState state) {
+    HashIndexTree createHashIndexTree(
+            StorageHashIndexDescriptor indexDescriptor,
+            IndexMeta indexMeta,
+            RenewablePartitionStorageState renewableState
+    ) {
         try {
             PageMemory pageMemory = tableStorage.dataRegion().pageMemory();
 
@@ -258,7 +262,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                     PageLockListenerNoOp.INSTANCE,
                     new AtomicLong(),
                     metaPageId,
-                    state.rowVersionFreeList(),
+                    renewableState.rowVersionFreeList(),
                     indexDescriptor,
                     initNew
             );
@@ -266,7 +270,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             if (initNew) {
                 var actualIndexMeta = new IndexMeta(indexMeta.indexId(), metaPageId, indexMeta.nextRowIdUuidToBuild());
 
-                boolean replaced = state.indexMetaTree().putx(actualIndexMeta);
+                boolean replaced = renewableState.indexMetaTree().putx(actualIndexMeta);
 
                 assert !replaced : "indexId=" + indexMeta.indexId() + ", partitionId=" + partitionId;
             }
@@ -280,24 +284,24 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     private PageMemorySortedIndexStorage createOrRestoreSortedIndex(
             IndexMeta indexMeta,
             StorageSortedIndexDescriptor indexDescriptor,
-            PartitionStorageMutableState state
+            RenewablePartitionStorageState renewableState
     ) {
         throwExceptionIfStorageNotInRunnableState();
 
-        SortedIndexTree sortedIndexTree = createSortedIndexTree(indexDescriptor, indexMeta, state);
+        SortedIndexTree sortedIndexTree = createSortedIndexTree(indexDescriptor, indexMeta, renewableState);
 
         return new PageMemorySortedIndexStorage(
                 indexMeta,
                 indexDescriptor,
-                state.indexFreeList(),
+                renewableState.indexFreeList(),
                 sortedIndexTree,
-                state.indexMetaTree(),
+                renewableState.indexMetaTree(),
                 tableStorage.isVolatile()
         );
     }
 
     SortedIndexTree createSortedIndexTree(
-            StorageSortedIndexDescriptor indexDescriptor, IndexMeta indexMeta, PartitionStorageMutableState state
+            StorageSortedIndexDescriptor indexDescriptor, IndexMeta indexMeta, RenewablePartitionStorageState renewableState
     ) {
         try {
             PageMemory pageMemory = tableStorage.dataRegion().pageMemory();
@@ -316,7 +320,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                     PageLockListenerNoOp.INSTANCE,
                     new AtomicLong(),
                     metaPageId,
-                    state.rowVersionFreeList(),
+                    renewableState.rowVersionFreeList(),
                     indexDescriptor,
                     initNew
             );
@@ -324,7 +328,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             if (initNew) {
                 var actualIndexMeta = new IndexMeta(indexMeta.indexId(), metaPageId, indexMeta.nextRowIdUuidToBuild());
 
-                boolean replaced = state.indexMetaTree().putx(actualIndexMeta);
+                boolean replaced = renewableState.indexMetaTree().putx(actualIndexMeta);
 
                 assert !replaced;
             }
@@ -527,7 +531,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     void insertRowVersion(RowVersion rowVersion) {
         try {
-            mutableState.rowVersionFreeList().insertDataRow(rowVersion);
+            renewableState.rowVersionFreeList().insertDataRow(rowVersion);
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Cannot store a row version: [row={}, {}]", e, rowVersion, createStorageInfo());
         }
@@ -546,7 +550,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             try {
                 AddWriteInvokeClosure addWrite = new AddWriteInvokeClosure(rowId, row, txId, commitTableId, commitPartitionId, this);
 
-                mutableState.versionChainTree().invoke(new VersionChainKey(rowId), null, addWrite);
+                renewableState.versionChainTree().invoke(new VersionChainKey(rowId), null, addWrite);
 
                 addWrite.afterCompletion();
 
@@ -575,7 +579,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             try {
                 AbortWriteInvokeClosure abortWrite = new AbortWriteInvokeClosure(rowId, this);
 
-                mutableState.versionChainTree().invoke(new VersionChainKey(rowId), null, abortWrite);
+                renewableState.versionChainTree().invoke(new VersionChainKey(rowId), null, abortWrite);
 
                 abortWrite.afterCompletion();
 
@@ -600,7 +604,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             try {
                 CommitWriteInvokeClosure commitWrite = new CommitWriteInvokeClosure(rowId, timestamp, this);
 
-                mutableState.versionChainTree().invoke(new VersionChainKey(rowId), null, commitWrite);
+                renewableState.versionChainTree().invoke(new VersionChainKey(rowId), null, commitWrite);
 
                 commitWrite.afterCompletion();
 
@@ -615,7 +619,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     void removeRowVersion(RowVersion rowVersion) {
         try {
-            mutableState.rowVersionFreeList().removeDataRowByLink(rowVersion.link());
+            renewableState.rowVersionFreeList().removeDataRowByLink(rowVersion.link());
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Cannot remove row version: [row={}, {}]", e, rowVersion, createStorageInfo());
         }
@@ -634,7 +638,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                 AddWriteCommittedInvokeClosure addWriteCommitted = new AddWriteCommittedInvokeClosure(rowId, row, commitTimestamp,
                         this);
 
-                mutableState.versionChainTree().invoke(new VersionChainKey(rowId), null, addWriteCommitted);
+                renewableState.versionChainTree().invoke(new VersionChainKey(rowId), null, addWriteCommitted);
 
                 addWriteCommitted.afterCompletion();
 
@@ -682,7 +686,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableState();
 
-            try (Cursor<VersionChain> cursor = mutableState.versionChainTree().find(new VersionChainKey(lowerBound), null)) {
+            try (Cursor<VersionChain> cursor = renewableState.versionChainTree().find(new VersionChainKey(lowerBound), null)) {
                 return cursor.hasNext() ? cursor.next().rowId() : null;
             } catch (Exception e) {
                 throw new StorageException("Error occurred while trying to read a row id", e);
@@ -696,7 +700,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             throwExceptionIfStorageNotInRunnableState();
 
             try {
-                return mutableState.versionChainTree().size();
+                return renewableState.versionChainTree().size();
             } catch (IgniteInternalCheckedException e) {
                 throw new StorageException("Error occurred while fetching the size.", e);
             }
@@ -726,7 +730,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     protected List<AutoCloseable> getResourcesToClose() {
         List<AutoCloseable> resources = new ArrayList<>();
 
-        PartitionStorageMutableState localState = mutableState;
+        RenewablePartitionStorageState localState = renewableState;
 
         resources.add(destructionExecutor::close);
         resources.add(localState.versionChainTree()::close);
@@ -877,7 +881,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      */
     <T> @Nullable T findVersionChain(RowId rowId, Function<VersionChain, T> mapper) {
         try {
-            return mutableState.versionChainTree().findOne(new VersionChainKey(rowId), new TreeRowMapClosure<>() {
+            return renewableState.versionChainTree().findOne(new VersionChainKey(rowId), new TreeRowMapClosure<>() {
                 @Override
                 public T map(VersionChain treeRow) {
                     return mapper.apply(treeRow);
@@ -897,7 +901,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         // Assertion above guarantees that we're in "runConsistently" closure.
         throwExceptionIfStorageNotInRunnableState();
 
-        GcRowVersion head = mutableState.gcQueue().getFirst();
+        GcRowVersion head = renewableState.gcQueue().getFirst();
 
         // Garbage collection queue is empty.
         if (head == null) {
@@ -930,7 +934,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         HybridTimestamp rowTimestamp = gcRowVersion.getTimestamp();
 
         // Someone processed the element in parallel.
-        if (!mutableState.gcQueue().remove(rowId, rowTimestamp, gcRowVersion.getLink())) {
+        if (!renewableState.gcQueue().remove(rowId, rowTimestamp, gcRowVersion.getLink())) {
             return null;
         }
 
@@ -943,7 +947,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         RemoveWriteOnGcInvokeClosure removeWriteOnGc = new RemoveWriteOnGcInvokeClosure(rowId, rowTimestamp, rowLink, this);
 
         try {
-            mutableState.versionChainTree().invoke(new VersionChainKey(rowId), null, removeWriteOnGc);
+            renewableState.versionChainTree().invoke(new VersionChainKey(rowId), null, removeWriteOnGc);
         } catch (IgniteInternalCheckedException e) {
             throwStorageExceptionIfItCause(e);
 
@@ -1014,7 +1018,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
             return result.thenRunAsync(() -> runConsistently(locker -> {
                 try {
-                    mutableState.indexMetaTree().removex(new IndexMetaKey(indexId));
+                    renewableState.indexMetaTree().removex(new IndexMetaKey(indexId));
                 } catch (IgniteInternalCheckedException e) {
                     throw new StorageException(e);
                 }

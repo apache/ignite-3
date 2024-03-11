@@ -102,7 +102,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         super(
                 partitionId,
                 tableStorage,
-                new PartitionStorageMutableState(versionChainTree, rowVersionFreeList, indexFreeList, indexMetaTree, gcQueue),
+                new RenewablePartitionStorageState(versionChainTree, rowVersionFreeList, indexFreeList, indexMetaTree, gcQueue),
                 destructionExecutor
         );
 
@@ -331,7 +331,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
         resourcesToClose.add(() -> checkpointManager.removeCheckpointListener(checkpointListener));
 
-        PartitionStorageMutableState localState = mutableState;
+        RenewablePartitionStorageState localState = renewableState;
 
         resourcesToClose.add(localState.rowVersionFreeList()::close);
         resourcesToClose.add(localState.indexFreeList()::close);
@@ -347,7 +347,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
      * @throws IgniteInternalCheckedException If failed.
      */
     private void syncMetadataOnCheckpoint(@Nullable Executor executor) throws IgniteInternalCheckedException {
-        PartitionStorageMutableState localState = mutableState;
+        RenewablePartitionStorageState localState = renewableState;
 
         if (executor == null) {
             localState.rowVersionFreeList().saveMetadata();
@@ -402,7 +402,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
         this.meta = meta;
 
-        var newState = new PartitionStorageMutableState(
+        var newState = new RenewablePartitionStorageState(
                 versionChainTree,
                 rowVersionFreeList,
                 indexFreeList,
@@ -410,7 +410,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                 gcQueue
         );
 
-        this.mutableState = newState;
+        this.renewableState = newState;
 
         this.blobStorage = new BlobStorage(
                 rowVersionFreeList,
@@ -445,7 +445,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
     @Override
     List<AutoCloseable> getResourcesToCloseOnCleanup() {
-        PartitionStorageMutableState localState = mutableState;
+        RenewablePartitionStorageState localState = renewableState;
 
         return List.of(
                 localState.rowVersionFreeList()::close,

@@ -70,7 +70,7 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
         this.timestamp = timestamp;
         this.storage = storage;
 
-        PartitionStorageMutableState localState = storage.mutableState;
+        RenewablePartitionStorageState localState = storage.renewableState;
 
         this.rowVersionFreeList = localState.rowVersionFreeList();
         this.gcQueue = localState.gcQueue();

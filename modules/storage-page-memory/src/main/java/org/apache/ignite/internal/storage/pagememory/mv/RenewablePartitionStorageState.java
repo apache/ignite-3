@@ -22,9 +22,10 @@ import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
 
 /**
- * Simple holder class that comprises the volatile state of {@link AbstractPageMemoryMvPartitionStorage}.
+ * Simple holder class that comprises the volatile state of {@link AbstractPageMemoryMvPartitionStorage} that gets re-instantiated on
+ * partition rebalance.
  */
-public class PartitionStorageMutableState {
+public class RenewablePartitionStorageState {
     private final VersionChainTree versionChainTree;
 
     private final RowVersionFreeList rowVersionFreeList;
@@ -36,7 +37,7 @@ public class PartitionStorageMutableState {
     private final GcQueue gcQueue;
 
     /** Creates a new instance. */
-    public PartitionStorageMutableState(
+    public RenewablePartitionStorageState(
             VersionChainTree versionChainTree,
             RowVersionFreeList rowVersionFreeList,
             IndexColumnsFreeList indexFreeList,

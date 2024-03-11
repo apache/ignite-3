@@ -46,7 +46,7 @@ abstract class AbstractPartitionTimestampCursor implements PartitionTimestampCur
 
     AbstractPartitionTimestampCursor(AbstractPageMemoryMvPartitionStorage storage) {
         this.storage = storage;
-        this.versionChainTree = storage.mutableState.versionChainTree();
+        this.versionChainTree = storage.renewableState.versionChainTree();
     }
 
     @Override
