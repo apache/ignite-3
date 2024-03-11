@@ -63,7 +63,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -74,7 +73,6 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.metrics.MetricManager;
@@ -105,6 +103,7 @@ import org.apache.ignite.internal.sql.engine.message.ExecutionContextAwareMessag
 import org.apache.ignite.internal.sql.engine.message.MessageListener;
 import org.apache.ignite.internal.sql.engine.message.MessageService;
 import org.apache.ignite.internal.sql.engine.message.QueryStartRequest;
+import org.apache.ignite.internal.sql.engine.message.QueryStartResponse;
 import org.apache.ignite.internal.sql.engine.message.QueryStartResponseImpl;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
@@ -128,6 +127,7 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
+import org.apache.ignite.internal.util.ReverseIterator;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -181,7 +181,6 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     private RuntimeException mappingException;
 
     private final List<QueryTaskExecutor> executers = new ArrayList<>();
-    private final List<HybridClock> clocks = new ArrayList<>(nodeNames.size());
 
     private ClusterNode firstNode;
 
@@ -805,28 +804,27 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     /**
-     * Test ensures that clock is updated on query initiator node
-     * when a batch of rows is received from another node.
+     * Test ensures that hybrid clock propagates in two ways.
+     *
+     * <ul>
+     *     <li>From root node to leaf nodes (during query initialization}.</li>
+     *     <li>From leaf nodes to root node (when receiving a batch of rows).</li>
+     * </ul>
      */
     @Test
-    public void testClockUpdatesOnInitiator() {
+    public void testClockPropagation() throws InterruptedException {
         long yearDurationMs = ChronoUnit.YEARS.getDuration().toMillis();
 
-        AtomicInteger updatesCounter = new AtomicInteger();
-        HybridTimestamp maxTs = clocks.get(0).now();
-        long[] expectedPhysTimes = new long[testCluster.nodes.size()];
+        // Setting a different time point on each node (initiator must have the highest time).
+        ReverseIterator<String> itr = new ReverseIterator<>(nodeNames);
+        while (itr.hasNext()) {
+            HybridClock clock = testCluster.nodes.get(itr.next()).clock;
 
-        // Setting a different time point on each node
-        // (initiator must have the lowest time).
-        for (int i = 0; i < clocks.size(); i++) {
-            HybridClock clock = clocks.get(i);
-
-            maxTs = maxTs.addPhysicalTime(yearDurationMs);
-            expectedPhysTimes[i] = maxTs.getPhysical();
-
-            clock.update(maxTs);
-            clock.addUpdateListener(ignore -> updatesCounter.incrementAndGet());
+            clock.update(clock.now().addPhysicalTime(yearDurationMs));
         }
+
+        CountDownLatch allQueryStartResponsesReceived = new CountDownLatch(4);
+        CountDownLatch continueExecutionLatch = new CountDownLatch(1);
 
         ExecutionService execService = executionServices.get(0);
         BaseQueryContext ctx = createContext();
@@ -836,23 +834,48 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         InternalTransaction tx = new NoOpTransaction(nodeNames.get(0));
         AsyncCursor<InternalSqlRow> cursor = execService.executePlan(tx, plan, ctx);
 
-        await(cursor.requestNextAsync(100));
+        testCluster.nodes.get(nodeNames.get(0)).interceptor((senderNodeName, msg, original) -> {
+            if (msg instanceof QueryStartResponse) {
+                try {
+                    allQueryStartResponsesReceived.countDown();
+                    continueExecutionLatch.await(TIMEOUT_IN_MS, TimeUnit.MILLISECONDS);
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
+            }
 
-        // Clock must be updated only on initiator node.
-        expectedPhysTimes[0] = maxTs.getPhysical();
+            original.onMessage(senderNodeName, msg);
 
-        for (int i = 0; i < clocks.size(); i++) {
-            assertEquals(expectedPhysTimes[i], clocks.get(i).now().getPhysical(), "node#" + i);
+            return nullCompletedFuture();
+        });
+
+        allQueryStartResponsesReceived.await();
+
+        // Checks clock propagation from the root node to the leaves
+        // (node_1 must propagate clock to node_2 and node_3).
+        assertEquals(testCluster.nodes.get("node_1").clock.now().getPhysical(), testCluster.nodes.get("node_2").clock.now().getPhysical());
+        assertEquals(testCluster.nodes.get("node_1").clock.now().getPhysical(), testCluster.nodes.get("node_3").clock.now().getPhysical());
+
+        // Simulate that the clocks on nodes node_2 and node_3 have moved forward to check propagation from leaves to root node.
+        for (String nodeName : List.of("node_2", "node_3")) {
+            HybridClock clock = testCluster.nodes.get(nodeName).clock;
+
+            clock.update(clock.now().addPhysicalTime(yearDurationMs));
         }
 
-        // TODO top-to-bottom propagation check
-        assertEquals((clocks.size() - 1) * 2, updatesCounter.get());
+        continueExecutionLatch.countDown();
+
+        await(cursor.requestNextAsync(100));
+
+        // Checks clock propagation from leave nodes to the root.
+        assertEquals(testCluster.nodes.get("node_3").clock.now().getPhysical(), testCluster.nodes.get("node_1").clock.now().getPhysical());
+        assertEquals(testCluster.nodes.get("node_3").clock.now().getPhysical(), testCluster.nodes.get("node_1").clock.now().getPhysical());
 
         await(cursor.closeAsync());
     }
 
     /** Creates an execution service instance for the node with given consistent id. */
-    ExecutionServiceImpl<Object[]> create(String nodeName) {
+    public ExecutionServiceImpl<Object[]> create(String nodeName) {
         if (!nodeNames.contains(nodeName)) {
             throw new IllegalArgumentException(format("Node id should be one of {}, but was '{}'", nodeNames, nodeName));
         }
@@ -867,8 +890,6 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         var messageService = node.messageService();
         var mailboxRegistry = new CapturingMailboxRegistry(new MailboxRegistryImpl());
         mailboxes.add(mailboxRegistry);
-
-        clocks.add(node.clock);
 
         var exchangeService = new ExchangeServiceImpl(mailboxRegistry, messageService, node.clock);
 
@@ -1133,7 +1154,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
             private CompletableFuture<Void> onReceive(String senderNodeName, NetworkMessage message) {
                 MessageListener original = (nodeName, msg) -> {
-                    if (msg instanceof TimestampAware && !nodeName.equals(this.nodeName)) {
+                    if (msg instanceof TimestampAware) {
                         clock.update(((TimestampAware) msg).timestamp());
                     }
 

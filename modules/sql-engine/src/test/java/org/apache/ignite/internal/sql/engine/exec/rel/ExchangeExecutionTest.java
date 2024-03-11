@@ -616,12 +616,10 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
             ClusterService clusterService,
             MailboxRegistry mailboxRegistry
     ) {
-        String localNodeName = clusterService.topologyService().localMember().name();
-
         HybridClock clock = new HybridClockImpl();
 
         MessageService messageService = new MessageServiceImpl(
-                localNodeName,
+                clusterService.topologyService().localMember().name(),
                 clusterService.messagingService(),
                 taskExecutor,
                 new IgniteSpinBusyLock(),
