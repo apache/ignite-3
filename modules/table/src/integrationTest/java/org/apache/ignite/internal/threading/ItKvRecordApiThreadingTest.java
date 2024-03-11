@@ -511,7 +511,7 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
             this.action = action;
         }
 
-        <T> CompletableFuture<?> executeOn(CriteriaQuerySource<T> tableView) {
+        CompletableFuture<?> executeOn(CriteriaQuerySource<?> tableView) {
             return action.apply((CriteriaQuerySource<Object>) tableView);
         }
     }
@@ -543,7 +543,7 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
             this.action = action;
         }
 
-        <T> CompletableFuture<?> executeOn(AsyncCursor<T> cursor) {
+        CompletableFuture<?> executeOn(AsyncCursor<?> cursor) {
             return action.apply((AsyncCursor<Object>) cursor);
         }
     }
