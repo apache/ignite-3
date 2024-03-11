@@ -58,11 +58,13 @@ import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserService;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.systemview.api.SystemViewManager;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.network.TopologyService;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * An object representing a node in test cluster.
@@ -183,6 +185,10 @@ public class TestNode implements LifecycleAware {
      * @param plan A plan to execute.
      * @return A cursor representing the result.
      */
+    public AsyncCursor<InternalSqlRow> executePlan(QueryPlan plan, @Nullable InternalTransaction transaction) {
+        return executionService.executePlan(transaction == null ? new NoOpTransaction(nodeName) : transaction, plan, createContext());
+    }
+
     public AsyncCursor<InternalSqlRow> executePlan(QueryPlan plan) {
         return executionService.executePlan(new NoOpTransaction(nodeName), plan, createContext());
     }

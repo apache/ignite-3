@@ -334,6 +334,16 @@ public class TestBuilders {
         ClusterBuilder dataProvider(String nodeName, String tableName, ScannableTable table);
 
         /**
+         * Provides implementation of table with given name local per given node.
+         *
+         * @param nodeNames Names of the nodes given instance of table will be assigned to.
+         * @param tableName Name of the table given instance represents.
+         * @param table Actual table that will be used for read operations during execution.
+         * @return {@code this} for chaining.
+         */
+        ClusterBuilder dataProviders(List<String> nodeNames, String tableName, ScannableTable table);
+
+        /**
          * Registers a previously added system view (see {@link #addSystemView(SystemView)}) on the specified node.
          *
          * @param nodeName Name of the node the view is going to be registered at.
@@ -547,6 +557,15 @@ public class TestBuilders {
         @Override
         public ClusterBuilder dataProvider(String nodeName, String tableName, ScannableTable table) {
             nodeName2tableName2table.computeIfAbsent(nodeName, key -> new HashMap<>()).put(tableName, table);
+
+            return this;
+        }
+
+        @Override
+        public ClusterBuilder dataProviders(List<String> nodeNames, String tableName, ScannableTable table) {
+            for (String nodeName : nodeNames) {
+                nodeName2tableName2table.computeIfAbsent(nodeName, key -> new HashMap<>()).put(tableName, table);
+            }
 
             return this;
         }

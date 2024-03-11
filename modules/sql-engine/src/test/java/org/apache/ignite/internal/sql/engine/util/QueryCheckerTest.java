@@ -97,7 +97,9 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
                     "ColocatedSortAggregateConverterRule"
             };
 
-            assertQuery("SELECT COUNT(*) FROM t1")
+            NoOpTransaction tx = NoOpTransaction.readWrite("t1");
+
+            assertQuery("SELECT COUNT(*) FROM t1", tx)
                     .disableRules(disableAllAggregatesButColocatedHash)
                     .matches(containsString("ColocatedHashAggregate"))
                     .check();
@@ -278,6 +280,17 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
                 new TestQueryProcessor(testNode, false),
                 new TestIgniteTransactions(),
                 null,
+                qry
+        );
+    }
+
+    private static QueryChecker assertQuery(String qry, InternalTransaction tx) {
+        TestNode testNode = CLUSTER.node(NODE_NAME);
+
+        return queryCheckerFactory.create(
+                new TestQueryProcessor(testNode, false),
+                new TestIgniteTransactions(),
+                tx,
                 qry
         );
     }
