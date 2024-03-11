@@ -92,9 +92,9 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
     protected RaftConfiguration raftConfiguration;
 
     /** RPC executor. */
-    private final ScheduledExecutorService executor = new ScheduledThreadPoolExecutor(
+    protected final ScheduledExecutorService executor = new ScheduledThreadPoolExecutor(
             20,
-            NamedThreadFactory.create("common", "Raft-Group-Client", log)
+            NamedThreadFactory.create("Test", "Raft-Group-Client", log)
     );
 
     @AfterEach
