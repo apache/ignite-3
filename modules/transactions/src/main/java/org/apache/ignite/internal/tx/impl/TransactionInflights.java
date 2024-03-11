@@ -17,14 +17,16 @@
 
 package org.apache.ignite.internal.tx.impl;
 
-import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_PRIMARY_REPLICA_EXPIRED_ERR;
 
+import java.util.Collection;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -97,16 +99,16 @@ public class TransactionInflights {
         tuple.onRemovedInflights();
     }
 
-    /**
-     * Whether the transaction is finishing and there are no in-flight requests for the given transaction.
-     *
-     * @param txId Transaction id.
-     * @return Whether the transaction is finishing and there are no in-flight requests for the given transaction.
-     */
-    public boolean inflightsCompleted(UUID txId) {
-        TxContext ctx = requireNonNull(txCtxMap.get(txId));
+    Collection<UUID> readOnlyTxContextsReadyToFinish(int limit) {
+        return txCtxMap.entrySet().stream()
+                .filter(e -> e instanceof ReadOnlyTxContext && e.getValue().isReadyToFinish())
+                .map(Entry::getKey)
+                .limit(limit)
+                .collect(toSet());
+    }
 
-        return ctx.isReadyToFinish();
+    void removeTxContexts(Collection<UUID> txIds) {
+        txCtxMap.keySet().removeAll(txIds);
     }
 
     void cancelWaitingInflights(TablePartitionId groupId) {

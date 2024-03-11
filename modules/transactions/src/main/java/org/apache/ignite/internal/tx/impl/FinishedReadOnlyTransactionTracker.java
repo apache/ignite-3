@@ -18,13 +18,10 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.allOf;
-import static java.util.stream.Collectors.toSet;
 
 import java.util.Collection;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.LinkedBlockingQueue;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.tx.message.FinishedTransactionsBatchMessage;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
@@ -40,9 +37,6 @@ public class FinishedReadOnlyTransactionTracker {
 
     /** Tx messages factory. */
     private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
-
-    /** A collection of finished read only transactions ordered by the time when when they were finished. */
-    private final Collection<UUID> finishedTransactions = new LinkedBlockingQueue<>();
 
     /** Topology service. */
     private final TopologyService topologyService;
@@ -74,14 +68,7 @@ public class FinishedReadOnlyTransactionTracker {
      * Send close cursors batch message to all cluster nodes.
      */
     public void broadcastClosedTransactions() {
-        if (finishedTransactions.isEmpty()) {
-            return;
-        }
-
-        Set<UUID> txToSend = finishedTransactions.stream()
-                .filter(transactionInflights::inflightsCompleted)
-                .limit(MAX_FINISHED_TRANSACTIONS_IN_BATCH)
-                .collect(toSet());
+        Collection<UUID> txToSend = transactionInflights.readOnlyTxContextsReadyToFinish(MAX_FINISHED_TRANSACTIONS_IN_BATCH);
 
         if (!txToSend.isEmpty()) {
             FinishedTransactionsBatchMessage message = FACTORY.finishedTransactionsBatchMessage()
@@ -92,7 +79,7 @@ public class FinishedReadOnlyTransactionTracker {
                     .stream()
                     .map(clusterNode -> sendCursorCleanupCommand(clusterNode, message))
                     .toArray(CompletableFuture[]::new);
-            allOf(messages).thenRun(() -> finishedTransactions.removeAll(txToSend));
+            allOf(messages).thenRun(() -> transactionInflights.removeTxContexts(txToSend));
         }
     }
 
@@ -101,8 +88,6 @@ public class FinishedReadOnlyTransactionTracker {
     }
 
     void onTransactionFinished(UUID id) {
-        finishedTransactions.add(id);
-
         transactionInflights.markReadOnlyTxFinished(id);
     }
 }

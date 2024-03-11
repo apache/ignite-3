@@ -122,6 +122,10 @@ public class InternalTableImpl implements InternalTable {
     /** Primary replica await timeout. */
     public static final int AWAIT_PRIMARY_REPLICA_TIMEOUT = 30;
 
+    /** Default no-op implementation to avoid unnecessary allocations. */
+    private static final ReadWriteInflightBatchRequestTracker READ_WRITE_INFLIGHT_BATCH_REQUEST_TRACKER =
+            new ReadWriteInflightBatchRequestTracker();
+
     /** Partitions. */
     private final int partitions;
 
@@ -1541,7 +1545,7 @@ public class InternalTableImpl implements InternalTable {
 
                     return postEnlist(opFut, intentionallyClose, actualTx, implicit && !intentionallyClose);
                 },
-                new ReadWriteInflightBatchRequestTracker()
+                READ_WRITE_INFLIGHT_BATCH_REQUEST_TRACKER
         );
     }
 
@@ -1584,7 +1588,7 @@ public class InternalTableImpl implements InternalTable {
                 },
                 // TODO: IGNITE-17666 Close cursor tx finish.
                 (intentionallyClose, fut) -> completeScan(txId, tablePartitionId, fut, recipient.node(), intentionallyClose),
-                new ReadWriteInflightBatchRequestTracker()
+                READ_WRITE_INFLIGHT_BATCH_REQUEST_TRACKER
         );
     }
 
