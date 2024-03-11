@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
@@ -38,6 +39,7 @@ import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointPr
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTimeoutLock;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
+import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
@@ -94,9 +96,10 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
             IndexColumnsFreeList indexFreeList,
             VersionChainTree versionChainTree,
             IndexMetaTree indexMetaTree,
-            GcQueue gcQueue
+            GcQueue gcQueue,
+            ExecutorService destructionExecutor
     ) {
-        super(partitionId, tableStorage, rowVersionFreeList, indexFreeList, versionChainTree, indexMetaTree, gcQueue);
+        super(partitionId, tableStorage, rowVersionFreeList, indexFreeList, versionChainTree, indexMetaTree, gcQueue, destructionExecutor);
 
         checkpointManager = tableStorage.engine().checkpointManager();
         checkpointTimeoutLock = checkpointManager.checkpointTimeoutLock();
@@ -126,6 +129,11 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                 partitionId,
                 IoStatisticsHolderNoOp.INSTANCE
         );
+    }
+
+    @Override
+    protected GradualTaskExecutor createGradualTaskExecutor(ExecutorService threadPool) {
+        return new ConsistentGradualTaskExecutor(this, threadPool);
     }
 
     @Override
@@ -313,11 +321,8 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     }
 
     @Override
-    protected List<AutoCloseable> getResourcesToClose(boolean goingToDestroy) {
-        List<AutoCloseable> resourcesToClose = super.getResourcesToClose(goingToDestroy);
-
-        resourcesToClose.add(hashIndexes::clear);
-        resourcesToClose.add(sortedIndexes::clear);
+    protected List<AutoCloseable> getResourcesToClose() {
+        List<AutoCloseable> resourcesToClose = super.getResourcesToClose();
 
         resourcesToClose.add(() -> checkpointManager.removeCheckpointListener(checkpointListener));
 

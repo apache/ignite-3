@@ -391,6 +391,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private final RemotelyTriggeredResourceRegistry remotelyTriggeredResourceRegistry;
 
+    private final Executor asyncContinuationExecutor;
+
     /**
      * Creates a new table manager.
      *
@@ -416,6 +418,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param sql A supplier function that returns {@link IgniteSql}.
      * @param rebalanceScheduler Executor for scheduling rebalance routine.
      * @param lowWatermark Low watermark.
+     * @param asyncContinuationExecutor Executor to which execution will be resubmitted when leaving asynchronous public API endpoints
+     *     (so as to prevent the user from stealing Ignite threads).
      */
     public TableManager(
             String nodeName,
@@ -448,7 +452,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             Supplier<IgniteSql> sql,
             RemotelyTriggeredResourceRegistry remotelyTriggeredResourceRegistry,
             ScheduledExecutorService rebalanceScheduler,
-            LowWatermark lowWatermark
+            LowWatermark lowWatermark,
+            Executor asyncContinuationExecutor
     ) {
         this.topologyService = topologyService;
         this.raftMgr = raftMgr;
@@ -473,6 +478,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.remotelyTriggeredResourceRegistry = remotelyTriggeredResourceRegistry;
         this.rebalanceScheduler = rebalanceScheduler;
         this.lowWatermark = lowWatermark;
+        this.asyncContinuationExecutor = asyncContinuationExecutor;
 
         this.executorInclinedSchemaSyncService = new ExecutorInclinedSchemaSyncService(schemaSyncService, partitionOperationsExecutor);
         this.executorInclinedPlacementDriver = new ExecutorInclinedPlacementDriver(placementDriver, partitionOperationsExecutor);
@@ -1267,7 +1273,15 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 tableRaftService
         );
 
-        var table = new TableImpl(internalTable, lockMgr, schemaVersions, marshallers, sql.get(), tableDescriptor.primaryKeyIndexId());
+        var table = new TableImpl(
+                internalTable,
+                lockMgr,
+                schemaVersions,
+                marshallers,
+                sql.get(),
+                tableDescriptor.primaryKeyIndexId(),
+                asyncContinuationExecutor
+        );
 
         tablesVv.update(causalityToken, (ignore, e) -> inBusyLock(busyLock, () -> {
             if (e != null) {
