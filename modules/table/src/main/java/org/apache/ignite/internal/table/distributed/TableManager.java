@@ -1823,8 +1823,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     .thenComposeAsync(unused -> inBusyLock(busyLock, () -> {
                         if (!isRecovery) {
                             // We create index storages (and also register the necessary structures) for the rebalancing one partition
-                            // before launching the raft node, so that the updates that come when applying the replication log can safely
-                            // update the indexes. On recovery node, we do not need to call this code, since during restoration we raise
+                            // before start the raft node, so that the updates that come when applying the replication log can safely
+                            // update the indexes. On recovery node, we do not need to call this code, since during restoration we start
                             // all partitions and already register indexes there.
                             registerIndexesToTable(tbl, catalogService, singlePartitionIdSet, tbl.schemaView());
                         }
