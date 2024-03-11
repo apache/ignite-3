@@ -39,6 +39,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
+import org.apache.ignite.internal.table.distributed.LowWatermarkChangedListener;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.TrackerClosedException;
@@ -50,7 +51,7 @@ import org.jetbrains.annotations.TestOnly;
  *
  * @see GcUpdateHandler#vacuumBatch(HybridTimestamp, int, boolean)
  */
-public class MvGc implements ManuallyCloseable {
+public class MvGc implements LowWatermarkChangedListener, ManuallyCloseable {
     private static final IgniteLogger LOG = Loggers.forClass(MvGc.class);
 
     /** Node name. */
@@ -153,7 +154,8 @@ public class MvGc implements ManuallyCloseable {
      * @param newLwm New low watermark.
      * @throws IgniteInternalException with {@link GarbageCollector#CLOSED_ERR} If the garbage collector is closed.
      */
-    public void updateLowWatermark(HybridTimestamp newLwm) {
+    @Override
+    public CompletableFuture<Void> onLwmChanged(HybridTimestamp newLwm) {
         inBusyLock(() -> {
             HybridTimestamp updatedLwm = lowWatermarkReference.updateAndGet(currentLwm -> {
                 if (currentLwm == null) {
@@ -171,6 +173,8 @@ public class MvGc implements ManuallyCloseable {
 
             executor.submit(() -> inBusyLock(this::initNewGcBusy));
         });
+
+        return nullCompletedFuture();
     }
 
     @Override

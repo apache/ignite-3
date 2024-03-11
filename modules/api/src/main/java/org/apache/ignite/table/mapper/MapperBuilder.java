@@ -19,11 +19,13 @@ package org.apache.ignite.table.mapper;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.util.AbstractMap.SimpleEntry;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Objects;
+import org.apache.ignite.catalog.annotations.Column;
 import org.apache.ignite.lang.util.IgniteNameUtils;
 
 /**
@@ -274,12 +276,23 @@ public final class MapperBuilder<T> {
         if (automapFlag) {
             Arrays.stream(targetType.getDeclaredFields())
                     .filter(fld -> !Modifier.isStatic(fld.getModifiers()) && !Modifier.isTransient(fld.getModifiers()))
-                    .map(Field::getName)
-                    .filter(fldName -> !fields.contains(fldName))
+                    .map(MapperBuilder::getColumnToFieldMapping)
+                    .filter(entry -> !fields.contains(entry.getValue()))
                     // Ignore manually mapped fields/columns.
-                    .forEach(fldName -> mapping.putIfAbsent(fldName.toUpperCase(), fldName));
+                    .forEach(entry -> mapping.putIfAbsent(entry.getKey().toUpperCase(), entry.getValue()));
         }
 
         return new PojoMapperImpl<>(targetType, mapping, columnConverters);
+    }
+
+    private static SimpleEntry<String, String> getColumnToFieldMapping(Field fld) {
+        String fldName = fld.getName();
+        var column = fld.getAnnotation(Column.class);
+        if (column == null) {
+            return new SimpleEntry<>(fldName, fldName);
+        } else {
+            var columnName = column.value().isEmpty() ? fldName : column.value();
+            return new SimpleEntry<>(columnName, fldName);
+        }
     }
 }

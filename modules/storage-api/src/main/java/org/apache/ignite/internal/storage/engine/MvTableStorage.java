@@ -130,20 +130,6 @@ public interface MvTableStorage extends ManuallyCloseable {
     boolean isVolatile();
 
     /**
-     * Starts the storage.
-     *
-     * @throws StorageException If an error has occurred during the start of the storage.
-     */
-    void start() throws StorageException;
-
-    /**
-     * Stops the storage.
-     *
-     * @throws StorageException If an error has occurred during the stop of the storage.
-     */
-    void stop() throws StorageException;
-
-    /**
      * Stops and destroys the storage and cleans all allocated resources.
      *
      * @return Future that will complete when the table destruction is complete.

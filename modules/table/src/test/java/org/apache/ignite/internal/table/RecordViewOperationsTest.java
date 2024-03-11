@@ -33,7 +33,6 @@ import static org.apache.ignite.internal.type.NativeTypes.datetime;
 import static org.apache.ignite.internal.type.NativeTypes.time;
 import static org.apache.ignite.internal.type.NativeTypes.timestamp;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -56,6 +55,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.ForkJoinPool;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.internal.marshaller.testobjects.TestObjectWithAllTypes;
@@ -73,6 +73,7 @@ import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.mapper.Mapper;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -346,7 +347,22 @@ public class RecordViewOperationsTest extends TableKvOperationsTestBase {
 
         Collection<TestObjectWithAllTypes> res = tbl.getAll(null, List.of(key1, key2, key3));
 
-        assertThat(res, contains(val1, null, val3));
+        assertThat(res, Matchers.contains(val1, null, val3));
+    }
+
+    @Test
+    public void contains() {
+        final TestObjectWithAllTypes key = key(rnd);
+        final TestObjectWithAllTypes wrongKey = key(rnd);
+        final TestObjectWithAllTypes val = randomObject(rnd, key);
+        final RecordView<TestObjectWithAllTypes> tbl = recordView();
+
+        tbl.insert(null, val);
+
+        assertTrue(tbl.contains(null, key));
+        assertTrue(tbl.contains(null, val));
+        assertFalse(tbl.contains(null, wrongKey));
+        assertFalse(tbl.contains(null, randomObject(rnd, wrongKey)));
     }
 
     @Test
@@ -394,9 +410,10 @@ public class RecordViewOperationsTest extends TableKvOperationsTestBase {
                 internalTable,
                 new DummySchemaManagerImpl(schema),
                 schemaVersions,
+                mock(IgniteSql.class),
                 marshallers,
-                recMapper,
-                mock(IgniteSql.class)
+                ForkJoinPool.commonPool(),
+                recMapper
         );
     }
 

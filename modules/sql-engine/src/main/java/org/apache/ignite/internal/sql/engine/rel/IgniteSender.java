@@ -34,6 +34,8 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
  * Relational expression that iterates over its input and sends elements to remote {@link IgniteReceiver}.
  */
 public class IgniteSender extends SingleRel implements IgniteRel {
+    private static final String REL_TYPE_NAME = "Sender";
+
     private final long exchangeId;
 
     private final long targetFragmentId;
@@ -154,5 +156,11 @@ public class IgniteSender extends SingleRel implements IgniteRel {
     @Override
     public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
         return new IgniteSender(cluster, getTraitSet(), sole(inputs), exchangeId(), targetFragmentId(), distribution());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 }

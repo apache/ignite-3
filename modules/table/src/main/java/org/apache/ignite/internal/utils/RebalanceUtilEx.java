@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.utils;
 
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partChangeTriggerKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingChangeTriggerKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.switchReduceKey;
@@ -133,7 +133,7 @@ public class RebalanceUtilEx {
         byte[] pendingByteArray = ByteUtils.toBytes(pendingAssignments);
         byte[] assignmentsByteArray = ByteUtils.toBytes(assignments);
 
-        ByteArray changeTriggerKey = partChangeTriggerKey(partId);
+        ByteArray changeTriggerKey = pendingChangeTriggerKey(partId);
         byte[] rev = ByteUtils.longToBytes(entry.revision());
 
         // Here is what happens in the MetaStorage:

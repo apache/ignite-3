@@ -126,6 +126,7 @@ public interface Tuple extends Iterable<Object> {
      * @see #hashCode(Tuple)
      * @see Object#hashCode()
      */
+    @Override
     int hashCode();
 
     /**
@@ -160,7 +161,10 @@ public interface Tuple extends Iterable<Object> {
                 return false;
             }
 
-            if (!Objects.deepEquals(firstTuple.value(idx), secondTuple.value(idx2))) {
+            Object firstVal = firstTuple.value(idx);
+            Object secondVal = secondTuple.value(idx2);
+
+            if (!Objects.deepEquals(firstVal, secondVal)) {
                 return false;
             }
         }
@@ -175,6 +179,7 @@ public interface Tuple extends Iterable<Object> {
      * @see Tuple#equals(Tuple, Tuple)
      * @see Object#equals(Object)
      */
+    @Override
     boolean equals(Object obj);
 
     /**

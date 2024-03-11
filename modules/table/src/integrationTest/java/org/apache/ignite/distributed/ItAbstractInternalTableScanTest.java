@@ -100,8 +100,8 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
      */
     @BeforeEach
     public void setUp(TestInfo testInfo) {
-        internalTbl = new DummyInternalTableImpl(
-                mock(ReplicaService.class), mockStorage, ROW_SCHEMA, txConfiguration, storageUpdateConfiguration);
+        internalTbl = new DummyInternalTableImpl(mock(ReplicaService.class), mockStorage, ROW_SCHEMA, txConfiguration,
+                storageUpdateConfiguration);
     }
 
     /**

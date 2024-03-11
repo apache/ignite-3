@@ -19,7 +19,9 @@ package org.apache.ignite.internal.sql.engine.exec.mapping;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
@@ -40,11 +42,27 @@ public class ColocationGroup implements Serializable {
 
     private final List<NodeWithConsistencyToken> assignments;
 
+    private final Map<String, List<PartitionWithConsistencyToken>> partitionsPerNode;
+
     /** Constructor. */
     public ColocationGroup(List<Long> sourceIds, List<String> nodeNames, List<NodeWithConsistencyToken> assignments) {
         this.sourceIds = Objects.requireNonNull(sourceIds, "sourceIds");
         this.nodeNames = Objects.requireNonNull(nodeNames, "nodeNames");
         this.assignments = Objects.requireNonNull(assignments, "assignments");
+        this.partitionsPerNode = null;
+    }
+
+    /** Constructor for colocation group with applied partition pruning. */
+    public ColocationGroup(
+            List<Long> sourceIds,
+            List<String> nodeNames,
+            List<NodeWithConsistencyToken> assignments,
+            Map<String, List<PartitionWithConsistencyToken>> partitionsPerNode
+    ) {
+        this.sourceIds = Objects.requireNonNull(sourceIds, "sourceIds");
+        this.nodeNames = Objects.requireNonNull(nodeNames, "nodeNames");
+        this.assignments = Objects.requireNonNull(assignments, "assignments");
+        this.partitionsPerNode = Objects.requireNonNull(partitionsPerNode, "partitionsPerNode");
     }
 
     /**
@@ -76,16 +94,22 @@ public class ColocationGroup implements Serializable {
      * @return List of pairs containing the partition number to scan on the given node with the corresponding enlistment consistency token.
      */
     public List<PartitionWithConsistencyToken> partitionsWithConsistencyTokens(String nodeName) {
-        List<PartitionWithConsistencyToken> partsWithConsistencyTokens = new ArrayList<>();
+        // If partitionsPerNode field is set, then we should use pre computed partitions applied by partition pruning.
+        // Otherwise use use assignments to extract partitions for the given node.
+        if (partitionsPerNode != null) {
+            return partitionsPerNode.getOrDefault(nodeName, Collections.emptyList());
+        } else {
+            List<PartitionWithConsistencyToken> partitions = new ArrayList<>();
 
-        for (int p = 0; p < assignments.size(); p++) {
-            NodeWithConsistencyToken nodeWithConsistencyToken = assignments.get(p);
+            for (int p = 0; p < assignments.size(); p++) {
+                NodeWithConsistencyToken nodeWithConsistencyToken = assignments.get(p);
 
-            if (Objects.equals(nodeName, nodeWithConsistencyToken.name())) {
-                partsWithConsistencyTokens.add(new PartitionWithConsistencyToken(p, nodeWithConsistencyToken.enlistmentConsistencyToken()));
+                if (Objects.equals(nodeName, nodeWithConsistencyToken.name())) {
+                    partitions.add(new PartitionWithConsistencyToken(p, nodeWithConsistencyToken.enlistmentConsistencyToken()));
+                }
             }
-        }
 
-        return partsWithConsistencyTokens;
+            return partitions;
+        }
     }
 }

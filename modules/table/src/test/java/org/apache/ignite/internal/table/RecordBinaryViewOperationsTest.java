@@ -40,6 +40,7 @@ import static org.mockito.Mockito.verify;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
@@ -92,7 +93,7 @@ public class RecordBinaryViewOperationsTest extends TableKvOperationsTestBase {
         return new SchemaDescriptor(
                 SCHEMA_VERSION,
                 new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
-                new Column[]{new Column("val".toUpperCase(), NativeTypes.INT64, false)}
+                new Column[]{new Column("val".toUpperCase(), NativeTypes.INT64, true)}
         );
     }
 
@@ -344,6 +345,30 @@ public class RecordBinaryViewOperationsTest extends TableKvOperationsTestBase {
     }
 
     @Test
+    public void testContains() {
+        SchemaDescriptor schema = schemaDescriptor();
+        RecordView<Tuple> tbl = createTable(schema).recordView();
+
+        final long keyId = 1L;
+        Tuple rec = Tuple.create()
+                .set("id", keyId)
+                .set("val", 11L);
+        Tuple keyRec = Tuple.create()
+                .set("id", keyId);
+
+        tbl.insert(null, rec);
+        assertTrue(tbl.contains(null, keyRec));
+        assertFalse(tbl.contains(null, Tuple.create().set("id", -1L)));
+
+        tbl.delete(null, keyRec);
+        assertFalse(tbl.contains(null, keyRec));
+
+        Tuple nullValRec = Tuple.create().set("id", 1L).set("val", null);
+        tbl.insert(null, nullValRec);
+        assertTrue(tbl.contains(null, keyRec));
+    }
+
+    @Test
     public void upsertAllAfterInsertAll() {
         SchemaDescriptor schema = schemaDescriptor();
 
@@ -587,7 +612,12 @@ public class RecordBinaryViewOperationsTest extends TableKvOperationsTestBase {
         ReflectionMarshallersProvider marshallers = new ReflectionMarshallersProvider();
 
         RecordView<Tuple> view = new RecordBinaryViewImpl(
-                internalTable, new DummySchemaManagerImpl(schema), schemaVersions, marshallers, mock(IgniteSql.class)
+                internalTable,
+                new DummySchemaManagerImpl(schema),
+                schemaVersions,
+                mock(IgniteSql.class),
+                marshallers,
+                ForkJoinPool.commonPool()
         );
 
         BinaryRow resultRow = new TupleMarshallerImpl(schema).marshal(Tuple.create().set("id", 1L).set("val", 2L));

@@ -571,7 +571,7 @@ namespace Apache.Ignite.Tests
                 writer.Write(7); // Column props.
                 writer.Write("ID");
                 writer.Write((int)ColumnType.Int32);
-                writer.Write(true); // Key.
+                writer.Write(0); // Key index.
                 writer.Write(false); // Nullable.
                 writer.Write(0); // Colocation index.
                 writer.Write(0); // Scale.
@@ -584,7 +584,7 @@ namespace Apache.Ignite.Tests
                 writer.Write(7); // Column props.
                 writer.Write("IdStr");
                 writer.Write((int)ColumnType.String);
-                writer.Write(true); // Key.
+                writer.Write(0); // Key index.
                 writer.Write(false); // Nullable.
                 writer.Write(0); // Colocation index.
                 writer.Write(0); // Scale.
@@ -593,7 +593,7 @@ namespace Apache.Ignite.Tests
                 writer.Write(7); // Column props.
                 writer.Write("IdGuid");
                 writer.Write((int)ColumnType.Uuid);
-                writer.Write(true); // Key.
+                writer.Write(1); // Key index.
                 writer.Write(false); // Nullable.
                 writer.Write(1); // Colocation index.
                 writer.Write(0); // Scale.
@@ -606,7 +606,7 @@ namespace Apache.Ignite.Tests
                 writer.Write(7); // Column props.
                 writer.Write("IdStr");
                 writer.Write((int)ColumnType.String);
-                writer.Write(true); // Key.
+                writer.Write(0); // Key index.
                 writer.Write(false); // Nullable.
                 writer.Write(0); // Colocation index.
                 writer.Write(0); // Scale.
@@ -615,7 +615,7 @@ namespace Apache.Ignite.Tests
                 writer.Write(7); // Column props.
                 writer.Write("IdGuid");
                 writer.Write((int)ColumnType.Uuid);
-                writer.Write(true); // Key.
+                writer.Write(1); // Key index.
                 writer.Write(false); // Nullable.
                 writer.Write(-1); // Colocation index.
                 writer.Write(0); // Scale.
@@ -650,13 +650,17 @@ namespace Apache.Ignite.Tests
             }
 
             var jobClassName = reader.ReadString();
+            var priority = reader.ReadInt32();
+            var maxRetries = reader.ReadInt64();
 
             object? resObj = jobClassName == GetDetailsJob
                 ? new
                 {
                     NodeName = Node.Name,
                     Units = units.Select(u => $"{u.Name}|{u.Version}").StringJoin(),
-                    jobClassName
+                    jobClassName,
+                    priority,
+                    maxRetries
                 }.ToString()
                 : Node.Name;
 

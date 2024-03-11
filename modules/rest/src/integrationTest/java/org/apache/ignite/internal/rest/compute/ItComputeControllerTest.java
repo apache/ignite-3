@@ -363,7 +363,7 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
     }
 
     private static JobExecution<String> runBlockingJob(IgniteImpl entryNode, Set<ClusterNode> nodes) {
-        return entryNode.compute().executeAsync(nodes, List.of(), BlockingJob.class.getName());
+        return entryNode.compute().submit(nodes, List.of(), BlockingJob.class.getName());
     }
 
     private static void unblockJob() {

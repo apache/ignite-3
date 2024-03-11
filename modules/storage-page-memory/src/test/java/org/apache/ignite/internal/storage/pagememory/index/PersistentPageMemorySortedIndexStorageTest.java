@@ -69,15 +69,13 @@ class PersistentPageMemorySortedIndexStorageTest extends AbstractPageMemorySorte
                 new StorageIndexDescriptorSupplier(catalogService)
         );
 
-        tableStorage.start();
-
         initialize(tableStorage, engineConfig);
     }
 
     @AfterEach
     void tearDown() throws Exception {
         IgniteUtils.closeAll(
-                tableStorage == null ? null : tableStorage::stop,
+                tableStorage == null ? null : tableStorage::close,
                 engine == null ? null : engine::stop
         );
     }

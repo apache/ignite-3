@@ -1148,7 +1148,7 @@ public class ConfigurationUtilTest {
 
         Iterator<Integer> iterator = mapIterable(Arrays.asList(1, 2, null, 3), identity()).iterator();
 
-        //Test iterator contracts
+        // Test iterator contracts
         assertTrue(iterator.hasNext());
         assertEquals(1, iterator.next());
 

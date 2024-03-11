@@ -64,7 +64,8 @@ enum class code : underlying_t {
     ILLEGAL_ARGUMENT = 0x10003,
     SSL_CONFIGURATION = 0x10004,
     NODE_LEFT = 0x10005,
-    CURSOR_CLOSED = 0x10006,
+    CURSOR_ALREADY_CLOSED = 0x10006,
+    RESOURCE_CLOSING = 0x10007,
     INTERNAL = 0x1ffff,
 
     // Table group. Group code: 2
@@ -154,6 +155,7 @@ enum class code : underlying_t {
     UNRESOLVABLE_CONSISTENT_ID = 0xb0001,
     PORT_IN_USE = 0xb0002,
     RECIPIENT_LEFT = 0xb0005,
+    ADDRESS_UNRESOLVED = 0xb0006,
 
     // NodeConfiguration group. Group code: 12
     CONFIG_READ = 0xc0001,

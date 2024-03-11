@@ -38,7 +38,7 @@ public class ClientSqlRow extends MutableTupleBinaryTupleAdapter implements SqlR
      * @param meta Meta.
      */
     ClientSqlRow(BinaryTupleReader row, ResultSetMetadata meta) {
-        super(row, 0, meta.columns().size(), null);
+        super(row, meta.columns().size(), null);
 
         assert row != null;
         assert meta != null;
@@ -72,26 +72,26 @@ public class ClientSqlRow extends MutableTupleBinaryTupleAdapter implements SqlR
 
     /** {@inheritDoc} */
     @Override
-    protected String schemaColumnName(int internalIndex) {
-        return columnName(internalIndex);
+    protected String schemaColumnName(int binaryTupleIndex) {
+        return columnName(binaryTupleIndex);
     }
 
     /** {@inheritDoc} */
     @Override
-    protected int schemaColumnIndex(String columnName) {
+    protected int binaryTupleIndex(String columnName) {
         return columnIndex(columnName);
     }
 
     /** {@inheritDoc} */
     @Override
-    protected ColumnType schemaColumnType(int columnIndex) {
-        return metadata.columns().get(columnIndex).type();
+    protected ColumnType schemaColumnType(int binaryTupleIndex) {
+        return metadata.columns().get(binaryTupleIndex).type();
     }
 
     /** {@inheritDoc} */
     @Override
-    protected int schemaDecimalScale(int columnIndex) {
-        return metadata.columns().get(columnIndex).scale();
+    protected int schemaDecimalScale(int binaryTupleIndex) {
+        return metadata.columns().get(binaryTupleIndex).scale();
     }
 
     /** {@inheritDoc} */

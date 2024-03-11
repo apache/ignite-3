@@ -124,7 +124,7 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
         assertThat(responseRow.txId(), is(transactionId));
         assertThat(responseRow.commitTableId(), is(commitTableId));
         assertThat(responseRow.commitPartitionId(), is(42));
-        //noinspection ConstantConditions
+        // noinspection ConstantConditions
         assertThat(responseRow.timestamps(), is(equalTo(new long[] {version1.commitTimestamp().longValue()})));
 
         assertThat(responseRow.rowVersions(), hasSize(2));
@@ -167,7 +167,7 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
 
         SnapshotMvDataResponse.ResponseEntry responseRow = response.rows().get(0);
 
-        //noinspection ConstantConditions
+        // noinspection ConstantConditions
         assertThat(
                 responseRow.timestamps(),
                 is(equalTo(new long[] {version2.commitTimestamp().longValue(), version1.commitTimestamp().longValue()}))
@@ -250,7 +250,7 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
         assertThat(responseRow.txId(), is(transactionId));
         assertThat(responseRow.commitTableId(), is(commitTableId));
         assertThat(responseRow.commitPartitionId(), is(42));
-        //noinspection ConstantConditions
+        // noinspection ConstantConditions
         assertThat(responseRow.timestamps(), is(equalTo(new long[] {version1.commitTimestamp().longValue()})));
 
         assertThat(responseRow.rowVersions(), hasSize(2));
@@ -497,7 +497,7 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
         snapshot.acquireMvLock();
 
         try {
-            //noinspection ConstantConditions
+            // noinspection ConstantConditions
             assertTrue(snapshot.alreadyPassed(rowId3.increment().increment().increment()));
         } finally {
             snapshot.releaseMvLock();

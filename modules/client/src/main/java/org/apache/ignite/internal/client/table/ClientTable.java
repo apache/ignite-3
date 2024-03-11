@@ -220,7 +220,7 @@ public class ClientTable implements Table {
         var schemaVer = in.unpackInt();
         var colCnt = in.unpackInt();
         var columns = new ClientColumn[colCnt];
-        int colocationColumnCnt = 0;
+        int valCnt = 0;
 
         for (int i = 0; i < colCnt; i++) {
             var propCnt = in.unpackInt();
@@ -229,35 +229,22 @@ public class ClientTable implements Table {
 
             var name = in.unpackString();
             var type = ColumnTypeConverter.fromIdOrThrow(in.unpackInt());
-            var isKey = in.unpackBoolean();
+            var keyIndex = in.unpackInt();
             var isNullable = in.unpackBoolean();
             var colocationIndex = in.unpackInt();
             var scale = in.unpackInt();
             var precision = in.unpackInt();
 
+            var valIndex = keyIndex < 0 ? valCnt++ : -1;
+
             // Skip unknown extra properties, if any.
             in.skipValues(propCnt - 7);
 
-            var column = new ClientColumn(name, type, isNullable, isKey, colocationIndex, i, scale, precision);
+            var column = new ClientColumn(name, type, isNullable, keyIndex, valIndex, colocationIndex, i, scale, precision);
             columns[i] = column;
-
-            if (colocationIndex >= 0) {
-                colocationColumnCnt++;
-            }
         }
 
-        var colocationColumns = colocationColumnCnt > 0 ? new ClientColumn[colocationColumnCnt] : null;
-        if (colocationColumns != null) {
-            for (ClientColumn col : columns) {
-                int idx = col.colocationIndex();
-                if (idx >= 0) {
-                    colocationColumns[idx] = col;
-                }
-            }
-        }
-
-        var schema = new ClientSchema(schemaVer, columns, colocationColumns, marshallers);
-
+        var schema = new ClientSchema(schemaVer, columns, marshallers);
         schemas.put(schemaVer, CompletableFuture.completedFuture(schema));
 
         synchronized (latestSchemaLock) {
@@ -287,7 +274,7 @@ public class ClientTable implements Table {
         } else {
             ClientTransaction clientTx = ClientTransaction.get(tx);
 
-            //noinspection resource
+            // noinspection resource
             if (clientTx.channel() != out.clientChannel()) {
                 // Do not throw IgniteClientConnectionException to avoid retry kicking in.
                 throw new IgniteException(CONNECTION_ERR, "Transaction context has been lost due to connection errors.");

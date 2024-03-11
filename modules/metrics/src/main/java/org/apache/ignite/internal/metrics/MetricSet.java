@@ -58,6 +58,7 @@ public class MetricSet implements Iterable<Metric> {
     }
 
     /** {@inheritDoc} */
+    @Override
     public Iterator<Metric> iterator() {
         return metrics.values().iterator();
     }

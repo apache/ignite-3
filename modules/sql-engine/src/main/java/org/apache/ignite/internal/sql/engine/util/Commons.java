@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
+import static org.apache.calcite.rel.hint.HintPredicates.AGGREGATE;
+import static org.apache.calcite.rel.hint.HintPredicates.JOIN;
 import static org.apache.ignite.internal.sql.engine.util.BaseQueryContext.CLUSTER;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
@@ -61,7 +63,6 @@ import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelTraitDef;
 import org.apache.calcite.rel.RelCollationTraitDef;
 import org.apache.calcite.rel.RelNode;
-import org.apache.calcite.rel.hint.HintPredicates;
 import org.apache.calcite.rel.hint.HintStrategyTable;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.sql.SqlKind;
@@ -136,8 +137,8 @@ public final class Commons {
     @SuppressWarnings("rawtypes")
     public static final List<RelTraitDef> DISTRIBUTED_TRAITS_SET = List.of(
             ConventionTraitDef.INSTANCE,
-            RelCollationTraitDef.INSTANCE,
-            DistributionTraitDef.INSTANCE
+            DistributionTraitDef.INSTANCE,
+            RelCollationTraitDef.INSTANCE
     );
 
     public static final FrameworkConfig FRAMEWORK_CONFIG = Frameworks.newConfigBuilder()
@@ -152,9 +153,9 @@ public final class Commons {
                     .withExpand(false)
                     .withHintStrategyTable(
                             HintStrategyTable.builder()
-                                    .hintStrategy(IgniteHint.ENFORCE_JOIN_ORDER.name(), HintPredicates.JOIN)
+                                    .hintStrategy(IgniteHint.ENFORCE_JOIN_ORDER.name(), JOIN)
                                     .hintStrategy(IgniteHint.DISABLE_RULE.name(), (hint, rel) -> true)
-                                    .hintStrategy(IgniteHint.EXPAND_DISTINCT_AGG.name(), HintPredicates.AGGREGATE)
+                                    .hintStrategy(IgniteHint.EXPAND_DISTINCT_AGG.name(), AGGREGATE)
                                     .hintStrategy(IgniteHint.NO_INDEX.name(), (hint, rel) -> rel instanceof IgniteLogicalTableScan)
                                     .hintStrategy(IgniteHint.FORCE_INDEX.name(), (hint, rel) -> rel instanceof IgniteLogicalTableScan)
                                     .build()

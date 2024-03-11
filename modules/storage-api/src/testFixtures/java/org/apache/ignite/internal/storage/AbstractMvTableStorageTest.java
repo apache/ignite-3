@@ -124,7 +124,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         createTestTableAndIndexes(catalogService);
 
         this.tableStorage = createMvTableStorage();
-        this.tableStorage.start();
 
         CatalogTableDescriptor catalogTableDescriptor = catalogService.table(TABLE_NAME, clock.nowLong());
 
@@ -255,7 +254,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
      * Tests destroying an index.
      */
     @Test
-    public void testDestroyIndex() {
+    public void testDestroyIndex() throws Exception {
         MvPartitionStorage partitionStorage = getOrCreateMvPartition(PARTITION_ID);
 
         assertThat(tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx), is(notNullValue()));
@@ -267,6 +266,15 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertThat(partitionStorage.flush(), willCompleteSuccessfully());
         assertThat(destroySortedIndexFuture, willCompleteSuccessfully());
         assertThat(destroyHashIndexFuture, willCompleteSuccessfully());
+
+        tableStorage.close();
+
+        tableStorage = createMvTableStorage();
+
+        getOrCreateMvPartition(PARTITION_ID);
+
+        assertThat(tableStorage.getIndex(PARTITION_ID, sortedIdx.id()), is(nullValue()));
+        assertThat(tableStorage.getIndex(PARTITION_ID, hashIdx.id()), is(nullValue()));
     }
 
     @Test
@@ -349,7 +357,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         Cursor<RowId> getFromSortedIndexCursor = sortedIndexStorage.get(hashIndexRow.indexColumns());
         Cursor<IndexRow> scanFromSortedIndexCursor = sortedIndexStorage.scan(null, null, 0);
 
-        tableStorage.destroyPartition(PARTITION_ID).get(1, SECONDS);
+        assertThat(tableStorage.destroyPartition(PARTITION_ID), willCompleteSuccessfully());
 
         // Let's check that we won't get destroyed storages.
         assertNull(tableStorage.getMvPartition(PARTITION_ID));
@@ -560,8 +568,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         // Let's check that after restarting the table we will have an empty partition.
         tableStorage = createMvTableStorage();
 
-        tableStorage.start();
-
         mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
         hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx);
         sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx);
@@ -570,7 +576,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     }
 
     @Test
-    public void testRestartStoragesInTheMiddleOfRebalance() {
+    public void testRestartStoragesInTheMiddleOfRebalance() throws Exception {
         MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
         HashIndexStorage hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx);
         SortedIndexStorage sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx);
@@ -594,11 +600,9 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertThat(mvPartitionStorage.flush(), willCompleteSuccessfully());
 
         // Restart storages.
-        tableStorage.stop();
+        tableStorage.close();
 
         tableStorage = createMvTableStorage();
-
-        tableStorage.start();
 
         mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
         hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx);
@@ -719,7 +723,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     }
 
     @Test
-    void testNextRowIdToBuiltAfterRestart() {
+    void testNextRowIdToBuiltAfterRestart() throws Exception {
         MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
 
         IndexStorage hashIndexStorage = tableStorage.getOrCreateIndex(PARTITION_ID, hashIdx);
@@ -738,11 +742,9 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertThat(mvPartitionStorage.flush(), willCompleteSuccessfully());
 
         // Restart storages.
-        tableStorage.stop();
+        tableStorage.close();
 
         tableStorage = createMvTableStorage();
-
-        tableStorage.start();
 
         getOrCreateMvPartition(PARTITION_ID);
 

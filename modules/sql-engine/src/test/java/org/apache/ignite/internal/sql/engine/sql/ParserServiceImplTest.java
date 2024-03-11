@@ -139,7 +139,7 @@ public class ParserServiceImplTest {
 
         String multiStatementQuery = buf.toString();
 
-        //noinspection ThrowableNotThrown
+        // noinspection ThrowableNotThrown
         assertThrowsSqlException(
                 Sql.STMT_VALIDATION_ERR,
                 "Multiple statements are not allowed",

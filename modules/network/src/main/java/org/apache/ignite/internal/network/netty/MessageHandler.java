@@ -22,7 +22,9 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.recovery.message.AcknowledgementMessage;
+import org.apache.ignite.internal.network.recovery.message.ProbeMessage;
 import org.apache.ignite.internal.network.serialization.PerSessionSerializationService;
+import org.apache.ignite.network.ClusterNode;
 
 /**
  * Network message handler that delegates handling to {@link #messageListener}.
@@ -34,10 +36,7 @@ public class MessageHandler extends ChannelInboundHandlerAdapter {
     /** Message listener. */
     private final Consumer<InNetworkObject> messageListener;
 
-    private final String launchId;
-
-    /** Consistent id of the remote node. */
-    private final String consistentId;
+    private final ClusterNode remoteNode;
 
     private final short connectionIndex;
 
@@ -47,21 +46,18 @@ public class MessageHandler extends ChannelInboundHandlerAdapter {
      * Constructor.
      *
      * @param messageListener Message listener.
-     * @param launchId Launch ID (this is the ID that does not survive a restart) of the remote node.
-     * @param consistentId Consistent id of the remote node.
+     * @param remoteNode Remote node (from which the messages are coming).
      * @param connectionIndex Connection index (aka channel ID).
      * @param serializationService Serialization service.
      */
     public MessageHandler(
             Consumer<InNetworkObject> messageListener,
-            String launchId,
-            String consistentId,
+            ClusterNode remoteNode,
             short connectionIndex,
             PerSessionSerializationService serializationService
     ) {
         this.messageListener = messageListener;
-        this.launchId = launchId;
-        this.consistentId = consistentId;
+        this.remoteNode = remoteNode;
         this.connectionIndex = connectionIndex;
         this.serializationService = serializationService;
     }
@@ -71,12 +67,16 @@ public class MessageHandler extends ChannelInboundHandlerAdapter {
     public void channelRead(ChannelHandlerContext ctx, Object msg) {
         NetworkMessage message = (NetworkMessage) msg;
 
-        if (message instanceof AcknowledgementMessage) {
+        if (notPayloadMessage(message)) {
             return;
         }
 
         messageListener.accept(
-                new InNetworkObject(message, launchId, consistentId, connectionIndex, serializationService.compositeDescriptorRegistry())
+                new InNetworkObject(message, remoteNode, connectionIndex, serializationService.compositeDescriptorRegistry())
         );
+    }
+
+    private static boolean notPayloadMessage(NetworkMessage message) {
+        return message instanceof AcknowledgementMessage || message instanceof ProbeMessage;
     }
 }

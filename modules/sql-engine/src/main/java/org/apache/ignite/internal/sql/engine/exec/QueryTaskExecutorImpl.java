@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
+import static org.apache.ignite.internal.thread.ThreadOperation.NOTHING_ALLOWED;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.util.UUID;
@@ -27,7 +28,7 @@ import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
@@ -66,7 +67,7 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor {
     public void start() {
         this.stripedThreadPoolExecutor = new StripedThreadPoolExecutor(
                 concurrencyLevel,
-                NamedThreadFactory.create(nodeName, "sql-execution-pool", LOG),
+                IgniteThreadFactory.create(nodeName, "sql-execution-pool", LOG, NOTHING_ALLOWED),
                 false,
                 0
         );

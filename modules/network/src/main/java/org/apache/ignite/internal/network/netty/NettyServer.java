@@ -27,6 +27,7 @@ import io.netty.channel.ServerChannel;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.ssl.SslContext;
 import java.net.SocketAddress;
+import java.util.Objects;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
@@ -138,16 +139,24 @@ public class NettyServer {
                     });
 
             int port = configuration.port();
+            String address = configuration.listenAddress();
 
             var bindFuture = new CompletableFuture<Channel>();
 
-            bootstrap.bind(port).addListener((ChannelFuture future) -> {
+            ChannelFuture channelFuture = address.isEmpty() ? bootstrap.bind(port) : bootstrap.bind(address, port);
+
+            channelFuture.addListener((ChannelFuture future) -> {
                 if (future.isSuccess()) {
                     bindFuture.complete(future.channel());
                 } else if (future.isCancelled()) {
                     bindFuture.cancel(true);
                 } else {
-                    bindFuture.completeExceptionally(new IllegalStateException("Port " + port + " is not available."));
+                    bindFuture.completeExceptionally(
+                            new IllegalStateException(address.isEmpty()
+                                    ? "Port " + port + " is not available."
+                                    : String.format("Address %s:%d is not available", address, port)
+                            )
+                    );
                 }
             });
 
@@ -181,7 +190,7 @@ public class NettyServer {
      * @return Gets the local address of the server.
      */
     public SocketAddress address() {
-        return channel.localAddress();
+        return Objects.requireNonNull(channel, "Not started yet").localAddress();
     }
 
     /**

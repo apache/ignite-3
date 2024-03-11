@@ -481,6 +481,7 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
      * Sync the data type additional attributes before casting,
      * i.e. nullability, charset, collation.
      */
+    @SuppressWarnings("PMD.MissingOverride")
     RelDataType syncAttributes(
             RelDataType fromType,
             RelDataType toType) {

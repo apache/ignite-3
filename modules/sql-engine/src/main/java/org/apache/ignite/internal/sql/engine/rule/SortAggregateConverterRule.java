@@ -25,6 +25,7 @@ import java.util.List;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelOptRule;
+import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.PhysicalNode;
 import org.apache.calcite.rel.RelCollation;
@@ -66,14 +67,18 @@ public class SortAggregateConverterRule {
             super(LogicalAggregate.class, "ColocatedSortAggregateConverterRule");
         }
 
+        @Override
+        public boolean matches(RelOptRuleCall call) {
+            LogicalAggregate aggregate = call.rel(0);
+
+            return !HintUtils.isExpandDistinctAggregate(aggregate)
+                    && aggregate.getGroupSets().size() == 1;
+        }
+
         /** {@inheritDoc} */
         @Override
         @Nullable
         protected PhysicalNode convert(RelOptPlanner planner, RelMetadataQuery mq, LogicalAggregate agg) {
-            if (HintUtils.isExpandDistinctAggregate(agg) || agg.getGroupSets().size() > 1) {
-                return null;
-            }
-
             RelCollation collation = TraitUtils.createCollation(agg.getGroupSet().asList());
 
             RelOptCluster cluster = agg.getCluster();
@@ -104,19 +109,19 @@ public class SortAggregateConverterRule {
             super(LogicalAggregate.class, "MapReduceSortAggregateConverterRule");
         }
 
+        @Override
+        public boolean matches(RelOptRuleCall call) {
+            LogicalAggregate aggregate = call.rel(0);
+
+            return !HintUtils.isExpandDistinctAggregate(aggregate)
+                    && (nullOrEmpty(aggregate.getGroupSet()) || aggregate.getGroupSets().size() == 1)
+                    && canBeImplementedAsMapReduce(aggregate.getAggCallList())
+                    && !complexDistinctAgg(aggregate.getAggCallList());
+        }
+
         /** {@inheritDoc} */
         @Override
         protected @Nullable PhysicalNode convert(RelOptPlanner planner, RelMetadataQuery mq, LogicalAggregate agg) {
-            if ((nullOrEmpty(agg.getGroupSet()) && agg.getGroupSets().isEmpty()) || agg.getGroupSets().size() > 1) {
-                return null;
-            }
-
-            if (complexDistinctAgg(agg.getAggCallList())
-                    || !canBeImplementedAsMapReduce(agg.getAggCallList())
-                    || HintUtils.isExpandDistinctAggregate(agg)) {
-                return null;
-            }
-
             RelOptCluster cluster = agg.getCluster();
             RelCollation collation = TraitUtils.createCollation(agg.getGroupSet().asList());
 

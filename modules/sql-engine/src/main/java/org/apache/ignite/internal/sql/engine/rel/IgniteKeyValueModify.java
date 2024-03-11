@@ -48,6 +48,8 @@ import org.apache.ignite.internal.tx.InternalTransaction;
  * </ul>
  */
 public class IgniteKeyValueModify extends AbstractRelNode implements IgniteRel {
+    private static final String REL_TYPE_NAME = "KeyValueModify";
+
     /** Enumeration of supported modification operations. */
     public enum Operation {
         PUT
@@ -111,6 +113,12 @@ public class IgniteKeyValueModify extends AbstractRelNode implements IgniteRel {
                 .item("table", table.getQualifiedName())
                 .item("operation", operation)
                 .item("expressions", expressions);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 
     /**

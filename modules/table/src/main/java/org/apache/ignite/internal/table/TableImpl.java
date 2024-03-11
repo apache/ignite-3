@@ -17,15 +17,14 @@
 
 package org.apache.ignite.internal.table;
 
-import static java.util.concurrent.CompletableFuture.allOf;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ForkJoinPool;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.marshaller.MarshallerException;
@@ -48,7 +47,6 @@ import org.apache.ignite.internal.table.distributed.TableIndexStoragesSupplier;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.LockManager;
-import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.KeyValueView;
@@ -74,13 +72,13 @@ public class TableImpl implements TableViewInternal {
     /** Schema registry. Should be set either in constructor or via {@link #schemaView(SchemaRegistry)} before start of using the table. */
     private volatile SchemaRegistry schemaReg;
 
-    private final CompletableFuture<Integer> pkId = new CompletableFuture<>();
-
-    private final Map<Integer, CompletableFuture<?>> indexesToWait = new ConcurrentHashMap<>();
-
     private final Map<Integer, IndexWrapper> indexWrapperById = new ConcurrentHashMap<>();
 
     private final MarshallersProvider marshallers;
+
+    private final int pkId;
+
+    private final Executor asyncContinuationExecutor;
 
     /**
      * Constructor.
@@ -90,19 +88,26 @@ public class TableImpl implements TableViewInternal {
      * @param schemaVersions Schema versions access.
      * @param marshallers Marshallers provider.
      * @param sql Ignite SQL facade.
+     * @param pkId ID of a primary index.
+     * @param asyncContinuationExecutor Executor to which execution will be resubmitted when leaving asynchronous public API endpoints
+     *     (so as to prevent the user from stealing Ignite threads).
      */
     public TableImpl(
             InternalTable tbl,
             LockManager lockManager,
             SchemaVersions schemaVersions,
             MarshallersProvider marshallers,
-            IgniteSql sql
+            IgniteSql sql,
+            int pkId,
+            Executor asyncContinuationExecutor
     ) {
         this.tbl = tbl;
         this.lockManager = lockManager;
         this.schemaVersions = schemaVersions;
         this.marshallers = marshallers;
         this.sql = sql;
+        this.pkId = pkId;
+        this.asyncContinuationExecutor = asyncContinuationExecutor;
     }
 
     /**
@@ -113,10 +118,18 @@ public class TableImpl implements TableViewInternal {
      * @param lockManager Lock manager.
      * @param schemaVersions Schema versions access.
      * @param sql Ignite SQL facade.
+     * @param pkId ID of a primary index.
      */
     @TestOnly
-    public TableImpl(InternalTable tbl, SchemaRegistry schemaReg, LockManager lockManager, SchemaVersions schemaVersions, IgniteSql sql) {
-        this(tbl, lockManager, schemaVersions, new ReflectionMarshallersProvider(), sql);
+    public TableImpl(
+            InternalTable tbl,
+            SchemaRegistry schemaReg,
+            LockManager lockManager,
+            SchemaVersions schemaVersions,
+            IgniteSql sql,
+            int pkId
+    ) {
+        this(tbl, lockManager, schemaVersions, new ReflectionMarshallersProvider(), sql, pkId, ForkJoinPool.commonPool());
 
         this.schemaReg = schemaReg;
     }
@@ -127,13 +140,8 @@ public class TableImpl implements TableViewInternal {
     }
 
     @Override
-    public void pkId(int pkId) {
-        this.pkId.complete(pkId);
-    }
-
-    @Override
     public int pkId() {
-        return pkId.join();
+        return pkId;
     }
 
     @Override
@@ -166,22 +174,22 @@ public class TableImpl implements TableViewInternal {
 
     @Override
     public <R> RecordView<R> recordView(Mapper<R> recMapper) {
-        return new RecordViewImpl<>(tbl, schemaReg, schemaVersions, marshallers, recMapper, sql);
+        return new RecordViewImpl<>(tbl, schemaReg, schemaVersions, sql, marshallers, asyncContinuationExecutor, recMapper);
     }
 
     @Override
     public RecordView<Tuple> recordView() {
-        return new RecordBinaryViewImpl(tbl, schemaReg, schemaVersions, marshallers, sql);
+        return new RecordBinaryViewImpl(tbl, schemaReg, schemaVersions, sql, marshallers, asyncContinuationExecutor);
     }
 
     @Override
     public <K, V> KeyValueView<K, V> keyValueView(Mapper<K> keyMapper, Mapper<V> valMapper) {
-        return new KeyValueViewImpl<>(tbl, schemaReg, schemaVersions, marshallers, sql, keyMapper, valMapper);
+        return new KeyValueViewImpl<>(tbl, schemaReg, schemaVersions, sql, marshallers, asyncContinuationExecutor, keyMapper, valMapper);
     }
 
     @Override
     public KeyValueView<Tuple, Tuple> keyValueView() {
-        return new KeyValueBinaryViewImpl(tbl, schemaReg, schemaVersions, marshallers, sql);
+        return new KeyValueBinaryViewImpl(tbl, schemaReg, schemaVersions, sql, marshallers, asyncContinuationExecutor);
     }
 
     @Override
@@ -222,35 +230,23 @@ public class TableImpl implements TableViewInternal {
 
     /** Returns a supplier of index storage wrapper factories for given partition. */
     public TableIndexStoragesSupplier indexStorageAdapters(int partId) {
-        return new TableIndexStoragesSupplier() {
-            @Override
-            public Map<Integer, TableSchemaAwareIndexStorage> get() {
-                awaitIndexes();
+        return () -> {
+            List<IndexWrapper> factories = new ArrayList<>(indexWrapperById.values());
 
-                List<IndexWrapper> factories = new ArrayList<>(indexWrapperById.values());
+            Map<Integer, TableSchemaAwareIndexStorage> adapters = new HashMap<>();
 
-                Map<Integer, TableSchemaAwareIndexStorage> adapters = new HashMap<>();
-
-                for (IndexWrapper factory : factories) {
-                    TableSchemaAwareIndexStorage storage = factory.getStorage(partId);
-                    adapters.put(storage.id(), storage);
-                }
-
-                return adapters;
+            for (IndexWrapper factory : factories) {
+                TableSchemaAwareIndexStorage storage = factory.getStorage(partId);
+                adapters.put(storage.id(), storage);
             }
 
-            @Override
-            public void addIndexToWaitIfAbsent(int indexId) {
-                addIndexesToWait(indexId);
-            }
+            return adapters;
         };
     }
 
     /** Returns a supplier of index locker factories for given partition. */
     public Supplier<Map<Integer, IndexLocker>> indexesLockers(int partId) {
         return () -> {
-            awaitIndexes();
-
             List<IndexWrapper> factories = new ArrayList<>(indexWrapperById.values());
 
             Map<Integer, IndexLocker> lockers = new HashMap<>(factories.size());
@@ -262,19 +258,6 @@ public class TableImpl implements TableViewInternal {
 
             return lockers;
         };
-    }
-
-    /**
-     * The future completes when the primary key index is ready to use.
-     *
-     * @return Future which complete when a primary index for the table is .
-     */
-    public CompletableFuture<Void> pkIndexesReadyFuture() {
-        var fut = new CompletableFuture<Void>();
-
-        pkId.whenComplete((uuid, throwable) -> fut.complete(null));
-
-        return fut;
     }
 
     @Override
@@ -292,8 +275,6 @@ public class TableImpl implements TableViewInternal {
         });
 
         indexWrapperById.put(indexId, new HashIndexWrapper(tbl, lockManager, indexId, searchRowResolver, unique));
-
-        completeWaitIndex(indexId);
     }
 
     @Override
@@ -310,71 +291,12 @@ public class TableImpl implements TableViewInternal {
         });
 
         indexWrapperById.put(indexId, new SortedIndexWrapper(tbl, lockManager, indexId, searchRowResolver));
-
-        completeWaitIndex(indexId);
     }
 
     @Override
     public void unregisterIndex(int indexId) {
         indexWrapperById.remove(indexId);
 
-        completeWaitIndex(indexId);
-
-        // TODO: IGNITE-19150 Also need to destroy the index storages
-    }
-
-    private void awaitIndexes() {
-        List<CompletableFuture<?>> toWait = new ArrayList<>();
-
-        toWait.add(pkId);
-
-        toWait.addAll(indexesToWait.values());
-
-        allOf(toWait.toArray(CompletableFuture[]::new)).join();
-    }
-
-    /**
-     * Prepares this table for being closed.
-     */
-    public void beforeClose() {
-        IgniteInternalException closeTableException = new IgniteInternalException(
-                ErrorGroups.Table.TABLE_STOPPING_ERR,
-                "Table is being stopped: tableId=" + tableId()
-        );
-
-        pkId.completeExceptionally(closeTableException);
-
-        indexesToWait.values().forEach(future -> future.completeExceptionally(closeTableException));
-    }
-
-    /**
-     * Adds indexes to wait, if not already created, before inserting data into the table.
-     *
-     * @param indexIds Indexes Index IDs.
-     */
-    // TODO: IGNITE-19082 Needs to be redone/improved
-    public void addIndexesToWait(int... indexIds) {
-        for (int indexId : indexIds) {
-            indexesToWait.compute(indexId, (indexId0, awaitIndexFuture) -> {
-                if (awaitIndexFuture != null) {
-                    return awaitIndexFuture;
-                }
-
-                if (indexWrapperById.containsKey(indexId)) {
-                    // Index is already registered and created.
-                    return null;
-                }
-
-                return new CompletableFuture<>();
-            });
-        }
-    }
-
-    private void completeWaitIndex(int indexId) {
-        CompletableFuture<?> indexToWaitFuture = indexesToWait.remove(indexId);
-
-        if (indexToWaitFuture != null) {
-            indexToWaitFuture.complete(null);
-        }
+        tbl.storage().destroyIndex(indexId);
     }
 }

@@ -25,6 +25,7 @@ using System.Linq;
 using System.Numerics;
 using System.Reflection;
 using System.Threading.Tasks;
+using Compute;
 using Ignite.Compute;
 using Ignite.Sql;
 using Ignite.Table;
@@ -194,7 +195,7 @@ public class ColocationHashTests : IgniteTestsBase
             using var writer = ProtoCommon.GetMessageWriter();
             var clientColocationHash = ser.Write(writer, null, schema, key);
 
-            var serverColocationHashExec = await Client.Compute.ExecuteAsync<int>(
+            var serverColocationHashExec = await Client.Compute.SubmitAsync<int>(
                 clusterNodes,
                 Array.Empty<DeploymentUnit>(),
                 TableRowColocationHashJob,
@@ -238,7 +239,7 @@ public class ColocationHashTests : IgniteTestsBase
             var schema = GetSchema(arr, timePrecision, timestampPrecision);
             var noValueSet = new byte[arr.Count].AsSpan();
 
-            TupleSerializerHandler.Instance.Write(ref builder, igniteTuple, schema, arr.Count, noValueSet);
+            TupleSerializerHandler.Instance.Write(ref builder, igniteTuple, schema, keyOnly: false, noValueSet);
             return builder.GetHash();
         }
         finally
@@ -264,7 +265,7 @@ public class ColocationHashTests : IgniteTestsBase
     {
         var columns = arr.Select((obj, ci) => GetColumn(obj, ci, timePrecision, timestampPrecision)).ToArray();
 
-        return new Schema(Version: 0, 0, arr.Count, arr.Count, columns);
+        return Schema.CreateInstance(version: 0, tableId: 0, columns);
     }
 
     private static Column GetColumn(object value, int schemaIndex, int timePrecision, int timestampPrecision)
@@ -300,7 +301,15 @@ public class ColocationHashTests : IgniteTestsBase
 
         var scale = value is decimal d ? BitConverter.GetBytes(decimal.GetBits(d)[3])[2] : 0;
 
-        return new Column("m_Item" + (schemaIndex + 1), colType, false, true, schemaIndex, schemaIndex, Scale: scale, precision);
+        return new Column(
+            Name: "m_Item" + (schemaIndex + 1),
+            Type: colType,
+            IsNullable: false,
+            KeyIndex: schemaIndex,
+            ColocationIndex: schemaIndex,
+            SchemaIndex: schemaIndex,
+            Scale: scale,
+            Precision: precision);
     }
 
     private async Task AssertClientAndServerHashesAreEqual(int timePrecision = 9, int timestampPrecision = 6, params object[] keys)
@@ -329,7 +338,7 @@ public class ColocationHashTests : IgniteTestsBase
     {
         var nodes = await Client.GetClusterNodesAsync();
 
-        IJobExecution<int> jobExecution = await Client.Compute.ExecuteAsync<int>(
+        IJobExecution<int> jobExecution = await Client.Compute.SubmitAsync<int>(
             nodes,
             Array.Empty<DeploymentUnit>(),
             ColocationHashJob,

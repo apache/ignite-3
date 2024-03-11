@@ -100,6 +100,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -213,6 +214,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
         when(tableDescriptor.tableVersion()).thenReturn(schemaDescriptor.version());
 
         when(catalogService.table(anyInt(), anyLong())).thenReturn(tableDescriptor);
+        when(catalogService.table(anyInt(), anyInt())).thenReturn(tableDescriptor);
 
         CatalogIndexDescriptor indexDescriptor = mock(CatalogIndexDescriptor.class);
         when(indexDescriptor.id()).thenReturn(PK_INDEX_ID);
@@ -254,7 +256,9 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 new AlwaysSyncedSchemaSyncService(),
                 catalogService,
                 new TestPlacementDriver(localNode),
-                mock(ClusterNodeResolver.class)
+                mock(ClusterNodeResolver.class),
+                new RemotelyTriggeredResourceRegistry(),
+                schemaManager
         );
 
         kvMarshaller = new ReflectionMarshallerFactory().create(schemaDescriptor, Integer.class, Integer.class);

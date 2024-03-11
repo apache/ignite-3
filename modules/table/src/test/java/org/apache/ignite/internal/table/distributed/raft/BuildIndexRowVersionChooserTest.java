@@ -32,7 +32,7 @@ import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.row.RowAssembler;
+import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.storage.BinaryRowAndRowId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
@@ -221,12 +221,7 @@ public class BuildIndexRowVersionChooserTest extends IgniteAbstractTest {
     }
 
     private static BinaryRow binaryRow(int key, int val) {
-        RowAssembler rowBuilder = new RowAssembler(SCHEMA, -1);
-
-        rowBuilder.appendInt(key);
-        rowBuilder.appendInt(val);
-
-        return rowBuilder.build();
+        return SchemaTestUtils.binaryRow(SCHEMA, key, val);
     }
 
     private static Matcher<BinaryRowAndRowId> expBinaryRowAndRowId(RowId rowId, @Nullable BinaryRow row) {

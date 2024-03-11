@@ -73,14 +73,13 @@ public abstract class AbstractStorageEngineTest extends BaseMvStoragesTest {
 
         MvTableStorage mvTableStorage = storageEngine.createMvTable(tableDescriptor, indexSupplier);
 
-        mvTableStorage.start();
-        try (AutoCloseable ignored0 = mvTableStorage::stop) {
+        try (AutoCloseable ignored0 = mvTableStorage::close) {
             CompletableFuture<MvPartitionStorage> mvPartitionStorageFuture = mvTableStorage.createMvPartition(0);
 
             assertThat(mvPartitionStorageFuture, willCompleteSuccessfully());
             MvPartitionStorage mvPartitionStorage = mvPartitionStorageFuture.join();
 
-            try (AutoCloseable ignored1 = mvTableStorage::stop) {
+            try (AutoCloseable ignored1 = mvTableStorage::close) {
                 // Flush. Persist the table itself, not the update.
                 assertThat(mvPartitionStorage.flush(), willCompleteSuccessfully());
 
@@ -102,14 +101,13 @@ public abstract class AbstractStorageEngineTest extends BaseMvStoragesTest {
 
         mvTableStorage = storageEngine.createMvTable(tableDescriptor, indexSupplier);
 
-        mvTableStorage.start();
         try (AutoCloseable ignored0 = mvTableStorage::close) {
             CompletableFuture<MvPartitionStorage> mvPartitionStorageFuture = mvTableStorage.createMvPartition(0);
 
             assertThat(mvPartitionStorageFuture, willCompleteSuccessfully());
             MvPartitionStorage mvPartitionStorage = mvPartitionStorageFuture.join();
 
-            try (AutoCloseable ignored1 = mvTableStorage::stop) {
+            try (AutoCloseable ignored1 = mvTableStorage::close) {
                 // Check that data has been persisted.
                 assertEquals(10, mvPartitionStorage.lastAppliedIndex());
                 assertEquals(20, mvPartitionStorage.lastAppliedTerm());

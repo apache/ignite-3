@@ -57,6 +57,7 @@ import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
+import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.PartitionDataStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
@@ -282,7 +283,8 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
                                     mock(TxStateStorage.class),
                                     mock(PendingComparableValuesTracker.class),
                                     mock(PendingComparableValuesTracker.class),
-                                    mock(CatalogService.class)
+                                    mock(CatalogService.class),
+                                    mock(SchemaRegistry.class)
                             ),
                             RaftGroupEventsListener.noopLsnr,
                             RaftGroupOptions.defaults()

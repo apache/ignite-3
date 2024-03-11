@@ -94,7 +94,7 @@ public class NumericBinaryOperationsTypeCoercionTest extends BaseTypeCoercionTes
         assertPlan("SELECT c2 * c1 FROM t", schema, operandMatcher(second, first)::matches, List.of());
     }
 
-    //Have the following casts for modulo operation:
+    // Have the following casts for modulo operation:
     // REAL datatype always casts to DECIMAL(14,7)
     // DOUBLE datatype always casts to DECIMAL(30,15)
     // Any other types with no any changes

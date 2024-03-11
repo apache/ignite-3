@@ -36,6 +36,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.BitmaskNativeType;
 import org.apache.ignite.internal.type.DecimalNativeType;
@@ -214,8 +215,18 @@ public final class SchemaTestUtils {
     }
 
     /**
-     * Stub.
+     * Creates a {@link BinaryRow} according to the scheme.
+     *
+     * @param schema Schema.
+     * @param values Values.
      */
-    private SchemaTestUtils() {
+    public static BinaryRow binaryRow(SchemaDescriptor schema, Object... values) {
+        var rowAssembler = new RowAssembler(schema, -1);
+
+        for (Object value : values) {
+            rowAssembler.appendValue(value);
+        }
+
+        return new BinaryRowImpl(schema.version(), rowAssembler.build().tupleSlice());
     }
 }

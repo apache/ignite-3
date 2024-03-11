@@ -83,7 +83,7 @@ public class ClientTableCommon {
             packer.packInt(7);
             packer.packString(col.name());
             packer.packInt(getColumnType(col.type().spec()).ordinal());
-            packer.packBoolean(schema.isKeyColumn(colIdx));
+            packer.packInt(schema.keyIndex(col));
             packer.packBoolean(col.nullable());
             packer.packInt(schema.colocationIndex(col));
             packer.packInt(getDecimalScale(col.type()));
@@ -297,7 +297,7 @@ public class ClientTableCommon {
         var noValueSet = unpacker.unpackBitSet();
         var binaryTupleReader = new BinaryTupleReader(cnt, unpacker.readBinary());
 
-        return new ClientTuple(schema, noValueSet, binaryTupleReader, 0, cnt);
+        return new ClientHandlerTuple(schema, noValueSet, binaryTupleReader, keyOnly);
     }
 
     /**
@@ -350,7 +350,16 @@ public class ClientTableCommon {
         int tableId = unpacker.unpackInt();
 
         try {
-            return ((IgniteTablesInternal) tables).tableAsync(tableId)
+            IgniteTablesInternal tablesInternal = (IgniteTablesInternal) tables;
+
+            // Fast path - in most cases, the table is already in the startedTables cache.
+            // This method can return a table that is being stopped, but it's not a problem - any operation on such table will fail.
+            TableViewInternal cachedTable = tablesInternal.cachedTable(tableId);
+            if (cachedTable != null) {
+                return CompletableFuture.completedFuture(cachedTable);
+            }
+
+            return tablesInternal.tableAsync(tableId)
                     .thenApply(t -> {
                         if (t == null) {
                             throw tableIdNotFoundException(tableId);

@@ -250,7 +250,7 @@ public class LeaseUpdater {
      * @return Cluster node, or {@code null} if no node in assignments can be the leaseholder.
      */
     private @Nullable ClusterNode nextLeaseHolder(Set<Assignment> assignments, @Nullable String proposedConsistentId) {
-        //TODO: IGNITE-18879 Implement more intellectual algorithm to choose a node.
+        // TODO: IGNITE-18879 Implement more intellectual algorithm to choose a node.
         ClusterNode primaryCandidate = null;
 
         for (Assignment assignment : assignments) {
@@ -561,7 +561,7 @@ public class LeaseUpdater {
     /** Message handler to process notification from replica side. */
     private class PlacementDriverActorMessageHandler implements NetworkMessageHandler {
         @Override
-        public void onReceived(NetworkMessage msg0, String sender, @Nullable Long correlationId) {
+        public void onReceived(NetworkMessage msg0, ClusterNode sender, @Nullable Long correlationId) {
             if (!(msg0 instanceof PlacementDriverActorMessage)) {
                 return;
             }
@@ -573,7 +573,7 @@ public class LeaseUpdater {
             }
 
             try {
-                processMessageInternal(sender, msg);
+                processMessageInternal(sender.name(), msg);
             } finally {
                 stateChangingLock.leaveBusy();
             }

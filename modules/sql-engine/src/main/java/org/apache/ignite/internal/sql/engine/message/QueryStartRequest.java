@@ -54,4 +54,9 @@ public interface QueryStartRequest extends ExecutionContextAwareMessage {
      * Return last schema version, just a stub, need to be removed after IGNITE-20633.
      */
     int schemaVersion();
+
+    /**
+     * Session time zone ID.
+     */
+    String timeZoneId();
 }

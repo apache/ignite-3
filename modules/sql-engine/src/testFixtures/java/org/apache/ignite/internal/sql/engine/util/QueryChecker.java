@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 
 import java.lang.reflect.Array;
 import java.lang.reflect.Type;
+import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
@@ -39,12 +40,12 @@ public interface QueryChecker {
 
     /** Creates a matcher that matches if the examined string contains the specified string anywhere. */
     static Matcher<String> containsUnion(boolean all) {
-        return CoreMatchers.containsString("IgniteUnionAll(all=[" + all + "])");
+        return CoreMatchers.containsString("UnionAll(all=[" + all + "])");
     }
 
     /** Creates a matcher that matches if the examined string contains the specified string anywhere. */
     static Matcher<String> containsUnion() {
-        return CoreMatchers.containsString("IgniteUnionAll(all=");
+        return CoreMatchers.containsString("UnionAll(all=");
     }
 
     /**
@@ -55,7 +56,7 @@ public interface QueryChecker {
      * @return Matcher.
      */
     static Matcher<String> containsTableScan(String schema, String tblName) {
-        return containsSubPlan("IgniteTableScan(table=[[" + schema + ", " + tblName + "]]");
+        return containsSubPlan("TableScan(table=[[" + schema + ", " + tblName + "]]");
     }
 
     /**
@@ -66,7 +67,7 @@ public interface QueryChecker {
      * @return Matcher.
      */
     static Matcher<String> containsIndexScan(String schema, String tblName) {
-        return matchesOnce(".*IgniteIndexScan\\(table=\\[\\[" + schema + ", " + tblName + "\\]\\],"
+        return matchesOnce(".*IndexScan\\(table=\\[\\[" + schema + ", " + tblName + "\\]\\],"
                 + " tableId=\\[.*\\].*\\)");
     }
 
@@ -79,7 +80,7 @@ public interface QueryChecker {
      * @return Matcher.
      */
     static Matcher<String> containsIndexScan(String schema, String tblName, String idxName) {
-        return matchesOnce(".*IgniteIndexScan\\(table=\\[\\[" + schema + ", " + tblName + "\\]\\],"
+        return matchesOnce(".*IndexScan\\(table=\\[\\[" + schema + ", " + tblName + "\\]\\],"
                 + " tableId=\\[.*\\], index=\\[" + idxName + "\\].*\\)");
     }
 
@@ -111,7 +112,7 @@ public interface QueryChecker {
      * @return Matcher.
      */
     static Matcher<String> containsProject(String schema, String tblName, int... requiredColumns) {
-        return matches(".*Ignite(Table|Index)Scan\\(table=\\[\\[" + schema + ", "
+        return matches(".*(Table|Index)Scan\\(table=\\[\\[" + schema + ", "
                 + tblName + "\\]\\], " + ".*requiredColumns=\\[\\{"
                 + Arrays.toString(requiredColumns)
                 .replaceAll("\\[", "")
@@ -127,7 +128,7 @@ public interface QueryChecker {
      * @return Matcher.
      */
     static Matcher<String> containsOneProject(String schema, String tblName, int... requiredColumns) {
-        return matchesOnce(".*Ignite(Table|Index)Scan\\(table=\\[\\[" + schema + ", "
+        return matchesOnce(".*(Table|Index)Scan\\(table=\\[\\[" + schema + ", "
                 + tblName + "\\]\\], " + ".*requiredColumns=\\[\\{"
                 + Arrays.toString(requiredColumns)
                 .replaceAll("\\[", "")
@@ -142,7 +143,7 @@ public interface QueryChecker {
      * @return Matcher.
      */
     static Matcher<String> containsAnyProject(String schema, String tblName) {
-        return matchesOnce(".*Ignite(Table|Index)Scan\\(table=\\[\\[" + schema + ", "
+        return matchesOnce(".*(Table|Index)Scan\\(table=\\[\\[" + schema + ", "
                 + tblName + "\\]\\],.*requiredColumns=\\[\\{(\\d|\\W|,)+\\}\\].*");
     }
 
@@ -283,7 +284,7 @@ public interface QueryChecker {
      */
     static Matcher<String> containsAnyScan(String schema, String tblName, String... idxNames) {
         if (nullOrEmpty(idxNames)) {
-            return matchesOnce(".*Ignite(Table|Index)Scan\\(table=\\[\\[" + schema + ", " + tblName + "\\]\\].*");
+            return matchesOnce(".*(Table|Index)Scan\\(table=\\[\\[" + schema + ", " + tblName + "\\]\\].*");
         }
 
         return CoreMatchers.anyOf(
@@ -296,6 +297,8 @@ public interface QueryChecker {
     QueryChecker withParams(Object... params);
 
     QueryChecker withParam(Object param);
+
+    QueryChecker withTimeZoneId(ZoneId timeZoneId);
 
     QueryChecker disableRules(String... rules);
 

@@ -227,7 +227,9 @@ public class FileTransferServiceImpl implements FileTransferService {
         });
 
         messagingService.addMessageHandler(FileTransferMessageType.class,
-                (message, senderConsistentId, correlationId) -> {
+                (message, sender, correlationId) -> {
+                    String senderConsistentId = sender.name();
+
                     if (message instanceof FileDownloadRequest) {
                         processDownloadRequest((FileDownloadRequest) message, senderConsistentId, correlationId);
                     } else if (message instanceof FileTransferInitMessage) {

@@ -28,7 +28,9 @@ import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobStatus;
+import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -54,6 +56,38 @@ public interface IgniteComputeInternal extends IgniteCompute {
             JobExecutionOptions options,
             Object... args
     );
+
+    /**
+     * Submits a job of the given class for the execution on the node where the given key is located. The node is a leader of the
+     * corresponding RAFT group.
+     *
+     * @param table Table whose key is used to determine the node to execute the job on.
+     * @param key Key that identifies the node to execute the job on.
+     * @param units Deployment units. Can be empty.
+     * @param jobClassName Name of the job class to execute.
+     * @param options job execution options (priority, max retries).
+     * @param args Arguments of the job.
+     * @param <R> Job result type.
+     * @return Job execution object.
+     */
+    <R> CompletableFuture<JobExecution<R>> submitColocatedInternal(
+            TableViewInternal table,
+            Tuple key,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            JobExecutionOptions options,
+            Object[] args);
+
+    /**
+     * Wraps the given future into a job execution object.
+     *
+     * @param fut Future to wrap.
+     * @param <R> Job result type.
+     * @return Job execution object.
+     */
+    default <R> JobExecution<R> wrapJobExecutionFuture(CompletableFuture<JobExecution<R>> fut) {
+        return new JobExecutionFutureWrapper<>(fut);
+    }
 
     /**
      * Retrieves the current status of all jobs on all nodes in the cluster.

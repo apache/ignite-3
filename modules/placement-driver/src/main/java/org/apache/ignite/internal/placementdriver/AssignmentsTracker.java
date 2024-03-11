@@ -102,6 +102,10 @@ public class AssignmentsTracker {
                     groupAssignments.put(grpId, assignments);
                 }
             }
+        }).whenComplete((res, ex) -> {
+            if (ex != null) {
+                LOG.error("Cannot do recovery", ex);
+            }
         });
 
         LOG.info("Assignment cache initialized for placement driver [groupAssignments={}]", groupAssignments);
@@ -172,6 +176,6 @@ public class AssignmentsTracker {
      * Triggers to renew leases forcibly. The method wakes up the monitor of {@link LeaseUpdater}.
      */
     private void triggerToRenewLeases() {
-        //TODO: IGNITE-18879 Implement lease maintenance.
+        // TODO: IGNITE-18879 Implement lease maintenance.
     }
 }
