@@ -275,6 +275,7 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
         TestNode testNode = CLUSTER.node(NODE_NAME);
 
         return queryCheckerFactory.create(
+                NODE_NAME,
                 new TestQueryProcessor(testNode, false),
                 new TestIgniteTransactions(),
                 null,
@@ -286,6 +287,7 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
         TestNode testNode = CLUSTER.node(NODE_NAME);
 
         return queryCheckerFactory.create(
+                NODE_NAME,
                 new TestQueryProcessor(testNode, true),
                 new TestIgniteTransactions(),
                 null,
