@@ -207,13 +207,7 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
      * @return Future that will be completed in the async continuation thread pool ({@link ForkJoinPool#commonPool()} by default).
      */
     protected final <T> CompletableFuture<T> preventThreadHijack(CompletableFuture<T> originalFuture) {
-        if (originalFuture.isDone() || PublicApiThreading.inInternalCall()) {
-            return originalFuture;
-        }
-
-        // The future is not complete yet, so it will be completed on an Ignite thread, so we need to complete the user-facing future
-        // in the continuation pool.
-        return originalFuture.whenCompleteAsync((res, ex) -> {}, asyncContinuationExecutor);
+        return PublicApiThreading.preventThreadHijack(originalFuture, asyncContinuationExecutor);
     }
 
     /**
@@ -278,7 +272,12 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
 
                         assert meta != null : "Metadata can't be null.";
 
-                        return new QueryCriteriaAsyncCursor<>(resultSet, queryMapper(meta, schema), session::closeAsync);
+                        AsyncCursor<R> cursor = new QueryCriteriaAsyncCursor<>(
+                                resultSet,
+                                queryMapper(meta, schema),
+                                session::closeAsync
+                        );
+                        return new AntiHijackAsyncCursor<>(cursor, asyncContinuationExecutor);
                     })
                     .whenComplete((ignore, err) -> {
                         if (err != null) {
