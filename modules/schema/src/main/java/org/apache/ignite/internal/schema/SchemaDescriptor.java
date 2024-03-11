@@ -78,7 +78,7 @@ public class SchemaDescriptor {
     /**
      * Constructor.
      *
-     * @param ver     Schema version.
+     * @param ver Schema version.
      * @param keyCols Key columns.
      * @param valCols Value columns.
      */
@@ -104,28 +104,17 @@ public class SchemaDescriptor {
         Map<String, Column> columnsByName = new HashMap<>();
         List<Column> orderedColumns = new ArrayList<>(columns.size());
 
-        Object2IntMap<String> columnNameToPositionInKey = new Object2IntOpenHashMap<>();
-        int idx = 0;
-        for (String name : keyColumns) {
-            assert !columnNameToPositionInKey.containsKey(name)
-                    : "Key column must not have duplicates: " + name;
+        Object2IntMap<String> columnNameToPositionInKey = toElementToPositionMap(keyColumns);
 
-            columnNameToPositionInKey.put(name, idx++);
-        }
-
+        Object2IntMap<String> columnNameToPositionInColocation;
         if (colocationColumns == null) {
-            colocationColumns = keyColumns;
-        }
+            columnNameToPositionInColocation = columnNameToPositionInKey;
+        } else {
+            columnNameToPositionInColocation = toElementToPositionMap(colocationColumns);
 
-        Object2IntMap<String> columnNameToPositionInColocation = new Object2IntOpenHashMap<>();
-        idx = 0;
-        for (String name : colocationColumns) {
-            assert columnNameToPositionInKey.containsKey(name)
-                    : "Colocation column must be part of the key: " + name;
-            assert !columnNameToPositionInColocation.containsKey(name)
-                    : "Colocation column must not have duplicates: " + name;
-
-            columnNameToPositionInColocation.put(name, idx++);
+            assert columnNameToPositionInKey.keySet().containsAll(colocationColumns)
+                    : "Colocation column must be part of the key: keyCols="
+                    + keyColumns + ", colocationCols=" + colocationColumns;
         }
 
         boolean hasTemporalColumns = false;
@@ -173,9 +162,11 @@ public class SchemaDescriptor {
 
         this.keyCols = List.copyOf(tmpKeyColumns);
 
-        this.colocationCols = colocationColumns.stream()
-                .map(columnsByName::get)
-                .collect(Collectors.toList());
+        this.colocationCols = colocationColumns == null
+                ? this.keyCols
+                : colocationColumns.stream()
+                        .map(columnsByName::get)
+                        .collect(Collectors.toList());
 
         List<Column> tmpValueColumns = new ArrayList<>(columns.size() - keyColumnsBitSet.cardinality());
         for (Column column : orderedColumns) {
@@ -360,5 +351,18 @@ public class SchemaDescriptor {
             }
             return row;
         }
+    }
+
+    private static Object2IntMap<String> toElementToPositionMap(List<String> elements) {
+        Object2IntMap<String> result = new Object2IntOpenHashMap<>();
+        int idx = 0;
+        for (String element : elements) {
+            assert !result.containsKey(element)
+                    : "Elements should not have duplicates: " + element;
+
+            result.put(element, idx++);
+        }
+
+        return result;
     }
 }
