@@ -51,16 +51,16 @@ public class PublicApiThreading {
      * @return Call result.
      */
     public static <T> T doInternalCall(Supplier<T> call) {
-        boolean wasInInternalCallBefore = inInternalCall();
+        if (inInternalCall()) {
+            return call.get();
+        }
 
         startInternalCall();
 
         try {
             return call.get();
         } finally {
-            if (!wasInInternalCallBefore) {
-                endInternalCall();
-            }
+            endInternalCall();
         }
     }
 
