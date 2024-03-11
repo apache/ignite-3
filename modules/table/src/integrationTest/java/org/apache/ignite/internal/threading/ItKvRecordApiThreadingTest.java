@@ -33,6 +33,7 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -112,7 +113,6 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
         view.put(null, KEY, "one");
     }
 
-    @SuppressWarnings("rawtypes")
     @CartesianTest
     void keyValueViewFuturesCompleteInContinuationsPool(
             @Enum KeyValueViewAsyncOperation operation,
@@ -123,9 +123,9 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
                 "Skipping the test as getNullable() is not supported by views of kind " + kind
         );
 
-        KeyValueView tableView = kind.view();
+        KeyValueView<?, ?> tableView = kind.view();
 
-        @SuppressWarnings("unchecked") CompletableFuture<Thread> completerFuture = forcingSwitchFromUserThread(
+        CompletableFuture<Thread> completerFuture = forcingSwitchFromUserThread(
                 () -> operation.executeOn(tableView, kind.context())
                         .thenApply(unused -> Thread.currentThread())
         );
@@ -159,7 +159,6 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
         return new KeyValueContext<>(Tuple.create().set("id", KEY), Tuple.create().set("val", "one"), Tuple.create().set("val", "two"));
     }
 
-    @SuppressWarnings("rawtypes")
     @CartesianTest
     void keyValueViewFuturesFromInternalCallsAreNotResubmittedToContinuationsPool(
             @Enum KeyValueViewAsyncOperation operation,
@@ -167,9 +166,9 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
     ) {
         assumeTrue(kind.supportsGetNullable() || !operation.isGetNullable());
 
-        KeyValueView tableView = kind.view();
+        KeyValueView<?, ?> tableView = kind.view();
 
-        @SuppressWarnings("unchecked") CompletableFuture<Thread> completerFuture = forcingSwitchFromUserThread(
+        CompletableFuture<Thread> completerFuture = forcingSwitchFromUserThread(
                 () -> PublicApiThreading.doInternalCall(
                         () -> operation.executeOn(tableView, kind.context())
                                 .thenApply(unused -> Thread.currentThread())
@@ -183,15 +182,14 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
         return instanceOf(IgniteThread.class);
     }
 
-    @SuppressWarnings("rawtypes")
     @CartesianTest
     void recordViewFuturesCompleteInContinuationsPool(
             @Enum RecordViewAsyncOperation operation,
             @Enum RecordViewKind kind
     ) {
-        RecordView tableView = kind.view();
+        RecordView<?> tableView = kind.view();
 
-        @SuppressWarnings("unchecked") CompletableFuture<Thread> completerFuture = forcingSwitchFromUserThread(
+        CompletableFuture<Thread> completerFuture = forcingSwitchFromUserThread(
                 () -> operation.executeOn(tableView, kind.context())
                         .thenApply(unused -> Thread.currentThread())
         );
@@ -199,15 +197,14 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
         assertThat(completerFuture, willBe(asyncContinuationPool()));
     }
 
-    @SuppressWarnings("rawtypes")
     @CartesianTest
     void recordViewFuturesFromInternalCallsAreNotResubmittedToContinuationsPool(
             @Enum RecordViewAsyncOperation operation,
             @Enum RecordViewKind kind
     ) {
-        RecordView tableView = kind.view();
+        RecordView<?> tableView = kind.view();
 
-        @SuppressWarnings("unchecked") CompletableFuture<Thread> completerFuture = forcingSwitchFromUserThread(
+        CompletableFuture<Thread> completerFuture = forcingSwitchFromUserThread(
                 () -> PublicApiThreading.doInternalCall(
                         () -> operation.executeOn(tableView, kind.context())
                                 .thenApply(unused -> Thread.currentThread())
@@ -233,12 +230,11 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
         return new RecordContext<>(KEY_RECORD.toKeyTuple(), new Record(KEY, "one").toFullTuple(), new Record(KEY, "two").toFullTuple());
     }
 
-    @SuppressWarnings("rawtypes")
     @CartesianTest
     void commonViewFuturesCompleteInContinuationsPool(@Enum CommonViewAsyncOperation operation, @Enum ViewKind kind) {
-        CriteriaQuerySource tableView = kind.criteriaQuerySource();
+        CriteriaQuerySource<?> tableView = kind.criteriaQuerySource();
 
-        @SuppressWarnings("unchecked") CompletableFuture<Thread> completerFuture = forcingSwitchFromUserThread(
+        CompletableFuture<Thread> completerFuture = forcingSwitchFromUserThread(
                 () -> operation.executeOn(tableView)
                         .thenApply(unused -> Thread.currentThread())
         );
@@ -246,15 +242,14 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
         assertThat(completerFuture, willBe(asyncContinuationPool()));
     }
 
-    @SuppressWarnings("rawtypes")
     @CartesianTest
     void commonViewFuturesFromInternalCallsAreNotResubmittedToContinuationsPool(
             @Enum CommonViewAsyncOperation operation,
             @Enum ViewKind kind
     ) {
-        CriteriaQuerySource tableView = kind.criteriaQuerySource();
+        CriteriaQuerySource<?> tableView = kind.criteriaQuerySource();
 
-        @SuppressWarnings("unchecked") CompletableFuture<Thread> completerFuture = forcingSwitchFromUserThread(
+        CompletableFuture<Thread> completerFuture = forcingSwitchFromUserThread(
                 () -> PublicApiThreading.doInternalCall(
                         () -> operation.executeOn(tableView)
                                 .thenApply(unused -> Thread.currentThread())
@@ -264,12 +259,11 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
         assertThat(completerFuture, willBe(anIgniteThread()));
     }
 
-    @SuppressWarnings("rawtypes")
     @CartesianTest
     void asyncCursorFuturesCompleteInContinuationsPool(@Enum AsyncCursorAsyncOperation operation, @Enum ViewKind kind) throws Exception {
-        AsyncCursor firstPage = kind.criteriaQuerySource().queryAsync(null, null).get(10, SECONDS);
+        AsyncCursor<?> firstPage = kind.criteriaQuerySource().queryAsync(null, null).get(10, SECONDS);
 
-        @SuppressWarnings("unchecked") CompletableFuture<Thread> completerFuture = operation.executeOn(firstPage)
+        CompletableFuture<Thread> completerFuture = operation.executeOn(firstPage)
                         .thenApply(unused -> Thread.currentThread());
 
         // The future might get completed in the calling thread as we don't force a wait inside Ignite
@@ -279,15 +273,14 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
         ));
     }
 
-    @SuppressWarnings("rawtypes")
     @CartesianTest
     void asyncCursorFuturesFromInternalCallsAreNotResubmittedToContinuationsPool(
             @Enum AsyncCursorAsyncOperation operation,
             @Enum ViewKind kind
     ) throws Exception {
-        AsyncCursor firstPage = kind.criteriaQuerySource().queryAsync(null, null).get(10, SECONDS);
+        AsyncCursor<?> firstPage = kind.criteriaQuerySource().queryAsync(null, null).get(10, SECONDS);
 
-        @SuppressWarnings("unchecked") CompletableFuture<Thread> completerFuture = PublicApiThreading.doInternalCall(
+        CompletableFuture<Thread> completerFuture = PublicApiThreading.doInternalCall(
                 () -> operation.executeOn(firstPage)
                         .thenApply(unused -> Thread.currentThread())
         );
@@ -303,14 +296,13 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
      * This test differs from {@link #asyncCursorFuturesCompleteInContinuationsPool(AsyncCursorAsyncOperation, ViewKind)} in that it obtains
      * the future to test from a call on a cursor obtained from a cursor, not from a view.
      */
-    @SuppressWarnings("rawtypes")
     @CartesianTest
     void asyncCursorFuturesAfterFetchCompleteInContinuationsPool(@Enum AsyncCursorAsyncOperation operation, @Enum ViewKind kind)
             throws Exception {
         AsyncCursor<?> firstPage = kind.criteriaQuerySource().queryAsync(null, null).get(10, SECONDS);
-        AsyncCursor secondPage = firstPage.fetchNextPage().get(10, SECONDS);
+        AsyncCursor<?> secondPage = firstPage.fetchNextPage().get(10, SECONDS);
 
-        @SuppressWarnings("unchecked") CompletableFuture<Thread> completerFuture = operation.executeOn(secondPage)
+        CompletableFuture<Thread> completerFuture = operation.executeOn(secondPage)
                 .thenApply(unused -> Thread.currentThread());
 
         // The future might get completed in the calling thread as we don't force a wait inside Ignite
@@ -325,16 +317,15 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
      * {@link #asyncCursorFuturesFromInternalCallsAreNotResubmittedToContinuationsPool(AsyncCursorAsyncOperation, ViewKind)} in that
      * it obtains the future to test from a call on a cursor obtained from a cursor, not from a view.
      */
-    @SuppressWarnings("rawtypes")
     @CartesianTest
     void asyncCursorFuturesAfterFetchFromInternalCallsAreNotResubmittedToContinuationsPool(
             @Enum AsyncCursorAsyncOperation operation,
             @Enum ViewKind kind
     ) throws Exception {
         AsyncCursor<?> firstPage = kind.criteriaQuerySource().queryAsync(null, null).get(10, SECONDS);
-        AsyncCursor secondPage = firstPage.fetchNextPage().get(10, SECONDS);
+        AsyncCursor<?> secondPage = firstPage.fetchNextPage().get(10, SECONDS);
 
-        @SuppressWarnings("unchecked") CompletableFuture<Thread> completerFuture = PublicApiThreading.doInternalCall(
+        CompletableFuture<Thread> completerFuture = PublicApiThreading.doInternalCall(
                 () -> operation.executeOn(secondPage)
                         .thenApply(unused -> Thread.currentThread())
         );
@@ -366,10 +357,9 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
         REPLACE_EXACT_ASYNC((view, context) -> view.replaceAsync(null, context.key, context.usualValue, context.anotherValue)),
         GET_AND_REPLACE_ASYNC((view, context) -> view.getAndReplaceAsync(null, context.key, context.usualValue)),
         GET_NULLABLE_AND_REPLACE_ASYNC((view, context) -> view.getNullableAndReplaceAsync(null, context.key, context.usualValue)),
-        @SuppressWarnings({"rawtypes", "unchecked"})
         STREAM_DATA((view, context) -> {
             CompletableFuture<?> future;
-            try (var publisher = new SimplePublisher()) {
+            try (var publisher = new SimplePublisher<Entry<Object, Object>>()) {
                 future = view.streamData(publisher, null);
                 publisher.submit(Map.entry(context.key, context.usualValue));
             }
@@ -382,7 +372,7 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
             this.action = action;
         }
 
-        <K, V> CompletableFuture<?> executeOn(KeyValueView<K, V> tableView, KeyValueContext<K, V> context) {
+        CompletableFuture<?> executeOn(KeyValueView<?, ?> tableView, KeyValueContext<?, ?> context) {
             return action.apply((KeyValueView<Object, Object>) tableView, (KeyValueContext<Object, Object>) context);
         }
 
@@ -411,15 +401,14 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
         }
     }
 
-    @SuppressWarnings("rawtypes")
     private enum KeyValueViewKind {
         PLAIN, BINARY;
 
-        KeyValueView view() {
+        KeyValueView<?, ?> view() {
             return this == PLAIN ? plainKeyValueView() : binaryKeyValueView();
         }
 
-        KeyValueContext context() {
+        KeyValueContext<?, ?> context() {
             return this == PLAIN ? plainKeyValueContext() : binaryKeyValueContext();
         }
 
@@ -467,10 +456,9 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
         GET_AND_DELETE_ASYNC((view, context) -> view.getAndDeleteAsync(null, context.keyRecord)),
         DELETE_ALL_ASYNC((view, context) -> view.deleteAllAsync(null, List.of(context.keyRecord))),
         DELETE_ALL_EXACT_ASYNC((view, context) -> view.deleteAllExactAsync(null, List.of(context.keyRecord))),
-        @SuppressWarnings({"rawtypes", "unchecked"})
         STREAM_DATA((view, context) -> {
             CompletableFuture<?> future;
-            try (var publisher = new SimplePublisher()) {
+            try (var publisher = new SimplePublisher<>()) {
                 future = view.streamData(publisher, null);
                 publisher.submit(context.fullRecord);
             }
@@ -483,7 +471,7 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
             this.action = action;
         }
 
-        <R> CompletableFuture<?> executeOn(RecordView<R> tableView, RecordContext<R> context) {
+        CompletableFuture<?> executeOn(RecordView<?> tableView, RecordContext<?> context) {
             return action.apply((RecordView<Object>) tableView, (RecordContext<Object>) context);
         }
     }
@@ -500,15 +488,14 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
         }
     }
 
-    @SuppressWarnings("rawtypes")
     private enum RecordViewKind {
         PLAIN, BINARY;
 
-        RecordView view() {
+        RecordView<?> view() {
             return this == PLAIN ? plainRecordView() : binaryRecordView();
         }
 
-        RecordContext context() {
+        RecordContext<?> context() {
             return this == PLAIN ? plainRecordContext() : binaryRecordContext();
         }
     }
@@ -524,8 +511,8 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
             this.action = action;
         }
 
-        <K, V> CompletableFuture<?> executeOn(CriteriaQuerySource<Object> tableView) {
-            return action.apply(tableView);
+        <T> CompletableFuture<?> executeOn(CriteriaQuerySource<T> tableView) {
+            return action.apply((CriteriaQuerySource<Object>) tableView);
         }
     }
 
@@ -556,8 +543,8 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
             this.action = action;
         }
 
-        <K, V> CompletableFuture<?> executeOn(AsyncCursor<Object> cursor) {
-            return action.apply(cursor);
+        <T> CompletableFuture<?> executeOn(AsyncCursor<T> cursor) {
+            return action.apply((AsyncCursor<Object>) cursor);
         }
     }
 }
