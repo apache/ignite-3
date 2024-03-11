@@ -120,7 +120,7 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
     ) {
         assumeTrue(
                 kind.supportsGetNullable() || !operation.isGetNullable(),
-                "getNullable() is not supported for this view, so skipping the test"
+                "Skipping the test as getNullable() is not supported by views of kind " + kind
         );
 
         KeyValueView tableView = kind.view();
