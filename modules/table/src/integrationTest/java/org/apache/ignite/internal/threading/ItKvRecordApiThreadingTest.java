@@ -17,11 +17,16 @@
 
 package org.apache.ignite.internal.threading;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.both;
+import static org.hamcrest.Matchers.either;
 import static org.hamcrest.Matchers.hasProperty;
 import static org.hamcrest.Matchers.instanceOf;
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
@@ -30,7 +35,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
+import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.streamer.SimplePublisher;
@@ -39,10 +46,12 @@ import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.internal.thread.PublicApiThreading;
+import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.table.criteria.CriteriaQuerySource;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -53,23 +62,34 @@ import org.junitpioneer.jupiter.cartesian.CartesianTest.Enum;
 @SuppressWarnings("resource")
 class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
     private static final String TABLE_NAME = "test";
+
     private static final int KEY = 1;
 
     private static final Record KEY_RECORD = new Record(1, "");
+
+    private static final int MORE_THAN_DEFAULT_STATEMENT_PAGE_SIZE = 2048;
 
     @Override
     protected int initialNodes() {
         return 1;
     }
 
+    private static Matcher<Object> asyncContinuationPool() {
+        return both(hasProperty("name", startsWith("ForkJoinPool.commonPool-worker-")))
+                .and(not(instanceOf(IgniteThread.class)));
+    }
+
     @BeforeAll
     void createTable() {
         sql("CREATE TABLE " + TABLE_NAME + " (id INT PRIMARY KEY, val VARCHAR)");
-    }
 
-    @BeforeEach
-    void upsertRecord() {
-        plainKeyValueView().put(null, KEY, "one");
+        // Putting more than the doubled default query page size rows to make sure that CriteriaQuerySource#query() returns a non-closed
+        // cursor even after we call its second page.
+        // TODO: Instead, configure pageSize=1 on each #query() call when https://issues.apache.org/jira/browse/IGNITE-18647 is fixed.
+        Map<Integer, String> valuesForQuerying = IntStream.range(KEY + 1, KEY + 1 + 2 * MORE_THAN_DEFAULT_STATEMENT_PAGE_SIZE)
+                .boxed()
+                .collect(toMap(identity(), Object::toString));
+        plainKeyValueView().putAll(null, valuesForQuerying);
     }
 
     private static KeyValueView<Integer, String> plainKeyValueView() {
@@ -84,13 +104,24 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
         return CLUSTER.aliveNode().tables().table(TABLE_NAME);
     }
 
+    @BeforeEach
+    void upsertRecord() {
+        KeyValueView<Integer, String> view = plainKeyValueView();
+
+        // #KEY is used by tests related to KV operations and queries.
+        view.put(null, KEY, "one");
+    }
+
     @SuppressWarnings("rawtypes")
     @CartesianTest
     void keyValueViewFuturesCompleteInContinuationsPool(
             @Enum KeyValueViewAsyncOperation operation,
             @Enum KeyValueViewKind kind
     ) {
-        assumeTrue(kind.supportsGetNullable() || !operation.isGetNullable());
+        assumeTrue(
+                kind.supportsGetNullable() || !operation.isGetNullable(),
+                "getNullable() is not supported for this view, so skipping the test"
+        );
 
         KeyValueView tableView = kind.view();
 
@@ -99,12 +130,7 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
                         .thenApply(unused -> Thread.currentThread())
         );
 
-        assertThat(completerFuture, willBe(commonPoolThread()));
-    }
-
-    private static Matcher<Object> commonPoolThread() {
-        return both(hasProperty("name", startsWith("ForkJoinPool.commonPool-worker-")))
-                .and(not(instanceOf(IgniteThread.class)));
+        assertThat(completerFuture, willBe(asyncContinuationPool()));
     }
 
     private static <T> T forcingSwitchFromUserThread(Supplier<? extends T> action) {
@@ -170,7 +196,7 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
                         .thenApply(unused -> Thread.currentThread())
         );
 
-        assertThat(completerFuture, willBe(commonPoolThread()));
+        assertThat(completerFuture, willBe(asyncContinuationPool()));
     }
 
     @SuppressWarnings("rawtypes")
@@ -207,6 +233,119 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
         return new RecordContext<>(KEY_RECORD.toKeyTuple(), new Record(KEY, "one").toFullTuple(), new Record(KEY, "two").toFullTuple());
     }
 
+    @SuppressWarnings("rawtypes")
+    @CartesianTest
+    void commonViewFuturesCompleteInContinuationsPool(@Enum CommonViewAsyncOperation operation, @Enum ViewKind kind) {
+        CriteriaQuerySource tableView = kind.criteriaQuerySource();
+
+        @SuppressWarnings("unchecked") CompletableFuture<Thread> completerFuture = forcingSwitchFromUserThread(
+                () -> operation.executeOn(tableView)
+                        .thenApply(unused -> Thread.currentThread())
+        );
+
+        assertThat(completerFuture, willBe(asyncContinuationPool()));
+    }
+
+    @SuppressWarnings("rawtypes")
+    @CartesianTest
+    void commonViewFuturesFromInternalCallsAreNotResubmittedToContinuationsPool(
+            @Enum CommonViewAsyncOperation operation,
+            @Enum ViewKind kind
+    ) {
+        CriteriaQuerySource tableView = kind.criteriaQuerySource();
+
+        @SuppressWarnings("unchecked") CompletableFuture<Thread> completerFuture = forcingSwitchFromUserThread(
+                () -> PublicApiThreading.doInternalCall(
+                        () -> operation.executeOn(tableView)
+                                .thenApply(unused -> Thread.currentThread())
+                )
+        );
+
+        assertThat(completerFuture, willBe(anIgniteThread()));
+    }
+
+    @SuppressWarnings("rawtypes")
+    @CartesianTest
+    void asyncCursorFuturesCompleteInContinuationsPool(@Enum AsyncCursorAsyncOperation operation, @Enum ViewKind kind) throws Exception {
+        AsyncCursor firstPage = kind.criteriaQuerySource().queryAsync(null, null).get(10, SECONDS);
+
+        @SuppressWarnings("unchecked") CompletableFuture<Thread> completerFuture = operation.executeOn(firstPage)
+                        .thenApply(unused -> Thread.currentThread());
+
+        // The future might get completed in the calling thread as we don't force a wait inside Ignite
+        // (because we cannot do this with fetching next page or closing).
+        assertThat(completerFuture, willBe(
+                either(is(Thread.currentThread())).or(asyncContinuationPool())
+        ));
+    }
+
+    @SuppressWarnings("rawtypes")
+    @CartesianTest
+    void asyncCursorFuturesFromInternalCallsAreNotResubmittedToContinuationsPool(
+            @Enum AsyncCursorAsyncOperation operation,
+            @Enum ViewKind kind
+    ) throws Exception {
+        AsyncCursor firstPage = kind.criteriaQuerySource().queryAsync(null, null).get(10, SECONDS);
+
+        @SuppressWarnings("unchecked") CompletableFuture<Thread> completerFuture = PublicApiThreading.doInternalCall(
+                () -> operation.executeOn(firstPage)
+                        .thenApply(unused -> Thread.currentThread())
+        );
+
+        // The future might get completed in the calling thread as we don't force a wait inside Ignite
+        // (because we cannot do this with fetching next page or closing).
+        assertThat(completerFuture, willBe(
+                either(is(Thread.currentThread())).or(anIgniteThread())
+        ));
+    }
+
+    /**
+     * This test differs from {@link #asyncCursorFuturesCompleteInContinuationsPool(AsyncCursorAsyncOperation, ViewKind)} in that it obtains
+     * the future to test from a call on a cursor obtained from a cursor, not from a view.
+     */
+    @SuppressWarnings("rawtypes")
+    @CartesianTest
+    void asyncCursorFuturesAfterFetchCompleteInContinuationsPool(@Enum AsyncCursorAsyncOperation operation, @Enum ViewKind kind)
+            throws Exception {
+        AsyncCursor<?> firstPage = kind.criteriaQuerySource().queryAsync(null, null).get(10, SECONDS);
+        AsyncCursor secondPage = firstPage.fetchNextPage().get(10, SECONDS);
+
+        @SuppressWarnings("unchecked") CompletableFuture<Thread> completerFuture = operation.executeOn(secondPage)
+                .thenApply(unused -> Thread.currentThread());
+
+        // The future might get completed in the calling thread as we don't force a wait inside Ignite
+        // (because we cannot do this with fetching next page or closing).
+        assertThat(completerFuture, willBe(
+                either(is(Thread.currentThread())).or(asyncContinuationPool())
+        ));
+    }
+
+    /**
+     * This test differs from
+     * {@link #asyncCursorFuturesFromInternalCallsAreNotResubmittedToContinuationsPool(AsyncCursorAsyncOperation, ViewKind)} in that
+     * it obtains the future to test from a call on a cursor obtained from a cursor, not from a view.
+     */
+    @SuppressWarnings("rawtypes")
+    @CartesianTest
+    void asyncCursorFuturesAfterFetchFromInternalCallsAreNotResubmittedToContinuationsPool(
+            @Enum AsyncCursorAsyncOperation operation,
+            @Enum ViewKind kind
+    ) throws Exception {
+        AsyncCursor<?> firstPage = kind.criteriaQuerySource().queryAsync(null, null).get(10, SECONDS);
+        AsyncCursor secondPage = firstPage.fetchNextPage().get(10, SECONDS);
+
+        @SuppressWarnings("unchecked") CompletableFuture<Thread> completerFuture = PublicApiThreading.doInternalCall(
+                () -> operation.executeOn(secondPage)
+                        .thenApply(unused -> Thread.currentThread())
+        );
+
+        // The future might get completed in the calling thread as we don't force a wait inside Ignite
+        // (because we cannot do this with fetching next page or closing).
+        assertThat(completerFuture, willBe(
+                either(is(Thread.currentThread())).or(anIgniteThread())
+        ));
+    }
+
     private enum KeyValueViewAsyncOperation {
         GET_ASYNC((view, context) -> view.getAsync(null, context.key)),
         GET_NULLABLE_ASYNC((view, context) -> view.getNullableAsync(null, context.key)),
@@ -235,10 +374,7 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
                 publisher.submit(Map.entry(context.key, context.usualValue));
             }
             return future;
-        }),
-        QUERY_ASYNC((view, context) -> view.queryAsync(null, null)),
-        QUERY_ASYNC_WITH_INDEX_NAME((view, context) -> view.queryAsync(null, null, null)),
-        QUERY_ASYNC_WITH_INDEX_NAME_AND_OPTS((view, context) -> view.queryAsync(null, null, null, null));
+        });
 
         private final BiFunction<KeyValueView<Object, Object>, KeyValueContext<Object, Object>, CompletableFuture<?>> action;
 
@@ -339,10 +475,7 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
                 publisher.submit(context.fullRecord);
             }
             return future;
-        }),
-        QUERY_ASYNC((view, context) -> view.queryAsync(null, null)),
-        QUERY_ASYNC_WITH_INDEX_NAME((view, context) -> view.queryAsync(null, null, null)),
-        QUERY_ASYNC_WITH_INDEX_NAME_AND_OPTS((view, context) -> view.queryAsync(null, null, null, null));
+        });
 
         private final BiFunction<RecordView<Object>, RecordContext<Object>, CompletableFuture<?>> action;
 
@@ -377,6 +510,54 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
 
         RecordContext context() {
             return this == PLAIN ? plainRecordContext() : binaryRecordContext();
+        }
+    }
+
+    private enum CommonViewAsyncOperation {
+        QUERY_ASYNC(view -> view.queryAsync(null, null)),
+        QUERY_ASYNC_WITH_INDEX_NAME(view -> view.queryAsync(null, null, null)),
+        QUERY_ASYNC_WITH_INDEX_NAME_AND_OPTS(view -> view.queryAsync(null, null, null, null));
+
+        private final Function<CriteriaQuerySource<Object>, CompletableFuture<?>> action;
+
+        CommonViewAsyncOperation(Function<CriteriaQuerySource<Object>, CompletableFuture<?>> action) {
+            this.action = action;
+        }
+
+        <K, V> CompletableFuture<?> executeOn(CriteriaQuerySource<Object> tableView) {
+            return action.apply(tableView);
+        }
+    }
+
+    private enum ViewKind {
+        PLAIN_KEY_VALUE(() -> plainKeyValueView()),
+        BINARY_KEY_VALUE(() -> binaryKeyValueView()),
+        PLAIN_RECORD(() -> plainRecordView()),
+        BINARY_RECORD(() -> binaryRecordView());
+
+        private final Supplier<CriteriaQuerySource<?>> viewSupplier;
+
+        ViewKind(Supplier<CriteriaQuerySource<?>> viewSupplier) {
+            this.viewSupplier = viewSupplier;
+        }
+
+        CriteriaQuerySource<?> criteriaQuerySource() {
+            return viewSupplier.get();
+        }
+    }
+
+    private enum AsyncCursorAsyncOperation {
+        FETCH_NEXT_PAGE(cursor -> cursor.fetchNextPage()),
+        CLOSE(cursor -> cursor.closeAsync());
+
+        private final Function<AsyncCursor<Object>, CompletableFuture<?>> action;
+
+        AsyncCursorAsyncOperation(Function<AsyncCursor<Object>, CompletableFuture<?>> action) {
+            this.action = action;
+        }
+
+        <K, V> CompletableFuture<?> executeOn(AsyncCursor<Object> cursor) {
+            return action.apply(cursor);
         }
     }
 }
