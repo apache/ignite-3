@@ -101,7 +101,7 @@ public class TransactionInflights {
 
     Collection<UUID> readOnlyTxContextsReadyToFinish(int limit) {
         return txCtxMap.entrySet().stream()
-                .filter(e -> e instanceof ReadOnlyTxContext && e.getValue().isReadyToFinish())
+                .filter(e -> e.getValue() instanceof ReadOnlyTxContext && e.getValue().isReadyToFinish())
                 .map(Entry::getKey)
                 .limit(limit)
                 .collect(toSet());
