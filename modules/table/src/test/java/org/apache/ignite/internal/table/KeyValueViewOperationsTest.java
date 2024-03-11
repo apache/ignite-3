@@ -57,6 +57,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
+import java.util.concurrent.ForkJoinPool;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
@@ -726,8 +727,9 @@ public class KeyValueViewOperationsTest extends TableKvOperationsTestBase {
                 internalTable,
                 new DummySchemaManagerImpl(schema),
                 schemaVersions,
-                marshallers,
                 mock(IgniteSql.class),
+                marshallers,
+                ForkJoinPool.commonPool(),
                 keyMapper,
                 valMapper
         );

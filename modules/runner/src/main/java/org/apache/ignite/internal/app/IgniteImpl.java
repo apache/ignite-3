@@ -39,8 +39,10 @@ import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.function.BiPredicate;
@@ -376,6 +378,8 @@ public class IgniteImpl implements Ignite {
     /** Remote triggered resources registry. */
     private final RemotelyTriggeredResourceRegistry resourcesRegistry;
 
+    private final Executor asyncContinuationExecutor = ForkJoinPool.commonPool();
+
     /**
      * The Constructor.
      *
@@ -628,6 +632,7 @@ public class IgniteImpl implements Ignite {
         CatalogManagerImpl catalogManager = new CatalogManagerImpl(
                 new UpdateLogImpl(metaStorageMgr),
                 clockWaiter,
+                clock,
                 delayDurationMsSupplier,
                 partitionIdleSafeTimePropagationPeriodMsSupplier
         );
@@ -728,7 +733,8 @@ public class IgniteImpl implements Ignite {
                 this::sql,
                 resourcesRegistry,
                 rebalanceScheduler,
-                lowWatermark
+                lowWatermark,
+                asyncContinuationExecutor
         );
 
         indexManager = new IndexManager(

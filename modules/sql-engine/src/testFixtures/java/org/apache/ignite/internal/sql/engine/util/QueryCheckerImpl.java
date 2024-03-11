@@ -303,7 +303,7 @@ abstract class QueryCheckerImpl implements QueryChecker {
 
         String qry = queryTemplate.createQuery();
 
-        LOG.info("Executing query: {}", qry);
+        LOG.info("Executing query: [nodeName={}, query={}]", nodeName(), qry);
 
         if (!CollectionUtils.nullOrEmpty(planMatchers)) {
             CompletableFuture<AsyncSqlCursor<InternalSqlRow>> explainCursors = qryProc.querySingleAsync(
@@ -369,6 +369,8 @@ abstract class QueryCheckerImpl implements QueryChecker {
     public String toString() {
         return QueryCheckerImpl.class.getSimpleName() + "[sql=" + queryTemplate.originalQueryString() + "]";
     }
+
+    protected abstract String nodeName();
 
     protected abstract QueryProcessor getEngine();
 
