@@ -50,7 +50,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
-import static org.apache.ignite.internal.table.distributed.index.IndexUtils.registerIndexesToTableOnNodeRecovery;
+import static org.apache.ignite.internal.table.distributed.index.IndexUtils.registerIndexesToTable;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
@@ -1328,7 +1328,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             SchemaRegistry schemaRegistry = table.schemaView();
                             PartitionSet partitionSet = localPartsByTableId.get(tableId);
 
-                            registerIndexesToTableOnNodeRecovery(table, catalogService, partitionSet, schemaRegistry);
+                            registerIndexesToTable(table, catalogService, partitionSet, schemaRegistry);
                         }
                         return startLocalPartitionsAndClients(assignmentsFuture, table, zoneDescriptor.id());
                     }
@@ -1830,21 +1830,35 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         Assignments nonStableNodeAssignmentsFinal = nonStableNodeAssignments;
 
+        int partitionId = replicaGrpId.partitionId();
+
         if (shouldStartLocalGroupNode) {
+            PartitionSet singlePartitionIdSet = PartitionSet.of(partitionId);
+
             localServicesStartFuture = localPartitionsVv.get(revision)
                     // TODO https://issues.apache.org/jira/browse/IGNITE-20957 Revisit this code
-                    .thenApply(unused -> localPartsByTableId.get(tableId).copy())
-                    .thenComposeAsync(partitionSet -> inBusyLock(busyLock,
-                            () -> getOrCreatePartitionStorages(tbl, partitionSet)
-                    ), ioExecutor)
-                    .thenComposeAsync(unused -> inBusyLock(busyLock, () -> startPartitionAndStartClient(
-                            tbl,
-                            replicaGrpId.partitionId(),
-                            pendingAssignments,
-                            nonStableNodeAssignmentsFinal,
-                            zoneId,
-                            isRecovery
-                    )), ioExecutor);
+                    .thenComposeAsync(
+                            partitionSet -> inBusyLock(busyLock, () -> getOrCreatePartitionStorages(tbl, singlePartitionIdSet)),
+                            ioExecutor
+                    )
+                    .thenComposeAsync(unused -> inBusyLock(busyLock, () -> {
+                        if (!isRecovery) {
+                            // We create index storages (and also register the necessary structures) for the rebalancing one partition
+                            // before start the raft node, so that the updates that come when applying the replication log can safely
+                            // update the indexes. On recovery node, we do not need to call this code, since during restoration we start
+                            // all partitions and already register indexes there.
+                            registerIndexesToTable(tbl, catalogService, singlePartitionIdSet, tbl.schemaView());
+                        }
+
+                        return startPartitionAndStartClient(
+                                tbl,
+                                replicaGrpId.partitionId(),
+                                pendingAssignments,
+                                nonStableNodeAssignmentsFinal,
+                                zoneId,
+                                isRecovery
+                        );
+                    }), ioExecutor);
         } else {
             localServicesStartFuture = runAsync(() -> {
                 if (pendingAssignmentsAreForced && ((Loza) raftMgr).isStarted(raftNodeId)) {
@@ -1862,7 +1876,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             tbl.internalTable()
                     .tableRaftService()
-                    .partitionRaftGroupService(replicaGrpId.partitionId())
+                    .partitionRaftGroupService(partitionId)
                     .updateConfiguration(configurationFromAssignments(cfg));
         }, ioExecutor);
     }

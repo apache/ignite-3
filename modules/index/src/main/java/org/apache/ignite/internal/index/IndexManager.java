@@ -205,7 +205,6 @@ public class IndexManager implements IgniteComponent {
     ) {
         int tableId = index.tableId();
 
-        // TODO: IGNITE-19712 Listen to assignment changes and start new index storages.
         CompletableFuture<PartitionSet> tablePartitionFuture = tableManager.localPartitionSetAsync(causalityToken, tableId);
 
         CompletableFuture<SchemaRegistry> schemaRegistryFuture = schemaManager.schemaRegistry(causalityToken, tableId);
