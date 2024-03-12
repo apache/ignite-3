@@ -308,22 +308,6 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
         storage.put(tx.id(), txMetaToSet);
     }
 
-    /**
-     * Gets Ignite instance by the name.
-     *
-     * @param name Node name.
-     * @return Ignite instance.
-     */
-    private @Nullable IgniteImpl node(String name) {
-        for (int i = 0; i < initialNodes(); i++) {
-            if (node(i).name().equals(name)) {
-                return node(i);
-            }
-        }
-
-        return null;
-    }
-
     private @Nullable Integer nodeIndex(String name) {
         for (int i = 0; i < initialNodes(); i++) {
             if (node(i).name().equals(name)) {
