@@ -17,17 +17,22 @@
 
 package org.apache.ignite.internal.placementdriver.negotiation;
 
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.placementdriver.negotiation.LeaseAgreement.UNDEFINED_AGREEMENT;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
+import static org.apache.ignite.internal.util.IgniteUtils.findAny;
 
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import org.apache.ignite.internal.affinity.Assignment;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterService;
-import org.apache.ignite.internal.placementdriver.LeaseUpdater;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
@@ -41,6 +46,10 @@ public class LeaseNegotiator {
     private static final IgniteLogger LOG = Loggers.forClass(LeaseNegotiator.class);
 
     private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
+
+    static LeaseGrantedMessageResponse NOT_ACCEPTED_RESPONSE = PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse()
+            .accepted(false)
+            .build();
 
     /** Leases ready to accept. */
     private final Map<ReplicationGroupId, LeaseAgreement> leaseToNegotiate;
@@ -88,15 +97,17 @@ public class LeaseNegotiator {
                     if (throwable == null) {
                         assert msg instanceof LeaseGrantedMessageResponse : "Message type is unexpected [type="
                                 + msg.getClass().getSimpleName() + ']';
-                    } else if (!(unwrapCause(throwable) instanceof NodeStoppingException)) {
-                        LOG.warn("Lease was not negotiated due to exception [lease={}]", throwable, lease);
+
+                        LeaseGrantedMessageResponse response = (LeaseGrantedMessageResponse) msg;
+
+                        fut.complete(response);
+                    } else {
+                        if (!(unwrapCause(throwable) instanceof NodeStoppingException)) {
+                            LOG.warn("Lease was not negotiated due to exception [lease={}]", throwable, lease);
+                        }
+
+                        fut.complete(NOT_ACCEPTED_RESPONSE);
                     }
-
-                    LeaseGrantedMessageResponse response = (LeaseGrantedMessageResponse) msg;
-
-                    fut.complete(response);
-
-                    triggerToRenewLeases();
                 });
     }
 
@@ -121,10 +132,31 @@ public class LeaseNegotiator {
         leaseToNegotiate.remove(groupId);
     }
 
-    /**
-     * Triggers to renew leases forcibly. The method wakes up the monitor of {@link LeaseUpdater}.
-     */
-    private void triggerToRenewLeases() {
-        // TODO: IGNITE-18879 Implement lease maintenance.
+    public void updateAssignmentsForGroup(ReplicationGroupId grpId, Set<Assignment> assignments) {
+        LeaseAgreement agreement = leaseToNegotiate.get(grpId);
+
+        if (agreement != null
+                && !agreement.ready()
+                && findAny(assignments, a -> a.consistentId().equals(agreement.getLease().getLeaseholder())).isEmpty()) {
+            LOG.info("Lease was not negotiated because the node is not included into the group assignments anymore [node={}, group={}, "
+                            + "assignments={}].", agreement.getLease().getLeaseholder(), grpId, assignments);
+
+            agreement.breakAgreement();
+        }
+    }
+
+    public void updateTopology(LogicalTopologySnapshot topologySnapshot) {
+        Set<String> nodeIds = topologySnapshot.nodes().stream().map(LogicalNode::id).collect(toSet());
+
+        for (Map.Entry<ReplicationGroupId, LeaseAgreement> e : leaseToNegotiate.entrySet()) {
+            LeaseAgreement agreement = e.getValue();
+
+            if (!agreement.ready() && !nodeIds.contains(agreement.getLease().getLeaseholderId())) {
+                LOG.info("Lease was not negotiated because the node has left the logical topology [node={}, nodeId={}, group={}]",
+                        agreement.getLease().getLeaseholder(), agreement.getLease().getLeaseholderId(), e.getKey());
+
+                agreement.breakAgreement();
+            }
+        }
     }
 }

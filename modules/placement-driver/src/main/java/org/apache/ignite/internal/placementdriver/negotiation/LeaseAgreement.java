@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.placementdriver.negotiation;
 
+import static java.util.Objects.requireNonNull;
+import static org.apache.ignite.internal.placementdriver.negotiation.LeaseNegotiator.NOT_ACCEPTED_RESPONSE;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.concurrent.CompletableFuture;
@@ -47,7 +49,7 @@ public class LeaseAgreement {
      */
     public LeaseAgreement(Lease lease, CompletableFuture<LeaseGrantedMessageResponse> remoteNodeResponseFuture) {
         this.lease = lease;
-        this.responseFut = remoteNodeResponseFuture;
+        this.responseFut = requireNonNull(remoteNodeResponseFuture);
     }
 
     /**
@@ -98,6 +100,10 @@ public class LeaseAgreement {
      * @return True if a response of the agreement has been received, false otherwise.
      */
     public boolean ready() {
-        return responseFut != null && responseFut.isDone();
+        return responseFut.isDone();
+    }
+
+    void breakAgreement() {
+        responseFut.complete(NOT_ACCEPTED_RESPONSE);
     }
 }

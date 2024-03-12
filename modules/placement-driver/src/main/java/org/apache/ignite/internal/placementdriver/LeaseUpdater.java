@@ -335,11 +335,16 @@ public class LeaseUpdater {
             renewedLeases.entrySet().removeIf(e -> e.getValue().getExpirationTime().before(now)
                     && !currentAssignmentsReplicationGroupIds.contains(e.getKey()));
 
+            leaseNegotiator.updateTopology(topologyTracker.currentTopologySnapshot());
+
             int currentAssignmentsSize = currentAssignments.size();
             int activeLeasesCount = 0;
 
             for (Map.Entry<ReplicationGroupId, Set<Assignment>> entry : currentAssignments.entrySet()) {
                 ReplicationGroupId grpId = entry.getKey();
+                Set<Assignment> assignments = entry.getValue();
+
+                leaseNegotiator.updateAssignmentsForGroup(grpId, assignments);
 
                 Lease lease = leaseTracker.getLease(grpId);
 
@@ -356,7 +361,7 @@ public class LeaseUpdater {
                         continue;
                     } else if (agreement.ready()) {
                         // Here we initiate negotiations for UNDEFINED_AGREEMENT and retry them on newly started active actor as well.
-                        ClusterNode candidate = nextLeaseHolder(entry.getValue(), agreement.getRedirectTo());
+                        ClusterNode candidate = nextLeaseHolder(assignments, agreement.getRedirectTo());
 
                         if (candidate == null) {
                             leaseUpdateStatistics.onLeaseWithoutCandidate();
@@ -373,10 +378,7 @@ public class LeaseUpdater {
 
                 // The lease is expired or close to this.
                 if (lease.getExpirationTime().getPhysical() < outdatedLeaseThreshold) {
-                    ClusterNode candidate = nextLeaseHolder(
-                            entry.getValue(),
-                            lease.isProlongable() ? lease.getLeaseholder() : null
-                    );
+                    ClusterNode candidate = nextLeaseHolder(assignments, lease.isProlongable() ? lease.getLeaseholder() : null);
 
                     if (candidate == null) {
                         leaseUpdateStatistics.onLeaseWithoutCandidate();
