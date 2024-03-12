@@ -19,8 +19,9 @@ package org.apache.ignite.client.handler;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.tableIdNotFoundException;
-import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
+import static org.apache.ignite.internal.event.EventListener.fromConsumer;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 
 import java.util.ArrayList;
@@ -36,7 +37,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.event.EventListener;
-import org.apache.ignite.internal.event.EventParameters;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -73,7 +73,7 @@ import org.jetbrains.annotations.Nullable;
  *       load it from the placement driver. Wait for a limited amount of time (in getPrimaryReplica) and return what we have.
  *       Don't block the client for too long, it is better to miss the primary than to delay the request.
  */
-public class ClientPrimaryReplicaTracker implements EventListener<EventParameters> {
+public class ClientPrimaryReplicaTracker {
     private final ConcurrentHashMap<TablePartitionId, ReplicaHolder> primaryReplicas = new ConcurrentHashMap<>();
 
     private final AtomicLong maxStartTime = new AtomicLong();
@@ -89,6 +89,8 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
     private final LowWatermark lowWatermark;
 
     private final LowWatermarkChangedListener lwmListener = this::onLwmChanged;
+    private final EventListener<DropTableEventParameters> dropTableEventListener = fromConsumer(this::onTableDrop);
+    private final EventListener<PrimaryReplicaEventParameters> primaryReplicaEventListener = fromConsumer(this::onPrimaryReplicaChanged);
 
     /** A queue for deferred table destruction events. */
     private final SynchronousPriorityQueue<DestroyTableEvent> destructionEventsQueue =
@@ -265,8 +267,8 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
         // This could be newer than the actual max start time, but we are on the safe side here.
         maxStartTime.set(clock.nowLong());
 
-        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, (EventListener) this);
-        catalogService.listen(CatalogEvent.TABLE_DROP, (EventListener) this);
+        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, primaryReplicaEventListener);
+        catalogService.listen(CatalogEvent.TABLE_DROP, dropTableEventListener);
         lowWatermark.addUpdateListener(lwmListener);
     }
 
@@ -279,27 +281,26 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
         busyLock.block();
 
         lowWatermark.removeUpdateListener(lwmListener);
-        catalogService.removeListener(CatalogEvent.TABLE_DROP, (EventListener) this);
-        placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, (EventListener) this);
+        catalogService.removeListener(CatalogEvent.TABLE_DROP, dropTableEventListener);
+        placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, primaryReplicaEventListener);
         primaryReplicas.clear();
     }
 
-    @Override
-    public CompletableFuture<Boolean> notify(EventParameters parameters) {
-        if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
-        }
+    private void onPrimaryReplicaChanged(PrimaryReplicaEventParameters primaryReplicaEvent) {
+        inBusyLock(busyLock, () -> {
+            if (!(primaryReplicaEvent.groupId() instanceof TablePartitionId)) {
+                return;
+            }
 
-        try {
-            return notifyInternal(parameters);
-        } finally {
-            busyLock.leaveBusy();
-        }
+            TablePartitionId tablePartitionId = (TablePartitionId) primaryReplicaEvent.groupId();
+
+            updatePrimaryReplica(tablePartitionId, primaryReplicaEvent.startTime(), primaryReplicaEvent.leaseholder());
+        });
     }
 
-    private CompletableFuture<Boolean> notifyInternal(EventParameters parameters) {
-        if (parameters instanceof DropTableEventParameters) {
-            DropTableEventParameters event = (DropTableEventParameters) parameters;
+    private void onTableDrop(DropTableEventParameters parameters) {
+        inBusyLock(busyLock, () -> {
+            DropTableEventParameters event = parameters;
 
             int tableId = event.tableId();
             int catalogVersion = event.catalogVersion();
@@ -314,26 +315,7 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
             assert zoneDescriptor != null : "zoneId=" + zoneId + ", catalogVersion=" + previousVersion;
 
             destructionEventsQueue.enqueue(new DestroyTableEvent(catalogVersion, tableId, zoneDescriptor.partitions()));
-
-            return falseCompletedFuture();
-        }
-
-        if (!(parameters instanceof PrimaryReplicaEventParameters)) {
-            assert false : "Unexpected event parameters: " + parameters.getClass();
-
-            return falseCompletedFuture();
-        }
-
-        PrimaryReplicaEventParameters primaryReplicaEvent = (PrimaryReplicaEventParameters) parameters;
-        if (!(primaryReplicaEvent.groupId() instanceof TablePartitionId)) {
-            return falseCompletedFuture();
-        }
-
-        TablePartitionId tablePartitionId = (TablePartitionId) primaryReplicaEvent.groupId();
-
-        updatePrimaryReplica(tablePartitionId, primaryReplicaEvent.startTime(), primaryReplicaEvent.leaseholder());
-
-        return falseCompletedFuture(); // false: don't remove listener.
+        });
     }
 
     private CompletableFuture<Void> onLwmChanged(HybridTimestamp ts) {
