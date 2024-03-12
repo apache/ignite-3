@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.util.ExceptionUtils.isOrCausedBy;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -33,6 +34,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.schema.Column;
@@ -207,13 +209,7 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
      * @return Future that will be completed in the async continuation thread pool ({@link ForkJoinPool#commonPool()} by default).
      */
     protected final <T> CompletableFuture<T> preventThreadHijack(CompletableFuture<T> originalFuture) {
-        if (originalFuture.isDone() || PublicApiThreading.inInternalCall()) {
-            return originalFuture;
-        }
-
-        // The future is not complete yet, so it will be completed on an Ignite thread, so we need to complete the user-facing future
-        // in the continuation pool.
-        return originalFuture.whenCompleteAsync((res, ex) -> {}, asyncContinuationExecutor);
+        return PublicApiThreading.preventThreadHijack(originalFuture, asyncContinuationExecutor);
     }
 
     /**
@@ -222,11 +218,11 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
      * @param columns Target columns.
      * @return Column names.
      */
-    protected static String[] columnNames(Column[] columns) {
-        String[] columnNames = new String[columns.length];
+    protected static String[] columnNames(List<Column> columns) {
+        String[] columnNames = new String[columns.size()];
 
-        for (int i = 0; i < columns.length; i++) {
-            columnNames[i] = columns[i].name();
+        for (int i = 0; i < columns.size(); i++) {
+            columnNames[i] = columns.get(i).name();
         }
 
         return columnNames;
@@ -264,7 +260,11 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
 
             SqlSerializer ser = new Builder()
                     .tableName(tbl.name())
-                    .columns(schema.columnNames())
+                    .columns(
+                            schema.columns().stream()
+                                    .map(Column::name)
+                                    .collect(Collectors.toList())
+                    )
                     .indexName(indexName)
                     .where(criteria)
                     .build();
@@ -278,7 +278,12 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
 
                         assert meta != null : "Metadata can't be null.";
 
-                        return new QueryCriteriaAsyncCursor<>(resultSet, queryMapper(meta, schema), session::closeAsync);
+                        AsyncCursor<R> cursor = new QueryCriteriaAsyncCursor<>(
+                                resultSet,
+                                queryMapper(meta, schema),
+                                session::closeAsync
+                        );
+                        return new AntiHijackAsyncCursor<>(cursor, asyncContinuationExecutor);
                     })
                     .whenComplete((ignore, err) -> {
                         if (err != null) {

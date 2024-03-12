@@ -17,17 +17,11 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import java.util.Arrays;
 import java.util.BitSet;
-import java.util.Comparator;
-import java.util.List;
-import java.util.stream.Collectors;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
-import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.type.NativeType;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -38,9 +32,6 @@ public class TableRowConverterFactoryImpl implements TableRowConverterFactory {
     private final SchemaDescriptor schemaDescriptor;
     private final BinaryTupleSchema fullTupleSchema;
     private final TableRowConverter fullRowConverter;
-    private final int[] fullRowColocationIndexes;
-    private final int[] keyOnlyColocationIndexes;
-    private final NativeType[] colocationColumnTypes;
 
     /**
      * Creates a factory from given schema and indexes of primary key.
@@ -60,71 +51,13 @@ public class TableRowConverterFactoryImpl implements TableRowConverterFactory {
         this.schemaRegistry = schemaRegistry;
         this.schemaDescriptor = schemaDescriptor;
         this.fullTupleSchema = BinaryTupleSchema.createRowSchema(schemaDescriptor);
-        this.fullRowColocationIndexes = deriveFullRowColocationColumnIndexes(schemaDescriptor);
-        this.keyOnlyColocationIndexes = deriveKeyOnlyColocationColumnIndexes(
-                primaryKeyLogicalIndexes, schemaDescriptor
-        );
-        this.colocationColumnTypes = Arrays.stream(schemaDescriptor.colocationColumns())
-                .map(Column::type)
-                .toArray(NativeType[]::new);
 
         fullRowConverter = new TableRowConverterImpl(
                 schemaRegistry,
                 fullTupleSchema,
-                fullRowColocationIndexes,
-                keyOnlyColocationIndexes,
-                colocationColumnTypes,
                 schemaDescriptor,
                 null
         );
-    }
-
-    private static int[] deriveFullRowColocationColumnIndexes(SchemaDescriptor descriptor) {
-        Column[] colocationColumns = descriptor.colocationColumns();
-        int[] result = new int[colocationColumns.length];
-
-        int idx = 0;
-        for (Column column : colocationColumns) {
-            result[idx++] = column.schemaIndex();
-        }
-
-        return result;
-    }
-
-    private static int[] deriveKeyOnlyColocationColumnIndexes(
-            ImmutableIntList primaryKeyLogicalIndexes,
-            SchemaDescriptor descriptor
-    ) {
-        List<Column> columns = descriptor.columns().stream()
-                .sorted(Comparator.comparingInt(Column::columnOrder))
-                .collect(Collectors.toList());
-
-        int[] mapping = new int[columns.size()];
-        Arrays.fill(mapping, -1);
-
-        int idx = 0;
-        for (int keyColumnIdx : primaryKeyLogicalIndexes) {
-            Column column = columns.get(keyColumnIdx);
-
-            mapping[column.schemaIndex()] = idx++;
-        }
-
-        Column[] colocationColumns = descriptor.colocationColumns();
-        int[] result = new int[colocationColumns.length];
-
-        idx = 0;
-        for (Column column : colocationColumns) {
-            int remappedIndex = mapping[column.schemaIndex()];
-
-            assert remappedIndex != -1
-                    : "Columns=" + columns
-                    + ", keyColumns=" + primaryKeyLogicalIndexes
-                    + ", colocationColumn=" + column;
-
-            result[idx++] = remappedIndex;
-        }
-
-        return result;
     }
 
     @Override
@@ -136,9 +69,6 @@ public class TableRowConverterFactoryImpl implements TableRowConverterFactory {
         return new TableRowConverterImpl(
                 schemaRegistry,
                 fullTupleSchema,
-                fullRowColocationIndexes,
-                keyOnlyColocationIndexes,
-                colocationColumnTypes,
                 schemaDescriptor,
                 requiredColumns
         );

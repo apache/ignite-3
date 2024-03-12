@@ -23,7 +23,8 @@ import java.nio.ByteBuffer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.schema.BinaryRowEx;
-import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.schema.Column;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.util.ColocationUtils;
 import org.apache.ignite.internal.util.HashCalculator;
 
@@ -68,23 +69,26 @@ public class SqlOutputBinaryRow extends BinaryTupleReader implements BinaryRowEx
 
     /** Creates BinaryRow from the given tuple. */
     public static SqlOutputBinaryRow newRow(
-            int schemaVersion,
-            int[] colocationColumnIndexes,
-            NativeType[] colocationColumnTypes,
+            SchemaDescriptor descriptor,
+            boolean keyOnly,
             InternalTuple binaryTuple
     ) {
         HashCalculator hashCalc = new HashCalculator();
 
-        for (int i = 0; i < colocationColumnIndexes.length; i++) {
-            NativeType type = colocationColumnTypes[i];
+        for (Column column : descriptor.colocationColumns()) {
+            int idx = keyOnly
+                    ? column.positionInKey()
+                    : column.positionInRow();
 
-            Object value = readValue(binaryTuple, type, colocationColumnIndexes[i]);
+            assert idx >= 0 : column;
 
-            ColocationUtils.append(hashCalc, value, type);
+            Object value = readValue(binaryTuple, column.type(), idx);
+
+            ColocationUtils.append(hashCalc, value, column.type());
         }
 
         int colocationHash = hashCalc.hash();
 
-        return new SqlOutputBinaryRow(schemaVersion, colocationHash, binaryTuple.elementCount(), binaryTuple.byteBuffer());
+        return new SqlOutputBinaryRow(descriptor.version(), colocationHash, binaryTuple.elementCount(), binaryTuple.byteBuffer());
     }
 }
