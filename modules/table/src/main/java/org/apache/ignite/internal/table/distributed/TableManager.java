@@ -1837,6 +1837,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     )
                     .thenComposeAsync(unused -> inBusyLock(busyLock, () -> {
                         if (!isRecovery) {
+                            // TODO https://issues.apache.org/jira/browse/IGNITE-21738 Fix potential race.
                             HybridTimestamp lwm = lowWatermark.getLowWatermark();
                             // We create index storages (and also register the necessary structures) for the rebalancing one partition
                             // before start the raft node, so that the updates that come when applying the replication log can safely

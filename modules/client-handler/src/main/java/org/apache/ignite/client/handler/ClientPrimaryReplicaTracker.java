@@ -74,7 +74,7 @@ import org.jetbrains.annotations.Nullable;
  *       Don't block the client for too long, it is better to miss the primary than to delay the request.
  */
 public class ClientPrimaryReplicaTracker {
-    private final ConcurrentHashMap<TablePartitionId, ReplicaHolder> primaryReplicas = new ConcurrentHashMap<>();
+        private final ConcurrentHashMap<TablePartitionId, ReplicaHolder> primaryReplicas = new ConcurrentHashMap<>();
 
     private final AtomicLong maxStartTime = new AtomicLong();
 
@@ -333,6 +333,7 @@ public class ClientPrimaryReplicaTracker {
     private void removeTable(int tableId, int partitions) {
         for (int partition = 0; partition < partitions; partition++) {
             TablePartitionId tablePartitionId = new TablePartitionId(tableId, partition);
+            // TODO https://issues.apache.org/jira/browse/IGNITE-21738 Fix potential race.
             primaryReplicas.remove(tablePartitionId);
         }
     }
