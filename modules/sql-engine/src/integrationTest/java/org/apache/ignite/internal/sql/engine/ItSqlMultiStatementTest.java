@@ -167,7 +167,7 @@ public class ItSqlMultiStatementTest extends BaseSqlMultiStatementTest {
         // Internal error.
         {
             assertThrowsSqlException(
-                    INTERNAL_ERR,
+                    RUNTIME_ERR,
                     "Subquery returned more than 1 value",
                     () -> executeScript(
                             "INSERT INTO test VALUES(0);"

@@ -27,6 +27,8 @@ import org.apache.ignite.internal.failure.handlers.StopNodeFailureHandler;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * General failure processing API.
@@ -48,6 +50,8 @@ public class FailureProcessor implements IgniteComponent {
 
     /** Node name. */
     private final String nodeName;
+
+    private volatile @Nullable FailureHandler interceptor;
 
     /** Failure context. */
     private volatile FailureContext failureCtx;
@@ -115,6 +119,10 @@ public class FailureProcessor implements IgniteComponent {
         assert failureCtx != null : "Failure context is not initialized.";
         assert handler != null : "Failure handler is not initialized.";
 
+        if (interceptor != null) {
+            interceptor.onFailure(nodeName, failureCtx);
+        }
+
         // Node already terminating, no reason to process more errors.
         if (this.failureCtx != null) {
             return false;
@@ -144,5 +152,10 @@ public class FailureProcessor implements IgniteComponent {
     private static boolean failureTypeIgnored(FailureContext failureCtx, FailureHandler handler) {
         return handler instanceof AbstractFailureHandler
                 && ((AbstractFailureHandler) handler).ignoredFailureTypes().contains(failureCtx.type());
+    }
+
+    @TestOnly
+    public void setInterceptor(@Nullable FailureHandler interceptor) {
+        this.interceptor = interceptor;
     }
 }

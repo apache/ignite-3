@@ -1156,6 +1156,11 @@ public class IgniteImpl implements Ignite {
         return metaStorageMgr;
     }
 
+    @TestOnly
+    public FailureProcessor failureProcessor() {
+        return failureProcessor;
+    }
+
     /** {@inheritDoc} */
     @Override
     public IgniteTransactions transactions() {
