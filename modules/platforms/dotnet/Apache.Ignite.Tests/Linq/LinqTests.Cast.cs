@@ -37,10 +37,13 @@ public partial class LinqTests
                 Long = (long?)x.Val,
                 Float = (float?)x.Val / 1000,
                 Double = (double?)x.Val / 2000,
-                Decimal0 = (decimal?)x.Val / 7,
+                Decimal0 = (decimal?)x.Val / 7.7m,
             })
             .OrderByDescending(x => x.Long);
 
+
+        // TODO: Specify scale when casting to decimal:
+        var x = Client.Sql.ExecuteAsync(null, "select cast(10 as decimal(4,2)) / 3").Result.SingleAsync().AsTask().Result;
         var res = query.ToList();
 
         Assert.AreEqual(90, res[0].Byte);
