@@ -20,8 +20,10 @@ package org.apache.ignite.internal.index;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_CREATE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_REMOVED;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.table.distributed.index.IndexUtils.registerIndexToTable;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -199,21 +201,21 @@ public class IndexManager implements IgniteComponent {
     private CompletableFuture<Boolean> onIndexRemoved(RemoveIndexEventParameters parameters) {
         return inBusyLockAsync(busyLock, () -> {
             int indexId = parameters.indexId();
-            int version = parameters.catalogVersion();
-            int prevVersion = version - 1;
+            int catalogVersion = parameters.catalogVersion();
+            int previousCatalogVersion = catalogVersion - 1;
 
             // Retrieve descriptor during synchronous call, before the previous catalog version could be concurrently compacted.
-            CatalogIndexDescriptor indexDescriptor = catalogService.index(indexId, prevVersion);
+            CatalogIndexDescriptor indexDescriptor = catalogService.index(indexId, previousCatalogVersion);
             assert indexDescriptor != null : "index";
 
             int tableId = indexDescriptor.tableId();
 
-            if (catalogService.table(tableId, version) == null) {
+            if (catalogService.table(tableId, catalogVersion) == null) {
                 // Nothing to do. Index will be destroyed along with the table.
                 return falseCompletedFuture();
             }
 
-            deferredQueue.enqueue(new DestroyIndexEvent(version, indexId, tableId));
+            deferredQueue.enqueue(new DestroyIndexEvent(catalogVersion, indexId, tableId));
 
             return falseCompletedFuture();
         });
@@ -221,9 +223,9 @@ public class IndexManager implements IgniteComponent {
 
     private CompletableFuture<Void> onLwmChanged(HybridTimestamp ts) {
         return inBusyLockAsync(busyLock, () -> {
-            int earliestVersion = catalogService.earliestCatalogVersion(HybridTimestamp.hybridTimestampToLong(ts));
+            int newEarliestCatalogVersion = catalogService.activeCatalogVersion(hybridTimestampToLong(ts));
 
-            List<DestroyIndexEvent> events = deferredQueue.drainUpTo(earliestVersion);
+            List<DestroyIndexEvent> events = deferredQueue.drainUpTo(newEarliestCatalogVersion);
 
             if (events.isEmpty()) {
                 return nullCompletedFuture();
@@ -231,7 +233,7 @@ public class IndexManager implements IgniteComponent {
 
             List<CompletableFuture<Void>> futures = events.stream()
                     .map(event -> destroyIndexAsync(event.indexId(), event.tableId()))
-                    .collect(Collectors.toList());
+                    .collect(toList());
 
             return allOf(futures.toArray(CompletableFuture[]::new));
         });
@@ -301,16 +303,14 @@ public class IndexManager implements IgniteComponent {
 
     /** Recover deferred destroy events. */
     private void recoverDeferredQueue() {
-        int earliestVersion = catalogService.earliestCatalogVersion(HybridTimestamp.hybridTimestampToLong(lowWatermark.getLowWatermark()));
-        int latestVersion = catalogService.latestCatalogVersion();
+        int earliestCatalogVersion = catalogService.activeCatalogVersion(hybridTimestampToLong(lowWatermark.getLowWatermark()));
+        int latestCatalogVersion = catalogService.latestCatalogVersion();
 
-        synchronized ((deferredQueue)) {
-            for (int version = latestVersion - 1; version >= earliestVersion; version--) {
-                int nextVersion = version + 1;
-                catalogService.indexes(version).stream()
-                        .filter(idx -> catalogService.index(idx.id(), nextVersion) == null)
-                        .forEach(idx -> deferredQueue.enqueue(new DestroyIndexEvent(nextVersion, idx.id(), idx.tableId())));
-            }
+        for (int catalogVersion = latestCatalogVersion - 1; catalogVersion >= earliestCatalogVersion; catalogVersion--) {
+            int nextVersion = catalogVersion + 1;
+            catalogService.indexes(catalogVersion).stream()
+                    .filter(idx -> catalogService.index(idx.id(), nextVersion) == null)
+                    .forEach(idx -> deferredQueue.enqueue(new DestroyIndexEvent(nextVersion, idx.id(), idx.tableId())));
         }
     }
 

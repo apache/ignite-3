@@ -309,13 +309,6 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     @Override
-    public int earliestCatalogVersion(long timestamp) {
-        Entry<Long, Catalog> earliestEntry = catalogByTs.floorEntry(timestamp);
-
-        return (earliestEntry == null) ? earliestCatalogVersion() : earliestEntry.getValue().version();
-    }
-
-    @Override
     public int earliestCatalogVersion() {
         return catalogByVer.firstEntry().getKey();
     }
@@ -465,13 +458,13 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         @Override
         public CompletableFuture<Void> handle(UpdateLogEvent event, HybridTimestamp metaStorageUpdateTimestamp, long causalityToken) {
             if (event instanceof SnapshotEntry) {
-                return handle((SnapshotEntry) event, causalityToken);
+                return handle((SnapshotEntry) event);
             }
 
             return handle((VersionedUpdate) event, metaStorageUpdateTimestamp, causalityToken);
         }
 
-        private CompletableFuture<Void> handle(SnapshotEntry event, long causalityToken) {
+        private CompletableFuture<Void> handle(SnapshotEntry event) {
             Catalog catalog = event.snapshot();
             // On recovery phase, we must register catalog from the snapshot.
             // In other cases, it is ok to rewrite an existed version, because it's exactly the same.

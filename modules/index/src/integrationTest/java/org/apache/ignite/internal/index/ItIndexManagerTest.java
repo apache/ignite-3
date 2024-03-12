@@ -113,7 +113,6 @@ public class ItIndexManagerTest extends ClusterPerClassIntegrationTest {
         return future.join();
     }
 
-    // TODO: validate this.
     private static List<Integer> collectIndexIdsFromCatalogForRecovery(IgniteImpl ignite, TableImpl table) {
         CatalogManager catalogManager = ignite.catalogManager();
 

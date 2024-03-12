@@ -27,6 +27,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.function.Function.identity;
+import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.causality.IncrementalVersionedValue.dependingOn;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.findTablesByZoneId;
@@ -42,6 +43,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tableAssignmentsGetLocally;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tablesCounterKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.union;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
@@ -736,9 +738,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private CompletableFuture<Void> onLwmChanged(HybridTimestamp ts) {
         return inBusyLockAsync(busyLock, () -> {
-            int earliestVersion = catalogService.earliestCatalogVersion(HybridTimestamp.hybridTimestampToLong(ts));
+            int newEarliestCatalogVersion = catalogService.activeCatalogVersion(hybridTimestampToLong(ts));
 
-            List<DestroyTableEvent> events = deferredQueue.drainUpTo(earliestVersion);
+            List<DestroyTableEvent> events = deferredQueue.drainUpTo(newEarliestCatalogVersion);
 
             if (events.isEmpty()) {
                 return nullCompletedFuture();
@@ -746,7 +748,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             List<CompletableFuture<Void>> futures = events.stream()
                     .map(event -> destroyTableLocally(event.tableId()))
-                    .collect(Collectors.toList());
+                    .collect(toList());
 
             return allOf(futures.toArray(CompletableFuture[]::new));
         });
@@ -1223,7 +1225,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                 dataNodes,
                                 zoneDescriptor.partitions(),
                                 zoneDescriptor.replicas()
-                        ).stream().map(Assignments::of).collect(Collectors.toList()));
+                        ).stream().map(Assignments::of).collect(toList()));
 
                 assignmentsFuture.thenAccept(assignmentsList -> {
                     LOG.info(IgniteStringFormatter.format("Assignments calculated from data nodes [table={}, tableId={}, assignments={}, "
@@ -1416,7 +1418,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         TableImpl table = startedTables.remove(tableId);
         localPartsByTableId.remove(tableId);
 
-        assert table != null;
+        assert table != null : tableId;
 
         InternalTable internalTable = table.internalTable();
         int partitions = internalTable.partitions();
@@ -2429,7 +2431,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private void startTables(long recoveryRevision, @Nullable HybridTimestamp lwm) {
         sharedTxStateStorage.start();
 
-        int earliestCatalogVersion = catalogService.activeCatalogVersion(HybridTimestamp.hybridTimestampToLong(lwm));
+        int earliestCatalogVersion = catalogService.activeCatalogVersion(hybridTimestampToLong(lwm));
         int latestCatalogVersion = catalogService.latestCatalogVersion();
 
         var startedTables = new IntOpenHashSet();

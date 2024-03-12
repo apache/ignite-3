@@ -100,10 +100,6 @@ public interface CatalogService extends EventProducer<CatalogEvent, CatalogEvent
     /** Returns the earliest registered version of the catalog. */
     int earliestCatalogVersion();
 
-    /** Returns the earliest registered version of the catalog, which is observable since given timestamp. */
-    // TODO IGNITE-21608 Use method without timestamp instead?
-    int earliestCatalogVersion(long timestamp);
-
     /** Returns the latest registered version of the catalog. */
     int latestCatalogVersion();
 

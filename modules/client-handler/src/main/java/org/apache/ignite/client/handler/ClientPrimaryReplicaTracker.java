@@ -73,7 +73,7 @@ import org.jetbrains.annotations.Nullable;
  *       load it from the placement driver. Wait for a limited amount of time (in getPrimaryReplica) and return what we have.
  *       Don't block the client for too long, it is better to miss the primary than to delay the request.
  */
-public class ClientPrimaryReplicaTracker implements EventListener<EventParameters>, LowWatermarkChangedListener {
+public class ClientPrimaryReplicaTracker implements EventListener<EventParameters> {
     private final ConcurrentHashMap<TablePartitionId, ReplicaHolder> primaryReplicas = new ConcurrentHashMap<>();
 
     private final AtomicLong maxStartTime = new AtomicLong();
@@ -87,6 +87,8 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
     private final SchemaSyncService schemaSyncService;
 
     private final LowWatermark lowWatermark;
+
+    private final LowWatermarkChangedListener lwmListener = this::onLwmChanged;
 
     private final DeferredEventsQueue<DestroyTableEvent> deferredEventsQueue = new DeferredEventsQueue<>(DestroyTableEvent::catalogVersion);
 
@@ -263,7 +265,7 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
 
         placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, (EventListener) this);
         catalogService.listen(CatalogEvent.TABLE_DROP, (EventListener) this);
-        lowWatermark.addUpdateListener(this);
+        lowWatermark.addUpdateListener(lwmListener);
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
@@ -274,7 +276,7 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
 
         busyLock.block();
 
-        lowWatermark.removeUpdateListener(this);
+        lowWatermark.removeUpdateListener(lwmListener);
         catalogService.removeListener(CatalogEvent.TABLE_DROP, (EventListener) this);
         placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, (EventListener) this);
         primaryReplicas.clear();
@@ -303,10 +305,11 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
 
             // Retrieve descriptor during synchronous call, before the previous catalog version could be concurrently compacted.
             CatalogTableDescriptor tableDescriptor = catalogService.table(tableId, previousVersion);
-            assert tableDescriptor != null : "table";
+            assert tableDescriptor != null : "tableId=" + tableId + ", catalogVersion=" + previousVersion;
 
-            CatalogZoneDescriptor zoneDescriptor = catalogService.zone(tableDescriptor.zoneId(), previousVersion);
-            assert zoneDescriptor != null : "zone";
+            int zoneId = tableDescriptor.zoneId();
+            CatalogZoneDescriptor zoneDescriptor = catalogService.zone(zoneId, previousVersion);
+            assert zoneDescriptor != null : "zoneId=" + zoneId + ", catalogVersion=" + previousVersion;
 
             deferredEventsQueue.enqueue(new DestroyTableEvent(catalogVersion, tableId, zoneDescriptor.partitions()));
 
@@ -331,10 +334,9 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
         return falseCompletedFuture(); // false: don't remove listener.
     }
 
-    @Override
-    public CompletableFuture<Void> onLwmChanged(HybridTimestamp ts) {
+    private CompletableFuture<Void> onLwmChanged(HybridTimestamp ts) {
         return inBusyLockAsync(busyLock, () -> {
-            int earliestVersion = catalogService.earliestCatalogVersion(HybridTimestamp.hybridTimestampToLong(ts));
+            int earliestVersion = catalogService.activeCatalogVersion(HybridTimestamp.hybridTimestampToLong(ts));
 
             List<DestroyTableEvent> events = deferredEventsQueue.drainUpTo(earliestVersion);
 

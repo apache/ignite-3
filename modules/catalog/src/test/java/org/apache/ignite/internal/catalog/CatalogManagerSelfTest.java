@@ -2464,7 +2464,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     }
 
     @Test
-    public void testCatalogCompaction() throws InterruptedException {
+    public void testCatalogCompaction() throws Exception {
         assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
         assertThat(manager.execute(simpleTable(TABLE_NAME_2)), willBe(nullValue()));
 
