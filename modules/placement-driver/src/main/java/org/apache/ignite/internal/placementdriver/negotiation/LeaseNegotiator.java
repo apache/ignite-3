@@ -17,18 +17,12 @@
 
 package org.apache.ignite.internal.placementdriver.negotiation;
 
-import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.placementdriver.negotiation.LeaseAgreement.UNDEFINED_AGREEMENT;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
-import static org.apache.ignite.internal.util.IgniteUtils.findAny;
 
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import org.apache.ignite.internal.affinity.Assignment;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
-import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -51,7 +45,7 @@ public class LeaseNegotiator {
             .accepted(false)
             .build();
 
-    /** Leases ready to accept. */
+    /** Lease agreements which are in progress of negotiation. */
     private final Map<ReplicationGroupId, LeaseAgreement> leaseToNegotiate;
 
     /** Cluster service. */
@@ -70,7 +64,7 @@ public class LeaseNegotiator {
 
     /**
      * Tries negotiating a lease with its leaseholder.
-     * The negotiation will achieve after the method is invoked. Use {@link #negotiated(ReplicationGroupId)} to check a result.
+     * The negotiation will achieve after the method is invoked. Use {@link #getAndRemoveIfReady(ReplicationGroupId)} to check a result.
      *
      * @param lease Lease to negotiate.
      * @param force If the flag is true, the process tries to insist of apply the lease.
@@ -112,15 +106,22 @@ public class LeaseNegotiator {
     }
 
     /**
-     * Gets a lease agreement or {@code null} if the agreement has not formed yet.
+     * Gets a lease agreement or {@link LeaseAgreement#UNDEFINED_AGREEMENT} if the process of agreement is not started yet. Removes
+     * the agreement from the map if it is ready.
      *
      * @param groupId Replication group id.
      * @return Lease agreement.
      */
-    public LeaseAgreement negotiated(ReplicationGroupId groupId) {
-        LeaseAgreement agreement = leaseToNegotiate.getOrDefault(groupId, UNDEFINED_AGREEMENT);
+    public LeaseAgreement getAndRemoveIfReady(ReplicationGroupId groupId) {
+        LeaseAgreement[] res = new LeaseAgreement[1];
 
-        return agreement;
+        leaseToNegotiate.compute(groupId, (k, v) -> {
+            res[0] = v;
+
+            return v != null && v.ready() ? null : v;
+        });
+
+        return res[0] == null ? UNDEFINED_AGREEMENT : res[0];
     }
 
     /**
@@ -130,33 +131,5 @@ public class LeaseNegotiator {
      */
     public void onLeaseRemoved(ReplicationGroupId groupId) {
         leaseToNegotiate.remove(groupId);
-    }
-
-    public void updateAssignmentsForGroup(ReplicationGroupId grpId, Set<Assignment> assignments) {
-        LeaseAgreement agreement = leaseToNegotiate.get(grpId);
-
-        if (agreement != null
-                && !agreement.ready()
-                && findAny(assignments, a -> a.consistentId().equals(agreement.getLease().getLeaseholder())).isEmpty()) {
-            LOG.info("Lease was not negotiated because the node is not included into the group assignments anymore [node={}, group={}, "
-                            + "assignments={}].", agreement.getLease().getLeaseholder(), grpId, assignments);
-
-            agreement.breakAgreement();
-        }
-    }
-
-    public void updateTopology(LogicalTopologySnapshot topologySnapshot) {
-        Set<String> nodeIds = topologySnapshot.nodes().stream().map(LogicalNode::id).collect(toSet());
-
-        for (Map.Entry<ReplicationGroupId, LeaseAgreement> e : leaseToNegotiate.entrySet()) {
-            LeaseAgreement agreement = e.getValue();
-
-            if (!agreement.ready() && !nodeIds.contains(agreement.getLease().getLeaseholderId())) {
-                LOG.info("Lease was not negotiated because the node has left the logical topology [node={}, nodeId={}, group={}]",
-                        agreement.getLease().getLeaseholder(), agreement.getLease().getLeaseholderId(), e.getKey());
-
-                agreement.breakAgreement();
-            }
-        }
     }
 }

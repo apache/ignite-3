@@ -18,17 +18,29 @@
 package org.apache.ignite.internal.placementdriver.negotiation;
 
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.placementdriver.negotiation.LeaseNegotiator.NOT_ACCEPTED_RESPONSE;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.findAny;
 
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.affinity.Assignment;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 
 /**
  * The agreement is formed from {@link LeaseGrantedMessageResponse}.
  */
 public class LeaseAgreement {
+    /** The logger. */
+    private static final IgniteLogger LOG = Loggers.forClass(LeaseAgreement.class);
+
     /**
      * The agreement, which has not try negotiating yet. We assume that it is {@link #ready()} and not {@link #isAccepted()}
      * which allows both initiation and retries of negotiation.
@@ -103,7 +115,39 @@ public class LeaseAgreement {
         return responseFut.isDone();
     }
 
-    void breakAgreement() {
-        responseFut.complete(NOT_ACCEPTED_RESPONSE);
+    /**
+     * Check the validity of the agreement in the current logical topology and group assignments. If the suggested leaseholder
+     * has left topology or not included into the current assignments, the agreement is broken.
+     *
+     * @param groupId Group id.
+     * @param currentTopologySnapshot Current topology snapshot.
+     * @param assignments Assignments.
+     */
+    public void checkValid(
+            ReplicationGroupId groupId,
+            LogicalTopologySnapshot currentTopologySnapshot,
+            Set<Assignment> assignments
+    ) {
+        if (ready()) {
+            return;
+        }
+
+        if (findAny(assignments, a -> a.consistentId().equals(lease.getLeaseholder())).isEmpty()) {
+            LOG.info("Lease was not negotiated because the node is not included into the group assignments anymore [node={}, group={}, "
+                    + "assignments={}].", lease.getLeaseholder(), lease, assignments);
+
+            responseFut.complete(NOT_ACCEPTED_RESPONSE);
+
+            return;
+        }
+
+        Set<String> nodeIds = currentTopologySnapshot.nodes().stream().map(LogicalNode::id).collect(toSet());
+
+        if (nodeIds.contains(lease.getLeaseholderId())) {
+            LOG.info("Lease was not negotiated because the node has left the logical topology [node={}, nodeId={}, group={}]",
+                    lease.getLeaseholder(), lease.getLeaseholderId(), groupId);
+
+            responseFut.complete(NOT_ACCEPTED_RESPONSE);
+        }
     }
 }

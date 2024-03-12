@@ -335,16 +335,12 @@ public class LeaseUpdater {
             renewedLeases.entrySet().removeIf(e -> e.getValue().getExpirationTime().before(now)
                     && !currentAssignmentsReplicationGroupIds.contains(e.getKey()));
 
-            leaseNegotiator.updateTopology(topologyTracker.currentTopologySnapshot());
-
             int currentAssignmentsSize = currentAssignments.size();
             int activeLeasesCount = 0;
 
             for (Map.Entry<ReplicationGroupId, Set<Assignment>> entry : currentAssignments.entrySet()) {
                 ReplicationGroupId grpId = entry.getKey();
                 Set<Assignment> assignments = entry.getValue();
-
-                leaseNegotiator.updateAssignmentsForGroup(grpId, assignments);
 
                 Lease lease = leaseTracker.getLease(grpId);
 
@@ -353,7 +349,7 @@ public class LeaseUpdater {
                 }
 
                 if (!lease.isAccepted()) {
-                    LeaseAgreement agreement = leaseNegotiator.negotiated(grpId);
+                    LeaseAgreement agreement = leaseNegotiator.getAndRemoveIfReady(grpId);
 
                     if (agreement.isAccepted()) {
                         publishLease(grpId, lease, renewedLeases);
@@ -373,6 +369,8 @@ public class LeaseUpdater {
                         writeNewLease(grpId, lease, candidate, renewedLeases, toBeNegotiated);
 
                         continue;
+                    } else {
+                        agreement.checkValid(grpId, topologyTracker.currentTopologySnapshot(), assignments);
                     }
                 }
 
