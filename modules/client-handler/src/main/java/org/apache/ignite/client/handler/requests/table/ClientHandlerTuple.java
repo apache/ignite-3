@@ -48,7 +48,7 @@ class ClientHandlerTuple extends MutableTupleBinaryTupleAdapter implements Schem
     ClientHandlerTuple(SchemaDescriptor schema, @Nullable BitSet noValueSet, BinaryTupleReader tuple, boolean keyOnly) {
         super(tuple, tuple.elementCount(), noValueSet);
 
-        assert tuple.elementCount() == (keyOnly ? schema.keyColumns().length() : schema.length()) : "Tuple element count mismatch";
+        assert tuple.elementCount() == (keyOnly ? schema.keyColumns().size() : schema.length()) : "Tuple element count mismatch";
 
         this.schema = schema;
         this.keyOnly = keyOnly;
@@ -82,17 +82,17 @@ class ClientHandlerTuple extends MutableTupleBinaryTupleAdapter implements Schem
         }
 
         if (keyOnly) {
-            return schema.keyIndex(column);
+            return column.positionInKey();
         }
 
-        return column.schemaIndex();
+        return column.positionInRow();
     }
 
     /** {@inheritDoc} */
     @Override
     protected int binaryTupleIndex(int publicIndex) {
         return keyOnly
-                ? schema.keyColumns().column(publicIndex).schemaIndex()
+                ? schema.keyColumns().get(publicIndex).positionInRow()
                 : super.binaryTupleIndex(publicIndex);
     }
 
@@ -100,8 +100,8 @@ class ClientHandlerTuple extends MutableTupleBinaryTupleAdapter implements Schem
     @Override
     protected int publicIndex(int binaryTupleIndex) {
         if (keyOnly) {
-            var col = schema.keyColumns().column(binaryTupleIndex);
-            return schema.keyIndex(col);
+            var col = schema.keyColumns().get(binaryTupleIndex);
+            return col.positionInKey();
         }
 
         return super.publicIndex(binaryTupleIndex);

@@ -17,11 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import java.util.ArrayList;
 import java.util.BitSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
 import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -32,7 +28,6 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.sql.engine.util.FieldDeserializingProjectedTuple;
 import org.apache.ignite.internal.sql.engine.util.FormatAwareProjectedTuple;
-import org.apache.ignite.internal.type.NativeType;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -46,66 +41,36 @@ public class TableRowConverterImpl implements TableRowConverter {
 
     private final BinaryTupleSchema fullTupleSchema;
 
-    private final int[] fullRowColocationIndexes;
-    private final int[] keyOnlyColocationIndexes;
-    private final NativeType[] colocationColumnTypes;
-
     /**
      * Mapping of required columns to their indexes in physical schema.
      */
     private final int[] requiredColumnsMapping;
 
-    /**
-     * Mapping of all columns to their indexes in physical schema.
-     */
-    private final int[] fullMapping;
-
-    private final boolean skipReshuffling;
+    private final boolean skipTrimming;
 
     /** Constructor. */
     TableRowConverterImpl(
             SchemaRegistry schemaRegistry,
             BinaryTupleSchema fullTupleSchema,
-            int[] fullRowColocationIndexes,
-            int[] keyOnlyColocationIndexes,
-            NativeType[] colocationColumnTypes,
             SchemaDescriptor schemaDescriptor,
             @Nullable BitSet requiredColumns
     ) {
         this.schemaRegistry = schemaRegistry;
         this.schemaDescriptor = schemaDescriptor;
-        this.fullRowColocationIndexes = fullRowColocationIndexes;
-        this.keyOnlyColocationIndexes = keyOnlyColocationIndexes;
-        this.colocationColumnTypes = colocationColumnTypes;
         this.fullTupleSchema = fullTupleSchema;
 
-        this.skipReshuffling = requiredColumns == null && schemaDescriptor.physicalOrderMatchesLogical();
+        this.skipTrimming = requiredColumns == null;
 
-        int elementCount = schemaDescriptor.length();
-        int size = requiredColumns == null ? elementCount : requiredColumns.cardinality();
+        int size = requiredColumns == null
+                ? schemaDescriptor.length()
+                : requiredColumns.cardinality();
 
         requiredColumnsMapping = new int[size];
-        fullMapping = new int[elementCount];
-
-        List<Map.Entry<Integer, Column>> tableOrder = new ArrayList<>(elementCount);
-
-        for (int i = 0; i < elementCount; i++) {
-            Column column = schemaDescriptor.column(i);
-            tableOrder.add(Map.entry(column.columnOrder(), column));
-        }
-
-        tableOrder.sort(Entry.comparingByKey());
 
         int requiredIndex = 0;
-
-        for (Map.Entry<Integer, Column> e : tableOrder) {
-            Column column = e.getValue();
-            int i = column.schemaIndex();
-
-            fullMapping[i] = column.columnOrder();
-
-            if (requiredColumns == null || requiredColumns.get(column.columnOrder())) {
-                requiredColumnsMapping[requiredIndex++] = i;
+        for (Column column : schemaDescriptor.columns()) {
+            if (requiredColumns == null || requiredColumns.get(column.positionInRow())) {
+                requiredColumnsMapping[requiredIndex++] = column.positionInRow();
             }
         }
     }
@@ -115,15 +80,7 @@ public class TableRowConverterImpl implements TableRowConverter {
     public <RowT> BinaryRowEx toBinaryRow(ExecutionContext<RowT> ectx, RowT row, boolean key) {
         BinaryTuple binaryTuple = ectx.rowHandler().toBinaryTuple(row);
 
-        if (!key) {
-            InternalTuple tuple = schemaDescriptor.physicalOrderMatchesLogical()
-                    ? binaryTuple
-                    : new FormatAwareProjectedTuple(binaryTuple, fullMapping);
-
-            return SqlOutputBinaryRow.newRow(schemaDescriptor.version(), fullRowColocationIndexes, colocationColumnTypes, tuple);
-        } else {
-            return SqlOutputBinaryRow.newRow(schemaDescriptor.version(), keyOnlyColocationIndexes, colocationColumnTypes, binaryTuple);
-        }
+        return SqlOutputBinaryRow.newRow(schemaDescriptor, key, binaryTuple);
     }
 
     /** {@inheritDoc} */
@@ -137,7 +94,7 @@ public class TableRowConverterImpl implements TableRowConverter {
         if (tableRow.schemaVersion() == schemaDescriptor.version()) {
             InternalTuple tableTuple = new BinaryTuple(schemaDescriptor.length(), tableRow.tupleSlice());
 
-            tuple = skipReshuffling
+            tuple = skipTrimming
                     ? tableTuple
                     : new FormatAwareProjectedTuple(tableTuple, requiredColumnsMapping);
         } else {

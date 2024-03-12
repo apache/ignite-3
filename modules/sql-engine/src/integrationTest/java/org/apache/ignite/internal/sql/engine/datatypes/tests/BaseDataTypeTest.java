@@ -112,9 +112,9 @@ public abstract class BaseDataTypeTest<T extends Comparable<T>> extends BaseSqlI
     protected final QueryChecker checkQuery(String query) {
         QueryTemplate queryTemplate = createQueryTemplate(query);
 
-        IgniteImpl node = (IgniteImpl) CLUSTER.aliveNode();
+        IgniteImpl node = CLUSTER.aliveNode();
 
-        return queryCheckerFactory.create(node.queryEngine(), node.transactions(), this::validateMetadata, queryTemplate);
+        return queryCheckerFactory.create(node.name(), node.queryEngine(), node.transactions(), this::validateMetadata, queryTemplate);
     }
 
     private void validateMetadata(ResultSetMetadata metadata) {

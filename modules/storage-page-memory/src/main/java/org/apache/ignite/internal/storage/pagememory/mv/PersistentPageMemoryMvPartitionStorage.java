@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
@@ -38,6 +39,7 @@ import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointPr
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTimeoutLock;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
+import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
@@ -94,9 +96,15 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
             IndexColumnsFreeList indexFreeList,
             VersionChainTree versionChainTree,
             IndexMetaTree indexMetaTree,
-            GcQueue gcQueue
+            GcQueue gcQueue,
+            ExecutorService destructionExecutor
     ) {
-        super(partitionId, tableStorage, rowVersionFreeList, indexFreeList, versionChainTree, indexMetaTree, gcQueue);
+        super(
+                partitionId,
+                tableStorage,
+                new RenewablePartitionStorageState(versionChainTree, rowVersionFreeList, indexFreeList, indexMetaTree, gcQueue),
+                destructionExecutor
+        );
 
         checkpointManager = tableStorage.engine().checkpointManager();
         checkpointTimeoutLock = checkpointManager.checkpointTimeoutLock();
@@ -126,6 +134,11 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                 partitionId,
                 IoStatisticsHolderNoOp.INSTANCE
         );
+    }
+
+    @Override
+    protected GradualTaskExecutor createGradualTaskExecutor(ExecutorService threadPool) {
+        return new ConsistentGradualTaskExecutor(this, threadPool);
     }
 
     @Override
@@ -313,16 +326,15 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     }
 
     @Override
-    protected List<AutoCloseable> getResourcesToClose(boolean goingToDestroy) {
-        List<AutoCloseable> resourcesToClose = super.getResourcesToClose(goingToDestroy);
-
-        resourcesToClose.add(hashIndexes::clear);
-        resourcesToClose.add(sortedIndexes::clear);
+    protected List<AutoCloseable> getResourcesToClose() {
+        List<AutoCloseable> resourcesToClose = super.getResourcesToClose();
 
         resourcesToClose.add(() -> checkpointManager.removeCheckpointListener(checkpointListener));
 
-        resourcesToClose.add(rowVersionFreeList::close);
-        resourcesToClose.add(indexFreeList::close);
+        RenewablePartitionStorageState localState = renewableState;
+
+        resourcesToClose.add(localState.rowVersionFreeList()::close);
+        resourcesToClose.add(localState.indexFreeList()::close);
         resourcesToClose.add(blobStorage::close);
 
         return resourcesToClose;
@@ -335,14 +347,16 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
      * @throws IgniteInternalCheckedException If failed.
      */
     private void syncMetadataOnCheckpoint(@Nullable Executor executor) throws IgniteInternalCheckedException {
-        if (executor == null) {
-            rowVersionFreeList.saveMetadata();
+        RenewablePartitionStorageState localState = renewableState;
 
-            indexFreeList.saveMetadata();
+        if (executor == null) {
+            localState.rowVersionFreeList().saveMetadata();
+
+            localState.indexFreeList().saveMetadata();
         } else {
             executor.execute(() -> {
                 try {
-                    rowVersionFreeList.saveMetadata();
+                    localState.rowVersionFreeList().saveMetadata();
                 } catch (IgniteInternalCheckedException e) {
                     throw new StorageException("Failed to save RowVersionFreeList metadata", e);
                 }
@@ -350,7 +364,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
             executor.execute(() -> {
                 try {
-                    indexFreeList.saveMetadata();
+                    localState.indexFreeList().saveMetadata();
                 } catch (IgniteInternalCheckedException e) {
                     throw new StorageException("Failed to save IndexColumnsFreeList metadata", e);
                 }
@@ -388,11 +402,15 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
         this.meta = meta;
 
-        this.rowVersionFreeList = rowVersionFreeList;
-        this.indexFreeList = indexFreeList;
-        this.versionChainTree = versionChainTree;
-        this.indexMetaTree = indexMetaTree;
-        this.gcQueue = gcQueue;
+        var newState = new RenewablePartitionStorageState(
+                versionChainTree,
+                rowVersionFreeList,
+                indexFreeList,
+                indexMetaTree,
+                gcQueue
+        );
+
+        this.renewableState = newState;
 
         this.blobStorage = new BlobStorage(
                 rowVersionFreeList,
@@ -405,26 +423,36 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         for (PageMemoryHashIndexStorage indexStorage : hashIndexes.values()) {
             indexStorage.updateDataStructures(
                     indexFreeList,
-                    createHashIndexTree(indexStorage.indexDescriptor(), createIndexMetaForNewIndex(indexStorage.indexDescriptor().id()))
+                    createHashIndexTree(
+                            indexStorage.indexDescriptor(),
+                            createIndexMetaForNewIndex(indexStorage.indexDescriptor().id()),
+                            newState
+                    )
             );
         }
 
         for (PageMemorySortedIndexStorage indexStorage : sortedIndexes.values()) {
             indexStorage.updateDataStructures(
                     indexFreeList,
-                    createSortedIndexTree(indexStorage.indexDescriptor(), createIndexMetaForNewIndex(indexStorage.indexDescriptor().id()))
+                    createSortedIndexTree(
+                            indexStorage.indexDescriptor(),
+                            createIndexMetaForNewIndex(indexStorage.indexDescriptor().id()),
+                            newState
+                    )
             );
         }
     }
 
     @Override
     List<AutoCloseable> getResourcesToCloseOnCleanup() {
+        RenewablePartitionStorageState localState = renewableState;
+
         return List.of(
-                rowVersionFreeList::close,
-                indexFreeList::close,
-                versionChainTree::close,
-                indexMetaTree::close,
-                gcQueue::close,
+                localState.rowVersionFreeList()::close,
+                localState.indexFreeList()::close,
+                localState.versionChainTree()::close,
+                localState.indexMetaTree()::close,
+                localState.gcQueue()::close,
                 blobStorage::close
         );
     }

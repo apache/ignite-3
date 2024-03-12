@@ -98,6 +98,10 @@ import org.junit.jupiter.params.provider.MethodSource;
  * KvMarshaller test.
  */
 public class KvMarshallerTest {
+    private static final Column[] SINGLE_INT64_ID_COLUMNS = {
+            new Column("id", INT64, false)
+    };
+
     /**
      * Return list of marshaller factories for test.
      */
@@ -156,25 +160,50 @@ public class KvMarshallerTest {
 
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
-    public void pojoWithFieldsOfAllTypes(MarshallerFactory factory) throws MarshallerException {
-        SchemaDescriptor schema = new SchemaDescriptor(schemaVersion.incrementAndGet(), columnsAllTypes(false), columnsAllTypes(true));
+    public void pojoWithFieldsOfAllTypesAsKey(MarshallerFactory factory) throws MarshallerException {
+        SchemaDescriptor schema = new SchemaDescriptor(
+                schemaVersion.incrementAndGet(),
+                SINGLE_INT64_ID_COLUMNS,
+                columnsAllTypes(true)
+        );
 
-        final TestObjectWithAllTypes key = TestObjectWithAllTypes.randomKey(rnd);
-        final TestObjectWithAllTypes val = TestObjectWithAllTypes.randomObject(rnd);
+        TestObjectWithAllTypes val = TestObjectWithAllTypes.randomObject(rnd);
 
-        KvMarshaller<TestObjectWithAllTypes, TestObjectWithAllTypes> marshaller =
-                factory.create(schema, TestObjectWithAllTypes.class, TestObjectWithAllTypes.class);
+        KvMarshaller<Long, TestObjectWithAllTypes> marshaller =
+                factory.create(schema, Long.class, TestObjectWithAllTypes.class);
 
-        Row row = Row.wrapBinaryRow(schema, marshaller.marshal(key, val));
+        Row row = Row.wrapBinaryRow(schema, marshaller.marshal(1L, val));
 
         TestObjectWithAllTypes restoredVal = marshaller.unmarshalValue(row);
+
+        assertTrue(val.getClass().isInstance(restoredVal));
+
+        assertEquals(val, restoredVal);
+    }
+
+    @ParameterizedTest
+    @MethodSource("marshallerFactoryProvider")
+    public void pojoWithFieldsOfAllTypesAsValue(MarshallerFactory factory) throws MarshallerException {
+        SchemaDescriptor schema = new SchemaDescriptor(
+                schemaVersion.incrementAndGet(),
+                columnsAllTypes(false),
+                new Column[]{
+                        new Column("VAL", INT32, true),
+                }
+        );
+
+        TestObjectWithAllTypes key = TestObjectWithAllTypes.randomKey(rnd);
+
+        KvMarshaller<TestObjectWithAllTypes, Integer> marshaller =
+                factory.create(schema, TestObjectWithAllTypes.class, Integer.class);
+
+        Row row = Row.wrapBinaryRow(schema, marshaller.marshal(key, 1));
+
         TestObjectWithAllTypes restoredKey = marshaller.unmarshalKey(row);
 
         assertTrue(key.getClass().isInstance(restoredKey));
-        assertTrue(val.getClass().isInstance(restoredVal));
 
         assertEquals(key, restoredKey);
-        assertEquals(val, restoredVal);
     }
 
     @ParameterizedTest
@@ -182,38 +211,37 @@ public class KvMarshallerTest {
     public void narrowType(MarshallerFactory factory) {
         Assumptions.assumeFalse(factory instanceof AsmMarshallerGenerator, "Generated marshaller doesn't support truncated values, yet.");
 
-        Column[] cols = {
-                new Column("primitiveIntCol".toUpperCase(), INT32, false),
-                new Column("primitiveLongCol".toUpperCase(), INT64, false),
-                new Column("primitiveFloatCol".toUpperCase(), FLOAT, false),
-                new Column("primitiveDoubleCol".toUpperCase(), DOUBLE, false),
-                new Column("stringCol".toUpperCase(), STRING, false),
-                new Column("uuidCol".toUpperCase(), UUID, false),
-        };
-
-        SchemaDescriptor schema = new SchemaDescriptor(schemaVersion.incrementAndGet(), cols, columnsAllTypes(true));
+        SchemaDescriptor schema = new SchemaDescriptor(
+                schemaVersion.incrementAndGet(),
+                SINGLE_INT64_ID_COLUMNS,
+                columnsAllTypes(true)
+        );
 
         IllegalArgumentException ex = assertThrows(
                 IllegalArgumentException.class,
-                () -> factory.create(schema, TestTruncatedObject.class, TestTruncatedObject.class));
+                () -> factory.create(schema, Integer.class, TestTruncatedObject.class));
 
-        assertEquals("No mapped object field found for column 'BOOLEANCOL'", ex.getMessage());
+        assertEquals("No mapped object field found for column 'PRIMITIVEBOOLEANCOL'", ex.getMessage());
     }
 
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
     public void wideType(MarshallerFactory factory) {
-        Column[] cols = {
+        Column[] valueColumns = {
                 new Column("primitiveLongCol".toUpperCase(), INT64, false),
                 new Column("primitiveDoubleCol".toUpperCase(), DOUBLE, false),
                 new Column("stringCol".toUpperCase(), STRING, false),
         };
 
-        SchemaDescriptor schema = new SchemaDescriptor(schemaVersion.incrementAndGet(), cols, cols);
+        SchemaDescriptor schema = new SchemaDescriptor(
+                schemaVersion.incrementAndGet(),
+                SINGLE_INT64_ID_COLUMNS,
+                valueColumns
+        );
 
         IllegalArgumentException ex = assertThrows(
                 IllegalArgumentException.class,
-                () -> factory.create(schema, TestObjectWithAllTypes.class, TestObjectWithAllTypes.class)
+                () -> factory.create(schema, Integer.class, TestObjectWithAllTypes.class)
         );
 
         assertEquals(
@@ -335,44 +363,46 @@ public class KvMarshallerTest {
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
     public void classWithPrivateConstructor(MarshallerFactory factory) throws MarshallerException {
-        Column[] cols = {
+        Column[] valueColumns = {
                 new Column("primLongCol".toUpperCase(), INT64, false),
                 new Column("primIntCol".toUpperCase(), INT32, false),
         };
 
-        SchemaDescriptor schema = new SchemaDescriptor(schemaVersion.incrementAndGet(), cols, cols);
+        SchemaDescriptor schema = new SchemaDescriptor(
+                schemaVersion.incrementAndGet(),
+                SINGLE_INT64_ID_COLUMNS,
+                valueColumns
+        );
 
-        KvMarshaller<TestObjectWithPrivateConstructor, TestObjectWithPrivateConstructor> marshaller =
-                factory.create(schema, TestObjectWithPrivateConstructor.class, TestObjectWithPrivateConstructor.class);
+        KvMarshaller<Long, TestObjectWithPrivateConstructor> marshaller =
+                factory.create(schema, Long.class, TestObjectWithPrivateConstructor.class);
 
-        final TestObjectWithPrivateConstructor key = TestObjectWithPrivateConstructor.randomObject(rnd);
         final TestObjectWithPrivateConstructor val = TestObjectWithPrivateConstructor.randomObject(rnd);
 
-        Row row = Row.wrapBinaryRow(schema, marshaller.marshal(key, val));
+        Row row = Row.wrapBinaryRow(schema, marshaller.marshal(1L, val));
 
-        Object key1 = marshaller.unmarshalKey(row);
         Object val1 = marshaller.unmarshalValue(row);
 
-        assertTrue(key.getClass().isInstance(key1));
         assertTrue(val.getClass().isInstance(val1));
 
-        assertEquals(key, key);
         assertEquals(val, val1);
     }
 
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
     public void classWithNoDefaultConstructor(MarshallerFactory factory) {
-        Column[] cols = {
+        Column[] keyColumns = {
+                new Column("ID", INT32, false),
+        };
+        Column[] valColumns = {
                 new Column("primLongCol", INT64, false),
         };
 
-        SchemaDescriptor schema = new SchemaDescriptor(schemaVersion.incrementAndGet(), cols, cols);
+        SchemaDescriptor schema = new SchemaDescriptor(schemaVersion.incrementAndGet(), keyColumns, valColumns);
 
-        final Object key = TestObjectWithNoDefaultConstructor.randomObject(rnd);
-        final Object val = TestObjectWithNoDefaultConstructor.randomObject(rnd);
+        Object val = TestObjectWithNoDefaultConstructor.randomObject(rnd);
 
-        assertThrows(IllegalArgumentException.class, () -> factory.create(schema, key.getClass(), val.getClass()));
+        assertThrows(IllegalArgumentException.class, () -> factory.create(schema, keyColumns.getClass(), val.getClass()));
     }
 
     @ParameterizedTest
@@ -382,21 +412,22 @@ public class KvMarshallerTest {
                 new Column("primLongCol".toUpperCase(), INT64, false),
         };
 
-        SchemaDescriptor schema = new SchemaDescriptor(schemaVersion.incrementAndGet(), cols, cols);
+        SchemaDescriptor schema = new SchemaDescriptor(
+                schemaVersion.incrementAndGet(),
+                SINGLE_INT64_ID_COLUMNS,
+                cols
+        );
 
         final ObjectFactory<PrivateTestObject> objFactory = new ObjectFactory<>(PrivateTestObject.class);
-        final KvMarshaller<PrivateTestObject, PrivateTestObject> marshaller =
-                factory.create(schema, PrivateTestObject.class, PrivateTestObject.class);
+        final KvMarshaller<Long, PrivateTestObject> marshaller =
+                factory.create(schema, Long.class, PrivateTestObject.class);
 
-        final PrivateTestObject key = PrivateTestObject.randomObject(rnd);
         final PrivateTestObject val = PrivateTestObject.randomObject(rnd);
 
-        Row row = Row.wrapBinaryRow(schema, marshaller.marshal(key, objFactory.create()));
+        Row row = Row.wrapBinaryRow(schema, marshaller.marshal(1L, objFactory.create()));
 
-        Object key1 = marshaller.unmarshalKey(row);
         Object val1 = marshaller.unmarshalValue(row);
 
-        assertTrue(key.getClass().isInstance(key1));
         assertTrue(val.getClass().isInstance(val1));
     }
 
