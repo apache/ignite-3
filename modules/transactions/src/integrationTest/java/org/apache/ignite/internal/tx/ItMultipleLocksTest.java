@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx.readonly;
+package org.apache.ignite.internal.tx;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
