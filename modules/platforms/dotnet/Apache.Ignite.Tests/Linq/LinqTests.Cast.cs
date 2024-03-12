@@ -37,6 +37,7 @@ public partial class LinqTests
                 Long = (long?)x.Val,
                 Float = (float?)x.Val / 1000,
                 Double = (double?)x.Val / 2000,
+                Decimal0 = (decimal?)x.Val / 7,
             })
             .OrderByDescending(x => x.Long);
 
@@ -47,6 +48,7 @@ public partial class LinqTests
         Assert.AreEqual(900, res[0].Long);
         Assert.AreEqual(900f / 1000, res[0].Float);
         Assert.AreEqual(900d / 2000, res[0].Double);
+        Assert.AreEqual(900m / 7, res[0].Decimal0);
 
         StringAssert.Contains(
             "select cast((_T0.VAL / ?) as tinyint) as BYTE, cast(_T0.VAL as smallint) as SHORT, cast(_T0.VAL as bigint) as LONG, " +
