@@ -80,7 +80,7 @@ public class StripedScheduledThreadPoolExecutor extends AbstractStripedThreadPoo
      * @throws NullPointerException If command or unit is null.
      */
     public ScheduledFuture<?> schedule(Runnable command, long delay, TimeUnit unit, int idx) {
-        return commandExecutor(idx).schedule(command, delay, unit);
+        return stripeExecutor(idx).schedule(command, delay, unit);
     }
 
     @Override

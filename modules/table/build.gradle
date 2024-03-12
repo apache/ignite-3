@@ -80,7 +80,6 @@ dependencies {
     testImplementation libs.mockito.junit
     testImplementation libs.hamcrest.core
     testImplementation libs.hamcrest.optional
-    testImplementation libs.junit.pioneer
     testImplementation libs.jmh.core
     testImplementation libs.javax.annotations
 

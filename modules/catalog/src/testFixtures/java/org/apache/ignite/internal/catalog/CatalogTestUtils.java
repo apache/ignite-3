@@ -73,7 +73,7 @@ public class CatalogTestUtils {
 
         var clockWaiter = new ClockWaiter(nodeName, clock);
 
-        return new CatalogManagerImpl(new UpdateLogImpl(metastore), clockWaiter) {
+        return new CatalogManagerImpl(new UpdateLogImpl(metastore), clockWaiter, clock) {
             @Override
             public CompletableFuture<Void> start() {
                 return allOf(metastore.start(), clockWaiter.start(), super.start()).thenCompose(unused -> metastore.deployWatches());
@@ -104,11 +104,12 @@ public class CatalogTestUtils {
      *
      * @param nodeName Node name.
      * @param clockWaiter Clock waiter.
+     * @param clock Hybrid clock.
      */
-    public static CatalogManager createTestCatalogManager(String nodeName, ClockWaiter clockWaiter) {
+    public static CatalogManager createTestCatalogManager(String nodeName, ClockWaiter clockWaiter, HybridClock clock) {
         StandaloneMetaStorageManager metastore = StandaloneMetaStorageManager.create(new SimpleInMemoryKeyValueStorage(nodeName));
 
-        return new CatalogManagerImpl(new UpdateLogImpl(metastore), clockWaiter) {
+        return new CatalogManagerImpl(new UpdateLogImpl(metastore), clockWaiter, clock) {
             @Override
             public CompletableFuture<Void> start() {
                 return allOf(metastore.start(), super.start()).thenCompose(unused -> metastore.deployWatches());
@@ -142,7 +143,7 @@ public class CatalogTestUtils {
     public static CatalogManager createTestCatalogManager(String nodeName, HybridClock clock, MetaStorageManager metastore) {
         var clockWaiter = new ClockWaiter(nodeName, clock);
 
-        return new CatalogManagerImpl(new UpdateLogImpl(metastore), clockWaiter) {
+        return new CatalogManagerImpl(new UpdateLogImpl(metastore), clockWaiter, clock) {
             @Override
             public CompletableFuture<Void> start() {
                 return allOf(clockWaiter.start(), super.start());
@@ -191,7 +192,7 @@ public class CatalogTestUtils {
         };
 
 
-        return new CatalogManagerImpl(updateLog, clockWaiter) {
+        return new CatalogManagerImpl(updateLog, clockWaiter, clock) {
             @Override
             public CompletableFuture<Void> start() {
                 return allOf(clockWaiter.start(), super.start());
@@ -229,7 +230,7 @@ public class CatalogTestUtils {
     public static CatalogManager createCatalogManagerWithTestUpdateLog(String nodeName, HybridClock clock) {
         var clockWaiter = new ClockWaiter(nodeName, clock);
 
-        return new CatalogManagerImpl(new TestUpdateLog(clock), clockWaiter) {
+        return new CatalogManagerImpl(new TestUpdateLog(clock), clockWaiter, clock) {
             @Override
             public CompletableFuture<Void> start() {
                 return allOf(clockWaiter.start(), super.start());

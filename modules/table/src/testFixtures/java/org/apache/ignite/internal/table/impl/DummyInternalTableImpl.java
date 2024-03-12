@@ -95,6 +95,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
+import org.apache.ignite.internal.tx.impl.ResourceCleanupManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
@@ -333,7 +334,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         StorageHashIndexDescriptor pkIndexDescriptor = mock(StorageHashIndexDescriptor.class);
 
         when(pkIndexDescriptor.columns()).then(
-                invocation -> Collections.nCopies(schema.keyColumns().columns().length, mock(StorageHashIndexColumnDescriptor.class))
+                invocation -> Collections.nCopies(schema.keyColumns().size(), mock(StorageHashIndexColumnDescriptor.class))
         );
 
         Lazy<TableSchemaAwareIndexStorage> pkStorage = new Lazy<>(() -> new TableSchemaAwareIndexStorage(
@@ -459,6 +460,13 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         when(clusterService.messagingService()).thenReturn(new DummyMessagingService(LOCAL_NODE));
         when(clusterService.topologyService()).thenReturn(topologyService);
 
+        ResourceCleanupManager resourceCleanupManager = new ResourceCleanupManager(
+                LOCAL_NODE.name(),
+                resourcesRegistry,
+                clusterService.topologyService(),
+                clusterService.messagingService()
+        );
+
         var txManager = new TxManagerImpl(
                 txConfiguration,
                 clusterService,
@@ -469,7 +477,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 placementDriver,
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
                 new TestLocalRwTxCounter(),
-                resourcesRegistry
+                resourcesRegistry,
+                resourceCleanupManager
         );
 
         txManager.start();

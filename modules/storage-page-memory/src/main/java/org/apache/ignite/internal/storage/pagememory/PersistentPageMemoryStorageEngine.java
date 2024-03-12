@@ -18,10 +18,15 @@
 package org.apache.ignite.internal.storage.pagememory;
 
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
+import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -29,6 +34,8 @@ import org.apache.ignite.internal.fileio.AsyncFileIoFactory;
 import org.apache.ignite.internal.fileio.FileIoFactory;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileView;
@@ -36,12 +43,14 @@ import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
+import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -50,6 +59,15 @@ import org.jetbrains.annotations.Nullable;
 public class PersistentPageMemoryStorageEngine implements StorageEngine {
     /** Engine name. */
     public static final String ENGINE_NAME = "aipersist";
+
+    /**
+     * Maximum "work units" that are allowed to be used during {@link BplusTree} destruction.
+     *
+     * @see BplusTree#startGradualDestruction
+     */
+    public static final int MAX_DESTRUCTION_WORK_UNITS = 1_000;
+
+    private static final IgniteLogger LOG = Loggers.forClass(PersistentPageMemoryStorageEngine.class);
 
     private final String igniteInstanceName;
 
@@ -74,6 +92,8 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
 
     @Nullable
     private volatile CheckpointManager checkpointManager;
+
+    private volatile ExecutorService destructionExecutor;
 
     private final FailureProcessor failureProcessor;
 
@@ -166,6 +186,16 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
                 addDataRegion(p.name());
             }
         });
+
+        // TODO: remove this executor, see https://issues.apache.org/jira/browse/IGNITE-21683
+        destructionExecutor = new ThreadPoolExecutor(
+                0,
+                Runtime.getRuntime().availableProcessors(),
+                100,
+                TimeUnit.MILLISECONDS,
+                new LinkedBlockingQueue<>(),
+                NamedThreadFactory.create(igniteInstanceName, "persistent-mv-partition-destruction", LOG)
+        );
     }
 
     @Override
@@ -173,15 +203,19 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
         try {
             Stream<AutoCloseable> closeRegions = regions.values().stream().map(region -> region::stop);
 
+            ExecutorService destructionExecutor = this.destructionExecutor;
             CheckpointManager checkpointManager = this.checkpointManager;
             FilePageStoreManager filePageStoreManager = this.filePageStoreManager;
 
-            Stream<AutoCloseable> closeManagers = Stream.of(
+            Stream<AutoCloseable> resources = Stream.of(
+                    destructionExecutor == null
+                            ? null
+                            : (AutoCloseable) () -> shutdownAndAwaitTermination(destructionExecutor, 30, TimeUnit.SECONDS),
                     checkpointManager == null ? null : (AutoCloseable) checkpointManager::stop,
                     filePageStoreManager == null ? null : (AutoCloseable) filePageStoreManager::stop
             );
 
-            closeAll(Stream.concat(closeManagers, closeRegions));
+            closeAll(Stream.concat(resources, closeRegions));
         } catch (Exception e) {
             throw new StorageException("Error when stopping components", e);
         }
@@ -201,7 +235,7 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
 
         assert dataRegion != null : "tableId=" + tableDescriptor.getId() + ", dataRegion=" + tableDescriptor.getStorageProfile();
 
-        return new PersistentPageMemoryTableStorage(tableDescriptor, indexDescriptorSupplier, this, dataRegion);
+        return new PersistentPageMemoryTableStorage(tableDescriptor, indexDescriptorSupplier, this, dataRegion, destructionExecutor);
     }
 
     /**

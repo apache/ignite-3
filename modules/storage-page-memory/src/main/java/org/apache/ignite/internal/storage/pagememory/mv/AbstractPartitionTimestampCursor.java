@@ -34,6 +34,8 @@ import org.jetbrains.annotations.Nullable;
 abstract class AbstractPartitionTimestampCursor implements PartitionTimestampCursor {
     protected final AbstractPageMemoryMvPartitionStorage storage;
 
+    private final VersionChainTree versionChainTree;
+
     private @Nullable Cursor<ReadResult> cursor;
 
     private boolean iterationExhausted;
@@ -44,6 +46,7 @@ abstract class AbstractPartitionTimestampCursor implements PartitionTimestampCur
 
     AbstractPartitionTimestampCursor(AbstractPageMemoryMvPartitionStorage storage) {
         this.storage = storage;
+        this.versionChainTree = storage.renewableState.versionChainTree();
     }
 
     @Override
@@ -150,7 +153,7 @@ abstract class AbstractPartitionTimestampCursor implements PartitionTimestampCur
         }
 
         try {
-            cursor = storage.versionChainTree.find(null, null, new TreeRowMapClosure<>() {
+            cursor = versionChainTree.find(null, null, new TreeRowMapClosure<>() {
                 @Override
                 public ReadResult map(VersionChain treeRow) {
                     return findRowVersion(treeRow);

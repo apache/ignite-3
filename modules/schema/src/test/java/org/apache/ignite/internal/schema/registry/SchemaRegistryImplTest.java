@@ -480,8 +480,8 @@ public class SchemaRegistryImplTest {
                 });
 
         schemaV3.columnMapping(createMapper(schemaV3).add(
-                schemaV3.column("valStringCol").schemaIndex(),
-                schemaV2.column("valStringCol").schemaIndex())
+                schemaV3.column("valStringCol").positionInRow(),
+                schemaV2.column("valStringCol").positionInRow())
         );
 
         final SchemaDescriptor schemaV4 = new SchemaDescriptor(4,

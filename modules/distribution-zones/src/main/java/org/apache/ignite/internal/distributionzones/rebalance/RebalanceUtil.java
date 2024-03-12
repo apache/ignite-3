@@ -653,17 +653,17 @@ public class RebalanceUtil {
      * Returns partition assignments from meta storage.
      *
      * @param metaStorageManager Meta storage manager.
-     * @param tableId Table id.
-     * @param partitionNumber Partition number.
+     * @param tableId Table ID.
+     * @param partitionId Partition ID.
      * @return Future with partition assignments as a value.
      */
     public static CompletableFuture<Set<Assignment>> partitionAssignments(
             MetaStorageManager metaStorageManager,
             int tableId,
-            int partitionNumber
+            int partitionId
     ) {
         return metaStorageManager
-                .get(stablePartAssignmentsKey(new TablePartitionId(tableId, partitionNumber)))
+                .get(stablePartAssignmentsKey(new TablePartitionId(tableId, partitionId)))
                 .thenApply(e -> (e.value() == null) ? null : Assignments.fromBytes(e.value()).nodes());
     }
 

@@ -36,6 +36,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -73,6 +74,7 @@ import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
+import org.apache.ignite.internal.tx.message.FinishedTransactionsBatchMessage;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxRecoveryMessage;
 import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequest;
@@ -954,6 +956,67 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         assertFalse(scanned.isDone());
 
         assertEquals(initialCursorsCount + 1, targetNode.resourcesRegistry().resources().size());
+    }
+
+    @Test
+    public void testCursorsClosedAfterTxClose() throws Exception {
+        TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
+
+        int partId = 0;
+
+        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), partId);
+
+        String leaseholder = waitAndGetPrimaryReplica(node(0), tblReplicationGrp).getLeaseholder();
+
+        IgniteImpl txExecNode = findNodeByName(leaseholder);
+
+        log.info("Transaction will be executed on [node={}].", txExecNode.name());
+
+        IgniteImpl txCrdNode = findNode(1, initialNodes(), n -> !leaseholder.equals(n.name()));
+
+        log.info("Transaction coordinator is [node={}].", txCrdNode.name());
+
+        // Ensure there are no open cursors.
+        assertEquals(0, txExecNode.resourcesRegistry().resources().size());
+
+        preloadData(txCrdNode.tables().table(TABLE_NAME), 10);
+
+        CompletableFuture<Void> txRequestCaptureFut = new CompletableFuture<>();
+
+        InternalTransaction roTx = (InternalTransaction) txCrdNode.transactions().begin(new TransactionOptions().readOnly(true));
+
+        log.info("Run scan in RO [txId={}].", roTx.id());
+
+        txCrdNode.dropMessages((nodeName, msg) -> {
+            if (msg instanceof FinishedTransactionsBatchMessage) {
+                Collection<UUID> transactions = ((FinishedTransactionsBatchMessage) msg).transactions();
+
+                if (transactions.contains(roTx.id())) {
+                    // Caught the request containing the finished tx.
+                    txRequestCaptureFut.complete(null);
+                } else {
+                    log.info("Received FinishedTransactionsBatchMessage without tx [txId={}]", roTx.id());
+                }
+            }
+
+            return false;
+        });
+
+        scanSingleEntryAndLeaveCursorOpen(txExecNode, (TableViewInternal) txCrdNode.tables().table(TABLE_NAME), roTx);
+
+        // After the RO scan there should be one open cursor.
+        assertEquals(1, txExecNode.resourcesRegistry().resources().size());
+
+        roTx.commit();
+
+        // Wait for the cursor cleanup message to arrive.
+        assertThat(txRequestCaptureFut, willCompleteSuccessfully());
+
+        // Now check that the cursor is closed.
+        assertTrue(waitForCondition(
+                () -> txExecNode.resourcesRegistry().resources().isEmpty(),
+                10_000)
+        );
     }
 
     private DefaultMessagingService messaging(IgniteImpl node) {

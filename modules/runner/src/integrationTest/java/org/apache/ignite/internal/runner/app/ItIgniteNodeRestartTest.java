@@ -59,6 +59,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -176,6 +177,7 @@ import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
+import org.apache.ignite.internal.tx.impl.ResourceCleanupManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
@@ -216,6 +218,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
     /** Test table name. */
     private static final String TABLE_NAME = "Table1";
+
+    /** Assume that the table id will always be 8 for the test table. There is an assertion to check if this is true. */
+    private static final int TABLE_ID = 8;
 
     /** Test table name. */
     private static final String TABLE_NAME_2 = "Table2";
@@ -451,6 +456,13 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var resourcesRegistry = new RemotelyTriggeredResourceRegistry();
 
+        ResourceCleanupManager resourceCleanupManager = new ResourceCleanupManager(
+                name,
+                resourcesRegistry,
+                clusterSvc.topologyService(),
+                clusterSvc.messagingService()
+        );
+
         var txManager = new TxManagerImpl(
                 name,
                 txConfiguration,
@@ -464,7 +476,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 partitionIdleSafeTimePropagationPeriodMsSupplier,
                 new TestLocalRwTxCounter(),
                 threadPoolsManager.partitionOperationsExecutor(),
-                resourcesRegistry
+                resourcesRegistry,
+                resourceCleanupManager
         );
 
         ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
@@ -497,6 +510,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         var catalogManager = new CatalogManagerImpl(
                 new UpdateLogImpl(metaStorageMgr),
                 clockWaiter,
+                hybridClock,
                 delayDurationMsSupplier,
                 partitionIdleSafeTimePropagationPeriodMsSupplier
         );
@@ -563,7 +577,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 sqlRef::get,
                 resourcesRegistry,
                 rebalanceScheduler,
-                lowWatermark
+                lowWatermark,
+                ForkJoinPool.commonPool()
         );
 
         var indexManager = new IndexManager(
@@ -1245,13 +1260,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * The test for node restart when there is a gap between the node local configuration and distributed configuration.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19712")
-    // TODO https://issues.apache.org/jira/browse/IGNITE-19712 This test should work, but is disabled because of assertion errors.
-    // TODO Root cause of errors is the absence of the indexes on the partition after restart. Scenario: indexes are recovered from
-    // TODO the catalog, then partition storages are cleaned up on recovery due to the absence of the node in stable assignments,
-    // TODO then after recovery the pending assignments event is processed, and it creates the storages and partition again, but
-    // TODO doesn't register the indexes. As a result, indexes are not found and assertion happens.
-    // TODO This also causes https://issues.apache.org/jira/browse/IGNITE-20996 .
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20996")
     public void testCfgGap() {
         List<IgniteImpl> nodes = startNodes(4);
 
@@ -1428,10 +1437,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
             );
         }
 
-        // Assume that the table id will always be 7 for the test table. There is an assertion below to check this is true.
-        int tableId = 7;
-
-        var partId = new TablePartitionId(tableId, 0);
+        var partId = new TablePartitionId(TABLE_ID, 0);
 
         // Populate the stable assignments before calling table create, if needed.
         if (populateStableAssignmentsBeforeTableCreation) {
@@ -1458,7 +1464,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                     + "(id INT PRIMARY KEY, name VARCHAR) WITH PRIMARY_ZONE='" + zoneName + "';");
         }
 
-        assertEquals(tableId, tableId(node, TABLE_NAME));
+        assertEquals(TABLE_ID, tableId(node, TABLE_NAME));
 
         node.metaStorageManager().put(new ByteArray(testPrefix.getBytes(StandardCharsets.UTF_8)), new byte[0]);
 
@@ -1536,10 +1542,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         String tableName = "TEST";
         String zoneName = "ZONE_TEST";
 
-        // Assume that the table id is always 7, there is an assertion below to ensure this.
-        int tableId = 7;
-
-        var assignmentsKey = stablePartAssignmentsKey(new TablePartitionId(tableId, 0));
+        var assignmentsKey = stablePartAssignmentsKey(new TablePartitionId(TABLE_ID, 0));
 
         var metaStorageInterceptorFut = new CompletableFuture<>();
         var metaStorageInterceptorInnerFut = new CompletableFuture<>();
@@ -1615,7 +1618,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         nodeInhibitor0.stopInhibit();
         waitForValueInLocalMs(node0.metaStorageManager(), assignmentsKey);
 
-        assertEquals(tableId, tableId(node0, tableName));
+        assertEquals(TABLE_ID, tableId(node0, tableName));
 
         Set<Assignment> expectedAssignments = dataNodesMockByNode.get(nodeThatWrittenAssignments).get().join()
                 .stream().map(Assignment::forPeer).collect(toSet());
@@ -1647,10 +1650,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         nodeInhibitor0.startInhibit();
         nodeInhibitor1.startInhibit();
 
-        // Assume that the table id is always 7, there is an assertion below to ensure this.
-        int tableId = 7;
-
-        var assignmentsKey = stablePartAssignmentsKey(new TablePartitionId(tableId, 0));
+        var assignmentsKey = stablePartAssignmentsKey(new TablePartitionId(TABLE_ID, 0));
 
         var tableFut = createTableInCatalog(node0.catalogManager(), tableName, zoneName);
 
@@ -1685,7 +1685,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         assertThat(tableFut, willCompleteSuccessfully());
         assertThat(alterZoneFut, willCompleteSuccessfully());
 
-        assertEquals(tableId, tableId(node0, tableName));
+        assertEquals(TABLE_ID, tableId(node0, tableName));
 
         waitForValueInLocalMs(node0.metaStorageManager(), assignmentsKey);
 

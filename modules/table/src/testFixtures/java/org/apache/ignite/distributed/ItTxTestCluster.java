@@ -134,6 +134,7 @@ import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
+import org.apache.ignite.internal.tx.impl.ResourceCleanupManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
@@ -397,6 +398,13 @@ public class ItTxTestCluster {
 
             var resourcesRegistry = new RemotelyTriggeredResourceRegistry();
 
+            ResourceCleanupManager resourceCleanupManager = new ResourceCleanupManager(
+                    node.name(),
+                    resourcesRegistry,
+                    clusterService.topologyService(),
+                    clusterService.messagingService()
+            );
+
             cursorRegistries.put(node.name(), resourcesRegistry);
 
             TxManagerImpl txMgr = newTxManager(
@@ -406,7 +414,8 @@ public class ItTxTestCluster {
                     new TransactionIdGenerator(i),
                     node,
                     placementDriver,
-                    resourcesRegistry
+                    resourcesRegistry,
+                    resourceCleanupManager
             );
 
             txMgr.start();
@@ -441,7 +450,8 @@ public class ItTxTestCluster {
             TransactionIdGenerator generator,
             ClusterNode node,
             PlacementDriver placementDriver,
-            RemotelyTriggeredResourceRegistry resourcesRegistry
+            RemotelyTriggeredResourceRegistry resourcesRegistry,
+            ResourceCleanupManager resourceCleanupManager
     ) {
         return new TxManagerImpl(
                 node.name(),
@@ -456,7 +466,8 @@ public class ItTxTestCluster {
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
                 new TestLocalRwTxCounter(),
                 partitionOperationsExecutor,
-                resourcesRegistry
+                resourcesRegistry,
+                resourceCleanupManager
         );
     }
 
@@ -541,7 +552,7 @@ public class ItTxTestCluster {
                 StorageHashIndexDescriptor pkIndexDescriptor = mock(StorageHashIndexDescriptor.class);
 
                 when(pkIndexDescriptor.columns()).then(invocation -> Collections.nCopies(
-                        schemaDescriptor.keyColumns().columns().length,
+                        schemaDescriptor.keyColumns().size(),
                         mock(StorageHashIndexColumnDescriptor.class)
                 ));
 
@@ -911,6 +922,15 @@ public class ItTxTestCluster {
     }
 
     private void initializeClientTxComponents() {
+        RemotelyTriggeredResourceRegistry resourceRegistry = new RemotelyTriggeredResourceRegistry();
+
+        ResourceCleanupManager resourceCleanupManager = new ResourceCleanupManager(
+                "client",
+                resourceRegistry,
+                client.topologyService(),
+                client.messagingService()
+        );
+
         clientTxManager = new TxManagerImpl(
                 "client",
                 txConfiguration,
@@ -924,7 +944,8 @@ public class ItTxTestCluster {
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
                 new TestLocalRwTxCounter(),
                 partitionOperationsExecutor,
-                new RemotelyTriggeredResourceRegistry()
+                resourceRegistry,
+                resourceCleanupManager
         );
 
         clientTxStateResolver = new TransactionStateResolver(

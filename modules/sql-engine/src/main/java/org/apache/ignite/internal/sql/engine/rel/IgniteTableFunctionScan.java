@@ -39,6 +39,8 @@ import org.apache.ignite.internal.sql.engine.exec.mapping.QuerySplitter;
  * Relational operator for table function scan.
  */
 public class IgniteTableFunctionScan extends TableFunctionScan implements SourceAwareIgniteRel {
+    private static final String REL_TYPE_NAME = "TableFunctionScan";
+
     /** Default estimate row count. */
     private static final int ESTIMATE_ROW_COUNT = 100;
 
@@ -139,5 +141,11 @@ public class IgniteTableFunctionScan extends TableFunctionScan implements Source
     @Override
     public double estimateRowCount(RelMetadataQuery mq) {
         return ESTIMATE_ROW_COUNT;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 }

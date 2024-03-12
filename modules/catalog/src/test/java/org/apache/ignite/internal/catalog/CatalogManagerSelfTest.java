@@ -1085,7 +1085,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         doNothing().when(updateLogMock).registerUpdateHandler(updateHandlerCapture.capture());
 
-        CatalogManagerImpl manager = new CatalogManagerImpl(updateLogMock, clockWaiter);
+        CatalogManagerImpl manager = new CatalogManagerImpl(updateLogMock, clockWaiter, clock);
         manager.start();
 
         when(updateLogMock.append(any())).thenAnswer(invocation -> {
@@ -1117,7 +1117,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     public void catalogActivationTime() throws Exception {
         long delayDuration = TimeUnit.DAYS.toMillis(365);
 
-        CatalogManagerImpl manager = new CatalogManagerImpl(updateLog, clockWaiter, delayDuration, 0);
+        CatalogManagerImpl manager = new CatalogManagerImpl(updateLog, clockWaiter, clock, delayDuration, 0);
 
         manager.start();
 
@@ -1148,7 +1148,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     public void catalogServiceManagesUpdateLogLifecycle() throws Exception {
         UpdateLog updateLogMock = mock(UpdateLog.class);
 
-        CatalogManagerImpl manager = new CatalogManagerImpl(updateLogMock, clockWaiter);
+        CatalogManagerImpl manager = new CatalogManagerImpl(updateLogMock, clockWaiter, clock);
 
         manager.start();
 
@@ -1546,7 +1546,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         HybridTimestamp startTs = clock.now();
 
-        CatalogManagerImpl manager = new CatalogManagerImpl(updateLog, clockWaiter, delayDuration, 0);
+        CatalogManagerImpl manager = new CatalogManagerImpl(updateLog, clockWaiter, clock, delayDuration, 0);
 
         manager.start();
 
@@ -1576,7 +1576,13 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         HybridTimestamp startTs = clock.now();
 
-        CatalogManagerImpl manager = new CatalogManagerImpl(updateLog, clockWaiter, delayDuration, partitionIdleSafeTimePropagationPeriod);
+        CatalogManagerImpl manager = new CatalogManagerImpl(
+                updateLog,
+                clockWaiter,
+                clock,
+                delayDuration,
+                partitionIdleSafeTimePropagationPeriod
+        );
 
         manager.start();
 

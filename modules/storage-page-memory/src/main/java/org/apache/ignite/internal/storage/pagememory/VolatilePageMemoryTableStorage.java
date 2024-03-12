@@ -21,9 +21,9 @@ import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
-import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
@@ -40,7 +40,7 @@ import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
 public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStorage {
     private final VolatilePageMemoryDataRegion dataRegion;
 
-    private final GradualTaskExecutor destructionExecutor;
+    private final ExecutorService destructionExecutor;
 
     /**
      * Constructor.
@@ -54,7 +54,7 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
             StorageTableDescriptor tableDescriptor,
             StorageIndexDescriptorSupplier indexDescriptorSupplier,
             VolatilePageMemoryDataRegion dataRegion,
-            GradualTaskExecutor destructionExecutor
+            ExecutorService destructionExecutor
     ) {
         super(tableDescriptor, indexDescriptorSupplier);
 
@@ -163,9 +163,9 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
 
     @Override
     CompletableFuture<Void> clearStorageAndUpdateDataStructures(AbstractPageMemoryMvPartitionStorage mvPartitionStorage) {
-        VolatilePageMemoryMvPartitionStorage volatilePartitionStorage = ((VolatilePageMemoryMvPartitionStorage) mvPartitionStorage);
+        VolatilePageMemoryMvPartitionStorage volatilePartitionStorage = (VolatilePageMemoryMvPartitionStorage) mvPartitionStorage;
 
-        volatilePartitionStorage.cleanStructuresData();
+        volatilePartitionStorage.destroyStructures();
 
         int partitionId = mvPartitionStorage.partitionId();
 
@@ -180,14 +180,11 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
 
     @Override
     CompletableFuture<Void> destroyMvPartitionStorage(AbstractPageMemoryMvPartitionStorage mvPartitionStorage) {
-        mvPartitionStorage.closeForDestruction();
-
         VolatilePageMemoryMvPartitionStorage volatilePartitionStorage = (VolatilePageMemoryMvPartitionStorage) mvPartitionStorage;
 
-        // We ignore the future returned by destroyStructures() on purpose: the destruction happens in the background,
-        // we don't care when it finishes.
-        volatilePartitionStorage.destroyStructures();
+        volatilePartitionStorage.transitionToDestroyingState();
 
-        return nullCompletedFuture();
+        return volatilePartitionStorage.destroyStructures()
+                .whenComplete((v, e) -> volatilePartitionStorage.close());
     }
 }

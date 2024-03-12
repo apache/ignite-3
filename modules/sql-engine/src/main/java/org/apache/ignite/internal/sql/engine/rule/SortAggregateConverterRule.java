@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine.rule;
 
 import static org.apache.ignite.internal.sql.engine.rel.agg.MapReduceAggregates.canBeImplementedAsMapReduce;
-import static org.apache.ignite.internal.sql.engine.util.HintUtils.isSortedAlgorithmAllowed;
 import static org.apache.ignite.internal.sql.engine.util.PlanUtils.complexDistinctAgg;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
@@ -73,8 +72,7 @@ public class SortAggregateConverterRule {
             LogicalAggregate aggregate = call.rel(0);
 
             return !HintUtils.isExpandDistinctAggregate(aggregate)
-                    && aggregate.getGroupSets().size() == 1
-                    && isSortedAlgorithmAllowed(aggregate);
+                    && aggregate.getGroupSets().size() == 1;
         }
 
         /** {@inheritDoc} */
@@ -117,7 +115,6 @@ public class SortAggregateConverterRule {
 
             return !HintUtils.isExpandDistinctAggregate(aggregate)
                     && (nullOrEmpty(aggregate.getGroupSet()) || aggregate.getGroupSets().size() == 1)
-                    && isSortedAlgorithmAllowed(aggregate)
                     && canBeImplementedAsMapReduce(aggregate.getAggCallList())
                     && !complexDistinctAgg(aggregate.getAggCallList());
         }

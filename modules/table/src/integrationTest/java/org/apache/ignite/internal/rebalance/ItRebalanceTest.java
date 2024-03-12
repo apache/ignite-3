@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.notNullValue;
@@ -89,7 +90,7 @@ public class ItRebalanceTest extends IgniteIntegrationTest {
      *
      * @throws Exception If failed.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-19712")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20996")
     @Test
     void assignmentsChangingOnNodeLeaveNodeJoin() throws Exception {
         cluster.startAndInit(4);
@@ -98,7 +99,7 @@ public class ItRebalanceTest extends IgniteIntegrationTest {
         // Creates table with 1 partition and 3 replicas.
         createTestTable("TEST_TABLE", "TEST_ZONE");
 
-        TableViewInternal table = (TableViewInternal) cluster.node(0).tables().table("TEST");
+        TableViewInternal table = (TableViewInternal) cluster.node(0).tables().table("TEST_TABLE");
 
         waitForStableAssignmentsInMetastore(Set.of(
                 nodeName(0),
@@ -113,7 +114,7 @@ public class ItRebalanceTest extends IgniteIntegrationTest {
         assertThat(table.internalTable().get(key, clock.now(), cluster.node(1).node()), willBe(nullValue()));
         assertThat(table.internalTable().get(key, clock.now(), cluster.node(2).node()), willBe(nullValue()));
 
-        table.internalTable().insert(row, null).get();
+        assertThat(table.internalTable().insert(row, null), willCompleteSuccessfully());
 
         assertThat(table.internalTable().get(key, clock.now(), cluster.node(0).node()), willBe(notNullValue()));
         assertThat(table.internalTable().get(key, clock.now(), cluster.node(1).node()), willBe(notNullValue()));

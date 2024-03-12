@@ -65,6 +65,55 @@ public class BinaryTupleIgniteTupleAdapterTests : IgniteTupleTests
         Assert.IsNull(tuple.GetFieldValue<object>("_schema"));
     }
 
+    [Test]
+    public void TestReverseKeyColumnOrder([Values(true, false)] bool keyOnly)
+    {
+        var cols = new[]
+        {
+            new Column("val1", ColumnType.String, false, KeyIndex: -1, ColocationIndex: -1, SchemaIndex: 0, 0, 0),
+            new Column("key1", ColumnType.Int32, false, KeyIndex: 1, ColocationIndex: 0, SchemaIndex: 1, 0, 0),
+            new Column("val2", ColumnType.Uuid, false, KeyIndex: -1, ColocationIndex: -1, SchemaIndex: 2, 0, 0),
+            new Column("key2", ColumnType.Int64, false, KeyIndex: 0, ColocationIndex: 1, SchemaIndex: 3, 0, 0)
+        };
+
+        var schema = Schema.CreateInstance(0, 0, cols);
+
+        using var builder = new BinaryTupleBuilder(schema.GetColumnsFor(keyOnly).Length);
+
+        if (keyOnly)
+        {
+            builder.AppendLong(456L);
+            builder.AppendInt(123);
+        }
+        else
+        {
+            builder.AppendString("v1");
+            builder.AppendInt(123);
+            builder.AppendGuid(Guid.Empty);
+            builder.AppendLong(456L);
+        }
+
+        var buf = builder.Build().ToArray();
+        var keyTuple = new BinaryTupleIgniteTupleAdapter(buf, schema, keyOnly: keyOnly);
+
+        Assert.AreEqual(keyOnly ? 2 : 4, keyTuple.FieldCount);
+        Assert.AreEqual(123, keyTuple["key1"]);
+        Assert.AreEqual(456L, keyTuple["key2"]);
+
+        if (keyOnly)
+        {
+            Assert.AreEqual(123, keyTuple[1]);
+            Assert.AreEqual(456L, keyTuple[0]);
+        }
+        else
+        {
+            Assert.AreEqual("v1", keyTuple[0]);
+            Assert.AreEqual(123, keyTuple[1]);
+            Assert.AreEqual(Guid.Empty, keyTuple[2]);
+            Assert.AreEqual(456L, keyTuple[3]);
+        }
+    }
+
     protected override string GetShortClassName() => nameof(BinaryTupleIgniteTupleAdapter);
 
     protected override IIgniteTuple CreateTuple(IIgniteTuple source)
@@ -77,16 +126,16 @@ public class BinaryTupleIgniteTupleAdapterTests : IgniteTupleTests
             var name = source.GetName(i);
             var val = source[i]!;
             var type = GetColumnType(val);
-            var col = new Column(name, type, true, false, 0, i, 0, 0);
+            var col = new Column(Name: name, Type: type, IsNullable: true, KeyIndex: i, ColocationIndex: i, SchemaIndex: i, Scale: 0, Precision: 0);
 
             cols.Add(col);
             builder.AppendObject(val, type);
         }
 
         var buf = builder.Build().ToArray();
-        var schema = new Schema(0, 0, 0, 0, cols);
+        var schema = Schema.CreateInstance(0, 0, cols.ToArray());
 
-        return new BinaryTupleIgniteTupleAdapter(buf, schema, cols.Count);
+        return new BinaryTupleIgniteTupleAdapter(buf, schema, keyOnly: false);
 
         static ColumnType GetColumnType(object? obj)
         {

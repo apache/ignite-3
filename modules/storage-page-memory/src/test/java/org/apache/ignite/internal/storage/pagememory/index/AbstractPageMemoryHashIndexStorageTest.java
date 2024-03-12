@@ -23,7 +23,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.empty;
 
-import java.util.Random;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
@@ -32,7 +31,6 @@ import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.impl.BinaryTupleRowSerializer;
 import org.apache.ignite.sql.ColumnType;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -40,8 +38,6 @@ import org.junit.jupiter.api.Test;
  */
 abstract class AbstractPageMemoryHashIndexStorageTest extends AbstractHashIndexStorageTest {
     protected int pageSize;
-
-    private final Random random = new Random();
 
     /**
      * Initializes the internal structures needed for tests.
@@ -92,12 +88,5 @@ abstract class AbstractPageMemoryHashIndexStorageTest extends AbstractHashIndexS
         assertThat(getAll(index, indexRow1), contains(indexRow1.rowId()));
 
         assertThat(getAll(index, createIndexRow(serializer, new RowId(TEST_PARTITION), 1, "foo")), empty());
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21583")
-    @Test
-    @Override
-    public void testDestroy() {
-        super.testDestroy();
     }
 }
