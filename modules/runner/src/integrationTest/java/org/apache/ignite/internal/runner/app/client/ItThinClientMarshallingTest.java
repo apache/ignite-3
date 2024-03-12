@@ -165,7 +165,8 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
 
         Throwable ex = assertThrowsWithCause(() -> tupleView.upsert(null, Tuple.create().set("KEY", 1)), IgniteException.class);
         assertThat(ex.getMessage(), startsWith(
-                "Failed to set column (null was passed, but column is not nullable): [col=Column [schemaIndex=1, columnOrder=1, name=VAL"));
+                "Failed to set column (null was passed, but column is not nullable): "
+                        + "[col=Column [rowPosition=1, keyPosition=-1, valuePosition=0, colocationPosition=-1, name=VAL"));
     }
 
     @Test
@@ -190,7 +191,8 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
                 IgniteException.class);
 
         assertThat(ex.getMessage(), startsWith(
-                "Failed to set column (null was passed, but column is not nullable): [col=Column [schemaIndex=1, columnOrder=1, name=VAL"));
+                "Failed to set column (null was passed, but column is not nullable): "
+                        + "[col=Column [rowPosition=1, keyPosition=-1, valuePosition=0, colocationPosition=-1, name=VAL"));
     }
 
     @Test
@@ -275,7 +277,8 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
 
         Throwable ex = assertThrowsWithCause(() -> tupleView.upsert(null, Tuple.create().set("KEY", null)), IgniteException.class);
         assertThat(ex.getMessage(), startsWith(
-                "Failed to set column (null was passed, but column is not nullable): [col=Column [schemaIndex=0, columnOrder=0, name=KEY"));
+                "Failed to set column (null was passed, but column is not nullable): "
+                        + "[col=Column [rowPosition=0, keyPosition=0, valuePosition=-1, colocationPosition=0, name=KEY"));
     }
 
     @Test
@@ -289,7 +292,8 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
         Tuple rec = Tuple.create().set("KEY", 1).set("VAL", null);
         Throwable ex = assertThrowsWithCause(() -> tupleView.upsert(null, rec), IgniteException.class);
         assertThat(ex.getMessage(), startsWith(
-                "Failed to set column (null was passed, but column is not nullable): [col=Column [schemaIndex=1, columnOrder=1, name=VAL"));
+                "Failed to set column (null was passed, but column is not nullable): "
+                        + "[col=Column [rowPosition=1, keyPosition=-1, valuePosition=0, colocationPosition=-1, name=VAL"));
     }
 
     @Test
@@ -314,7 +318,8 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
                 IgniteException.class);
 
         assertThat(ex.getMessage(), startsWith(
-                "Failed to set column (null was passed, but column is not nullable): [col=Column [schemaIndex=1, columnOrder=1, name=VAL"));
+                "Failed to set column (null was passed, but column is not nullable): "
+                        + "[col=Column [rowPosition=1, keyPosition=-1, valuePosition=0, colocationPosition=-1, name=VAL"));
     }
 
     private static class TestPojo2 {

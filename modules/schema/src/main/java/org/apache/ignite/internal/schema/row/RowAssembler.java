@@ -625,20 +625,7 @@ public class RowAssembler {
         checkType(type.spec());
     }
 
-    /**
-     * Shifts current column indexes as necessary, also switch to value chunk writer when moving from key to value columns.
-     */
     private void shiftColumn() {
         curCol++;
-    }
-
-    /**
-     * Creates an assembler which allows only key to be added.
-     *
-     * @param schema Schema descriptor.
-     * @return Created assembler.
-     */
-    public static RowAssembler keyAssembler(SchemaDescriptor schema) {
-        return new RowAssembler(schema.version(), List.of(schema.keyColumns().columns()), -1);
     }
 }

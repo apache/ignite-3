@@ -52,7 +52,7 @@ public class UpgradingRowAdapter extends Row {
     private final BinaryTupleSchema newBinaryTupleSchema;
 
     private UpgradingRowAdapter(SchemaDescriptor newSchema, BinaryTupleSchema newBinaryTupleSchema, Row row, ColumnMapper mapper) {
-        super(row.schema(), row.binaryTupleSchema(), row);
+        super(false, row.schema(), row.binaryTupleSchema(), row);
 
         this.newSchema = newSchema;
         this.mapper = mapper;
