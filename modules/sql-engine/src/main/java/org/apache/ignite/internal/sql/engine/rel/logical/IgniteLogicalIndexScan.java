@@ -39,6 +39,8 @@ import org.jetbrains.annotations.Nullable;
  * Logical relational expression for reading data from an index.
  */
 public class IgniteLogicalIndexScan extends AbstractIndexScan {
+    private static final String REL_TYPE_NAME = "LogicalIndexScan";
+
     /** Creates a IgniteLogicalIndexScan. */
     public static IgniteLogicalIndexScan create(
             RelOptCluster cluster,
@@ -152,5 +154,11 @@ public class IgniteLogicalIndexScan extends AbstractIndexScan {
                 table.getRowType(Commons.typeFactory(cluster)),
                 requiredColumns
         );
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 }

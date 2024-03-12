@@ -65,6 +65,8 @@ public class ClientComputeExecuteRequest {
 
         JobExecution<Object> execution = compute.executeAsyncWithFailover(candidates, deploymentUnits, jobClassName, options, args);
         sendResultAndStatus(execution, notificationSender);
+
+        // noinspection DataFlowIssue
         return execution.idAsync().thenAccept(out::packUuid);
     }
 
@@ -94,8 +96,8 @@ public class ClientComputeExecuteRequest {
         return nodes;
     }
 
-    static void sendResultAndStatus(JobExecution<Object> execution, NotificationSender notificationSender) {
-        execution.resultAsync().whenComplete((val, err) ->
+    static CompletableFuture<Object> sendResultAndStatus(JobExecution<Object> execution, NotificationSender notificationSender) {
+        return execution.resultAsync().whenComplete((val, err) ->
                 execution.statusAsync().whenComplete((status, errStatus) ->
                         notificationSender.sendNotification(w -> {
                             w.packObjectAsBinaryTuple(val);

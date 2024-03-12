@@ -34,6 +34,8 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteRelVisitor;
  * Physical node for REDUCE phase of MINUS (EXCEPT) operator.
  */
 public class IgniteReduceMinus extends IgniteMinus implements IgniteReduceSetOp {
+    private static final String REL_TYPE_NAME = "ReduceMinus";
+
     /**
      * Constructor.
      *
@@ -101,5 +103,11 @@ public class IgniteReduceMinus extends IgniteMinus implements IgniteReduceSetOp 
     @Override
     public int aggregateFieldsCount() {
         return rowType.getFieldCount() + COUNTER_FIELDS_CNT;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 }

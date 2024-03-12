@@ -19,6 +19,7 @@ package org.apache.ignite.internal.schema.marshaller;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.util.List;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.marshaller.BinaryMode;
 import org.apache.ignite.internal.marshaller.MarshallerColumn;
@@ -148,11 +149,11 @@ public final class MarshallerUtil {
     /**
      * Converts an array of {@link Column}s into an array of {@link MarshallerColumn}s.
      */
-    public static MarshallerColumn[] toMarshallerColumns(Column[] columns) {
-        var result = new MarshallerColumn[columns.length];
+    public static MarshallerColumn[] toMarshallerColumns(List<Column> columns) {
+        var result = new MarshallerColumn[columns.size()];
 
-        for (int i = 0; i < columns.length; i++) {
-            result[i] = toMarshallerColumn(columns[i]);
+        for (int i = 0; i < columns.size(); i++) {
+            result[i] = toMarshallerColumn(columns.get(i));
         }
 
         return result;

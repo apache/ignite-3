@@ -60,7 +60,7 @@ namespace Apache.Ignite.Internal.Compute
         }
 
         /// <inheritdoc/>
-        public async Task<IJobExecution<T>> Submit<T>(
+        public async Task<IJobExecution<T>> SubmitAsync<T>(
             IEnumerable<IClusterNode> nodes,
             IEnumerable<DeploymentUnit> units,
             string jobClassName,
@@ -77,7 +77,7 @@ namespace Apache.Ignite.Internal.Compute
         }
 
         /// <inheritdoc/>
-        public async Task<IJobExecution<T>> SubmitColocated<T>(
+        public async Task<IJobExecution<T>> SubmitColocatedAsync<T>(
             string tableName,
             IIgniteTuple key,
             IEnumerable<DeploymentUnit> units,
@@ -95,7 +95,7 @@ namespace Apache.Ignite.Internal.Compute
                 .ConfigureAwait(false);
 
         /// <inheritdoc/>
-        public async Task<IJobExecution<T>> SubmitColocated<T, TKey>(
+        public async Task<IJobExecution<T>> SubmitColocatedAsync<T, TKey>(
             string tableName,
             TKey key,
             IEnumerable<DeploymentUnit> units,

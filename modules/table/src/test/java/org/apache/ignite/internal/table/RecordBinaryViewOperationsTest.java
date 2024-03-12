@@ -40,6 +40,7 @@ import static org.mockito.Mockito.verify;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
@@ -611,7 +612,12 @@ public class RecordBinaryViewOperationsTest extends TableKvOperationsTestBase {
         ReflectionMarshallersProvider marshallers = new ReflectionMarshallersProvider();
 
         RecordView<Tuple> view = new RecordBinaryViewImpl(
-                internalTable, new DummySchemaManagerImpl(schema), schemaVersions, marshallers, mock(IgniteSql.class)
+                internalTable,
+                new DummySchemaManagerImpl(schema),
+                schemaVersions,
+                mock(IgniteSql.class),
+                marshallers,
+                ForkJoinPool.commonPool()
         );
 
         BinaryRow resultRow = new TupleMarshallerImpl(schema).marshal(Tuple.create().set("id", 1L).set("val", 2L));
@@ -649,15 +655,15 @@ public class RecordBinaryViewOperationsTest extends TableKvOperationsTestBase {
     void assertEqualsKeys(SchemaDescriptor schema, Tuple expected, Tuple actual) {
         int nonNullKey = 0;
 
-        for (int i = 0; i < schema.keyColumns().length(); i++) {
-            final Column col = schema.keyColumns().column(i);
+        for (int i = 0; i < schema.keyColumns().size(); i++) {
+            final Column col = schema.keyColumns().get(i);
 
             final Object val1 = expected.value(col.name());
             final Object val2 = actual.value(col.name());
 
-            Assertions.assertEquals(val1, val2, "Value columns equality check failed: colIdx=" + col.schemaIndex());
+            Assertions.assertEquals(val1, val2, "Value columns equality check failed: " + col);
 
-            if (schema.isKeyColumn(i) && val1 != null) {
+            if (col.positionInKey() != -1 && val1 != null) {
                 nonNullKey++;
             }
         }
@@ -673,16 +679,16 @@ public class RecordBinaryViewOperationsTest extends TableKvOperationsTestBase {
      * @param actual   Actual tuple.
      */
     void assertEqualsValues(SchemaDescriptor schema, Tuple expected, Tuple actual) {
-        for (int i = 0; i < schema.valueColumns().length(); i++) {
-            final Column col = schema.valueColumns().column(i);
+        for (int i = 0; i < schema.valueColumns().size(); i++) {
+            final Column col = schema.valueColumns().get(i);
 
             final Object val1 = expected.value(col.name());
             final Object val2 = actual.value(col.name());
 
             if (val1 instanceof byte[] && val2 instanceof byte[]) {
-                Assertions.assertArrayEquals((byte[]) val1, (byte[]) val2, "Equality check failed: colIdx=" + col.schemaIndex());
+                Assertions.assertArrayEquals((byte[]) val1, (byte[]) val2, "Equality check failed: colIdx=" + col.positionInRow());
             } else {
-                Assertions.assertEquals(val1, val2, "Equality check failed: colIdx=" + col.schemaIndex());
+                Assertions.assertEquals(val1, val2, "Equality check failed: colIdx=" + col.positionInRow());
             }
         }
     }

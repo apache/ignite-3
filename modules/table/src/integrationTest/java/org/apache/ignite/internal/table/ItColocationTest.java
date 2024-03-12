@@ -98,6 +98,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
+import org.apache.ignite.internal.tx.impl.ResourceCleanupManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
@@ -163,6 +164,15 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
         ReplicaService replicaService = mock(ReplicaService.class, RETURNS_DEEP_STUBS);
 
+        RemotelyTriggeredResourceRegistry resourcesRegistry = new RemotelyTriggeredResourceRegistry();
+
+        ResourceCleanupManager resourceCleanupManager = new ResourceCleanupManager(
+                clusterNode.name(),
+                resourcesRegistry,
+                clusterService.topologyService(),
+                clusterService.messagingService()
+        );
+
         txManager = new TxManagerImpl(
                 txConfiguration,
                 clusterService,
@@ -173,7 +183,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 new TestPlacementDriver(clusterNode),
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
                 new TestLocalRwTxCounter(),
-                new RemotelyTriggeredResourceRegistry()
+                resourcesRegistry,
+                resourceCleanupManager
         ) {
             @Override
             public CompletableFuture<Void> finish(
@@ -427,15 +438,14 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
     private void init(NativeTypeSpec t0, NativeTypeSpec t1) {
         schema = new SchemaDescriptor(1,
-                new Column[]{
+                List.of(
                         new Column("ID", NativeTypes.INT64, false),
                         new Column("ID0", specToType(t0), false),
-                        new Column("ID1", specToType(t1), false)
-                },
-                new String[]{"ID1", "ID0"},
-                new Column[]{
+                        new Column("ID1", specToType(t1), false),
                         new Column("VAL", NativeTypes.INT64, true)
-                }
+                ),
+                List.of("ID", "ID0", "ID1"),
+                List.of("ID1", "ID0")
         );
 
         schemaRegistry = new DummySchemaManagerImpl(schema);

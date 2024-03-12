@@ -46,21 +46,29 @@ class QueryCheckerFactoryImpl implements QueryCheckerFactory {
     }
 
     @Override
-    public QueryChecker create(QueryProcessor queryProcessor, IgniteTransactions transactions, InternalTransaction tx, String query) {
-        return create(queryProcessor, transactions, (ignore) -> {}, tx, returnOriginalQuery(query));
+    public QueryChecker create(
+            String nodeName,
+            QueryProcessor queryProcessor,
+            IgniteTransactions transactions,
+            InternalTransaction tx,
+            String query
+    ) {
+        return create(nodeName, queryProcessor, transactions, (ignore) -> {}, tx, returnOriginalQuery(query));
     }
 
     @Override
     public QueryChecker create(
+            String nodeName,
             QueryProcessor queryProcessor,
             IgniteTransactions transactions,
             Consumer<ResultSetMetadata> metadataValidator,
             QueryTemplate queryTemplate
     ) {
-        return create(queryProcessor, transactions, (ignore) -> {}, null, queryTemplate);
+        return create(nodeName, queryProcessor, transactions, (ignore) -> {}, null, queryTemplate);
     }
 
     private QueryChecker create(
+            String nodeName,
             QueryProcessor queryProcessor,
             IgniteTransactions transactions,
             Consumer<ResultSetMetadata> metadataValidator,
@@ -88,6 +96,11 @@ class QueryCheckerFactoryImpl implements QueryCheckerFactory {
                 onUsedCallback.accept(this);
 
                 super.check();
+            }
+
+            @Override
+            protected String nodeName() {
+                return nodeName;
             }
         };
 
