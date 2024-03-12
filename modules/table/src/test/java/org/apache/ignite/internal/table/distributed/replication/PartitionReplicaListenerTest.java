@@ -1545,9 +1545,9 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             upsert(tx1, br1);
         }
 
-        Cursor<RowId> cursor = pkStorage().get(br1);
-
         if (!insertFirst && !upsertAfterDelete) {
+            Cursor<RowId> cursor = pkStorage().get(br1);
+
             // Data was not preloaded or inserted after deletion.
             assertFalse(cursor.hasNext());
         } else {
