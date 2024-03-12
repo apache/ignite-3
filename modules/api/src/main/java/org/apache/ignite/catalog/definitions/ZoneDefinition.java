@@ -18,7 +18,6 @@
 package org.apache.ignite.catalog.definitions;
 
 import java.util.Objects;
-import org.apache.ignite.catalog.ZoneEngine;
 
 /**
  * Definition of the {@code CREATE ZONE} statement.
@@ -32,20 +31,21 @@ public class ZoneDefinition {
 
     private final Integer replicas;
 
-    private final ZoneEngine engine;
+    private final String storageProfiles;
+
 
     private ZoneDefinition(
             String zoneName,
             boolean ifNotExists,
             Integer partitions,
             Integer replicas,
-            ZoneEngine engine
+            String storageProfiles
     ) {
         this.zoneName = zoneName;
         this.ifNotExists = ifNotExists;
         this.partitions = partitions;
         this.replicas = replicas;
-        this.engine = engine;
+        this.storageProfiles = storageProfiles;
     }
 
     /**
@@ -95,12 +95,12 @@ public class ZoneDefinition {
     }
 
     /**
-     * Returns the storage engine name.
+     * Returns storage profiles.
      *
-     * @return The storage engine name.
+     * @return Storage profiles.
      */
-    public ZoneEngine engine() {
-        return engine;
+    public String storageProfiles() {
+        return storageProfiles;
     }
 
     /**
@@ -124,7 +124,7 @@ public class ZoneDefinition {
 
         private Integer replicas;
 
-        private ZoneEngine engine = ZoneEngine.DEFAULT;
+        private String storageProfiles;
 
         private Builder() {}
 
@@ -133,7 +133,7 @@ public class ZoneDefinition {
             ifNotExists = definition.ifNotExists;
             partitions = definition.partitions;
             replicas = definition.replicas;
-            engine = definition.engine;
+            storageProfiles = definition.storageProfiles;
         }
 
         /**
@@ -184,15 +184,15 @@ public class ZoneDefinition {
         }
 
         /**
-         * Sets the storage engine name.
+         * Sets the storage profiles.
          *
-         * @param engine Storage engine name.
+         * @param storageProfiles Storage profiles.
          * @return This builder instance.
          */
-        public Builder engine(ZoneEngine engine) {
-            Objects.requireNonNull(engine, "Engine must not be null.");
+        public Builder storageProfiles(String storageProfiles) {
+            Objects.requireNonNull(storageProfiles, "Storage profiles must not be null.");
 
-            this.engine = engine;
+            this.storageProfiles = storageProfiles;
             return this;
         }
 
@@ -212,7 +212,7 @@ public class ZoneDefinition {
                     ifNotExists,
                     partitions,
                     replicas,
-                    engine
+                    storageProfiles
             );
         }
     }
