@@ -68,6 +68,12 @@ public interface StateMachine {
     boolean onSnapshotLoad(final SnapshotReader reader);
 
     /**
+     * Invoked when the belonging node is about to become the leader of the group. Default: Do nothing
+     */
+     void onBeforeLeaderStart();
+
+
+    /**
      * Invoked when the belonging node becomes the leader of the group at |term| Default: Do nothing
      *
      * @param term new term num

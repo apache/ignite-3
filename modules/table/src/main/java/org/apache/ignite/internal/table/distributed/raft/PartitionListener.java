@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.raft;
 
+import static java.lang.Long.MAX_VALUE;
 import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.CLOCK_SKEW;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
@@ -107,7 +108,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
     private final PendingComparableValuesTracker<Long, Void> storageIndexTracker;
 
     /** Is used in order to detect and retry safe time reordering within onBeforeApply. */
-    private volatile long maxObservableSafeTime = -1;
+    private volatile long maxObservableSafeTime = MAX_VALUE;
 
     /** Is used in order to assert safe time reordering within onWrite. */
     private long maxObservableSafeTimeVerifier = -1;
@@ -480,8 +481,15 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
     }
 
     @Override
-    public void onLeaderStart() {
+    public void onBeforeLeaderStart() {
         maxObservableSafeTime = txManager.clock().now().addPhysicalTime(CLOCK_SKEW).longValue();
+        LOG.info("maxObservableSafeTime is set to [" + maxObservableSafeTime + "] on leader start.");
+    }
+
+    @Override
+    public void onLeaderStop() {
+        maxObservableSafeTime = MAX_VALUE;
+        LOG.info("maxObservableSafeTime is set to [" + maxObservableSafeTime + "] on leader stop.");
     }
 
     @Override

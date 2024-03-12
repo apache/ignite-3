@@ -284,6 +284,12 @@ public class FSMCallerImpl implements FSMCaller {
     }
 
     @Override
+    public boolean onBeforeLeaderStart() {
+        doBeforeLeaderStart();
+        return true;
+    }
+
+    @Override
     public boolean onLeaderStart(final long term) {
         return enqueueTask((task, sequence) -> {
             task.nodeId = this.nodeId;
@@ -716,6 +722,10 @@ public class FSMCallerImpl implements FSMCaller {
 
     private void doLeaderStop(final Status status) {
         this.fsm.onLeaderStop(status);
+    }
+
+    private void doBeforeLeaderStart() {
+        this.fsm.onBeforeLeaderStart();
     }
 
     private void doLeaderStart(final long term) {

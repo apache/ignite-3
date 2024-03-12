@@ -814,10 +814,24 @@ public class JraftServerImpl implements RaftServer {
         }
 
         @Override
+        public void onBeforeLeaderStart() {
+            super.onBeforeLeaderStart();
+
+            listener.onBeforeLeaderStart();
+        }
+
+        @Override
         public void onLeaderStart(long term) {
             super.onLeaderStart(term);
 
             listener.onLeaderStart();
+        }
+
+        @Override
+        public void onLeaderStop(Status status) {
+            super.onLeaderStop(status);
+
+            listener.onLeaderStop();
         }
     }
 }

@@ -1414,6 +1414,7 @@ public class NodeImpl implements Node, RaftServerService {
     }
 
     private void becomeLeader() {
+        this.fsmCaller.onBeforeLeaderStart();
         Requires.requireTrue(this.state == State.STATE_CANDIDATE, "Illegal state: " + this.state);
         LOG.info("Node {} become leader of group, term={}, conf={}, oldConf={}.", getNodeId(), this.currTerm,
             this.conf.getConf(), this.conf.getOldConf());

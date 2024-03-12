@@ -207,6 +207,11 @@ public class MockStateMachine extends StateMachineAdapter {
     }
 
     @Override
+    public void onBeforeLeaderStart() {
+        super.onBeforeLeaderStart();
+    }
+
+    @Override
     public void onLeaderStart(final long term) {
         super.onLeaderStart(term);
         this.leaderTerm = term;
