@@ -55,6 +55,7 @@ public class TestLowWatermark implements LowWatermark {
      * @return Listener notification future.
      */
     public CompletableFuture<Void> updateAndNotify(HybridTimestamp newTs) {
+        assert newTs != null;
         assert ts == null || ts.longValue() < newTs.longValue();
 
         this.ts = newTs;

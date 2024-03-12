@@ -115,6 +115,7 @@ import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.rebalance.PartitionMover;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceRaftGroupEventsListener;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
+import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -163,9 +164,9 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
-import org.apache.ignite.internal.table.SynchronousPriorityQueue;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.InternalTable;
+import org.apache.ignite.internal.table.SynchronousPriorityQueue;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableRaftService;
 import org.apache.ignite.internal.table.TableViewInternal;
@@ -582,7 +583,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             metaStorageMgr.registerPrefixWatch(ByteArray.fromString(ASSIGNMENTS_SWITCH_REDUCE_PREFIX), assignmentsSwitchRebalanceListener);
 
             catalogService.listen(CatalogEvent.TABLE_CREATE, parameters -> onTableCreate((CreateTableEventParameters) parameters));
-            catalogService.listen(CatalogEvent.TABLE_DROP, parameters -> onTableDrop(((DropTableEventParameters) parameters)));
+            catalogService.listen(CatalogEvent.TABLE_DROP, EventListener.fromConsumer(this::onTableDrop));
             catalogService.listen(CatalogEvent.TABLE_ALTER, parameters -> {
                 if (parameters instanceof RenameTableEventParameters) {
                     return onTableRename((RenameTableEventParameters) parameters).thenApply(unused -> false);
@@ -728,11 +729,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         });
     }
 
-    private CompletableFuture<Boolean> onTableDrop(DropTableEventParameters parameters) {
-        return inBusyLockAsync(busyLock, () -> {
+    private void onTableDrop(DropTableEventParameters parameters) {
+        inBusyLock(busyLock, () -> {
             destructionEventsQueue.enqueue(new DestroyTableEvent(parameters.catalogVersion(), parameters.tableId()));
-
-            return falseCompletedFuture();
         });
     }
 
@@ -1340,6 +1339,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         if (onNodeRecovery) {
                             SchemaRegistry schemaRegistry = table.schemaView();
                             PartitionSet partitionSet = localPartsByTableId.get(tableId);
+                            // LWM starts updating only after the node is restored.
                             HybridTimestamp lwm = lowWatermark.getLowWatermark();
 
                             registerIndexesToTable(table, catalogService, partitionSet, schemaRegistry, lwm);

@@ -23,9 +23,9 @@ import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_CREATE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_REMOVED;
+import static org.apache.ignite.internal.event.EventListener.fromConsumer;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.table.distributed.index.IndexUtils.registerIndexToTable;
-import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
@@ -132,7 +132,7 @@ public class IndexManager implements IgniteComponent {
         recoverDeferredQueue();
 
         catalogService.listen(INDEX_CREATE, (CreateIndexEventParameters parameters) -> onIndexCreate(parameters));
-        catalogService.listen(INDEX_REMOVED, (RemoveIndexEventParameters parameters) -> onIndexRemoved(parameters));
+        catalogService.listen(INDEX_REMOVED, fromConsumer(this::onIndexRemoved));
         lowWatermark.addUpdateListener(this::onLwmChanged);
 
         LOG.info("Index manager started");
@@ -198,8 +198,8 @@ public class IndexManager implements IgniteComponent {
         });
     }
 
-    private CompletableFuture<Boolean> onIndexRemoved(RemoveIndexEventParameters parameters) {
-        return inBusyLockAsync(busyLock, () -> {
+    private void onIndexRemoved(RemoveIndexEventParameters parameters) {
+        inBusyLock(busyLock, () -> {
             int indexId = parameters.indexId();
             int catalogVersion = parameters.catalogVersion();
             int previousCatalogVersion = catalogVersion - 1;
@@ -212,12 +212,10 @@ public class IndexManager implements IgniteComponent {
 
             if (catalogService.table(tableId, catalogVersion) == null) {
                 // Nothing to do. Index will be destroyed along with the table.
-                return falseCompletedFuture();
+                return;
             }
 
             destructionEventsQueue.enqueue(new DestroyIndexEvent(catalogVersion, indexId, tableId));
-
-            return falseCompletedFuture();
         });
     }
 

@@ -87,7 +87,7 @@ public class IndexUtils {
      * @param catalogService Catalog service.
      * @param partitionSet Partitions for which index storages will need to be created if they are missing.
      * @param schemaRegistry Table schema register.
-     * @param lwm Low watermark.
+     * @param lwm Low watermark, which is used to extract alive indexes from the catalog.
      */
     public static void registerIndexesToTable(
             TableViewInternal table,

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table.distributed;
 import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -115,20 +116,17 @@ public class LowWatermarkImpl implements IgniteComponent, LowWatermark {
         );
     }
 
-    /**
-     * Starts the watermark manager.
-     */
     @Override
     public CompletableFuture<Void> start() {
-        inBusyLock(busyLock, () -> {
+        return inBusyLockAsync(busyLock, () -> {
             lowWatermark = readLowWatermarkFromVault();
-        });
 
-        return nullCompletedFuture();
+            return nullCompletedFuture();
+        });
     }
 
     /**
-     * Schedule watermark updates.
+     * Schedule low watermark updates.
      */
     public void scheduleUpdates() {
         inBusyLock(busyLock, () -> {
@@ -234,7 +232,7 @@ public class LowWatermarkImpl implements IgniteComponent, LowWatermark {
             return nullCompletedFuture();
         }
 
-        ArrayList<CompletableFuture<?>> res = new ArrayList<>();
+        var res = new ArrayList<CompletableFuture<?>>();
         for (LowWatermarkChangedListener updateListener : updateListeners) {
             res.add(updateListener.onLwmChanged(lowWatermark));
         }
