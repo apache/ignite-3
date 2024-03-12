@@ -99,12 +99,7 @@ public class TransactionEnlistTest extends BaseIgniteAbstractTest {
 
         NoOpTransaction spiedTx = Mockito.spy(tx);
 
-        try {
-            assertQuery("INSERT INTO t1 VALUES(1, 2), (2, 3)", spiedTx)
-                    .check();
-        } catch (Exception ex) {
-            // No op.
-        }
+        assertQuery("INSERT INTO t1 VALUES(1, 2), (2, 3)", spiedTx).check();
 
         Mockito.verify(spiedTx, times(2)).enlist(any(), any());
     }

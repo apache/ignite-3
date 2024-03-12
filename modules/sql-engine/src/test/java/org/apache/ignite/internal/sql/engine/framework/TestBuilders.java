@@ -22,7 +22,10 @@ import static org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTes
 import static org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.PLANNING_TIMEOUT;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -105,6 +108,7 @@ import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.systemview.api.SystemView;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.type.BitmaskNativeType;
 import org.apache.ignite.internal.type.DecimalNativeType;
@@ -125,7 +129,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * A collection of builders to create test objects.
  */
-public class TestBuilders {
+public class TestBuilders extends BaseIgniteAbstractTest {
     private static final AtomicInteger TABLE_ID_GEN = new AtomicInteger();
 
     /** Returns a builder of the test cluster object. */
@@ -1305,7 +1309,12 @@ public class TestBuilders {
 
                 @Override
                 public UpdatableTable updatableTable() {
-                    throw new UnsupportedOperationException();
+                    UpdatableTable updatableTable = mock(UpdatableTable.class);
+                    when(updatableTable.descriptor()).thenReturn(tableDescriptor());
+                    when(updatableTable.insertAll(any(), any(), any())).thenReturn(nullCompletedFuture());
+                    when(updatableTable.upsertAll(any(), any(), any())).thenReturn(nullCompletedFuture());
+                    when(updatableTable.deleteAll(any(), any(), any())).thenReturn(nullCompletedFuture());
+                    return updatableTable;
                 }
 
                 @Override
@@ -1315,7 +1324,7 @@ public class TestBuilders {
 
                 @Override
                 public Supplier<PartitionCalculator> partitionCalculator() {
-                    throw new UnsupportedOperationException();
+                    return table.partitionCalculator();
                 }
             });
         }
