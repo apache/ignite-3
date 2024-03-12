@@ -33,6 +33,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * The agreement is formed from {@link LeaseGrantedMessageResponse}.
@@ -125,7 +126,7 @@ public class LeaseAgreement {
      */
     public void checkValid(
             ReplicationGroupId groupId,
-            LogicalTopologySnapshot currentTopologySnapshot,
+            @Nullable LogicalTopologySnapshot currentTopologySnapshot,
             Set<Assignment> assignments
     ) {
         if (ready()) {
@@ -141,13 +142,15 @@ public class LeaseAgreement {
             return;
         }
 
-        Set<String> nodeIds = currentTopologySnapshot.nodes().stream().map(LogicalNode::id).collect(toSet());
+        if (currentTopologySnapshot != null) {
+            Set<String> nodeIds = currentTopologySnapshot.nodes().stream().map(LogicalNode::id).collect(toSet());
 
-        if (nodeIds.contains(lease.getLeaseholderId())) {
-            LOG.info("Lease was not negotiated because the node has left the logical topology [node={}, nodeId={}, group={}]",
-                    lease.getLeaseholder(), lease.getLeaseholderId(), groupId);
+            if (!nodeIds.contains(lease.getLeaseholderId())) {
+                LOG.info("Lease was not negotiated because the node has left the logical topology [node={}, nodeId={}, group={}]",
+                        lease.getLeaseholder(), lease.getLeaseholderId(), groupId);
 
-            responseFut.complete(NOT_ACCEPTED_RESPONSE);
+                responseFut.complete(NOT_ACCEPTED_RESPONSE);
+            }
         }
     }
 }
