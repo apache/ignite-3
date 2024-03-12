@@ -332,19 +332,19 @@ public class FakeIgniteTables implements IgniteTablesInternal {
      */
     private SchemaDescriptor getColocationKeySchema(Integer v) {
         Column colocationCol1 = new Column("COLO-1", NativeTypes.STRING, false);
-        Column colocationCol2 = new Column("COLO-2", NativeTypes.INT64, true);
+        Column colocationCol2 = new Column("COLO-2", NativeTypes.INT64, false);
 
         return new SchemaDescriptor(
                 v,
-                new Column[]{
+                List.of(
                         new Column("ID", NativeTypes.INT32, false),
-                },
-                new String[]{ colocationCol1.name(), colocationCol2.name() },
-                new Column[]{
                         colocationCol1,
                         colocationCol2,
                         new Column("STR", NativeTypes.STRING, true)
-                });
+                ),
+                List.of("ID", colocationCol1.name(), colocationCol2.name()),
+                List.of(colocationCol1.name(), colocationCol2.name())
+        );
     }
 
     /**

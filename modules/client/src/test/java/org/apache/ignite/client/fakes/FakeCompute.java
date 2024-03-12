@@ -42,6 +42,7 @@ import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
+import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
@@ -102,6 +103,13 @@ public class FakeCompute implements IgniteComputeInternal {
         }
 
         return jobExecution(future != null ? future : completedFuture((R) nodeName));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <R> CompletableFuture<JobExecution<R>> submitColocatedInternal(TableViewInternal table, Tuple key, List<DeploymentUnit> units,
+            String jobClassName, JobExecutionOptions options, Object[] args) {
+        return completedFuture(jobExecution(future != null ? future : completedFuture((R) nodeName)));
     }
 
     /** {@inheritDoc} */

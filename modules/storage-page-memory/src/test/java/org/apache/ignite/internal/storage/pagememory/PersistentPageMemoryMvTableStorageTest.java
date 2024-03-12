@@ -38,7 +38,6 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -91,12 +90,5 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
                 engine.checkpointManager().forceCheckpoint("after-test-destroy-partition").futureFor(CheckpointState.FINISHED),
                 willCompleteSuccessfully()
         );
-    }
-
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21583")
-    @Test
-    @Override
-    public void testDestroyIndex() {
-        super.testDestroyIndex();
     }
 }
