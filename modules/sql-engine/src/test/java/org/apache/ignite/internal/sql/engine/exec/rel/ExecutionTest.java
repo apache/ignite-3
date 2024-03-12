@@ -615,7 +615,7 @@ public class ExecutionTest extends AbstractExecutionTest<Object[]> {
     }
 
     /**
-     * Node that always throws assertion error except for {@link #close()} and {@link #onRegister(Downstream)} methods.
+     * Node that always throws {@link IllegalAccessError} except for {@link #close()} and {@link #onRegister(Downstream)} methods.
      */
     static class CorruptedNode<T> implements Node<T> {
         /** {@inheritDoc} */
