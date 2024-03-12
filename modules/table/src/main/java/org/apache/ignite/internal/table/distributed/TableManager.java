@@ -94,7 +94,6 @@ import java.util.function.Consumer;
 import java.util.function.IntSupplier;
 import java.util.function.LongFunction;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.affinity.AffinityUtils;
@@ -164,7 +163,7 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
-import org.apache.ignite.internal.table.DeferredEventsQueue;
+import org.apache.ignite.internal.table.SynchronousPriorityQueue;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
@@ -295,8 +294,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     /** Started tables. */
     private final Map<Integer, TableImpl> startedTables = new ConcurrentHashMap<>();
 
-    /** Deferred destruction queue. */
-    private final DeferredEventsQueue<DestroyTableEvent> deferredQueue = new DeferredEventsQueue<>(DestroyTableEvent::catalogVersion);
+    /** A queue for deferred table destruction events. */
+    private final SynchronousPriorityQueue<DestroyTableEvent> destructionEventsQueue =
+            new SynchronousPriorityQueue<>(DestroyTableEvent::catalogVersion);
 
     /** Local partitions. */
     private final Map<Integer, PartitionSet> localPartsByTableId = new ConcurrentHashMap<>();
@@ -730,7 +730,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private CompletableFuture<Boolean> onTableDrop(DropTableEventParameters parameters) {
         return inBusyLockAsync(busyLock, () -> {
-            deferredQueue.enqueue(new DestroyTableEvent(parameters.catalogVersion(), parameters.tableId()));
+            destructionEventsQueue.enqueue(new DestroyTableEvent(parameters.catalogVersion(), parameters.tableId()));
 
             return falseCompletedFuture();
         });
@@ -740,7 +740,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return inBusyLockAsync(busyLock, () -> {
             int newEarliestCatalogVersion = catalogService.activeCatalogVersion(hybridTimestampToLong(ts));
 
-            List<DestroyTableEvent> events = deferredQueue.drainUpTo(newEarliestCatalogVersion);
+            List<DestroyTableEvent> events = destructionEventsQueue.drainUpTo(newEarliestCatalogVersion);
 
             if (events.isEmpty()) {
                 return nullCompletedFuture();

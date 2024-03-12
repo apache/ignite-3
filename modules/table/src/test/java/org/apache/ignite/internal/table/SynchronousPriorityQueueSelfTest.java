@@ -29,23 +29,23 @@ import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests for {@link DeferredEventsQueue}.
+ * Tests for {@link SynchronousPriorityQueue}.
  */
-public class DeferredEventsQueueSelfTest {
+public class SynchronousPriorityQueueSelfTest {
     @Test
     void testEmptyQueue() {
-        DeferredEventsQueue<Item> queue = new DeferredEventsQueue<>(Item::timestamp);
+        SynchronousPriorityQueue<Item> queue = new SynchronousPriorityQueue<>(Item::timestamp);
 
         assertTrue(queue.isEmpty());
         assertThat(queue.size(), equalTo(0));
 
-        assertFalse(queue.hasExpiredEvents(Long.MAX_VALUE));
+        assertFalse(queue.hasItems(Long.MAX_VALUE));
         assertThat(queue.drainUpTo(Long.MAX_VALUE), empty());
     }
 
     @Test
     void testQueueClear() {
-        DeferredEventsQueue<Item> queue = new DeferredEventsQueue<>(Item::timestamp);
+        SynchronousPriorityQueue<Item> queue = new SynchronousPriorityQueue<>(Item::timestamp);
 
         assertTrue(queue.isEmpty());
         assertThat(queue.size(), equalTo(0));
@@ -65,7 +65,7 @@ public class DeferredEventsQueueSelfTest {
 
     @Test
     void testDrainEdgeCases() {
-        DeferredEventsQueue<Item> queue = new DeferredEventsQueue<>(Item::timestamp);
+        SynchronousPriorityQueue<Item> queue = new SynchronousPriorityQueue<>(Item::timestamp);
 
         queue.enqueue(new Item(1, 300L));
         queue.enqueue(new Item(2, 100L));
@@ -73,13 +73,13 @@ public class DeferredEventsQueueSelfTest {
 
         assertThat(queue.size(), equalTo(3));
 
-        assertFalse(queue.hasExpiredEvents(Long.MIN_VALUE));
-        assertFalse(queue.hasExpiredEvents(-1));
-        assertFalse(queue.hasExpiredEvents(0L));
-        assertFalse(queue.hasExpiredEvents(2L));
+        assertFalse(queue.hasItems(Long.MIN_VALUE));
+        assertFalse(queue.hasItems(-1));
+        assertFalse(queue.hasItems(0L));
+        assertFalse(queue.hasItems(2L));
 
-        assertTrue(queue.hasExpiredEvents(100L));
-        assertTrue(queue.hasExpiredEvents(Long.MAX_VALUE));
+        assertTrue(queue.hasItems(100L));
+        assertTrue(queue.hasItems(Long.MAX_VALUE));
 
         // Ensure too low value leas nothing to drain.
         assertThat(queue.drainUpTo(Long.MIN_VALUE), empty());
@@ -99,7 +99,7 @@ public class DeferredEventsQueueSelfTest {
 
     @Test
     void testDrain() {
-        DeferredEventsQueue<Item> queue = new DeferredEventsQueue<>(Item::timestamp);
+        SynchronousPriorityQueue<Item> queue = new SynchronousPriorityQueue<>(Item::timestamp);
 
         queue.enqueue(new Item(1, 300L));
         queue.enqueue(new Item(2, 100L));

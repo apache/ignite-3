@@ -24,45 +24,46 @@ import java.util.PriorityQueue;
 import java.util.function.ToLongFunction;
 
 /**
- * A queue for deferred events, which provide method to drain events up to given watermark. An implementation is a thread-safe wrapper over
- * {@link java.util.PriorityQueue}.
+ * A thread-safe wrapper over {@link java.util.PriorityQueue}, which uses {@code long} value for ordering.
+ * The implementation provides a method to poll top item up to the given priority.
  *
- * @param <T> Event type.
+ * @param <T> Item type.
  */
-public class DeferredEventsQueue<T> {
+public class SynchronousPriorityQueue<T> {
+    /** A queue. Guarded by itself. */
     private final PriorityQueue<T> queue;
-    private final ToLongFunction<T> mapper;
+    private final ToLongFunction<T> priorityExtractor;
 
     /**
      * Creates a queue.
      *
-     * @param mapper Event timestamp extractor.
+     * @param priorityExtractor Priority extractor.
      */
-    public DeferredEventsQueue(ToLongFunction<T> mapper) {
-        this.mapper = mapper;
-        this.queue = new PriorityQueue<>(Comparator.comparingLong(this.mapper));
+    public SynchronousPriorityQueue(ToLongFunction<T> priorityExtractor) {
+        this.priorityExtractor = priorityExtractor;
+        this.queue = new PriorityQueue<>(Comparator.comparingLong(priorityExtractor));
     }
 
     /**
-     * Offers a new event to the queue.
+     * Offers a new item to the queue.
      *
-     * @param event New deferred event.
+     * @param newItem New item.
      */
-    public boolean enqueue(T event) {
+    public boolean enqueue(T newItem) {
         synchronized (queue) {
-            return queue.offer(event);
+            return queue.offer(newItem);
         }
     }
 
     /**
-     * Drain queue up to given watermark and return dequeued events.
+     * Dequeue items, which priority is less or equal to the given one.
      *
-     * @param watermark Timestamp to drain up to.
+     * @param priority A priority to drain up to.
      * @return Dequeued events.
      */
-    public List<T> drainUpTo(long watermark) {
+    public List<T> drainUpTo(long priority) {
         synchronized (queue) {
-            if (!hasExpired0(watermark)) {
+            if (!hasItems0(priority)) {
                 return List.of();
             }
 
@@ -71,7 +72,7 @@ public class DeferredEventsQueue<T> {
                 T event = queue.poll();
 
                 events.add(event);
-            } while (hasExpired0(watermark));
+            } while (hasItems0(priority));
 
             return events;
         }
@@ -96,11 +97,11 @@ public class DeferredEventsQueue<T> {
     }
 
     /**
-     * Returns {@code true} if found events below watermark, {@code false} otherwise.
+     * Returns {@code true} if found events, which priority is less or equal to the given one, {@code false} otherwise.
      */
-    public boolean hasExpiredEvents(long watermark) {
+    public boolean hasItems(long watermark) {
         synchronized (queue) {
-            return hasExpired0(watermark);
+            return hasItems0(watermark);
         }
     }
 
@@ -113,11 +114,11 @@ public class DeferredEventsQueue<T> {
         }
     }
 
-    private boolean hasExpired0(long watermark) {
+    private boolean hasItems0(long watermark) {
         assert Thread.holdsLock(queue);
 
         T next = queue.peek();
 
-        return next != null && mapper.applyAsLong(next) <= watermark;
+        return next != null && priorityExtractor.applyAsLong(next) <= watermark;
     }
 }

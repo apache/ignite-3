@@ -44,7 +44,7 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.table.DeferredEventsQueue;
+import org.apache.ignite.internal.table.SynchronousPriorityQueue;
 import org.apache.ignite.internal.table.distributed.LowWatermark;
 import org.apache.ignite.internal.table.distributed.LowWatermarkChangedListener;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
@@ -90,7 +90,9 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
 
     private final LowWatermarkChangedListener lwmListener = this::onLwmChanged;
 
-    private final DeferredEventsQueue<DestroyTableEvent> deferredEventsQueue = new DeferredEventsQueue<>(DestroyTableEvent::catalogVersion);
+    /** A queue for deferred table destruction events. */
+    private final SynchronousPriorityQueue<DestroyTableEvent> destructionEventsQueue =
+            new SynchronousPriorityQueue<>(DestroyTableEvent::catalogVersion);
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -311,7 +313,7 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
             CatalogZoneDescriptor zoneDescriptor = catalogService.zone(zoneId, previousVersion);
             assert zoneDescriptor != null : "zoneId=" + zoneId + ", catalogVersion=" + previousVersion;
 
-            deferredEventsQueue.enqueue(new DestroyTableEvent(catalogVersion, tableId, zoneDescriptor.partitions()));
+            destructionEventsQueue.enqueue(new DestroyTableEvent(catalogVersion, tableId, zoneDescriptor.partitions()));
 
             return falseCompletedFuture();
         }
@@ -338,7 +340,7 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
         return inBusyLockAsync(busyLock, () -> {
             int earliestVersion = catalogService.activeCatalogVersion(HybridTimestamp.hybridTimestampToLong(ts));
 
-            List<DestroyTableEvent> events = deferredEventsQueue.drainUpTo(earliestVersion);
+            List<DestroyTableEvent> events = destructionEventsQueue.drainUpTo(earliestVersion);
 
             events.forEach(event -> removeTable(event.tableId(), event.partitions()));
 

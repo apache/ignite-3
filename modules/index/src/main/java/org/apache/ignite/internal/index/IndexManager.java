@@ -38,7 +38,6 @@ import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongFunction;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -55,7 +54,7 @@ import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
-import org.apache.ignite.internal.table.DeferredEventsQueue;
+import org.apache.ignite.internal.table.SynchronousPriorityQueue;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.LowWatermark;
 import org.apache.ignite.internal.table.distributed.PartitionSet;
@@ -97,8 +96,9 @@ public class IndexManager implements IgniteComponent {
     /** Low watermark. */
     private final LowWatermark lowWatermark;
 
-    /** Deferred destruction queue. */
-    private final DeferredEventsQueue<DestroyIndexEvent> deferredQueue = new DeferredEventsQueue<>(DestroyIndexEvent::catalogVersion);
+    /** A queue for deferred index destruction events. */
+    private final SynchronousPriorityQueue<DestroyIndexEvent> destructionEventsQueue =
+            new SynchronousPriorityQueue<>(DestroyIndexEvent::catalogVersion);
 
     /**
      * Constructor.
@@ -215,7 +215,7 @@ public class IndexManager implements IgniteComponent {
                 return falseCompletedFuture();
             }
 
-            deferredQueue.enqueue(new DestroyIndexEvent(catalogVersion, indexId, tableId));
+            destructionEventsQueue.enqueue(new DestroyIndexEvent(catalogVersion, indexId, tableId));
 
             return falseCompletedFuture();
         });
@@ -225,7 +225,7 @@ public class IndexManager implements IgniteComponent {
         return inBusyLockAsync(busyLock, () -> {
             int newEarliestCatalogVersion = catalogService.activeCatalogVersion(hybridTimestampToLong(ts));
 
-            List<DestroyIndexEvent> events = deferredQueue.drainUpTo(newEarliestCatalogVersion);
+            List<DestroyIndexEvent> events = destructionEventsQueue.drainUpTo(newEarliestCatalogVersion);
 
             if (events.isEmpty()) {
                 return nullCompletedFuture();
@@ -310,7 +310,7 @@ public class IndexManager implements IgniteComponent {
             int nextVersion = catalogVersion + 1;
             catalogService.indexes(catalogVersion).stream()
                     .filter(idx -> catalogService.index(idx.id(), nextVersion) == null)
-                    .forEach(idx -> deferredQueue.enqueue(new DestroyIndexEvent(nextVersion, idx.id(), idx.tableId())));
+                    .forEach(idx -> destructionEventsQueue.enqueue(new DestroyIndexEvent(nextVersion, idx.id(), idx.tableId())));
         }
     }
 
