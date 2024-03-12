@@ -50,7 +50,7 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -608,7 +608,7 @@ public class PlatformTestNodeRunner {
             var timePrecision = (int) args[2];
             var timestampPrecision = (int) args[3];
 
-            var columns = new Column[columnCount];
+            List<Column> columns = new ArrayList<>(columnCount);
             var tuple = Tuple.create(columnCount);
             var reader = new BinaryTupleReader(columnCount * 3, buf);
 
@@ -621,82 +621,82 @@ public class PlatformTestNodeRunner {
 
                 switch (type) {
                     case BOOLEAN:
-                        columns[i] = new Column(i, colName, NativeTypes.BOOLEAN, false);
+                        columns.add(new Column(colName, NativeTypes.BOOLEAN, false));
                         tuple.set(colName, reader.booleanValue(valIdx));
                         break;
 
                     case INT8:
-                        columns[i] = new Column(i, colName, NativeTypes.INT8, false);
+                        columns.add(new Column(colName, NativeTypes.INT8, false));
                         tuple.set(colName, reader.byteValue(valIdx));
                         break;
 
                     case INT16:
-                        columns[i] = new Column(i, colName, NativeTypes.INT16, false);
+                        columns.add(new Column(colName, NativeTypes.INT16, false));
                         tuple.set(colName, reader.shortValue(valIdx));
                         break;
 
                     case INT32:
-                        columns[i] = new Column(i, colName, NativeTypes.INT32, false);
+                        columns.add(new Column(colName, NativeTypes.INT32, false));
                         tuple.set(colName, reader.intValue(valIdx));
                         break;
 
                     case INT64:
-                        columns[i] = new Column(i, colName, NativeTypes.INT64, false);
+                        columns.add(new Column(colName, NativeTypes.INT64, false));
                         tuple.set(colName, reader.longValue(valIdx));
                         break;
 
                     case FLOAT:
-                        columns[i] = new Column(i, colName, NativeTypes.FLOAT, false);
+                        columns.add(new Column(colName, NativeTypes.FLOAT, false));
                         tuple.set(colName, reader.floatValue(valIdx));
                         break;
 
                     case DOUBLE:
-                        columns[i] = new Column(i, colName, NativeTypes.DOUBLE, false);
+                        columns.add(new Column(colName, NativeTypes.DOUBLE, false));
                         tuple.set(colName, reader.doubleValue(valIdx));
                         break;
 
                     case DECIMAL:
-                        columns[i] = new Column(i, colName, NativeTypes.decimalOf(100, scale), false);
+                        columns.add(new Column(colName, NativeTypes.decimalOf(100, scale), false));
                         tuple.set(colName, reader.decimalValue(valIdx, scale));
                         break;
 
                     case STRING:
-                        columns[i] = new Column(i, colName, NativeTypes.STRING, false);
+                        columns.add(new Column(colName, NativeTypes.STRING, false));
                         tuple.set(colName, reader.stringValue(valIdx));
                         break;
 
                     case UUID:
-                        columns[i] = new Column(i, colName, NativeTypes.UUID, false);
+                        columns.add(new Column(colName, NativeTypes.UUID, false));
                         tuple.set(colName, reader.uuidValue(valIdx));
                         break;
 
                     case NUMBER:
-                        columns[i] = new Column(i, colName, NativeTypes.numberOf(255), false);
+                        columns.add(new Column(colName, NativeTypes.numberOf(255), false));
                         tuple.set(colName, reader.numberValue(valIdx));
                         break;
 
                     case BITMASK:
-                        columns[i] = new Column(i, colName, NativeTypes.bitmaskOf(32), false);
+                        columns.add(new Column(colName, NativeTypes.bitmaskOf(32), false));
                         tuple.set(colName, reader.bitmaskValue(valIdx));
                         break;
 
                     case DATE:
-                        columns[i] = new Column(i, colName, NativeTypes.DATE, false);
+                        columns.add(new Column(colName, NativeTypes.DATE, false));
                         tuple.set(colName, reader.dateValue(valIdx));
                         break;
 
                     case TIME:
-                        columns[i] = new Column(i, colName, NativeTypes.time(timePrecision), false);
+                        columns.add(new Column(colName, NativeTypes.time(timePrecision), false));
                         tuple.set(colName, reader.timeValue(valIdx));
                         break;
 
                     case DATETIME:
-                        columns[i] = new Column(i, colName, NativeTypes.datetime(timePrecision), false);
+                        columns.add(new Column(colName, NativeTypes.datetime(timePrecision), false));
                         tuple.set(colName, reader.dateTimeValue(valIdx));
                         break;
 
                     case TIMESTAMP:
-                        columns[i] = new Column(i, colName, NativeTypes.timestamp(timestampPrecision), false);
+                        columns.add(new Column(colName, NativeTypes.timestamp(timestampPrecision), false));
                         tuple.set(colName, reader.timestampValue(valIdx));
                         break;
 
@@ -705,8 +705,8 @@ public class PlatformTestNodeRunner {
                 }
             }
 
-            var colocationColumns = Arrays.stream(columns).map(Column::name).toArray(String[]::new);
-            var schema = new SchemaDescriptor(1, columns, colocationColumns, new Column[0]);
+            List<String> colocationColumns = columns.stream().map(Column::name).collect(toList());
+            var schema = new SchemaDescriptor(1, columns, colocationColumns, null);
 
             var marsh = new TupleMarshallerImpl(schema);
 

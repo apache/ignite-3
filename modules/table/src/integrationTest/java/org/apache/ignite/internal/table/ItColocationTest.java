@@ -447,15 +447,14 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
     private void init(NativeTypeSpec t0, NativeTypeSpec t1) {
         schema = new SchemaDescriptor(1,
-                new Column[]{
+                List.of(
                         new Column("ID", NativeTypes.INT64, false),
                         new Column("ID0", specToType(t0), false),
-                        new Column("ID1", specToType(t1), false)
-                },
-                new String[]{"ID1", "ID0"},
-                new Column[]{
+                        new Column("ID1", specToType(t1), false),
                         new Column("VAL", NativeTypes.INT64, true)
-                }
+                ),
+                List.of("ID", "ID0", "ID1"),
+                List.of("ID1", "ID0")
         );
 
         schemaRegistry = new DummySchemaManagerImpl(schema);

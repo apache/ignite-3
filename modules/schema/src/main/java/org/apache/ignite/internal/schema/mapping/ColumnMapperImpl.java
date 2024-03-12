@@ -48,7 +48,7 @@ class ColumnMapperImpl implements ColumnMapper {
     /** {@inheritDoc} */
     @Override
     public ColumnMapperImpl add(Column col) {
-        add0(col.schemaIndex(), -1, col);
+        add0(col.positionInRow(), -1, col);
 
         return this;
     }
