@@ -323,6 +323,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertThat(getAll(storage2.get(tuple)), contains(rowId2));
     }
 
+    @SuppressWarnings("resource")
     @Test
     public void testDestroyPartition() throws Exception {
         assertThrows(IllegalArgumentException.class, () -> tableStorage.destroyPartition(getPartitionIdOutOfRange()));
@@ -350,7 +351,14 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
             return null;
         });
 
-        PartitionTimestampCursor scanTimestampCursor = mvPartitionStorage.scan(clock.now());
+        PartitionTimestampCursor scanAtTimestampCursor = mvPartitionStorage.scan(clock.now());
+        PartitionTimestampCursor scanLatestCursor = mvPartitionStorage.scan(HybridTimestamp.MAX_VALUE);
+
+        Cursor<ReadResult> scanVersionsCursor = mvPartitionStorage.runConsistently(locker -> {
+            locker.lock(rowId);
+
+            return mvPartitionStorage.scanVersions(rowId);
+        });
 
         Cursor<RowId> getFromHashIndexCursor = hashIndexStorage.get(hashIndexRow.indexColumns());
 
@@ -368,7 +376,10 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         checkStorageDestroyed(hashIndexStorage);
         checkStorageDestroyed(sortedIndexStorage);
 
-        assertThrows(StorageClosedException.class, () -> getAll(scanTimestampCursor));
+        assertThrows(StorageClosedException.class, () -> getAll(scanAtTimestampCursor));
+        assertThrows(StorageClosedException.class, () -> getAll(scanLatestCursor));
+
+        assertThrows(StorageClosedException.class, () -> getAll(scanVersionsCursor));
 
         assertThrows(StorageClosedException.class, () -> getAll(getFromHashIndexCursor));
 
