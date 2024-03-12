@@ -99,6 +99,7 @@ public class LeaseAgreement {
      *
      * @return Node id to propose a lease.
      */
+    @Nullable
     public String getRedirectTo() {
         assert ready() : "The method should be invoked only after the agreement is ready";
 
@@ -138,11 +139,7 @@ public class LeaseAgreement {
                     + "assignments={}].", lease.getLeaseholder(), lease, assignments);
 
             responseFut.complete(NOT_ACCEPTED_RESPONSE);
-
-            return;
-        }
-
-        if (currentTopologySnapshot != null) {
+        } else if (currentTopologySnapshot != null) {
             Set<String> nodeIds = currentTopologySnapshot.nodes().stream().map(LogicalNode::id).collect(toSet());
 
             if (!nodeIds.contains(lease.getLeaseholderId())) {
