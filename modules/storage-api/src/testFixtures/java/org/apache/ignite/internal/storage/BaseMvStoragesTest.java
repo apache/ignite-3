@@ -90,7 +90,7 @@ public abstract class BaseMvStoragesTest extends BaseIgniteAbstractTest {
 
                     assertNotNull(column, column.name());
 
-                    return column.schemaIndex();
+                    return column.positionInRow();
                 })
                 .toArray();
 
