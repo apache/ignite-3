@@ -45,7 +45,6 @@ import static org.mockito.ArgumentMatchers.isA;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -64,6 +63,7 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.calcite.jdbc.CalciteSchema;
@@ -78,13 +78,11 @@ import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.NodeLeftException;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.QueryPrefetchCallback;
-import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.TestCluster.TestNode;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTarget;
@@ -103,7 +101,6 @@ import org.apache.ignite.internal.sql.engine.message.ExecutionContextAwareMessag
 import org.apache.ignite.internal.sql.engine.message.MessageListener;
 import org.apache.ignite.internal.sql.engine.message.MessageService;
 import org.apache.ignite.internal.sql.engine.message.QueryStartRequest;
-import org.apache.ignite.internal.sql.engine.message.QueryStartResponse;
 import org.apache.ignite.internal.sql.engine.message.QueryStartResponseImpl;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
@@ -127,7 +124,6 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
-import org.apache.ignite.internal.util.ReverseIterator;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -649,6 +645,17 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         AtomicReference<AssertionError> errHolder = new AtomicReference<>();
         ExecutionService execService = executionServices.get(0);
 
+        Function<QueryPrefetchCallback, BaseQueryContext> createCtx = (callback) -> BaseQueryContext.builder()
+                .queryId(UUID.randomUUID())
+                .cancel(new QueryCancel())
+                .prefetchCallback(callback)
+                .frameworkConfig(
+                        Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
+                                .defaultSchema(wrap(schema))
+                                .build()
+                )
+                .build();
+
         QueryPrefetchCallback prefetchListener = new QueryPrefetchCallback() {
             @Override
             public void onPrefetchComplete(@Nullable Throwable err) {
@@ -659,7 +666,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
                     assertThat(sql, notNullValue());
 
-                    BaseQueryContext ctx = createContext(queriesQueue.isEmpty() ? null : this);
+                    BaseQueryContext ctx = createCtx.apply(queriesQueue.isEmpty() ? null : this);
                     InternalTransaction tx = new NoOpTransaction(nodeNames.get(0));
                     QueryPlan plan = prepare(sql, ctx);
 
@@ -696,7 +703,17 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         ExecutionService execService = executionServices.get(0);
         CompletableFuture<Void> prefetchFut = new CompletableFuture<>();
         IgniteInternalException expectedException = new IgniteInternalException(Common.INTERNAL_ERR, "Expected exception");
-        BaseQueryContext ctx = createContext(prefetchFut::completeExceptionally);
+
+        BaseQueryContext ctx = BaseQueryContext.builder()
+                .queryId(UUID.randomUUID())
+                .cancel(new QueryCancel())
+                .prefetchCallback(prefetchFut::completeExceptionally)
+                .frameworkConfig(
+                        Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
+                                .defaultSchema(wrap(schema))
+                                .build()
+                )
+                .build();
 
         testCluster.node(nodeNames.get(2)).interceptor((nodeName, msg, original) -> {
             if (msg instanceof QueryStartRequest) {
@@ -803,77 +820,6 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         assertThat(debugInfo3, equalTo(expectedOnNonCoordinator));
     }
 
-    /**
-     * Test ensures that hybrid clock propagates in two ways.
-     *
-     * <ul>
-     *     <li>From root node to leaf nodes (during query initialization}.</li>
-     *     <li>From leaf nodes to root node (when receiving a batch of rows).</li>
-     * </ul>
-     */
-    @Test
-    public void testClockPropagation() throws InterruptedException {
-        long yearDurationMs = ChronoUnit.YEARS.getDuration().toMillis();
-
-        // Setting a different time point on each node (initiator must have the highest time).
-        ReverseIterator<String> itr = new ReverseIterator<>(nodeNames);
-        while (itr.hasNext()) {
-            HybridClock clock = testCluster.nodes.get(itr.next()).clock;
-
-            clock.update(clock.now().addPhysicalTime(yearDurationMs));
-        }
-
-        CountDownLatch allQueryStartResponsesReceived = new CountDownLatch(4);
-        CountDownLatch continueExecutionLatch = new CountDownLatch(1);
-
-        ExecutionService execService = executionServices.get(0);
-        BaseQueryContext ctx = createContext();
-
-        QueryPlan plan = prepare("SELECT * FROM test_tbl", ctx);
-
-        InternalTransaction tx = new NoOpTransaction(nodeNames.get(0));
-        AsyncCursor<InternalSqlRow> cursor = execService.executePlan(tx, plan, ctx);
-
-        testCluster.nodes.get(nodeNames.get(0)).interceptor((senderNodeName, msg, original) -> {
-            if (msg instanceof QueryStartResponse) {
-                try {
-                    allQueryStartResponsesReceived.countDown();
-                    continueExecutionLatch.await(TIMEOUT_IN_MS, TimeUnit.MILLISECONDS);
-                } catch (InterruptedException e) {
-                    throw new RuntimeException(e);
-                }
-            }
-
-            original.onMessage(senderNodeName, msg);
-
-            return nullCompletedFuture();
-        });
-
-        allQueryStartResponsesReceived.await();
-
-        // Checks clock propagation from the root node to the leaves
-        // (node_1 must propagate clock to node_2 and node_3).
-        assertEquals(testCluster.nodes.get("node_1").clock.now().getPhysical(), testCluster.nodes.get("node_2").clock.now().getPhysical());
-        assertEquals(testCluster.nodes.get("node_1").clock.now().getPhysical(), testCluster.nodes.get("node_3").clock.now().getPhysical());
-
-        // Simulate that the clocks on nodes node_2 and node_3 have moved forward to check propagation from leaves to root node.
-        for (String nodeName : List.of("node_2", "node_3")) {
-            HybridClock clock = testCluster.nodes.get(nodeName).clock;
-
-            clock.update(clock.now().addPhysicalTime(yearDurationMs));
-        }
-
-        continueExecutionLatch.countDown();
-
-        await(cursor.requestNextAsync(100));
-
-        // Checks clock propagation from leave nodes to the root.
-        assertEquals(testCluster.nodes.get("node_3").clock.now().getPhysical(), testCluster.nodes.get("node_1").clock.now().getPhysical());
-        assertEquals(testCluster.nodes.get("node_3").clock.now().getPhysical(), testCluster.nodes.get("node_1").clock.now().getPhysical());
-
-        await(cursor.closeAsync());
-    }
-
     /** Creates an execution service instance for the node with given consistent id. */
     public ExecutionServiceImpl<Object[]> create(String nodeName) {
         if (!nodeNames.contains(nodeName)) {
@@ -891,7 +837,9 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         var mailboxRegistry = new CapturingMailboxRegistry(new MailboxRegistryImpl());
         mailboxes.add(mailboxRegistry);
 
-        var exchangeService = new ExchangeServiceImpl(mailboxRegistry, messageService, node.clock);
+        HybridClock clock = new HybridClockImpl();
+
+        var exchangeService = new ExchangeServiceImpl(mailboxRegistry, messageService, clock);
 
         var schemaManagerMock = mock(SqlSchemaManager.class);
 
@@ -953,7 +901,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 executableTableRegistry,
                 dependencyResolver,
                 (ctx, deps) -> node.implementor(ctx, mailboxRegistry, exchangeService, deps),
-                node.clock,
+                clock,
                 SHUTDOWN_TIMEOUT
         );
 
@@ -965,20 +913,14 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     private BaseQueryContext createContext() {
-        return createContext(null);
-    }
-
-    private BaseQueryContext createContext(@Nullable QueryPrefetchCallback prefetchCallback) {
         return BaseQueryContext.builder()
                 .queryId(UUID.randomUUID())
                 .cancel(new QueryCancel())
-                .prefetchCallback(prefetchCallback)
                 .frameworkConfig(
                         Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
                                 .defaultSchema(wrap(schema))
                                 .build()
                 )
-                .timeZoneId(SqlQueryProcessor.DEFAULT_TIME_ZONE_ID)
                 .build();
     }
 
@@ -1044,8 +986,6 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
             private final QueryTaskExecutor taskExecutor;
             private final String nodeName;
-
-            private final HybridClockImpl clock = new HybridClockImpl();
 
             private boolean scanPaused = false;
 
@@ -1154,10 +1094,6 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
             private CompletableFuture<Void> onReceive(String senderNodeName, NetworkMessage message) {
                 MessageListener original = (nodeName, msg) -> {
-                    if (msg instanceof TimestampAware) {
-                        clock.update(((TimestampAware) msg).timestamp());
-                    }
-
                     MessageListener listener = msgListeners.get(msg.messageType());
 
                     if (listener == null) {

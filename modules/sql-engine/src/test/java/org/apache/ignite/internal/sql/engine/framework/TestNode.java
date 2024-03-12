@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.apache.calcite.tools.Frameworks;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.ClusterService;
@@ -81,6 +82,7 @@ public class TestNode implements LifecycleAware {
     private final List<LifecycleAware> services = new ArrayList<>();
     volatile boolean exceptionRaised;
     private final IgniteSpinBusyLock holdLock;
+    private final HybridClock clock = new HybridClockImpl();
 
     /**
      * Constructs the object.
@@ -117,8 +119,6 @@ public class TestNode implements LifecycleAware {
 
         holdLock = new IgniteSpinBusyLock();
 
-        HybridClockImpl clock = new HybridClockImpl();
-
         messageService = registerService(new MessageServiceImpl(
                 nodeName, messagingService, taskExecutor, holdLock, clock
         ));
@@ -142,7 +142,7 @@ public class TestNode implements LifecycleAware {
                 tableRegistry,
                 dependencyResolver,
                 clock,
-                0
+                5_000
         ));
 
         registerService(new IgniteComponentLifecycleAwareAdapter(systemViewManager));
@@ -178,6 +178,10 @@ public class TestNode implements LifecycleAware {
 
     IgniteSpinBusyLock holdLock() {
         return holdLock;
+    }
+
+    HybridClock clock() {
+        return clock;
     }
 
     /**

@@ -24,12 +24,14 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.time.temporal.ChronoUnit;
 import java.util.BitSet;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
@@ -253,6 +255,56 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
         } finally {
             stoppedNode.holdLock().unblock();
         }
+    }
+
+    /** Checks the propagation of hybrid logical time from the initiator to other nodes. */
+    @Test
+    public void testHybridTimestampPropagationFromInitiator() {
+        cluster.start();
+
+        TestNode initiator = cluster.node("N1");
+
+        HybridClock initiatorClock = initiator.clock();
+        HybridClock otherNodeClock = cluster.node("N2").clock();
+
+        initiatorClock.update(initiatorClock.now().addPhysicalTime(ChronoUnit.YEARS.getDuration().toMillis()));
+
+        assertTrue(initiatorClock.now().after(otherNodeClock.now()));
+
+        QueryPlan plan = initiator.prepare("SELECT * FROM t1");
+
+        AsyncCursor<InternalSqlRow> cur = initiator.executePlan(plan);
+
+        await(cur.requestNextAsync(1));
+
+        assertEquals(initiator.clock().now().getPhysical(), otherNodeClock.now().getPhysical());
+
+        await(cur.closeAsync());
+    }
+
+    /** Checks the propagation of hybrid logical time from other nodes to the initiator. */
+    @Test
+    public void testHybridTimestampPropagationToInitiator() {
+        cluster.start();
+
+        TestNode initiator = cluster.node("N1");
+
+        HybridClock initiatorClock = initiator.clock();
+        HybridClock otherNodeClock = cluster.node("N2").clock();
+
+        otherNodeClock.update(otherNodeClock.now().addPhysicalTime(ChronoUnit.YEARS.getDuration().toMillis()));
+
+        assertTrue(otherNodeClock.now().after(initiatorClock.now()));
+
+        QueryPlan plan = initiator.prepare("SELECT * FROM t1");
+
+        AsyncCursor<InternalSqlRow> cur = initiator.executePlan(plan);
+
+        await(cur.requestNextAsync(10_000));
+
+        assertEquals(otherNodeClock.now().getPhysical(), initiatorClock.now().getPhysical());
+
+        await(cur.closeAsync());
     }
 
     private static IgniteRel lastNode(IgniteRel root) {
