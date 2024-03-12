@@ -68,7 +68,7 @@ public class FinishedReadOnlyTransactionTracker {
      * Send close cursors batch message to all cluster nodes.
      */
     public void broadcastClosedTransactions() {
-        Collection<UUID> txToSend = transactionInflights.readOnlyTxContextsReadyToFinish(MAX_FINISHED_TRANSACTIONS_IN_BATCH);
+        Collection<UUID> txToSend = transactionInflights.finishedReadOnlyTransactions(MAX_FINISHED_TRANSACTIONS_IN_BATCH);
 
         if (!txToSend.isEmpty()) {
             FinishedTransactionsBatchMessage message = FACTORY.finishedTransactionsBatchMessage()

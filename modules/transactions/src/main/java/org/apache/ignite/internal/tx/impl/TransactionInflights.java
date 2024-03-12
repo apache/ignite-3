@@ -96,10 +96,10 @@ public class TransactionInflights {
         });
 
         // Avoid completion under lock.
-        tuple.onRemovedInflights();
+        tuple.onInflightsRemoved();
     }
 
-    Collection<UUID> readOnlyTxContextsReadyToFinish(int limit) {
+    Collection<UUID> finishedReadOnlyTransactions(int limit) {
         return txCtxMap.entrySet().stream()
                 .filter(e -> e.getValue() instanceof ReadOnlyTxContext && e.getValue().isReadyToFinish())
                 .map(Entry::getKey)
@@ -173,9 +173,9 @@ public class TransactionInflights {
             inflights--;
         }
 
-        abstract void onRemovedInflights();
+        abstract void onInflightsRemoved();
 
-        abstract void finishTx(Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups);
+        abstract void finishTx(@Nullable Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups);
 
         abstract boolean isTxFinishing();
 
@@ -186,12 +186,12 @@ public class TransactionInflights {
         private volatile boolean markedFinished;
 
         @Override
-        public void onRemovedInflights() {
+        public void onInflightsRemoved() {
             // No-op.
         }
 
         @Override
-        public void finishTx(Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups) {
+        public void finishTx(@Nullable Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups) {
             markedFinished = true;
         }
 
@@ -286,7 +286,7 @@ public class TransactionInflights {
         }
 
         @Override
-        public void onRemovedInflights() {
+        public void onInflightsRemoved() {
             if (inflights == 0 && finishInProgressFuture != null) {
                 waitRepFut.complete(null);
             }
