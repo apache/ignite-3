@@ -23,7 +23,6 @@ import it.unimi.dsi.fastutil.longs.LongSet;
 import it.unimi.dsi.fastutil.longs.LongSets;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import org.apache.calcite.plan.RelOptCost;
 import org.apache.calcite.rel.BiRel;
 import org.apache.calcite.rel.RelNode;

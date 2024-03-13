@@ -84,7 +84,7 @@ public class ColocationGroup implements Serializable {
      * Get map of partitions per and nodes having an appropriate partition in OWNING state, calculated for
      * distributed tables, involved in query execution.
      */
-    public Map<Integer, NodeWithConsistencyToken> assignments() {
+    public Int2ObjectMap<NodeWithConsistencyToken> assignments() {
         return assignments;
     }
 

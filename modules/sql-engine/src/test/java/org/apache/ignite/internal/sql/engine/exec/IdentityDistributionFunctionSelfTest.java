@@ -26,7 +26,6 @@ import static org.hamcrest.Matchers.is;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import org.apache.calcite.rel.RelDistribution.Type;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;

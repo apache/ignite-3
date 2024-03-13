@@ -1045,7 +1045,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     return super.visit(rel);
                 }
 
-                private void enlist(int tableId, Map<Integer, NodeWithConsistencyToken> assignments) {
+                private void enlist(int tableId, Int2ObjectMap<NodeWithConsistencyToken> assignments) {
                     if (assignments.isEmpty()) {
                         return;
                     }
@@ -1054,7 +1054,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
                     tx.assignCommitPartition(new TablePartitionId(tableId, ThreadLocalRandom.current().nextInt(partsCnt)));
 
-                    for (Map.Entry<Integer, NodeWithConsistencyToken> partWithToken : assignments.entrySet()) {
+                    for (Map.Entry<Integer, NodeWithConsistencyToken> partWithToken : assignments.int2ObjectEntrySet()) {
                         TablePartitionId tablePartId = new TablePartitionId(tableId, partWithToken.getKey());
 
                         NodeWithConsistencyToken assignment = partWithToken.getValue();
@@ -1071,7 +1071,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     int tableId = rel.getTable().unwrap(IgniteTable.class).id();
 
                     ColocationGroup colocationGroup = mappedFragment.groupsBySourceId().get(rel.sourceId());
-                    Map<Integer, NodeWithConsistencyToken> assignments = colocationGroup.assignments();
+                    Int2ObjectMap<NodeWithConsistencyToken> assignments = colocationGroup.assignments();
 
                     enlist(tableId, assignments);
                 }
