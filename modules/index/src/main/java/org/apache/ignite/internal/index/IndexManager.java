@@ -17,10 +17,7 @@
 
 package org.apache.ignite.internal.index;
 
-import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static java.util.concurrent.CompletableFuture.runAsync;
-import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_CREATE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_REMOVED;
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
@@ -54,7 +51,7 @@ import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
-import org.apache.ignite.internal.table.SynchronousPriorityQueue;
+import org.apache.ignite.internal.table.LongPriorityQueue;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.LowWatermark;
 import org.apache.ignite.internal.table.distributed.PartitionSet;
@@ -97,8 +94,8 @@ public class IndexManager implements IgniteComponent {
     private final LowWatermark lowWatermark;
 
     /** A queue for deferred index destruction events. */
-    private final SynchronousPriorityQueue<DestroyIndexEvent> destructionEventsQueue =
-            new SynchronousPriorityQueue<>(DestroyIndexEvent::catalogVersion);
+    private final LongPriorityQueue<DestroyIndexEvent> destructionEventsQueue =
+            new LongPriorityQueue<>(DestroyIndexEvent::catalogVersion);
 
     /**
      * Constructor.
@@ -206,7 +203,7 @@ public class IndexManager implements IgniteComponent {
 
             // Retrieve descriptor during synchronous call, before the previous catalog version could be concurrently compacted.
             CatalogIndexDescriptor indexDescriptor = catalogService.index(indexId, previousCatalogVersion);
-            assert indexDescriptor != null : "index";
+            assert indexDescriptor != null : "indexId=" + indexId + ", catalogVersion=" + previousCatalogVersion;
 
             int tableId = indexDescriptor.tableId();
 
@@ -225,27 +222,19 @@ public class IndexManager implements IgniteComponent {
 
             List<DestroyIndexEvent> events = destructionEventsQueue.drainUpTo(newEarliestCatalogVersion);
 
-            if (events.isEmpty()) {
-                return nullCompletedFuture();
-            }
+            events.forEach(event -> destroyIndex(event.indexId(), event.tableId()));
 
-            List<CompletableFuture<Void>> futures = events.stream()
-                    .map(event -> destroyIndexAsync(event.indexId(), event.tableId()))
-                    .collect(toList());
-
-            return allOf(futures.toArray(CompletableFuture[]::new));
+            return nullCompletedFuture();
         });
     }
 
-    private CompletableFuture<Void> destroyIndexAsync(int indexId, int tableId) {
-        return runAsync(() -> inBusyLock(busyLock, () -> {
-            TableViewInternal table = tableManager.cachedTable(tableId);
+    private void destroyIndex(int indexId, int tableId) {
+        TableViewInternal table = tableManager.cachedTable(tableId);
 
-            if (table != null) {
-                // In case of DROP TABLE the table will be removed with all it's indexes.
-                table.unregisterIndex(indexId);
-            }
-        }), ioExecutor);
+        if (table != null) {
+            // In case of DROP TABLE the table will be removed with all it's indexes.
+            table.unregisterIndex(indexId);
+        }
     }
 
     private CompletableFuture<?> startIndexAsync(

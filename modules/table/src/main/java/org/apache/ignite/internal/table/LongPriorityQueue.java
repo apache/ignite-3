@@ -29,7 +29,7 @@ import java.util.function.ToLongFunction;
  *
  * @param <T> Item type.
  */
-public class SynchronousPriorityQueue<T> {
+public class LongPriorityQueue<T> {
     /** A queue. Guarded by itself. */
     private final PriorityQueue<T> queue;
     private final ToLongFunction<T> priorityExtractor;
@@ -39,7 +39,7 @@ public class SynchronousPriorityQueue<T> {
      *
      * @param priorityExtractor Priority extractor.
      */
-    public SynchronousPriorityQueue(ToLongFunction<T> priorityExtractor) {
+    public LongPriorityQueue(ToLongFunction<T> priorityExtractor) {
         this.priorityExtractor = priorityExtractor;
         this.queue = new PriorityQueue<>(Comparator.comparingLong(priorityExtractor));
     }

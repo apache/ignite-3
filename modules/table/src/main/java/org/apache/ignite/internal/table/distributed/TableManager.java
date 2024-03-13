@@ -166,7 +166,7 @@ import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.InternalTable;
-import org.apache.ignite.internal.table.SynchronousPriorityQueue;
+import org.apache.ignite.internal.table.LongPriorityQueue;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableRaftService;
 import org.apache.ignite.internal.table.TableViewInternal;
@@ -296,8 +296,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private final Map<Integer, TableImpl> startedTables = new ConcurrentHashMap<>();
 
     /** A queue for deferred table destruction events. */
-    private final SynchronousPriorityQueue<DestroyTableEvent> destructionEventsQueue =
-            new SynchronousPriorityQueue<>(DestroyTableEvent::catalogVersion);
+    private final LongPriorityQueue<DestroyTableEvent> destructionEventsQueue =
+            new LongPriorityQueue<>(DestroyTableEvent::catalogVersion);
 
     /** Local partitions. */
     private final Map<Integer, PartitionSet> localPartsByTableId = new ConcurrentHashMap<>();

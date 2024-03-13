@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.Consumer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.table.distributed.LowWatermark;
 import org.apache.ignite.internal.table.distributed.LowWatermarkChangedListener;
@@ -31,7 +32,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class TestLowWatermark implements LowWatermark {
     private final List<LowWatermarkChangedListener> listeners = new CopyOnWriteArrayList<>();
-    private volatile HybridTimestamp ts;
+    private volatile @Nullable HybridTimestamp ts;
 
     @Override
     public @Nullable HybridTimestamp getLowWatermark() {
@@ -48,6 +49,11 @@ public class TestLowWatermark implements LowWatermark {
         this.listeners.remove(listener);
     }
 
+    @Override
+    public void getLowWatermarkSafe(Consumer<HybridTimestamp> consumer) {
+        consumer.accept(ts);
+    }
+
     /**
      * Update low watermark and notify listeners.
      *
@@ -56,7 +62,7 @@ public class TestLowWatermark implements LowWatermark {
      */
     public CompletableFuture<Void> updateAndNotify(HybridTimestamp newTs) {
         assert newTs != null;
-        assert ts == null || ts.longValue() < newTs.longValue();
+        assert ts == null || ts.longValue() < newTs.longValue() : "ts=" + ts + ", newTs=" + newTs;
 
         this.ts = newTs;
 

@@ -44,7 +44,7 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.table.SynchronousPriorityQueue;
+import org.apache.ignite.internal.table.LongPriorityQueue;
 import org.apache.ignite.internal.table.distributed.LowWatermark;
 import org.apache.ignite.internal.table.distributed.LowWatermarkChangedListener;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
@@ -93,8 +93,8 @@ public class ClientPrimaryReplicaTracker {
     private final EventListener<PrimaryReplicaEventParameters> primaryReplicaEventListener = fromConsumer(this::onPrimaryReplicaChanged);
 
     /** A queue for deferred table destruction events. */
-    private final SynchronousPriorityQueue<DestroyTableEvent> destructionEventsQueue =
-            new SynchronousPriorityQueue<>(DestroyTableEvent::catalogVersion);
+    private final LongPriorityQueue<DestroyTableEvent> destructionEventsQueue =
+            new LongPriorityQueue<>(DestroyTableEvent::catalogVersion);
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 

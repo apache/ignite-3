@@ -29,12 +29,12 @@ import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests for {@link SynchronousPriorityQueue}.
+ * Tests for {@link LongPriorityQueue}.
  */
-public class SynchronousPriorityQueueSelfTest {
+public class LongPriorityQueueSelfTest {
     @Test
     void testEmptyQueue() {
-        SynchronousPriorityQueue<Item> queue = new SynchronousPriorityQueue<>(Item::timestamp);
+        LongPriorityQueue<Item> queue = new LongPriorityQueue<>(Item::timestamp);
 
         assertTrue(queue.isEmpty());
         assertThat(queue.size(), equalTo(0));
@@ -45,7 +45,7 @@ public class SynchronousPriorityQueueSelfTest {
 
     @Test
     void testQueueClear() {
-        SynchronousPriorityQueue<Item> queue = new SynchronousPriorityQueue<>(Item::timestamp);
+        LongPriorityQueue<Item> queue = new LongPriorityQueue<>(Item::timestamp);
 
         assertTrue(queue.isEmpty());
         assertThat(queue.size(), equalTo(0));
@@ -65,7 +65,7 @@ public class SynchronousPriorityQueueSelfTest {
 
     @Test
     void testDrainEdgeCases() {
-        SynchronousPriorityQueue<Item> queue = new SynchronousPriorityQueue<>(Item::timestamp);
+        LongPriorityQueue<Item> queue = new LongPriorityQueue<>(Item::timestamp);
 
         queue.enqueue(new Item(1, 300L));
         queue.enqueue(new Item(2, 100L));
@@ -99,7 +99,7 @@ public class SynchronousPriorityQueueSelfTest {
 
     @Test
     void testDrain() {
-        SynchronousPriorityQueue<Item> queue = new SynchronousPriorityQueue<>(Item::timestamp);
+        LongPriorityQueue<Item> queue = new LongPriorityQueue<>(Item::timestamp);
 
         queue.enqueue(new Item(1, 300L));
         queue.enqueue(new Item(2, 100L));

@@ -74,11 +74,13 @@ public class IndexUtils {
     }
 
     /**
-     * Registers all indexes that were created in the catalog for the table into the table for all partitions from {@code partitionSet}.
+     * Registers indexes from catalog, which are alive regarding the given LWM and belong to the given table, into the table for
+     * all partitions from {@code partitionSet}. The index is considered alive if is observable in the latest catalog version or
+     * in AVAILABLE state at some time since the LWM timestamp.
      *
      * <p>Under the hood, index storages and structures are created to work with them in other components.</p>
      *
-     * <p>It is recommended to call the method when updating the catalog in parallel cannot occur.</p>
+     * <p>The method must not be called concurrently with catalog update and LWM update.</p>
      *
      * <p>This method can be used both during node recovery and rebalancing to ensure that indexes are available before they are
      * accessed.</p>
