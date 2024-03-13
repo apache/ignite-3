@@ -239,7 +239,7 @@ class IndexStorageFactory {
 
             boolean replaced = indexMetaTree.putx(indexMeta);
 
-            assert !replaced;
+            assert !replaced : descriptor.id();
 
             return new IndexTreeAndMeta<>(tree, indexMeta);
         } catch (IgniteInternalCheckedException e) {
