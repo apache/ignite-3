@@ -56,6 +56,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.configuration.ConfigurationChangeException;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -161,6 +162,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
     private final long shutdownTimeout;
 
+    private final HybridClock clock;
+
     /**
      * Creates the execution services.
      *
@@ -187,6 +190,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             MappingService mappingService,
             ExecutableTableRegistry tableRegistry,
             ExecutionDependencyResolver dependencyResolver,
+            HybridClock clock,
             long shutdownTimeout
     ) {
         return new ExecutionServiceImpl<>(
@@ -204,6 +208,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                         mailboxRegistry,
                         exchangeSrvc,
                         deps),
+                clock,
                 shutdownTimeout
         );
     }
@@ -219,6 +224,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
      * @param taskExecutor Task executor.
      * @param handler Row handler.
      * @param implementorFactory Relational node implementor factory.
+     * @param clock Hybrid clock.
      */
     public ExecutionServiceImpl(
             MessageService messageService,
@@ -231,6 +237,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             ExecutableTableRegistry tableRegistry,
             ExecutionDependencyResolver dependencyResolver,
             ImplementorFactory<RowT> implementorFactory,
+            HybridClock clock,
             long shutdownTimeout
     ) {
         this.localNode = topSrvc.localMember();
@@ -244,6 +251,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         this.tableRegistry = tableRegistry;
         this.dependencyResolver = dependencyResolver;
         this.implementorFactory = implementorFactory;
+        this.clock = clock;
         this.shutdownTimeout = shutdownTimeout;
     }
 
@@ -716,6 +724,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     .txAttributes(txAttributes)
                     .schemaVersion(ctx.schemaVersion())
                     .timeZoneId(ctx.timeZoneId().getId())
+                    .timestampLong(clock.nowLong())
                     .build();
 
             return messageService.send(targetNodeName, request);
