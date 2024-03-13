@@ -126,7 +126,7 @@ public class IndexManager implements IgniteComponent {
     public CompletableFuture<Void> start() {
         LOG.debug("Index manager is about to start");
 
-        recoverDeferredQueue();
+        recoverDestructionQueue();
 
         catalogService.listen(INDEX_CREATE, (CreateIndexEventParameters parameters) -> onIndexCreate(parameters));
         catalogService.listen(INDEX_REMOVED, fromConsumer(this::onIndexRemoved));
@@ -289,7 +289,7 @@ public class IndexManager implements IgniteComponent {
     }
 
     /** Recover deferred destroy events. */
-    private void recoverDeferredQueue() {
+    private void recoverDestructionQueue() {
         // LWM starts updating only after the node is restored.
         HybridTimestamp lwm = lowWatermark.getLowWatermark();
 
