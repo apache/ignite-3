@@ -35,6 +35,7 @@ import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
+import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -74,7 +75,7 @@ import org.jetbrains.annotations.Nullable;
  *       Don't block the client for too long, it is better to miss the primary than to delay the request.
  */
 public class ClientPrimaryReplicaTracker {
-        private final ConcurrentHashMap<TablePartitionId, ReplicaHolder> primaryReplicas = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<TablePartitionId, ReplicaHolder> primaryReplicas = new ConcurrentHashMap<>();
 
     private final AtomicLong maxStartTime = new AtomicLong();
 
@@ -89,6 +90,7 @@ public class ClientPrimaryReplicaTracker {
     private final LowWatermark lowWatermark;
 
     private final LowWatermarkChangedListener lwmListener = this::onLwmChanged;
+    private final EventListener<CreateTableEventParameters> createTableEventListener = fromConsumer(this::onTableCreate);
     private final EventListener<DropTableEventParameters> dropTableEventListener = fromConsumer(this::onTableDrop);
     private final EventListener<PrimaryReplicaEventParameters> primaryReplicaEventListener = fromConsumer(this::onPrimaryReplicaChanged);
 
@@ -268,6 +270,7 @@ public class ClientPrimaryReplicaTracker {
         maxStartTime.set(clock.nowLong());
 
         placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, primaryReplicaEventListener);
+        catalogService.listen(CatalogEvent.TABLE_CREATE, createTableEventListener);
         catalogService.listen(CatalogEvent.TABLE_DROP, dropTableEventListener);
         lowWatermark.addUpdateListener(lwmListener);
     }
@@ -282,6 +285,7 @@ public class ClientPrimaryReplicaTracker {
 
         lowWatermark.removeUpdateListener(lwmListener);
         catalogService.removeListener(CatalogEvent.TABLE_DROP, dropTableEventListener);
+        catalogService.removeListener(CatalogEvent.TABLE_CREATE, createTableEventListener);
         placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, primaryReplicaEventListener);
         primaryReplicas.clear();
     }
@@ -298,23 +302,31 @@ public class ClientPrimaryReplicaTracker {
         });
     }
 
+    private void onTableCreate(CreateTableEventParameters parameters) {
+        inBusyLock(busyLock, () -> {
+            int tableId = parameters.tableId();
+            int catalogVersion = parameters.catalogVersion();
+
+            // Retrieve descriptor during synchronous call, before the previous catalog version could be concurrently compacted.
+            int partitions = getTablePartitionsFromCatalog(catalogService, catalogVersion, tableId);
+
+            for (int partition = 0; partition < partitions; partition++) {
+                TablePartitionId tablePartitionId = new TablePartitionId(tableId, partition);
+                primaryReplicas.put(tablePartitionId, new ReplicaHolder(null, null));
+            }
+        });
+    }
+
     private void onTableDrop(DropTableEventParameters parameters) {
         inBusyLock(busyLock, () -> {
-            DropTableEventParameters event = parameters;
-
-            int tableId = event.tableId();
-            int catalogVersion = event.catalogVersion();
+            int tableId = parameters.tableId();
+            int catalogVersion = parameters.catalogVersion();
             int previousVersion = catalogVersion - 1;
 
             // Retrieve descriptor during synchronous call, before the previous catalog version could be concurrently compacted.
-            CatalogTableDescriptor tableDescriptor = catalogService.table(tableId, previousVersion);
-            assert tableDescriptor != null : "tableId=" + tableId + ", catalogVersion=" + previousVersion;
+            int partitions = getTablePartitionsFromCatalog(catalogService, previousVersion, tableId);
 
-            int zoneId = tableDescriptor.zoneId();
-            CatalogZoneDescriptor zoneDescriptor = catalogService.zone(zoneId, previousVersion);
-            assert zoneDescriptor != null : "zoneId=" + zoneId + ", catalogVersion=" + previousVersion;
-
-            destructionEventsQueue.enqueue(new DestroyTableEvent(catalogVersion, tableId, zoneDescriptor.partitions()));
+            destructionEventsQueue.enqueue(new DestroyTableEvent(catalogVersion, tableId, partitions));
         });
     }
 
@@ -333,7 +345,6 @@ public class ClientPrimaryReplicaTracker {
     private void removeTable(int tableId, int partitions) {
         for (int partition = 0; partition < partitions; partition++) {
             TablePartitionId tablePartitionId = new TablePartitionId(tableId, partition);
-            // TODO https://issues.apache.org/jira/browse/IGNITE-21738 Fix potential race.
             primaryReplicas.remove(tablePartitionId);
         }
     }
@@ -341,10 +352,8 @@ public class ClientPrimaryReplicaTracker {
     private void updatePrimaryReplica(TablePartitionId tablePartitionId, HybridTimestamp startTime, String nodeName) {
         long startTimeLong = startTime.longValue();
 
-        primaryReplicas.compute(tablePartitionId, (key, existingVal) -> {
-            if (existingVal != null
-                    && existingVal.leaseStartTime != null
-                    && existingVal.leaseStartTime.longValue() >= startTimeLong) {
+        primaryReplicas.computeIfPresent(tablePartitionId, (key, existingVal) -> {
+            if (existingVal.leaseStartTime != null && existingVal.leaseStartTime.longValue() >= startTimeLong) {
                 return existingVal;
             }
 
@@ -354,12 +363,24 @@ public class ClientPrimaryReplicaTracker {
         maxStartTime.updateAndGet(value -> Math.max(value, startTimeLong));
     }
 
+    private static int getTablePartitionsFromCatalog(CatalogService catalogService, int catalogVersion, int tableId) {
+        CatalogTableDescriptor tableDescriptor = catalogService.table(tableId, catalogVersion);
+        assert tableDescriptor != null : "tableId=" + tableId + ", catalogVersion=" + catalogVersion;
+
+        int zoneId = tableDescriptor.zoneId();
+
+        CatalogZoneDescriptor zoneDescriptor = catalogService.zone(zoneId, catalogVersion);
+        assert zoneDescriptor != null : "zoneId=" + zoneId + ", catalogVersion=" + catalogVersion;
+
+        return zoneDescriptor.partitions();
+    }
+
     private static class ReplicaHolder {
-        final String nodeName;
+        @Nullable final String nodeName;
 
-        final HybridTimestamp leaseStartTime;
+        @Nullable final HybridTimestamp leaseStartTime;
 
-        ReplicaHolder(String nodeName, HybridTimestamp leaseStartTime) {
+        ReplicaHolder(@Nullable String nodeName, @Nullable HybridTimestamp leaseStartTime) {
             this.nodeName = nodeName;
             this.leaseStartTime = leaseStartTime;
         }
