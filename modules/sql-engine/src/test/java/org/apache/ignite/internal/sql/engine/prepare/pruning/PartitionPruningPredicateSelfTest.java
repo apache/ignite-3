@@ -19,7 +19,9 @@ package org.apache.ignite.internal.sql.engine.prepare.pruning;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -119,7 +121,7 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
         PartitionPruningPredicate predicate = new PartitionPruningPredicate(table, columns, new Object[0]);
 
         List<String> nodeNames = List.of("n1", "n2", "n3");
-        Map<Integer, NodeWithConsistencyToken> assignments = randomAssignments(table, nodeNames);
+        Int2ObjectMap<NodeWithConsistencyToken> assignments = randomAssignments(table, nodeNames);
         ColocationGroup group = new ColocationGroup(List.of(0L), nodeNames, assignments);
 
         expectPartitionsPruned(table, predicate, group, val);
@@ -149,7 +151,7 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
         PartitionPruningPredicate predicate = new PartitionPruningPredicate(table, columns, dynamicParameters);
 
         List<String> nodeNames = List.of("n1", "n2", "n3");
-        Map<Integer, NodeWithConsistencyToken> assignments = randomAssignments(table, nodeNames);
+        Int2ObjectMap<NodeWithConsistencyToken> assignments = randomAssignments(table, nodeNames);
         ColocationGroup group = new ColocationGroup(List.of(0L), nodeNames, assignments);
 
         expectPartitionsPruned(table, predicate, group, val);
@@ -206,13 +208,15 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
         return new PartitionWithConsistencyToken(p, expected.enlistmentConsistencyToken());
     }
 
-    private static Map<Integer, NodeWithConsistencyToken> randomAssignments(IgniteTable table, List<String> nodeNames) {
-        return IntStream.range(0, table.partitions())
+    private static Int2ObjectMap<NodeWithConsistencyToken> randomAssignments(IgniteTable table, List<String> nodeNames) {
+        Map<Integer, NodeWithConsistencyToken> map = IntStream.range(0, table.partitions())
                 .mapToObj(i -> {
                     String nodeName = nodeNames.get(i % nodeNames.size());
                     return new NodeWithConsistencyToken(nodeName, i);
                 })
                 .collect(Collectors.toMap(k -> (int) k.enlistmentConsistencyToken(), Function.identity()));
+
+        return new Int2ObjectOpenHashMap<>(map);
     }
 
     private Object generateFieldValue(IgniteTable table, int index) {

@@ -23,6 +23,7 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -55,7 +56,8 @@ public class IdentityDistributionFunctionSelfTest {
             .addField(NativeTypes.STRING)
             .build();
 
-    private final ColocationGroup colocationGroup = new ColocationGroup(List.of(1L), List.of(NODE_1, NODE_2, NODE_3), Map.of());
+    private final ColocationGroup colocationGroup = new ColocationGroup(List.of(1L), List.of(NODE_1, NODE_2, NODE_3),
+            Int2ObjectMaps.emptyMap());
     private final DestinationFactory<Object[]> destinationFactory = new DestinationFactory<>(rowHandler, null);
 
     @Test

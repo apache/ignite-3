@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec.mapping;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -40,12 +41,12 @@ public class ColocationGroup implements Serializable {
 
     private final List<String> nodeNames;
 
-    private final Map<Integer, NodeWithConsistencyToken> assignments;
+    private final Int2ObjectMap<NodeWithConsistencyToken> assignments;
 
     private final Map<String, List<PartitionWithConsistencyToken>> partitionsPerNode;
 
     /** Constructor. */
-    public ColocationGroup(List<Long> sourceIds, List<String> nodeNames, Map<Integer, NodeWithConsistencyToken> assignments) {
+    public ColocationGroup(List<Long> sourceIds, List<String> nodeNames, Int2ObjectMap<NodeWithConsistencyToken> assignments) {
         this.sourceIds = Objects.requireNonNull(sourceIds, "sourceIds");
         this.nodeNames = Objects.requireNonNull(nodeNames, "nodeNames");
         this.assignments = Objects.requireNonNull(assignments, "assignments");
@@ -56,7 +57,7 @@ public class ColocationGroup implements Serializable {
     public ColocationGroup(
             List<Long> sourceIds,
             List<String> nodeNames,
-            Map<Integer, NodeWithConsistencyToken> assignments,
+            Int2ObjectMap<NodeWithConsistencyToken> assignments,
             Map<String, List<PartitionWithConsistencyToken>> partitionsPerNode
     ) {
         this.sourceIds = Objects.requireNonNull(sourceIds, "sourceIds");

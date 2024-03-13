@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec.mapping;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
@@ -82,5 +83,5 @@ public interface ExecutionTargetFactory {
      * @param target A target to resolve assignments from.
      * @return Assignments the target represents. Never null.
      */
-    Map<Integer, NodeWithConsistencyToken> resolveAssignments(ExecutionTarget target);
+    Int2ObjectMap<NodeWithConsistencyToken> resolveAssignments(ExecutionTarget target);
 }

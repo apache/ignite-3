@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.exec.mapping.smallcluster;
 import static org.apache.ignite.internal.util.IgniteUtils.isPow2;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.ArrayList;
 import java.util.List;
@@ -60,9 +61,9 @@ abstract class AbstractTarget implements ExecutionTarget {
         return result;
     }
 
-    Map<Integer, NodeWithConsistencyToken> assignments(List<String> nodeNames) {
+    Int2ObjectMap<NodeWithConsistencyToken> assignments(List<String> nodeNames) {
         if (!(this instanceof PartitionedTarget)) {
-            return Map.of();
+            return Int2ObjectMaps.emptyMap();
         }
 
         PartitionedTarget partitionedTarget = (PartitionedTarget) this;

@@ -23,8 +23,11 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.Collections;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.schema.PartitionCalculator;
@@ -98,19 +101,22 @@ class DestinationFactory<RowT> {
 
                     var resolver = new TablePartitionExtractor<>(calculator.get(), keys.toIntArray(), tableDescriptor, rowHandler);
 
-                    return new Partitioned<>(group.assignments(), resolver);
+                    Map<Integer, String> partToNode = group.assignments().entrySet().stream()
+                            .collect(Collectors.toMap(Entry::getKey, e -> e.getValue().name()));
+
+                    return new Partitioned<>(partToNode, resolver);
                 }
 
                 var resolver = new RehashingPartitionExtractor<>(group.nodeNames().size(), keys.toIntArray(), rowHandler);
 
-                Int2ObjectMap<NodeWithConsistencyToken> assignments = new Int2ObjectOpenHashMap<>();
+                Int2ObjectMap<String> partToNode = new Int2ObjectOpenHashMap<>();
                 int pos = 0;
 
                 for (String name : group.nodeNames()) {
-                    assignments.put(pos++, new NodeWithConsistencyToken(name, 0));
+                    partToNode.put(pos++, name);
                 }
 
-                return new Partitioned<>(assignments, resolver);
+                return new Partitioned<>(partToNode, resolver);
             }
             default:
                 throw new IllegalStateException("Unsupported distribution function.");
