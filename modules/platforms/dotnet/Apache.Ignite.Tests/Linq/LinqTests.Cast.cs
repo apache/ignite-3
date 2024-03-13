@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests.Linq;
 
 using System.Linq;
+using System.Numerics;
 using NUnit.Framework;
 
 /// <summary>
@@ -28,7 +29,6 @@ public partial class LinqTests
     [Test]
     public void TestProjectionWithCastIntoAnonymousType()
     {
-        // TODO IGNITE-18258 decimal, BigInteger.
         // ReSharper disable once RedundantCast
         var query = PocoIntView.AsQueryable()
             .Select(x => new
@@ -38,7 +38,8 @@ public partial class LinqTests
                 Long = (long?)x.Val,
                 Float = (float?)x.Val / 1000,
                 Double = (double?)x.Val / 2000,
-                Decimal0 = (decimal?)x.Val / 200m
+                Decimal0 = (decimal?)x.Val / 200m,
+                BigInt = (BigInteger?)x.Val
             })
             .OrderByDescending(x => x.Long);
 
@@ -53,6 +54,8 @@ public partial class LinqTests
         // TODO IGNITE-21743 Cast to decimal loses precision: "Expected: 4.5m But was: 5m"
         // Assert.AreEqual(900m / 200, res[0].Decimal0);
         Assert.AreEqual(5m, res[0].Decimal0);
+
+        Assert.AreEqual(new BigInteger(900m), res[0].BigInt);
 
         StringAssert.Contains(
             "select cast((_T0.VAL / ?) as tinyint) as BYTE, " +
