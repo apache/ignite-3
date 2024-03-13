@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.message;
 
 import org.apache.ignite.internal.network.annotations.Marshallable;
 import org.apache.ignite.internal.network.annotations.Transferable;
+import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
 
@@ -26,7 +27,7 @@ import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
  * QueryStartRequest interface.
  */
 @Transferable(value = SqlQueryMessageGroup.QUERY_START_REQUEST)
-public interface QueryStartRequest extends ExecutionContextAwareMessage {
+public interface QueryStartRequest extends TimestampAware, ExecutionContextAwareMessage {
     /**
      * Get fragment description.
      */
