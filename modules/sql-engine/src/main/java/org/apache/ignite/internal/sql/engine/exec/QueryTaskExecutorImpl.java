@@ -93,10 +93,10 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor {
                                 fragmentId,
                                 qryId);
 
-                        assert false;
                         failureProcessor.process(
                                 new FailureContext(CRITICAL_ERROR, new IgniteException(INTERNAL_ERR, message, e))
                         );
+                        assert false;
                     }
                 },
                 commandIdx
