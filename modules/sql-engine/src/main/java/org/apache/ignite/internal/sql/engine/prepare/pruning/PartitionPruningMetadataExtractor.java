@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.prepare.pruning;
 
-import static org.apache.calcite.rel.core.TableModify.Operation.DELETE;
 import static org.apache.calcite.rel.core.TableModify.Operation.INSERT;
 import static org.apache.ignite.internal.sql.engine.util.RexUtils.replaceInputRefs;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
@@ -38,7 +37,6 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexDynamicParam;
-import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexLocalRef;
 import org.apache.calcite.rex.RexNode;
@@ -51,11 +49,13 @@ import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.Util;
 import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
+import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
+import org.apache.ignite.internal.sql.engine.rel.IgniteTrimExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteUnionAll;
 import org.apache.ignite.internal.sql.engine.rel.IgniteValues;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
@@ -153,49 +153,70 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
 
     private static class ModifyNodeShuttle extends IgniteRelShuttle {
         List<RexNode> projections = null;
-        IgniteValues values = null;
-        List<List<RexNode>> exprProjections = null;
-        boolean collectExprProjections = false;
+        List<List<RexNode>> expressions = null;
+        boolean unionRaised = false;
 
         /** {@inheritDoc} */
         @Override
         public IgniteRel visit(IgniteProject rel) {
-            if (projections == null && !collectExprProjections) {
+            if (!unionRaised) {
+                // projection before union
+                assert projections == null;
+                // unexpected branch
+                if (projections != null) {
+                    throw Util.FoundOne.NULL;
+                }
                 projections = rel.getProjects();
             } else {
-                if (exprProjections == null) {
-                    exprProjections = new ArrayList<>();
+                // projections after union
+                if (expressions == null) {
+                    expressions = new ArrayList<>();
                 }
-                exprProjections.add(rel.getProjects());
+                expressions.add(rel.getProjects());
             }
+
             return super.visit(rel);
         }
 
         /** {@inheritDoc} */
         @Override
         public IgniteRel visit(IgniteValues rel) {
-            if (!collectExprProjections) {
-                if (values != null) {
-                    // unexpected branch
-                    throw Util.FoundOne.NULL;
-                }
-                values = rel;
+            if (expressions == null) {
+                expressions = new ArrayList<>();
             }
+
+            List<List<RexNode>> values = Commons.cast(rel.getTuples());
+
+            expressions.addAll(values);
+
             return super.visit(rel);
         }
 
         /** {@inheritDoc} */
         @Override
         public IgniteRel visit(IgniteUnionAll rel) {
-            collectExprProjections = true;
+            unionRaised = true;
             return super.visit(rel);
+        }
+
+        @Override
+        protected void visitChild(IgniteRel parent, int i, IgniteRel child) {
+            if (child instanceof IgniteProject
+                    || child instanceof IgniteValues
+                    || child instanceof IgniteUnionAll
+                    || child instanceof IgniteExchange
+                    || child instanceof IgniteTrimExchange) {
+                super.visitChild(parent, i, child);
+            } else {
+                throw Util.FoundOne.NULL;
+            }
         }
     }
 
     /** {@inheritDoc} */
     @Override
     public IgniteRel visit(IgniteTableModify rel) {
-        if (rel.getOperation() != INSERT && rel.getOperation() != DELETE) {
+        if (rel.getOperation() != INSERT) {
             return super.visit(rel);
         }
 
@@ -211,7 +232,7 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
             return rel;
         }
 
-        extractFromValues(rel.sourceId(), table, modify.values, modify.projections, modify.exprProjections, rexBuilder);
+        extractFromValues(rel.sourceId(), table, modify.projections, modify.expressions, rexBuilder);
 
         return super.visit(rel);
     }
@@ -219,12 +240,11 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
     private void extractFromValues(
             long sourceId,
             IgniteTable table,
-            @Nullable IgniteValues vals,
             @Nullable List<RexNode> projections,
-            @Nullable List<List<RexNode>> exprProjections,
+            @Nullable List<List<RexNode>> expressions,
             RexBuilder rexBuilder
     ) {
-        if (vals == null && exprProjections == null) {
+        if (expressions == null) {
             return;
         }
 
@@ -241,24 +261,6 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
         Mappings.TargetMapping mapping = null;
 
         if (projections != null) {
-            IntArrayList projList = new IntArrayList();
-            for (RexNode node : projections) {
-                if (node instanceof RexInputRef) {
-                    int idx = ((RexInputRef) node).getIndex();
-                    if (keysList.contains(idx)) {
-                        projList.add(((RexInputRef) node).getIndex());
-                    }
-                } else {
-                    if (!isValueExpr(node)) {
-                        return;
-                    }
-                }
-            }
-
-            if (!projList.containsAll(keysList)) {
-                return;
-            }
-
             projections = replaceInputRefs(projections);
 
             mapping = RexUtils.inversePermutation(projections,
@@ -269,9 +271,15 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
 
         RelDataType rowTypes = table.getRowType(Commons.typeFactory());
 
-        List<List<RexNode>> dataRows = vals != null ? Commons.cast(vals.getTuples()) : exprProjections;
+        boolean dynParamsFound = false;
 
-        for (List<RexNode> items : dataRows) {
+        for (List<RexNode> items : expressions) {
+            // if dynamic parameters are present seems we need to skip the next one gathered from values and useless here.
+            if (dynParamsFound) {
+                dynParamsFound = false;
+                continue;
+            }
+
             List<RexNode> andNodes = new ArrayList<>(keysList.size());
             for (int key : keysList) {
                 RexLocalRef ref;
@@ -293,6 +301,8 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
             } else {
                 andEqNodes.add(andNodes.get(0));
             }
+
+            dynParamsFound = items.stream().anyMatch(RexDynamicParam.class::isInstance);
         }
 
         if (!nullOrEmpty(andEqNodes)) {
