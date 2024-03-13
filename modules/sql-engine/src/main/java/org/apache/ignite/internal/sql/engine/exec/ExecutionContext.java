@@ -45,6 +45,7 @@ import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -321,13 +322,14 @@ public class ExecutionContext<RowT> implements DataContext {
                     task.run();
                 }
             } catch (Throwable e) {
-                onError.accept(e);
+                Throwable unwrappedException = ExceptionUtils.unwrapCause(e);
+                onError.accept(unwrappedException);
 
-                if (e instanceof IgniteException) {
+                if (unwrappedException instanceof IgniteException) {
                     return;
                 }
 
-                if (e instanceof AssertionError) {
+                if (unwrappedException instanceof AssertionError) {
                     // Just print assertion error, prevent to handle by failhandler on higher level.
                     LOG.warn("Unexpected exception", e);
                     return;
