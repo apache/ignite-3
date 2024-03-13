@@ -315,6 +315,8 @@ public class BinaryTupleBuilder {
      * @return {@code this} for chaining.
      */
     public BinaryTupleBuilder appendDecimalNotNull(BigDecimal value, int scale) {
+        // TODO: Inefficient serialization, we should store the unscaled value and scale separately.
+        // Otherwise for big values with lots of trailing zeros we will waste a lot of space.
         putBytes(value.setScale(scale, RoundingMode.HALF_UP).unscaledValue().toByteArray());
         return proceed();
     }
