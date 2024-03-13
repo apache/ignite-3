@@ -70,22 +70,24 @@ class DdlToCatalogCommandConverter {
         PrimaryKeyIndexType pkIndexType = cmd.primaryIndexType();
         CatalogPrimaryKey primaryKey;
 
-        if (pkIndexType == PrimaryKeyIndexType.SORTED) {
-            List<CatalogColumnCollation> collations = cmd.primaryKeyCollations().stream()
-                    .map(DdlToCatalogCommandConverter::convert)
-                    .collect(Collectors.toList());
+        switch (pkIndexType) {
+            case SORTED:
+                List<CatalogColumnCollation> collations = cmd.primaryKeyCollations().stream()
+                        .map(DdlToCatalogCommandConverter::convert)
+                        .collect(Collectors.toList());
 
-            primaryKey = CatalogSortedPrimaryKey.builder()
-                    .columns(cmd.primaryKeyColumns())
-                    .collations(collations)
-                    .build();
-
-        } else if (pkIndexType == PrimaryKeyIndexType.HASH) {
-            primaryKey = CatalogHashPrimaryKey.builder()
-                    .columns(cmd.primaryKeyColumns())
-                    .build();
-        } else {
-            throw new IllegalArgumentException("Unexpected primary key index type: " + pkIndexType);
+                primaryKey = CatalogSortedPrimaryKey.builder()
+                        .columns(cmd.primaryKeyColumns())
+                        .collations(collations)
+                        .build();
+                break;
+            case HASH:
+                primaryKey = CatalogHashPrimaryKey.builder()
+                        .columns(cmd.primaryKeyColumns())
+                        .build();
+                break;
+            default:
+                throw new IllegalArgumentException("Unexpected primary key index type: " + pkIndexType);
         }
 
         return org.apache.ignite.internal.catalog.commands.CreateTableCommand.builder()

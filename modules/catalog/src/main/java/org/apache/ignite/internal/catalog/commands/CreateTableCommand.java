@@ -282,6 +282,8 @@ public class CreateTableCommand extends AbstractTableCommand {
             } else if (primaryKey != null) {
                 colocationColumns = primaryKey.columns();
             } else {
+                // All validation is done inside validate method of CreateTableCommand,
+                // Pass no colocation columns, because this command is going to be rejected anyway as no primary key is specified.
                 colocationColumns = null;
             }
 
