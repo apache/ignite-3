@@ -245,8 +245,7 @@ public class LowWatermarkImpl implements IgniteComponent, LowWatermark {
             }
 
             return CompletableFuture.allOf(res.toArray(CompletableFuture[]::new));
-        }
-        finally {
+        } finally {
             lwmLock.unlock();
         }
     }
@@ -255,9 +254,8 @@ public class LowWatermarkImpl implements IgniteComponent, LowWatermark {
     public void getLowWatermarkSafe(Consumer<HybridTimestamp> consumer) {
         lwmLock.lock();
         try {
-           consumer.accept(lowWatermark);
-        }
-        finally {
+            consumer.accept(lowWatermark);
+        } finally {
             lwmLock.unlock();
         }
     }
