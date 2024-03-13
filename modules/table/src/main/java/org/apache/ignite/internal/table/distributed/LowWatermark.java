@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed;
 
+import java.util.function.Consumer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.jetbrains.annotations.Nullable;
 
@@ -32,4 +33,7 @@ public interface LowWatermark {
 
     /** Unsubscribes on watermark changes. */
     void removeUpdateListener(LowWatermarkChangedListener listener);
+
+    /** Runs the provided {@code consumer} under the {@code lock} preventing concurrent LWM update. */
+    void getLowWatermarkSafe(Consumer<HybridTimestamp> consumer);
 }

@@ -290,7 +290,10 @@ public class IndexManager implements IgniteComponent {
 
     /** Recover deferred destroy events. */
     private void recoverDeferredQueue() {
-        int earliestCatalogVersion = catalogService.activeCatalogVersion(hybridTimestampToLong(lowWatermark.getLowWatermark()));
+        // LWM starts updating only after the node is restored.
+        HybridTimestamp lwm = lowWatermark.getLowWatermark();
+
+        int earliestCatalogVersion = catalogService.activeCatalogVersion(hybridTimestampToLong(lwm));
         int latestCatalogVersion = catalogService.latestCatalogVersion();
 
         for (int catalogVersion = latestCatalogVersion - 1; catalogVersion >= earliestCatalogVersion; catalogVersion--) {

@@ -32,6 +32,9 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Consumer;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -86,6 +89,8 @@ public class LowWatermarkImpl implements IgniteComponent, LowWatermark {
     private final AtomicReference<ScheduledFuture<?>> lastScheduledTaskFuture = new AtomicReference<>();
 
     private final FailureProcessor failureProcessor;
+
+    private final Lock lwmLock = new ReentrantLock();
 
     /**
      * Constructor.
@@ -232,12 +237,29 @@ public class LowWatermarkImpl implements IgniteComponent, LowWatermark {
             return nullCompletedFuture();
         }
 
-        var res = new ArrayList<CompletableFuture<?>>();
-        for (LowWatermarkChangedListener updateListener : updateListeners) {
-            res.add(updateListener.onLwmChanged(lowWatermark));
-        }
+        lwmLock.lock();
+        try {
+            var res = new ArrayList<CompletableFuture<?>>();
+            for (LowWatermarkChangedListener updateListener : updateListeners) {
+                res.add(updateListener.onLwmChanged(lowWatermark));
+            }
 
-        return CompletableFuture.allOf(res.toArray(CompletableFuture[]::new));
+            return CompletableFuture.allOf(res.toArray(CompletableFuture[]::new));
+        }
+        finally {
+            lwmLock.unlock();
+        }
+    }
+
+    @Override
+    public void getLowWatermarkSafe(Consumer<HybridTimestamp> consumer) {
+        lwmLock.lock();
+        try {
+           consumer.accept(lowWatermark);
+        }
+        finally {
+            lwmLock.unlock();
+        }
     }
 
     private void scheduleUpdateLowWatermarkBusy() {
