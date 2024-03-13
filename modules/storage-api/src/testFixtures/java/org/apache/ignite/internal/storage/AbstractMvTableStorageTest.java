@@ -117,13 +117,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
     protected final CatalogService catalogService = mock(CatalogService.class);
 
-    @SuppressWarnings("resource")
-    private static void checkStorageDestroyed(SortedIndexStorage storage) {
-        checkStorageDestroyed((IndexStorage) storage);
-
-        assertThrows(StorageClosedException.class, () -> storage.scan(null, null, GREATER));
-    }
-
     @AfterEach
     protected void tearDown() throws Exception {
         if (tableStorage != null) {
@@ -325,6 +318,47 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertThrows(StorageClosedException.class, () -> storage.put(mock(IndexRow.class)));
 
         assertThrows(StorageClosedException.class, () -> storage.remove(mock(IndexRow.class)));
+    }
+
+    @SuppressWarnings("resource")
+    private static void checkStorageDestroyed(SortedIndexStorage storage) {
+        checkStorageDestroyed((IndexStorage) storage);
+
+        assertThrows(StorageClosedException.class, () -> storage.scan(null, null, GREATER));
+    }
+
+    @SuppressWarnings({"resource", "deprecation"})
+    private void checkStorageDestroyed(MvPartitionStorage storage) {
+        int partId = PARTITION_ID;
+
+        assertThrows(StorageClosedException.class, () -> storage.runConsistently(locker -> null));
+
+        assertThrows(StorageClosedException.class, storage::flush);
+
+        assertThrows(StorageClosedException.class, storage::lastAppliedIndex);
+        assertThrows(StorageClosedException.class, storage::lastAppliedTerm);
+        assertThrows(StorageClosedException.class, storage::committedGroupConfiguration);
+
+        RowId rowId = new RowId(partId);
+
+        HybridTimestamp timestamp = clock.now();
+
+        assertThrows(StorageClosedException.class, () -> storage.read(new RowId(PARTITION_ID), timestamp));
+
+        BinaryRow binaryRow = binaryRow(new TestKey(0, "0"), new TestValue(1, "1"));
+
+        assertThrows(StorageClosedException.class, () -> storage.addWrite(rowId, binaryRow, UUID.randomUUID(), COMMIT_TABLE_ID, partId));
+        assertThrows(StorageClosedException.class, () -> storage.commitWrite(rowId, timestamp));
+        assertThrows(StorageClosedException.class, () -> storage.abortWrite(rowId));
+        assertThrows(StorageClosedException.class, () -> storage.addWriteCommitted(rowId, binaryRow, timestamp));
+
+        assertThrows(StorageClosedException.class, () -> storage.scan(timestamp));
+        assertThrows(StorageClosedException.class, () -> storage.scanVersions(rowId));
+        assertThrows(StorageClosedException.class, () -> storage.scanVersions(rowId));
+
+        assertThrows(StorageClosedException.class, () -> storage.closestRowId(rowId));
+
+        assertThrows(StorageClosedException.class, storage::rowsCount);
     }
 
     @Test
@@ -978,40 +1012,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx);
 
         checkForMissingRows(mvPartitionStorage, hashIndexStorage, sortedIndexStorage, rows);
-    }
-
-    @SuppressWarnings({"resource", "deprecation"})
-    private void checkStorageDestroyed(MvPartitionStorage storage) {
-        int partId = PARTITION_ID;
-
-        assertThrows(StorageClosedException.class, () -> storage.runConsistently(locker -> null));
-
-        assertThrows(StorageClosedException.class, storage::flush);
-
-        assertThrows(StorageClosedException.class, storage::lastAppliedIndex);
-        assertThrows(StorageClosedException.class, storage::lastAppliedTerm);
-        assertThrows(StorageClosedException.class, storage::committedGroupConfiguration);
-
-        RowId rowId = new RowId(partId);
-
-        HybridTimestamp timestamp = clock.now();
-
-        assertThrows(StorageClosedException.class, () -> storage.read(new RowId(PARTITION_ID), timestamp));
-
-        BinaryRow binaryRow = binaryRow(new TestKey(0, "0"), new TestValue(1, "1"));
-
-        assertThrows(StorageClosedException.class, () -> storage.addWrite(rowId, binaryRow, UUID.randomUUID(), COMMIT_TABLE_ID, partId));
-        assertThrows(StorageClosedException.class, () -> storage.commitWrite(rowId, timestamp));
-        assertThrows(StorageClosedException.class, () -> storage.abortWrite(rowId));
-        assertThrows(StorageClosedException.class, () -> storage.addWriteCommitted(rowId, binaryRow, timestamp));
-
-        assertThrows(StorageClosedException.class, () -> storage.scan(timestamp));
-        assertThrows(StorageClosedException.class, () -> storage.scanVersions(rowId));
-        assertThrows(StorageClosedException.class, () -> storage.scanVersions(rowId));
-
-        assertThrows(StorageClosedException.class, () -> storage.closestRowId(rowId));
-
-        assertThrows(StorageClosedException.class, storage::rowsCount);
     }
 
     private void startRebalanceWithChecks(
