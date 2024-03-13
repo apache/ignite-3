@@ -17,7 +17,10 @@
 
 package org.apache.ignite.internal;
 
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_STORAGE_ENGINE;
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_PROFILE_NAME;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -39,7 +42,6 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -74,6 +76,12 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
             + "    nodeFinder: {\n"
             + "      netClusterNodes: [ {} ]\n"
             + "    }\n"
+            + "  },\n"
+            + "  storage.profiles: {"
+            + "        " + DEFAULT_TEST_PROFILE_NAME + ".engine: test, "
+            + "        " + DEFAULT_AIPERSIST_PROFILE_NAME + ".engine: aipersist, "
+            + "        " + DEFAULT_AIMEM_PROFILE_NAME + ".engine: aimem, "
+            + "        " + DEFAULT_ROCKSDB_PROFILE_NAME + ".engine: rocksDb"
             + "  },\n"
             + "  clientConnector: { port:{} },\n"
             + "  rest.port: {},\n"
@@ -188,12 +196,12 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      * @param zoneName Zone name.
      * @param replicas Replica factor.
      * @param partitions Partitions count.
-     * @param storageEngine Storage engine, {@code null} to use {@link CatalogUtils#DEFAULT_STORAGE_ENGINE}.
+     * @param storageProfile Storage profile.
      */
-    protected static void createZoneOnlyIfNotExists(String zoneName, int replicas, int partitions, @Nullable String storageEngine) {
+    protected static void createZoneOnlyIfNotExists(String zoneName, int replicas, int partitions, String storageProfile) {
         sql(format(
-                "CREATE ZONE IF NOT EXISTS {} ENGINE {} WITH REPLICAS={}, PARTITIONS={};",
-                zoneName, Objects.requireNonNullElse(storageEngine, DEFAULT_STORAGE_ENGINE), replicas, partitions
+                "CREATE ZONE IF NOT EXISTS {} WITH REPLICAS={}, PARTITIONS={}, STORAGE_PROFILES='{}';",
+                zoneName, replicas, partitions, storageProfile
         ));
     }
 
@@ -206,7 +214,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      * @param partitions Partitions count.
      */
     protected static Table createZoneAndTable(String zoneName, String tableName, int replicas, int partitions) {
-        createZoneOnlyIfNotExists(zoneName, replicas, partitions, null);
+        createZoneOnlyIfNotExists(zoneName, replicas, partitions, "default");
 
         return createTableOnly(tableName, zoneName);
     }
@@ -218,16 +226,16 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      * @param tableName Table name.
      * @param replicas Replica factor.
      * @param partitions Partitions count.
-     * @param storageEngine Storage engine, {@code null} to use {@link CatalogUtils#DEFAULT_STORAGE_ENGINE}.
+     * @param storageProfile Storage profile.
      */
     protected static Table createZoneAndTable(
             String zoneName,
             String tableName,
             int replicas,
             int partitions,
-            @Nullable String storageEngine
+            String storageProfile
     ) {
-        createZoneOnlyIfNotExists(zoneName, replicas, partitions, storageEngine);
+        createZoneOnlyIfNotExists(zoneName, replicas, partitions, storageProfile);
 
         return createTableOnly(tableName, zoneName);
     }

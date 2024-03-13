@@ -73,7 +73,7 @@ import org.apache.ignite.catalog.definitions.ZoneDefinition;
  *            value = "zone_test",
  *            replicas = 3,
  *            partitions = 1,
- *            engine = ZoneEngine.AIMEM
+ *            storageProfiles = "default"
  *    )
  *    private static class ZoneTest {}
  *
@@ -116,7 +116,7 @@ import org.apache.ignite.catalog.definitions.ZoneDefinition;
  *             .ifNotExists()
  *             .partitions(1)
  *             .replicas(3)
- *             .engine(ZoneEngine.AIMEM)
+ *             .storageProfiles("default")
  *             .build();
  *    TableDefinition table = TableDefinition.builder("table_test")
  *            .ifNotExists()

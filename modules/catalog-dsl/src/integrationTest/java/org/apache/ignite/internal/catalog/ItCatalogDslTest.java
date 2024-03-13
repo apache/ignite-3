@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog;
 
 import static org.apache.ignite.catalog.definitions.ColumnDefinition.column;
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
@@ -72,7 +73,10 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
     @Test
     void zoneCreateAndDropByDefinition() {
         // Given zone definition
-        ZoneDefinition zoneDefinition = ZoneDefinition.builder(ZONE_NAME).build();
+        ZoneDefinition zoneDefinition = ZoneDefinition
+                .builder(ZONE_NAME)
+                .storageProfiles(DEFAULT_AIPERSIST_PROFILE_NAME)
+                .build();
 
         // When create zone from definition
         catalog().createZone(zoneDefinition).execute();
@@ -80,7 +84,7 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
         // Then zone was created
         assertThrows(
                 SqlException.class,
-                () -> sql("CREATE ZONE " + ZONE_NAME),
+                () -> sql("CREATE ZONE " + ZONE_NAME + " WITH STORAGE_PROFILES='" + DEFAULT_AIPERSIST_PROFILE_NAME + "'"),
                 "Distribution zone with name '" + ZONE_NAME.toUpperCase() + "' already exists"
         );
 
@@ -98,7 +102,10 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
     @Test
     void zoneCreateAndDropByName() {
         // Given zone definition
-        ZoneDefinition zoneDefinition = ZoneDefinition.builder(ZONE_NAME).build();
+        ZoneDefinition zoneDefinition = ZoneDefinition
+                .builder(ZONE_NAME)
+                .storageProfiles(DEFAULT_AIPERSIST_PROFILE_NAME)
+                .build();
 
         // When create zone from definition
         catalog().createZone(zoneDefinition).execute();
@@ -106,7 +113,7 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
         // Then zone was created
         assertThrows(
                 SqlException.class,
-                () -> sql("CREATE ZONE " + ZONE_NAME),
+                () -> sql("CREATE ZONE " + ZONE_NAME + " WITH STORAGE_PROFILES='" + DEFAULT_AIPERSIST_PROFILE_NAME + "'"),
                 "Distribution zone with name '" + ZONE_NAME.toUpperCase() + "' already exists"
         );
 
@@ -277,7 +284,7 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
         return CLUSTER.node(0).tables();
     }
 
-    @Zone(ZONE_NAME)
+    @Zone(value = ZONE_NAME, storageProfiles = DEFAULT_AIPERSIST_PROFILE_NAME)
     private static class ZoneTest {
     }
 

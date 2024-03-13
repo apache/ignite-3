@@ -111,7 +111,7 @@ class CreateFromAnnotationsImpl extends AbstractCatalogQuery {
             String zoneName = zone.value().isEmpty() ? zoneRef.getSimpleName() : zone.value();
             createTable.zone(zoneName);
             createZone.name(zoneName);
-            createZone.engine(zone.engine());
+            createZone.storageProfiles(zone.storageProfiles());
             if (zone.partitions() > 0) {
                 createZone.partitions(zone.partitions());
             }

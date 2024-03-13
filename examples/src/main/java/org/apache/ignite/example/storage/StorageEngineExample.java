@@ -28,19 +28,15 @@ import java.sql.Statement;
  * Class for executing examples that demonstrate working with different storage engines.
  */
 class StorageEngineExample {
-    private final String engineName;
-
-    private final String dataRegionName;
+    private final String storageProfileName;
 
     /**
      * Creates an instance of the example runner.
      *
-     * @param engineName Name of the storage engine, that created SQL tables will use.
-     * @param dataRegionName Name of the data region, that created SQL tables will use.
+     * @param storageProfileName Name of the storage profile, that created SQL tables will use.
      */
-    StorageEngineExample(String engineName, String dataRegionName) {
-        this.engineName = engineName;
-        this.dataRegionName = dataRegionName;
+    StorageEngineExample(String storageProfileName) {
+        this.storageProfileName = storageProfileName;
     }
 
     /**
@@ -67,8 +63,7 @@ class StorageEngineExample {
             try (Statement stmt = conn.createStatement()) {
                 stmt.executeUpdate(
                         "CREATE ZONE ACCOUNTS_ZONE "
-                                + "ENGINE "  + engineName
-                                + " WITH DATAREGION='" + dataRegionName + "'"
+                                + " WITH STORAGE_PROFILES='" + storageProfileName + "'"
                 );
                 stmt.executeUpdate(
                         "CREATE TABLE ACCOUNTS ( "

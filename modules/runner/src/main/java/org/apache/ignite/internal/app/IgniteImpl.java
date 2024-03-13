@@ -71,7 +71,6 @@ import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManag
 import org.apache.ignite.internal.cluster.management.NodeAttributesCollector;
 import org.apache.ignite.internal.cluster.management.configuration.ClusterManagementConfiguration;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
-import org.apache.ignite.internal.cluster.management.configuration.StorageProfilesConfiguration;
 import org.apache.ignite.internal.cluster.management.raft.ClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.raft.RocksDbClusterStateStorage;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
@@ -178,6 +177,7 @@ import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.DataStorageModules;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.ThreadAssertingStorageEngine;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
@@ -413,7 +413,8 @@ public class IgniteImpl implements Ignite {
         LocalFileConfigurationStorage localFileConfigurationStorage = new LocalFileConfigurationStorage(
                 name,
                 configPath,
-                localConfigurationGenerator
+                localConfigurationGenerator,
+                modules.local()
         );
 
         ConfigurationValidator localConfigurationValidator =
@@ -522,7 +523,7 @@ public class IgniteImpl implements Ignite {
         NodeAttributesCollector nodeAttributesCollector =
                 new NodeAttributesCollector(
                         nodeConfigRegistry.getConfiguration(NodeAttributesConfiguration.KEY),
-                        nodeConfigRegistry.getConfiguration(StorageProfilesConfiguration.KEY)
+                        nodeConfigRegistry.getConfiguration(StorageConfiguration.KEY)
                 );
 
         cmgMgr = new ClusterManagementGroupManager(
@@ -617,7 +618,10 @@ public class IgniteImpl implements Ignite {
                 failureProcessor
         );
 
-        dataStorageMgr = new DataStorageManager(applyThreadAssertionsIfNeeded(storageEngines));
+        dataStorageMgr = new DataStorageManager(
+                applyThreadAssertionsIfNeeded(storageEngines),
+                nodeConfigRegistry.getConfiguration(StorageConfiguration.KEY)
+        );
 
         volatileLogStorageFactoryCreator = new VolatileLogStorageFactoryCreator(name, workDir.resolve("volatile-log-spillout"));
 
@@ -765,7 +769,6 @@ public class IgniteImpl implements Ignite {
                 distributedTblMgr,
                 schemaManager,
                 dataStorageMgr,
-                () -> dataStorageModules.collectSchemasFields(modules.local().polymorphicSchemaExtensions()),
                 replicaSvc,
                 clock,
                 schemaSyncService,

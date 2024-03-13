@@ -37,7 +37,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
@@ -50,7 +49,6 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongFunction;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
@@ -182,8 +180,6 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private final DataStorageManager dataStorageManager;
 
-    private final Supplier<Map<String, Map<String, Class<?>>>> dataStorageFieldsSupplier;
-
     /** Busy lock for stop synchronisation. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -229,7 +225,6 @@ public class SqlQueryProcessor implements QueryProcessor {
             TableManager tableManager,
             SchemaManager schemaManager,
             DataStorageManager dataStorageManager,
-            Supplier<Map<String, Map<String, Class<?>>>> dataStorageFieldsSupplier,
             ReplicaService replicaService,
             HybridClock clock,
             SchemaSyncService schemaSyncService,
@@ -245,7 +240,6 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.tableManager = tableManager;
         this.schemaManager = schemaManager;
         this.dataStorageManager = dataStorageManager;
-        this.dataStorageFieldsSupplier = dataStorageFieldsSupplier;
         this.replicaService = replicaService;
         this.clock = clock;
         this.schemaSyncService = schemaSyncService;
@@ -278,7 +272,6 @@ public class SqlQueryProcessor implements QueryProcessor {
                 nodeName,
                 CACHE_FACTORY,
                 dataStorageManager,
-                dataStorageFieldsSupplier.get(),
                 metricManager,
                 clusterCfg,
                 nodeCfg

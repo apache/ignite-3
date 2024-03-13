@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -333,8 +334,15 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
      */
     private static void createTableWithData(Ignite ignite, String name, int replicas, int partitions) throws InterruptedException {
         try (Session session = ignite.sql().createSession()) {
-            session.execute(null, String.format("CREATE ZONE IF NOT EXISTS ZONE_%s ENGINE aimem WITH REPLICAS=%d, PARTITIONS=%d",
-                    name, replicas, partitions));
+            session.execute(null,
+                    String.format(
+                            "CREATE ZONE IF NOT EXISTS ZONE_%s WITH REPLICAS=%d, PARTITIONS=%d, STORAGE_PROFILES='%s'",
+                            name,
+                            replicas,
+                            partitions,
+                            DEFAULT_AIMEM_PROFILE_NAME
+                    )
+            );
             session.execute(null, "CREATE TABLE " + name
                     + " (id INT PRIMARY KEY, name VARCHAR)"
                     + " WITH PRIMARY_ZONE='ZONE_" + name.toUpperCase() + "';");

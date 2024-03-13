@@ -184,7 +184,7 @@ public class DistributionZoneManager implements IgniteComponent {
      *
      * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/distribution-zones/tech-notes/filters.md">Filter documentation</a>
      */
-    private Map<String, Map<String, String>> nodesAttributes = new ConcurrentHashMap<>();
+    private Map<String, NodeWithAttributes> nodesAttributes = new ConcurrentHashMap<>();
 
     /** Watch listener for logical topology keys. */
     private final WatchListener topologyWatchListener;
@@ -790,7 +790,7 @@ public class DistributionZoneManager implements IgniteComponent {
             zoneIds.add(zone.id());
         }
 
-        newLogicalTopology.forEach(n -> nodesAttributes.put(n.nodeId(), n.nodeAttributes()));
+        newLogicalTopology.forEach(n -> nodesAttributes.put(n.nodeId(), n));
 
         logicalTopology = newLogicalTopology;
 
@@ -1396,7 +1396,7 @@ public class DistributionZoneManager implements IgniteComponent {
      *
      * @return Mapping {@code nodeId} -> node's attributes.
      */
-    public Map<String, Map<String, String>> nodesAttributes() {
+    public Map<String, NodeWithAttributes> nodesAttributes() {
         return nodesAttributes;
     }
 

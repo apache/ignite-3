@@ -17,9 +17,11 @@
 
 package org.apache.ignite.client.handler;
 
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
 import static org.mockito.Mockito.mock;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.Catalog;
@@ -56,7 +58,7 @@ public class FakeCatalogService implements CatalogService {
     @Override
     public CatalogTableDescriptor table(int tableId, long timestamp) {
         return new CatalogTableDescriptor(
-                tableId, 0, 0, "table", 0, List.of(mock(CatalogTableColumnDescriptor.class)), List.of(), null);
+                tableId, 0, 0, "table", 0, List.of(mock(CatalogTableColumnDescriptor.class)), List.of(), null, DEFAULT_STORAGE_PROFILE);
     }
 
     @Override
@@ -116,7 +118,7 @@ public class FakeCatalogService implements CatalogService {
 
     @Override
     public CatalogZoneDescriptor zone(int zoneId, long timestamp) {
-        return new CatalogZoneDescriptor(zoneId, "zone", partitions, 0, 0, 0, 0, "", null);
+        return new CatalogZoneDescriptor(zoneId, "zone", partitions, 0, 0, 0, 0, "", fromParams(Collections.emptyList()));
     }
 
     @Override

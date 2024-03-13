@@ -43,10 +43,6 @@ class InvalidDefinitionTest {
                 "Zone name must not be blank.");
 
         assertThrows(NullPointerException.class,
-                () -> ZoneDefinition.builder("zone").engine(null).build(),
-                "Engine must not be null.");
-
-        assertThrows(NullPointerException.class,
                 () -> ZoneDefinition.builder("zone").partitions(null).build(),
                 "Number of partitions must not be null.");
 

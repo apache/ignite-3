@@ -17,12 +17,8 @@
 
 package org.apache.ignite.internal.storage;
 
-import static org.apache.ignite.internal.storage.DataStorageModulesTest.FirstDataStorageConfigurationSchema.FIRST;
-import static org.apache.ignite.internal.storage.DataStorageModulesTest.SecondDataStorageConfigurationSchema.SECOND;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
-import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -33,11 +29,8 @@ import static org.mockito.Mockito.when;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
-import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
-import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.failure.FailureProcessor;
-import org.apache.ignite.internal.schema.configuration.storage.DataStorageConfigurationSchema;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -54,33 +47,9 @@ public class DataStorageModulesTest extends BaseIgniteAbstractTest {
     @WorkDirectory
     private Path workDir;
 
-    /**
-     * Test extension of {@link DataStorageConfigurationSchema}.
-     */
-    @PolymorphicConfigInstance(FIRST)
-    public static class FirstDataStorageConfigurationSchema extends DataStorageConfigurationSchema {
-        static final String FIRST = "first";
+    private static final String FIRST = "first";
 
-        @Value(hasDefault = true)
-        public String strVal = "foo";
-
-        @Value(hasDefault = true)
-        public int intVal = 100;
-    }
-
-    /**
-     * Test extension of {@link DataStorageConfigurationSchema}.
-     */
-    @PolymorphicConfigInstance(SECOND)
-    public static class SecondDataStorageConfigurationSchema extends DataStorageConfigurationSchema {
-        static final String SECOND = "second";
-
-        @Value(hasDefault = true)
-        public String strVal = "bar";
-
-        @Value(hasDefault = true)
-        public long longVal = 500L;
-    }
+    private static final String SECOND = "second";
 
     @Test
     void testDuplicateName() {
@@ -118,72 +87,6 @@ public class DataStorageModulesTest extends BaseIgniteAbstractTest {
         assertTrue(engines.containsKey(SECOND));
 
         assertNotSame(engines.get(FIRST), engines.get(SECOND));
-    }
-
-    @Test
-    void testCollectSchemasFieldsDuplicateKey() {
-        DataStorageModules dataStorageModules = new DataStorageModules(List.of(
-                createMockedDataStorageModule(FIRST),
-                createMockedDataStorageModule(SECOND)
-        ));
-
-        IllegalStateException exception = assertThrows(
-                IllegalStateException.class,
-                () -> dataStorageModules.collectSchemasFields(
-                        List.of(FirstDataStorageConfigurationSchema.class, FirstDataStorageConfigurationSchema.class)
-                )
-        );
-
-        assertThat(exception.getMessage(), startsWith("Duplicate key"));
-    }
-
-    @Test
-    void testCollectSchemasFieldsMissingConfigurationSchemas() {
-        DataStorageModules dataStorageModules = new DataStorageModules(List.of(
-                createMockedDataStorageModule(FIRST),
-                createMockedDataStorageModule(SECOND)
-        ));
-
-        IllegalStateException exception = assertThrows(
-                IllegalStateException.class,
-                () -> dataStorageModules.collectSchemasFields(List.of(FirstDataStorageConfigurationSchema.class))
-        );
-
-        assertThat(exception.getMessage(), startsWith("Missing configuration schemas"));
-    }
-
-    @Test
-    void testCollectSchemasFieldsMissingDataStorageEngines() {
-        DataStorageModules dataStorageModules = new DataStorageModules(List.of(
-                createMockedDataStorageModule(FIRST)
-        ));
-
-        IllegalStateException exception = assertThrows(
-                IllegalStateException.class,
-                () -> dataStorageModules.collectSchemasFields(
-                        List.of(FirstDataStorageConfigurationSchema.class, SecondDataStorageConfigurationSchema.class)
-                )
-        );
-
-        assertThat(exception.getMessage(), startsWith("Missing data storage engines"));
-    }
-
-    @Test
-    void testCollectSchemasFields() {
-        DataStorageModules dataStorageModules = new DataStorageModules(List.of(
-                createMockedDataStorageModule(FIRST),
-                createMockedDataStorageModule(SECOND)
-        ));
-
-        Map<String, Map<String, Class<?>>> fields = dataStorageModules.collectSchemasFields(
-                List.of(FirstDataStorageConfigurationSchema.class, SecondDataStorageConfigurationSchema.class)
-        );
-
-        assertThat(fields, aMapWithSize(2));
-
-        assertThat(fields.get(FIRST), equalTo(Map.of("strVal", String.class, "intVal", int.class)));
-
-        assertThat(fields.get(SECOND), equalTo(Map.of("strVal", String.class, "longVal", long.class)));
     }
 
     static DataStorageModule createMockedDataStorageModule(String name) {

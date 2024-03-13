@@ -63,6 +63,8 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
 
     private long creationToken;
 
+    private String storageProfile;
+
     /**
      * Constructor for new table.
      *
@@ -72,6 +74,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
      * @param zoneId Distribution zone ID.
      * @param columns Table column descriptors.
      * @param pkCols Primary key column names.
+     * @param storageProfile Storage profile.
      */
     public CatalogTableDescriptor(
             int id,
@@ -81,10 +84,12 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
             int zoneId,
             List<CatalogTableColumnDescriptor> columns,
             List<String> pkCols,
-            @Nullable List<String> colocationCols
+            @Nullable List<String> colocationCols,
+            String storageProfile
     ) {
         this(id, schemaId, pkIndexId, name, zoneId, columns, pkCols, colocationCols,
-                new CatalogTableSchemaVersions(new TableVersion(columns)), INITIAL_CAUSALITY_TOKEN, INITIAL_CAUSALITY_TOKEN);
+                new CatalogTableSchemaVersions(new TableVersion(columns)),
+                storageProfile, INITIAL_CAUSALITY_TOKEN, INITIAL_CAUSALITY_TOKEN);
     }
 
     /**
@@ -96,6 +101,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
      * @param zoneId Distribution zone ID.
      * @param columns Table column descriptors.
      * @param pkCols Primary key column names.
+     * @param storageProfile Storage profile.
      * @param causalityToken Token of the update of the descriptor.
      * @param creationToken Token of the creation of the table descriptor.
      */
@@ -109,6 +115,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
             List<String> pkCols,
             @Nullable List<String> colocationCols,
             CatalogTableSchemaVersions schemaVersions,
+            String storageProfile,
             long causalityToken,
             long creationToken
     ) {
@@ -127,6 +134,8 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
 
         this.creationToken = creationToken;
 
+        this.storageProfile = storageProfile;
+
         // TODO: IGNITE-19082 Throw proper exceptions.
         assert !columnsMap.isEmpty() : "No columns.";
 
@@ -141,7 +150,8 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
             String name,
             int tableVersion,
             List<CatalogTableColumnDescriptor> columns,
-            long causalityToken
+            long causalityToken,
+            String storageProfile
     ) {
         CatalogTableSchemaVersions newSchemaVersions = tableVersion == schemaVersions.latestVersion()
                 ? schemaVersions
@@ -150,7 +160,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
         return new CatalogTableDescriptor(
                 id(), schemaId, pkIndexId, name, zoneId, columns, primaryKeyColumns, colocationColumns,
                 newSchemaVersions,
-                causalityToken, creationToken
+                storageProfile, causalityToken, creationToken
         );
     }
 
@@ -214,6 +224,10 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
         return creationToken;
     }
 
+    public String storageProfile() {
+        return storageProfile;
+    }
+
     @Override
     public void updateToken(long updateToken) {
         super.updateToken(updateToken);
@@ -233,6 +247,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
 
             CatalogTableSchemaVersions schemaVersions = CatalogTableSchemaVersions.SERIALIZER.readFrom(input);
             List<CatalogTableColumnDescriptor> columns = readList(CatalogTableColumnDescriptor.SERIALIZER, input);
+            String storageProfile = input.readUTF();
 
             int schemaId = input.readInt();
             int pkIndexId = input.readInt();
@@ -274,6 +289,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
                     primaryKeyColumns,
                     colocationColumns,
                     schemaVersions,
+                    storageProfile,
                     updateToken,
                     creationToken
             );
@@ -286,6 +302,7 @@ public class CatalogTableDescriptor extends CatalogObjectDescriptor {
             output.writeLong(descriptor.updateToken());
             CatalogTableSchemaVersions.SERIALIZER.writeTo(descriptor.schemaVersions(), output);
             writeList(descriptor.columns(), CatalogTableColumnDescriptor.SERIALIZER, output);
+            output.writeUTF(descriptor.storageProfile());
 
             output.writeInt(descriptor.schemaId());
             output.writeInt(descriptor.primaryKeyIndexId());

@@ -46,6 +46,7 @@ class CreateFromDefinitionImpl extends AbstractCatalogQuery {
     Query from(ZoneDefinition def) {
         createZone = new CreateZoneImpl(sql, options);
         createZone.name(def.zoneName());
+        createZone.storageProfiles(def.storageProfiles());
         if (def.ifNotExists()) {
             createZone.ifNotExists();
         }
@@ -55,7 +56,6 @@ class CreateFromDefinitionImpl extends AbstractCatalogQuery {
         if (isGreaterThanZero(def.replicas())) {
             createZone.replicas(def.replicas());
         }
-        createZone.engine(def.engine());
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-21428
         return this;

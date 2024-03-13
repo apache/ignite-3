@@ -99,7 +99,8 @@ public class AlterColumnEntry implements UpdateEntry, Fireable {
                 currentTableDescriptor.columns().stream()
                         .map(source -> source.name().equals(column.name()) ? column : source)
                         .collect(toList()),
-                causalityToken
+                causalityToken,
+                currentTableDescriptor.storageProfile()
         );
 
         return new Catalog(

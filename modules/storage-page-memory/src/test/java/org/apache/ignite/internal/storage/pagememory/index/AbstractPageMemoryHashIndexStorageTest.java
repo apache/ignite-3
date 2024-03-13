@@ -30,7 +30,6 @@ import org.apache.ignite.internal.storage.index.AbstractHashIndexStorageTest;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.impl.BinaryTupleRowSerializer;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.BasePageMemoryStorageEngineConfiguration;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
 
@@ -38,7 +37,7 @@ import org.junit.jupiter.api.Test;
  * Base class for testing {@link HashIndexStorage} based on {@link PageMemory}.
  */
 abstract class AbstractPageMemoryHashIndexStorageTest extends AbstractHashIndexStorageTest {
-    protected BasePageMemoryStorageEngineConfiguration<?, ?> baseEngineConfig;
+    protected int pageSize;
 
     /**
      * Initializes the internal structures needed for tests.
@@ -47,9 +46,9 @@ abstract class AbstractPageMemoryHashIndexStorageTest extends AbstractHashIndexS
      */
     final void initialize(
             MvTableStorage tableStorage,
-            BasePageMemoryStorageEngineConfiguration<?, ?> baseEngineConfig
+            int pageSize
     ) {
-        this.baseEngineConfig = baseEngineConfig;
+        this.pageSize = pageSize;
 
         initialize(tableStorage);
     }
@@ -76,8 +75,8 @@ abstract class AbstractPageMemoryHashIndexStorageTest extends AbstractHashIndexS
         HashIndexStorage index = createIndexStorage(INDEX_NAME, ColumnType.INT32, ColumnType.STRING);
         var serializer = new BinaryTupleRowSerializer(indexDescriptor(index));
 
-        String longString0 = randomString(random, baseEngineConfig.pageSize().value() * 2);
-        String longString1 = randomString(random, baseEngineConfig.pageSize().value() * 2);
+        String longString0 = randomString(random, pageSize * 2);
+        String longString1 = randomString(random, pageSize * 2);
 
         IndexRow indexRow0 = createIndexRow(serializer, new RowId(TEST_PARTITION), 1, longString0);
         IndexRow indexRow1 = createIndexRow(serializer, new RowId(TEST_PARTITION), 1, longString1);
