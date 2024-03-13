@@ -479,6 +479,12 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
                 // Special case for string concatenation.
                 ResultBuilder.Append(" as varchar)");
             }
+            else if ((Nullable.GetUnderlyingType(expression.Type) ?? expression.Type) == typeof(decimal))
+            {
+                // Use max precision and scale when performing cast to achieve expected behavior.
+                // Otherwise, zero scale leads to rounding.
+                ResultBuilder.Append(" as decimal(8, 4))");
+            }
             else
             {
                 ResultBuilder

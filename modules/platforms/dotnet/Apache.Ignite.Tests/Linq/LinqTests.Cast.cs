@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests.Linq;
 
+using System;
 using System.Linq;
 using NUnit.Framework;
 
@@ -29,6 +30,7 @@ public partial class LinqTests
     public void TestProjectionWithCastIntoAnonymousType()
     {
         // TODO IGNITE-18258 decimal, BigInteger.
+        // ReSharper disable once RedundantCast
         var query = PocoIntView.AsQueryable()
             .Select(x => new
             {
@@ -37,13 +39,15 @@ public partial class LinqTests
                 Long = (long?)x.Val,
                 Float = (float?)x.Val / 1000,
                 Double = (double?)x.Val / 2000,
-                Decimal0 = (decimal?)x.Val / 7.7m,
+                Decimal0 = (decimal?)x.Val / 36m,
             })
             .OrderByDescending(x => x.Long);
 
+        // TODO: This works, but in LINQ we get scale > 32000, why?
+        var x = Client.Sql.ExecuteAsync(null, "select cast(_T0.VAL as decimal(20,10)) / 33 from PUBLIC.TBL_INT32 as _T0")
+            .Result.SingleAsync().AsTask().Result;
+        Console.WriteLine(x);
 
-        // TODO: Specify scale when casting to decimal:
-        var x = Client.Sql.ExecuteAsync(null, "select cast(10 as decimal(4,2)) / 3").Result.SingleAsync().AsTask().Result;
         var res = query.ToList();
 
         Assert.AreEqual(90, res[0].Byte);
@@ -51,7 +55,7 @@ public partial class LinqTests
         Assert.AreEqual(900, res[0].Long);
         Assert.AreEqual(900f / 1000, res[0].Float);
         Assert.AreEqual(900d / 2000, res[0].Double);
-        Assert.AreEqual(900m / 7, res[0].Decimal0);
+        Assert.AreEqual(900m / 36m, res[0].Decimal0);
 
         StringAssert.Contains(
             "select cast((_T0.VAL / ?) as tinyint) as BYTE, cast(_T0.VAL as smallint) as SHORT, cast(_T0.VAL as bigint) as LONG, " +
