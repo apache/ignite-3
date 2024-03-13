@@ -84,6 +84,7 @@ jna = "5.14.0"
 pmdTool = "6.55.0"
 checkstyleTool = "10.3.3"
 jacocoTool = "0.8.11"
+spotbugsTool = "4.8.3"
 
 [plugins]
 openapiGenerator = "org.openapi.generator:7.3.0"
@@ -97,6 +98,8 @@ checksum = "org.gradle.crypto.checksum:1.4.0"
 setupbuilder = "de.inetsoftware.setupbuilder:7.2.13"
 aggregateJavadoc = "io.freefair.aggregate-javadoc:6.5.1"
 ideaext = "org.jetbrains.gradle.plugin.idea-ext:1.1.7"
+spotbugs = "com.github.spotbugs:6.0.7"
+
 
 [libraries]
 assertj-core = { module = "org.assertj:assertj-core", version.ref = "assertj" }

@@ -37,7 +37,7 @@ import org.jetbrains.annotations.Nullable;
  * Utility methods used for serializing catalog objects.
  */
 public class CatalogSerializationUtils {
-    public static CatalogObjectSerializer<CatalogIndexDescriptor> IDX_SERIALIZER = new IndexDescriptorSerializer();
+    public static final CatalogObjectSerializer<CatalogIndexDescriptor> IDX_SERIALIZER = new IndexDescriptorSerializer();
 
     /** Reads nullable string. */
     public static @Nullable String readNullableString(DataInput in) throws IOException {

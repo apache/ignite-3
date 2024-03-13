@@ -31,7 +31,7 @@ import org.jetbrains.annotations.Nullable;
 public class PartitionPruningMetadata {
 
     /** Empty metadata. */
-    public static PartitionPruningMetadata EMPTY = new PartitionPruningMetadata(Long2ObjectMaps.emptyMap());
+    public static final PartitionPruningMetadata EMPTY = new PartitionPruningMetadata(Long2ObjectMaps.emptyMap());
 
     private final Long2ObjectMap<PartitionPruningColumns> data;
 
