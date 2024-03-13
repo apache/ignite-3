@@ -315,6 +315,7 @@ public class BinaryTupleBuilder {
      * @return {@code this} for chaining.
      */
     public BinaryTupleBuilder appendDecimalNotNull(BigDecimal value, int scale) {
+        // TODO IGNITE-21745: Inefficient serialization, many bytes wasted to store small values when scale is big.
         putBytes(value.setScale(scale, RoundingMode.HALF_UP).unscaledValue().toByteArray());
         return proceed();
     }

@@ -271,7 +271,7 @@ public class RowTest {
         };
 
         Column[] valCols = new Column[]{
-                new Column("keyInt8Col", INT8, true),
+                new Column("valInt8Col", INT8, true),
                 new Column("valBytesCol", BYTES, true),
                 new Column("valStringCol", STRING, true),
         };
@@ -513,7 +513,7 @@ public class RowTest {
      */
     private Object[] generateRowValuesWithEmptyVals(
             SchemaDescriptor schema, Function<NativeType, Object> rnd, boolean emptyKey, boolean emptyVal) {
-        assert schema.keyColumns().columns().length == 1;
+        assert schema.keyColumns().size() == 1;
 
         Object[] res = new Object[schema.length()];
 
@@ -578,7 +578,7 @@ public class RowTest {
      * @param vals   Row values.
      */
     private static void checkValues(SchemaDescriptor schema, Object... vals) {
-        assertEquals(schema.keyColumns().length() + schema.valueColumns().length(), vals.length);
+        assertEquals(schema.keyColumns().size() + schema.valueColumns().size(), vals.length);
 
         RowAssembler asm = new RowAssembler(schema, -1);
 

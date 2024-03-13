@@ -20,7 +20,8 @@ apply plugin: 'jacoco'
 apply plugin: 'checkstyle'
 apply plugin: 'pmd'
 apply plugin: 'java-library'
-apply plugin: 'com.github.andygoossens.modernizer'
+apply plugin: libs.plugins.modernizer.get().pluginId
+apply plugin: libs.plugins.spotbugs.get().pluginId
 
 java {
     sourceCompatibility = JavaVersion.VERSION_11
@@ -131,4 +132,63 @@ jacocoTestReport {
                     exclude: ['org/apache/calcite/**/*'])
         }))
     }
+}
+
+
+spotbugs {
+    ignoreFailures = false
+    showStackTraces = true
+    showProgress = false
+    omitVisitors = ["ConstructorThrow", "FindNullDeref", "SwitchFallthrough", "SerializableIdiom", ""]
+    reportsDir = file("$buildDir/reports/spotbugs")
+    excludeFilter = file("${rootDir}/check-rules/spotbugs-excludes.xml")
+    maxHeapSize = "1g"
+    extraArgs = ["-longBugCodes"]
+    toolVersion = libs.versions.spotbugsTool.get()
+}
+
+spotbugsMain {
+    reports {
+        text {
+            enabled = true
+        }
+        html {
+            enabled = true
+            stylesheet = 'fancy-hist.xsl'
+        }
+        xml {
+            enabled = true
+        }
+    }
+}
+
+def reportSpotbugsViolations = tasks.register("reportSpotbugsViolations") {
+    onlyIf { spotbugsMain.state.failure != null }
+    def spotbugsTextReportFile = file("$buildDir/reports/spotbugs/main.txt")
+
+    inputs.file spotbugsTextReportFile
+
+    doLast {
+        try {
+            if (!spotbugsTextReportFile.isFile()) return
+            println()
+            def spotbugsReport = spotbugsTextReportFile.readLines()
+            spotbugsReport.forEach {
+                System.err.println(it)
+            }
+        } catch (Exception ex) {
+            throw new GradleException("Failed to open spotbugs text report", ex);
+        }
+        def failure = spotbugsMain.state.failure
+        if (failure != null) {
+            throw new GradleException(failure.getCause().getMessage(), failure.getCause());
+        }
+    }
+}
+
+spotbugsMain.finalizedBy(reportSpotbugsViolations)
+
+
+spotbugsTest {
+    enabled(false)
 }

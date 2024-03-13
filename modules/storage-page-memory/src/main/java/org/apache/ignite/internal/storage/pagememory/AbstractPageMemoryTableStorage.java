@@ -180,7 +180,19 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
     @Override
     public CompletableFuture<Void> destroyIndex(int indexId) {
-        throw new UnsupportedOperationException("Not implemented yet");
+        return busy(() -> {
+            List<AbstractPageMemoryMvPartitionStorage> storages = mvPartitionStorages.getAll();
+
+            var destroyFutures = new CompletableFuture[storages.size()];
+
+            for (int i = 0; i < storages.size(); i++) {
+                AbstractPageMemoryMvPartitionStorage storage = storages.get(i);
+
+                destroyFutures[i] = storage.runConsistently(locker -> storage.destroyIndex(indexId));
+            }
+
+            return allOf(destroyFutures);
+        });
     }
 
     @Override

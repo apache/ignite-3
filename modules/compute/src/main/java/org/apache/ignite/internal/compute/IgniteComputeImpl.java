@@ -232,12 +232,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
 
         return new JobExecutionFutureWrapper<>(
                 requiredTable(tableName)
-                        .thenCompose(table -> primaryReplicaForPartitionByTupleKey(table, tuple)
-                                .thenApply(primaryNode -> executeOnOneNodeWithFailover(
-                                        primaryNode,
-                                        new NextColocatedWorkerSelector<>(placementDriver, topologyService, clock, table, tuple),
-                                        units, jobClassName, options, args
-                                )))
+                        .thenCompose(table -> submitColocatedInternal(table, tuple, units, jobClassName, options, args))
         );
     }
 
@@ -304,6 +299,23 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
         } catch (CompletionException e) {
             throw ExceptionUtils.sneakyThrow(mapToPublicException(unwrapCause(e)));
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <R> CompletableFuture<JobExecution<R>> submitColocatedInternal(
+            TableViewInternal table,
+            Tuple key,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            JobExecutionOptions options,
+            Object[] args) {
+        return primaryReplicaForPartitionByTupleKey(table, key)
+                .thenApply(primaryNode -> executeOnOneNodeWithFailover(
+                        primaryNode,
+                        new NextColocatedWorkerSelector<>(placementDriver, topologyService, clock, table, key),
+                        units, jobClassName, options, args
+                ));
     }
 
     private CompletableFuture<TableViewInternal> requiredTable(String tableName) {

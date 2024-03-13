@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.util.GridUnsafe.freeBuffer;
 import java.nio.ByteBuffer;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
@@ -61,6 +62,8 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     /** Data region instance. */
     private final PersistentPageMemoryDataRegion dataRegion;
 
+    private final ExecutorService destructionExecutor;
+
     /**
      * Constructor.
      *
@@ -73,12 +76,14 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
             StorageTableDescriptor tableDescriptor,
             StorageIndexDescriptorSupplier indexDescriptorSupplier,
             PersistentPageMemoryStorageEngine engine,
-            PersistentPageMemoryDataRegion dataRegion
+            PersistentPageMemoryDataRegion dataRegion,
+            ExecutorService destructionExecutor
     ) {
         super(tableDescriptor, indexDescriptorSupplier);
 
         this.engine = engine;
         this.dataRegion = dataRegion;
+        this.destructionExecutor = destructionExecutor;
     }
 
     /**
@@ -130,7 +135,8 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     indexColumnsFreeList,
                     versionChainTree,
                     indexMetaTree,
-                    gcQueue
+                    gcQueue,
+                    destructionExecutor
             );
         });
     }

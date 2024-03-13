@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
@@ -123,9 +124,9 @@ public class ItThinClientColocationTest extends ClusterPerClassIntegrationTest {
 
     private static TupleMarshallerImpl tupleMarshaller(NativeType type, String columnName) {
         var column = new Column(columnName, type, false);
-        var columns = new Column[]{column};
-        var colocationColumns = new String[]{columnName};
-        var schema = new SchemaDescriptor(1, columns, colocationColumns, new Column[0]);
+        var columns = List.of(column);
+        var colocationColumns = List.of(columnName);
+        var schema = new SchemaDescriptor(1, columns, colocationColumns, colocationColumns);
 
         return new TupleMarshallerImpl(schema);
     }

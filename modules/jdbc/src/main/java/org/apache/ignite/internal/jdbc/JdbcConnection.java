@@ -785,7 +785,7 @@ public class JdbcConnection implements Connection {
 
     /** {@inheritDoc} */
     @Override
-    public void setNetworkTimeout(Executor executor, int ms) throws SQLException {
+    public final void setNetworkTimeout(Executor executor, int ms) throws SQLException {
         ensureNotClosed();
 
         if (ms < 0) {

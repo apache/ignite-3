@@ -57,14 +57,8 @@ public class DummyValidationSchemasSource implements ValidationSchemasSource {
     public List<FullTableSchema> tableSchemaVersionsBetween(int tableId, HybridTimestamp fromIncluding, HybridTimestamp toIncluding) {
         SchemaDescriptor schemaDescriptor = schemaRegistry.lastKnownSchema();
 
-        List<CatalogTableColumnDescriptor> columns = schemaDescriptor.columnNames().stream()
-                .map(colName -> {
-                    Column column = schemaDescriptor.column(colName);
-
-                    assert column != null;
-
-                    return columnDescriptor(column);
-                })
+        List<CatalogTableColumnDescriptor> columns = schemaDescriptor.columns().stream()
+                .map(DummyValidationSchemasSource::columnDescriptor)
                 .collect(toList());
 
         var fullSchema = new FullTableSchema(1, tableId, "test", columns);
