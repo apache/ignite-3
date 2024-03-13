@@ -96,7 +96,6 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor {
                         failureProcessor.process(
                                 new FailureContext(CRITICAL_ERROR, new IgniteException(INTERNAL_ERR, message, e))
                         );
-                        assert false;
                     }
                 },
                 commandIdx
