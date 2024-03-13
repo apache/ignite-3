@@ -307,7 +307,10 @@ public class ZoneDefinition {
          * @return This builder instance.
          */
         public Builder dataNodesAutoAdjust(Integer adjust) {
-            Objects.requireNonNull(adjust, "Timeout must not be null.");
+            Objects.requireNonNull(
+                    adjust,
+                    "Timeout between node added or node left topology event itself and data nodes switch must not be null."
+            );
 
             this.dataNodesAutoAdjust = adjust;
             return this;
@@ -320,7 +323,7 @@ public class ZoneDefinition {
          * @return This builder instance.
          */
         public Builder dataNodesAutoAdjustScaleUp(Integer adjust) {
-            Objects.requireNonNull(adjust, "Timeout must not be null.");
+            Objects.requireNonNull(adjust, "Timeout between node added topology event itself and data nodes switch must not be null.");
 
             this.dataNodesAutoAdjustScaleUp = adjust;
             return this;
@@ -333,7 +336,7 @@ public class ZoneDefinition {
          * @return This builder instance.
          */
         public Builder dataNodesAutoAdjustScaleDown(Integer adjust) {
-            Objects.requireNonNull(adjust, "Timeout must not be null.");
+            Objects.requireNonNull(adjust, "Timeout between node left topology event itself and data nodes switch must not be null.");
 
             this.dataNodesAutoAdjustScaleDown = adjust;
             return this;

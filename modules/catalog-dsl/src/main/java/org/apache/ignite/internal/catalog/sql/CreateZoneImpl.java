@@ -45,7 +45,7 @@ class CreateZoneImpl extends AbstractCatalogQuery {
     }
 
     CreateZoneImpl name(String... names) {
-        Objects.requireNonNull(names, "Zone name must not be null");
+        Objects.requireNonNull(names, "Zone name must not be null.");
 
         this.zoneName = new Name(names);
         return this;
@@ -57,49 +57,52 @@ class CreateZoneImpl extends AbstractCatalogQuery {
     }
 
     CreateZoneImpl replicas(Integer n) {
-        Objects.requireNonNull(n, "Replicas count must not be null");
+        Objects.requireNonNull(n, "Replicas count must not be null.");
 
         withOptions.add(WithOption.replicas(n));
         return this;
     }
 
     CreateZoneImpl partitions(Integer n) {
-        Objects.requireNonNull(n, "Partitions must not be null");
+        Objects.requireNonNull(n, "Partitions must not be null.");
 
         withOptions.add(WithOption.partitions(n));
         return this;
     }
 
     CreateZoneImpl affinity(String affinity) {
-        Objects.requireNonNull(affinity, "Affinity function must not be null");
+        Objects.requireNonNull(affinity, "Affinity function must not be null.");
 
         withOptions.add(WithOption.affinity(affinity));
         return this;
     }
 
     CreateZoneImpl dataNodesAutoAdjust(Integer adjust) {
-        Objects.requireNonNull(adjust, "Timeout must not be null");
+        Objects.requireNonNull(
+                adjust,
+                "Timeout between node added or node left topology event itself and data nodes switch must not be null."
+        );
 
         withOptions.add(WithOption.dataNodesAutoAdjust(adjust));
         return this;
     }
 
     CreateZoneImpl dataNodesAutoAdjustScaleUp(Integer adjust) {
-        Objects.requireNonNull(adjust, "Timeout must not be null");
+        Objects.requireNonNull(adjust, "Timeout between node added topology event itself and data nodes switch must not be null.");
 
         withOptions.add(WithOption.dataNodesAutoAdjustScaleUp(adjust));
         return this;
     }
 
     CreateZoneImpl dataNodesAutoAdjustScaleDown(Integer adjust) {
-        Objects.requireNonNull(adjust, "Timeout must not be null");
+        Objects.requireNonNull(adjust, "Timeout between node left topology event itself and data nodes switch must not be null.");
 
         withOptions.add(WithOption.dataNodesAutoAdjustScaleDown(adjust));
         return this;
     }
 
     CreateZoneImpl filter(String filter) {
-        Objects.requireNonNull(filter, "Filter must not be null");
+        Objects.requireNonNull(filter, "Filter must not be null.");
 
         withOptions.add(WithOption.filter(filter));
         return this;
@@ -111,7 +114,7 @@ class CreateZoneImpl extends AbstractCatalogQuery {
     }
 
     CreateZoneImpl dataRegion(String dataRegion) {
-        Objects.requireNonNull(dataRegion, "Data region must not be null");
+        Objects.requireNonNull(dataRegion, "Data region must not be null.");
 
         withOptions.add(WithOption.dataRegion(dataRegion));
         return this;

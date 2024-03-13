@@ -48,9 +48,12 @@ class InvalidDefinitionTest {
 
         assertZoneBuilderNullOrBlank(ZoneDefinition.Builder::affinity, "a", "Affinity function");
 
-        assertZoneBuilderNull(ZoneDefinition.Builder::dataNodesAutoAdjust, 1, "Timeout");
-        assertZoneBuilderNull(ZoneDefinition.Builder::dataNodesAutoAdjustScaleUp, 1, "Timeout");
-        assertZoneBuilderNull(ZoneDefinition.Builder::dataNodesAutoAdjustScaleDown, 1, "Timeout");
+        assertZoneBuilderNull(ZoneDefinition.Builder::dataNodesAutoAdjust, 1,
+                "Timeout between node added or node left topology event itself and data nodes switch");
+        assertZoneBuilderNull(ZoneDefinition.Builder::dataNodesAutoAdjustScaleUp, 1,
+                "Timeout between node added topology event itself and data nodes switch");
+        assertZoneBuilderNull(ZoneDefinition.Builder::dataNodesAutoAdjustScaleDown, 1,
+                "Timeout between node left topology event itself and data nodes switch");
 
         assertZoneBuilderNullOrBlank(ZoneDefinition.Builder::filter, "f", "Filter");
         assertZoneBuilderNullOrBlank(ZoneDefinition.Builder::dataRegion, "r", "Data region");
