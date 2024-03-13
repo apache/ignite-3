@@ -39,15 +39,15 @@ public partial class LinqTests
                 Long = (long?)x.Val,
                 Float = (float?)x.Val / 1000,
                 Double = (double?)x.Val / 2000,
-                Decimal0 = (decimal?)x.Val / 36m,
+                Decimal0 = (decimal?)x.Val / 36,
             })
             .OrderByDescending(x => x.Long);
 
         // TODO: This works, but in LINQ we get scale > 32000, why?
-        var x = Client.Sql.ExecuteAsync(null, "select cast(_T0.VAL as decimal(20,10)) / 33 from PUBLIC.TBL_INT32 as _T0")
-            .Result.SingleAsync().AsTask().Result;
-        Console.WriteLine(x);
-
+        // Because of the division we lose precision/scale from the cast.
+        // var x = Client.Sql.ExecuteAsync(null, "select cast(_T0.VAL as decimal(20,10)) / 33 from PUBLIC.TBL_INT32 as _T0")
+        //     .Result.SingleAsync().AsTask().Result;
+        // Console.WriteLine(x);
         var res = query.ToList();
 
         Assert.AreEqual(90, res[0].Byte);

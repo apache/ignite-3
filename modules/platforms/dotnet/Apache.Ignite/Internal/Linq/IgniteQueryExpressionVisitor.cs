@@ -483,7 +483,7 @@ internal sealed class IgniteQueryExpressionVisitor : ThrowingExpressionVisitor
             {
                 // Use max precision and scale when performing cast to achieve expected behavior.
                 // Otherwise, zero scale leads to rounding.
-                ResultBuilder.Append(" as decimal(8, 4))");
+                ResultBuilder.Append(" as decimal(20, 10))");
             }
             else
             {
