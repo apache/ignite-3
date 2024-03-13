@@ -15,14 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.core.repl.config;
+package org.apache.ignite.internal.table;
+
+import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.table.manager.IgniteTables;
 
 /**
- * DTO class for node configuration JSON.
+ * Tests to check that rows can be inserted and retrieved through thin client.
  */
-public class RootConfig {
-    /**
-     * Client connector part.
-     */
-    public ClientConnectorConfig clientConnector;
+public class ItTablePutGetThinTest extends ItTablePutGetEmbeddedTest {
+    @Override
+    @SuppressWarnings("resource")
+    IgniteTables tables() {
+        return IgniteClient.builder()
+                .addresses("127.0.0.1:10800")
+                .build()
+                .tables();
+    }
 }

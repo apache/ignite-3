@@ -41,9 +41,12 @@ import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.TimestampString;
 import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
+import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
+import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.PartitionCalculator;
+import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.jetbrains.annotations.Nullable;
@@ -55,34 +58,28 @@ public final class PartitionPruningPredicate {
 
     private static final ZoneId ZONE_ID_UTC = ZoneId.of("UTC");
 
-    private final int tablePartitions;
-
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-21543 Remove after is resolved,
-    //  remaining partitions should always be not null.
-    private final @Nullable IntSet remainingPartitions;
-
-    /**
-     * Constructor.
-     *
-     * @param table Table.
-     * @param pruningColumns Columns.
-     * @param dynamicParameters Values of dynamic parameters.
-     */
-    public PartitionPruningPredicate(IgniteTable table, PartitionPruningColumns pruningColumns, Object[] dynamicParameters) {
-        this.tablePartitions = table.partitions();
-        this.remainingPartitions = computeRemainingPartitions(table, pruningColumns, dynamicParameters);
+    private PartitionPruningPredicate() {
     }
 
     /**
      * Applies partition pruning to the given colocation group. This group should have the same number of assignments as the source table.
      *
+     * @param table Table.
+     * @param pruningColumns Partition pruning metadata.
+     * @param dynamicParameters Values dynamic parameters.
      * @param colocationGroup Colocation group.
      *
      * @return New colocation group.
      */
-    public ColocationGroup prunePartitions(ColocationGroup colocationGroup) {
-        assert tablePartitions == colocationGroup.assignments().size() : "Number of partitions does not match";
+    public static ColocationGroup prunePartitions(
+            IgniteTable table,
+            PartitionPruningColumns pruningColumns,
+            Object[] dynamicParameters,
+            ColocationGroup colocationGroup) {
 
+        assert table.partitions() == colocationGroup.assignments().size() : "Number of partitions does not match";
+
+        IntSet remainingPartitions = computeRemainingPartitions(table, pruningColumns, dynamicParameters);
         if (remainingPartitions == null) {
             return colocationGroup;
         }
@@ -121,6 +118,51 @@ public final class PartitionPruningPredicate {
         );
     }
 
+    /**
+     * Applies partition pruning to the list of given assignments and returns a list of partitions belonging to the given node.
+     *
+     * @param pruningColumns Partition pruning metadata.
+     * @param table Table.
+     * @param expressionFactory Expression factory.
+     * @param assignments Assignments.
+     * @param nodeName Node name.
+     *
+     * @return List of partitions that belong to the provided node.
+     */
+    public static <RowT> List<PartitionWithConsistencyToken> prunePartitions(
+            PartitionPruningColumns pruningColumns,
+            IgniteTable table,
+            ExpressionFactory<RowT> expressionFactory,
+            List<NodeWithConsistencyToken> assignments,
+            String nodeName
+    ) {
+        ImmutableIntList keys = table.distribution().getKeys();
+        PartitionCalculator partitionCalculator = table.partitionCalculator().get();
+        List<PartitionWithConsistencyToken> result = new ArrayList<>();
+
+        for (Int2ObjectMap<RexNode> columns : pruningColumns.columns()) {
+            for (int key : keys) {
+                RexNode node = columns.get(key);
+                ColumnDescriptor descriptor = table.descriptor().columnDescriptor(key);
+                NativeType physicalType = descriptor.physicalType();
+
+                Object valueInInternalForm = expressionFactory.execute(node).get();
+                Class<?> storageType = NativeTypeSpec.toClass(physicalType.spec(), descriptor.nullable());
+                Object value = TypeUtils.fromInternal(valueInInternalForm, storageType);
+
+                partitionCalculator.append(value);
+            }
+
+            int p = partitionCalculator.partition();
+            NodeWithConsistencyToken token = assignments.get(p);
+
+            if (nodeName.equals(token.name())) {
+                result.add(new PartitionWithConsistencyToken(p, token.enlistmentConsistencyToken()));
+            }
+        }
+
+        return result;
+    }
 
     private static @Nullable IntSet computeRemainingPartitions(
             IgniteTable table,

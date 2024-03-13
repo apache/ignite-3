@@ -107,6 +107,8 @@ public class StorageUtils {
                 throw new StorageRebalanceException(createStorageInProcessOfRebalanceErrorMessage(storageInfo));
             case CLEANUP:
                 throw new StorageRebalanceException(createStorageInProcessOfCleanupErrorMessage(storageInfo));
+            case DESTROYING:
+                throw new StorageRebalanceException(createStorageDestroyedErrorMessage(storageInfo));
             default:
                 throw new StorageRebalanceException(createUnexpectedStorageStateErrorMessage(state, storageInfo));
         }
@@ -129,6 +131,8 @@ public class StorageUtils {
                 throw new StorageRebalanceException(createStorageInProcessOfRebalanceErrorMessage(storageInfo));
             case CLEANUP:
                 throw new StorageException(createStorageInProcessOfCleanupErrorMessage(storageInfo));
+            case DESTROYING:
+                throw new StorageClosedException(createStorageDestroyedErrorMessage(storageInfo));
             default:
                 throw new StorageException(createUnexpectedStorageStateErrorMessage(state, storageInfo));
         }
@@ -169,5 +173,9 @@ public class StorageUtils {
 
     private static String createStorageInProcessOfCleanupErrorMessage(String storageInfo) {
         return IgniteStringFormatter.format("Storage is in the process of cleanup: [{}]", storageInfo);
+    }
+
+    private static String createStorageDestroyedErrorMessage(String storageInfo) {
+        return IgniteStringFormatter.format("Storage is in the process of being destroyed: [{}]", storageInfo);
     }
 }

@@ -84,7 +84,7 @@ class TableRowToIndexKeyConverter implements ColumnsExtractor {
 
             assert column != null : "schemaVersion=" + descriptor.version() + ", column=" + indexedColumns[i];
 
-            result[i] = column.schemaIndex();
+            result[i] = column.positionInRow();
         }
 
         return result;

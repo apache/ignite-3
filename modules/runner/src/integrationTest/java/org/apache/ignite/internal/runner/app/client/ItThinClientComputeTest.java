@@ -643,6 +643,22 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         testEchoArg(BigInteger.TEN);
     }
 
+    @Test
+    void testExecuteColocatedEscapedTableName() {
+        var tableName = "\"TBL ABC\"";
+        var session = client().sql().sessionBuilder().build();
+        session.execute(null, "CREATE TABLE " + tableName + " (key INT PRIMARY KEY, val INT)");
+
+        Mapper<TestPojo> mapper = Mapper.of(TestPojo.class);
+        TestPojo pojoKey = new TestPojo(1);
+        Tuple tupleKey = Tuple.create().set("key", pojoKey.key);
+
+        var tupleRes = client().compute().executeColocated(tableName, tupleKey, List.of(), NodeNameJob.class.getName());
+        var pojoRes = client().compute().executeColocated(tableName, pojoKey, mapper, List.of(), NodeNameJob.class.getName());
+
+        assertEquals(tupleRes, pojoRes);
+    }
+
     private void testEchoArg(Object arg) {
         Object res = client().compute().execute(Set.of(node(0)), List.of(), EchoJob.class.getName(), arg, arg.toString());
 

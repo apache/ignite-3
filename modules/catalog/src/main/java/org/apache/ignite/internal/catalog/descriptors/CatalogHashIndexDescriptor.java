@@ -32,7 +32,7 @@ import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /** Hash index descriptor. */
 public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
-    public static CatalogObjectSerializer<CatalogHashIndexDescriptor> SERIALIZER = new HashIndexDescriptorSerializer();
+    public static final CatalogObjectSerializer<CatalogHashIndexDescriptor> SERIALIZER = new HashIndexDescriptorSerializer();
 
     private final List<String> columns;
 
