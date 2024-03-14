@@ -114,7 +114,9 @@ class PageMemoryIndexes {
                         destroyIndexOnRecovery(indexMeta, indexStorageFactory, indexMetaTree)
                                 .whenComplete((v, e) -> {
                                     if (e != null) {
-                                        LOG.error("Unable to destroy existing index that has been removed from the Catalog", e);
+                                        LOG.error(
+                                                "Unable to destroy existing index {}, that has been removed from the Catalog", e, indexId
+                                        );
                                     }
                                 });
 
@@ -154,7 +156,9 @@ class PageMemoryIndexes {
                 return destroyStorage(indexMeta.indexId(), sortedIndexStorage, indexMetaTree);
 
             default:
-                throw new AssertionError("Unexpected index type: " + indexMeta.indexType());
+                throw new AssertionError(String.format(
+                        "Unexpected index type %s for index %d", indexMeta.indexType(), indexMeta.indexId()
+                ));
         }
     }
 
