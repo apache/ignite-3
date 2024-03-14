@@ -108,6 +108,7 @@ public class TransactionEnlistTest extends BaseIgniteAbstractTest {
         TestNode testNode = CLUSTER.node(NODE_NAME1);
 
         return queryCheckerFactory.create(
+                testNode.name(),
                 new TestQueryProcessor(testNode, false),
                 null,
                 tx,

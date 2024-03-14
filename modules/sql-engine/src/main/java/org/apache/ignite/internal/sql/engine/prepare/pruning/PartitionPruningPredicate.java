@@ -143,7 +143,7 @@ public final class PartitionPruningPredicate {
             PartitionPruningColumns pruningColumns,
             IgniteTable table,
             ExpressionFactory<RowT> expressionFactory,
-            List<NodeWithConsistencyToken> assignments,
+            Int2ObjectMap<NodeWithConsistencyToken> assignments,
             String nodeName
     ) {
         ImmutableIntList keys = table.distribution().getKeys();

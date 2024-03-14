@@ -169,7 +169,7 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
             ColocationGroup group,
             Object... values
     ) {
-        Map<Integer, NodeWithConsistencyToken> assignments = group.assignments();
+        Int2ObjectMap<NodeWithConsistencyToken> assignments = group.assignments();
 
         // Compute expected partitions using table's PartitionCalculator.
         PartitionWithConsistencyToken expectedPartition = computeExpectedPartition(table, group.assignments(), values);
@@ -236,14 +236,14 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
     }
 
     private static Int2ObjectMap<NodeWithConsistencyToken> randomAssignments(IgniteTable table, List<String> nodeNames) {
-        Map<Integer, NodeWithConsistencyToken> map = IntStream.range(0, table.partitions())
-                .mapToObj(i -> {
-                    String nodeName = nodeNames.get(i % nodeNames.size());
-                    return new NodeWithConsistencyToken(nodeName, i);
-                })
-                .collect(Collectors.toMap(k -> (int) k.enlistmentConsistencyToken(), Function.identity()));
+        Int2ObjectMap<NodeWithConsistencyToken> assignments = new Int2ObjectOpenHashMap<>();
 
-        return new Int2ObjectOpenHashMap<>(map);
+        for (int i = 0; i < table.partitions(); ++i) {
+            String nodeName = nodeNames.get(i % nodeNames.size());
+            assignments.put(i, new NodeWithConsistencyToken(nodeName, i));
+        }
+
+        return assignments;
     }
 
     private Object generateFieldValue(IgniteTable table, int index) {

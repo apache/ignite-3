@@ -101,7 +101,7 @@ class DestinationFactory<RowT> {
 
                     var resolver = new TablePartitionExtractor<>(calculator.get(), keys.toIntArray(), tableDescriptor, rowHandler);
 
-                    Map<Integer, String> partToNode = group.assignments().entrySet().stream()
+                    Map<Integer, String> partToNode = group.assignments().int2ObjectEntrySet().stream()
                             .collect(Collectors.toMap(Entry::getKey, e -> e.getValue().name()));
 
                     return new Partitioned<>(partToNode, resolver);

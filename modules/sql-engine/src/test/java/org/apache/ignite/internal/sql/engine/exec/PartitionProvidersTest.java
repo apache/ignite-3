@@ -20,7 +20,9 @@ package org.apache.ignite.internal.sql.engine.exec;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
@@ -58,11 +60,10 @@ public class PartitionProvidersTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testStaticPartitionProviderWithProvidedPartitions() {
-        List<NodeWithConsistencyToken> assignments = List.of(
-                new NodeWithConsistencyToken("n1", 0),
-                new NodeWithConsistencyToken("n2", 0),
-                new NodeWithConsistencyToken("n3", 0)
-        );
+        Int2ObjectMap<NodeWithConsistencyToken> assignments = new Int2ObjectOpenHashMap<>();
+        assignments.put(0, new NodeWithConsistencyToken("n1", 0));
+        assignments.put(1, new NodeWithConsistencyToken("n2", 0));
+        assignments.put(2, new NodeWithConsistencyToken("n3", 0));
 
         Map<String, List<PartitionWithConsistencyToken>> partitionsPerNode = Map.of(
                 "n1", List.of(new PartitionWithConsistencyToken(1, 1L)),
@@ -108,13 +109,12 @@ public class PartitionProvidersTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testStaticPartitionProviderUsesAssignmentsWhenNoPartitionsPresent() {
-        List<NodeWithConsistencyToken> assignments = List.of(
-                new NodeWithConsistencyToken("n1", 0),
-                new NodeWithConsistencyToken("n2", 1),
-                new NodeWithConsistencyToken("n1", 2),
-                new NodeWithConsistencyToken("n1", 3),
-                new NodeWithConsistencyToken("n3", 4)
-        );
+        Int2ObjectMap<NodeWithConsistencyToken> assignments = new Int2ObjectOpenHashMap<>();
+        assignments.put(0, new NodeWithConsistencyToken("n1", 0));
+        assignments.put(1, new NodeWithConsistencyToken("n2", 1));
+        assignments.put(2, new NodeWithConsistencyToken("n1", 2));
+        assignments.put(3, new NodeWithConsistencyToken("n1", 3));
+        assignments.put(4, new NodeWithConsistencyToken("n3", 4));
 
         IgniteTable table = TestBuilders.table()
                 .name("T1")
@@ -153,13 +153,12 @@ public class PartitionProvidersTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testDynamicPartitionProvider() {
-        List<NodeWithConsistencyToken> assignments = List.of(
-                new NodeWithConsistencyToken("n1", 0),
-                new NodeWithConsistencyToken("n2", 1),
-                new NodeWithConsistencyToken("n1", 2),
-                new NodeWithConsistencyToken("n1", 3),
-                new NodeWithConsistencyToken("n3", 4)
-        );
+        Int2ObjectMap<NodeWithConsistencyToken> assignments = new Int2ObjectOpenHashMap<>();
+        assignments.put(0, new NodeWithConsistencyToken("n1", 0));
+        assignments.put(1, new NodeWithConsistencyToken("n2", 1));
+        assignments.put(2, new NodeWithConsistencyToken("n1", 2));
+        assignments.put(3, new NodeWithConsistencyToken("n1", 3));
+        assignments.put(4, new NodeWithConsistencyToken("n3", 4));
 
         IgniteTable table = TestBuilders.table()
                 .name("T1")
