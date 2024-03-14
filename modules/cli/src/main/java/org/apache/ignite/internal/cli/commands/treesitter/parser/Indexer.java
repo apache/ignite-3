@@ -54,7 +54,9 @@ public class Indexer {
     }
 
     private static void findTerminalNode(int pos, TSTreeCursor cursor) {
-        while (inside(pos, cursor.currentNode()) && -1 != cursor.gotoFirstChildForByte(pos)) {
+        int i = 0;
+        while (inside(pos, cursor.currentNode()) && -1 != i) {
+            i = cursor.gotoFirstChildForByte(pos);
         }
 
         if (!inside(pos, cursor.currentNode())) {
