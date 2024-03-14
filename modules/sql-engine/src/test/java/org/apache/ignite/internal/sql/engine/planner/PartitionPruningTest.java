@@ -210,6 +210,7 @@ public class PartitionPruningTest extends AbstractPlannerTest {
         assertEquals("[[0=2, 1=1], [0=4, 1=3]]", PartitionPruningColumns.canonicalForm(cols).toString());
     }
 
+    @Test
     public void testCorrelatedQuery() throws Exception {
         IgniteTable table1 = TestBuilders.table()
                 .name("T1")
