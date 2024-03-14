@@ -37,8 +37,9 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Tests for {@link PersistentPageMemoryTableStorage} class.
@@ -79,10 +80,11 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
         );
     }
 
-    @Test
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
     @Override
-    public void testDestroyPartition() throws Exception {
-        super.testDestroyPartition();
+    public void testDestroyPartition(boolean waitForDestroyFuture) {
+        super.testDestroyPartition(waitForDestroyFuture);
 
         // Let's make sure that the checkpoint doesn't fail.
         assertThat(

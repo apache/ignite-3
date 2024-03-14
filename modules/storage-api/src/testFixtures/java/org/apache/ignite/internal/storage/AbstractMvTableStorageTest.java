@@ -88,6 +88,8 @@ import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Abstract class that contains tests for {@link MvTableStorage} implementations.
@@ -270,8 +272,9 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     /**
      * Tests destroying an index.
      */
-    @Test
-    public void testDestroyIndex() throws Exception {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    public void testDestroyIndex(boolean waitForDestroyFuture) throws Exception {
         MvPartitionStorage partitionStorage = getOrCreateMvPartition(PARTITION_ID);
 
         SortedIndexStorage sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx);
@@ -283,9 +286,11 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         CompletableFuture<Void> destroySortedIndexFuture = tableStorage.destroyIndex(sortedIdx.id());
         CompletableFuture<Void> destroyHashIndexFuture = tableStorage.destroyIndex(hashIdx.id());
 
-        assertThat(partitionStorage.flush(), willCompleteSuccessfully());
-        assertThat(destroySortedIndexFuture, willCompleteSuccessfully());
-        assertThat(destroyHashIndexFuture, willCompleteSuccessfully());
+        if (waitForDestroyFuture) {
+            assertThat(partitionStorage.flush(), willCompleteSuccessfully());
+            assertThat(destroySortedIndexFuture, willCompleteSuccessfully());
+            assertThat(destroyHashIndexFuture, willCompleteSuccessfully());
+        }
 
         checkStorageDestroyed(sortedIndexStorage);
         checkStorageDestroyed(hashIndexStorage);
@@ -983,8 +988,9 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     }
 
     @SuppressWarnings("resource")
-    @Test
-    public void testDestroyPartition() throws Exception {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    public void testDestroyPartition(boolean waitForDestroyFuture) {
         assertThrows(IllegalArgumentException.class, () -> tableStorage.destroyPartition(getPartitionIdOutOfRange()));
 
         MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
@@ -1024,7 +1030,10 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         Cursor<RowId> getFromSortedIndexCursor = sortedIndexStorage.get(hashIndexRow.indexColumns());
         Cursor<IndexRow> scanFromSortedIndexCursor = sortedIndexStorage.scan(null, null, GREATER);
 
-        assertThat(tableStorage.destroyPartition(PARTITION_ID), willCompleteSuccessfully());
+        CompletableFuture<Void> destroyFuture = tableStorage.destroyPartition(PARTITION_ID);
+        if (waitForDestroyFuture) {
+            assertThat(destroyFuture, willCompleteSuccessfully());
+        }
 
         // Let's check that we won't get destroyed storages.
         assertNull(tableStorage.getMvPartition(PARTITION_ID));
@@ -1050,8 +1059,9 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     }
 
     @SuppressWarnings("resource")
-    @Test
-    public void testDestroyTableStorage() {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    public void testDestroyTableStorage(boolean waitForDestroyFuture) {
         MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
         HashIndexStorage hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx);
         SortedIndexStorage sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx);
@@ -1073,7 +1083,10 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         Cursor<RowId> getFromSortedIndexCursor = sortedIndexStorage.get(sortedIndexRow.indexColumns());
         Cursor<IndexRow> scanFromSortedIndexCursor = sortedIndexStorage.scan(null, null, GREATER);
 
-        assertThat(tableStorage.destroy(), willCompleteSuccessfully());
+        CompletableFuture<Void> destroyFuture = tableStorage.destroy();
+        if (waitForDestroyFuture) {
+            assertThat(destroyFuture, willCompleteSuccessfully());
+        }
 
         checkStorageDestroyed(mvPartitionStorage);
         checkStorageDestroyed(hashIndexStorage);
