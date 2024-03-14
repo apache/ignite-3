@@ -22,6 +22,7 @@ import static java.nio.ByteBuffer.allocate;
 import static java.nio.ByteBuffer.allocateDirect;
 import static java.util.Arrays.copyOf;
 import static java.util.Arrays.copyOfRange;
+import static org.apache.ignite.internal.storage.StorageStates.transitionToTerminalState;
 import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.MAX_KEY_SIZE;
 import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.MV_KEY_BUFFER;
 import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.ROW_ID_OFFSET;
@@ -1019,17 +1020,25 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     public void close() {
-        StorageState previous = state.getAndSet(StorageState.CLOSED);
+        transitionToDestroyedOrClosedState(StorageState.CLOSED);
+    }
 
-        if (previous == StorageState.CLOSED) {
+    private void transitionToDestroyedOrClosedState(StorageState targetState) {
+        if (!transitionToTerminalState(targetState, state)) {
             return;
         }
 
         busyLock.block();
 
-        RocksUtils.closeAll(readOpts);
-
+        readOpts.close();
         helper.close();
+    }
+
+    /**
+     * Transitions this storage to the {@link StorageState#DESTROYED} state.
+     */
+    public void transitionToDestroyedState() {
+        transitionToDestroyedOrClosedState(StorageState.DESTROYED);
     }
 
     /**

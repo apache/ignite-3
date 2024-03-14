@@ -19,31 +19,23 @@ package org.apache.ignite.internal.storage.rocksdb;
 
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.sortedIndexCfName;
 
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
-import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.rocksdb.index.RocksDbSortedIndexStorage;
 import org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstance;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
-import org.rocksdb.RocksDBException;
 import org.rocksdb.WriteBatch;
 
 /**
  * Class that represents a Sorted Index defined for all partitions of a Table.
  */
-class SortedIndex implements ManuallyCloseable {
+class SortedIndex extends Index<RocksDbSortedIndexStorage> {
     private final StorageSortedIndexDescriptor descriptor;
 
     private final SharedRocksDbInstance rocksDb;
 
     private final ColumnFamily indexCf;
-
-    private final ConcurrentMap<Integer, RocksDbSortedIndexStorage> storages = new ConcurrentHashMap<>();
 
     private final RocksDbMetaStorage indexMetaStorage;
 
@@ -52,6 +44,8 @@ class SortedIndex implements ManuallyCloseable {
             StorageSortedIndexDescriptor descriptor,
             RocksDbMetaStorage indexMetaStorage
     ) {
+        super(descriptor.id());
+
         this.rocksDb = rocksDb;
         this.descriptor = descriptor;
         this.indexCf = rocksDb.getSortedIndexCfOnIndexCreate(
@@ -75,34 +69,9 @@ class SortedIndex implements ManuallyCloseable {
      * Removes all data associated with the index.
      */
     void destroy(WriteBatch writeBatch) {
-        close();
+        transitionToDestroyedState();
 
         rocksDb.dropCfOnIndexDestroy(indexCf.nameBytes(), descriptor.id());
-    }
-
-    /**
-     * Deletes the data associated with the partition in the index, using passed write batch for the operation.
-     * Index storage instance is closed after this method, if it ever existed.
-     *
-     * @throws RocksDBException If failed to delete data.
-     */
-    void destroy(int partitionId, WriteBatch writeBatch) throws RocksDBException {
-        RocksDbSortedIndexStorage sortedIndex = storages.remove(partitionId);
-
-        if (sortedIndex != null) {
-            sortedIndex.close();
-
-            sortedIndex.destroyData(writeBatch);
-        }
-    }
-
-    @Override
-    public void close() {
-        try {
-            IgniteUtils.closeAll(storages.values().stream().map(index -> index::close));
-        } catch (Exception e) {
-            throw new StorageException("Failed to close index storages: " + descriptor.id(), e);
-        }
     }
 
     /**
