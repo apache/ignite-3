@@ -249,14 +249,10 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
             return;
         }
 
-        IgniteDistribution distribution = table.distribution();
-        if (!distribution.function().affinity()) {
-            return;
-        }
+        IntList keysList = distributionKeys(table);
 
-        IntArrayList keysList = new IntArrayList(distribution.getKeys().size());
-        for (Integer key : distribution.getKeys()) {
-            keysList.add(key.intValue());
+        if (keysList.isEmpty()) {
+            return;
         }
 
         Mappings.TargetMapping mapping = null;
@@ -334,14 +330,7 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
             return;
         }
 
-        IgniteDistribution distribution = table.distribution();
-        if (!distribution.function().affinity()) {
-            return;
-        }
-        IntArrayList keysList = new IntArrayList(distribution.getKeys().size());
-        for (Integer key : distribution.getKeys()) {
-            keysList.add(key.intValue());
-        }
+        IntList keysList = distributionKeys(table);
 
         RexNode remappedCondition;
         if (requiredColumns != null) {
@@ -821,5 +810,19 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
         public String toString() {
             return S.toString(this);
         }
+    }
+
+    private static IntList distributionKeys(IgniteTable table) {
+        IgniteDistribution distribution = table.distribution();
+        if (!distribution.function().affinity()) {
+            return IntArrayList.of();
+        }
+
+        IntArrayList keysList = new IntArrayList(distribution.getKeys().size());
+        for (Integer key : distribution.getKeys()) {
+            keysList.add(key.intValue());
+        }
+
+        return keysList;
     }
 }
