@@ -286,14 +286,23 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         CompletableFuture<Void> destroySortedIndexFuture = tableStorage.destroyIndex(sortedIdx.id());
         CompletableFuture<Void> destroyHashIndexFuture = tableStorage.destroyIndex(hashIdx.id());
 
-        if (waitForDestroyFuture) {
+        Runnable waitForDestroy = () -> {
             assertThat(partitionStorage.flush(), willCompleteSuccessfully());
             assertThat(destroySortedIndexFuture, willCompleteSuccessfully());
             assertThat(destroyHashIndexFuture, willCompleteSuccessfully());
+        };
+
+        if (waitForDestroyFuture) {
+            waitForDestroy.run();
         }
 
         checkStorageDestroyed(sortedIndexStorage);
         checkStorageDestroyed(hashIndexStorage);
+
+        // Make sure the destroy finishes before we recreate the storage.
+        if (!waitForDestroyFuture) {
+            waitForDestroy.run();
+        }
 
         tableStorage.close();
 
@@ -1084,8 +1093,11 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         Cursor<IndexRow> scanFromSortedIndexCursor = sortedIndexStorage.scan(null, null, GREATER);
 
         CompletableFuture<Void> destroyFuture = tableStorage.destroy();
+
+        Runnable waitForDestroy = () -> assertThat(destroyFuture, willCompleteSuccessfully());
+
         if (waitForDestroyFuture) {
-            assertThat(destroyFuture, willCompleteSuccessfully());
+            waitForDestroy.run();
         }
 
         checkStorageDestroyed(mvPartitionStorage);
@@ -1101,6 +1113,11 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         // Let's check that nothing will happen if we try to destroy it again.
         assertThat(tableStorage.destroy(), willCompleteSuccessfully());
+
+        // Make sure the destroy finishes before we recreate the storage.
+        if (!waitForDestroyFuture) {
+            waitForDestroy.run();
+        }
 
         // Let's check that after restarting the table we will have an empty partition.
         tableStorage = createMvTableStorage();
