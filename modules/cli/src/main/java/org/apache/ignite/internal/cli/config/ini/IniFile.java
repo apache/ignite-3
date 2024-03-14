@@ -19,11 +19,11 @@ package org.apache.ignite.internal.cli.config.ini;
 
 import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.Collection;
 import java.util.Map;
 import org.apache.ignite.internal.cli.config.exception.ConfigStoringException;
@@ -75,7 +75,7 @@ public class IniFile {
      * Store current INI file to FS file.
      */
     public void store() {
-        try (OutputStream os = new FileOutputStream(file)) {
+        try (OutputStream os = Files.newOutputStream(file.toPath())) {
             store(os);
         } catch (IOException e) {
             throw new ConfigStoringException("Can't store cli config file " + file.getAbsolutePath(), e);

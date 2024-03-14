@@ -18,10 +18,10 @@
 package org.apache.ignite.internal.pagememory.persistence;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
+import java.nio.file.Files;
 import java.util.zip.CRC32;
 import java.util.zip.CheckedInputStream;
 
@@ -100,7 +100,7 @@ public class FastCrc {
 
         CRC32 algo = new CRC32();
 
-        try (InputStream in = new CheckedInputStream(new FileInputStream(file), algo)) {
+        try (InputStream in = new CheckedInputStream(Files.newInputStream(file.toPath()), algo)) {
             byte[] buf = new byte[1024];
 
             while (in.read(buf) != -1) {
