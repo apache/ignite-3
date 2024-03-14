@@ -29,7 +29,7 @@
       <Class name="~org\.apache\.ignite\.raft\.jraft\..*" />
       <Class name="~com\.facebook\.presto\..*" />
       <Class name="~org\.apache\.ignite\.internal\.generated\..*"/>
-      <Class name="~org\.apache\.ignite\.rest\.client\.invoker\..*"/>
+      <Class name="~org\.apache\.ignite\.rest\.client\..*"/>
       <Annotation name="org.immutables.value.Generated" />
     </Or>
   </Match>
@@ -191,6 +191,11 @@
     <Bug pattern="VO_VOLATILE_INCREMENT"/>
     <Class name="org.apache.ignite.internal.tx.impl.TxManagerImpl"/>
     <Field name="inflights"/>
+  </Match>
+  <Match>
+    <!-- duplicate reported because constants have same value -->
+    <Bug pattern="DB_DUPLICATE_BRANCHES"/>
+    <Source name="AbstractPageMemoryIndexStorage.java"/>
   </Match>
   <!-- end of false-positive exclusions -->
 
