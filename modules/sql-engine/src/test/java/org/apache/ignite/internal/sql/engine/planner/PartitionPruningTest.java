@@ -210,6 +210,31 @@ public class PartitionPruningTest extends AbstractPlannerTest {
         assertEquals("[[0=2, 1=1], [0=4, 1=3]]", PartitionPruningColumns.canonicalForm(cols).toString());
     }
 
+    public void testCorrelatedQuery() throws Exception {
+        IgniteTable table1 = TestBuilders.table()
+                .name("T1")
+                .addKeyColumn("C1", NativeTypes.INT32)
+                .addColumn("C2", NativeTypes.INT32, false)
+                .distribution(IgniteDistributions.affinity(List.of(0), 1, 2))
+                .build();
+
+        IgniteTable table2 = TestBuilders.table()
+                .name("T2")
+                .addKeyColumn("C1", NativeTypes.INT32)
+                .addColumn("C2", NativeTypes.INT32)
+                .distribution(IgniteDistributions.affinity(List.of(0), 1, 2))
+                .build();
+
+        PartitionPruningMetadataExtractor extractor = new PartitionPruningMetadataExtractor();
+
+        PartitionPruningMetadata actual = extractMetadata(extractor,
+                "SELECT * FROM t1 as cor WHERE EXISTS (SELECT 1 FROM t2 WHERE t2.c1 = cor.c1 OR t2.c1=42)", table1, table2);
+
+        PartitionPruningColumns cols = actual.get(2);
+        assertNotNull(cols, "No metadata for source=2");
+        assertEquals("[[0=$cor0.C1], [0=42]]", PartitionPruningColumns.canonicalForm(cols).toString());
+    }
+
     private PartitionPruningMetadata extractMetadata(String query, IgniteTable... table) throws Exception {
         PartitionPruningMetadataExtractor extractor = new PartitionPruningMetadataExtractor();
 

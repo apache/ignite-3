@@ -37,6 +37,7 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexDynamicParam;
+import org.apache.calcite.rex.RexFieldAccess;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexLocalRef;
 import org.apache.calcite.rex.RexNode;
@@ -651,7 +652,21 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
     }
 
     private static boolean isValueExpr(RexNode node) {
-        return node instanceof RexLiteral || node instanceof RexDynamicParam;
+        return node instanceof RexLiteral || node instanceof RexDynamicParam || isCorrelatedVariable(node);
+    }
+
+    static boolean isCorrelatedVariable(RexNode node) {
+        // Correlated variables a referenced via field access expressions
+        //
+        // SELECT * FROM t1 as cor WHERE EXISTS (SELECT 1 FROM t2 WHERE t2.c1 = cor.c1)
+        //
+        // So condition `t2.c1 = cor.c1` is translated to $t0 = $cor0.C1
+        if (node.isA(SqlKind.FIELD_ACCESS)) {
+            RexFieldAccess fieldAccess = (RexFieldAccess) node;
+            return fieldAccess.getReferenceExpr().isA(SqlKind.CORREL_VARIABLE);
+        } else {
+            return false;
+        }
     }
 
     /** Intermediate result of extracting partition pruning metadata. */

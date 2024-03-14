@@ -43,6 +43,9 @@ import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
+import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningColumns;
+import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningMetadata;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.network.ClusterNode;
@@ -370,6 +373,19 @@ public class ExecutionContext<RowT> implements DataContext {
 
     public boolean isCancelled() {
         return cancelFlag.get();
+    }
+
+    /** Creates {@link PartitionProvider} for the given source table. */
+    public PartitionProvider<RowT> getPartitionProvider(long sourceId, ColocationGroup group, IgniteTable table) {
+        PartitionPruningMetadata metadata = description.partitionPruningMetadata();
+        PartitionPruningColumns columns = metadata != null ? metadata.get(sourceId) : null;
+        String nodeName = localNode.name();
+
+        if (columns == null) {
+            return new StaticPartitionProvider<>(nodeName, group, sourceId);
+        } else {
+            return new DynamicPartitionProvider<>(nodeName, group.assignments(), columns, table);
+        }
     }
 
     /** {@inheritDoc} */

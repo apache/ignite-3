@@ -19,12 +19,12 @@ package org.apache.ignite.internal.sql.engine.exec.mapping;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import java.io.Serializable;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import org.apache.ignite.internal.sql.engine.exec.NodeWithConsistencyToken;
+import org.apache.ignite.internal.sql.engine.exec.PartitionProvider;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
 
 /**
@@ -100,17 +100,7 @@ public class ColocationGroup implements Serializable {
         if (partitionsPerNode != null) {
             return partitionsPerNode.getOrDefault(nodeName, Collections.emptyList());
         } else {
-            List<PartitionWithConsistencyToken> partitions = new ArrayList<>();
-
-            for (int p = 0; p < assignments.size(); p++) {
-                NodeWithConsistencyToken nodeWithConsistencyToken = assignments.get(p);
-
-                if (Objects.equals(nodeName, nodeWithConsistencyToken.name())) {
-                    partitions.add(new PartitionWithConsistencyToken(p, nodeWithConsistencyToken.enlistmentConsistencyToken()));
-                }
-            }
-
-            return partitions;
+            return PartitionProvider.partitionsForNode(assignments, nodeName);
         }
     }
 }

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.planner;
 
 import static java.util.function.Predicate.not;
+import static org.apache.ignite.internal.sql.engine.trait.IgniteDistributions.single;
 
 import java.util.List;
 import java.util.Objects;
@@ -37,7 +38,6 @@ import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapHashAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapSortAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceHashAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceSortAggregate;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.junit.jupiter.api.Test;
 
@@ -479,7 +479,7 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
                 ));
 
         Predicate<IgniteExchange> colocatedGroupBy = isInstanceOf(IgniteExchange.class)
-                .and(hasDistribution(IgniteDistributions.single()))
+                .and(hasDistribution(single()))
                 .and(input(isInstanceOf(IgniteColocatedHashAggregate.class)
                         .and(in -> hasAggregates(countMap).test(in.getAggCallList()))
                         .and(input(isTableScan("TEST")))
@@ -500,10 +500,10 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
         Predicate<IgniteColocatedHashAggregate> nonColocated = isInstanceOf(IgniteColocatedHashAggregate.class)
                 .and(in -> hasAggregates(countMap).test(in.getAggCallList()))
                 .and(input(isInstanceOf(IgniteExchange.class)
-                        .and(hasDistribution(IgniteDistributions.single()))));
+                        .and(hasDistribution(single()))));
 
         Predicate<IgniteExchange> colocatedGroupBy = isInstanceOf(IgniteExchange.class)
-                .and(hasDistribution(IgniteDistributions.single()))
+                .and(hasDistribution(single()))
                 .and(input(isInstanceOf(IgniteColocatedHashAggregate.class)
                         .and(in -> hasAggregates(countMap).test(in.getAggCallList()))
                         .and(input(isTableScan("TEST")))
@@ -539,7 +539,7 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
         Predicate<RelNode> colocated = nodeOrAnyChild(isInstanceOf(IgniteReduceSortAggregate.class)
                 .and(hasNoGroupSets(IgniteReduceSortAggregate::getGroupSets))
                 .and(input(isInstanceOf(IgniteExchange.class)
-                        .and(hasDistribution(IgniteDistributions.single())
+                        .and(hasDistribution(single())
                                 .and(input(isInstanceOf(IgniteMapSortAggregate.class)
                                         .and(hasNoGroupSets(IgniteMapSortAggregate::getGroupSets))
                                         .and(input(isInstanceOf(IgniteColocatedHashAggregate.class)
@@ -802,6 +802,7 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
         assertPlan(testCase,
                 isInstanceOf(IgniteColocatedSortAggregate.class)
                         .and(input(isInstanceOf(IgniteExchange.class)
+                                .and(hasDistribution(single()))
                                 .and(input(isInstanceOf(IgniteSort.class)
                                         .and(s -> s.collation().equals(collation))
                                         .and(input(isTableScan("TEST")))
@@ -815,7 +816,7 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
                 .and(nodeOrAnyChild(isInstanceOf(IgniteReduceHashAggregate.class)
                         .and(hasGroupSets(IgniteReduceHashAggregate::getGroupSets, 0))
                         .and(input(isInstanceOf(IgniteExchange.class)
-                                .and(hasDistribution(IgniteDistributions.single())
+                                .and(hasDistribution(single())
                                         .and(input(isInstanceOf(IgniteMapHashAggregate.class)
                                                 .and(hasGroupSets(IgniteMapHashAggregate::getGroupSets, 1))
                                         ))

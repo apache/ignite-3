@@ -286,6 +286,6 @@ public class ModifyNodeExecutionTest extends AbstractExecutionTest<RowWrapper> {
     @Override
     protected FragmentDescription getFragmentDescription() {
         ColocationGroup colocationGroup = new ColocationGroup(List.of(), List.of(), Int2ObjectMaps.emptyMap());
-        return new FragmentDescription(0, true, Long2ObjectMaps.singleton(SOURCE_ID, colocationGroup), null, null);
+        return new FragmentDescription(0, true, Long2ObjectMaps.singleton(SOURCE_ID, colocationGroup), null, null, null);
     }
 }

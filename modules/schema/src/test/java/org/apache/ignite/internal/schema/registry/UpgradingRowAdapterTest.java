@@ -117,7 +117,7 @@ public class UpgradingRowAdapterTest {
                 }
         );
 
-        int addedColumnIndex = schema2.column("added").schemaIndex();
+        int addedColumnIndex = schema2.column("added").positionInRow();
 
         schema2.columnMapping(new ColumnMapper() {
             @Override
@@ -172,7 +172,7 @@ public class UpgradingRowAdapterTest {
         for (int i = 0; i < values.size(); i++) {
             Column col = schema.column(i);
 
-            assertThat("Failed for column: " + col, row.value(col.schemaIndex()), is(equalTo(values.get(i))));
+            assertThat("Failed for column: " + col, row.value(col.positionInRow()), is(equalTo(values.get(i))));
         }
     }
 
@@ -202,7 +202,7 @@ public class UpgradingRowAdapterTest {
      * @return Row bytes.
      */
     private static BinaryRow serializeValuesToRow(SchemaDescriptor schema, List<Object> vals) {
-        assertEquals(schema.keyColumns().length() + schema.valueColumns().length(), vals.size());
+        assertEquals(schema.keyColumns().size() + schema.valueColumns().size(), vals.size());
 
         RowAssembler asm = new RowAssembler(schema, -1);
 

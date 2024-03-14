@@ -70,8 +70,8 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
     private static final ColumnsExtractor PK_INDEX_BINARY_TUPLE_CONVERTER = new BinaryRowConverter(TUPLE_SCHEMA, PK_INDEX_SCHEMA);
 
     private static final int[] USER_INDEX_COLS = {
-            SCHEMA_DESCRIPTOR.column("INTVAL").schemaIndex(),
-            SCHEMA_DESCRIPTOR.column("STRVAL").schemaIndex()
+            SCHEMA_DESCRIPTOR.column("INTVAL").positionInRow(),
+            SCHEMA_DESCRIPTOR.column("STRVAL").positionInRow()
     };
 
     @InjectConfiguration

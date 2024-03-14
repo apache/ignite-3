@@ -269,7 +269,8 @@ public class MappingServiceImpl implements MappingService, LogicalTopologyEventL
                                         fragment,
                                         mapping.groups(),
                                         sourcesByExchangeId,
-                                        targetGroup
+                                        targetGroup,
+                                        null
                                 )
                         );
                     }

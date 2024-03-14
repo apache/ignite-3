@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.schema.marshaller.MarshallerUtil.getVal
 import java.util.List;
 import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.Columns;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.type.NativeType;
@@ -50,16 +49,16 @@ class ObjectStatistics {
     /**
      * Reads object fields and gather statistic.
      */
-    private static ObjectStatistics collectObjectStats(Columns cols, Marshaller marsh, @Nullable Object obj) {
+    private static ObjectStatistics collectObjectStats(List<Column> cols, Marshaller marsh, @Nullable Object obj) {
         if (obj == null) {
             return ZERO_STATISTICS;
         }
 
         int estimatedValueSize = 0;
 
-        for (int i = 0; i < cols.length(); i++) {
+        for (int i = 0; i < cols.size(); i++) {
             Object val = marsh.value(obj, i);
-            Column col = cols.column(i);
+            Column col = cols.get(i);
             NativeType colType = col.type();
 
             if (val == null) {
@@ -83,7 +82,7 @@ class ObjectStatistics {
 
         int totalValueSize = keyStat.getEstimatedValueSize();
 
-        return new RowAssembler(schema.version(), List.of(schema.keyColumns().columns()), totalValueSize);
+        return new RowAssembler(schema.version(), schema.keyColumns(), totalValueSize);
     }
 
     static RowAssembler createAssembler(

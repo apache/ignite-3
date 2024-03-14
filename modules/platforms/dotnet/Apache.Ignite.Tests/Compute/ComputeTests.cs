@@ -377,6 +377,31 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
+        public async Task TestExecuteColocatedWithEscapedTableName()
+        {
+            var tableName = "\"table with spaces\"";
+            var key = 1L;
+            var tupleKey = new IgniteTuple { ["KEY"] = key };
+
+            try
+            {
+                await Client.Sql.ExecuteAsync(null, $"CREATE TABLE {tableName} (KEY BIGINT PRIMARY KEY, VAL VARCHAR)");
+
+                var exec1 = await Client.Compute.SubmitColocatedAsync<string>(tableName, tupleKey, Units, NodeNameJob);
+                var exec2 = await Client.Compute.SubmitColocatedAsync<string, long>(tableName, key, Units, NodeNameJob);
+
+                var res1 = await exec1.GetResultAsync();
+                var res2 = await exec2.GetResultAsync();
+
+                Assert.AreEqual(res1, res2);
+            }
+            finally
+            {
+                await Client.Sql.ExecuteAsync(null, $"DROP TABLE IF EXISTS {tableName}");
+            }
+        }
+
+        [Test]
         public async Task TestExceptionInJobWithSendServerExceptionStackTraceToClientPropagatesToClientWithStackTrace()
         {
             var jobExecution = await Client.Compute.SubmitAsync<object>(await GetNodeAsync(1), Units, ExceptionJob, "foo-bar");
