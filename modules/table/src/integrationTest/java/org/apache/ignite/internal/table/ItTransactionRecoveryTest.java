@@ -40,6 +40,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -80,6 +81,8 @@ import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequest;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
+import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -1018,6 +1021,73 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         );
     }
 
+    @Test
+    public void testFullTxConsistency() throws InterruptedException {
+        TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
+
+        int partId = 0;
+
+        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), partId);
+
+        String leaseholder = waitAndGetPrimaryReplica(node(0), tblReplicationGrp).getLeaseholder();
+
+        IgniteImpl firstLeaseholderNode = findNodeByName(leaseholder);
+
+        log.info("Full transaction will be executed on [node={}].", firstLeaseholderNode.name());
+
+        IgniteImpl txCrdNode = findNode(0, initialNodes(), n -> !leaseholder.equals(n.name()));
+
+        log.info("Transaction coordinator is [node={}].", txCrdNode.name());
+
+        RecordView<Tuple> view = txCrdNode.tables().table(TABLE_NAME).recordView();
+
+        // Put some value into the table.
+        view.upsert(null, Tuple.create().set("key", 1).set("val", "1"));
+
+        var fullTxReplicationAttemptLatch = new CompletableFuture<>();
+        var regularTxComplete = new CompletableFuture<>();
+
+        firstLeaseholderNode.dropMessages((node, msg) -> {
+            if (msg instanceof WriteActionRequest) {
+                WriteActionRequest writeActionRequest = (WriteActionRequest) msg;
+
+                if (tblReplicationGrp.toString().equals(writeActionRequest.groupId()) && !fullTxReplicationAttemptLatch.isDone()) {
+                    fullTxReplicationAttemptLatch.complete(null);
+
+                    regularTxComplete.join();
+                }
+            }
+
+            return false;
+        });
+
+        // Starting full transaction.
+        CompletableFuture<Tuple> fullTxFut = view.getAndDeleteAsync(null, Tuple.create().set("key", 1));
+
+        assertThat(fullTxReplicationAttemptLatch, willCompleteSuccessfully());
+
+        // Changing the primary.
+        NodeUtils.transferPrimary(tbl, txCrdNode.name(), cluster::node);
+
+        // Start a regular transaction that increments the value. It should see the initially inserted value and its commit should succeed.
+        Transaction tx = txCrdNode.transactions().begin();
+
+        Tuple t = view.get(tx, Tuple.create().set("key", 1));
+        assertEquals("val 1", t.value("val"));
+        view.upsert(tx, Tuple.create().set("key", 1).set("val", "2"));
+
+        tx.commit();
+
+        regularTxComplete.complete(null);
+
+        // Full transaction should finally complete.
+        assertThat(fullTxFut, willCompleteSuccessfully());
+
+        // Transaction "tx" got the value, this means the full transaction hasn't executed yet at the moment of "tx" commit.
+        // Hence the retrieved value should always be 2.
+        assertEquals("2", fullTxFut.join().value("val"));
+    }
+
     private DefaultMessagingService messaging(IgniteImpl node) {
         ClusterService coordinatorService = IgniteTestUtils.getFieldValue(node, IgniteImpl.class, "clusterSvc");
 
@@ -1146,7 +1216,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         return findNode(1, initialNodes(), n -> !leaseholder.equals(n.name()));
     }
 
-    private ReplicaMeta waitAndGetPrimaryReplica(IgniteImpl node, ReplicationGroupId tblReplicationGrp) {
+    private static ReplicaMeta waitAndGetPrimaryReplica(IgniteImpl node, ReplicationGroupId tblReplicationGrp) {
         CompletableFuture<ReplicaMeta> primaryReplicaFut = node.placementDriver().awaitPrimaryReplica(
                 tblReplicationGrp,
                 node.clock().now(),
@@ -1159,7 +1229,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         return primaryReplicaFut.join();
     }
 
-    private String waitAndGetLeaseholder(IgniteImpl node, ReplicationGroupId tblReplicationGrp) {
+    private static String waitAndGetLeaseholder(IgniteImpl node, ReplicationGroupId tblReplicationGrp) {
         return waitAndGetPrimaryReplica(node, tblReplicationGrp).getLeaseholder();
     }
 
