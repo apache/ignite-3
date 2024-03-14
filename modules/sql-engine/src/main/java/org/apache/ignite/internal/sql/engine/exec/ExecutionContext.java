@@ -43,8 +43,13 @@ import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
+import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningColumns;
+import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningMetadata;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
@@ -320,9 +325,14 @@ public class ExecutionContext<RowT> implements DataContext {
                     task.run();
                 }
             } catch (Throwable e) {
-                onError.accept(e);
+                Throwable unwrappedException = ExceptionUtils.unwrapCause(e);
+                onError.accept(unwrappedException);
 
-                throw new IgniteInternalException(INTERNAL_ERR, "Unexpected exception", e);
+                if (unwrappedException instanceof IgniteException) {
+                    return;
+                }
+
+                LOG.warn("Unexpected exception", e);
             }
         });
     }
@@ -370,6 +380,19 @@ public class ExecutionContext<RowT> implements DataContext {
 
     public boolean isCancelled() {
         return cancelFlag.get();
+    }
+
+    /** Creates {@link PartitionProvider} for the given source table. */
+    public PartitionProvider<RowT> getPartitionProvider(long sourceId, ColocationGroup group, IgniteTable table) {
+        PartitionPruningMetadata metadata = description.partitionPruningMetadata();
+        PartitionPruningColumns columns = metadata != null ? metadata.get(sourceId) : null;
+        String nodeName = localNode.name();
+
+        if (columns == null) {
+            return new StaticPartitionProvider<>(nodeName, group, sourceId);
+        } else {
+            return new DynamicPartitionProvider<>(nodeName, group.assignments(), columns, table);
+        }
     }
 
     /** {@inheritDoc} */

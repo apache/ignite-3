@@ -45,6 +45,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.isA;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
@@ -72,6 +73,10 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.handlers.StopNodeFailureHandler;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.metrics.MetricManager;
@@ -458,6 +463,26 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         assertTrue(batchFut.toCompletableFuture().isCompletedExceptionally());
     }
 
+
+    /**
+     * Emulate exception during initialization of context. Cursor shouldn't hung.
+     */
+    @Test
+    public void testErrorOnContextInitialization() {
+        ExecutionService execService = executionServices.get(0);
+        BaseQueryContext ctx = spy(createContext());
+        when(ctx.timeZoneId())
+                .thenCallRealMethod()
+                .thenThrow(new ExceptionInInitializerError());
+
+        QueryPlan plan = prepare("SELECT 1", ctx);
+
+        InternalTransaction tx = new NoOpTransaction(nodeNames.get(0));
+        AsyncCursor<InternalSqlRow> cursor = execService.executePlan(tx, plan, ctx);
+
+        assertThrows(ExceptionInInitializerError.class, () -> await(cursor.requestNextAsync(1), 2, TimeUnit.SECONDS));
+    }
+
     /**
      * Read all data from the cursor. Requested amount is less than size of the result set.
      */
@@ -809,7 +834,8 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
             throw new IllegalArgumentException(format("Node id should be one of {}, but was '{}'", nodeNames, nodeName));
         }
 
-        var taskExecutor = new QueryTaskExecutorImpl(nodeName, 4);
+        var failureProcessor = new FailureProcessor(nodeName, new StopNodeFailureHandler());
+        var taskExecutor = new QueryTaskExecutorImpl(nodeName, 4, failureProcessor);
         executers.add(taskExecutor);
 
         var node = testCluster.addNode(nodeName, taskExecutor);
@@ -820,7 +846,9 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         var mailboxRegistry = new CapturingMailboxRegistry(new MailboxRegistryImpl());
         mailboxes.add(mailboxRegistry);
 
-        var exchangeService = new ExchangeServiceImpl(mailboxRegistry, messageService);
+        HybridClock clock = new HybridClockImpl();
+
+        var exchangeService = new ExchangeServiceImpl(mailboxRegistry, messageService, clock);
 
         var schemaManagerMock = mock(SqlSchemaManager.class);
 
@@ -882,6 +910,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 executableTableRegistry,
                 dependencyResolver,
                 (ctx, deps) -> node.implementor(ctx, mailboxRegistry, exchangeService, deps),
+                clock,
                 SHUTDOWN_TIMEOUT
         );
 

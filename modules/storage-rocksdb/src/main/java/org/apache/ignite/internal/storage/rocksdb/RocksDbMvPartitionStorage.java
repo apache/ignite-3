@@ -848,16 +848,20 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
                 @Override
                 public boolean hasNext() {
-                    assert rowIsLocked(rowId);
+                    return busy(() -> {
+                        assert rowIsLocked(rowId) : "rowId=" + rowId + ", " + createStorageInfo();
 
-                    return super.hasNext();
+                        return super.hasNext();
+                    });
                 }
 
                 @Override
                 public ReadResult next() {
-                    assert rowIsLocked(rowId);
+                    return busy(() -> {
+                        assert rowIsLocked(rowId) : "rowId=" + rowId + ", " + createStorageInfo();
 
-                    return super.next();
+                        return super.next();
+                    });
                 }
 
                 @Override

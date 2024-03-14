@@ -41,7 +41,7 @@ import org.jetbrains.annotations.Nullable;
  * Table descriptor.
  */
 public class CatalogTableDescriptor extends CatalogObjectDescriptor {
-    public static CatalogObjectSerializer<CatalogTableDescriptor> SERIALIZER = new TableDescriptorSerializer();
+    public static final CatalogObjectSerializer<CatalogTableDescriptor> SERIALIZER = new TableDescriptorSerializer();
 
     public static final int INITIAL_TABLE_VERSION = 1;
 
