@@ -21,6 +21,7 @@ import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.storage.StorageClosedException;
+import org.apache.ignite.internal.storage.StorageDestroyedException;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 
@@ -132,7 +133,7 @@ public class StorageUtils {
             case CLEANUP:
                 throw new StorageException(createStorageInProcessOfCleanupErrorMessage(storageInfo));
             case DESTROYED:
-                throw new StorageClosedException(createStorageDestroyedErrorMessage(storageInfo));
+                throw new StorageDestroyedException(createStorageDestroyedErrorMessage(storageInfo));
             default:
                 throw new StorageException(createUnexpectedStorageStateErrorMessage(state, storageInfo));
         }
@@ -176,6 +177,6 @@ public class StorageUtils {
     }
 
     private static String createStorageDestroyedErrorMessage(String storageInfo) {
-        return IgniteStringFormatter.format("Storage is in the process of being destroyed: [{}]", storageInfo);
+        return IgniteStringFormatter.format("Storage is in the process of being destroyed or destroyed: [{}]", storageInfo);
     }
 }
