@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.apache.calcite.tools.Frameworks;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -112,8 +113,9 @@ public class TestNode implements LifecycleAware {
         RowHandler<Object[]> rowHandler = ArrayRowHandler.INSTANCE;
 
         MailboxRegistry mailboxRegistry = registerService(new MailboxRegistryImpl());
-        QueryTaskExecutorImpl queryExec = new QueryTaskExecutorImpl(nodeName, 4);
-        queryExec.exceptionHandler((t, e) -> exceptionRaised = true);
+
+        FailureProcessor failureProcessor = new FailureProcessor(nodeName, (a, b) -> exceptionRaised = true);
+        QueryTaskExecutorImpl queryExec = new QueryTaskExecutorImpl(nodeName, 4, failureProcessor);
 
         QueryTaskExecutor taskExecutor = registerService(queryExec);
 
