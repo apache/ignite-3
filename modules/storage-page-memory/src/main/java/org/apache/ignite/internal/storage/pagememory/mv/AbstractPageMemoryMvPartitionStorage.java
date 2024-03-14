@@ -48,6 +48,7 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
+import org.apache.ignite.internal.storage.StorageStates;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.storage.gc.GcEntry;
 import org.apache.ignite.internal.storage.index.IndexStorage;
@@ -577,14 +578,26 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     @Override
     public void close() {
-        StorageState previous = state.getAndSet(StorageState.CLOSED);
-
-        if (previous == StorageState.CLOSED) {
+        if (!transitionToTerminalState(StorageState.CLOSED)) {
             return;
         }
 
         busyLock.block();
 
+        closeResources();
+    }
+
+    /**
+     * If not already in a terminal state, transitions to the supplied state and returns {@code true}, otherwise just returns {@code false}.
+     */
+    private boolean transitionToTerminalState(StorageState targetState) {
+        return StorageStates.transitionToTerminalState(targetState, state);
+    }
+
+    /**
+     * Closes resources of this storage. Must be closed only when the busy lock is already blocked.
+     */
+    public void closeResources() {
         try {
             IgniteUtils.closeAll(getResourcesToClose());
         } catch (Exception e) {
@@ -608,6 +621,24 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         resources.addAll(indexes.getResourcesToClose());
 
         return resources;
+    }
+
+    /**
+     * Transitions this storage to the {@link StorageState#DESTROYED} state. Blocks the busy lock, but does not
+     * close the resources (they will have to be closed by calling {@link #closeResources()}).
+     *
+     * @return {@code true} if this call actually made the transition and, hence, the caller must call {@link #closeResources()}.
+     */
+    public boolean transitionToDestroyedState() {
+        if (!transitionToTerminalState(StorageState.DESTROYED)) {
+            return false;
+        }
+
+        indexes.transitionToDestroyedState();
+
+        busyLock.block();
+
+        return true;
     }
 
     /**

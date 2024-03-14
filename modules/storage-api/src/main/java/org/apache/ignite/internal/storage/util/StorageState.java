@@ -34,5 +34,12 @@ public enum StorageState {
     CLEANUP,
 
     /** Storage is in the process of being destroyed or it is already destroyed. This is a terminal state. */
-    DESTROYED
+    DESTROYED;
+
+    /**
+     * Returns {@code true} if this is a terminal state (that is, we cannot leave it).
+     */
+    public boolean isTerminal() {
+        return this == CLOSED || this == DESTROYED;
+    }
 }

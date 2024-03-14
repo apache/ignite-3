@@ -36,6 +36,7 @@ import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
+import org.apache.ignite.internal.storage.StorageStates;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.PeekCursor;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
@@ -135,15 +136,20 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
 
     /** Closes the index storage. */
     public void close() {
-        StorageState prevState = state.getAndSet(StorageState.CLOSED);
-
-        if (prevState == StorageState.CLOSED) {
+        if (!transitionToTerminalState(StorageState.CLOSED)) {
             return;
         }
 
         busyLock.block();
 
         closeStructures();
+    }
+
+    /**
+     * If not already in a terminal state, transitions to the supplied state and returns {@code true}, otherwise just returns {@code false}.
+     */
+    private boolean transitionToTerminalState(StorageState targetState) {
+        return StorageStates.transitionToTerminalState(targetState, state);
     }
 
     /**
@@ -212,37 +218,36 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
      * @throws StorageException If something goes wrong.
      */
     public final CompletableFuture<Void> startDestructionOn(GradualTaskExecutor executor) throws StorageException {
-        return busy(() -> {
-            try {
-                int maxWorkUnits = isVolatile
-                        ? VolatilePageMemoryStorageEngine.MAX_DESTRUCTION_WORK_UNITS
-                        : PersistentPageMemoryStorageEngine.MAX_DESTRUCTION_WORK_UNITS;
+        try {
+            int maxWorkUnits = isVolatile
+                    ? VolatilePageMemoryStorageEngine.MAX_DESTRUCTION_WORK_UNITS
+                    : PersistentPageMemoryStorageEngine.MAX_DESTRUCTION_WORK_UNITS;
 
-                return executor.execute(createDestructionTask(maxWorkUnits))
-                        .whenComplete((res, e) -> {
-                            if (e != null) {
-                                LOG.error("Unable to destroy index {}", e, indexId);
-                            }
-                        });
-            } catch (IgniteInternalCheckedException e) {
-                throw new StorageException("Unable to destroy index " + indexId, e);
-            }
-        });
+            return executor.execute(createDestructionTask(maxWorkUnits))
+                    .whenComplete((res, e) -> {
+                        if (e != null) {
+                            LOG.error("Unable to destroy index {}", e, indexId);
+                        }
+                    });
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException("Unable to destroy index " + indexId, e);
+        }
     }
 
     /**
-     * Transitions this storage to the {@link StorageState#DESTROYED} state.
+     * Transitions this storage to the {@link StorageState#DESTROYED} state. Blocks the busy lock, but does not
+     * close the structures (they will have to be closed by calling {@link #closeStructures()}).
+     *
+     * @return {@code true} if this call actually made the transition and, hence, the caller must call {@link #closeStructures()}.
      */
-    public void transitionToDestroyedState() {
-        while (true) {
-            StorageState curState = state.get();
-
-            if (curState == StorageState.CLOSED || curState == StorageState.DESTROYED) {
-                throwExceptionDependingOnStorageState(curState, createStorageInfo());
-            } else if (state.compareAndSet(curState, StorageState.DESTROYED)) {
-                return;
-            }
+    public boolean transitionToDestroyedState() {
+        if (!transitionToTerminalState(StorageState.DESTROYED)) {
+            return false;
         }
+
+        busyLock.block();
+
+        return true;
     }
 
     protected abstract GradualTask createDestructionTask(int maxWorkUnits) throws IgniteInternalCheckedException;
@@ -387,5 +392,5 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
     /**
      * Closes internal structures.
      */
-    protected abstract void closeStructures();
+    public abstract void closeStructures();
 }
