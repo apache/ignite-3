@@ -123,7 +123,7 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
     }
 
     protected FragmentDescription getFragmentDescription() {
-        return new FragmentDescription(0, true, Long2ObjectMaps.emptyMap(), null, null);
+        return new FragmentDescription(0, true, Long2ObjectMaps.emptyMap(), null, null, null);
     }
 
     protected Object[] row(Object... fields) {

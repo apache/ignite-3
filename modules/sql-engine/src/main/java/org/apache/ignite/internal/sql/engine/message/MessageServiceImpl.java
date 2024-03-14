@@ -24,9 +24,11 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.network.ChannelType;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
@@ -45,6 +47,8 @@ public class MessageServiceImpl implements MessageService {
 
     private final IgniteSpinBusyLock busyLock;
 
+    private final HybridClock clock;
+
     private volatile Map<Short, MessageListener> lsnrs;
 
     /**
@@ -55,13 +59,14 @@ public class MessageServiceImpl implements MessageService {
             String localNodeName,
             MessagingService messagingSrvc,
             QueryTaskExecutor taskExecutor,
-            IgniteSpinBusyLock busyLock
+            IgniteSpinBusyLock busyLock,
+            HybridClock clock
     ) {
         this.localNodeName = localNodeName;
         this.messagingSrvc = messagingSrvc;
         this.taskExecutor = taskExecutor;
         this.busyLock = busyLock;
-
+        this.clock = clock;
     }
 
     /** {@inheritDoc} */
@@ -120,6 +125,11 @@ public class MessageServiceImpl implements MessageService {
 
         try {
             assert msg.groupType() == GROUP_TYPE : "unexpected message group grpType=" + msg.groupType();
+
+            // TODO https://issues.apache.org/jira/browse/IGNITE-21709
+            if (msg instanceof TimestampAware) {
+                clock.update(((TimestampAware) msg).timestamp());
+            }
 
             onMessage(sender.name(), msg);
         } finally {

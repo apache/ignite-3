@@ -191,14 +191,14 @@ public class LowWatermarkImpl implements IgniteComponent, LowWatermark {
         return lowWatermark;
     }
 
-    void updateLowWatermark() {
-        inBusyLock(busyLock, () -> {
+    CompletableFuture<Void> updateLowWatermark() {
+        return inBusyLock(busyLock, () -> {
             HybridTimestamp lowWatermarkCandidate = createNewLowWatermarkCandidate();
 
             // Wait until all the read-only transactions are finished before the new candidate, since no new RO transactions could be
             // created, then we can safely promote the candidate as a new low watermark, store it in vault, and we can safely start cleaning
             // up the stale/junk data in the tables.
-            txManager.updateLowWatermark(lowWatermarkCandidate)
+            return txManager.updateLowWatermark(lowWatermarkCandidate)
                     .thenComposeAsync(unused -> inBusyLock(busyLock, () -> {
                         vaultManager.put(LOW_WATERMARK_VAULT_KEY, ByteUtils.toBytes(lowWatermarkCandidate));
 

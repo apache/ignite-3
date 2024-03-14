@@ -20,6 +20,7 @@ package org.apache.ignite.internal.util;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Lock state structure is as follows.
@@ -346,7 +347,7 @@ public class OffheapReadWriteLock {
      *      the write lock without leaving a gap. Returns {@code false} otherwise, in this case the resource
      *      state must be re-validated.
      */
-    public Boolean upgradeToWriteLock(long lock, int tag) {
+    public @Nullable Boolean upgradeToWriteLock(long lock, int tag) {
         for (int i = 0; i < SPIN_CNT; i++) {
             long state = GridUnsafe.getLongVolatile(null, lock);
 

@@ -67,11 +67,11 @@ public class ColocationHashCalculationTest {
     public void simple() {
         SchemaDescriptor schema = new SchemaDescriptor(42,
                 new Column[]{
-                        new Column(0, "id0", INT8, false),
-                        new Column(1, "id1", INT32, false),
-                        new Column(2, "id2", STRING, false),
+                        new Column("id0", INT8, false),
+                        new Column("id1", INT32, false),
+                        new Column("id2", STRING, false),
                 },
-                new Column[]{new Column(3, "val", INT32, true).copy(3)});
+                new Column[]{new Column("val", INT32, true)});
 
         RowAssembler rasm = new RowAssembler(schema, -1);
 
@@ -101,12 +101,12 @@ public class ColocationHashCalculationTest {
         Column[] keyCols = IntStream.range(0, SchemaTestUtils.ALL_TYPES.size())
                 .mapToObj(i -> {
                     NativeType t = SchemaTestUtils.ALL_TYPES.get(i);
-                    return new Column(i, "id_" + t.spec().name(), t, false);
+                    return new Column("id_" + t.spec().name(), t, false);
                 })
                 .toArray(Column[]::new);
 
         SchemaDescriptor schema = new SchemaDescriptor(42, keyCols,
-                new Column[]{new Column("val", INT32, true).copy(keyCols.length)});
+                new Column[]{new Column("val", INT32, true)});
 
         Row r = generateRandomRow(rnd, schema);
         assertEquals(colocationHash(r), r.colocationHash());
@@ -199,7 +199,7 @@ public class ColocationHashCalculationTest {
         for (Column c : r.schema().colocationColumns()) {
             var scale = c.type() instanceof DecimalNativeType ? ((DecimalNativeType) c.type()).scale() : 0;
             var precision = c.type() instanceof TemporalNativeType ? ((TemporalNativeType) c.type()).precision() : 0;
-            hashCalc.append(r.value(c.schemaIndex()), scale, precision);
+            hashCalc.append(r.value(c.positionInRow()), scale, precision);
         }
 
         return hashCalc.hash();

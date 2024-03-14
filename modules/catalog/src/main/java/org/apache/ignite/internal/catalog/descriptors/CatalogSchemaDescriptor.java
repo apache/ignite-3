@@ -36,7 +36,7 @@ import org.jetbrains.annotations.Nullable;
 
 /** Schema definition contains database schema objects. */
 public class CatalogSchemaDescriptor extends CatalogObjectDescriptor {
-    public static CatalogObjectSerializer<CatalogSchemaDescriptor> SERIALIZER = new SchemaDescriptorSerializer();
+    public static final CatalogObjectSerializer<CatalogSchemaDescriptor> SERIALIZER = new SchemaDescriptorSerializer();
 
     private final CatalogTableDescriptor[] tables;
     private final CatalogIndexDescriptor[] indexes;

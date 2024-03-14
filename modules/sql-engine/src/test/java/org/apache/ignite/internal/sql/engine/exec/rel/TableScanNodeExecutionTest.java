@@ -54,6 +54,7 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.PartitionProvider;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
@@ -185,8 +186,9 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                 }
             };
             ScannableTableImpl scanableTable = new ScannableTableImpl(internalTable, rf -> rowConverter);
+            PartitionProvider<Object[]> partitionProvider = PartitionProvider.fromPartitions(partsWithConsistencyTokens);
             TableScanNode<Object[]> scanNode = new TableScanNode<>(ctx, rowFactory, scanableTable,
-                    partsWithConsistencyTokens, null, null, null);
+                    partitionProvider, null, null, null);
 
             RootNode<Object[]> root = new RootNode<>(ctx);
 

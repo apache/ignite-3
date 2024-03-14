@@ -368,7 +368,7 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
         }
     }
 
-    protected <V> V busy(Supplier<V> supplier) {
+    protected <T> T busy(Supplier<T> supplier) {
         if (!busyLock.enterBusy()) {
             throwExceptionDependingOnStorageState(state.get(), createStorageInfo());
         }
