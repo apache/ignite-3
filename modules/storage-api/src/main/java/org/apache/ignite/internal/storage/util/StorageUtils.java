@@ -107,7 +107,7 @@ public class StorageUtils {
                 throw new StorageRebalanceException(createStorageInProcessOfRebalanceErrorMessage(storageInfo));
             case CLEANUP:
                 throw new StorageRebalanceException(createStorageInProcessOfCleanupErrorMessage(storageInfo));
-            case DESTROYING:
+            case DESTROYED:
                 throw new StorageRebalanceException(createStorageDestroyedErrorMessage(storageInfo));
             default:
                 throw new StorageRebalanceException(createUnexpectedStorageStateErrorMessage(state, storageInfo));
@@ -131,7 +131,7 @@ public class StorageUtils {
                 throw new StorageRebalanceException(createStorageInProcessOfRebalanceErrorMessage(storageInfo));
             case CLEANUP:
                 throw new StorageException(createStorageInProcessOfCleanupErrorMessage(storageInfo));
-            case DESTROYING:
+            case DESTROYED:
                 throw new StorageClosedException(createStorageDestroyedErrorMessage(storageInfo));
             default:
                 throw new StorageException(createUnexpectedStorageStateErrorMessage(state, storageInfo));

@@ -24,7 +24,7 @@ public enum StorageState {
     /** Storage is running. */
     RUNNABLE,
 
-    /** Storage is in the process of being closed or has already closed. */
+    /** Storage is in the process of being closed or has already closed. This is a terminal state. */
     CLOSED,
 
     /** Storage is in the process of rebalancing. */
@@ -33,6 +33,6 @@ public enum StorageState {
     /** Storage is in the process of cleanup. */
     CLEANUP,
 
-    /** Storage is in the process of being destroyed. */
-    DESTROYING
+    /** Storage is in the process of being destroyed or it is already destroyed. This is a terminal state. */
+    DESTROYED
 }

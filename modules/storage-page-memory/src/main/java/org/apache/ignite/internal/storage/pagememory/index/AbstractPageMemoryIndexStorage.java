@@ -231,15 +231,15 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
     }
 
     /**
-     * Transitions this storage to the {@link StorageState#DESTROYING} state.
+     * Transitions this storage to the {@link StorageState#DESTROYED} state.
      */
-    public void transitionToDestroyingState() {
+    public void transitionToDestroyedState() {
         while (true) {
             StorageState curState = state.get();
 
-            if (curState == StorageState.CLOSED || curState == StorageState.DESTROYING) {
+            if (curState == StorageState.CLOSED || curState == StorageState.DESTROYED) {
                 throwExceptionDependingOnStorageState(curState, createStorageInfo());
-            } else if (state.compareAndSet(curState, StorageState.DESTROYING)) {
+            } else if (state.compareAndSet(curState, StorageState.DESTROYED)) {
                 return;
             }
         }
