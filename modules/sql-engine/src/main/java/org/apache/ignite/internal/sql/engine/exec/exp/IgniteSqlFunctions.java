@@ -25,6 +25,7 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.math.MathContext;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -51,6 +52,7 @@ import org.apache.calcite.schema.Statistic;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
@@ -473,6 +475,14 @@ public class IgniteSqlFunctions {
         }
     }
 
+    /**
+     * Division function for REDUCE phase of AVG aggregate. Precision and scale is only used by type inference
+     * (see {@link IgniteSqlOperatorTable#AVG_DIVIDE}, their values are ignored at runtime.
+     */
+    public static BigDecimal avgDivide(BigDecimal sum, BigDecimal cnt, int p, int s) {
+        return cnt.compareTo(BigDecimal.ZERO) == 0 ? null : sum.divide(cnt, MathContext.DECIMAL64);
+    }
+
     private static BigDecimal processValueWithIntegralPart(Number value, int precision, int scale) {
         BigDecimal dec = convertToBigDecimal(value);
 
@@ -525,6 +535,8 @@ public class IgniteSqlFunctions {
 
         return dec;
     }
+
+
 
     /** CAST(VARCHAR AS VARBINARY). */
     public static ByteString toByteString(String s) {

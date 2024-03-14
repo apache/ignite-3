@@ -34,6 +34,7 @@ import java.util.function.Supplier;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -515,5 +516,25 @@ public class IgniteSqlFunctionsTest {
         long actualTs = IgniteSqlFunctions.subtractTimeZoneOffset(utcMillis, cyprusTz);
 
         assertEquals(Instant.ofEpochMilli(expMillis), Instant.ofEpochMilli(actualTs));
+    }
+
+    @ParameterizedTest
+    @CsvSource(
+            value = {
+                    "1; 2; 0.5",
+                    "1; 3; 0.3333333333333333",
+                    "6; 2; 3",
+                    "1; 0;",
+            },
+            delimiterString = ";"
+    )
+    public void testAvgDivide(String a, String b, @Nullable String expected) {
+        BigDecimal actual = IgniteSqlFunctions.avgDivide(new BigDecimal(a), new BigDecimal(b), 4, 2);
+
+        if (expected != null) {
+            assertEquals(new BigDecimal(expected), actual);
+        } else {
+            assertNull(actual);
+        }
     }
 }

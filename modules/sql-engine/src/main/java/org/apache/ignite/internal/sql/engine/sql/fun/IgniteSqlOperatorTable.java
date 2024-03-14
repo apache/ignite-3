@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.sql.fun;
 
 import com.google.common.collect.ImmutableList;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.sql.SqlBasicFunction;
 import org.apache.calcite.sql.SqlFunction;
 import org.apache.calcite.sql.SqlFunctionCategory;
@@ -190,6 +191,33 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
             OperandTypes.CHARACTER.or(OperandTypes.BINARY),
             SqlFunctionCategory.NUMERIC);
 
+    /**
+     * Division operator used by REDUCE phase of AVG aggregate.
+     * Uses provided values of {@code scale} and {@code precision} to return inferred type.
+     */
+    public static final SqlFunction AVG_DIVIDE = SqlBasicFunction.create("AVG_DIVIDE",
+            new SqlReturnTypeInference() {
+                @Override
+                public @Nullable RelDataType inferReturnType(SqlOperatorBinding opBinding) {
+                    RelDataType arg0 = opBinding.getOperandType(0);
+
+                    if (arg0.getSqlTypeName() == SqlTypeName.DECIMAL) {
+                        int precision = opBinding.getOperandLiteralValue(2, Integer.class);
+                        int scale = opBinding.getOperandLiteralValue(3, Integer.class);
+
+                        boolean nullable = arg0.isNullable();
+                        RelDataTypeFactory typeFactory = opBinding.getTypeFactory();
+
+                        RelDataType returnType = typeFactory.createSqlType(SqlTypeName.DECIMAL, precision, scale);
+                        return typeFactory.createTypeWithNullability(returnType, nullable);
+                    } else {
+                        return arg0;
+                    }
+                }
+            },
+            OperandTypes.DIVISION_OPERATOR,
+            SqlFunctionCategory.NUMERIC);
+
     /** Singleton instance. */
     public static final IgniteSqlOperatorTable INSTANCE = new IgniteSqlOperatorTable();
 
@@ -235,6 +263,7 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         register(SqlStdOperatorTable.SUM);
         register(SqlStdOperatorTable.SUM0);
         register(SqlStdOperatorTable.AVG);
+        register(AVG_DIVIDE);
         register(SqlStdOperatorTable.MIN);
         register(SqlStdOperatorTable.MAX);
         register(SqlStdOperatorTable.ANY_VALUE);

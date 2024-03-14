@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
@@ -88,6 +89,18 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
 
         sql("CREATE TABLE test_str_int_real_dec "
                 + "(id INTEGER PRIMARY KEY, str_col VARCHAR, int_col INTEGER,  real_col REAL, dec_col DECIMAL)");
+
+        sql("CREATE TABLE IF NOT EXISTS numbers ("
+                + "id INTEGER PRIMARY KEY, "
+                + "tinyint_col TINYINT, "
+                + "smallint_col SMALLINT, "
+                + "int_col INTEGER, "
+                + "bigint_col BIGINT, "
+                + "float_col REAL, "
+                + "double_col DOUBLE, "
+                + "dec2_col DECIMAL(2), "
+                + "dec4_2_col DECIMAL(4,2) "
+                + ")");
     }
 
     @ParameterizedTest
@@ -530,27 +543,77 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
 
     @ParameterizedTest
     @MethodSource("provideRules")
+    public void testAvg(String[] rules) {
+        sql("DELETE FROM numbers");
+        sql("INSERT INTO numbers VALUES (1, 1, 1, 1, 1, 1, 1, 1, 1), (2, 2, 2, 2, 2, 2, 2, 2, 2)");
+
+        assertQuery("SELECT "
+                + "AVG(tinyint_col), AVG(smallint_col), AVG(int_col), AVG(bigint_col), "
+                + "AVG(float_col), AVG(double_col), AVG(dec2_col), AVG(dec4_2_col) "
+                + "FROM numbers")
+                .disableRules(rules)
+                .returns((byte) 1, (short) 1, 1, 1L, 1.5f, 1.5d, new BigDecimal("1.5"), new BigDecimal("1.50"))
+                .check();
+
+        sql("DELETE FROM numbers");
+        sql("INSERT INTO numbers (id, dec4_2_col) VALUES (1, 1), (2, 2)");
+
+        assertQuery("SELECT AVG(dec4_2_col) FROM numbers")
+                .disableRules(rules)
+                .returns(new BigDecimal("1.50"))
+                .check();
+
+        sql("DELETE FROM numbers");
+        sql("INSERT INTO numbers (id, dec4_2_col) VALUES (1, 1), (2, 2.3333)");
+
+        assertQuery("SELECT AVG(dec4_2_col) FROM numbers")
+                .disableRules(rules)
+                .returns(new BigDecimal("1.665"))
+                .check();
+    }
+
+    @ParameterizedTest
+    @MethodSource("provideRules")
     public void testAvgOnEmptyGroup(String[] rules) {
-        sql("DELETE FROM test_str_int_real_dec");
+        sql("DELETE FROM numbers");
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-20009
-        //  Remove after is fixed.
-        Assumptions.assumeFalse(Arrays.stream(rules)
-                .filter(COLO_RULES::contains).count() == COLO_RULES.size(), "AVG is disabled for MAP/REDUCE");
-
-        assertQuery("SELECT AVG(int_col) FROM test_str_int_real_dec")
+        assertQuery("SELECT "
+                + "AVG(tinyint_col), AVG(smallint_col), AVG(int_col), AVG(bigint_col), "
+                + "AVG(float_col), AVG(double_col), AVG(dec2_col), AVG(dec4_2_col) "
+                + "FROM numbers")
                 .disableRules(rules)
-                .returns(new Object[]{null})
+                .returns(null, null, null, null, null, null, null, null)
+                .check();
+    }
+
+    @ParameterizedTest
+    @MethodSource("provideRules")
+    public void testAvgFromLiterals(String[] rules) {
+
+        assertQuery("SELECT "
+                + "AVG(tinyint_col), AVG(smallint_col), AVG(int_col), AVG(bigint_col), "
+                + "AVG(float_col), AVG(double_col), AVG(dec2_col), AVG(dec4_2_col) "
+                + "FROM (VALUES "
+                + "(1::TINYINT, 1::SMALLINT, 1::INTEGER, 1::BIGINT, 1::REAL, 1::DOUBLE, 1::DECIMAL(2), 1.00::DECIMAL(4,2)), "
+                + "(2::TINYINT, 2::SMALLINT, 2::INTEGER, 2::BIGINT, 2::REAL, 2::DOUBLE, 2::DECIMAL(2), 2.00::DECIMAL(4,2)) "
+                + ") "
+                + "t(tinyint_col, smallint_col, int_col, bigint_col, float_col, double_col, dec2_col, dec4_2_col)").disableRules(rules)
+                .returns((byte) 1, (short) 1, 1, 1L, 1.5f, 1.5d, new BigDecimal("1.5"), new BigDecimal("1.50"))
                 .check();
 
-        assertQuery("SELECT AVG(real_col) FROM test_str_int_real_dec")
-                .disableRules(rules)
-                .returns(new Object[]{null})
+        assertQuery("SELECT "
+                + "AVG(1::TINYINT), AVG(2::SMALLINT), AVG(3::INTEGER), AVG(4::BIGINT), "
+                + "AVG(5::REAL), AVG(6::DOUBLE), AVG(7::DECIMAL(2)), AVG(8.00::DECIMAL(4,2))").disableRules(rules)
+                .returns((byte) 1, (short) 2, 3, 4L, 5.0f, 6.0d, new BigDecimal("7"), new BigDecimal("8.00"))
                 .check();
 
-        assertQuery("SELECT AVG(dec_col) FROM test_str_int_real_dec")
-                .disableRules(rules)
-                .returns(new Object[]{null})
+        assertQuery("SELECT AVG(dec2_col), AVG(dec4_2_col) FROM\n"
+                + "(SELECT \n"
+                + "  1::DECIMAL(2) as dec2_col, 2.00::DECIMAL(4, 2) as dec4_2_col\n"
+                + "  UNION\n"
+                + "  SELECT 2::DECIMAL(2) as dec2_col, 3.00::DECIMAL(4,2) as dec4_2_col\n"
+                + ") as t")
+                .returns(new BigDecimal("1.5"), new BigDecimal("2.50"))
                 .check();
     }
 

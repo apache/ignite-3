@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.rel.agg;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import com.google.common.collect.ImmutableList;
+import java.math.BigDecimal;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
 import java.util.List;
@@ -34,19 +35,24 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
 import org.apache.calcite.rel.type.RelDataTypeField;
+import org.apache.calcite.rel.type.RelDataTypeSystem;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexInputRef;
+import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.SqlAggFunction;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.mapping.Mapping;
 import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
+import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Map/reduce aggregate utility methods.
@@ -62,6 +68,7 @@ public class MapReduceAggregates {
             "EVERY",
             "SOME",
             "ANY",
+            "AVG",
             "SINGLE_VALUE",
             "ANY_VALUE"
     );
@@ -91,6 +98,10 @@ public class MapReduceAggregates {
 
     /**
      * Creates a physical operator that implements the given logical aggregate as MAP/REDUCE.
+     *
+     * <p>Final expression consists of an aggregate for map phase (MapNode) and another aggregate for reduce phase (ReduceNode).
+     * Depending on a accumulator function there can be an intermediate projection between MAP and REDUCE, and a projection after REDUCE
+     * as well.
      *
      * @param agg Logical aggregate expression.
      * @param builder Builder to create implementations of MAP and REDUCE phases.
@@ -125,14 +136,25 @@ public class MapReduceAggregates {
         // groupSet includes all columns from GROUP BY/GROUPING SETS clauses.
         int argumentOffset = agg.getGroupSet().cardinality();
 
+        // MAP PHASE AGGREGATE
+
         List<AggregateCall> mapAggCalls = new ArrayList<>(agg.getAggCallList().size());
 
         for (AggregateCall call : agg.getAggCallList()) {
-            MapReduceAgg mapReduceAgg = createMapReduceAggCall(call, argumentOffset);
-            argumentOffset += 1;
+            // See ReturnTypes::AVG_AGG_FUNCTION, Result type of a aggregate with no grouping or with filtering can be nullable.
+            boolean canBeNull = agg.getGroupCount() == 0 || call.hasFilter();
+
+            MapReduceAgg mapReduceAgg = createMapReduceAggCall(
+                    Commons.cluster(),
+                    call,
+                    argumentOffset,
+                    agg.getInput().getRowType(),
+                    canBeNull
+            );
+            argumentOffset += mapReduceAgg.reduceCalls.size();
             mapReduceAggs.add(mapReduceAgg);
 
-            mapAggCalls.add(mapReduceAgg.mapCall);
+            mapAggCalls.addAll(mapReduceAgg.mapCalls);
         }
 
         // MAP phase should have no less than the number of arguments as original aggregate.
@@ -148,7 +170,10 @@ public class MapReduceAggregates {
                 mapAggCalls
         );
 
-        List<RelDataTypeField> outputRowFields = agg.getRowType().getFieldList();
+        //
+        // REDUCE INPUT PROJECTION
+        //
+
         RelDataTypeFactory.Builder reduceType = new Builder(Commons.typeFactory());
 
         int groupByColumns = agg.getGroupSet().cardinality();
@@ -158,26 +183,84 @@ public class MapReduceAggregates {
         // It consists of columns from agg.groupSet and aggregate expressions.
 
         for (int i = 0; i < groupByColumns; i++) {
+            List<RelDataTypeField> outputRowFields = agg.getRowType().getFieldList();
             RelDataType type = outputRowFields.get(i).getType();
             reduceType.add("f" + reduceType.getFieldCount(), type);
         }
 
+        RexBuilder rexBuilder = agg.getCluster().getRexBuilder();
+        IgniteTypeFactory typeFactory = (IgniteTypeFactory) agg.getCluster().getTypeFactory();
+
+        List<RexNode> reduceInputExprs = new ArrayList<>();
+
+        for (int i = 0; i < map.getRowType().getFieldList().size(); i++) {
+            RelDataType type = map.getRowType().getFieldList().get(i).getType();
+            RexInputRef ref = new RexInputRef(i, type);
+            reduceInputExprs.add(ref);
+        }
+
+        // Build a list of projections for reduce operator,
+        // if all projections are identity, it is not necessary
+        // to create a projection between MAP and REDUCE operators.
+
+        boolean additionalProjectionsForReduce = false;
+
+        for (int i = 0, argOffset = 0; i < mapReduceAggs.size(); i++) {
+            MapReduceAgg mapReduceAgg = mapReduceAggs.get(i);
+            int argIdx = groupByColumns + argOffset;
+
+            for (int j = 0; j < mapReduceAgg.reduceCalls.size(); j++) {
+                RexNode projExpr = mapReduceAgg.makeReduceInputExpr.makeExpr(rexBuilder, map, List.of(argIdx), typeFactory);
+                reduceInputExprs.set(argIdx, projExpr);
+
+                if (mapReduceAgg.makeReduceInputExpr != USE_INPUT_FIELD) {
+                    additionalProjectionsForReduce = true;
+                }
+
+                argIdx += 1;
+            }
+
+            argOffset += mapReduceAgg.reduceCalls.size();
+        }
+
+        RelNode reduceInputNode;
+        if (additionalProjectionsForReduce) {
+            RelDataTypeFactory.Builder projectRow = new Builder(agg.getCluster().getTypeFactory());
+
+            for (int i = 0; i < reduceInputExprs.size(); i++) {
+                RexNode rexNode = reduceInputExprs.get(i);
+                projectRow.add(String.valueOf(i), rexNode.getType());
+            }
+
+            RelDataType projectRowType = projectRow.build();
+
+            reduceInputNode = builder.makeProject(agg.getCluster(), map, reduceInputExprs, projectRowType);
+        } else {
+            reduceInputNode = map;
+        }
+
+        //
+        // REDUCE PHASE AGGREGATE
+        //
         // Build a list of aggregate calls for REDUCE phase.
-        // Build a list of projection that accept reduce phase and combine/collect/cast results.
+        // Build a list of projections (arg-list, expr) that accept reduce phase and combine/collect/cast results.
 
         List<AggregateCall> reduceAggCalls = new ArrayList<>();
-        List<Map.Entry<List<Integer>, MakeReduceExpr>> projection = new ArrayList<>();
+        List<Map.Entry<List<Integer>, MakeReduceExpr>> projection = new ArrayList<>(mapReduceAggs.size());
 
         for (MapReduceAgg mapReduceAgg : mapReduceAggs) {
             // Update row type returned by REDUCE node.
-            AggregateCall reduceCall = mapReduceAgg.reduceCall;
-            reduceType.add("f" + reduceType.getFieldCount(), reduceCall.getType());
-            reduceAggCalls.add(reduceCall);
+            int i = 0;
+            for (AggregateCall reduceCall : mapReduceAgg.reduceCalls) {
+                reduceType.add("f" + i + "_" + reduceType.getFieldCount(), reduceCall.getType());
+                reduceAggCalls.add(reduceCall);
+                i += 1;
+            }
 
             // Update projection list
-            List<Integer> argList = mapReduceAgg.argList;
-            MakeReduceExpr projectionExpr = mapReduceAgg.makeReduceExpr;
-            projection.add(new SimpleEntry<>(argList, projectionExpr));
+            List<Integer> reduceArgList = mapReduceAgg.argList;
+            MakeReduceExpr projectionExpr = mapReduceAgg.makeReduceOutputExpr;
+            projection.add(new SimpleEntry<>(reduceArgList, projectionExpr));
 
             if (projectionExpr != USE_INPUT_FIELD) {
                 sameAggsForBothPhases = false;
@@ -192,7 +275,7 @@ public class MapReduceAggregates {
         }
 
         // if the number of aggregates on MAP phase is larger then the number of aggregates on REDUCE phase,
-        // then some of MAP aggregates are not used by REDUCE phase and this is a bug.
+        // assume that some of MAP aggregates are not used by REDUCE phase and this is a bug.
         //
         // NOTE: In general case REDUCE phase can use more aggregates than MAP phase,
         // but at the moment there is no support for such aggregates.
@@ -207,20 +290,23 @@ public class MapReduceAggregates {
 
         IgniteRel reduce = builder.makeReduceAgg(
                 agg.getCluster(),
-                map,
+                reduceInputNode,
                 groupSetOnReduce,
                 groupSetsOnReduce,
                 reduceAggCalls,
                 reduceTypeToUse
         );
 
+        //
+        // FINAL PROJECTION
+        //
         // if aggregate MAP phase uses the same aggregates as REDUCE phase,
         // there is no need to add a projection because no additional actions are required to compute final results.
         if (sameAggsForBothPhases) {
             return reduce;
         }
 
-        List<RexNode> projectionList = new ArrayList<>(projection.size());
+        List<RexNode> projectionList = new ArrayList<>(projection.size() + groupByColumns);
 
         // Projection list returned by AggregateNode consists of columns from GROUP BY clause
         // and expressions that represent aggregate calls.
@@ -228,17 +314,24 @@ public class MapReduceAggregates {
 
         int i = 0;
         for (; i < groupByColumns; i++) {
+            List<RelDataTypeField> outputRowFields = agg.getRowType().getFieldList();
             RelDataType type = outputRowFields.get(i).getType();
             RexInputRef ref = new RexInputRef(i, type);
             projectionList.add(ref);
         }
 
-        RexBuilder rexBuilder = agg.getCluster().getRexBuilder();
-        IgniteTypeFactory typeFactory = (IgniteTypeFactory) agg.getCluster().getTypeFactory();
-
         for (Map.Entry<List<Integer>, MakeReduceExpr> expr : projection) {
             RexNode resultExpr = expr.getValue().makeExpr(rexBuilder, reduce, expr.getKey(), typeFactory);
             projectionList.add(resultExpr);
+        }
+
+        assert projectionList.size() == agg.getRowType().getFieldList().size() :
+                format("Projection size does not match. Expected: {} but got {}",
+                        agg.getRowType().getFieldList().size(), projectionList.size());
+
+        for (i = 0;  i < projectionList.size(); i++) {
+            RexNode resultExpr = projectionList.get(i);
+            List<RelDataTypeField> outputRowFields = agg.getRowType().getFieldList();
 
             // Put assertion here so we can see an expression that caused a type mismatch,
             // since Project::isValid only shows types.
@@ -246,7 +339,6 @@ public class MapReduceAggregates {
                     format("Type at position#{} does not match. Expected: {} but got {}.\nREDUCE aggregates: {}\nRow: {}.\nExpr: {}",
                             i, resultExpr.getType(), outputRowFields.get(i).getType(), reduceAggCalls, outputRowFields, resultExpr);
 
-            i++;
         }
 
         return new IgniteProject(agg.getCluster(), reduce.getTraitSet(), reduce, projectionList, agg.getRowType());
@@ -255,15 +347,24 @@ public class MapReduceAggregates {
     /**
      * Creates a MAP/REDUCE details for this call.
      */
-    public static MapReduceAgg createMapReduceAggCall(AggregateCall call, int reduceArgumentOffset) {
+    public static MapReduceAgg createMapReduceAggCall(
+            RelOptCluster cluster,
+            AggregateCall call,
+            int reduceArgumentOffset,
+            RelDataType input,
+            boolean canBeNull
+    ) {
         String aggName = call.getAggregation().getName();
 
         assert AGG_SUPPORTING_MAP_REDUCE.contains(aggName) : "Aggregate does not support MAP/REDUCE " + call;
 
-        if ("COUNT".equals(aggName)) {
-            return createCountAgg(call, reduceArgumentOffset);
-        } else {
-            return createSimpleAgg(call, reduceArgumentOffset);
+        switch (aggName) {
+            case "COUNT":
+                return createCountAgg(call, reduceArgumentOffset);
+            case "AVG":
+                return createAvgAgg(cluster, call, reduceArgumentOffset, input, canBeNull);
+            default:
+                return createSimpleAgg(call, reduceArgumentOffset);
         }
     }
 
@@ -277,8 +378,13 @@ public class MapReduceAggregates {
         IgniteRel makeMapAgg(RelOptCluster cluster, RelNode input,
                 ImmutableBitSet groupSet, List<ImmutableBitSet> groupSets, List<AggregateCall> aggregateCalls);
 
+        /**
+         * Creates intermediate projection operator that transforms results from MAP phase, and transforms them to inputs to REDUCE phase.
+         */
+        IgniteRel makeProject(RelOptCluster cluster, RelNode input, List<RexNode> reduceInputExprs, RelDataType projectRowType);
+
         /** Creates a rel node that represents a REDUCE phase.*/
-        IgniteRel makeReduceAgg(RelOptCluster cluster, RelNode map,
+        IgniteRel makeReduceAgg(RelOptCluster cluster, RelNode input,
                 ImmutableBitSet groupSet, List<ImmutableBitSet> groupSets,
                 List<AggregateCall> aggregateCalls, RelDataType outputType);
     }
@@ -286,24 +392,48 @@ public class MapReduceAggregates {
     /** Contains information on how to build MAP/REDUCE version of an aggregate. */
     public static class MapReduceAgg {
 
+        /** Argument list on reduce phase. */
         final List<Integer> argList;
 
-        final AggregateCall mapCall;
+        /** MAP phase aggregate, an initial aggregation function was transformed into. */
+        final List<AggregateCall> mapCalls;
 
-        final AggregateCall reduceCall;
+        /** REDUCE phase aggregate, an initial aggregation function was transformed into. */
+        final List<AggregateCall> reduceCalls;
 
-        final MakeReduceExpr makeReduceExpr;
+        /** Produces expressions to consume results of a MAP phase aggregation. */
+        final MakeReduceExpr makeReduceInputExpr;
 
-        MapReduceAgg(List<Integer> argList, AggregateCall mapCall, AggregateCall reduceCall, MakeReduceExpr makeReduceExpr) {
+        /** Produces expressions to consume results of a REDUCE phase aggregation to comprise final result. */
+        final MakeReduceExpr makeReduceOutputExpr;
+
+        MapReduceAgg(
+                List<Integer> argList,
+                AggregateCall mapCalls,
+                AggregateCall reduceCalls,
+                MakeReduceExpr makeReduceOutputExpr
+        ) {
+            this(argList, List.of(mapCalls), USE_INPUT_FIELD, List.of(reduceCalls), makeReduceOutputExpr);
+        }
+
+        MapReduceAgg(
+                List<Integer> argList,
+                List<AggregateCall> mapCalls,
+                MakeReduceExpr makeReduceInputExpr,
+                List<AggregateCall> reduceCalls,
+                MakeReduceExpr makeReduceOutputExpr
+        ) {
             this.argList = argList;
-            this.mapCall = mapCall;
-            this.reduceCall = reduceCall;
-            this.makeReduceExpr = makeReduceExpr;
+            this.mapCalls = mapCalls;
+            this.reduceCalls = reduceCalls;
+            this.makeReduceInputExpr = makeReduceInputExpr;
+            this.makeReduceOutputExpr = makeReduceOutputExpr;
         }
 
         /** A call for REDUCE phase. */
+        @TestOnly
         public AggregateCall getReduceCall() {
-            return reduceCall;
+            return reduceCalls.get(0);
         }
     }
 
@@ -322,7 +452,7 @@ public class MapReduceAggregates {
                 null,
                 call.collation,
                 call.type,
-                null);
+                "COUNT_" + reduceArgumentOffset + "_MAP_SUM");
 
         // COUNT(x) aggregate have type BIGINT, but the type of SUM(COUNT(x)) is DECIMAL,
         // so we should convert it to back to BIGINT.
@@ -356,10 +486,177 @@ public class MapReduceAggregates {
         return new MapReduceAgg(argList, call, reduceCall, USE_INPUT_FIELD);
     }
 
+    /**
+     * TODO: Rename to MakeExpr.
+     * Produces intermediate expressions that modify results of MAP/REDUCE aggregate.
+     * For example: after splitting a function into a MAP aggregate and REDUCE aggregate it is necessary to add casts to
+     * output of a REDUCE phase aggregate.
+     *
+     * <p>In order to avoid creating unnecessary projections, use {@link MapReduceAggregates#USE_INPUT_FIELD}.
+     */
     @FunctionalInterface
     private interface MakeReduceExpr {
 
-        /** Creates an expression that produces result of REDUCE phase of an aggregate. */
+        /**
+         * Creates an expression that applies a performs computation (e.g. applies some function, adds a cast)
+         * on {@code args} fields of input relation.
+         *
+         * @param rexBuilder Expression builder.
+         * @param input Input relation.
+         * @param args Arguments.
+         * @param typeFactory Type factory.
+         *
+         * @return Expression.
+         */
         RexNode makeExpr(RexBuilder rexBuilder, RelNode input, List<Integer> args, IgniteTypeFactory typeFactory);
+    }
+
+    private static MapReduceAgg createAvgAgg(
+            RelOptCluster cluster,
+            AggregateCall call,
+            int reduceArgumentOffset,
+            RelDataType inputType,
+            boolean canBeNull
+    ) {
+        RelDataTypeFactory tf = cluster.getTypeFactory();
+        RelDataTypeSystem typeSystem = tf.getTypeSystem();
+
+        RelDataType fieldType = inputType.getFieldList().get(call.getArgList().get(0)).getType();
+
+        // In case of AVG(NULL) return a simple version of an aggregate, because result is always NULL.
+        if (fieldType.getSqlTypeName() == SqlTypeName.NULL) {
+            return createSimpleAgg(call, reduceArgumentOffset);
+        }
+
+        // AVG(x) : SUM(x)/COUNT0(x)
+        // MAP    : SUM(x) / COUNT(x)
+
+        // SUM(x) as s
+        RelDataType mapSumType = typeSystem.deriveSumType(tf, fieldType);
+        if (canBeNull) {
+            mapSumType = tf.createTypeWithNullability(mapSumType, true);
+        }
+
+        AggregateCall mapSum0 = AggregateCall.create(
+                SqlStdOperatorTable.SUM,
+                call.isDistinct(),
+                call.isApproximate(),
+                call.ignoreNulls(),
+                ImmutableList.of(),
+                call.getArgList(),
+                call.filterArg,
+                null,
+                call.collation,
+                mapSumType,
+                "AVG" + reduceArgumentOffset + "_MAP_SUM");
+
+        // COUNT(x) as c
+        RelDataType mapCountType = tf.createSqlType(SqlTypeName.BIGINT);
+
+        AggregateCall mapCount0 = AggregateCall.create(
+                SqlStdOperatorTable.COUNT,
+                call.isDistinct(),
+                call.isApproximate(),
+                call.ignoreNulls(),
+                ImmutableList.of(),
+                call.getArgList(),
+                call.filterArg,
+                null,
+                call.collation,
+                mapCountType,
+                "AVG" + reduceArgumentOffset + "_MAP_COUNT");
+
+        // REDUCE : SUM0(s) as reduce_sum, SUM0(c) as reduce_count
+        List<Integer> reduceSumArgs = List.of(reduceArgumentOffset);
+
+        // SUM0(s)
+        RelDataType reduceSumType = typeSystem.deriveSumType(tf, mapSumType);
+        if (canBeNull) {
+            reduceSumType = tf.createTypeWithNullability(reduceSumType, true);
+        }
+
+        AggregateCall reduceSum0 = AggregateCall.create(
+                SqlStdOperatorTable.SUM,
+                call.isDistinct(),
+                call.isApproximate(),
+                call.ignoreNulls(),
+                ImmutableList.of(),
+                reduceSumArgs,
+                // there is no filtering on REDUCE phase
+                -1,
+                null,
+                call.collation,
+                reduceSumType,
+                "AVG" + reduceArgumentOffset + "_RED_VAL_SUM");
+
+
+        // SUM0(c)
+        RelDataType reduceSumCountType = typeSystem.deriveSumType(tf, mapCount0.type);
+        List<Integer> reduceSumCountArgs = List.of(reduceArgumentOffset + 1);
+
+        AggregateCall reduceSumCount = AggregateCall.create(
+                SqlStdOperatorTable.SUM0,
+                call.isDistinct(),
+                call.isApproximate(),
+                call.ignoreNulls(),
+                ImmutableList.of(),
+                reduceSumCountArgs,
+                // there is no filtering on REDUCE phase
+                -1,
+                null,
+                call.collation,
+                reduceSumCountType,
+                "AVG" + reduceArgumentOffset + "_RED_COUNT_SUM");
+
+        RelDataType finalReduceSumType = reduceSumType;
+
+        MakeReduceExpr reduceInputExpr = (rexBuilder, input, args, typeFactory) -> {
+            RexInputRef argExpr = rexBuilder.makeInputRef(input, args.get(0));
+
+            if (args.get(0) == reduceArgumentOffset) {
+                // Accumulator functions handle NULL, so it is safe to ignore it.
+                if (!SqlTypeUtil.equalSansNullability(finalReduceSumType, argExpr.getType())) {
+                    return rexBuilder.makeCast(finalReduceSumType, argExpr);
+                } else {
+                    return argExpr;
+                }
+            } else {
+                return rexBuilder.makeCast(reduceSumCount.type, argExpr);
+            }
+
+        };
+
+        // PROJECT: reduce_sum/reduce_count
+
+        MakeReduceExpr reduceOutputExpr = (rexBuilder, input, args, typeFactory) -> {
+            RexNode numeratorRef = rexBuilder.makeInputRef(input, args.get(0));
+            RexInputRef denominatorRef = rexBuilder.makeInputRef(input, args.get(1));
+
+            RelDataType avgType = typeFactory.createTypeWithNullability(mapSum0.type, numeratorRef.getType().isNullable());
+            numeratorRef = rexBuilder.ensureType(avgType, numeratorRef, true);
+
+            // Return correct decimal type with correct scale and precision.
+            if (call.getType().getSqlTypeName() == SqlTypeName.DECIMAL) {
+                int precision = call.getType().getPrecision();
+                int scale = call.getType().getScale();
+
+                RexLiteral p = rexBuilder.makeExactLiteral(BigDecimal.valueOf(precision), tf.createSqlType(SqlTypeName.INTEGER));
+                RexLiteral s = rexBuilder.makeExactLiteral(BigDecimal.valueOf(scale), tf.createSqlType(SqlTypeName.INTEGER));
+
+                return rexBuilder.makeCall(IgniteSqlOperatorTable.AVG_DIVIDE, numeratorRef, denominatorRef, p, s);
+            } else {
+                RexNode divideRef = rexBuilder.makeCall(SqlStdOperatorTable.DIVIDE, numeratorRef, denominatorRef);
+                return rexBuilder.makeCast(call.getType(), divideRef);
+            }
+        };
+
+        List<Integer> argList = List.of(reduceArgumentOffset, reduceArgumentOffset + 1);
+        return new MapReduceAgg(
+                argList,
+                List.of(mapSum0, mapCount0),
+                reduceInputExpr,
+                List.of(reduceSum0, reduceSumCount),
+                reduceOutputExpr
+        );
     }
 }

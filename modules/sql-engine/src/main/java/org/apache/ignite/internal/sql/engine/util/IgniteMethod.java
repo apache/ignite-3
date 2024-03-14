@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
+import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.TimeZone;
@@ -125,7 +126,14 @@ public enum IgniteMethod {
      */
     TRUNCATE(IgniteSqlFunctions.class, "struncate", true),
 
-    SUBSTRING(IgniteSqlFunctions.class, "substring", true);
+    SUBSTRING(IgniteSqlFunctions.class, "substring", true),
+
+    /**
+     * Division operator used by REDUCE phase of AVG aggregate.
+     * See {@link IgniteSqlFunctions#avgDivide(BigDecimal, BigDecimal, int, int)}.
+     */
+    AVG_DIVIDE(IgniteSqlFunctions.class, "avgDivide", BigDecimal.class, BigDecimal.class, int.class, int.class),
+    ;
 
     private final Method method;
 

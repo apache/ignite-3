@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.function.Predicate;
 import org.apache.calcite.rel.RelCollation;
+import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
@@ -536,7 +537,21 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
         checkCountDistinctHash(TestCase.CASE_24_1B);
         checkCountDistinctHash(TestCase.CASE_24_1D);
 
-        Predicate<RelNode> colocated = nodeOrAnyChild(isInstanceOf(IgniteReduceSortAggregate.class)
+        Predicate<RelNode> hash = nodeOrAnyChild(isInstanceOf(IgniteReduceHashAggregate.class)
+                .and(hasNoGroupSets(IgniteReduceHashAggregate::getGroupSets))
+                .and(input(isInstanceOf(IgniteExchange.class)
+                        .and(hasDistribution(single())
+                                .and(input(isInstanceOf(IgniteMapHashAggregate.class)
+                                        .and(hasNoGroupSets(IgniteMapHashAggregate::getGroupSets))
+                                        .and(input(isInstanceOf(IgniteColocatedHashAggregate.class)
+                                                .and(hasGroupSets(IgniteColocatedHashAggregate::getGroupSets, 1))
+                                        ))
+                                ))
+                        )
+                ))
+        );
+
+        Predicate<RelNode> sort = nodeOrAnyChild(isInstanceOf(IgniteReduceSortAggregate.class)
                 .and(hasNoGroupSets(IgniteReduceSortAggregate::getGroupSets))
                 .and(input(isInstanceOf(IgniteExchange.class)
                         .and(hasDistribution(single())
@@ -551,8 +566,10 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
 
         );
 
-        assertPlan(TestCase.CASE_24_1C, colocated);
-        assertPlan(TestCase.CASE_24_1E, colocated);
+        Predicate<RelNode> predicate = hash.or(sort);
+
+        assertPlan(TestCase.CASE_24_1C, predicate);
+        assertPlan(TestCase.CASE_24_1E, predicate);
     }
 
     private void checkSimpleAggSingle(TestCase testCase) throws Exception {
@@ -565,17 +582,25 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
     }
 
     private void checkSimpleAggHash(TestCase testCase) throws Exception {
-        assertPlan(testCase,
-                nodeOrAnyChild(isInstanceOf(IgniteReduceSortAggregate.class)
-                        .and(input(isInstanceOf(IgniteExchange.class)
-                                .and(input(isInstanceOf(IgniteMapSortAggregate.class)
-                                        .and(hasAggregate())
-                                        .and(hasGroups())
-                                        .and(input(isTableScan("TEST")))
-                                ))
+        Predicate<IgniteReduceHashAggregate> hash = isInstanceOf(IgniteReduceHashAggregate.class)
+                .and(input(isInstanceOf(IgniteExchange.class)
+                        .and(input(isInstanceOf(IgniteMapHashAggregate.class)
+                                .and(hasAggregate())
+                                .and(hasGroups())
+                                .and(input(isTableScan("TEST")))
                         ))
-                )
-        );
+                ));
+
+        Predicate<IgniteReduceSortAggregate> sort = isInstanceOf(IgniteReduceSortAggregate.class)
+                .and(input(isInstanceOf(IgniteExchange.class)
+                        .and(input(isInstanceOf(IgniteMapSortAggregate.class)
+                                .and(hasAggregate())
+                                .and(hasGroups())
+                                .and(input(isTableScan("TEST")))
+                        ))
+                ));
+
+        assertPlan(testCase, nodeOrAnyChild(hash).or(nodeOrAnyChild(sort)));
     }
 
     private void checkSimpleAggWithGroupBySingle(TestCase testCase) throws Exception {
@@ -641,19 +666,31 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
     }
 
     private void checkColocatedDistinctAggHash(TestCase testCase) throws Exception {
-        assertPlan(testCase,
-                nodeOrAnyChild(isInstanceOf(IgniteReduceSortAggregate.class)
-                        .and(input(isInstanceOf(IgniteExchange.class)
-                                .and(input(isInstanceOf(IgniteMapSortAggregate.class)
-                                        .and(hasAggregate())
-                                        .and(not(hasDistinctAggregate()))
-                                        .and(input(isInstanceOf(IgniteColocatedHashAggregate.class)
-                                                .and(hasGroups())
-                                                .and(input(isTableScan("TEST")))
-                                        ))
+        Predicate<IgniteReduceHashAggregate> hash = isInstanceOf(IgniteReduceHashAggregate.class)
+                .and(input(isInstanceOf(IgniteExchange.class)
+                        .and(input(isInstanceOf(IgniteMapHashAggregate.class)
+                                .and(hasAggregate())
+                                .and(not(hasDistinctAggregate()))
+                                .and(input(isInstanceOf(IgniteColocatedHashAggregate.class)
+                                        .and(hasGroups())
+                                        .and(input(isTableScan("TEST")))
                                 ))
                         ))
                 ));
+
+        Predicate<IgniteReduceSortAggregate> sort = isInstanceOf(IgniteReduceSortAggregate.class)
+                .and(input(isInstanceOf(IgniteExchange.class)
+                        .and(input(isInstanceOf(IgniteMapSortAggregate.class)
+                                .and(hasAggregate())
+                                .and(not(hasDistinctAggregate()))
+                                .and(input(isInstanceOf(IgniteColocatedHashAggregate.class)
+                                        .and(hasGroups())
+                                        .and(input(isTableScan("TEST")))
+                                ))
+                        ))
+                ));
+
+        assertPlan(testCase, nodeOrAnyChild(hash).or(nodeOrAnyChild(sort)));
     }
 
     private void checkDistinctAggWithGroupBySingle(TestCase testCase) throws Exception {
@@ -788,27 +825,49 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
                 ));
     }
 
+    @SuppressWarnings({"rawtypes", "unchecked"})
     private void checkGroupsWithOrderByGroupColumnsSingle(TestCase testCase, RelCollation collation) throws Exception {
-        assertPlan(testCase,
-                isInstanceOf(IgniteColocatedSortAggregate.class)
+        // Uses the first collation column for ordering.
+        RelCollation col1 = RelCollations.of(collation.getFieldCollations().get(0));
+
+        Predicate<IgniteSort> sortColo = isInstanceOf(IgniteSort.class)
+                .and(s -> s.collation().equals(col1))
+                .and(input(isInstanceOf(IgniteColocatedHashAggregate.class)
+                        .and(input(isTableScan("TEST")
+                        ))
+                ));
+
+        // Uses all collation columns for ordering.
+        Predicate<IgniteColocatedSortAggregate> coloSort = isInstanceOf(IgniteColocatedSortAggregate.class)
+                .and(input(isInstanceOf(IgniteSort.class)
+                        .and(s -> s.collation().equals(collation))
+                        .and(input(isTableScan("TEST")))
+                ));
+
+        assertPlan(testCase, (Predicate<? extends RelNode>) sortColo.or((Predicate) coloSort));
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private void checkGroupsWithOrderByGroupColumnsHash(TestCase testCase, RelCollation collation) throws Exception {
+        Predicate<IgniteSort> sortColo = isInstanceOf(IgniteSort.class)
+                .and(s -> s.collation().equals(collation))
+                .and(input(isInstanceOf(IgniteColocatedHashAggregate.class)
+                        .and(input(isInstanceOf(IgniteExchange.class)
+                                .and(hasDistribution(single()))
+                                .and(input(isTableScan("TEST")))
+                        ))
+                ));
+
+        Predicate<IgniteColocatedSortAggregate> coloSort = isInstanceOf(IgniteColocatedSortAggregate.class)
+                .and(input(isInstanceOf(IgniteExchange.class)
+                        .and(hasDistribution(single()))
                         .and(input(isInstanceOf(IgniteSort.class)
                                 .and(s -> s.collation().equals(collation))
                                 .and(input(isTableScan("TEST")))
                         ))
-        );
-    }
+                ));
 
-    private void checkGroupsWithOrderByGroupColumnsHash(TestCase testCase, RelCollation collation) throws Exception {
-        assertPlan(testCase,
-                isInstanceOf(IgniteColocatedSortAggregate.class)
-                        .and(input(isInstanceOf(IgniteExchange.class)
-                                .and(hasDistribution(single()))
-                                .and(input(isInstanceOf(IgniteSort.class)
-                                        .and(s -> s.collation().equals(collation))
-                                        .and(input(isTableScan("TEST")))
-                                ))
-                        ))
-        );
+        assertPlan(testCase, (Predicate<? extends RelNode>) sortColo.or((Predicate) coloSort));
     }
 
     private void checkCountDistinctHash(TestCase testCase) throws Exception {

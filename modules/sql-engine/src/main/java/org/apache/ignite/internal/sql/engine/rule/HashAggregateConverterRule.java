@@ -31,9 +31,11 @@ import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.logical.LogicalAggregate;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.mapping.Mapping;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
+import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteColocatedHashAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapHashAggregate;
@@ -107,6 +109,7 @@ public class HashAggregateConverterRule {
             Mapping fieldMappingOnReduce = Commons.trimmingMapping(agg.getGroupSet().length(), agg.getGroupSet());
 
             AggregateRelBuilder relBuilder = new AggregateRelBuilder() {
+
                 @Override
                 public IgniteRel makeMapAgg(RelOptCluster cluster, RelNode input, ImmutableBitSet groupSet,
                         List<ImmutableBitSet> groupSets, List<AggregateCall> aggregateCalls) {
@@ -121,13 +124,26 @@ public class HashAggregateConverterRule {
                 }
 
                 @Override
-                public IgniteRel makeReduceAgg(RelOptCluster cluster, RelNode map, ImmutableBitSet groupSet,
+                public IgniteRel makeProject(RelOptCluster cluster, RelNode input, List<RexNode> reduceInputExprs,
+                        RelDataType projectRowType) {
+
+                    return new IgniteProject(
+                            agg.getCluster(),
+                            outTrait.replace(IgniteDistributions.single()),
+                            convert(input, inTrait.replace(IgniteDistributions.single())),
+                            reduceInputExprs,
+                            projectRowType
+                    );
+                }
+
+                @Override
+                public IgniteRel makeReduceAgg(RelOptCluster cluster, RelNode input, ImmutableBitSet groupSet,
                         List<ImmutableBitSet> groupSets, List<AggregateCall> aggregateCalls, RelDataType outputType) {
 
                     return new IgniteReduceHashAggregate(
                             cluster,
                             outTrait.replace(IgniteDistributions.single()),
-                            convert(map, inTrait.replace(IgniteDistributions.single())),
+                            convert(input, inTrait.replace(IgniteDistributions.single())),
                             groupSet,
                             groupSets,
                             aggregateCalls,
