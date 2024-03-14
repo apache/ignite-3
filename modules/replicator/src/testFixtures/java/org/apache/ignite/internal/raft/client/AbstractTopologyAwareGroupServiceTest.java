@@ -96,12 +96,14 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
             NamedThreadFactory.create("Test", "Raft-Group-Client", log)
     );
 
+    private final Map<NetworkAddress, ClusterService> clusterServices = new HashMap<>();
+
+    private final Map<NetworkAddress, JraftServerImpl> raftServers = new HashMap<>();
+
+    private final List<TopologyAwareRaftGroupService> raftClients = new ArrayList<>();
+
     @InjectConfiguration
     protected RaftConfiguration raftConfiguration;
-
-    private Map<NetworkAddress, ClusterService> clusterServices = new HashMap<>();
-    private Map<NetworkAddress, JraftServerImpl> raftServers = new HashMap<>();
-    private List<TopologyAwareRaftGroupService> raftClients = new ArrayList<>();
 
     @AfterEach
     protected void tearDown() throws Exception {
