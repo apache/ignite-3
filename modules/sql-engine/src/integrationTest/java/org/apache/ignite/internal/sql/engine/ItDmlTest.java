@@ -823,7 +823,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
         );
     }
 
-    private class InterceptFailHandler implements  FailureHandler {
+    private class InterceptFailHandler implements FailureHandler {
         ArrayList<FailureContext> interceptedFailsList = new ArrayList<>();
 
         public ArrayList<FailureContext> getFails() {
