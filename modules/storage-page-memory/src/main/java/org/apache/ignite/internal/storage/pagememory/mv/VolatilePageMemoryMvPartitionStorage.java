@@ -30,7 +30,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -44,9 +43,7 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryTableStorage;
-import org.apache.ignite.internal.storage.pagememory.index.hash.PageMemoryHashIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
-import org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
 import org.apache.ignite.internal.storage.util.LocalLocker;
 import org.apache.ignite.internal.storage.util.StorageState;
@@ -90,11 +87,15 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
         super(
                 partitionId,
                 tableStorage,
-                tableStorage.dataRegion().rowVersionFreeList(),
-                tableStorage.dataRegion().indexColumnsFreeList(),
-                versionChainTree,
-                indexMetaTree,
-                gcQueue,
+                new RenewablePartitionStorageState(
+                        tableStorage,
+                        partitionId,
+                        versionChainTree,
+                        tableStorage.dataRegion().rowVersionFreeList(),
+                        tableStorage.dataRegion().indexColumnsFreeList(),
+                        indexMetaTree,
+                        gcQueue
+                ),
                 destructionExecutor
         );
     }
@@ -211,41 +212,31 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
             }
         }
 
-        hashIndexes.values().forEach(PageMemoryHashIndexStorage::transitionToDestroyingState);
-        sortedIndexes.values().forEach(PageMemorySortedIndexStorage::transitionToDestroyingState);
+        indexes.transitionToDestroyingState();
     }
 
     /**
      * Destroys internal structures (including indices) backing this partition.
      */
     public CompletableFuture<Void> destroyStructures() {
-        Stream<CompletableFuture<?>> destroyFutures = Stream.of(
-                startMvDataDestruction(),
-                startIndexMetaTreeDestruction(),
-                startGarbageCollectionTreeDestruction()
+        RenewablePartitionStorageState localState = renewableState;
+
+        CompletableFuture<Void> destroyFuture = CompletableFuture.allOf(
+                startMvDataDestruction(localState),
+                startIndexMetaTreeDestruction(localState),
+                startGarbageCollectionTreeDestruction(localState),
+                indexes.destroyStructures()
         );
-
-        Stream<CompletableFuture<Void>> hashIndexDestroyFutures = hashIndexes.values()
-                .stream()
-                .map(indexStorage -> indexStorage.startDestructionOn(destructionExecutor));
-
-        Stream<CompletableFuture<Void>> sortedIndexDestroyFutures = sortedIndexes.values()
-                .stream()
-                .map(indexStorage -> indexStorage.startDestructionOn(destructionExecutor));
-
-        Stream<CompletableFuture<Void>> indexDestroyFutures = Stream.concat(hashIndexDestroyFutures, sortedIndexDestroyFutures);
-
-        CompletableFuture<?>[] allDestroyFutures = Stream.concat(destroyFutures, indexDestroyFutures).toArray(CompletableFuture[]::new);
 
         lastAppliedIndex = 0;
         lastAppliedTerm = 0;
         groupConfig = null;
 
-        return CompletableFuture.allOf(allDestroyFutures);
+        return destroyFuture;
     }
 
-    private CompletableFuture<Void> startMvDataDestruction() {
-        return destroyTree(versionChainTree, chainKey -> destroyVersionChain((VersionChain) chainKey))
+    private CompletableFuture<Void> startMvDataDestruction(RenewablePartitionStorageState renewableState) {
+        return destroyTree(renewableState.versionChainTree(), chainKey -> destroyVersionChain((VersionChain) chainKey, renewableState))
                 .whenComplete((res, e) -> {
                     if (e != null) {
                         LOG.error(
@@ -257,28 +248,29 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
                 });
     }
 
-    private void destroyVersionChain(VersionChain chainKey) {
+    private void destroyVersionChain(VersionChain chainKey, RenewablePartitionStorageState renewableState) {
         try {
-            deleteRowVersionsFromFreeList(chainKey);
+            deleteRowVersionsFromFreeList(chainKey, renewableState);
         } catch (IgniteInternalCheckedException e) {
             throw new IgniteInternalException(e);
         }
     }
 
-    private void deleteRowVersionsFromFreeList(VersionChain chain) throws IgniteInternalCheckedException {
+    private void deleteRowVersionsFromFreeList(VersionChain chain, RenewablePartitionStorageState renewableState)
+            throws IgniteInternalCheckedException {
         long rowVersionLink = chain.headLink();
 
         while (rowVersionLink != PageIdUtils.NULL_LINK) {
             RowVersion rowVersion = readRowVersion(rowVersionLink, NEVER_LOAD_VALUE);
 
-            rowVersionFreeList.removeDataRowByLink(rowVersion.link());
+            renewableState.rowVersionFreeList().removeDataRowByLink(rowVersion.link());
 
             rowVersionLink = rowVersion.nextLink();
         }
     }
 
-    private CompletableFuture<Void> startIndexMetaTreeDestruction() {
-        return destroyTree(indexMetaTree, null)
+    private CompletableFuture<Void> startIndexMetaTreeDestruction(RenewablePartitionStorageState renewableState) {
+        return destroyTree(renewableState.indexMetaTree(), null)
                 .whenComplete((res, e) -> {
                     if (e != null) {
                         LOG.error(
@@ -290,8 +282,8 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
                 });
     }
 
-    private CompletableFuture<Void> startGarbageCollectionTreeDestruction() {
-        return destroyTree(gcQueue, null)
+    private CompletableFuture<Void> startGarbageCollectionTreeDestruction(RenewablePartitionStorageState renewableState) {
+        return destroyTree(renewableState.gcQueue(), null)
                 .whenComplete((res, e) -> {
                     if (e != null) {
                         LOG.error(
@@ -315,7 +307,9 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
 
     @Override
     List<AutoCloseable> getResourcesToCloseOnCleanup() {
-        return List.of(versionChainTree::close, indexMetaTree::close, gcQueue::close);
+        RenewablePartitionStorageState localState = renewableState;
+
+        return List.of(localState.versionChainTree()::close, localState.indexMetaTree()::close, localState.gcQueue()::close);
     }
 
     /**
@@ -333,23 +327,15 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
     ) {
         throwExceptionIfStorageNotInCleanupOrRebalancedState(state.get(), this::createStorageInfo);
 
-        this.versionChainTree = versionChainTree;
-        this.indexMetaTree = indexMetaTree;
-        this.gcQueue = gcQueue;
+        RenewablePartitionStorageState prevState = this.renewableState;
 
-        for (PageMemoryHashIndexStorage indexStorage : hashIndexes.values()) {
-            indexStorage.updateDataStructures(
-                    indexFreeList,
-                    createHashIndexTree(indexStorage.indexDescriptor(), createIndexMetaForNewIndex(indexStorage.indexDescriptor().id()))
-            );
-        }
-
-        for (PageMemorySortedIndexStorage indexStorage : sortedIndexes.values()) {
-            indexStorage.updateDataStructures(
-                    indexFreeList,
-                    createSortedIndexTree(indexStorage.indexDescriptor(), createIndexMetaForNewIndex(indexStorage.indexDescriptor().id()))
-            );
-        }
+        updateRenewableState(
+                versionChainTree,
+                prevState.rowVersionFreeList(),
+                prevState.indexFreeList(),
+                indexMetaTree,
+                gcQueue
+        );
     }
 
     @Override

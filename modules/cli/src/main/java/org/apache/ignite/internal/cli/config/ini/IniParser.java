@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.cli.config.ini;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -55,7 +57,7 @@ public class IniParser {
             throw new FileNotFoundException("inputStream is null");
         }
 
-        try (BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(inputStream))) {
+        try (BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(inputStream, UTF_8))) {
             return parseIniFile(bufferedReader);
         }
     }

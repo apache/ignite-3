@@ -293,12 +293,14 @@ public class SqlQueryProcessor implements QueryProcessor {
                 nodeName,
                 clusterSrvc.messagingService(),
                 taskExecutor,
-                busyLock
+                busyLock,
+                clock
         ));
 
         var exchangeService = registerService(new ExchangeServiceImpl(
                 mailboxRegistry,
-                msgSrvc
+                msgSrvc,
+                clock
         ));
 
         this.prepareSvc = prepareSvc;
@@ -366,6 +368,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 mappingService,
                 executableTableRegistry,
                 dependencyResolver,
+                clock,
                 EXECUTION_SERVICE_SHUTDOWN_TIMEOUT
         ));
 

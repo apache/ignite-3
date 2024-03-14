@@ -23,7 +23,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.DefaultValue.ConstantValue;
 import org.apache.ignite.internal.catalog.commands.DefaultValue.FunctionCall;
@@ -118,11 +117,10 @@ public final class CatalogToSchemaDescriptorConverter {
     /**
      * Converts given column view to a {@link Column}.
      *
-     * @param columnOrder Number of the current column.
      * @param columnDescriptor Descriptor to convert.
      * @return A {@link Column} object representing the table column descriptor.
      */
-    public static Column convert(int columnOrder, CatalogTableColumnDescriptor columnDescriptor) {
+    public static Column convert(CatalogTableColumnDescriptor columnDescriptor) {
         NativeType type = convertType(columnDescriptor);
 
         DefaultValue defaultValue = columnDescriptor.defaultValue();
@@ -143,7 +141,7 @@ public final class CatalogToSchemaDescriptorConverter {
             throw new IllegalStateException("Unknown value supplier class " + defaultValue.getClass().getName());
         }
 
-        return new Column(columnOrder, columnDescriptor.name(), type, columnDescriptor.nullable(), defaultValueProvider);
+        return new Column(columnDescriptor.name(), type, columnDescriptor.nullable(), defaultValueProvider);
     }
 
     /**
@@ -153,12 +151,7 @@ public final class CatalogToSchemaDescriptorConverter {
      * @return A {@link SchemaDescriptor} object representing the table descriptor.
      */
     public static SchemaDescriptor convert(CatalogTableDescriptor tableDescriptor, int tableVersion) {
-        Set<String> keyColumnsNames = Set.copyOf(tableDescriptor.primaryKeyColumns());
-
-        List<Column> keyCols = new ArrayList<>(keyColumnsNames.size());
-        List<Column> valCols = new ArrayList<>(tableDescriptor.columns().size() - keyColumnsNames.size());
-
-        int idx = 0;
+        List<Column> columns = new ArrayList<>(tableDescriptor.columns().size());
 
         TableVersion tableVersionInstance = tableDescriptor.schemaVersions().get(tableVersion);
 
@@ -166,20 +159,14 @@ public final class CatalogToSchemaDescriptorConverter {
                 : format("Cannot find table version {} in table descriptor {}", tableVersion, tableDescriptor);
 
         for (CatalogTableColumnDescriptor column : tableVersionInstance.columns()) {
-            if (keyColumnsNames.contains(column.name())) {
-                keyCols.add(convert(idx, column));
-            } else {
-                valCols.add(convert(idx, column));
-            }
-
-            idx++;
+            columns.add(convert(column));
         }
 
         return new SchemaDescriptor(
                 tableVersion,
-                keyCols.toArray(Column[]::new),
-                tableDescriptor.colocationColumns().toArray(String[]::new),
-                valCols.toArray(Column[]::new)
+                columns,
+                tableDescriptor.primaryKeyColumns(),
+                tableDescriptor.colocationColumns()
         );
     }
 

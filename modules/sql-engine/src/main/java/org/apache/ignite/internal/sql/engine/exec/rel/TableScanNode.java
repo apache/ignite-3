@@ -18,12 +18,13 @@
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import java.util.BitSet;
-import java.util.Collection;
 import java.util.Iterator;
+import java.util.List;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.PartitionProvider;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
@@ -40,8 +41,8 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
     /** Table that provides access to underlying data. */
     private final ScannableTable table;
 
-    /** List of pairs containing the partition number to scan with the corresponding enlistment consistency token. */
-    private final Collection<PartitionWithConsistencyToken> partsWithConsistencyTokens;
+    /** Returns partitions to be used by this scan. */
+    private final PartitionProvider<RowT> partitionProvider;
 
     private final RowFactory<RowT> rowFactory;
 
@@ -53,7 +54,7 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
      * @param ctx Execution context.
      * @param rowFactory Row factory.
      * @param table Internal table.
-     * @param partsWithConsistencyTokens List of pairs containing the partition number to scan with the corresponding enlistment
+     * @param partitionProvider List of pairs containing the partition number to scan with the corresponding enlistment
      *         consistency token.
      * @param filters Optional filter to filter out rows.
      * @param rowTransformer Optional projection function.
@@ -63,17 +64,15 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
             ExecutionContext<RowT> ctx,
             RowHandler.RowFactory<RowT> rowFactory,
             ScannableTable table,
-            Collection<PartitionWithConsistencyToken> partsWithConsistencyTokens,
+            PartitionProvider<RowT> partitionProvider,
             @Nullable Predicate<RowT> filters,
             @Nullable Function<RowT, RowT> rowTransformer,
             @Nullable BitSet requiredColumns
     ) {
         super(ctx, filters, rowTransformer);
 
-        assert partsWithConsistencyTokens != null && !partsWithConsistencyTokens.isEmpty();
-
         this.table = table;
-        this.partsWithConsistencyTokens = partsWithConsistencyTokens;
+        this.partitionProvider = partitionProvider;
         this.rowFactory = rowFactory;
         this.requiredColumns = requiredColumns;
     }
@@ -81,10 +80,10 @@ public class TableScanNode<RowT> extends StorageScanNode<RowT> {
     /** {@inheritDoc} */
     @Override
     protected Publisher<RowT> scan() {
+        List<PartitionWithConsistencyToken> partitions = partitionProvider.getPartitions(context());
+
         Iterator<Publisher<? extends RowT>> it = new TransformingIterator<>(
-                partsWithConsistencyTokens.iterator(), partWithConsistencyToken -> {
-            return table.scan(context(), partWithConsistencyToken, rowFactory, requiredColumns);
-        });
+                partitions.iterator(), p -> table.scan(context(), p, rowFactory, requiredColumns));
 
         return SubscriptionUtils.concat(it);
     }

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
@@ -24,6 +25,7 @@ import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFI
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_LEFT_ERR;
@@ -72,6 +74,8 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.failure.handlers.StopNodeFailureHandler;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.metrics.MetricManager;
@@ -681,7 +685,11 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         assertEquals(queries.size(), resultCursors.size());
 
-        resultCursors.forEach(AsyncCursor::closeAsync);
+        CompletableFuture<?>[] closeFutures = resultCursors.stream()
+                .map(AsyncCursor::closeAsync)
+                .toArray(CompletableFuture[]::new);
+
+        assertThat(allOf(closeFutures), willCompleteSuccessfully());
     }
 
     /**
@@ -714,7 +722,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         assertThat(prefetchFut, willThrow(equalTo(expectedException)));
 
-        cursor.closeAsync();
+        assertThat(cursor.closeAsync(), willCompleteSuccessfully());
     }
 
     /**
@@ -817,7 +825,9 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         var mailboxRegistry = new CapturingMailboxRegistry(new MailboxRegistryImpl());
         mailboxes.add(mailboxRegistry);
 
-        var exchangeService = new ExchangeServiceImpl(mailboxRegistry, messageService);
+        HybridClock clock = new HybridClockImpl();
+
+        var exchangeService = new ExchangeServiceImpl(mailboxRegistry, messageService, clock);
 
         var schemaManagerMock = mock(SqlSchemaManager.class);
 
@@ -879,6 +889,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 executableTableRegistry,
                 dependencyResolver,
                 (ctx, deps) -> node.implementor(ctx, mailboxRegistry, exchangeService, deps),
+                clock,
                 SHUTDOWN_TIMEOUT
         );
 

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.prepare.pruning;
 
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
+import java.io.Serializable;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
@@ -28,10 +29,12 @@ import org.jetbrains.annotations.Nullable;
  * @see PartitionPruningColumns
  * @see PartitionPruningMetadataExtractor
  */
-public class PartitionPruningMetadata {
+public class PartitionPruningMetadata implements Serializable {
+
+    private static final long serialVersionUID = 0;
 
     /** Empty metadata. */
-    public static PartitionPruningMetadata EMPTY = new PartitionPruningMetadata(Long2ObjectMaps.emptyMap());
+    public static final PartitionPruningMetadata EMPTY = new PartitionPruningMetadata(Long2ObjectMaps.emptyMap());
 
     private final Long2ObjectMap<PartitionPruningColumns> data;
 

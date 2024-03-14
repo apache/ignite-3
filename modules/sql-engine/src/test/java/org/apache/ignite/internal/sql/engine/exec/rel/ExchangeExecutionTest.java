@@ -43,6 +43,8 @@ import java.util.function.Function;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.failure.handlers.StopNodeFailureHandler;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
@@ -499,7 +501,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
         ExecutionContext<Object[]> targetCtx = TestBuilders.executionContext()
                 .queryId(queryId)
                 .executor(taskExecutor)
-                .fragment(new FragmentDescription(TARGET_FRAGMENT_ID, true, Long2ObjectMaps.emptyMap(), null, null))
+                .fragment(new FragmentDescription(TARGET_FRAGMENT_ID, true, Long2ObjectMaps.emptyMap(), null, null, null))
                 .localNode(localNode)
                 .build();
 
@@ -543,7 +545,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
         ExecutionContext<Object[]> sourceCtx = TestBuilders.executionContext()
                 .queryId(queryId)
                 .executor(taskExecutor)
-                .fragment(new FragmentDescription(SOURCE_FRAGMENT_ID, true, Long2ObjectMaps.emptyMap(), null, null))
+                .fragment(new FragmentDescription(SOURCE_FRAGMENT_ID, true, Long2ObjectMaps.emptyMap(), null, null, null))
                 .localNode(localNode)
                 .build();
 
@@ -575,7 +577,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
         ExecutionContext<Object[]> sourceCtx = TestBuilders.executionContext()
                 .queryId(queryId)
                 .executor(taskExecutor)
-                .fragment(new FragmentDescription(SOURCE_FRAGMENT_ID, true, Long2ObjectMaps.emptyMap(), null, null))
+                .fragment(new FragmentDescription(SOURCE_FRAGMENT_ID, true, Long2ObjectMaps.emptyMap(), null, null, null))
                 .localNode(localNode)
                 .build();
 
@@ -616,16 +618,20 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
             ClusterService clusterService,
             MailboxRegistry mailboxRegistry
     ) {
+        HybridClock clock = new HybridClockImpl();
+
         MessageService messageService = new MessageServiceImpl(
                 clusterService.topologyService().localMember().name(),
                 clusterService.messagingService(),
                 taskExecutor,
-                new IgniteSpinBusyLock()
+                new IgniteSpinBusyLock(),
+                clock
         );
 
         ExchangeService exchangeService = new ExchangeServiceImpl(
                 mailboxRegistry,
-                messageService
+                messageService,
+                clock
         );
 
         messageService.start();
