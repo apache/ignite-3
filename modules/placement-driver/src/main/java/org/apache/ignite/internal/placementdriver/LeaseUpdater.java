@@ -351,6 +351,8 @@ public class LeaseUpdater {
                 if (!lease.isAccepted()) {
                     LeaseAgreement agreement = leaseNegotiator.getAndRemoveIfReady(grpId);
 
+                    agreement.checkValid(grpId, topologyTracker.currentTopologySnapshot(), assignments);
+
                     if (agreement.isAccepted()) {
                         publishLease(grpId, lease, renewedLeases);
 
@@ -369,8 +371,6 @@ public class LeaseUpdater {
                         writeNewLease(grpId, lease, candidate, renewedLeases, toBeNegotiated);
 
                         continue;
-                    } else {
-                        agreement.checkValid(grpId, topologyTracker.currentTopologySnapshot(), assignments);
                     }
                 }
 

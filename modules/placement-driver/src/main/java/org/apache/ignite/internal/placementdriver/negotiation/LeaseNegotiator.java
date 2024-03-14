@@ -41,10 +41,6 @@ public class LeaseNegotiator {
 
     private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
 
-    static LeaseGrantedMessageResponse NOT_ACCEPTED_RESPONSE = PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse()
-            .accepted(false)
-            .build();
-
     /** Lease agreements which are in progress of negotiation. */
     private final Map<ReplicationGroupId, LeaseAgreement> leaseToNegotiate;
 
@@ -100,7 +96,7 @@ public class LeaseNegotiator {
                             LOG.warn("Lease was not negotiated due to exception [lease={}]", throwable, lease);
                         }
 
-                        fut.complete(NOT_ACCEPTED_RESPONSE);
+                        fut.complete(null);
                     }
                 });
     }

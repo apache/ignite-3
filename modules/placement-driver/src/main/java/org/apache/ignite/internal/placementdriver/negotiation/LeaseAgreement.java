@@ -19,7 +19,6 @@ package org.apache.ignite.internal.placementdriver.negotiation;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.placementdriver.negotiation.LeaseNegotiator.NOT_ACCEPTED_RESPONSE;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.findAny;
 
@@ -138,7 +137,7 @@ public class LeaseAgreement {
             LOG.info("Lease was not negotiated because the node is not included into the group assignments anymore [node={}, group={}, "
                     + "assignments={}].", lease.getLeaseholder(), lease, assignments);
 
-            responseFut.complete(NOT_ACCEPTED_RESPONSE);
+            responseFut.complete(null);
         } else if (currentTopologySnapshot != null) {
             Set<String> nodeIds = currentTopologySnapshot.nodes().stream().map(LogicalNode::id).collect(toSet());
 
@@ -146,7 +145,7 @@ public class LeaseAgreement {
                 LOG.info("Lease was not negotiated because the node has left the logical topology [node={}, nodeId={}, group={}]",
                         lease.getLeaseholder(), lease.getLeaseholderId(), groupId);
 
-                responseFut.complete(NOT_ACCEPTED_RESPONSE);
+                responseFut.complete(null);
             }
         }
     }
