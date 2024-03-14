@@ -51,6 +51,7 @@ public class FailureProcessor implements IgniteComponent {
     /** Node name. */
     private final String nodeName;
 
+    /** Interceptor of fail handler. Main purpose to make testing easier. */
     private @Nullable FailureHandler interceptor;
 
     /** Failure context. */
@@ -154,6 +155,11 @@ public class FailureProcessor implements IgniteComponent {
                 && ((AbstractFailureHandler) handler).ignoredFailureTypes().contains(failureCtx.type());
     }
 
+    /**
+     * Set FailHander interceptor to provide ability tщ test scenarios related to fail handler.
+     *
+     * @param interceptor Interceptor of fails.
+     */
     @TestOnly
     public synchronized void setInterceptor(@Nullable FailureHandler interceptor) {
         this.interceptor = interceptor;
