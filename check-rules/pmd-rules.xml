@@ -124,6 +124,15 @@
         </properties>
     </rule>
 
+
+    <rule ref="category/java/multithreading.xml/AvoidThreadGroup" />
+    <rule ref="category/java/multithreading.xml/DontCallThreadRun" />
+    <rule ref="category/java/multithreading.xml/DoubleCheckedLocking" />
+    <rule ref="category/java/multithreading.xml/NonThreadSafeSingleton" />
+    <rule ref="category/java/multithreading.xml/UnsynchronizedStaticFormatter" />
+    <rule ref="category/java/multithreading.xml/UseNotifyAllInsteadOfNotify" />
+
+
     <!--
         UnusedPrivateMethod has a known bug which leads to false positive triggering if
         method signature contains generic parameter and\or descendant class is passed as parameter.
