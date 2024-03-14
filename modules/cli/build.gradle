@@ -40,10 +40,9 @@ dependencies {
     implementation project(':ignite-client')
     implementation project(':ignite-jdbc')
 
-    // add tree sitter
-    implementation 'io.github.bonede:tree-sitter:0.21.0'
-    implementation 'io.github.bonede:tree-sitter-json:0.20.1'
-    implementation 'io.github.bonede:tree-sitter-sql:gh-pages'
+    implementation libs.tree.sitter
+    implementation libs.tree.sitter.sql
+    implementation libs.tree.sitter.json
 
     implementation libs.fliptables
     implementation libs.jline.core

@@ -1,4 +1,4 @@
-#
+
 # Licensed to the Apache Software Foundation (ASF) under one or more
 # contributor license agreements.  See the NOTICE file distributed with
 # this work for additional information regarding copyright ownership.
@@ -79,6 +79,9 @@ awaitility = "4.2.0"
 progressBar = "0.9.4"
 guava = "33.0.0-jre"
 jna = "5.14.0"
+tree-sitter = "0.21.0"
+tree-sitter-json = "0.20.1"
+tree-sitter-sql = "gh-pages"
 
 #Tools
 pmdTool = "6.55.0"
@@ -259,3 +262,7 @@ awaitility = { module = "org.awaitility:awaitility", version.ref = "awaitility" 
 progressBar = { module = "me.tongfei:progressbar", version.ref = "progressBar" }
 
 jna = { module = "net.java.dev.jna:jna", version.ref = "jna"}
+
+tree-sitter = { module = "io.github.bonede:tree-sitter", version.ref = "tree-sitter" }
+tree-sitter-json = { module = "io.github.bonede:tree-sitter-json", version.ref = "tree-sitter-json" }
+tree-sitter-sql = { module = "io.github.bonede:tree-sitter-sql", version.ref = "tree-sitter-sql" }
