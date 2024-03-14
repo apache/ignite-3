@@ -259,7 +259,6 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
 
         afterClusterInit(leader.name());
 
-        raftClients.add(raftClient);
         raftClients.add(raftClientNoInitialNotify);
 
         return new IgniteBiTuple<>(raftClient, raftClientNoInitialNotify);
@@ -448,6 +447,8 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
 
                 raftClient = startTopologyAwareClient(cluster, clusterServices, isServerAddress, nodes, eventsClientListener,
                         logicalTopologyService, true);
+
+                raftClients.add(raftClient);
             }
         }
 
