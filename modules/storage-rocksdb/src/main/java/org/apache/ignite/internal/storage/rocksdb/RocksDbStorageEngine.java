@@ -195,6 +195,10 @@ public class RocksDbStorageEngine implements StorageEngine {
             }
         });
 
-        return new RocksDbTableStorage(sharedInstance, tableDescriptor);
+        var storage = new RocksDbTableStorage(sharedInstance, tableDescriptor, indexDescriptorSupplier);
+
+        storage.start();
+
+        return storage;
     }
 }

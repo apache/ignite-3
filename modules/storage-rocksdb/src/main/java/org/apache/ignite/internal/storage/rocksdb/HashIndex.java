@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
-import static org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage.createKey;
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.createKey;
 import static org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstance.deleteByPrefix;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 
@@ -25,6 +25,7 @@ import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.rocksdb.index.RocksDbHashIndexStorage;
+import org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstance;
 import org.jetbrains.annotations.Nullable;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.WriteBatch;
@@ -39,12 +40,21 @@ class HashIndex extends Index<RocksDbHashIndexStorage> {
 
     private final RocksDbMetaStorage indexMetaStorage;
 
-    HashIndex(ColumnFamily indexCf, StorageHashIndexDescriptor descriptor, RocksDbMetaStorage indexMetaStorage) {
+    HashIndex(SharedRocksDbInstance rocksDb, StorageHashIndexDescriptor descriptor, RocksDbMetaStorage indexMetaStorage) {
         super(descriptor.id());
 
-        this.indexCf = indexCf;
+        this.indexCf = rocksDb.hashIndexCf();
         this.descriptor = descriptor;
         this.indexMetaStorage = indexMetaStorage;
+    }
+
+    /**
+     * Returns hash index storage for partition.
+     *
+     * @param partitionId Partition ID.
+     */
+    @Nullable RocksDbHashIndexStorage getStorage(int partitionId) {
+        return storageByPartitionId.get(partitionId);
     }
 
     /**
@@ -65,14 +75,5 @@ class HashIndex extends Index<RocksDbHashIndexStorage> {
 
         // Every index storage uses an "index ID" + "partition ID" prefix. We can remove everything by just using the index ID prefix.
         deleteByPrefix(writeBatch, indexCf, createKey(BYTE_EMPTY_ARRAY, descriptor.id()));
-    }
-
-    /**
-     * Returns hash index storage for partition.
-     *
-     * @param partitionId Partition ID.
-     */
-    @Nullable RocksDbHashIndexStorage get(int partitionId) {
-        return storageByPartitionId.get(partitionId);
     }
 }

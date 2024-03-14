@@ -67,12 +67,12 @@ abstract class Index<S extends AbstractRocksDbIndexStorage> {
      * @throws RocksDBException If failed to delete data.
      */
     void destroy(int partitionId, WriteBatch writeBatch) throws RocksDBException {
-        S hashIndex = storageByPartitionId.remove(partitionId);
+        S storage = storageByPartitionId.remove(partitionId);
 
-        if (hashIndex != null) {
-            hashIndex.transitionToDestroyedState();
+        if (storage != null) {
+            storage.transitionToDestroyedState();
 
-            hashIndex.destroyData(writeBatch);
+            storage.destroyData(writeBatch);
         }
     }
 }
