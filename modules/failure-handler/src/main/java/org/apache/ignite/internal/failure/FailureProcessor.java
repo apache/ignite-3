@@ -51,7 +51,7 @@ public class FailureProcessor implements IgniteComponent {
     /** Node name. */
     private final String nodeName;
 
-    private volatile @Nullable FailureHandler interceptor;
+    private @Nullable FailureHandler interceptor;
 
     /** Failure context. */
     private volatile FailureContext failureCtx;
@@ -155,7 +155,7 @@ public class FailureProcessor implements IgniteComponent {
     }
 
     @TestOnly
-    public void setInterceptor(@Nullable FailureHandler interceptor) {
+    public synchronized void setInterceptor(@Nullable FailureHandler interceptor) {
         this.interceptor = interceptor;
     }
 }
