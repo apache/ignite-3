@@ -196,6 +196,7 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
         /** {@inheritDoc} */
         @Override
         public IgniteRel visit(IgniteUnionAll rel) {
+            assert !unionRaised;
             unionRaised = true;
             return super.visit(rel);
         }
