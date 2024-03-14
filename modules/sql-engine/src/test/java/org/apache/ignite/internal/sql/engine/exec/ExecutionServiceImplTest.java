@@ -45,6 +45,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.isA;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
@@ -460,6 +461,26 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
             return null;
         }));
         assertTrue(batchFut.toCompletableFuture().isCompletedExceptionally());
+    }
+
+
+    /**
+     * Emulate exception during initialization of context. Cursor shouldn't hung.
+     */
+    @Test
+    public void testErrorOnContextInitialization() {
+        ExecutionService execService = executionServices.get(0);
+        BaseQueryContext ctx = spy(createContext());
+        when(ctx.timeZoneId())
+                .thenCallRealMethod()
+                .thenThrow(new ExceptionInInitializerError());
+
+        QueryPlan plan = prepare("SELECT 1", ctx);
+
+        InternalTransaction tx = new NoOpTransaction(nodeNames.get(0));
+        AsyncCursor<InternalSqlRow> cursor = execService.executePlan(tx, plan, ctx);
+
+        assertThrows(ExceptionInInitializerError.class, () -> await(cursor.requestNextAsync(1), 2, TimeUnit.SECONDS));
     }
 
     /**

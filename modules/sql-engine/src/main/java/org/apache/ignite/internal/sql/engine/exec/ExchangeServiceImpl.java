@@ -178,7 +178,7 @@ public class ExchangeServiceImpl implements ExchangeService {
                     return;
                 }
 
-                throw new IgniteInternalException(INTERNAL_ERR, "Unexpected exception", e);
+                LOG.warn("Unexpected exception", e);
             }
         } else if (LOG.isDebugEnabled()) {
             LOG.debug("Stale batch message received: [nodeName={}, queryId={}, fragmentId={}, exchangeId={}, batchId={}]",
