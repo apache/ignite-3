@@ -32,9 +32,6 @@ import org.apache.ignite.network.TopologyService;
  * Keeps track of all finished RO transactions.
  */
 public class FinishedReadOnlyTransactionTracker {
-
-    private static final int MAX_FINISHED_TRANSACTIONS_IN_BATCH = 10_000;
-
     /** Tx messages factory. */
     private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
 
@@ -68,7 +65,7 @@ public class FinishedReadOnlyTransactionTracker {
      * Send close cursors batch message to all cluster nodes.
      */
     public void broadcastClosedTransactions() {
-        Collection<UUID> txToSend = transactionInflights.finishedReadOnlyTransactions(MAX_FINISHED_TRANSACTIONS_IN_BATCH);
+        Collection<UUID> txToSend = transactionInflights.finishedReadOnlyTransactions();
 
         if (!txToSend.isEmpty()) {
             FinishedTransactionsBatchMessage message = FACTORY.finishedTransactionsBatchMessage()

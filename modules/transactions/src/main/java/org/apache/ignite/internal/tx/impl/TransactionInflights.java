@@ -99,11 +99,10 @@ public class TransactionInflights {
         tuple.onInflightsRemoved();
     }
 
-    Collection<UUID> finishedReadOnlyTransactions(int limit) {
+    Collection<UUID> finishedReadOnlyTransactions() {
         return txCtxMap.entrySet().stream()
                 .filter(e -> e.getValue() instanceof ReadOnlyTxContext && e.getValue().isReadyToFinish())
                 .map(Entry::getKey)
-                .limit(limit)
                 .collect(toSet());
     }
 
