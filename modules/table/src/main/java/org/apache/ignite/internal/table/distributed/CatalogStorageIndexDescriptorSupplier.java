@@ -43,6 +43,8 @@ class CatalogStorageIndexDescriptorSupplier implements StorageIndexDescriptorSup
         // Search for the index in the catalog history, which versions correspond to (lowWatermark, now] timestamp range.
         int latestCatalogVersion = catalogService.latestCatalogVersion();
 
+        // Get the current Low Watermark value. Since this class is used only on recovery, we expect that this value will not change
+        // concurrently.
         HybridTimestamp lowWatermarkTimestamp = lowWatermark.getLowWatermark();
 
         int earliestCatalogVersion = lowWatermarkTimestamp == null
