@@ -398,7 +398,7 @@ final class FragmentPrinter extends IgniteRelShuttle {
             }
             builder.setLength(builder.length() - 2);
 
-            builder.append("]");
+            builder.append(']');
         }
 
         /** Writes string property: {@code name: value}. */
