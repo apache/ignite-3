@@ -209,6 +209,10 @@ public class FragmentMappingTest extends AbstractPlannerTest {
         addTableIdent("NT", "N1");
         addTableIdent("NT", "N2");
 
+        addTable("T1", "N0", "N1", "N2");
+        addTable("T2", "N0", "N1", "N2");
+        addTable("T3", "N0", "N1", "N2");
+
         testRunner.runTest(this::initSchema, "correlated.test");
     }
 
@@ -229,7 +233,7 @@ public class FragmentMappingTest extends AbstractPlannerTest {
 
     @Test
     public void testPartitionPruning() {
-        addNodes("N1", "N2", "N3", "N4", "N5");
+        addNodes("N0", "N1", "N2", "N3", "N4", "N5");
 
         addTable("T1", "N1", "N2", "N3");
         addTable("T2", "N4", "N5");
