@@ -48,7 +48,12 @@ import org.jetbrains.annotations.Nullable;
  */
 public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage<SortedIndexRowKey, SortedIndexRow>
         implements SortedIndexStorage {
-    /** Index descriptor. */
+    /**
+     * Index descriptor.
+     *
+     * <p>Can be {@code null} only during recovery.
+     */
+    @Nullable
     private final StorageSortedIndexDescriptor descriptor;
 
     /** Sorted index tree instance. */
@@ -65,7 +70,7 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
      */
     public PageMemorySortedIndexStorage(
             IndexMeta indexMeta,
-            StorageSortedIndexDescriptor descriptor,
+            @Nullable StorageSortedIndexDescriptor descriptor,
             IndexColumnsFreeList freeList,
             SortedIndexTree sortedIndexTree,
             IndexMetaTree indexMetaTree,
@@ -79,6 +84,8 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
 
     @Override
     public StorageSortedIndexDescriptor indexDescriptor() {
+        assert descriptor != null : "This tree must only be used during recovery";
+
         return descriptor;
     }
 
@@ -193,7 +200,7 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
 
     private @Nullable IndexRowImpl toIndexRowImpl(@Nullable SortedIndexRow sortedIndexRow) {
         return sortedIndexRow == null ? null : new IndexRowImpl(
-                new BinaryTuple(descriptor.binaryTupleSchema().elementCount(), sortedIndexRow.indexColumns().valueBuffer()),
+                new BinaryTuple(indexDescriptor().binaryTupleSchema().elementCount(), sortedIndexRow.indexColumns().valueBuffer()),
                 sortedIndexRow.rowId()
         );
     }

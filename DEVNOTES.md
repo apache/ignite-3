@@ -91,11 +91,29 @@ Run legacy API checks only:
 ./gradlew modernizer
 ```
 
+### Spotbugs
+The project is checked for bugs with [Spotbugs Gradle Plugin](https://github.com/spotbugs/spotbugs-gradle-plugin).
+* [Spotbugs exclusion rules](check-rules/spotbugs-excludes.xml)
+
+Plugin is enabled by default and is bound to `build` task.
+
+Note that currently only main sources are validated with Spotbugs.
+
+Build project without spotbugs checks:
+```shell
+./gradlew clean build -x spotbugsMain
+```
+
+Run spotbugs checks only:
+```shell
+./gradlew spotbugsMain
+```
+
 ### PMD
 Static code analyzer is run with [Apache Gradle PMD Plugin](https://docs.gradle.org/current/userguide/pmd_plugin.html).
 * [PMD rules](check-rules/pmd-rules.xml)
 ```shell
-./gradlew pmdMain
+./gradlew pmdMain pmdTest
 ```
 PMD check result (only if there are any violations) is generated at `<module-name>/build/reports/pmd/`.
 ***

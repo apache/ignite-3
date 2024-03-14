@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -51,19 +52,23 @@ public class ExchangeServiceImpl implements ExchangeService {
 
     private final MailboxRegistry mailboxRegistry;
     private final MessageService messageService;
+    private final HybridClock clock;
 
     /**
      * Creates the object.
      *
      * @param mailboxRegistry A registry of mailboxes created on the node.
      * @param messageService A messaging service to exchange messages between mailboxes.
+     * @param clock Hybrid clock.
      */
     public ExchangeServiceImpl(
             MailboxRegistry mailboxRegistry,
-            MessageService messageService
+            MessageService messageService,
+            HybridClock clock
     ) {
         this.mailboxRegistry = mailboxRegistry;
         this.messageService = messageService;
+        this.clock = clock;
     }
 
     /** {@inheritDoc} */
@@ -87,6 +92,7 @@ public class ExchangeServiceImpl implements ExchangeService {
                         .batchId(batchId)
                         .last(last)
                         .rows(rows)
+                        .timestampLong(clock.nowLong())
                         .build()
         );
     }
