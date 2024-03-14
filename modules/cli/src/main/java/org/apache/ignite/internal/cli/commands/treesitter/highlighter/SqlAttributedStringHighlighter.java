@@ -50,7 +50,6 @@ public class SqlAttributedStringHighlighter {
      */
     public static AttributedString highlight(String text) {
         var as = new AttributedStringBuilder();
-        var style = new AttributedStyle();
 
         var tree = Parser.parseSql(text);
         SqlTokenType[] tokens = Indexer.indexSql(text, tree);
@@ -58,7 +57,7 @@ public class SqlAttributedStringHighlighter {
         for (int i = 0; i < text.length(); i++) {
             SqlTokenType token = tokens[i];
             int color = colorMap.getOrDefault(token, 1);
-            style = AttributedStyle.DEFAULT.foreground(color);
+            var style = AttributedStyle.DEFAULT.foreground(color);
             as.style(style).append(text.charAt(i));
         }
 
