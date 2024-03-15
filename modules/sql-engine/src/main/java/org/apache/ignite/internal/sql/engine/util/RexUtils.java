@@ -947,9 +947,13 @@ public class RexUtils {
     }
 
     /**
-     * If the given node is a numeric literal, checks whether it the cast to {@code type} overflows
-     * and in that case performs {@code saturated cast}, converting a value of that literal to the largest value of that type.
-     * If overflow does can not occur, returns the same node.
+     * If the given node is a numeric literal, checks whether its cast to {@code type} overflows and in that case
+     * performs {@code saturated cast}, converting a value of that literal to the largest value of that type.
+     *
+     * <p>If overflow does can not occur, returns a literal wrapped in a cast to {@code type}, because values search bounds
+     * in index lookups/scans should exactly match to types of database columns.
+     *
+     * <p>Otherwise returns {@code null}.
      */
     @Nullable
     private static RexLiteral toSaturatedValue(RexBuilder builder, RexNode node, RelDataType type) {
@@ -982,20 +986,24 @@ public class RexUtils {
             exact = true;
         }
 
+        BigDecimal newVal;
+
         if (lower.compareTo(val) > 0) {
-            if (exact) {
-                return builder.makeExactLiteral(lower, type);
-            } else {
-                return builder.makeApproxLiteral(lower, type);
-            }
+            newVal = lower;
         } else if (val.compareTo(upper) > 0) {
-            if (exact) {
-                return builder.makeExactLiteral(upper, type);
-            } else {
-                return builder.makeApproxLiteral(upper, type);
-            }
+            newVal = upper;
+        } else if (!SqlTypeUtil.equalSansNullability(node.getType(), type)) {
+            newVal = val;
         } else {
+            // If literal types and required type, match ignoring nullability,
+            // then return a literal as is.
             return lit;
+        }
+
+        if (exact) {
+            return builder.makeExactLiteral(newVal, type);
+        } else {
+            return builder.makeApproxLiteral(newVal, type);
         }
     }
 

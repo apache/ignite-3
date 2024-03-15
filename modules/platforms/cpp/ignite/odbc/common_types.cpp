@@ -227,6 +227,7 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::DIRECTORY_CREATION:
         case error::code::ALREADY_CLOSED:
         case error::code::STORAGE_REBALANCE:
+        case error::code::ALREADY_DESTROYED:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // DistributionZones group. Group code: 10

@@ -196,6 +196,30 @@ import org.jetbrains.annotations.Nullable;
 
 /** Partition replication listener. */
 public class PartitionReplicaListener implements ReplicaListener {
+    /**
+     * NB: this listener makes writes to the underlying MV partition storage without taking the partition snapshots read lock.
+     * This causes the RAFT snapshots transferred to a follower being slightly inconsistent for a limited amount of time.
+     *
+     * <p>A RAFT snapshot of a partition consists of MV data, TX state data and metadata (which includes RAFT applied index).
+     * Here, the 'slight' inconsistency is that MV data might be ahead of the snapshot meta (namely, RAFT applied index) and TX state data.
+     *
+     * <p>This listener by its nature cannot advance RAFT applied index (as it works out of the RAFT framework). This alone makes
+     * the partition 'slightly inconsistent' in the same way as defined above. So, if we solve this inconsistency,
+     * we don't need to take the partition snapshots read lock as well.
+     *
+     * <p>The inconsistency does not cause any real problems because it is further resolved.
+     * <ul>
+     *     <li>If the follower with a 'slightly' inconsistent partition state becomes a primary replica, this requires it to apply
+     *     whole available RAFT log from the leader before actually becoming a primary; this application will remove the inconsistency</li>
+     *     <li>If a node with this inconsistency is going to become a primary, and it's already the leader, then the above will not help.
+     *     But write intent resolution procedure will close the gap.</li>
+     *     <li>2 items above solve the inconsistency for RW transactions</li>
+     *     <li>For RO reading from such a 'slightly inconsistent' partition, write intent resolution closes the gap as well.</li>
+     * </ul>*
+     */
+    @SuppressWarnings("unused") // We use it as a placeholder of a documentation which can be linked using # and @see.
+    private static final Object INTERNAL_DOC_PLACEHOLDER = null;
+
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(PartitionReplicaListener.class);
 
@@ -2542,6 +2566,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             if (!cmd.full()) {
                 // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Temporary code below
                 synchronized (safeTime) {
+                    // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
                     storageUpdateHandler.handleUpdate(
                             cmd.txId(),
                             cmd.rowUuid(),
@@ -2580,6 +2605,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     // Try to avoid double write if an entry is already replicated.
                     synchronized (safeTime) {
                         if (cmd.safeTime().compareTo(safeTime.current()) > 0) {
+                            // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
                             storageUpdateHandler.handleUpdate(
                                     cmd.txId(),
                                     cmd.rowUuid(),
@@ -2667,6 +2693,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 if (skipDelayedAck) {
                     // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Temporary code below
                     synchronized (safeTime) {
+                        // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
                         storageUpdateHandler.handleUpdateAll(
                                 cmd.txId(),
                                 cmd.rowsToUpdate(),
@@ -2684,6 +2711,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 } else {
                     // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Temporary code below
                     synchronized (safeTime) {
+                        // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
                         storageUpdateHandler.handleUpdateAll(
                                 cmd.txId(),
                                 cmd.rowsToUpdate(),
@@ -2718,6 +2746,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                             // Try to avoid double write if an entry is already replicated.
                             synchronized (safeTime) {
                                 if (cmd.safeTime().compareTo(safeTime.current()) > 0) {
+                                    // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
                                     storageUpdateHandler.handleUpdateAll(
                                             cmd.txId(),
                                             cmd.rowsToUpdate(),
@@ -3485,6 +3514,8 @@ public class PartitionReplicaListener implements ReplicaListener {
         CompletableFuture<?> future = rowCleanupMap.computeIfAbsent(rowId, k -> {
             // The cleanup for this row has already been triggered. For example, we are resolving a write intent for an RW transaction
             // and a concurrent RO transaction resolves the same row, hence computeIfAbsent.
+
+            // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
             return txManager.executeWriteIntentSwitchAsync(() -> inBusyLock(busyLock,
                     () -> storageUpdateHandler.switchWriteIntents(
                             txId,

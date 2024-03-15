@@ -63,34 +63,42 @@ class ScanVersionsCursor implements Cursor<ReadResult> {
 
     @Override
     public boolean hasNext() {
-        if (hasNext != null) {
+        return storage.busy(() -> {
+            storage.throwExceptionIfStorageNotInRunnableState();
+
+            if (hasNext != null) {
+                return hasNext;
+            }
+
+            assert AbstractPageMemoryMvPartitionStorage.rowIsLocked(versionChain.rowId());
+
+            hasNext = (nextLink != NULL_LINK);
+
+            if (hasNext) {
+                currentRowVersion = storage.readRowVersion(nextLink, ALWAYS_LOAD_VALUE);
+
+                nextLink = currentRowVersion.nextLink();
+            }
+
             return hasNext;
-        }
-
-        assert AbstractPageMemoryMvPartitionStorage.rowIsLocked(versionChain.rowId());
-
-        hasNext = (nextLink != NULL_LINK);
-
-        if (hasNext) {
-            currentRowVersion = storage.readRowVersion(nextLink, ALWAYS_LOAD_VALUE);
-
-            nextLink = currentRowVersion.nextLink();
-        }
-
-        return hasNext;
+        });
     }
 
     @Override
     public ReadResult next() {
-        assert AbstractPageMemoryMvPartitionStorage.rowIsLocked(versionChain.rowId());
+        return storage.busy(() -> {
+            storage.throwExceptionIfStorageNotInRunnableState();
 
-        if (!hasNext()) {
-            throw new NoSuchElementException();
-        }
+            assert AbstractPageMemoryMvPartitionStorage.rowIsLocked(versionChain.rowId());
 
-        hasNext = null;
+            if (!hasNext()) {
+                throw new NoSuchElementException();
+            }
 
-        return rowVersionToReadResult(currentRowVersion);
+            hasNext = null;
+
+            return rowVersionToReadResult(currentRowVersion);
+        });
     }
 
     private ReadResult rowVersionToReadResult(RowVersion rowVersion) {

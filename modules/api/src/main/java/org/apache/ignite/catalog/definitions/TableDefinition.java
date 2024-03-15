@@ -247,6 +247,11 @@ public class TableDefinition {
         }
 
         Builder tableName(String name) {
+            Objects.requireNonNull(name, "Table name must not be null.");
+            if (name.isBlank()) {
+                throw new IllegalArgumentException("Table name must not be blank.");
+            }
+
             this.tableName = name;
             return this;
         }
@@ -495,11 +500,6 @@ public class TableDefinition {
          * @return Table definition.
          */
         public TableDefinition build() {
-            Objects.requireNonNull(tableName, "Table name must not be null.");
-            if (tableName.isBlank()) {
-                throw new IllegalArgumentException("Table name must not be blank.");
-            }
-
             return new TableDefinition(
                     tableName,
                     schemaName,

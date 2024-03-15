@@ -368,7 +368,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
 
         subscribersMap.clear();
 
-        return allOf(futs.toArray(new CompletableFuture[futs.size()]));
+        return allOf(futs.toArray(new CompletableFuture[0]));
     }
 
     @Override
