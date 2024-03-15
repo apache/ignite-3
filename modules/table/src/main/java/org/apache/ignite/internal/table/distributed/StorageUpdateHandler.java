@@ -513,18 +513,4 @@ public class StorageUpdateHandler {
     public IndexUpdateHandler getIndexUpdateHandler() {
         return indexUpdateHandler;
     }
-
-    /**
-     * Acquires the read lock on partition snapshots.
-     */
-    public void acquirePartitionSnapshotsReadLock() {
-        storage.acquirePartitionSnapshotsReadLock();
-    }
-
-    /**
-     * Releases the read lock on partition snapshots.
-     */
-    public void releasePartitionSnapshotsReadLock() {
-        storage.releasePartitionSnapshotsReadLock();
-    }
 }

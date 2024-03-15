@@ -82,7 +82,6 @@ class SnapshotAwarePartitionDataStorageTest extends BaseIgniteAbstractTest {
     @BeforeEach
     void configureMocks() {
         lenient().when(partitionsSnapshots.partitionSnapshots(any())).thenReturn(partitionSnapshots);
-        lenient().doReturn(true).when(partitionSnapshots).holdingReadLock();
     }
 
     @Test

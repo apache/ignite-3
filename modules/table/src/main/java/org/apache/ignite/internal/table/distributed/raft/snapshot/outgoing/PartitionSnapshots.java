@@ -35,11 +35,6 @@ public interface PartitionSnapshots {
     void releaseReadLock();
 
     /**
-     * Returns {@code true} if the current thread holds the read lock.
-     */
-    boolean holdingReadLock();
-
-    /**
      * Returns snapshots that are currently active on the partition corresponding to this instance. This method must
      * only be called (and its result operated upon) under a lock acquired with {@link #acquireReadLock()}.
      *
