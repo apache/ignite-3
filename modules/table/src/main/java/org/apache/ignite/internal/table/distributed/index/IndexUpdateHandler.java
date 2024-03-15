@@ -29,7 +29,7 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.StorageClosedException;
+import org.apache.ignite.internal.storage.StorageDestroyedException;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.table.distributed.TableIndexStoragesSupplier;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
@@ -268,8 +268,7 @@ public class IndexUpdateHandler {
     private static void putToIndex(TableSchemaAwareIndexStorage indexStorage, BinaryRow binaryRow, RowId rowId) {
         try {
             indexStorage.put(binaryRow, rowId);
-            // TODO: IGNITE-21514 Поправить исключение
-        } catch (StorageClosedException ignore) {
+        } catch (StorageDestroyedException ignore) {
             // Index is in the process of being destroyed, which means there is no need to write to it.
         }
     }
@@ -277,8 +276,7 @@ public class IndexUpdateHandler {
     private static void removeFromIndex(TableSchemaAwareIndexStorage indexStorage, BinaryRow binaryRow, RowId rowId) {
         try {
             indexStorage.remove(binaryRow, rowId);
-            // TODO: IGNITE-21514 Поправить исключение
-        } catch (StorageClosedException ignore) {
+        } catch (StorageDestroyedException ignore) {
             // Index is in the process of being destroyed, which means there is no need to write to it.
         }
     }
@@ -286,8 +284,7 @@ public class IndexUpdateHandler {
     private static void setNextRowIdToBuildToIndex(TableSchemaAwareIndexStorage indexStorage, @Nullable RowId nextRowIdToBuild) {
         try {
             indexStorage.storage().setNextRowIdToBuild(nextRowIdToBuild);
-            // TODO: IGNITE-21514 Поправить исключение
-        } catch (StorageClosedException ignore) {
+        } catch (StorageDestroyedException ignore) {
             // Index is in the process of being destroyed, which means there is no need to write to it.
         }
     }
@@ -295,8 +292,7 @@ public class IndexUpdateHandler {
     private static @Nullable RowId getNextRowIdToBuildFromIndex(TableSchemaAwareIndexStorage indexStorage) {
         try {
             return indexStorage.storage().getNextRowIdToBuild();
-            // TODO: IGNITE-21514 Поправить исключение
-        } catch (StorageClosedException ignore) {
+        } catch (StorageDestroyedException ignore) {
             // Index is in the process of being destroyed, which means there is no need to write to it.
             return null;
         }

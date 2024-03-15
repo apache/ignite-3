@@ -38,7 +38,7 @@ import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.storage.BinaryRowAndRowId;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.StorageClosedException;
+import org.apache.ignite.internal.storage.StorageDestroyedException;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.table.distributed.TableIndexStoragesSupplier;
@@ -84,8 +84,7 @@ public class IndexUpdateHandlerTest extends BaseIgniteAbstractTest {
     void testAddToIndexesOnDestroyIndexes() {
         TableSchemaAwareIndexStorage indexStorage = createIndexStorage();
 
-        // TODO: IGNITE-21514 Поправить исключение
-        doThrow(StorageClosedException.class).when(indexStorage).put(any(), any());
+        doThrow(StorageDestroyedException.class).when(indexStorage).put(any(), any());
 
         var indexUpdateHandler = new IndexUpdateHandler(indexStoragesSupplier(Map.of(INDEX_ID, indexStorage)));
 
@@ -115,8 +114,7 @@ public class IndexUpdateHandlerTest extends BaseIgniteAbstractTest {
     void testAddToIndexOnDestroyIndexes() {
         TableSchemaAwareIndexStorage indexStorage = createIndexStorage();
 
-        // TODO: IGNITE-21514 Поправить исключение
-        doThrow(StorageClosedException.class).when(indexStorage).put(any(), any());
+        doThrow(StorageDestroyedException.class).when(indexStorage).put(any(), any());
 
         var indexUpdateHandler = new IndexUpdateHandler(indexStoragesSupplier(Map.of(INDEX_ID, indexStorage)));
 
@@ -145,9 +143,8 @@ public class IndexUpdateHandlerTest extends BaseIgniteAbstractTest {
         TableSchemaAwareIndexStorage indexStorage = createIndexStorage();
         IndexStorage storage = indexStorage.storage();
 
-        // TODO: IGNITE-21514 Поправить исключение
-        doThrow(StorageClosedException.class).when(indexStorage).put(any(), any());
-        doThrow(StorageClosedException.class).when(storage).setNextRowIdToBuild(any());
+        doThrow(StorageDestroyedException.class).when(indexStorage).put(any(), any());
+        doThrow(StorageDestroyedException.class).when(storage).setNextRowIdToBuild(any());
 
         var indexUpdateHandler = new IndexUpdateHandler(indexStoragesSupplier(Map.of(INDEX_ID, indexStorage)));
 
@@ -188,8 +185,7 @@ public class IndexUpdateHandlerTest extends BaseIgniteAbstractTest {
         TableSchemaAwareIndexStorage indexStorage = createIndexStorage();
         IndexStorage storage = indexStorage.storage();
 
-        // TODO: IGNITE-21514 Поправить исключение
-        doThrow(StorageClosedException.class).when(storage).getNextRowIdToBuild();
+        doThrow(StorageDestroyedException.class).when(storage).getNextRowIdToBuild();
 
         var indexUpdateHandler = new IndexUpdateHandler(indexStoragesSupplier(Map.of(INDEX_ID, indexStorage)));
 
@@ -216,8 +212,7 @@ public class IndexUpdateHandlerTest extends BaseIgniteAbstractTest {
         TableSchemaAwareIndexStorage indexStorage = createIndexStorage();
         IndexStorage storage = indexStorage.storage();
 
-        // TODO: IGNITE-21514 Поправить исключение
-        doThrow(StorageClosedException.class).when(storage).setNextRowIdToBuild(any());
+        doThrow(StorageDestroyedException.class).when(storage).setNextRowIdToBuild(any());
 
         var rowId = new RowId(PARTITION_ID);
 
@@ -248,8 +243,7 @@ public class IndexUpdateHandlerTest extends BaseIgniteAbstractTest {
         TableSchemaAwareIndexStorage indexStorage = createIndexStorage();
         ColumnsExtractor columnsExtractor = indexStorage.indexRowResolver();
 
-        // TODO: IGNITE-21514 Поправить исключение
-        doThrow(StorageClosedException.class).when(indexStorage).remove(any(), any());
+        doThrow(StorageDestroyedException.class).when(indexStorage).remove(any(), any());
         when(columnsExtractor.extractColumns(any())).thenReturn(mock(BinaryTuple.class));
 
         var indexUpdateHandler = new IndexUpdateHandler(indexStoragesSupplier(Map.of(INDEX_ID, indexStorage)));
