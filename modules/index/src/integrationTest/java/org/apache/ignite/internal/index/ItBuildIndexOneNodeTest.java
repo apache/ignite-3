@@ -93,7 +93,7 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
             return false;
         });
 
-        createIndex(TABLE_NAME, INDEX_NAME, "ID");
+        runAsync(() -> createIndex(TABLE_NAME, INDEX_NAME, "ID"));
 
         assertThat(awaitBuildIndexReplicaRequest, willCompleteSuccessfully());
 
@@ -285,13 +285,10 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
         Transaction rwTx = node().transactions().begin(new TransactionOptions().readOnly(false));
 
         try {
-            setAwaitIndexAvailability(false);
-
-            createIndex(TABLE_NAME, INDEX_NAME, columName);
+            runAsync(() -> createIndex(TABLE_NAME, INDEX_NAME, columName));
 
             sql(format("ALTER TABLE {} ALTER COLUMN {} SET DEFAULT 'bar'", TABLE_NAME, columName));
         } finally {
-            setAwaitIndexAvailability(true);
             rwTx.commit();
         }
 
