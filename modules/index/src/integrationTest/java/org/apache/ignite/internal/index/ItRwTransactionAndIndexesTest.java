@@ -19,9 +19,12 @@ package org.apache.ignite.internal.index;
 
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.storage.impl.TestStorageEngine.ENGINE_NAME;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.never;
@@ -29,6 +32,7 @@ import static org.mockito.Mockito.verify;
 
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableTestUtils;
@@ -62,16 +66,23 @@ public class ItRwTransactionAndIndexesTest extends ClusterPerClassIntegrationTes
         CLUSTER.runningNodes().forEach(IgniteImpl::stopDroppingMessages);
     }
 
+    @SuppressWarnings("resource")
     @Test
-    void testCreateIndexInsideRwTransaction() {
+    void testCreateIndexInsideRwTransaction() throws Exception {
+        CatalogManager catalogManager = node().catalogManager();
+
         TableImpl table = (TableImpl) createZoneAndTable(ZONE_NAME, TABLE_NAME, 1, 1, ENGINE_NAME);
 
-        setAwaitIndexAvailability(false);
         dropAnyBuildIndexMessages();
 
         Transaction rwTx = beginRwTransaction();
 
-        createIndex(TABLE_NAME, INDEX_NAME, COLUMN_NAME);
+        runAsync(() -> createIndex(TABLE_NAME, INDEX_NAME, COLUMN_NAME));
+
+        assertTrue(waitForCondition(
+                () -> catalogManager.aliveIndex(INDEX_NAME, node().clock().nowLong()) != null,
+                10_000
+        ));
 
         IndexStorage pkIndexStorage = indexStorage(table, PK_INDEX_NAME);
         IndexStorage newIndexStorage = indexStorage(table, INDEX_NAME);

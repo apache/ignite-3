@@ -18,10 +18,14 @@
 package org.apache.ignite.internal.index;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.function.Consumer;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
+import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
@@ -65,14 +69,23 @@ public class ItDropIndexOneNodeTest extends ClusterPerClassIntegrationTest {
 
     @Test
     void testCreateIndexAfterDropWhileTransactionInProgress() {
+        CatalogManager catalogManager = CLUSTER.aliveNode().catalogManager();
+
         runInRwTransaction(tx -> {
             dropIndex(INDEX_NAME);
 
-            // The new index will not become available, since we are inside a transaction that has been started before this index was
-            // created.
-            setAwaitIndexAvailability(false);
+            runAsync(() -> createIndex(TABLE_NAME, INDEX_NAME, COLUMN_NAME));
 
-            assertDoesNotThrow(() -> createIndex(TABLE_NAME, INDEX_NAME, COLUMN_NAME));
+            try {
+                assertTrue(waitForCondition(
+                        () -> catalogManager.schema(catalogManager.latestCatalogVersion()).aliveIndex(INDEX_NAME) != null,
+                        10_000
+                ));
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+
+                throw new RuntimeException(e);
+            }
         });
     }
 

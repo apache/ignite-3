@@ -19,11 +19,13 @@ package org.apache.ignite.internal.index;
 
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -33,6 +35,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
@@ -229,6 +232,8 @@ public class ItDropIndexMultipleNodesTest extends BaseSqlIntegrationTest {
 
     @Test
     void testDropIndexAfterRegistering() {
+        CatalogManager catalogManager = CLUSTER.aliveNode().catalogManager();
+
         // We are going to block index building.
         setAwaitIndexAvailability(false);
 
@@ -239,7 +244,12 @@ public class ItDropIndexMultipleNodesTest extends BaseSqlIntegrationTest {
         runInRwTransaction(CLUSTER.aliveNode(), tx -> {
             // Create an index inside a transaction, this will prevent the index from building.
             try {
-                createIndex();
+                runAsync(() -> createIndex());
+
+                assertTrue(waitForCondition(
+                        () -> catalogManager.schema(catalogManager.latestCatalogVersion()).aliveIndex(INDEX_NAME) != null,
+                        10_000
+                ));
 
                 dropIndex();
             } catch (Exception e) {
@@ -264,7 +274,7 @@ public class ItDropIndexMultipleNodesTest extends BaseSqlIntegrationTest {
 
         CompletableFuture<Void> indexRemovedFuture = indexRemovedFuture();
 
-        createIndex();
+        runAsync(() -> createIndex());
 
         assertThat(indexBuildingFuture, willCompleteSuccessfully());
 
