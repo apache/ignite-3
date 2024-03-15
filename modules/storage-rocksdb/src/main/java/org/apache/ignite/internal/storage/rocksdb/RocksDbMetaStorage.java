@@ -41,17 +41,17 @@ public class RocksDbMetaStorage {
      * Prefix to store partition meta information, such as last applied index and term.
      * Key format is {@code [prefix, tableId, partitionId]} in BE.
      */
-    public static final byte[] PARTITION_META_PREFIX = {0};
+    static final byte[] PARTITION_META_PREFIX = {0};
 
     /**
      * Prefix to store partition configuration. Key format is {@code [prefix, tableId, partitionId]} in BE.
      */
-    public static final byte[] PARTITION_CONF_PREFIX = {1};
+    static final byte[] PARTITION_CONF_PREFIX = {1};
 
     /**
      * Prefix to store next row id to build in index. Key format is {@code [prefix, indexId, partitionId]} in BE.
      */
-    public static final byte[] INDEX_ROW_ID_PREFIX = {2};
+    private static final byte[] INDEX_ROW_ID_PREFIX = {2};
 
     private final ColumnFamily metaColumnFamily;
 

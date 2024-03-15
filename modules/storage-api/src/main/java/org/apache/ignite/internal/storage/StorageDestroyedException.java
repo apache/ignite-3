@@ -15,14 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.core.repl.config;
+package org.apache.ignite.internal.storage;
+
+import org.apache.ignite.lang.ErrorGroups.Storage;
 
 /**
- * DTO class for node configuration JSON.
+ * Exception that is be thrown when trying to access a storage that is being destroyed or is already destroyed.
  */
-public class RootConfig {
+public class StorageDestroyedException extends StorageException {
+    private static final long serialVersionUID = -7988332521347221109L;
+
     /**
-     * Client connector part.
+     * Default constructor.
      */
-    public ClientConnectorConfig clientConnector;
+    public StorageDestroyedException() {
+        this("Storage is already destroyed");
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param message Error message.
+     */
+    public StorageDestroyedException(String message) {
+        super(Storage.ALREADY_DESTROYED_ERR, message);
+    }
 }

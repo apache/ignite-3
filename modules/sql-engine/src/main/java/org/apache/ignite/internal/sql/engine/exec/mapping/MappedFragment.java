@@ -26,6 +26,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
+import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningMetadata;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -43,13 +44,15 @@ public class MappedFragment {
     private final Long2ObjectMap<ColocationGroup> groupsBySourceId;
     private final @Nullable Long2ObjectMap<List<String>> sourcesByExchangeId;
     private final @Nullable ColocationGroup target;
+    private final PartitionPruningMetadata partitionPruningMetadata;
 
     /** Constructor. */
     MappedFragment(
             Fragment fragment,
             List<ColocationGroup> groups,
             @Nullable Long2ObjectMap<List<String>> sourcesByExchangeId,
-            @Nullable ColocationGroup target
+            @Nullable ColocationGroup target,
+            @Nullable PartitionPruningMetadata pruningMetadata
     ) {
         this.fragment = fragment;
         this.groups = groups;
@@ -69,6 +72,7 @@ public class MappedFragment {
         this.groupsBySourceId = groupsBySourceId;
         this.sourcesByExchangeId = sourcesByExchangeId;
         this.target = target;
+        this.partitionPruningMetadata = pruningMetadata;
     }
 
     /** Constructor. */
@@ -77,7 +81,8 @@ public class MappedFragment {
             List<ColocationGroup> groups, List<String> nodes,
             Long2ObjectMap<ColocationGroup> groupsBySourceId,
             @Nullable Long2ObjectMap<List<String>> sourcesByExchangeId,
-            @Nullable ColocationGroup target
+            @Nullable ColocationGroup target,
+            @Nullable PartitionPruningMetadata pruningMetadata
     ) {
         this.fragment = fragment;
         this.nodes = List.copyOf(nodes);
@@ -85,6 +90,7 @@ public class MappedFragment {
         this.sourcesByExchangeId = sourcesByExchangeId;
         this.target = target;
         this.groups = groups;
+        this.partitionPruningMetadata = pruningMetadata;
     }
 
     public Fragment fragment() {
@@ -111,6 +117,10 @@ public class MappedFragment {
         return sourcesByExchangeId;
     }
 
+    public @Nullable PartitionPruningMetadata partitionPruningMetadata() {
+        return partitionPruningMetadata;
+    }
+
     /**
      * Creates a fragment by replacing the given colocation groups.
      *
@@ -130,7 +140,7 @@ public class MappedFragment {
             }
         }
 
-        return new MappedFragment(fragment, newGroups, sourcesByExchangeId, target);
+        return new MappedFragment(fragment, newGroups, sourcesByExchangeId, target, partitionPruningMetadata);
     }
 
     /**
@@ -149,6 +159,11 @@ public class MappedFragment {
         newSourcesByExchangeId.put(exchangeId, newNodes);
 
         // The nodes should remain the same in order to preserve connectivity between fragments.
-        return new MappedFragment(fragment, groups, nodes, groupsBySourceId, newSourcesByExchangeId, target);
+        return new MappedFragment(fragment,  groups, nodes, groupsBySourceId, newSourcesByExchangeId, target, partitionPruningMetadata);
+    }
+
+    /** Adds partition pruning metadata to this fragment. */
+    public MappedFragment withPartitionPruningMetadata(PartitionPruningMetadata pruningMetadata) {
+        return new MappedFragment(fragment, groups, sourcesByExchangeId, target, pruningMetadata);
     }
 }

@@ -102,7 +102,15 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         super(
                 partitionId,
                 tableStorage,
-                new RenewablePartitionStorageState(versionChainTree, rowVersionFreeList, indexFreeList, indexMetaTree, gcQueue),
+                new RenewablePartitionStorageState(
+                        tableStorage,
+                        partitionId,
+                        versionChainTree,
+                        rowVersionFreeList,
+                        indexFreeList,
+                        indexMetaTree,
+                        gcQueue
+                ),
                 destructionExecutor
         );
 
@@ -380,7 +388,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     }
 
     /**
-     * Updates the internal data structures of the storage and its indexes on reblance or cleanup.
+     * Updates the internal data structures of the storage and its indexes on rebalance or cleanup.
      *
      * @param meta Partition meta.
      * @param rowVersionFreeList Free list for {@link RowVersion}.
@@ -402,16 +410,6 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
         this.meta = meta;
 
-        var newState = new RenewablePartitionStorageState(
-                versionChainTree,
-                rowVersionFreeList,
-                indexFreeList,
-                indexMetaTree,
-                gcQueue
-        );
-
-        this.renewableState = newState;
-
         this.blobStorage = new BlobStorage(
                 rowVersionFreeList,
                 tableStorage.dataRegion().pageMemory(),
@@ -420,27 +418,13 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                 IoStatisticsHolderNoOp.INSTANCE
         );
 
-        for (PageMemoryHashIndexStorage indexStorage : hashIndexes.values()) {
-            indexStorage.updateDataStructures(
-                    indexFreeList,
-                    createHashIndexTree(
-                            indexStorage.indexDescriptor(),
-                            createIndexMetaForNewIndex(indexStorage.indexDescriptor().id()),
-                            newState
-                    )
-            );
-        }
-
-        for (PageMemorySortedIndexStorage indexStorage : sortedIndexes.values()) {
-            indexStorage.updateDataStructures(
-                    indexFreeList,
-                    createSortedIndexTree(
-                            indexStorage.indexDescriptor(),
-                            createIndexMetaForNewIndex(indexStorage.indexDescriptor().id()),
-                            newState
-                    )
-            );
-        }
+        updateRenewableState(
+                versionChainTree,
+                rowVersionFreeList,
+                indexFreeList,
+                indexMetaTree,
+                gcQueue
+        );
     }
 
     @Override

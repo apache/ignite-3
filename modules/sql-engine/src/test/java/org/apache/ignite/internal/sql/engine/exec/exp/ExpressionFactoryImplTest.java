@@ -94,7 +94,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
         typeFactory = Commons.typeFactory();
 
         FragmentDescription fragmentDescription = new FragmentDescription(1, true,
-                Long2ObjectMaps.emptyMap(), null, null);
+                Long2ObjectMaps.emptyMap(), null, null, null);
 
         ExecutionContext<Object[]> ctx = TestBuilders.executionContext()
                 .queryId(UUID.randomUUID())

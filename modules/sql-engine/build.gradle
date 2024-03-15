@@ -47,6 +47,7 @@ dependencies {
     implementation project(':ignite-cluster-management')
     implementation project(':ignite-system-view-api')
     implementation project(':ignite-system-view')
+    implementation project(':ignite-failure-handler')
     implementation project(':ignite-placement-driver-api')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
@@ -118,6 +119,7 @@ dependencies {
     integrationTestImplementation project(':ignite-system-view-api')
     integrationTestImplementation project(':ignite-system-view')
     integrationTestImplementation project(':ignite-client')
+    integrationTestImplementation project(':ignite-failure-handler')
     integrationTestImplementation project(':ignite-metrics')
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-schema'))
@@ -132,6 +134,7 @@ dependencies {
     testFixturesImplementation project(':ignite-transactions')
     testFixturesImplementation project(':ignite-system-view-api')
     testFixturesImplementation project(':ignite-system-view')
+    testFixturesImplementation project(':ignite-failure-handler')
     testFixturesImplementation testFixtures(project(':ignite-core'))
     testFixturesImplementation testFixtures(project(':ignite-runner'))
     testFixturesImplementation libs.jetbrains.annotations

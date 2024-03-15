@@ -629,6 +629,7 @@ public class Checkpointer extends IgniteWorker {
     }
 
     @Override
+    @SuppressWarnings("NakedNotify")
     public void cancel() {
         if (log.isDebugEnabled()) {
             log.debug("Cancelling grid runnable: " + this);

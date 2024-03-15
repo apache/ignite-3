@@ -45,7 +45,7 @@ public class UpdateLastRowIdUuidToBuiltInvokeClosure implements InvokeClosure<In
     public void call(@Nullable IndexMeta oldRow) throws IgniteInternalCheckedException {
         assert oldRow != null;
 
-        newRow = new IndexMeta(oldRow.indexId(), oldRow.metaPageId(), newLastRowIdUuidToBuilt);
+        newRow = new IndexMeta(oldRow.indexId(), oldRow.indexType(), oldRow.metaPageId(), newLastRowIdUuidToBuilt);
     }
 
     @Override

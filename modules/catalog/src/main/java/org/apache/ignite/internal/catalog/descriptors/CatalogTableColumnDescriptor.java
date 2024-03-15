@@ -33,7 +33,7 @@ import org.jetbrains.annotations.Nullable;
  * Table column descriptor.
  */
 public class CatalogTableColumnDescriptor {
-    public static CatalogObjectSerializer<CatalogTableColumnDescriptor> SERIALIZER = new TableColumnDescriptorSerializer();
+    public static final CatalogObjectSerializer<CatalogTableColumnDescriptor> SERIALIZER = new TableColumnDescriptorSerializer();
 
     private final String name;
     private final ColumnType type;

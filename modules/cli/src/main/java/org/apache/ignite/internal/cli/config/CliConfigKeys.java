@@ -73,7 +73,11 @@ public enum CliConfigKeys {
     BASIC_AUTHENTICATION_USERNAME(Constants.BASIC_AUTHENTICATION_USERNAME),
 
     /** Basic authentication password. */
-    BASIC_AUTHENTICATION_PASSWORD(Constants.BASIC_AUTHENTICATION_PASSWORD);
+    BASIC_AUTHENTICATION_PASSWORD(Constants.BASIC_AUTHENTICATION_PASSWORD),
+
+    SQL_MULTILINE(Constants.SQL_MULTILINE),
+
+    SYNTAX_HIGHLIGHTING(Constants.SYNTAX_HIGHLIGHTING);
 
     private final String value;
 
@@ -139,6 +143,10 @@ public enum CliConfigKeys {
         public static final String BASIC_AUTHENTICATION_USERNAME = "ignite.auth.basic.username";
 
         public static final String BASIC_AUTHENTICATION_PASSWORD = "ignite.auth.basic.password";
+
+        public static final String SQL_MULTILINE = "ignite.cli.sql.multiline";
+
+        public static final String SYNTAX_HIGHLIGHTING = "ignite.cli.syntax-highlighting";
     }
 
     CliConfigKeys(String value) {

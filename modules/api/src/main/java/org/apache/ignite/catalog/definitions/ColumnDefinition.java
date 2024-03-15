@@ -49,6 +49,7 @@ public class ColumnDefinition {
         if (name.isBlank()) {
             throw new IllegalArgumentException("Column name must not be blank.");
         }
+        Objects.requireNonNull(type, "Column type must not be null.");
 
         return new ColumnDefinition(name, type, null);
     }
@@ -64,6 +65,10 @@ public class ColumnDefinition {
         Objects.requireNonNull(name, "Column name must not be null.");
         if (name.isBlank()) {
             throw new IllegalArgumentException("Column name must not be blank.");
+        }
+        Objects.requireNonNull(definition, "Column definition must not be null.");
+        if (definition.isBlank()) {
+            throw new IllegalArgumentException("Column definition must not be blank.");
         }
 
         return new ColumnDefinition(name, null, definition);

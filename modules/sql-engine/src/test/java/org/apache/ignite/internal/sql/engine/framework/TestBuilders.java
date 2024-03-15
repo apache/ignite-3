@@ -103,6 +103,7 @@ import org.apache.ignite.internal.sql.engine.schema.TableDescriptorImpl;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
@@ -115,6 +116,7 @@ import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NumberNativeType;
 import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.internal.type.VarlenNativeType;
+import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.SubscriptionUtils;
 import org.apache.ignite.internal.util.TransformingIterator;
 import org.apache.ignite.internal.util.subscription.TransformingPublisher;
@@ -452,6 +454,9 @@ public class TestBuilders {
         /** Sets the node this fragment will be executed on. */
         ExecutionContextBuilder localNode(ClusterNode node);
 
+        /** Sets the dynamic parameters this fragment will be executed with. */
+        ExecutionContextBuilder dynamicParameters(Object... params);
+
         /**
          * Builds the context object.
          *
@@ -461,11 +466,12 @@ public class TestBuilders {
     }
 
     private static class ExecutionContextBuilderImpl implements ExecutionContextBuilder {
-        private FragmentDescription description = new FragmentDescription(0, true, null, null, null);
+        private FragmentDescription description = new FragmentDescription(0, true, null, null, null, null);
 
         private UUID queryId = null;
         private QueryTaskExecutor executor = null;
         private ClusterNode node = null;
+        private Object[] dynamicParams = ArrayUtils.OBJECT_EMPTY_ARRAY;
 
         /** {@inheritDoc} */
         @Override
@@ -499,6 +505,12 @@ public class TestBuilders {
             return this;
         }
 
+        @Override
+        public ExecutionContextBuilder dynamicParameters(Object... params) {
+            this.dynamicParams = params;
+            return this;
+        }
+
         /** {@inheritDoc} */
         @Override
         public ExecutionContext<Object[]> build() {
@@ -509,7 +521,7 @@ public class TestBuilders {
                     node.name(),
                     description,
                     ArrayRowHandler.INSTANCE,
-                    Map.of(),
+                    Commons.parametersMap(dynamicParams),
                     TxAttributes.fromTx(new NoOpTransaction(node.name())),
                     SqlQueryProcessor.DEFAULT_TIME_ZONE_ID
             );

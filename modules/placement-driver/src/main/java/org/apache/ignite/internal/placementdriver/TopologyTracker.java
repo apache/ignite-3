@@ -106,6 +106,10 @@ public class TopologyTracker {
         return null;
     }
 
+    LogicalTopologySnapshot currentTopologySnapshot() {
+        return topologySnapRef.get();
+    }
+
     /**
      * Topology listener.
      */
@@ -142,15 +146,6 @@ public class TopologyTracker {
             } while (!topologySnapRef.compareAndSet(logicalTopologySnap0, topologySnap));
 
             LOG.debug("Logical topology updated for placement driver [topologySnap={}]", topologySnap);
-
-            triggerToRenewLeases();
         }
-    }
-
-    /**
-     * Triggers to renew leases forcibly. The method wakes up the monitor of {@link LeaseUpdater}.
-     */
-    private void triggerToRenewLeases() {
-        // TODO: IGNITE-18879 Implement lease maintenance.
     }
 }

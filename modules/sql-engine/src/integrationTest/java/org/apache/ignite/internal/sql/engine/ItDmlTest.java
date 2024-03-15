@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTa
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import java.math.BigDecimal;
@@ -34,6 +35,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.handlers.FailureHandler;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
@@ -793,6 +796,26 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
                 .check();
     }
 
+    @Test
+    public void testNoFailHandlerForRuntimeSqlError() {
+        InterceptFailHandler interceptor = new InterceptFailHandler();
+        CLUSTER.runningNodes().forEach(node -> node.failureProcessor().setInterceptor(interceptor));
+        try {
+            sql("CREATE TABLE test_tbl(ID INT PRIMARY KEY, VAL TINYINT)");
+            sql("INSERT INTO test_tbl VALUES (1, 1);");
+
+            assertThrowsSqlException(Sql.RUNTIME_ERR, "TINYINT out of range",
+                    () -> sql("INSERT INTO test_tbl (ID, VAL) VALUES (2, (SELECT SUM(VAL)+300 FROM test_tbl WHERE VAL > 0))"));
+
+            assertThrowsSqlException(Sql.RUNTIME_ERR, "Subquery returned more than 1 value",
+                    () -> sql("INSERT INTO test_tbl (ID, VAL) VALUES (2, (SELECT * FROM TABLE(SYSTEM_RANGE(0, 10))))"));
+        } finally {
+            CLUSTER.runningNodes().forEach(node -> node.failureProcessor().setInterceptor(null));
+        }
+
+        assertTrue(interceptor.getFails().isEmpty(), "Expected no fail handler invocation");
+    }
+
     private static Stream<Arguments> decimalLimits() {
         return Stream.of(
                 arguments(SqlTypeName.BIGINT.getName(), Long.MAX_VALUE, Long.MIN_VALUE),
@@ -800,5 +823,20 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
                 arguments(SqlTypeName.SMALLINT.getName(), Short.MAX_VALUE, Short.MIN_VALUE),
                 arguments(SqlTypeName.TINYINT.getName(), Byte.MAX_VALUE, Byte.MIN_VALUE)
         );
+    }
+
+    private class InterceptFailHandler implements FailureHandler {
+        ArrayList<FailureContext> interceptedFailsList = new ArrayList<>();
+
+        public ArrayList<FailureContext> getFails() {
+            return interceptedFailsList;
+        }
+
+        @Override
+        public boolean onFailure(String nodeName, FailureContext failureCtx) {
+            interceptedFailsList.add(failureCtx);
+
+            return false;
+        }
     }
 }

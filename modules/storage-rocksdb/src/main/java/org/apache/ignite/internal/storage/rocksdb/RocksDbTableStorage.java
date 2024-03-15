@@ -38,6 +38,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
@@ -156,15 +157,13 @@ public class RocksDbTableStorage implements MvTableStorage {
                 .thenAccept(partitionStorages -> {
                     var resources = new ArrayList<AutoCloseable>();
 
-                    for (HashIndex index : hashIndices.values()) {
-                        resources.add(index::close);
-                    }
+                    Stream.concat(hashIndices.values().stream(), sortedIndices.values().stream()).forEach(index -> resources.add(
+                            destroy ? index::transitionToDestroyedState : index::close
+                    ));
 
-                    for (SortedIndex index : sortedIndices.values()) {
-                        resources.add(index::close);
-                    }
-
-                    partitionStorages.forEach(mvPartitionStorage -> resources.add(mvPartitionStorage::close));
+                    partitionStorages.forEach(mvPartitionStorage -> resources.add(
+                            destroy ? mvPartitionStorage::transitionToDestroyedState : mvPartitionStorage::close
+                    ));
 
                     try {
                         IgniteUtils.closeAll(resources);
@@ -246,7 +245,7 @@ public class RocksDbTableStorage implements MvTableStorage {
     public CompletableFuture<Void> destroyPartition(int partitionId) {
         return inBusyLock(busyLock, () -> mvPartitionStorages.destroy(partitionId, mvPartitionStorage -> {
             try (WriteBatch writeBatch = new WriteBatch()) {
-                mvPartitionStorage.close();
+                mvPartitionStorage.transitionToDestroyedState();
 
                 // Operation to delete partition data should be fast, since we will write only the range of keys for deletion, and the
                 // RocksDB itself will then destroy the data on flush.

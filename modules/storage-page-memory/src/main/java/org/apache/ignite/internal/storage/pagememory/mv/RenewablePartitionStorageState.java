@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
+import org.apache.ignite.internal.storage.pagememory.AbstractPageMemoryTableStorage;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumnsFreeList;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
@@ -36,8 +37,12 @@ class RenewablePartitionStorageState {
 
     private final GcQueue gcQueue;
 
+    private final IndexStorageFactory indexStorageFactory;
+
     /** Creates a new instance. */
     RenewablePartitionStorageState(
+            AbstractPageMemoryTableStorage tableStorage,
+            int partitionId,
             VersionChainTree versionChainTree,
             RowVersionFreeList rowVersionFreeList,
             IndexColumnsFreeList indexFreeList,
@@ -49,6 +54,14 @@ class RenewablePartitionStorageState {
         this.indexFreeList = indexFreeList;
         this.indexMetaTree = indexMetaTree;
         this.gcQueue = gcQueue;
+
+        this.indexStorageFactory = new IndexStorageFactory(
+                tableStorage,
+                partitionId,
+                indexMetaTree,
+                indexFreeList,
+                rowVersionFreeList
+        );
     }
 
     VersionChainTree versionChainTree() {
@@ -69,5 +82,9 @@ class RenewablePartitionStorageState {
 
     GcQueue gcQueue() {
         return gcQueue;
+    }
+
+    IndexStorageFactory indexStorageFactory() {
+        return indexStorageFactory;
     }
 }

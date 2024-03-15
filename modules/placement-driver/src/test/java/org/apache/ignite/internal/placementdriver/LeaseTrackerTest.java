@@ -62,7 +62,7 @@ public class LeaseTrackerTest extends BaseIgniteAbstractTest {
                     listenerRef.set(lsnr);
                     return null;
                 }
-        ).when(msManager).registerPrefixWatch(any(), any());
+        ).when(msManager).registerExactWatch(any(), any());
 
         Entry emptyEntry = EntryImpl.empty(PLACEMENTDRIVER_LEASES_KEY.bytes());
 
