@@ -38,6 +38,6 @@ public class StorageDestroyedException extends StorageException {
      * @param message Error message.
      */
     public StorageDestroyedException(String message) {
-        super(Storage.ALREADY_CLOSED_ERR, message);
+        super(Storage.ALREADY_DESTROYED_ERR, message);
     }
 }
