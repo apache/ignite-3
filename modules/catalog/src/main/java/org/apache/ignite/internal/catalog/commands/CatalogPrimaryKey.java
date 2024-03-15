@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.Set;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 
-/** Base class of for a primary key. */
+/** Base class for a primary key. */
 public abstract class CatalogPrimaryKey {
 
     private final List<String> columns;

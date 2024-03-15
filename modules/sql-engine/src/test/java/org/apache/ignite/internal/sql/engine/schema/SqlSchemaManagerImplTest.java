@@ -852,7 +852,6 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         pkColumns.add(column);
         pkColumns.addAll(Arrays.asList(columns));
 
-        // There is no d
         return CatalogHashPrimaryKey.builder()
                 .columns(pkColumns)
                 .build();
