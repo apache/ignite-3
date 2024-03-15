@@ -17,12 +17,23 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static java.util.concurrent.CompletableFuture.runAsync;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutIn;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.catalog.IndexExistsValidationException;
 import org.apache.ignite.internal.catalog.IndexNotFoundValidationException;
+import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,6 +41,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Integration tests for DDL statements that affect indexes.
  */
+@SuppressWarnings({"resource", "ThrowableNotThrown"})
 public class ItIndexDdlTest extends ClusterPerClassIntegrationTest {
     private static final String TABLE_NAME = "TEST_TABLE";
 
@@ -83,10 +95,12 @@ public class ItIndexDdlTest extends ClusterPerClassIntegrationTest {
      * @param failIfExist Throw an exception if the index exist.
      */
     private static void tryToCreateIndex(String tableName, String indexName, boolean failIfExist) {
+        Loggers.forClass(ItIndexDdlTest.class).info("XXX starting index creation");
         sql(String.format(
                 "CREATE INDEX %s ON %s (valInt, valStr)",
                 failIfExist ? indexName : "IF NOT EXISTS " + indexName, tableName
         ));
+        Loggers.forClass(ItIndexDdlTest.class).info("XXX finished index creation");
     }
 
     /**
@@ -97,5 +111,42 @@ public class ItIndexDdlTest extends ClusterPerClassIntegrationTest {
      */
     private static void tryToDropIndex(String indexName, boolean failIfNotExist) {
         sql(String.format("DROP INDEX %s", failIfNotExist ? indexName : "IF EXISTS " + indexName));
+    }
+
+    private static <T> T preventingIndexBuild(Supplier<T> supplier) {
+        return CLUSTER.aliveNode().transactions().runInTransaction((Function<Transaction, T>) tx -> supplier.get());
+    }
+
+    @Test
+    public void createIndexFutureCompletesWhenIndexBecomesAvailable() {
+        setAwaitIndexAvailability(false);
+
+        CompletableFuture<Void> creationFuture = preventingIndexBuild(() -> {
+            CompletableFuture<Void> future = runAsync(() -> tryToCreateIndex(TABLE_NAME, INDEX_NAME, true));
+
+            // Make sure the future does not complete (as we don't allow the index to be built while in transaction).
+            assertThat(future, willTimeoutIn(300, MILLISECONDS));
+
+            return future;
+        });
+
+        assertThat(creationFuture, willCompleteSuccessfully());
+    }
+
+    @Test
+    public void createIndexFutureCompletesWhenIndexGetsDropped() {
+        setAwaitIndexAvailability(false);
+
+        // Prevent index build by starting a transaction.
+        Transaction tx = CLUSTER.aliveNode().transactions().begin(new TransactionOptions().readOnly(false));
+
+        CompletableFuture<Void> creationFuture = runAsync(() -> tryToCreateIndex(TABLE_NAME, INDEX_NAME, true));
+
+        // Make sure the future does not complete (as we don't allow the index to be built while in transaction).
+        assertThat(creationFuture, willTimeoutIn(300, MILLISECONDS));
+
+        sql("DROP INDEX " + INDEX_NAME);
+
+        assertThat(creationFuture, willCompleteSuccessfully());
     }
 }

@@ -24,14 +24,25 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.CompletionStage;
 import java.util.function.BiFunction;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.ClockWaiter;
 import org.apache.ignite.internal.catalog.DistributionZoneExistsValidationException;
 import org.apache.ignite.internal.catalog.DistributionZoneNotFoundValidationException;
 import org.apache.ignite.internal.catalog.IndexExistsValidationException;
 import org.apache.ignite.internal.catalog.IndexNotFoundValidationException;
 import org.apache.ignite.internal.catalog.TableExistsValidationException;
 import org.apache.ignite.internal.catalog.TableNotFoundValidationException;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
+import org.apache.ignite.internal.catalog.events.CatalogEvent;
+import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
+import org.apache.ignite.internal.catalog.events.MakeIndexAvailableEventParameters;
+import org.apache.ignite.internal.catalog.events.RemoveIndexEventParameters;
+import org.apache.ignite.internal.event.EventListener;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterColumnCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableAddCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableDropCommand;
@@ -50,11 +61,14 @@ import org.apache.ignite.sql.SqlException;
 public class DdlCommandHandler {
     private final CatalogManager catalogManager;
 
+    private final ClockWaiter clockWaiter;
+
     /**
      * Constructor.
      */
-    public DdlCommandHandler(CatalogManager catalogManager) {
+    public DdlCommandHandler(CatalogManager catalogManager, ClockWaiter clockWaiter) {
         this.catalogManager = catalogManager;
+        this.clockWaiter = clockWaiter;
     }
 
     /** Handles ddl commands. */
@@ -153,7 +167,7 @@ public class DdlCommandHandler {
     private static BiFunction<Object, Throwable, Boolean> handleModificationResult(boolean ignoreExpectedError, Class<?> expErrCls) {
         return (val, err) -> {
             if (err == null) {
-                return val instanceof Boolean ? (Boolean) val : Boolean.TRUE;
+                return Boolean.TRUE;
             } else if (ignoreExpectedError) {
                 Throwable err0 = err instanceof CompletionException ? err.getCause() : err;
 
@@ -169,7 +183,69 @@ public class DdlCommandHandler {
     /** Handles create index command. */
     private CompletableFuture<Boolean> handleCreateIndex(CreateIndexCommand cmd) {
         return catalogManager.execute(DdlToCatalogCommandConverter.convert(cmd))
+                .thenCompose(catalogVersion -> waitTillIndexBecomesAvailableOrRemoved(cmd, catalogVersion))
                 .handle(handleModificationResult(cmd.ifNotExists(), IndexExistsValidationException.class));
+    }
+
+    private CompletionStage<Void> waitTillIndexBecomesAvailableOrRemoved(CreateIndexCommand cmd, Integer creationCatalogVersion) {
+        CompletableFuture<Void> future = new CompletableFuture<>();
+
+        Catalog catalog = catalogManager.catalog(creationCatalogVersion);
+
+        CatalogSchemaDescriptor schema = catalog.schema(cmd.schemaName());
+        assert schema != null : cmd.schemaName();
+
+        CatalogIndexDescriptor index = schema.aliveIndex(cmd.indexName());
+        assert index != null : cmd.indexName();
+
+        EventListener<CatalogEventParameters> availabilityListener = event -> {
+            if (((MakeIndexAvailableEventParameters) event).indexId() == index.id()) {
+                completeFutureWhenEventVersionActivates(future, event);
+            }
+
+            return falseCompletedFuture();
+        };
+        catalogManager.listen(CatalogEvent.INDEX_AVAILABLE, availabilityListener);
+
+        EventListener<CatalogEventParameters> removalListener = event -> {
+            if (((RemoveIndexEventParameters) event).indexId() == index.id()) {
+                completeFutureWhenEventVersionActivates(future, event);
+            }
+
+            return falseCompletedFuture();
+        };
+        catalogManager.listen(CatalogEvent.INDEX_REMOVED, removalListener);
+
+        // We added listeners, but the index could switch to a state of interest before we added them, so check
+        // explicitly.
+        int latestVersion = catalogManager.latestCatalogVersion();
+        for (int version = creationCatalogVersion + 1; version <= latestVersion; version++) {
+            CatalogIndexDescriptor indexAtVersion = catalogManager.index(index.id(), version);
+            if (indexAtVersion == null || indexAtVersion.status().isAvailableOrLater()) {
+                // It's already removed.
+                completeFutureWhenEventVersionActivates(future, version);
+                break;
+            }
+        }
+
+        return future.whenComplete((res, ex) -> {
+            catalogManager.removeListener(CatalogEvent.INDEX_AVAILABLE, availabilityListener);
+            catalogManager.removeListener(CatalogEvent.INDEX_REMOVED, removalListener);
+        });
+    }
+
+    private void completeFutureWhenEventVersionActivates(CompletableFuture<Void> future, CatalogEventParameters event) {
+        completeFutureWhenEventVersionActivates(future, event.catalogVersion());
+    }
+
+    private void completeFutureWhenEventVersionActivates(CompletableFuture<Void> future, int catalogVersion) {
+        Catalog catalog = catalogManager.catalog(catalogVersion);
+        assert catalog != null;
+
+        clockWaiter.waitFor(HybridTimestamp.hybridTimestamp(catalog.time()))
+                .whenComplete((res, ex) -> {
+                    future.complete(null);
+                });
     }
 
     /** Handles drop index command. */

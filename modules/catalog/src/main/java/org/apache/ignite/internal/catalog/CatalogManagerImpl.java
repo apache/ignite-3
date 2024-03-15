@@ -348,12 +348,12 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     @Override
-    public CompletableFuture<Void> execute(CatalogCommand command) {
+    public CompletableFuture<Integer> execute(CatalogCommand command) {
         return saveUpdateAndWaitForActivation(command);
     }
 
     @Override
-    public CompletableFuture<Void> execute(List<CatalogCommand> commands) {
+    public CompletableFuture<Integer> execute(List<CatalogCommand> commands) {
         if (nullOrEmpty(commands)) {
             return nullCompletedFuture();
         }
@@ -384,7 +384,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         catalogByTs.headMap(catalog.time(), false).clear();
     }
 
-    private CompletableFuture<Void> saveUpdateAndWaitForActivation(UpdateProducer updateProducer) {
+    private CompletableFuture<Integer> saveUpdateAndWaitForActivation(UpdateProducer updateProducer) {
         return saveUpdate(updateProducer, 0)
                 .thenCompose(newVersion -> {
                     Catalog catalog = catalogByVer.get(newVersion);
@@ -395,7 +395,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                             partitionIdleSafeTimePropagationPeriodMsSupplier.getAsLong() + HybridTimestamp.maxClockSkew()
                     );
 
-                    return clockWaiter.waitFor(tsSafeForRoReadingInPastOptimization);
+                    return clockWaiter.waitFor(tsSafeForRoReadingInPastOptimization).thenApply(unused -> newVersion);
                 });
     }
 

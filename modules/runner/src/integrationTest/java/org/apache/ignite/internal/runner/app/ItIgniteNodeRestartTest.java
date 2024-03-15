@@ -597,6 +597,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 () -> dataStorageModules.collectSchemasFields(modules.local().polymorphicSchemaExtensions()),
                 replicaService,
                 hybridClock,
+                clockWaiter,
                 schemaSyncService,
                 catalogManager,
                 metricManager,
@@ -1703,7 +1704,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         return ByteUtils.bytesToInt(e.value());
     }
 
-    private static CompletableFuture<Void> createTableInCatalog(CatalogManager catalogManager, String tableName, String zoneName) {
+    private static CompletableFuture<?> createTableInCatalog(CatalogManager catalogManager, String tableName, String zoneName) {
         var tableColumn = ColumnParams.builder().name("id").type(INT32).build();
 
         TableHashPrimaryKey primaryKey = TableHashPrimaryKey.builder()
@@ -1721,7 +1722,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         return catalogManager.execute(createTableCommand);
     }
 
-    private static CompletableFuture<Void> alterZoneAsync(
+    private static CompletableFuture<?> alterZoneAsync(
             CatalogManager catalogManager,
             String zoneName,
             @Nullable Integer replicas
