@@ -35,7 +35,6 @@ import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
-import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -90,7 +89,6 @@ public class ClientPrimaryReplicaTracker {
     private final LowWatermark lowWatermark;
 
     private final LowWatermarkChangedListener lwmListener = this::onLwmChanged;
-    private final EventListener<CreateTableEventParameters> createTableEventListener = fromConsumer(this::onTableCreate);
     private final EventListener<DropTableEventParameters> dropTableEventListener = fromConsumer(this::onTableDrop);
     private final EventListener<PrimaryReplicaEventParameters> primaryReplicaEventListener = fromConsumer(this::onPrimaryReplicaChanged);
 
@@ -264,18 +262,15 @@ public class ClientPrimaryReplicaTracker {
         return maxStartTime.get();
     }
 
-    @SuppressWarnings({"rawtypes", "unchecked"})
     void start() {
         // This could be newer than the actual max start time, but we are on the safe side here.
         maxStartTime.set(clock.nowLong());
 
         placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, primaryReplicaEventListener);
-        catalogService.listen(CatalogEvent.TABLE_CREATE, createTableEventListener);
         catalogService.listen(CatalogEvent.TABLE_DROP, dropTableEventListener);
         lowWatermark.addUpdateListener(lwmListener);
     }
 
-    @SuppressWarnings({"rawtypes", "unchecked"})
     void stop() {
         if (!stopGuard.compareAndSet(false, true)) {
             return;
@@ -285,7 +280,6 @@ public class ClientPrimaryReplicaTracker {
 
         lowWatermark.removeUpdateListener(lwmListener);
         catalogService.removeListener(CatalogEvent.TABLE_DROP, dropTableEventListener);
-        catalogService.removeListener(CatalogEvent.TABLE_CREATE, createTableEventListener);
         placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, primaryReplicaEventListener);
         primaryReplicas.clear();
     }
@@ -299,21 +293,6 @@ public class ClientPrimaryReplicaTracker {
             TablePartitionId tablePartitionId = (TablePartitionId) primaryReplicaEvent.groupId();
 
             updatePrimaryReplica(tablePartitionId, primaryReplicaEvent.startTime(), primaryReplicaEvent.leaseholder());
-        });
-    }
-
-    private void onTableCreate(CreateTableEventParameters parameters) {
-        inBusyLock(busyLock, () -> {
-            int tableId = parameters.tableId();
-            int catalogVersion = parameters.catalogVersion();
-
-            // Retrieve descriptor during synchronous call, before the previous catalog version could be concurrently compacted.
-            int partitions = getTablePartitionsFromCatalog(catalogService, catalogVersion, tableId);
-
-            for (int partition = 0; partition < partitions; partition++) {
-                TablePartitionId tablePartitionId = new TablePartitionId(tableId, partition);
-                primaryReplicas.put(tablePartitionId, new ReplicaHolder(null, null));
-            }
         });
     }
 
@@ -352,8 +331,10 @@ public class ClientPrimaryReplicaTracker {
     private void updatePrimaryReplica(TablePartitionId tablePartitionId, HybridTimestamp startTime, String nodeName) {
         long startTimeLong = startTime.longValue();
 
-        primaryReplicas.computeIfPresent(tablePartitionId, (key, existingVal) -> {
-            if (existingVal.leaseStartTime != null && existingVal.leaseStartTime.longValue() >= startTimeLong) {
+        primaryReplicas.compute(tablePartitionId, (key, existingVal) -> {
+            if (existingVal != null
+                    && existingVal.leaseStartTime != null
+                    && existingVal.leaseStartTime.longValue() >= startTimeLong) {
                 return existingVal;
             }
 
@@ -376,11 +357,11 @@ public class ClientPrimaryReplicaTracker {
     }
 
     private static class ReplicaHolder {
-        @Nullable final String nodeName;
+        final String nodeName;
 
-        @Nullable final HybridTimestamp leaseStartTime;
+        final HybridTimestamp leaseStartTime;
 
-        ReplicaHolder(@Nullable String nodeName, @Nullable HybridTimestamp leaseStartTime) {
+        ReplicaHolder(String nodeName, HybridTimestamp leaseStartTime) {
             this.nodeName = nodeName;
             this.leaseStartTime = leaseStartTime;
         }
