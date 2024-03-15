@@ -107,18 +107,36 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
     private static final RelDataType EMPTY_TYPE = new RelDataTypeFactory.Builder(TYPE_FACTORY).build();
 
     private final SqlConformance conformance;
-
-    private final ExecutionContext<RowT> ctx;
+    private final IgniteTypeFactory typeFactory;
+    private final RowHandler<RowT> rowHandler;
 
     /**
      * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     *
+     * @param ctx Execution context.
+     * @param conformance Sql conformance.
      */
     public ExpressionFactoryImpl(
             ExecutionContext<RowT> ctx,
             SqlConformance conformance
     ) {
-        this.ctx = ctx;
+        this(ctx.getTypeFactory(), ctx.rowHandler(), conformance);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param typeFactory Type factory.
+     * @param rowHandler Row handler.
+     * @param conformance Sql conformance.
+     */
+    public ExpressionFactoryImpl(
+            IgniteTypeFactory typeFactory,
+            RowHandler<RowT> rowHandler,
+            SqlConformance conformance
+    ) {
+        this.typeFactory = typeFactory;
+        this.rowHandler = rowHandler;
         this.conformance = conformance;
     }
 
@@ -133,7 +151,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             return null;
         }
 
-        return new AccumulatorsFactory<>(ctx, type, calls, rowType);
+        return new AccumulatorsFactory<>(rowHandler, typeFactory, type, calls, rowType);
     }
 
     /** {@inheritDoc} */
@@ -144,7 +162,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         }
 
         return (o1, o2) -> {
-            RowHandler<RowT> hnd = ctx.rowHandler();
+            RowHandler<RowT> hnd = rowHandler;
 
             for (RelFieldCollation field : collation.getFieldCollations()) {
                 int fieldIdx = field.getFieldIndex();
@@ -198,7 +216,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
         return (o1, o2) -> {
             boolean hasNulls = false;
-            RowHandler<RowT> hnd = ctx.rowHandler();
+            RowHandler<RowT> hnd = rowHandler;
 
             for (int i = 0; i < left.size(); i++) {
                 RelFieldCollation leftField = left.get(i);
@@ -241,36 +259,36 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
     /** {@inheritDoc} */
     @Override
-    public Predicate<RowT> predicate(RexNode filter, RelDataType rowType) {
-        return new PredicateImpl(scalar(filter, rowType));
+    public Predicate<RowT> predicate(ExecutionContext<RowT> ctx, RexNode filter, RelDataType rowType) {
+        return new PredicateImpl(ctx, scalar(filter, rowType));
     }
 
     /** {@inheritDoc} */
     @Override
-    public BiPredicate<RowT, RowT> biPredicate(RexNode filter, RelDataType rowType) {
-        return new BiPredicateImpl(biScalar(filter, rowType));
+    public BiPredicate<RowT, RowT> biPredicate(ExecutionContext<RowT> ctx, RexNode filter, RelDataType rowType) {
+        return new BiPredicateImpl(ctx, biScalar(filter, rowType));
     }
 
     /** {@inheritDoc} */
     @Override
-    public Function<RowT, RowT> project(List<RexNode> projects, RelDataType rowType) {
+    public Function<RowT, RowT> project(ExecutionContext<RowT> ctx, List<RexNode> projects, RelDataType rowType) {
         RowSchema rowSchema = TypeUtils.rowSchemaFromRelTypes(RexUtil.types(projects));
 
-        return new ProjectImpl(scalar(projects, rowType), ctx.rowHandler().factory(rowSchema));
+        return new ProjectImpl(ctx, scalar(projects, rowType), rowHandler.factory(rowSchema));
     }
 
     /** {@inheritDoc} */
     @Override
-    public Supplier<RowT> rowSource(List<RexNode> values) {
+    public Supplier<RowT> rowSource(ExecutionContext<RowT> ctx, List<RexNode> values) {
         List<RelDataType> typeList = Commons.transform(values, v -> v != null ? v.getType() : NULL_TYPE);
         RowSchema rowSchema = TypeUtils.rowSchemaFromRelTypes(typeList);
 
-        return new ValuesImpl(scalar(values, null), ctx.rowHandler().factory(rowSchema));
+        return new ValuesImpl(ctx, scalar(values, null), rowHandler.factory(rowSchema));
     }
 
     /** {@inheritDoc} */
     @Override
-    public <T> Supplier<T> execute(RexNode node) {
+    public <T> Supplier<T> execute(ExecutionContext<RowT> ctx, RexNode node) {
         RelDataType exprType = node.getType();
         List<RelDataType> typesList;
 
@@ -283,17 +301,16 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
         RowSchema rowSchema = TypeUtils.rowSchemaFromRelTypes(typesList);
 
-        RowFactory<RowT> factory = ctx.rowHandler().factory(rowSchema);
+        RowFactory<RowT> factory = rowHandler.factory(rowSchema);
 
-        return new ValueImpl<>(scalar(node, null), factory);
+        return new ValueImpl<>(ctx, scalar(node, null), factory);
     }
 
     /** {@inheritDoc} */
     @Override
-    public Iterable<RowT> values(List<RexLiteral> values, RelDataType rowType) {
-        RowHandler<RowT> handler = ctx.rowHandler();
+    public Iterable<RowT> values(ExecutionContext<RowT> ctx, List<RexLiteral> values, RelDataType rowType) {
         RowSchema rowSchema = TypeUtils.rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
-        RowFactory<RowT> factory = handler.factory(rowSchema);
+        RowFactory<RowT> factory = rowHandler.factory(rowSchema);
 
         int columns = rowType.getFieldCount();
         assert values.size() % columns == 0;
@@ -336,16 +353,18 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
     /** {@inheritDoc} */
     @Override
     public RangeIterable<RowT> ranges(
+            ExecutionContext<RowT> ctx,
             List<SearchBounds> searchBounds,
             RelDataType rowType,
             @Nullable Comparator<RowT> comparator
     ) {
         RowSchema rowSchema = TypeUtils.rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
-        RowFactory<RowT> rowFactory = ctx.rowHandler().factory(rowSchema);
+        RowFactory<RowT> rowFactory = rowHandler.factory(rowSchema);
 
         List<RangeCondition<RowT>> ranges = new ArrayList<>();
 
         expandBounds(
+                ctx,
                 ranges,
                 searchBounds,
                 rowType,
@@ -398,6 +417,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
      * @param upperInclude Include current upper row.
      */
     private void expandBounds(
+            ExecutionContext<RowT> ctx,
             List<RangeCondition<RowT>> ranges,
             List<SearchBounds> searchBounds,
             RelDataType rowType,
@@ -419,22 +439,22 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
             // we need to shrink bounds here due to the recursive logic for processing lower and upper bounds,
             // after division this logic into upper and lower calculation such approach need to be removed.
-            Entry<List<RexNode>, RelDataType> res = shrinkBounds(ctx.getTypeFactory(), curLower, rowType);
+            Entry<List<RexNode>, RelDataType> res = shrinkBounds(typeFactory, curLower, rowType);
             curLower = res.getKey();
             lowerType = res.getValue();
 
-            res = shrinkBounds(ctx.getTypeFactory(), curUpper, rowType);
+            res = shrinkBounds(typeFactory, curUpper, rowType);
             curUpper = res.getKey();
             upperType = res.getValue();
 
-            lowerFactory = ctx.rowHandler()
+            lowerFactory = rowHandler
                     .factory(TypeUtils.rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(lowerType)));
 
-            upperFactory = ctx.rowHandler()
+            upperFactory = rowHandler
                     .factory(TypeUtils.rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(upperType)));
 
             ranges.add(new RangeConditionImpl(
-                    curLower,
+                    ctx, curLower,
                     curUpper,
                     lowerInclude,
                     upperInclude,
@@ -482,6 +502,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             }
 
             expandBounds(
+                    ctx,
                     ranges,
                     searchBounds,
                     rowType,
@@ -655,6 +676,8 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
     }
 
     private abstract class AbstractScalarPredicate<T extends Scalar> {
+        protected final ExecutionContext<RowT> ctx;
+
         protected final T scalar;
 
         protected final RowHandler<RowT> hnd;
@@ -666,9 +689,10 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
          *
          * @param scalar Scalar.
          */
-        private AbstractScalarPredicate(T scalar) {
+        private AbstractScalarPredicate(ExecutionContext<RowT> ctx, T scalar) {
+            this.ctx = ctx;
             this.scalar = scalar;
-            hnd = ctx.rowHandler();
+            hnd = rowHandler;
 
             RelDataType booleanType = TYPE_FACTORY.createSqlType(SqlTypeName.BOOLEAN);
             RelDataType nullableType = TYPE_FACTORY.createTypeWithNullability(booleanType, true);
@@ -682,8 +706,8 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
      * Predicate implementation.
      */
     private class PredicateImpl extends AbstractScalarPredicate<SingleScalar> implements Predicate<RowT> {
-        private PredicateImpl(SingleScalar scalar) {
-            super(scalar);
+        private PredicateImpl(ExecutionContext<RowT> ctx, SingleScalar scalar) {
+            super(ctx, scalar);
         }
 
         /** {@inheritDoc} */
@@ -700,8 +724,8 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
      * Binary predicate implementation: check on two rows (used for join: left and right rows).
      */
     private class BiPredicateImpl extends AbstractScalarPredicate<BiScalar> implements BiPredicate<RowT, RowT> {
-        private BiPredicateImpl(BiScalar scalar) {
-            super(scalar);
+        private BiPredicateImpl(ExecutionContext<RowT> ctx, BiScalar scalar) {
+            super(ctx, scalar);
         }
 
         /** {@inheritDoc} */
@@ -719,15 +743,19 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
         private final RowBuilder<RowT> rowBuilder;
 
+        private final ExecutionContext<RowT> ctx;
+
         /**
          * Constructor.
          *
+         * @param ctx Context.
          * @param scalar Scalar.
          * @param factory Row factory.
          */
-        private ProjectImpl(SingleScalar scalar, RowFactory<RowT> factory) {
+        private ProjectImpl(ExecutionContext<RowT> ctx, SingleScalar scalar, RowFactory<RowT> factory) {
             this.scalar = scalar;
             this.rowBuilder = factory.rowBuilder();
+            this.ctx = ctx;
         }
 
         /** {@inheritDoc} */
@@ -744,12 +772,15 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
         private final RowBuilder<RowT> rowBuilder;
 
+        private final ExecutionContext<RowT> ctx;
+
         /**
          * Constructor.
          */
-        private ValuesImpl(SingleScalar scalar, RowFactory<RowT> factory) {
+        private ValuesImpl(ExecutionContext<RowT> ctx, SingleScalar scalar, RowFactory<RowT> factory) {
             this.scalar = scalar;
             this.rowBuilder = factory.rowBuilder();
+            this.ctx = ctx;
         }
 
         /** {@inheritDoc} */
@@ -766,12 +797,15 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
         private final RowBuilder<RowT> rowBuilder;
 
+        private final ExecutionContext<RowT> ctx;
+
         /**
          * Constructor.
          */
-        private ValueImpl(SingleScalar scalar, RowFactory<RowT> factory) {
+        private ValueImpl(ExecutionContext<RowT> ctx, SingleScalar scalar, RowFactory<RowT> factory) {
             this.scalar = scalar;
             this.rowBuilder = factory.rowBuilder();
+            this.ctx = ctx;
         }
 
         /** {@inheritDoc} */
@@ -780,11 +814,14 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             scalar.execute(ctx, null, rowBuilder);
             RowT res = rowBuilder.buildAndReset();
 
-            return (T) ctx.rowHandler().get(0, res);
+            return (T) rowHandler.get(0, res);
         }
     }
 
     private class RangeConditionImpl implements RangeCondition<RowT> {
+        /** Execution context this expression is bound to. */
+        private final ExecutionContext<RowT> ctx;
+
         /** Lower bound expression. */
         private final @Nullable SingleScalar lowerBound;
 
@@ -810,7 +847,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         private final RowBuilder<RowT> upperRowBuilder;
 
         private RangeConditionImpl(
-                List<RexNode> lower,
+                ExecutionContext<RowT> ctx, List<RexNode> lower,
                 List<RexNode> upper,
                 boolean lowerInclude,
                 boolean upperInclude,
@@ -819,6 +856,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                 RowFactory<RowT> lowerFactory,
                 RowFactory<RowT> upperFactory
         ) {
+            this.ctx = ctx;
             this.lowerBound = nullOrEmpty(lower) ? null : scalar(lower, rowTypeLower);
             this.upperBound = nullOrEmpty(upper) ? null : scalar(upper, rowTypeUpper);
             this.lowerInclude = lowerInclude;

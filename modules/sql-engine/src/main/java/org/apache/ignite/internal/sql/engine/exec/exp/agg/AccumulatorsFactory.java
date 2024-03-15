@@ -46,7 +46,6 @@ import org.apache.calcite.rex.RexProgramBuilder;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.sql.validate.SqlConformanceEnum;
 import org.apache.calcite.util.Pair;
-import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -128,7 +127,9 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
         return Commons.compile(CastFunction.class, Expressions.toString(List.of(decl), "\n", false));
     }
 
-    private final ExecutionContext<RowT> ctx;
+    private final RowHandler<RowT> rowHandler;
+
+    private final IgniteTypeFactory typeFactory;
 
     private final AggregateType type;
 
@@ -141,16 +142,18 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
     public AccumulatorsFactory(
-            ExecutionContext<RowT> ctx,
+            RowHandler<RowT> rowHandler,
+            IgniteTypeFactory typeFactory,
             AggregateType type,
             List<AggregateCall> aggCalls,
             RelDataType inputRowType
     ) {
-        this.ctx = ctx;
+        this.rowHandler = rowHandler;
+        this.typeFactory = typeFactory;
         this.type = type;
         this.inputRowType = inputRowType;
 
-        var accumulators = new Accumulators(ctx.getTypeFactory());
+        var accumulators = new Accumulators(typeFactory);
         prototypes = Commons.transform(aggCalls, call -> new WrapperPrototype(accumulators, call));
     }
 
@@ -181,7 +184,7 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
         public AccumulatorWrapper<RowT> get() {
             Accumulator accumulator = accumulator();
 
-            return new AccumulatorWrapperImpl(accumulator, call, inAdapter, outAdapter);
+            return new AccumulatorWrapperImpl(rowHandler, accumulator, call, inAdapter, outAdapter);
         }
 
         private Accumulator accumulator() {
@@ -205,7 +208,7 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
             }
 
             List<RelDataType> inTypes = SqlTypeUtil.projectTypes(inputRowType, call.getArgList());
-            List<RelDataType> outTypes = accumulator.argumentTypes(ctx.getTypeFactory());
+            List<RelDataType> outTypes = accumulator.argumentTypes(typeFactory);
 
             if (call.getArgList().size() > outTypes.size()) {
                 throw new AssertionError("Unexpected number of arguments: "
@@ -235,14 +238,14 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
                 return Function.identity();
             }
 
-            RelDataType inType = accumulator.returnType(ctx.getTypeFactory());
+            RelDataType inType = accumulator.returnType(typeFactory);
             RelDataType outType = call.getType();
 
             return cast(inType, outType);
         }
 
         private RelDataType nonNull(RelDataType type) {
-            return ctx.getTypeFactory().createTypeWithNullability(type, false);
+            return typeFactory.createTypeWithNullability(type, false);
         }
     }
 
@@ -264,6 +267,7 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
         private final RowHandler<RowT> handler;
 
         AccumulatorWrapperImpl(
+                RowHandler<RowT> rowHandler,
                 Accumulator accumulator,
                 AggregateCall call,
                 Function<Object[], Object[]> inAdapter,
@@ -278,7 +282,7 @@ public class AccumulatorsFactory<RowT> implements Supplier<List<AccumulatorWrapp
             ignoreNulls = call.ignoreNulls();
             filterArg = call.hasFilter() ? call.filterArg : -1;
 
-            handler = ctx.rowHandler();
+            handler = rowHandler;
         }
 
         /** {@inheritDoc} */

@@ -30,6 +30,7 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AccumulatorWrapper;
 import org.apache.ignite.internal.sql.engine.exec.exp.agg.AggregateType;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
@@ -68,62 +69,72 @@ public interface ExpressionFactory<RowT> {
     /**
      * Creates a Filter predicate.
      *
+     * @param ctx Execution context.
      * @param filter  Filter expression.
      * @param rowType Input row type.
      * @return Filter predicate.
      */
-    Predicate<RowT> predicate(RexNode filter, RelDataType rowType);
+    Predicate<RowT> predicate(ExecutionContext<RowT> ctx, RexNode filter, RelDataType rowType);
 
     /**
      * Creates a Filter predicate.
      *
+     * @param ctx Execution context.
      * @param filter Filter expression.
      * @param rowType Input row type.
      * @return Filter predicate.
      */
-    BiPredicate<RowT, RowT> biPredicate(RexNode filter, RelDataType rowType);
+    BiPredicate<RowT, RowT> biPredicate(ExecutionContext<RowT> ctx, RexNode filter, RelDataType rowType);
 
     /**
      * Creates a Project function. Resulting function returns a row with different fields, fields order, fields types, etc.
      *
+     * @param ctx Execution context.
      * @param projects Projection expressions.
      * @param rowType  Input row type.
      * @return Project function.
      */
-    Function<RowT, RowT> project(List<RexNode> projects, RelDataType rowType);
+    Function<RowT, RowT> project(ExecutionContext<RowT> ctx, List<RexNode> projects, RelDataType rowType);
 
     /**
      * Creates a Values relational node rows source.
      *
+     * @param ctx Execution context.
      * @param values  Values.
      * @param rowType Output row type.
      * @return Values relational node rows source.
      */
-    Iterable<RowT> values(List<RexLiteral> values, RelDataType rowType);
+    Iterable<RowT> values(ExecutionContext<RowT> ctx, List<RexLiteral> values, RelDataType rowType);
 
     /**
      * Creates row from RexNodes.
      *
+     * @param ctx Execution context.
      * @param values Values ({@code null} values allowed in this list).
      * @return Row.
      */
-    Supplier<RowT> rowSource(List<RexNode> values);
+    Supplier<RowT> rowSource(ExecutionContext<RowT> ctx, List<RexNode> values);
 
     /**
      * Creates iterable search bounds tuples (lower row/upper row) by search bounds expressions.
      *
+     * @param ctx Execution context.
      * @param searchBounds Search bounds.
      * @param rowType Row type.
      * @param comparator Comparator to return bounds in particular order.
      */
     RangeIterable<RowT> ranges(
+            ExecutionContext<RowT> ctx,
             List<SearchBounds> searchBounds,
             RelDataType rowType,
             @Nullable Comparator<RowT> comparator
     );
 
     /**
-     * Executes expression.
+     * Creates executable expression. Expression can be a literal, arbitrary scalar expression, or a row.
+     *
+     * @param ctx Execution context.
+     * @param node Expression tree.
      */
-    <T> Supplier<T> execute(RexNode node);
+    <T> Supplier<T> execute(ExecutionContext<RowT> ctx, RexNode node);
 }
