@@ -21,13 +21,13 @@ import java.util.List;
 import org.apache.ignite.internal.tostring.S;
 
 /** Primary key that uses hash index. */
-public class CatalogHashPrimaryKey extends CatalogPrimaryKey {
+public class TableHashPrimaryKey extends TablePrimaryKey {
     /**
      * Constructor.
      *
      * @param columns List of columns.
      */
-    private CatalogHashPrimaryKey(List<String> columns) {
+    private TableHashPrimaryKey(List<String> columns) {
         super(columns);
     }
 
@@ -39,11 +39,11 @@ public class CatalogHashPrimaryKey extends CatalogPrimaryKey {
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return S.toString(CatalogHashPrimaryKey.class, this, "columns", columns());
+        return S.toString(TableHashPrimaryKey.class, this, "columns", columns());
     }
 
     /** Builder to create a primary index that uses a hash index. */
-    public static class Builder extends CatalogPrimaryKeyBuilder<Builder> {
+    public static class Builder extends TablePrimaryKeyBuilder<Builder> {
 
         private List<String> columns;
 
@@ -60,8 +60,8 @@ public class CatalogHashPrimaryKey extends CatalogPrimaryKey {
 
         /** Crates a primary key that uses a hash index. */
         @Override
-        public CatalogHashPrimaryKey build() {
-            return new CatalogHashPrimaryKey(columns);
+        public TableHashPrimaryKey build() {
+            return new TableHashPrimaryKey(columns);
         }
     }
 }

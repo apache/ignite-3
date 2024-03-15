@@ -24,7 +24,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.tostring.S;
 
 /** Primary key that uses sort index. */
-public class CatalogSortedPrimaryKey extends CatalogPrimaryKey {
+public class TableSortedPrimaryKey extends TablePrimaryKey {
 
     private final List<CatalogColumnCollation> collations;
 
@@ -34,7 +34,7 @@ public class CatalogSortedPrimaryKey extends CatalogPrimaryKey {
      * @param columns List of columns.
      * @param collations List of column collations.
      */
-    private CatalogSortedPrimaryKey(List<String> columns, List<CatalogColumnCollation> collations) {
+    private TableSortedPrimaryKey(List<String> columns, List<CatalogColumnCollation> collations) {
         super(columns);
         this.collations = collations != null ? List.copyOf(collations) : List.of();
     }
@@ -57,7 +57,7 @@ public class CatalogSortedPrimaryKey extends CatalogPrimaryKey {
     /** {@inheritDoc} */
     @Override
     public String toString() {
-        return S.toString(CatalogSortedPrimaryKey.class, this, "columns", columns(), "collations", collations);
+        return S.toString(TableSortedPrimaryKey.class, this, "columns", columns(), "collations", collations);
     }
 
     /** Returns builder to create a primary key that uses a sorted index. */
@@ -66,7 +66,7 @@ public class CatalogSortedPrimaryKey extends CatalogPrimaryKey {
     }
 
     /** Builder to create a primary index that uses a sorted index. */
-    public static class Builder extends CatalogPrimaryKeyBuilder<Builder> {
+    public static class Builder extends TablePrimaryKeyBuilder<Builder> {
 
         private List<String> columns;
 
@@ -91,8 +91,8 @@ public class CatalogSortedPrimaryKey extends CatalogPrimaryKey {
 
         /** Crates a primary key that uses a sorted index. */
         @Override
-        public CatalogSortedPrimaryKey build() {
-            return new CatalogSortedPrimaryKey(columns, collations);
+        public TableSortedPrimaryKey build() {
+            return new TableSortedPrimaryKey(columns, collations);
         }
     }
 }

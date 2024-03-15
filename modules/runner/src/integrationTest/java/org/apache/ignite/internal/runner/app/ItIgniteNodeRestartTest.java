@@ -83,7 +83,7 @@ import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.ClockWaiter;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommandBuilder;
-import org.apache.ignite.internal.catalog.commands.CatalogHashPrimaryKey;
+import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
@@ -1705,7 +1705,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     private static CompletableFuture<Void> createTableInCatalog(CatalogManager catalogManager, String tableName, String zoneName) {
         var tableColumn = ColumnParams.builder().name("id").type(INT32).build();
 
-        CatalogHashPrimaryKey primaryKey = CatalogHashPrimaryKey.builder()
+        TableHashPrimaryKey primaryKey = TableHashPrimaryKey.builder()
                 .columns(List.of("id"))
                 .build();
 

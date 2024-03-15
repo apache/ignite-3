@@ -32,9 +32,9 @@ import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommand;
 import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnCommand;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
-import org.apache.ignite.internal.catalog.commands.CatalogHashPrimaryKey;
-import org.apache.ignite.internal.catalog.commands.CatalogPrimaryKey;
-import org.apache.ignite.internal.catalog.commands.CatalogSortedPrimaryKey;
+import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
+import org.apache.ignite.internal.catalog.commands.TablePrimaryKey;
+import org.apache.ignite.internal.catalog.commands.TableSortedPrimaryKey;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexCommand;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexCommand;
@@ -68,7 +68,7 @@ class DdlToCatalogCommandConverter {
         List<ColumnParams> columns = cmd.columns().stream().map(DdlToCatalogCommandConverter::convert).collect(Collectors.toList());
 
         PrimaryKeyIndexType pkIndexType = cmd.primaryIndexType();
-        CatalogPrimaryKey primaryKey;
+        TablePrimaryKey primaryKey;
 
         switch (pkIndexType) {
             case SORTED:
@@ -76,13 +76,13 @@ class DdlToCatalogCommandConverter {
                         .map(DdlToCatalogCommandConverter::convert)
                         .collect(Collectors.toList());
 
-                primaryKey = CatalogSortedPrimaryKey.builder()
+                primaryKey = TableSortedPrimaryKey.builder()
                         .columns(cmd.primaryKeyColumns())
                         .collations(collations)
                         .build();
                 break;
             case HASH:
-                primaryKey = CatalogHashPrimaryKey.builder()
+                primaryKey = TableHashPrimaryKey.builder()
                         .columns(cmd.primaryKeyColumns())
                         .build();
                 break;

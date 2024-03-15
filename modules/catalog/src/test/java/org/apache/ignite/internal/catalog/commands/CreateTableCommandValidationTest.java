@@ -104,7 +104,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
 
     @ParameterizedTest(name = "[{index}] {arguments}")
     @MethodSource("nullAndEmptyPrimaryKeys")
-    void tableShouldHaveAtLeastOnePrimaryKeyColumn(CatalogPrimaryKey pk) {
+    void tableShouldHaveAtLeastOnePrimaryKeyColumn(TablePrimaryKey pk) {
         CreateTableCommandBuilder builder = CreateTableCommand.builder();
 
         builder = fillProperties(builder).primaryKey(pk);
@@ -116,11 +116,11 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
         );
     }
 
-    private static Stream<CatalogPrimaryKey> nullAndEmptyPrimaryKeys() {
+    private static Stream<TablePrimaryKey> nullAndEmptyPrimaryKeys() {
         return Stream.of(
                 null,
-                CatalogSortedPrimaryKey.builder().build(),
-                CatalogHashPrimaryKey.builder().build()
+                TableSortedPrimaryKey.builder().build(),
+                TableHashPrimaryKey.builder().build()
         );
     }
 
@@ -129,7 +129,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
     void tableWithSortedPrimaryKeyWithNotMatchColumnsCollations(List<String> columns, List<CatalogColumnCollation> collations) {
         CreateTableCommandBuilder builder = CreateTableCommand.builder();
 
-        CatalogSortedPrimaryKey primaryKey = CatalogSortedPrimaryKey.builder()
+        TableSortedPrimaryKey primaryKey = TableSortedPrimaryKey.builder()
                 .columns(columns)
                 .collations(collations)
                 .build();

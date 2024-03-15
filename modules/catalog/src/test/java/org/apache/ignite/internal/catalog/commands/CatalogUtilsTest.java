@@ -409,7 +409,7 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
                 .tableName(tableName)
                 .columns(List.of(ColumnParams.builder().name(COLUMN_NAME).type(INT32).build()))
                 // Any type of a primary key index can be used.
-                .primaryKey(CatalogHashPrimaryKey.builder()
+                .primaryKey(TableHashPrimaryKey.builder()
                         .columns(List.of(COLUMN_NAME))
                         .build()
                 )

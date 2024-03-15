@@ -60,7 +60,7 @@ public class CreateTableCommand extends AbstractTableCommand {
         return new Builder();
     }
 
-    private final CatalogPrimaryKey primaryKey;
+    private final TablePrimaryKey primaryKey;
 
     private final List<String> colocationColumns;
 
@@ -83,7 +83,7 @@ public class CreateTableCommand extends AbstractTableCommand {
     private CreateTableCommand(
             String tableName,
             String schemaName,
-            CatalogPrimaryKey primaryKey,
+            TablePrimaryKey primaryKey,
             List<String> colocationColumns,
             List<ColumnParams> columns,
             String zoneName
@@ -175,8 +175,8 @@ public class CreateTableCommand extends AbstractTableCommand {
     private CatalogIndexDescriptor createIndexDescriptor(int txWaitCatalogVersion, String indexName, int pkIndexId, int tableId) {
         CatalogIndexDescriptor pkIndex;
 
-        if (primaryKey instanceof CatalogSortedPrimaryKey) {
-            CatalogSortedPrimaryKey sortedPrimaryKey = (CatalogSortedPrimaryKey) primaryKey;
+        if (primaryKey instanceof TableSortedPrimaryKey) {
+            TableSortedPrimaryKey sortedPrimaryKey = (TableSortedPrimaryKey) primaryKey;
             List<CatalogIndexColumnDescriptor> indexColumns = new ArrayList<>(sortedPrimaryKey.columns().size());
 
             for (int i = 0; i < sortedPrimaryKey.columns().size(); i++) {
@@ -195,8 +195,8 @@ public class CreateTableCommand extends AbstractTableCommand {
                     txWaitCatalogVersion,
                     indexColumns
             );
-        } else if (primaryKey instanceof CatalogHashPrimaryKey) {
-            CatalogHashPrimaryKey hashPrimaryKey = (CatalogHashPrimaryKey) primaryKey;
+        } else if (primaryKey instanceof TableHashPrimaryKey) {
+            TableHashPrimaryKey hashPrimaryKey = (TableHashPrimaryKey) primaryKey;
             pkIndex = new CatalogHashIndexDescriptor(
                     pkIndexId,
                     indexName,
@@ -223,7 +223,7 @@ public class CreateTableCommand extends AbstractTableCommand {
 
         private String tableName;
 
-        private CatalogPrimaryKey primaryKey;
+        private TablePrimaryKey primaryKey;
 
         private List<String> colocationColumns;
 
@@ -251,7 +251,7 @@ public class CreateTableCommand extends AbstractTableCommand {
         }
 
         @Override
-        public CreateTableCommandBuilder primaryKey(CatalogPrimaryKey primaryKey) {
+        public CreateTableCommandBuilder primaryKey(TablePrimaryKey primaryKey) {
             this.primaryKey = primaryKey;
 
             return this;

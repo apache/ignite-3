@@ -55,7 +55,7 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
     static final String SCHEMA_NAME = "PUBLIC";
     static final String TABLE_NAME = "TEST";
     static final String ZONE_NAME = "Default";
-    static final CatalogPrimaryKey ID_PK = CatalogHashPrimaryKey.builder()
+    static final TablePrimaryKey ID_PK = TableHashPrimaryKey.builder()
             .columns(List.of("ID"))
             .build();
 
@@ -231,12 +231,12 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
     }
 
     /** Creates a primary key with a hash index that consists of the given columns. */
-    static CatalogPrimaryKey primaryKey(String column, String... columns) {
+    static TablePrimaryKey primaryKey(String column, String... columns) {
         List<String> pkColumns = new ArrayList<>();
         pkColumns.add(column);
         pkColumns.addAll(Arrays.asList(columns));
 
-        return CatalogHashPrimaryKey.builder()
+        return TableHashPrimaryKey.builder()
                 .columns(pkColumns)
                 .build();
     }

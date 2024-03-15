@@ -25,7 +25,7 @@ import java.util.Set;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 
 /** Base class for a primary key. */
-public abstract class CatalogPrimaryKey {
+public abstract class TablePrimaryKey {
 
     private final List<String> columns;
 
@@ -34,7 +34,7 @@ public abstract class CatalogPrimaryKey {
      *
      * @param columns List of columns.
      */
-    CatalogPrimaryKey(List<String> columns) {
+    TablePrimaryKey(List<String> columns) {
         this.columns = columns != null ? List.copyOf(columns) : List.of();
     }
 
@@ -59,12 +59,12 @@ public abstract class CatalogPrimaryKey {
     }
 
     /** Base class for a builder of a primary key. */
-    public abstract static class CatalogPrimaryKeyBuilder<T extends CatalogPrimaryKeyBuilder<T>> {
+    public abstract static class TablePrimaryKeyBuilder<T extends TablePrimaryKeyBuilder<T>> {
 
         /** Specifies a list of primary key columns. */
         public abstract T columns(List<String> columns);
 
         /** Creates primary key. */
-        public abstract CatalogPrimaryKey build();
+        public abstract TablePrimaryKey build();
     }
 }

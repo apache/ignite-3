@@ -29,7 +29,7 @@ import java.util.List;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.catalog.commands.CatalogHashPrimaryKey;
+import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
@@ -83,7 +83,7 @@ public class TableTestUtils {
                 .columns(columns)
                 // Hash index for primary key is being used here,
                 // because such index only requests a list of column names.
-                .primaryKey(CatalogHashPrimaryKey.builder()
+                .primaryKey(TableHashPrimaryKey.builder()
                         .columns(pkColumns)
                         .build())
                 .build();
