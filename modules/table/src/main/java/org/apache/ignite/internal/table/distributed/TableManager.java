@@ -161,7 +161,6 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
-import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
@@ -1361,7 +1360,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         return engine.createMvTable(
                 new StorageTableDescriptor(tableDescriptor.id(), zoneDescriptor.partitions(), dataStorage.dataRegion()),
-                new StorageIndexDescriptorSupplier(catalogService)
+                new CatalogStorageIndexDescriptorSupplier(catalogService, lowWatermark)
         );
     }
 

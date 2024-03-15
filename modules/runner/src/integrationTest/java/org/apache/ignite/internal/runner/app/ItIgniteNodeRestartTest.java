@@ -600,6 +600,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 catalogManager,
                 metricManager,
                 new SystemViewManagerImpl(name, catalogManager),
+                failureProcessor,
                 placementDriverManager.placementDriver(),
                 clusterConfigRegistry.getConfiguration(SqlDistributedConfiguration.KEY),
                 nodeCfgMgr.configurationRegistry().getConfiguration(SqlLocalConfiguration.KEY)

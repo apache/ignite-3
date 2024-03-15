@@ -137,7 +137,7 @@ public class MetricSetMbean implements DynamicMBean {
         return new MBeanInfo(
                 MetricManager.class.getName(),
                 metricSet.name(),
-                attrs.toArray(new MBeanAttributeInfo[attrs.size()]),
+                attrs.toArray(new MBeanAttributeInfo[0]),
                 null,
                 null,
                 null);

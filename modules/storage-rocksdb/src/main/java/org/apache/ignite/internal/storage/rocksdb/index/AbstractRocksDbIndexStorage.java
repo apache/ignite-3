@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.KEY
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
+import static org.apache.ignite.internal.storage.util.StorageUtils.transitionToTerminalState;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
@@ -52,7 +53,7 @@ import org.rocksdb.WriteBatchWithIndex;
 /**
  * Abstract index storage base on RocksDB.
  */
-abstract class AbstractRocksDbIndexStorage implements IndexStorage {
+public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
     protected final int indexId;
 
     protected final PartitionDataHelper helper;
@@ -106,11 +107,18 @@ abstract class AbstractRocksDbIndexStorage implements IndexStorage {
      * Closes the hash index storage.
      */
     public void close() {
-        if (!state.compareAndSet(StorageState.RUNNABLE, StorageState.CLOSED)) {
-            StorageState state = this.state.get();
+        if (!transitionToTerminalState(StorageState.CLOSED, state)) {
+            return;
+        }
 
-            assert state == StorageState.CLOSED : state;
+        busyLock.block();
+    }
 
+    /**
+     * Transitions the storage to the {@link StorageState#DESTROYED} state and blocks the busy lock.
+     */
+    public void transitionToDestroyedState() {
+        if (!transitionToTerminalState(StorageState.DESTROYED, state)) {
             return;
         }
 
@@ -213,7 +221,7 @@ abstract class AbstractRocksDbIndexStorage implements IndexStorage {
      *
      * @throws RocksDBException If failed to delete data.
      */
-    abstract void destroyData(WriteBatch writeBatch) throws RocksDBException;
+    public abstract void destroyData(WriteBatch writeBatch) throws RocksDBException;
 
     /**
      * Cursor that always returns up-to-date next element.

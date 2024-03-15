@@ -772,6 +772,7 @@ public class IgniteImpl implements Ignite {
                 catalogManager,
                 metricManager,
                 systemViewManager,
+                failureProcessor,
                 placementDriverMgr.placementDriver(),
                 clusterConfigRegistry.getConfiguration(SqlDistributedConfiguration.KEY),
                 nodeConfigRegistry.getConfiguration(SqlLocalConfiguration.KEY)
@@ -1153,6 +1154,11 @@ public class IgniteImpl implements Ignite {
     @TestOnly
     public MetaStorageManager metaStorageManager() {
         return metaStorageMgr;
+    }
+
+    @TestOnly
+    public FailureProcessor failureProcessor() {
+        return failureProcessor;
     }
 
     /** {@inheritDoc} */
