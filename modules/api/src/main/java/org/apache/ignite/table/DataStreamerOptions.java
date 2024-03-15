@@ -100,7 +100,7 @@ public class DataStreamerOptions {
     public static class Builder {
         private int pageSize = 1000;
 
-        private int perPartitionParallelOperations = 4;
+        private int perPartitionParallelOperations = 1;
 
         private int autoFlushFrequency = 5000;
 
