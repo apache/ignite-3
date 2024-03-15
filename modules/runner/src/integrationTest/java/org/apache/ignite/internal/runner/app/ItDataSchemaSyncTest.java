@@ -198,18 +198,14 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
 
         createTable(ignite0, TABLE_NAME);
 
-        WatchListenerInhibitor listenerInhibitor = WatchListenerInhibitor.metastorageEventsInhibitor(ignite1);
+        WatchListenerInhibitor.metastorageEventsInhibitor(ignite1).withInhibition(() -> {
+            runAsync(() -> sql(ignite0, "CREATE INDEX idx1 ON " + TABLE_NAME + "(valint)"));
 
-        listenerInhibitor.startInhibit();
-
-        sql(ignite0, "CREATE INDEX idx1 ON " + TABLE_NAME + "(valint)");
-
-        assertThat(
-                runAsync(() -> sql(ignite0, "SELECT * FROM " + TABLE_NAME + " WHERE valint > 0")),
-                willTimeoutIn(1, TimeUnit.SECONDS)
-        );
-
-        listenerInhibitor.stopInhibit();
+            assertThat(
+                    runAsync(() -> sql(ignite0, "SELECT * FROM " + TABLE_NAME + " WHERE valint > 0")),
+                    willTimeoutIn(1, TimeUnit.SECONDS)
+            );
+        });
 
         // only check that request is executed without timeout.
         try (ResultSet<SqlRow> rs = sql(ignite0, "SELECT * FROM " + TABLE_NAME + " WHERE valint > 0")) {
