@@ -23,6 +23,8 @@ import org.apache.ignite.internal.cli.call.configuration.NodeConfigShowCall;
 import org.apache.ignite.internal.cli.call.configuration.NodeConfigShowCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.node.NodeUrlProfileMixin;
+import org.apache.ignite.internal.cli.config.CliConfigKeys;
+import org.apache.ignite.internal.cli.config.ConfigManagerProvider;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.internal.cli.decorators.JsonDecorator;
 import picocli.CommandLine.Command;
@@ -45,6 +47,9 @@ public class NodeConfigShowCommand extends BaseCommand implements Callable<Integ
     @Inject
     private NodeConfigShowCall call;
 
+    @Inject
+    private ConfigManagerProvider configManagerProvider;
+
     /** {@inheritDoc} */
     @Override
     public Integer call() {
@@ -52,10 +57,14 @@ public class NodeConfigShowCommand extends BaseCommand implements Callable<Integ
                 .inputProvider(this::buildCallInput)
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
-                .decorator(new JsonDecorator())
+                .decorator(new JsonDecorator(isHighlightEnabled()))
                 .verbose(verbose)
                 .build()
                 .runPipeline();
+    }
+
+    private boolean isHighlightEnabled() {
+        return Boolean.parseBoolean(configManagerProvider.get().getCurrentProperty(CliConfigKeys.SYNTAX_HIGHLIGHTING.value()));
     }
 
     private NodeConfigShowCallInput buildCallInput() {
