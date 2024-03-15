@@ -57,7 +57,7 @@ class ClientDataStreamer {
             }
 
             @Override
-            public int perNodeParallelOperations() {
+            public int perPartitionParallelOperations() {
                 return options.perPartitionParallelOperations();
             }
 
