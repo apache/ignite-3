@@ -147,6 +147,8 @@ public class LowWatermarkImpl implements IgniteComponent, LowWatermark {
 
             LOG.info("Low watermark has been scheduled to be updated: {}", lowWatermarkCandidate);
 
+            // TODO IGNTIE-21751: txManager should read lwm on recocvery instead.
+            //  Other components uses the lwm recovered from the vault, so notification shouldn't have any effect.
             txManager.updateLowWatermark(lowWatermarkCandidate)
                     .thenComposeAsync(unused -> inBusyLock(busyLock, () -> notifyListeners(lowWatermarkCandidate)), scheduledThreadPool)
                     .whenComplete((unused, throwable) -> {
