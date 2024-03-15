@@ -94,8 +94,11 @@ internal static class DataStreamer
         var retryPolicy = new RetryLimitPolicy { RetryLimit = options.RetryLimit };
 
         var schema = await schemaProvider(null).ConfigureAwait(false);
+
         var partitionAssignment = await partitionAssignmentProvider().ConfigureAwait(false);
+        Debug.Assert(partitionAssignment.Length > 0, "partitionAssignment.Length > 0");
         var lastPartitionsAssignmentCheck = Stopwatch.StartNew();
+
         using var flushCts = new CancellationTokenSource();
 
         try
@@ -146,7 +149,7 @@ internal static class DataStreamer
 
         return;
 
-        async ValueTask<(Batch<T> Batch, string Partition)> AddWithRetryUnmapped(T item)
+        async ValueTask<(Batch<T> Batch, int Partition)> AddWithRetryUnmapped(T item)
         {
             try
             {
@@ -159,7 +162,7 @@ internal static class DataStreamer
             }
         }
 
-        (Batch<T> Batch, string Partition) Add(T item)
+        (Batch<T> Batch, int Partition) Add(T item)
         {
             var schema0 = schema;
             var tupleBuilder = new BinaryTupleBuilder(schema0.Columns.Length, hashedColumnsPredicate: schema0.HashedColumnIndexProvider);
@@ -174,7 +177,7 @@ internal static class DataStreamer
             }
         }
 
-        (Batch<T> Batch, string Partition) Add0(T item, ref BinaryTupleBuilder tupleBuilder, Schema schema0)
+        (Batch<T> Batch, int Partition) Add0(T item, ref BinaryTupleBuilder tupleBuilder, Schema schema0)
         {
             var columnCount = schema0.Columns.Length;
 
@@ -186,17 +189,8 @@ internal static class DataStreamer
             writer.Handler.Write(ref tupleBuilder, item, schema0, keyOnly: false, noValueSetRef);
 
             // ReSharper disable once AccessToModifiedClosure (reviewed)
-            var partitionAssignment0 = partitionAssignment;
-            string nodeName = string.Empty; // Default connection.
-
-            if (partitionAssignment0 != null)
-            {
-                var partitionId = Math.Abs(tupleBuilder.GetHash() % partitionAssignment0.Length);
-
-                nodeName = partitionAssignment0[partitionId] ?? string.Empty;
-            }
-
-            var batch = GetOrCreateBatch(nodeName);
+            var partitionId = Math.Abs(tupleBuilder.GetHash() % partitionAssignment.Length);
+            var batch = GetOrCreateBatch(partitionId);
 
             lock (batch)
             {
@@ -221,7 +215,7 @@ internal static class DataStreamer
 
             Metrics.StreamerItemsQueuedIncrement();
 
-            return (batch, nodeName);
+            return (batch, partitionId);
         }
 
         Batch<T> GetOrCreateBatch(int partition)
@@ -260,6 +254,7 @@ internal static class DataStreamer
                 buf.WriteByte(MsgPackCode.Int32, batch.CountPos);
                 buf.WriteIntBigEndian(batch.Count, batch.CountPos + 1);
 
+                // ReSharper disable once AccessToModifiedClosure
                 var preferredNode = partitionAssignment[partition] ?? string.Empty;
                 batch.Task = SendAndDisposeBufAsync(buf, preferredNode, batch.Task, batch.Items, batch.Count, batch.SchemaOutdated);
 

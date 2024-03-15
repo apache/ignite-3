@@ -230,6 +230,7 @@ namespace Apache.Ignite.Internal.Table
             }
 
             // TODO: Do not throw, but fall back to one node, or all known nodes in random order?
+            // TODO: Move this wait/retry logic to the server - do IGNITE-21765 first?
             throw new IgniteClientException(ErrorGroups.Client.Protocol, "Failed to get non-null partition assignment");
         }
 
