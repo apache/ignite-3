@@ -229,6 +229,7 @@ namespace Apache.Ignite.Internal.Table
                 await Task.Delay(TimeSpan.FromMilliseconds(delayMs)).ConfigureAwait(false);
             }
 
+            // TODO: Do not throw, but fall back to one node, or all known nodes in random order?
             throw new IgniteClientException(ErrorGroups.Client.Protocol, "Failed to get non-null partition assignment");
         }
 
