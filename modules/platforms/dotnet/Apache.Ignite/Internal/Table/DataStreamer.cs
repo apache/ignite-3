@@ -187,11 +187,16 @@ internal static class DataStreamer
 
             // ReSharper disable once AccessToModifiedClosure (reviewed)
             var partitionAssignment0 = partitionAssignment;
-            var partition = partitionAssignment0 == null
-                ? string.Empty // Default connection.
-                : partitionAssignment0[Math.Abs(tupleBuilder.GetHash() % partitionAssignment0.Length)] ?? string.Empty;
+            string nodeName = string.Empty; // Default connection.
 
-            var batch = GetOrCreateBatch(partition);
+            if (partitionAssignment0 != null)
+            {
+                var partitionId = Math.Abs(tupleBuilder.GetHash() % partitionAssignment0.Length);
+
+                nodeName = partitionAssignment0[partitionId] ?? string.Empty;
+            }
+
+            var batch = GetOrCreateBatch(nodeName);
 
             lock (batch)
             {
@@ -216,7 +221,7 @@ internal static class DataStreamer
 
             Metrics.StreamerItemsQueuedIncrement();
 
-            return (batch, partition);
+            return (batch, nodeName);
         }
 
         Batch<T> GetOrCreateBatch(string partition)
