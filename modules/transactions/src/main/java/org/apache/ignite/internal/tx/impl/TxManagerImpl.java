@@ -96,7 +96,6 @@ import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxPriority;
-import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.TxStateMetaFinishing;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
@@ -436,19 +435,19 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     @Override
     public void finishFull(HybridTimestampTracker timestampTracker, UUID txId, boolean commit) {
-        TxState finalState;
 
         finishedTxs.incrementAndGet();
 
         if (commit) {
             timestampTracker.update(clock.now());
-
-            finalState = COMMITTED;
-        } else {
-            finalState = ABORTED;
         }
 
-        updateTxMeta(txId, old -> new TxStateMeta(finalState, old.txCoordinatorId(), old.commitPartitionId(), old.commitTimestamp()));
+        updateTxMeta(txId, old -> new TxStateMeta(
+                commit ? COMMITTED : ABORTED,
+                old == null ? null : old.txCoordinatorId(),
+                old == null ? null : old.commitPartitionId(),
+                old == null ? null : old.commitTimestamp()
+        ));
 
         decrementRwTxCount(txId);
     }
