@@ -202,9 +202,14 @@ public class LowWatermarkImpl implements IgniteComponent, LowWatermark {
                     .thenComposeAsync(unused -> inBusyLock(busyLock, () -> {
                         vaultManager.put(LOW_WATERMARK_VAULT_KEY, ByteUtils.toBytes(lowWatermarkCandidate));
 
-                        lowWatermark = lowWatermarkCandidate;
+                        lwmLock.lock();
+                        try {
+                            lowWatermark = lowWatermarkCandidate;
 
-                        return notifyListeners(lowWatermarkCandidate);
+                            return notifyListeners(lowWatermarkCandidate);
+                        } finally {
+                            lwmLock.unlock();
+                        }
                     }), scheduledThreadPool)
                     .whenComplete((unused, throwable) -> {
                         if (throwable != null) {
@@ -237,17 +242,12 @@ public class LowWatermarkImpl implements IgniteComponent, LowWatermark {
             return nullCompletedFuture();
         }
 
-        lwmLock.lock();
-        try {
-            var res = new ArrayList<CompletableFuture<?>>();
-            for (LowWatermarkChangedListener updateListener : updateListeners) {
-                res.add(updateListener.onLwmChanged(lowWatermark));
-            }
-
-            return CompletableFuture.allOf(res.toArray(CompletableFuture[]::new));
-        } finally {
-            lwmLock.unlock();
+        var res = new ArrayList<CompletableFuture<?>>();
+        for (LowWatermarkChangedListener updateListener : updateListeners) {
+            res.add(updateListener.onLwmChanged(lowWatermark));
         }
+
+        return CompletableFuture.allOf(res.toArray(CompletableFuture[]::new));
     }
 
     @Override
