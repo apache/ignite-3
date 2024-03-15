@@ -35,7 +35,7 @@ import org.jetbrains.annotations.Nullable;
  * Class that holds a list of table version descriptors.
  */
 public class CatalogTableSchemaVersions {
-    public static CatalogObjectSerializer<CatalogTableSchemaVersions> SERIALIZER = new TableSchemaVersionsSerializer();
+    public static final CatalogObjectSerializer<CatalogTableSchemaVersions> SERIALIZER = new TableSchemaVersionsSerializer();
 
     /**
      * Descriptor of a single table version.

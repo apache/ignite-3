@@ -52,9 +52,51 @@ public @interface Zone {
     int replicas() default -1;
 
     /**
-     * Engine name.
+     * Affinity function.
      *
-     * @return Engine name.
+     * @return Affinity function.
+     */
+    String affinityFunction() default "";
+
+    /**
+     * Timeout in seconds between node added or node left topology event itself and data nodes switch.
+     *
+     * @return Timeout.
+     */
+    int dataNodesAutoAdjust() default -1;
+
+    /**
+     * Timeout in seconds between node added topology event itself and data nodes switch.
+     *
+     * @return Timeout.
+     */
+    int dataNodesAutoAdjustScaleUp() default -1;
+
+    /**
+     * Timeout in seconds between node left topology event itself and data nodes switch.
+     *
+     * @return Timeout.
+     */
+    int dataNodesAutoAdjustScaleDown() default -1;
+
+    /**
+     * Nodes filter.
+     *
+     * @return Nodes filter.
+     */
+    String filter() default "";
+
+    /**
+     * The storage engine name.
+     *
+     * @return The storage engine name.
      */
     ZoneEngine engine() default ZoneEngine.DEFAULT;
+
+    /**
+     * Data region name within the storage engine.
+     *
+     * @return Data region name.
+     */
+    String dataRegion() default "";
 }

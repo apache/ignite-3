@@ -26,7 +26,6 @@ import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
@@ -73,7 +72,7 @@ public class RocksDbStorageEngineTest extends BaseIgniteAbstractTest {
     void testCreateTableWithDefaultDataRegion() {
         table = engine.createMvTable(
                 new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, DEFAULT_DATA_REGION_NAME),
-                new StorageIndexDescriptorSupplier(mock(CatalogService.class))
+                mock(StorageIndexDescriptorSupplier.class)
         );
 
         getOrCreateMvPartition(table, 1);
@@ -90,7 +89,7 @@ public class RocksDbStorageEngineTest extends BaseIgniteAbstractTest {
 
         table = engine.createMvTable(
                 new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, customRegionName),
-                new StorageIndexDescriptorSupplier(mock(CatalogService.class))
+                mock(StorageIndexDescriptorSupplier.class)
         );
 
         getOrCreateMvPartition(table, 1);

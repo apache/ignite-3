@@ -30,6 +30,7 @@ import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigObject;
 import com.typesafe.config.ConfigParseOptions;
 import com.typesafe.config.ConfigRenderOptions;
+import com.typesafe.config.ConfigSyntax;
 import com.typesafe.config.ConfigValue;
 import com.typesafe.config.impl.ConfigImpl;
 import java.io.IOException;
@@ -153,7 +154,8 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
         checkAndRestoreConfigFile();
 
         try {
-            return ConfigFactory.parseFile(configPath.toFile(), ConfigParseOptions.defaults().setAllowMissing(false));
+            ConfigParseOptions parseOptions = ConfigParseOptions.defaults().setSyntax(ConfigSyntax.CONF).setAllowMissing(false);
+            return ConfigFactory.parseFile(configPath.toFile(), parseOptions);
         } catch (ConfigException.Parse e) {
             throw new NodeConfigParseException("Failed to parse config content from file " + configPath, e);
         }

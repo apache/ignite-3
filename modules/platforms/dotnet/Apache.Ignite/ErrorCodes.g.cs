@@ -356,6 +356,9 @@ namespace Apache.Ignite
 
             /// <summary> StorageRebalance error. </summary>
             public const int StorageRebalance = (GroupCode << 16) | (4 & 0xFFFF);
+
+            /// <summary> AlreadyDestroyed error. </summary>
+            public const int AlreadyDestroyed = (GroupCode << 16) | (5 & 0xFFFF);
         }
 
         /// <summary> DistributionZones errors. </summary>

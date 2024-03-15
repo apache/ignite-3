@@ -548,13 +548,13 @@ public class RobinHoodBackwardShiftHashMap implements LoadedPagesMap {
             sb.append("Empty: ");
         }
 
-        sb.append("i.buc=").append(getIdealBucket(base)).append(",");
-        sb.append("(grp=").append(curGrpId).append(",");
-        sb.append("page=").append(curPageId).append(")");
-        sb.append("->");
-        sb.append("(val=").append(curVal).append(",");
-        sb.append("ver=").append(ver).append(")");
-        sb.append("\n");
+        sb.append("i.buc=").append(getIdealBucket(base)).append(',')
+                .append("(grp=").append(curGrpId).append(',')
+                .append("page=").append(curPageId).append(')')
+                .append("->")
+                .append("(val=").append(curVal).append(',')
+                .append("ver=").append(ver).append(')')
+                .append('\n');
     }
 
     /**

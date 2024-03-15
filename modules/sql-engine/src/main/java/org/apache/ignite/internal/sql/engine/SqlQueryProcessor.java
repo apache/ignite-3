@@ -59,6 +59,7 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -196,6 +197,8 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private final SqlSchemaManager sqlSchemaManager;
 
+    private final FailureProcessor failureProcessor;
+
     private final SystemViewManager systemViewManager;
 
     private volatile QueryTaskExecutor taskExecutor;
@@ -243,6 +246,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             CatalogManager catalogManager,
             MetricManager metricManager,
             SystemViewManager systemViewManager,
+            FailureProcessor failureProcessor,
             PlacementDriver placementDriver,
             SqlDistributedConfiguration clusterCfg,
             SqlLocalConfiguration nodeCfg,
@@ -260,6 +264,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.catalogManager = catalogManager;
         this.metricManager = metricManager;
         this.systemViewManager = systemViewManager;
+        this.failureProcessor = failureProcessor;
         this.placementDriver = placementDriver;
         this.clusterCfg = clusterCfg;
         this.nodeCfg = nodeCfg;
@@ -277,7 +282,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     public synchronized CompletableFuture<Void> start() {
         var nodeName = clusterSrvc.topologyService().localMember().name();
 
-        taskExecutor = registerService(new QueryTaskExecutorImpl(nodeName, nodeCfg.execution().threadCount().value()));
+        taskExecutor = registerService(new QueryTaskExecutorImpl(nodeName, nodeCfg.execution().threadCount().value(), failureProcessor));
         var mailboxRegistry = registerService(new MailboxRegistryImpl());
 
         SqlClientMetricSource sqlClientMetricSource = new SqlClientMetricSource(openedCursors::size);
@@ -297,12 +302,14 @@ public class SqlQueryProcessor implements QueryProcessor {
                 nodeName,
                 clusterSrvc.messagingService(),
                 taskExecutor,
-                busyLock
+                busyLock,
+                clock
         ));
 
         var exchangeService = registerService(new ExchangeServiceImpl(
                 mailboxRegistry,
-                msgSrvc
+                msgSrvc,
+                clock
         ));
 
         this.prepareSvc = prepareSvc;
@@ -370,6 +377,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 mappingService,
                 executableTableRegistry,
                 dependencyResolver,
+                clock,
                 EXECUTION_SERVICE_SHUTDOWN_TIMEOUT
         ));
 

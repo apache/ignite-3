@@ -40,6 +40,8 @@ import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.util.ArrayUtils;
+import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.apache.ignite.sql.SqlException;
 
 /**
  * Accumulators implementations.
@@ -225,9 +227,8 @@ public class Accumulators {
         @Override
         public void add(Object... args) {
             if (touched) {
-                throw new IllegalArgumentException("Subquery returned more than 1 value.");
+                throw new SqlException(Sql.RUNTIME_ERR, "Subquery returned more than 1 value.");
             }
-
             touched = true;
 
             super.add(args);

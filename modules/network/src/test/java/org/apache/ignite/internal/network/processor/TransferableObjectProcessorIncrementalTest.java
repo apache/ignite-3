@@ -246,7 +246,7 @@ public class TransferableObjectProcessorIncrementalTest extends BaseIgniteAbstra
             String line;
 
             while ((line = bufferedReader.readLine()) != null) {
-                builder.append(line).append("\n");
+                builder.append(line).append('\n');
             }
 
             return builder.toString();

@@ -17,184 +17,275 @@
 
 package org.apache.ignite.internal.catalog.sql;
 
+import static java.util.Collections.singletonList;
+import static org.apache.ignite.catalog.ColumnType.INTEGER;
+import static org.apache.ignite.catalog.IndexType.DEFAULT;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
-import java.util.Collections;
-import java.util.List;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 import org.apache.ignite.catalog.ColumnSorted;
-import org.apache.ignite.catalog.ColumnType;
-import org.apache.ignite.catalog.IndexType;
+import org.apache.ignite.catalog.ZoneEngine;
 import org.apache.ignite.catalog.definitions.ColumnDefinition;
 import org.apache.ignite.catalog.definitions.TableDefinition;
-import org.apache.ignite.catalog.definitions.TableDefinition.Builder;
 import org.apache.ignite.catalog.definitions.ZoneDefinition;
 import org.junit.jupiter.api.Test;
 
 @SuppressWarnings("ThrowableNotThrown")
 class InvalidDefinitionTest {
     @Test
-    void zone() {
-        assertThrows(NullPointerException.class,
-                () -> ZoneDefinition.builder(null).build(),
-                "Zone name must not be null.");
-
-        assertThrows(IllegalArgumentException.class,
-                () -> ZoneDefinition.builder("").build(),
-                "Zone name must not be blank.");
-
-        assertThrows(NullPointerException.class,
-                () -> ZoneDefinition.builder("zone").engine(null).build(),
-                "Engine must not be null.");
-
-        assertThrows(NullPointerException.class,
-                () -> ZoneDefinition.builder("zone").partitions(null).build(),
-                "Number of partitions must not be null.");
-
-        assertThrows(NullPointerException.class,
-                () -> ZoneDefinition.builder("zone").replicas(null).build(),
-                "Number of replicas must not be null.");
+    void zoneName() {
+        assertNullOrBlank(ZoneDefinition::builder, "zone", "Zone name");
     }
 
     @Test
-    void names() {
-        assertThrows(NullPointerException.class,
-                () -> TableDefinition.builder(null).build(),
-                "Table name must not be null.");
+    void zone() {
+        assertZoneBuilderNull(ZoneDefinition.Builder::engine, ZoneEngine.AIMEM, "Engine");
+        assertZoneBuilderNull(ZoneDefinition.Builder::partitions, 1, "Number of partitions");
+        assertZoneBuilderNull(ZoneDefinition.Builder::replicas, 1, "Number of replicas");
 
-        assertThrows(IllegalArgumentException.class,
-                () -> TableDefinition.builder("").build(),
-                "Table name must not be blank.");
+        assertZoneBuilderNullOrBlank(ZoneDefinition.Builder::affinity, "a", "Affinity function");
+
+        assertZoneBuilderNull(ZoneDefinition.Builder::dataNodesAutoAdjust, 1,
+                "Timeout between node added or node left topology event itself and data nodes switch");
+        assertZoneBuilderNull(ZoneDefinition.Builder::dataNodesAutoAdjustScaleUp, 1,
+                "Timeout between node added topology event itself and data nodes switch");
+        assertZoneBuilderNull(ZoneDefinition.Builder::dataNodesAutoAdjustScaleDown, 1,
+                "Timeout between node left topology event itself and data nodes switch");
+
+        assertZoneBuilderNullOrBlank(ZoneDefinition.Builder::filter, "f", "Filter");
+        assertZoneBuilderNullOrBlank(ZoneDefinition.Builder::dataRegion, "r", "Data region");
+    }
+
+    @Test
+    void tableName() {
+        assertNullOrBlank(TableDefinition::builder, "table", "Table name");
     }
 
     @Test
     void columns() {
-        assertThrows(NullPointerException.class,
-                () -> tableBuilder().columns((ColumnDefinition[]) null).build(),
-                "Columns array must not be null.");
+        ColumnDefinition validColumn = ColumnDefinition.column("id", INTEGER);
+
+        assertTableBuilderNull(TableDefinition.Builder::columns, new ColumnDefinition[]{validColumn}, "Columns array");
+        assertTableBuilderNull(TableDefinition.Builder::columns, singletonList(validColumn), "Columns list");
 
         assertThrows(NullPointerException.class,
-                () -> tableBuilder().columns((List<ColumnDefinition>) null).build(),
-                "Columns list must not be null.");
-
-        assertThrows(NullPointerException.class,
-                () -> tableBuilder().columns((ColumnDefinition) null).build(),
+                () -> tableBuilder().columns(new ColumnDefinition[]{null}),
                 "Column must not be null.");
 
         assertThrows(NullPointerException.class,
-                () -> tableBuilder().columns(Collections.singletonList(null)).build(),
+                () -> tableBuilder().columns(singletonList(null)),
                 "Column must not be null.");
     }
 
     @Test
     void colocateBy() {
-        assertThrows(NullPointerException.class,
-                () -> tableBuilder().colocateBy((String[]) null).build(),
-                "Colocation columns array must not be null.");
+        assertTableBuilderNull(TableDefinition.Builder::colocateBy, new String[]{"id"}, "Colocation columns array");
+        assertTableBuilderNull(TableDefinition.Builder::colocateBy, singletonList("id"), "Colocation columns list");
 
         assertThrows(NullPointerException.class,
-                () -> tableBuilder().colocateBy((List<String>) null).build(),
-                "Colocation columns list must not be null.");
-
-        assertThrows(NullPointerException.class,
-                () -> tableBuilder().colocateBy((String) null).build(),
+                () -> tableBuilder().colocateBy(new String[]{null}),
                 "Colocation column must not be null.");
 
         assertThrows(NullPointerException.class,
-                () -> tableBuilder().colocateBy(Collections.singletonList(null)).build(),
+                () -> tableBuilder().colocateBy(singletonList(null)),
                 "Colocation column must not be null.");
     }
 
     @Test
     void primaryKey() {
-        assertThrows(NullPointerException.class,
-                () -> tableBuilder().primaryKey((String[]) null).build(),
-                "Primary key columns array must not be null.");
+        assertTableBuilderNull(TableDefinition.Builder::primaryKey, new String[]{"id"}, "Primary key columns array");
+
+        ColumnSorted validColumn = ColumnSorted.column("id");
+
+        assertTableBuilderNull((builder, columns) -> builder.primaryKey(DEFAULT, columns), new ColumnSorted[]{validColumn},
+                "Primary key columns array");
+        assertTableBuilderNull((builder, columns) -> builder.primaryKey(DEFAULT, columns), singletonList(validColumn),
+                "Primary key columns list");
+
+        assertTableBuilderNull((builder, type) -> builder.primaryKey(type, new ColumnSorted[]{validColumn}), DEFAULT,
+                "Primary key index type");
+        assertTableBuilderNull((builder, type) -> builder.primaryKey(type, singletonList(validColumn)), DEFAULT,
+                "Primary key index type");
 
         assertThrows(NullPointerException.class,
-                () -> tableBuilder().primaryKey((String) null).build(),
+                () -> tableBuilder().primaryKey((String) null),
                 "Primary key column must not be null.");
 
         assertThrows(NullPointerException.class,
-                () -> tableBuilder().primaryKey(null, (ColumnSorted[]) null).build(),
-                "Primary key index type must not be null.");
-
-        assertThrows(NullPointerException.class,
-                () -> tableBuilder().primaryKey(IndexType.DEFAULT, (ColumnSorted[]) null).build(),
-                "Primary key columns array must not be null.");
-
-        assertThrows(NullPointerException.class,
-                () -> tableBuilder().primaryKey(IndexType.DEFAULT, (ColumnSorted) null).build(),
+                () -> tableBuilder().primaryKey(DEFAULT, new ColumnSorted[]{null}),
                 "Primary key column must not be null.");
 
         assertThrows(NullPointerException.class,
-                () -> tableBuilder().primaryKey(null, List.of()).build(),
-                "Primary key index type must not be null.");
-
-        assertThrows(NullPointerException.class,
-                () -> tableBuilder().primaryKey(IndexType.DEFAULT, (List<ColumnSorted>) null).build(),
-                "Primary key columns list must not be null.");
-
-        assertThrows(NullPointerException.class,
-                () -> tableBuilder().primaryKey(IndexType.DEFAULT, Collections.singletonList(null)).build(),
+                () -> tableBuilder().primaryKey(DEFAULT, singletonList(null)),
                 "Primary key column must not be null.");
     }
 
     @Test
     void index() {
-        assertThrows(NullPointerException.class,
-                () -> tableBuilder().index((String[]) null).build(),
-                "Index columns array must not be null.");
+        assertTableBuilderNull(TableDefinition.Builder::index, new String[]{"id"}, "Index columns array");
+
+        ColumnSorted validColumn = ColumnSorted.column("id");
+
+        assertTableBuilderNull((builder, columns) -> builder.index(null, DEFAULT, columns), new ColumnSorted[]{validColumn},
+                "Index columns array");
+        assertTableBuilderNull((builder, columns) -> builder.index(null, DEFAULT, columns), singletonList(validColumn),
+                "Index columns list");
+
+        assertTableBuilderNull((builder, type) -> builder.index(null, type, new ColumnSorted[]{validColumn}), DEFAULT,
+                "Index type");
+        assertTableBuilderNull((builder, type) -> builder.index(null, type, singletonList(validColumn)), DEFAULT,
+                "Index type");
 
         assertThrows(NullPointerException.class,
-                () -> tableBuilder().index((String) null).build(),
+                () -> tableBuilder().index(new String[]{null}),
                 "Index column must not be null.");
 
         assertThrows(NullPointerException.class,
-                () -> tableBuilder().index(null, null, (ColumnSorted[]) null).build(),
-                "Index type must not be null.");
-
-        assertThrows(NullPointerException.class,
-                () -> tableBuilder().index(null, IndexType.DEFAULT, (ColumnSorted[]) null).build(),
-                "Index columns array must not be null.");
-
-        assertThrows(NullPointerException.class,
-                () -> tableBuilder().index(null, IndexType.DEFAULT, (ColumnSorted) null).build(),
+                () -> tableBuilder().index(null, DEFAULT, new ColumnSorted[]{null}),
                 "Index column must not be null.");
 
         assertThrows(NullPointerException.class,
-                () -> tableBuilder().index(null, null, List.of()).build(),
-                "Index type must not be null.");
-
-        assertThrows(NullPointerException.class,
-                () -> tableBuilder().index(null, IndexType.DEFAULT, (List<ColumnSorted>) null).build(),
-                "Index columns list must not be null.");
-
-        assertThrows(NullPointerException.class,
-                () -> tableBuilder().index(null, IndexType.DEFAULT, Collections.singletonList(null)).build(),
+                () -> tableBuilder().index(null, DEFAULT, singletonList(null)),
                 "Index column must not be null.");
     }
 
     @Test
     void columnDefinition() {
-        assertThrows(NullPointerException.class,
-                () -> ColumnDefinition.column(null, (ColumnType<?>) null),
-                "Column name must not be null.");
+        assertNullOrBlank(name -> ColumnDefinition.column(name, INTEGER), "column", "Column name");
+        assertNullOrBlank(name -> ColumnDefinition.column(name, "definition"), "column", "Column name");
 
-        assertThrows(IllegalArgumentException.class,
-                () -> ColumnDefinition.column("", (ColumnType<?>) null),
-                "Column name must not be blank.");
-
-        assertThrows(NullPointerException.class,
-                () -> ColumnDefinition.column(null, (String) null),
-                "Column name must not be null.");
-
-        assertThrows(IllegalArgumentException.class,
-                () -> ColumnDefinition.column("", (String) null),
-                "Column name must not be blank.");
-
+        assertNull(type -> ColumnDefinition.column("column", type), INTEGER, "Column type");
+        assertNullOrBlank(def -> ColumnDefinition.column("column", def), "definition", "Column definition");
     }
 
-    private static Builder tableBuilder() {
+    private static ZoneDefinition.Builder zoneBuilder() {
+        return ZoneDefinition.builder("zone");
+    }
+
+    private static TableDefinition.Builder tableBuilder() {
         return TableDefinition.builder("table");
+    }
+
+    /**
+     * Checks that the {@link ZoneDefinition.Builder} method throws {@link NullPointerException} when passed a null value and doesn't throw
+     * when passed a valid value.
+     *
+     * @param builderConsumer Function which takes a builder as a first argument and a tested value as a second argument.
+     * @param validValue Valid value.
+     * @param messageFragment Fragment of the error text in the exception.
+     * @param <T> Type of the second argument.
+     */
+    private static <T> void assertZoneBuilderNull(
+            BiConsumer<ZoneDefinition.Builder, T> builderConsumer,
+            T validValue,
+            String messageFragment
+    ) {
+        assertNull(InvalidDefinitionTest::zoneBuilder, builderConsumer, validValue, messageFragment);
+    }
+
+    /**
+     * Checks that the {@link ZoneDefinition.Builder} method throws {@link NullPointerException} when passed a null string,
+     * {@link IllegalArgumentException} when passed a blank string and doesn't throw when passed a valid value.
+     *
+     * @param builderConsumer Function which takes a builder as a first argument and a tested value as a second argument.
+     * @param validValue Valid value.
+     * @param messageFragment Fragment of the error text in the exception.
+     */
+    private static void assertZoneBuilderNullOrBlank(
+            BiConsumer<ZoneDefinition.Builder, String> builderConsumer,
+            String validValue,
+            String messageFragment
+    ) {
+        assertNull(InvalidDefinitionTest::zoneBuilder, builderConsumer, validValue, messageFragment);
+        assertBlank(InvalidDefinitionTest::zoneBuilder, builderConsumer, messageFragment);
+    }
+
+    /**
+     * Checks that the {@link TableDefinition.Builder} method throws {@link NullPointerException} when passed a null value and doesn't throw
+     * when passed a valid value.
+     *
+     * @param builderConsumer Function which takes a builder as a first argument and a tested value as a second argument.
+     * @param validValue Valid value.
+     * @param messageFragment Fragment of the error text in the exception.
+     * @param <T> Type of the second argument.
+     */
+    private static <T> void assertTableBuilderNull(
+            BiConsumer<TableDefinition.Builder, T> builderConsumer,
+            T validValue,
+            String messageFragment
+    ) {
+        assertNull(InvalidDefinitionTest::tableBuilder, builderConsumer, validValue, messageFragment);
+    }
+
+    /**
+     * Checks that the function throws {@link NullPointerException} when passed a null value as a second argument and doesn't throw when
+     * passed a valid value.
+     *
+     * @param firstArgumentSupplier Supplier of first argument.
+     * @param testedFunction Function to test.
+     * @param validValue Valid value.
+     * @param messageFragment Fragment of the error text in the exception.
+     * @param <T> First argument type.
+     * @param <U> Second argument type.
+     */
+    private static <T, U> void assertNull(
+            Supplier<T> firstArgumentSupplier,
+            BiConsumer<T, U> testedFunction,
+            U validValue,
+            String messageFragment
+    ) {
+        assertThrows(
+                NullPointerException.class,
+                () -> testedFunction.accept(firstArgumentSupplier.get(), null),
+                messageFragment + " must not be null."
+        );
+        assertDoesNotThrow(() -> testedFunction.accept(firstArgumentSupplier.get(), validValue));
+    }
+
+    /**
+     * Checks that the function throws {@link NullPointerException} when passed a null value and doesn't throw when passed a valid value.
+     *
+     * @param consumer Function to test.
+     * @param validValue Valid value.
+     * @param messageFragment Fragment of the error text in the exception.
+     */
+    private static <T> void assertNull(Consumer<T> consumer, T validValue, String messageFragment) {
+        assertNull(() -> null, (unused, value) -> consumer.accept(value), validValue, messageFragment);
+    }
+
+    /**
+     * Checks that the function throws {@link NullPointerException} when passed a null string, {@link IllegalArgumentException} when passed
+     * a blank string and doesn't throw when passed a valid value.
+     *
+     * @param consumer Function to test.
+     * @param validValue Valid value.
+     * @param messageFragment Fragment of the error text in the exception.
+     */
+    private static void assertNullOrBlank(Consumer<String> consumer, String validValue, String messageFragment) {
+        assertNull(() -> null, (unused, value) -> consumer.accept(value), validValue, messageFragment);
+        assertBlank(() -> null, (unused, value) -> consumer.accept(value), messageFragment);
+    }
+
+    /**
+     * Checks that the function throws {@link IllegalArgumentException} when passed a blank string as a second argument.
+     *
+     * @param firstArgumentSupplier Supplier of first argument.
+     * @param testedFunction Function to test.
+     * @param messageFragment Fragment of the error text in the exception.
+     * @param <T> First argument type.
+     */
+    private static <T> void assertBlank(
+            Supplier<T> firstArgumentSupplier,
+            BiConsumer<T, String> testedFunction,
+            String messageFragment
+    ) {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> testedFunction.accept(firstArgumentSupplier.get(), ""),
+                messageFragment + " must not be blank."
+        );
     }
 }

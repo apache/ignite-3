@@ -28,6 +28,7 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.calcite.rel.RelFieldCollation;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.PartitionProvider;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
@@ -52,8 +53,8 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
 
     private final RowHandler.RowFactory<RowT> factory;
 
-    /** List of pairs containing the partition number to scan with the corresponding enlistment consistency token. */
-    private final Collection<PartitionWithConsistencyToken> partsWithConsistencyTokens;
+    /** Returns partitions to be used by this scan. */
+    private final PartitionProvider<RowT> partitionProvider;
 
     /** Participating columns. */
     private final @Nullable BitSet requiredColumns;
@@ -70,8 +71,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
      * @param ctx Execution context.
      * @param rowFactory Row factory.
      * @param tableDescriptor Table descriptor.
-     * @param partsWithConsistencyTokens List of pairs containing the partition number to scan with the corresponding enlistment
-     *         consistency token.
+     * @param partitionProvider Partition provider.
      * @param comp Rows comparator.
      * @param rangeConditions Range conditions.
      * @param filters Optional filter to filter out rows.
@@ -84,7 +84,7 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
             IgniteIndex schemaIndex,
             ScannableTable table,
             TableDescriptor tableDescriptor,
-            Collection<PartitionWithConsistencyToken> partsWithConsistencyTokens,
+            PartitionProvider<RowT> partitionProvider,
             @Nullable Comparator<RowT> comp,
             @Nullable RangeIterable<RowT> rangeConditions,
             @Nullable Predicate<RowT> filters,
@@ -93,11 +93,9 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
     ) {
         super(ctx, filters, rowTransformer);
 
-        assert partsWithConsistencyTokens != null && !partsWithConsistencyTokens.isEmpty();
-
         this.schemaIndex = schemaIndex;
         this.table = table;
-        this.partsWithConsistencyTokens = partsWithConsistencyTokens;
+        this.partitionProvider = partitionProvider;
         this.requiredColumns = requiredColumns;
         this.rangeConditions = rangeConditions;
         this.comp = comp;
@@ -113,11 +111,13 @@ public class IndexScanNode<RowT> extends StorageScanNode<RowT> {
     /** {@inheritDoc} */
     @Override
     protected Publisher<RowT> scan() {
+        List<PartitionWithConsistencyToken> partitions = partitionProvider.getPartitions(context());
+
         if (rangeConditions != null) {
             return SubscriptionUtils.concat(
-                    new TransformingIterator<>(rangeConditions.iterator(), cond -> indexPublisher(partsWithConsistencyTokens, cond)));
+                    new TransformingIterator<>(rangeConditions.iterator(), cond -> indexPublisher(partitions, cond)));
         } else {
-            return indexPublisher(partsWithConsistencyTokens, null);
+            return indexPublisher(partitions, null);
         }
     }
 

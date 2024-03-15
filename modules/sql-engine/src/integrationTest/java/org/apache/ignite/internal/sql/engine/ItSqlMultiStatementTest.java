@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
-import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
@@ -167,7 +166,7 @@ public class ItSqlMultiStatementTest extends BaseSqlMultiStatementTest {
         // Internal error.
         {
             assertThrowsSqlException(
-                    INTERNAL_ERR,
+                    RUNTIME_ERR,
                     "Subquery returned more than 1 value",
                     () -> executeScript(
                             "INSERT INTO test VALUES(0);"

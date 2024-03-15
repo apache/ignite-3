@@ -33,7 +33,7 @@ import org.apache.ignite.internal.util.io.IgniteDataOutput;
  * System view descriptor.
  */
 public class CatalogSystemViewDescriptor extends CatalogObjectDescriptor {
-    public static CatalogObjectSerializer<CatalogSystemViewDescriptor> SERIALIZER = new SystemViewDescriptorSerializer();
+    public static final CatalogObjectSerializer<CatalogSystemViewDescriptor> SERIALIZER = new SystemViewDescriptorSerializer();
 
     private final List<CatalogTableColumnDescriptor> columns;
 

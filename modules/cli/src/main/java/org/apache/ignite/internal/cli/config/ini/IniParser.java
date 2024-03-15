@@ -17,13 +17,15 @@
 
 package org.apache.ignite.internal.cli.config.ini;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.nio.file.Files;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -55,7 +57,7 @@ public class IniParser {
             throw new FileNotFoundException("inputStream is null");
         }
 
-        try (BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(inputStream))) {
+        try (BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(inputStream, UTF_8))) {
             return parseIniFile(bufferedReader);
         }
     }
@@ -68,7 +70,7 @@ public class IniParser {
      * @throws IOException when parsing failed.
      */
     public Map<String, IniSection> parse(File file) throws IOException {
-        try (FileInputStream input = new FileInputStream(file)) {
+        try (InputStream input = Files.newInputStream(file.toPath())) {
             return parse(input);
         }
     }
