@@ -302,7 +302,7 @@ namespace Apache.Ignite.Internal.Table
                 sender: async (batch, preferredNode, retryPolicy) =>
                 {
                     using var resBuf = await DoOutInOpAsync(
-                            ClientOp.TupleUpsertAll,
+                            ClientOp.StreamerBatchSend,
                             tx: null,
                             batch,
                             PreferredNode.FromName(preferredNode),
