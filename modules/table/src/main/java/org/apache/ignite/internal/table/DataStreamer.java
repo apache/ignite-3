@@ -57,7 +57,7 @@ class DataStreamer {
 
             @Override
             public int perNodeParallelOperations() {
-                return options0.perNodeParallelOperations();
+                return options0.perPartitionParallelOperations();
             }
 
             @Override

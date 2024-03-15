@@ -26,7 +26,7 @@ public class DataStreamerOptions {
 
     private final int pageSize;
 
-    private final int perNodeParallelOperations;
+    private final int perPartitionParallelOperations;
 
     private final int autoFlushFrequency;
 
@@ -36,13 +36,13 @@ public class DataStreamerOptions {
      * Constructor.
      *
      * @param pageSize Page size.
-     * @param perNodeParallelOperations Per node parallel operations.
+     * @param perPartitionParallelOperations Per partition parallel operations.
      * @param autoFlushFrequency Auto flush frequency.
      * @param retryLimit Retry limit.
      */
-    private DataStreamerOptions(int pageSize, int perNodeParallelOperations, int autoFlushFrequency, int retryLimit) {
+    private DataStreamerOptions(int pageSize, int perPartitionParallelOperations, int autoFlushFrequency, int retryLimit) {
         this.pageSize = pageSize;
-        this.perNodeParallelOperations = perNodeParallelOperations;
+        this.perPartitionParallelOperations = perPartitionParallelOperations;
         this.autoFlushFrequency = autoFlushFrequency;
         this.retryLimit = retryLimit;
     }
@@ -66,12 +66,12 @@ public class DataStreamerOptions {
     }
 
     /**
-     * Gets the number of parallel operations per node (how many in-flight requests can be active for a given node).
+     * Gets the number of parallel operations per partition (how many in-flight requests can be active for a given partition).
      *
      * @return Per node parallel operations.
      */
-    public int perNodeParallelOperations() {
-        return perNodeParallelOperations;
+    public int perPartitionParallelOperations() {
+        return perPartitionParallelOperations;
     }
 
     /**
@@ -100,7 +100,7 @@ public class DataStreamerOptions {
     public static class Builder {
         private int pageSize = 1000;
 
-        private int perNodeParallelOperations = 4;
+        private int perPartitionParallelOperations = 4;
 
         private int autoFlushFrequency = 5000;
 
@@ -123,18 +123,17 @@ public class DataStreamerOptions {
         }
 
         /**
-         * Sets the number of parallel operations per node (how many in-flight requests can be active for a given node).
+         * Sets the number of parallel operations per partition (how many in-flight requests can be active for a given partition).
          *
-         * @param perNodeParallelOperations Per node parallel operations.
+         * @param perPartitionParallelOperations Per partition parallel operations.
          * @return This builder instance.
          */
-        public Builder perNodeParallelOperations(int perNodeParallelOperations) {
-            // TODO IGNITE-21283: Rename to perPartitionParallelOperations?
-            if (perNodeParallelOperations <= 0) {
-                throw new IllegalArgumentException("Per node parallel operations must be positive: " + perNodeParallelOperations);
+        public Builder perPartitionParallelOperations(int perPartitionParallelOperations) {
+            if (perPartitionParallelOperations <= 0) {
+                throw new IllegalArgumentException("perPartitionParallelOperations must be positive: " + perPartitionParallelOperations);
             }
 
-            this.perNodeParallelOperations = perNodeParallelOperations;
+            this.perPartitionParallelOperations = perPartitionParallelOperations;
 
             return this;
         }
@@ -171,7 +170,7 @@ public class DataStreamerOptions {
          * @return Data streamer options.
          */
         public DataStreamerOptions build() {
-            return new DataStreamerOptions(pageSize, perNodeParallelOperations, autoFlushFrequency, retryLimit);
+            return new DataStreamerOptions(pageSize, perPartitionParallelOperations, autoFlushFrequency, retryLimit);
         }
     }
 }

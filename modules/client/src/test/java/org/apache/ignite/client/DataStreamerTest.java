@@ -176,7 +176,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
         try (var publisher = new SubmissionPublisher<DataStreamerItem<Tuple>>(ForkJoinPool.commonPool(), bufferSize)) {
             var options = DataStreamerOptions.builder()
                     .pageSize(bufferSize)
-                    .perNodeParallelOperations(1)
+                    .perPartitionParallelOperations(1)
                     .build();
 
             var streamerFut = view.streamData(publisher, options);
