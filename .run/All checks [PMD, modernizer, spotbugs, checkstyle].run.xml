@@ -1,10 +1,10 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="All checks [PMD, modernizer, checkstyle]" type="GradleRunConfiguration" factoryName="Gradle" folderName="Checks">
+  <configuration default="false" name="All checks [PMD, modernizer, spotbugs, checkstyle]" type="GradleRunConfiguration" factoryName="Gradle" folderName="Checks">
     <ExternalSystemSettings>
       <option name="executionName" />
       <option name="externalProjectPath" value="$PROJECT_DIR$" />
       <option name="externalSystemIdString" value="GRADLE" />
-      <option name="scriptParameters" value="" />
+      <option name="scriptParameters" value="--continue" />
       <option name="taskDescriptions">
         <list />
       </option>
@@ -13,6 +13,7 @@
           <option value="pmdMain" />
           <option value="pmdTest" />
           <option value="modernizer" />
+          <option value="spotbugsMain" />
           <option value="checkstyleMain" />
           <option value="checkstyleIntegrationTest" />
           <option value="checkstyleTest" />

@@ -126,7 +126,7 @@ public class IgnitePicocliCommands implements CommandRegistry {
             return null;
         }
         CommandSpec spec = sub.getCommandSpec();
-        Help cmdhelp = new picocli.CommandLine.Help(spec);
+        Help cmdhelp = new Help(spec);
         List<AttributedString> main = new ArrayList<>();
         Map<String, List<AttributedString>> options = new HashMap<>();
         String synopsis = AttributedString.stripAnsi(spec.usageMessage().sectionMap().get("synopsis").render(cmdhelp));
@@ -140,7 +140,7 @@ public class IgnitePicocliCommands implements CommandRegistry {
                 val.add(new AttributedString(d));
             }
             if (o.arity().max() > 0) {
-                key += "=" + o.paramLabel();
+                key += "=" + o.paramLabel(); // NOPMD
             }
             options.put(key, val);
         }
@@ -151,7 +151,7 @@ public class IgnitePicocliCommands implements CommandRegistry {
     @Override
     public List<String> commandInfo(String command) {
         CommandSpec spec = cmd.getSubcommands().get(command).getCommandSpec();
-        Help cmdhelp = new picocli.CommandLine.Help(spec);
+        Help cmdhelp = new Help(spec);
         String description = AttributedString.stripAnsi(spec.usageMessage().sectionMap().get("description").render(cmdhelp));
         return new ArrayList<>(Arrays.asList(description.split("\\r?\\n")));
     }

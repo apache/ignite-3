@@ -283,7 +283,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
         void initWithAuthenticationSuccess() throws IOException {
 
             Path clusterConfigurationFile = copyResourceToTempFile("cluster-configuration-with-enabled-auth.conf").toPath();
-            String clusterConfiguration = new String(Files.readAllBytes(clusterConfigurationFile));
+            String clusterConfiguration = Files.readString(clusterConfigurationFile);
 
             var expectedSentContent = "{\n"
                     + "  \"metaStorageNodes\": [\n"

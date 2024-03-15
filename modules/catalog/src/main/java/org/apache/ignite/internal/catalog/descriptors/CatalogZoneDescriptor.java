@@ -29,7 +29,7 @@ import org.apache.ignite.internal.util.io.IgniteDataOutput;
  * Distribution zone descriptor base class.
  */
 public class CatalogZoneDescriptor extends CatalogObjectDescriptor {
-    public static CatalogObjectSerializer<CatalogZoneDescriptor> SERIALIZER = new ZoneDescriptorSerializer();
+    public static final CatalogObjectSerializer<CatalogZoneDescriptor> SERIALIZER = new ZoneDescriptorSerializer();
 
     /** Amount of zone partitions. */
     private final int partitions;

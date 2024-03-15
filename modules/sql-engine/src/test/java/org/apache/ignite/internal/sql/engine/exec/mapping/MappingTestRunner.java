@@ -208,14 +208,13 @@ final class MappingTestRunner {
         try {
             mappedFragments = await(mappingService.map(plan, MappingParameters.EMPTY));
         } catch (Exception e) {
-            StringBuilder sb = new StringBuilder();
-            sb.append(System.lineSeparator());
-            sb.append(RelOptUtil.toString(plan.root()));
-            sb.append(System.lineSeparator());
+            String explanation = System.lineSeparator()
+                    + RelOptUtil.toString(plan.root())
+                    + System.lineSeparator();
 
             Throwable cause = e instanceof CompletionException ? e.getCause() : e;
 
-            throw new IllegalStateException("Failed to map a plan: " + sb, cause);
+            throw new IllegalStateException("Failed to map a plan: " + explanation, cause);
         }
 
         if (mappedFragments == null) {
@@ -299,16 +298,17 @@ final class MappingTestRunner {
             testCaseStr.append(System.lineSeparator());
         }
 
-        testCaseStr.append(testCaseDef.nodeName);
-        testCaseStr.append(System.lineSeparator());
-        testCaseStr.append(testCaseDef.sql);
-        testCaseStr.append(System.lineSeparator());
-        testCaseStr.append("---");
-        testCaseStr.append(System.lineSeparator());
-        testCaseStr.append(result);
-        testCaseStr.append(System.lineSeparator());
-        testCaseStr.append("---");
-        testCaseStr.append(System.lineSeparator());
+        testCaseStr
+                .append(testCaseDef.nodeName)
+                .append(System.lineSeparator())
+                .append(testCaseDef.sql)
+                .append(System.lineSeparator())
+                .append("---")
+                .append(System.lineSeparator())
+                .append(result)
+                .append(System.lineSeparator())
+                .append("---")
+                .append(System.lineSeparator());
     }
 
     enum ParseState {

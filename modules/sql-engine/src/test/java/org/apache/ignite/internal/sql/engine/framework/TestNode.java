@@ -27,6 +27,9 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.apache.calcite.tools.Frameworks;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
@@ -80,6 +83,7 @@ public class TestNode implements LifecycleAware {
     private final List<LifecycleAware> services = new ArrayList<>();
     volatile boolean exceptionRaised;
     private final IgniteSpinBusyLock holdLock;
+    private final HybridClock clock = new HybridClockImpl();
 
     /**
      * Constructs the object.
@@ -109,18 +113,19 @@ public class TestNode implements LifecycleAware {
         RowHandler<Object[]> rowHandler = ArrayRowHandler.INSTANCE;
 
         MailboxRegistry mailboxRegistry = registerService(new MailboxRegistryImpl());
-        QueryTaskExecutorImpl queryExec = new QueryTaskExecutorImpl(nodeName, 4);
-        queryExec.exceptionHandler((t, e) -> exceptionRaised = true);
+
+        FailureProcessor failureProcessor = new FailureProcessor(nodeName, (a, b) -> exceptionRaised = true);
+        QueryTaskExecutorImpl queryExec = new QueryTaskExecutorImpl(nodeName, 4, failureProcessor);
 
         QueryTaskExecutor taskExecutor = registerService(queryExec);
 
         holdLock = new IgniteSpinBusyLock();
 
         messageService = registerService(new MessageServiceImpl(
-                nodeName, messagingService, taskExecutor, holdLock
+                nodeName, messagingService, taskExecutor, holdLock, clock
         ));
         ExchangeService exchangeService = registerService(new ExchangeServiceImpl(
-                mailboxRegistry, messageService
+                mailboxRegistry, messageService, clock
         ));
         ExecutionDependencyResolver dependencyResolver = new ExecutionDependencyResolverImpl(
                 tableRegistry, view -> () -> systemViewManager.scanView(view.name())
@@ -138,7 +143,8 @@ public class TestNode implements LifecycleAware {
                 mappingService,
                 tableRegistry,
                 dependencyResolver,
-                0
+                clock,
+                5_000
         ));
 
         registerService(new IgniteComponentLifecycleAwareAdapter(systemViewManager));
@@ -174,6 +180,10 @@ public class TestNode implements LifecycleAware {
 
     IgniteSpinBusyLock holdLock() {
         return holdLock;
+    }
+
+    HybridClock clock() {
+        return clock;
     }
 
     /**

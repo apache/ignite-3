@@ -19,10 +19,10 @@ package org.apache.ignite.internal.table.distributed.gc;
 
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.storage.pagememory.configuration.schema.BasePageMemoryStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
-import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -37,6 +37,7 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 @ExtendWith(WorkDirectoryExtension.class)
@@ -50,13 +51,14 @@ class PersistentPageMemoryGcUpdateHandlerTest extends AbstractGcUpdateHandlerTes
 
     @BeforeEach
     void setUp(
+            TestInfo testInfo,
             @InjectConfiguration PersistentPageMemoryStorageEngineConfiguration engineConfig
     ) {
         PageIoRegistry ioRegistry = new PageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
 
-        String nodeName = "test";
+        String nodeName = testNodeName(testInfo, 0);
 
         engine = new PersistentPageMemoryStorageEngine(
                 nodeName,
@@ -71,7 +73,7 @@ class PersistentPageMemoryGcUpdateHandlerTest extends AbstractGcUpdateHandlerTes
 
         table = engine.createMvTable(
                 new StorageTableDescriptor(TABLE_ID, DEFAULT_PARTITION_COUNT, DEFAULT_DATA_REGION_NAME),
-                new StorageIndexDescriptorSupplier(mock(CatalogService.class))
+                mock(StorageIndexDescriptorSupplier.class)
         );
 
         initialize(table);

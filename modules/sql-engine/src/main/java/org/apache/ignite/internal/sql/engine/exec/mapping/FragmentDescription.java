@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.exec.mapping;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import java.io.Serializable;
 import java.util.List;
+import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningMetadata;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -35,6 +36,7 @@ public class FragmentDescription implements Serializable {
     private final Long2ObjectMap<ColocationGroup> groupsBySourceId;
     private final @Nullable ColocationGroup target;
     private final @Nullable Long2ObjectMap<List<String>> sourcesByExchangeId;
+    private final @Nullable PartitionPruningMetadata pruningMetadata;
 
     /**
      * Constructor.
@@ -50,13 +52,15 @@ public class FragmentDescription implements Serializable {
             boolean prefetch,
             Long2ObjectMap<ColocationGroup> groupsBySourceId,
             @Nullable ColocationGroup target,
-            @Nullable Long2ObjectMap<List<String>> sourcesByExchangeId
+            @Nullable Long2ObjectMap<List<String>> sourcesByExchangeId,
+            @Nullable PartitionPruningMetadata pruningMetadata
     ) {
         this.fragmentId = fragmentId;
         this.prefetch = prefetch;
         this.groupsBySourceId = groupsBySourceId;
         this.target = target;
         this.sourcesByExchangeId = sourcesByExchangeId;
+        this.pruningMetadata = pruningMetadata;
     }
 
     /** Returns {@code true} if it's safe to execute this fragment in advance. */
@@ -94,5 +98,12 @@ public class FragmentDescription implements Serializable {
      */
     public @Nullable ColocationGroup group(long sourceId) {
         return groupsBySourceId.get(sourceId);
+    }
+
+    /**
+     * Returns partition pruning metadata.
+     */
+    public @Nullable PartitionPruningMetadata partitionPruningMetadata() {
+        return pruningMetadata;
     }
 }

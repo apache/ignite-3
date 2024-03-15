@@ -82,6 +82,7 @@
     <rule ref="category/java/codestyle.xml/UnnecessarySemicolon" />
     <rule ref="category/java/codestyle.xml/UseDiamondOperator" />
 
+
     <!-- TODO: https://issues.apache.org/jira/browse/IGNITE-21652 -->
     <!--        <rule ref="category/java/codestyle.xml/IdenticalCatchBranches" />-->
     <!--        <rule ref="category/java/codestyle.xml/UnnecessaryFullyQualifiedName" />-->
@@ -99,11 +100,44 @@
     <!--        <rule ref="category/java/codestyle.xml/ConfusingTernary" />-->
     <!--        <rule ref="category/java/codestyle.xml/PrematureDeclaration" />-->
 
+    <rule ref="category/java/performance.xml/AppendCharacterWithChar" />
+    <rule ref="category/java/performance.xml/AvoidArrayLoops" />
+    <rule ref="category/java/performance.xml/AvoidCalendarDateCreation" />
+    <rule ref="category/java/performance.xml/InefficientEmptyStringCheck" />
+    <rule ref="category/java/performance.xml/StringInstantiation" />
+    <rule ref="category/java/performance.xml/StringToString" />
+    <rule ref="category/java/performance.xml/UseArrayListInsteadOfVector" />
+    <rule ref="category/java/performance.xml/UseArraysAsList" />
+    <rule ref="category/java/performance.xml/UseIndexOfChar" />
+    <rule ref="category/java/performance.xml/UseIOStreamsWithApacheCommonsFileItem" />
+    <rule ref="category/java/performance.xml/UselessStringValueOf" />
+    <rule ref="category/java/performance.xml/UseStringBufferForStringAppends" />
+    <rule ref="category/java/performance.xml/UseStringBufferLength" />
+    <rule ref="category/java/performance.xml/AvoidFileStream" />
+    <rule ref="category/java/performance.xml/OptimizableToArrayCall" />
+    <rule ref="category/java/performance.xml/ConsecutiveAppendsShouldReuse" />
+    <rule ref="category/java/performance.xml/InefficientStringBuffering" />
+    <rule ref="category/java/performance.xml/BigIntegerInstantiation">
+        <properties>
+            <!-- Ignore in tests -->
+            <property name="violationSuppressXPath" value="//ClassOrInterfaceDeclaration['.*/src/test/java/.*']"/>
+        </properties>
+    </rule>
+
+
+    <rule ref="category/java/multithreading.xml/AvoidThreadGroup" />
+    <rule ref="category/java/multithreading.xml/DontCallThreadRun" />
+    <rule ref="category/java/multithreading.xml/DoubleCheckedLocking" />
+    <rule ref="category/java/multithreading.xml/NonThreadSafeSingleton" />
+    <rule ref="category/java/multithreading.xml/UnsynchronizedStaticFormatter" />
+    <rule ref="category/java/multithreading.xml/UseNotifyAllInsteadOfNotify" />
+
 
     <!--
         UnusedPrivateMethod has a known bug which leads to false positive triggering if
         method signature contains generic parameter and\or descendant class is passed as parameter.
         See for details: https://github.com/pmd/pmd/issues/770
+        This was fixed in PMD 7.0.0 so should be returned when we upgrade the PMD
     -->
     <!--    <rule ref="category/java/bestpractices.xml/UnusedPrivateMethod" />-->
 
@@ -126,4 +160,7 @@
         </properties>
     </rule>
 
+
+    <!-- exclusions -->
+    <exclude-pattern>.*/src/main/java/com/facebook/presto/.*</exclude-pattern>
 </ruleset>

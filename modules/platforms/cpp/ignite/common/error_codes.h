@@ -147,6 +147,7 @@ enum class code : underlying_t {
     DIRECTORY_CREATION = 0x90002,
     ALREADY_CLOSED = 0x90003,
     STORAGE_REBALANCE = 0x90004,
+    ALREADY_DESTROYED = 0x90005,
 
     // DistributionZones group. Group code: 10
     ZONE_NOT_FOUND = 0xa0001,
