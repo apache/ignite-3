@@ -1473,7 +1473,7 @@ public class TestBuilders {
         ) {
             this.owningNodesBySystemViewName = owningNodesBySystemViewName;
             this.owningNodesByTableName = Map.copyOf(owningNodesByTableName);
-            this.useTablePartitions = true;
+            this.useTablePartitions = useTablePartitions;
         }
 
         @Override
