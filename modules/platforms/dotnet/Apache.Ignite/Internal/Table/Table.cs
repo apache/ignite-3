@@ -209,6 +209,30 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <summary>
+        /// Retrieves non-null partition assignment with retries. Throws if assignment is not available after several attempts.
+        /// </summary>
+        /// <returns>Partition assignment.</returns>
+        internal async ValueTask<string?[]> GetNonNullPartitionAssignmentWithRetryAsync()
+        {
+            int maxAttempts = 8;
+
+            for (int i = 0; i < maxAttempts; i++)
+            {
+                var assignment = await GetPartitionAssignmentAsync().ConfigureAwait(false);
+                if (assignment != null)
+                {
+                    return assignment;
+                }
+
+                // Exponential backoff, delay from 50ms to 6400ms.
+                var delayMs = Math.Pow(2, i) * 50;
+                await Task.Delay(TimeSpan.FromMilliseconds(delayMs)).ConfigureAwait(false);
+            }
+
+            throw new IgniteClientException(ErrorGroups.Client.Protocol, "Failed to get non-null partition assignment");
+        }
+
+        /// <summary>
         /// Gets the partition assignment.
         /// </summary>
         /// <returns>Partition assignment.</returns>

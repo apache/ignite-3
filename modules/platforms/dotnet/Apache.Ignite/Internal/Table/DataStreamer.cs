@@ -67,7 +67,7 @@ internal static class DataStreamer
         Func<PooledArrayBuffer, string, IRetryPolicy, Task> sender,
         RecordSerializer<T> writer,
         Func<int?, Task<Schema>> schemaProvider, // Not a ValueTask because Tasks are cached.
-        Func<ValueTask<string?[]?>> partitionAssignmentProvider,
+        Func<ValueTask<string?[]>> partitionAssignmentProvider,
         DataStreamerOptions options,
         CancellationToken cancellationToken)
     {
@@ -90,7 +90,7 @@ internal static class DataStreamer
 
         // ConcurrentDictionary is not necessary because we consume the source sequentially.
         // However, locking for batches is required due to auto-flush background task.
-        var batches = new Dictionary<string, Batch<T>>();
+        var batches = new Dictionary<int, Batch<T>>();
         var retryPolicy = new RetryLimitPolicy { RetryLimit = options.RetryLimit };
 
         var schema = await schemaProvider(null).ConfigureAwait(false);
@@ -224,7 +224,7 @@ internal static class DataStreamer
             return (batch, nodeName);
         }
 
-        Batch<T> GetOrCreateBatch(string partition)
+        Batch<T> GetOrCreateBatch(int partition)
         {
             ref var batchRef = ref CollectionsMarshal.GetValueRefOrAddDefault(batches, partition, out _);
 
@@ -239,7 +239,7 @@ internal static class DataStreamer
             return batchRef;
         }
 
-        async Task SendAsync(Batch<T> batch, string partition)
+        async Task SendAsync(Batch<T> batch, int partition)
         {
             var expectedSize = batch.Count;
 
@@ -260,7 +260,8 @@ internal static class DataStreamer
                 buf.WriteByte(MsgPackCode.Int32, batch.CountPos);
                 buf.WriteIntBigEndian(batch.Count, batch.CountPos + 1);
 
-                batch.Task = SendAndDisposeBufAsync(buf, partition, batch.Task, batch.Items, batch.Count, batch.SchemaOutdated);
+                var preferredNode = partitionAssignment[partition] ?? string.Empty;
+                batch.Task = SendAndDisposeBufAsync(buf, preferredNode, batch.Task, batch.Items, batch.Count, batch.SchemaOutdated);
 
                 batch.Items = ArrayPool<T>.Shared.Rent(options.PageSize);
                 batch.Count = 0;

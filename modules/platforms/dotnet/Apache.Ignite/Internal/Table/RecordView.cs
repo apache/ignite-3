@@ -311,7 +311,7 @@ namespace Apache.Ignite.Internal.Table
                 },
                 writer: _ser,
                 schemaProvider: _table.GetSchemaAsync,
-                partitionAssignmentProvider: () => _table.GetPartitionAssignmentAsync(),
+                partitionAssignmentProvider: () => _table.GetNonNullPartitionAssignmentWithRetryAsync(),
                 options ?? DataStreamerOptions.Default,
                 cancellationToken).ConfigureAwait(false);
 
