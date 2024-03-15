@@ -191,14 +191,22 @@ public class TestNode implements LifecycleAware {
      * and returns an async cursor representing the result.
      *
      * @param plan A plan to execute.
+     * @param transaction External transaction.
      * @return A cursor representing the result.
      */
     public AsyncCursor<InternalSqlRow> executePlan(QueryPlan plan, @Nullable InternalTransaction transaction) {
         return executionService.executePlan(transaction == null ? new NoOpTransaction(nodeName) : transaction, plan, createContext());
     }
 
+    /**
+     * Executes given plan on a cluster this node belongs to
+     * and returns an async cursor representing the result.
+     *
+     * @param plan A plan to execute.
+     * @return A cursor representing the result.
+     */
     public AsyncCursor<InternalSqlRow> executePlan(QueryPlan plan) {
-        return executionService.executePlan(new NoOpTransaction(nodeName), plan, createContext());
+        return executePlan(plan, null);
     }
 
     /**

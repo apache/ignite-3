@@ -22,10 +22,7 @@ import static org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTes
 import static org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.PLANNING_TIMEOUT;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -109,7 +106,6 @@ import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.systemview.api.SystemView;
-import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.type.BitmaskNativeType;
 import org.apache.ignite.internal.type.DecimalNativeType;
@@ -131,7 +127,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * A collection of builders to create test objects.
  */
-public class TestBuilders extends BaseIgniteAbstractTest {
+public class TestBuilders {
     private static final AtomicInteger TABLE_ID_GEN = new AtomicInteger();
 
     /** Returns a builder of the test cluster object. */
@@ -307,6 +303,17 @@ public class TestBuilders extends BaseIgniteAbstractTest {
         ClusterBuilder nodes(String firstNodeName, String... otherNodeNames);
 
         /**
+         * Sets desired names for the cluster nodes.
+         *
+         * @param firstNodeName A name of the first node. There is no difference in what node should be first. This parameter was
+         *         introduced to force user to provide at least one node name.
+         * @param useTablePartitions If {@code true} map table partitions to whole defined nodes.
+         * @param otherNodeNames An array of rest of the names to create cluster from.
+         * @return {@code this} for chaining.
+         */
+        public ClusterBuilder nodes(String firstNodeName, boolean useTablePartitions, String... otherNodeNames);
+
+        /**
          * Creates a table builder to add to the cluster.
          *
          * @return An instance of table builder.
@@ -338,16 +345,6 @@ public class TestBuilders extends BaseIgniteAbstractTest {
          * @return {@code this} for chaining.
          */
         ClusterBuilder dataProvider(String nodeName, String tableName, ScannableTable table);
-
-        /**
-         * Provides implementation of table with given name local per given node.
-         *
-         * @param nodeNames Names of the nodes given instance of table will be assigned to.
-         * @param tableName Name of the table given instance represents.
-         * @param table Actual table that will be used for read operations during execution.
-         * @return {@code this} for chaining.
-         */
-        ClusterBuilder dataProviders(List<String> nodeNames, String tableName, ScannableTable table);
 
         /**
          * Registers a previously added system view (see {@link #addSystemView(SystemView)}) on the specified node.
@@ -543,6 +540,7 @@ public class TestBuilders extends BaseIgniteAbstractTest {
     private static class ClusterBuilderImpl implements ClusterBuilder {
         private final List<ClusterTableBuilderImpl> tableBuilders = new ArrayList<>();
         private List<String> nodeNames;
+        private boolean useTablePartitions;
         private final Map<String, Map<String, ScannableTable>> nodeName2tableName2table = new HashMap<>();
         private final List<SystemView<?>> systemViews = new ArrayList<>();
         private final Map<String, Set<String>> nodeName2SystemView = new HashMap<>();
@@ -551,6 +549,18 @@ public class TestBuilders extends BaseIgniteAbstractTest {
         @Override
         public ClusterBuilder nodes(String firstNodeName, String... otherNodeNames) {
             this.nodeNames = new ArrayList<>();
+
+            nodeNames.add(firstNodeName);
+            nodeNames.addAll(Arrays.asList(otherNodeNames));
+
+            return this;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public ClusterBuilder nodes(String firstNodeName, boolean useTablePartitions, String... otherNodeNames) {
+            this.nodeNames = new ArrayList<>();
+            this.useTablePartitions = useTablePartitions;
 
             nodeNames.add(firstNodeName);
             nodeNames.addAll(Arrays.asList(otherNodeNames));
@@ -573,15 +583,6 @@ public class TestBuilders extends BaseIgniteAbstractTest {
         @Override
         public ClusterBuilder dataProvider(String nodeName, String tableName, ScannableTable table) {
             nodeName2tableName2table.computeIfAbsent(nodeName, key -> new HashMap<>()).put(tableName, table);
-
-            return this;
-        }
-
-        @Override
-        public ClusterBuilder dataProviders(List<String> nodeNames, String tableName, ScannableTable table) {
-            for (String nodeName : nodeNames) {
-                nodeName2tableName2table.computeIfAbsent(nodeName, key -> new HashMap<>()).put(tableName, table);
-            }
 
             return this;
         }
@@ -654,7 +655,7 @@ public class TestBuilders extends BaseIgniteAbstractTest {
                         var targetProvider = new TestNodeExecutionTargetProvider(
                                 systemViewManager::owningNodes,
                                 owningNodesByTableName,
-                                false
+                                useTablePartitions
                         );
                         var partitionPruner = new PartitionPrunerImpl();
                         var mappingService = new MappingServiceImpl(
@@ -1321,12 +1322,7 @@ public class TestBuilders extends BaseIgniteAbstractTest {
 
                 @Override
                 public UpdatableTable updatableTable() {
-                    UpdatableTable updatableTable = mock(UpdatableTable.class);
-                    when(updatableTable.descriptor()).thenReturn(tableDescriptor());
-                    when(updatableTable.insertAll(any(), any(), any())).thenReturn(nullCompletedFuture());
-                    when(updatableTable.upsertAll(any(), any(), any())).thenReturn(nullCompletedFuture());
-                    when(updatableTable.deleteAll(any(), any(), any())).thenReturn(nullCompletedFuture());
-                    return updatableTable;
+                    throw new UnsupportedOperationException();
                 }
 
                 @Override
@@ -1477,7 +1473,7 @@ public class TestBuilders extends BaseIgniteAbstractTest {
         ) {
             this.owningNodesBySystemViewName = owningNodesBySystemViewName;
             this.owningNodesByTableName = Map.copyOf(owningNodesByTableName);
-            this.useTablePartitions = useTablePartitions;
+            this.useTablePartitions = true;
         }
 
         @Override

@@ -31,8 +31,11 @@ import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexCall;
@@ -156,13 +159,20 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
         List<RexNode> projections = null;
         List<List<RexNode>> expressions = null;
         boolean unionRaised = false;
+        IgniteRel previous = null;
+        private static final Map<Class<?>, Set<Class<?>>> allowRelTransfers = new HashMap<>();
+
+        static {
+            allowRelTransfers.put(IgniteValues.class, Set.of(IgniteProject.class, IgniteExchange.class, IgniteTrimExchange.class));
+            allowRelTransfers.put(IgniteProject.class, Set.of(IgniteTableModify.class, IgniteUnionAll.class, IgniteExchange.class,
+                    IgniteTrimExchange.class));
+            allowRelTransfers.put(IgniteUnionAll.class, Set.of(IgniteProject.class, IgniteTableModify.class));
+        }
 
         /** {@inheritDoc} */
         @Override
         public IgniteRel visit(IgniteProject rel) {
             if (!unionRaised) {
-                // projection before union
-                assert projections == null;
                 // unexpected branch
                 if (projections != null) {
                     throw Util.FoundOne.NULL;
@@ -196,18 +206,21 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
         /** {@inheritDoc} */
         @Override
         public IgniteRel visit(IgniteUnionAll rel) {
-            assert !unionRaised;
             unionRaised = true;
             return super.visit(rel);
         }
 
         @Override
+        protected IgniteRel processNode(IgniteRel rel) {
+            previous = rel;
+            return super.processNode(rel);
+        }
+
+        @Override
         protected void visitChild(IgniteRel parent, int i, IgniteRel child) {
-            if (child instanceof IgniteProject
-                    || child instanceof IgniteValues
-                    || child instanceof IgniteUnionAll
-                    || child instanceof IgniteExchange
-                    || child instanceof IgniteTrimExchange) {
+            if (child instanceof IgniteExchange || child instanceof IgniteTrimExchange) {
+                super.visitChild(parent, i, child);
+            } else if (allowRelTransfers.getOrDefault(child.getClass(), Set.of()).contains(previous.getClass())) {
                 super.visitChild(parent, i, child);
             } else {
                 throw Util.FoundOne.NULL;
