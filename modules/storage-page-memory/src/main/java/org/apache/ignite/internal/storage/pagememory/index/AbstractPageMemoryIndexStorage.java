@@ -36,7 +36,6 @@ import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
-import org.apache.ignite.internal.storage.StorageStates;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.PeekCursor;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
@@ -48,6 +47,7 @@ import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaKey;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.index.meta.UpdateLastRowIdUuidToBuiltInvokeClosure;
 import org.apache.ignite.internal.storage.util.StorageState;
+import org.apache.ignite.internal.storage.util.StorageUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.jetbrains.annotations.Nullable;
 
@@ -149,7 +149,7 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
      * If not already in a terminal state, transitions to the supplied state and returns {@code true}, otherwise just returns {@code false}.
      */
     private boolean transitionToTerminalState(StorageState targetState) {
-        return StorageStates.transitionToTerminalState(targetState, state);
+        return StorageUtils.transitionToTerminalState(targetState, state);
     }
 
     /**

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.util;
 
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
@@ -178,5 +179,24 @@ public class StorageUtils {
 
     private static String createStorageDestroyedErrorMessage(String storageInfo) {
         return IgniteStringFormatter.format("Storage is in the process of being destroyed or destroyed: [{}]", storageInfo);
+    }
+
+    /**
+     * If not already in a terminal state, transitions to the supplied state and returns {@code true}, otherwise just returns {@code false}.
+     */
+    public static boolean transitionToTerminalState(StorageState targetState, AtomicReference<StorageState> stateRef) {
+        assert targetState.isTerminal() : "Not a terminal state: " + targetState;
+
+        while (true) {
+            StorageState previous = stateRef.get();
+
+            if (previous.isTerminal()) {
+                return false;
+            }
+
+            if (stateRef.compareAndSet(previous, targetState)) {
+                return true;
+            }
+        }
     }
 }

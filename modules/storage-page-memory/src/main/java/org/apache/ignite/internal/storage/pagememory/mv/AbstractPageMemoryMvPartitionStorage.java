@@ -48,7 +48,6 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
-import org.apache.ignite.internal.storage.StorageStates;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.storage.gc.GcEntry;
 import org.apache.ignite.internal.storage.index.IndexStorage;
@@ -591,7 +590,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * If not already in a terminal state, transitions to the supplied state and returns {@code true}, otherwise just returns {@code false}.
      */
     private boolean transitionToTerminalState(StorageState targetState) {
-        return StorageStates.transitionToTerminalState(targetState, state);
+        return StorageUtils.transitionToTerminalState(targetState, state);
     }
 
     /**
