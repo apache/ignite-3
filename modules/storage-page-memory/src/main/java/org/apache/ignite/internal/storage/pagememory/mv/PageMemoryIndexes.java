@@ -181,10 +181,12 @@ class PageMemoryIndexes {
     }
 
     private CompletableFuture<Void> destroyStorage(int indexId, AbstractPageMemoryIndexStorage<?, ?> storage, IndexMetaTree indexMetaTree) {
-        storage.transitionToDestroyingState();
+        if (!storage.transitionToDestroyedState()) {
+            return nullCompletedFuture();
+        }
 
         return storage.startDestructionOn(destructionExecutor)
-                .whenComplete((v, e) -> storage.close())
+                .whenComplete((v, e) -> storage.closeStructures())
                 .thenRunAsync(() -> runConsistently.accept(locker -> {
                     try {
                         indexMetaTree.removex(new IndexMetaKey(indexId));
@@ -221,8 +223,8 @@ class PageMemoryIndexes {
         forEachIndex(AbstractPageMemoryIndexStorage::finishCleanup);
     }
 
-    void transitionToDestroyingState() {
-        forEachIndex(AbstractPageMemoryIndexStorage::transitionToDestroyingState);
+    void transitionToDestroyedState() {
+        forEachIndex(AbstractPageMemoryIndexStorage::transitionToDestroyedState);
     }
 
     void updateDataStructures(IndexStorageFactory indexStorageFactory) {

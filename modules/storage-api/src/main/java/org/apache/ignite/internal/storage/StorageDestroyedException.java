@@ -20,16 +20,16 @@ package org.apache.ignite.internal.storage;
 import org.apache.ignite.lang.ErrorGroups.Storage;
 
 /**
- * Exception that is be thrown when trying to access a closed storage.
+ * Exception that is be thrown when trying to access a storage that is being destroyed or is already destroyed.
  */
-public class StorageClosedException extends StorageException {
+public class StorageDestroyedException extends StorageException {
     private static final long serialVersionUID = -7988332521347221109L;
 
     /**
      * Default constructor.
      */
-    public StorageClosedException() {
-        this("Storage is already closed");
+    public StorageDestroyedException() {
+        this("Storage is already destroyed");
     }
 
     /**
@@ -37,7 +37,7 @@ public class StorageClosedException extends StorageException {
      *
      * @param message Error message.
      */
-    public StorageClosedException(String message) {
-        super(Storage.ALREADY_CLOSED_ERR, message);
+    public StorageDestroyedException(String message) {
+        super(Storage.ALREADY_DESTROYED_ERR, message);
     }
 }
