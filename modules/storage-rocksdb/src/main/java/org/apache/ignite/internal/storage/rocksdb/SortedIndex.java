@@ -59,7 +59,7 @@ class SortedIndex extends Index<RocksDbSortedIndexStorage> {
      * Creates a new Sorted Index storage or returns an existing one.
      */
     SortedIndexStorage getOrCreateStorage(RocksDbMvPartitionStorage partitionStorage) {
-        return storages.computeIfAbsent(
+        return storageByPartitionId.computeIfAbsent(
                 partitionStorage.partitionId(),
                 partId -> new RocksDbSortedIndexStorage(descriptor, indexCf, partitionStorage.helper(), indexMetaStorage)
         );
@@ -80,6 +80,6 @@ class SortedIndex extends Index<RocksDbSortedIndexStorage> {
      * @param partitionId Partition ID.
      */
     @Nullable RocksDbSortedIndexStorage get(int partitionId) {
-        return storages.get(partitionId);
+        return storageByPartitionId.get(partitionId);
     }
 }

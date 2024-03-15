@@ -30,7 +30,7 @@ import org.rocksdb.WriteBatch;
  * Represents an index for all its partitions.
  */
 abstract class Index<S extends AbstractRocksDbIndexStorage> {
-    protected final ConcurrentMap<Integer, S> storages = new ConcurrentHashMap<>();
+    final ConcurrentMap<Integer, S> storageByPartitionId = new ConcurrentHashMap<>();
 
     private final int indexId;
 
@@ -43,7 +43,7 @@ abstract class Index<S extends AbstractRocksDbIndexStorage> {
      */
     final void close() {
         try {
-            IgniteUtils.closeAll(storages.values().stream().map(index -> index::close));
+            IgniteUtils.closeAll(storageByPartitionId.values().stream().map(index -> index::close));
         } catch (Exception e) {
             throw new StorageException("Failed to close index storages: " + indexId, e);
         }
@@ -54,7 +54,7 @@ abstract class Index<S extends AbstractRocksDbIndexStorage> {
      */
     void transitionToDestroyedState() {
         try {
-            IgniteUtils.closeAll(storages.values().stream().map(index -> index::transitionToDestroyedState));
+            IgniteUtils.closeAll(storageByPartitionId.values().stream().map(index -> index::transitionToDestroyedState));
         } catch (Exception e) {
             throw new StorageException("Failed to transition index storages to the DESTROYED state: " + indexId, e);
         }
@@ -67,7 +67,7 @@ abstract class Index<S extends AbstractRocksDbIndexStorage> {
      * @throws RocksDBException If failed to delete data.
      */
     void destroy(int partitionId, WriteBatch writeBatch) throws RocksDBException {
-        S hashIndex = storages.remove(partitionId);
+        S hashIndex = storageByPartitionId.remove(partitionId);
 
         if (hashIndex != null) {
             hashIndex.transitionToDestroyedState();

@@ -51,7 +51,7 @@ class HashIndex extends Index<RocksDbHashIndexStorage> {
      * Creates a new Hash Index storage or returns an existing one.
      */
     HashIndexStorage getOrCreateStorage(RocksDbMvPartitionStorage partitionStorage) {
-        return storages.computeIfAbsent(
+        return storageByPartitionId.computeIfAbsent(
                 partitionStorage.partitionId(),
                 partId -> new RocksDbHashIndexStorage(descriptor, indexCf, partitionStorage.helper(), indexMetaStorage)
         );
@@ -73,6 +73,6 @@ class HashIndex extends Index<RocksDbHashIndexStorage> {
      * @param partitionId Partition ID.
      */
     @Nullable RocksDbHashIndexStorage get(int partitionId) {
-        return storages.get(partitionId);
+        return storageByPartitionId.get(partitionId);
     }
 }
