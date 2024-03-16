@@ -603,6 +603,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 metricManager,
                 new SystemViewManagerImpl(name, catalogManager),
                 failureProcessor,
+                partitionIdleSafeTimePropagationPeriodMsSupplier,
                 placementDriverManager.placementDriver(),
                 clusterConfigRegistry.getConfiguration(SqlDistributedConfiguration.KEY),
                 nodeCfgMgr.configurationRegistry().getConfiguration(SqlLocalConfiguration.KEY)

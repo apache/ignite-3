@@ -50,6 +50,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongFunction;
+import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.calcite.schema.SchemaPlus;
@@ -213,6 +214,8 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** Distributed catalog manager. */
     private final CatalogManager catalogManager;
 
+    private final LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier;
+
     /** Metric manager. */
     private final MetricManager metricManager;
 
@@ -244,6 +247,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             MetricManager metricManager,
             SystemViewManager systemViewManager,
             FailureProcessor failureProcessor,
+            LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier,
             PlacementDriver placementDriver,
             SqlDistributedConfiguration clusterCfg,
             SqlLocalConfiguration nodeCfg
@@ -262,6 +266,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.metricManager = metricManager;
         this.systemViewManager = systemViewManager;
         this.failureProcessor = failureProcessor;
+        this.partitionIdleSafeTimePropagationPeriodMsSupplier = partitionIdleSafeTimePropagationPeriodMsSupplier;
         this.placementDriver = placementDriver;
         this.clusterCfg = clusterCfg;
         this.nodeCfg = nodeCfg;
@@ -310,7 +315,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         this.prepareSvc = prepareSvc;
 
-        var ddlCommandHandler = new DdlCommandHandler(catalogManager, clockWaiter);
+        var ddlCommandHandler = new DdlCommandHandler(catalogManager, clockWaiter, partitionIdleSafeTimePropagationPeriodMsSupplier);
 
         var executableTableRegistry = new ExecutableTableRegistryImpl(
                 tableManager, schemaManager, sqlSchemaManager, replicaService, clock, TABLE_CACHE_SIZE

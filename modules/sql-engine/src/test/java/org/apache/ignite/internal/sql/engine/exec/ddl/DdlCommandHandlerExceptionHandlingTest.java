@@ -51,7 +51,7 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
         catalogManager = createTestCatalogManager("test", clock);
         assertThat(catalogManager.start(), willCompleteSuccessfully());
 
-        commandHandler = new DdlCommandHandler(catalogManager, new ClockWaiter("test", clock));
+        commandHandler = new DdlCommandHandler(catalogManager, new ClockWaiter("test", clock), () -> 100);
     }
 
     @AfterEach

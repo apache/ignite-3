@@ -51,7 +51,7 @@ public class DistributionZoneDdlCommandHandlerTest extends IgniteAbstractTest {
     void before() {
         catalogManager = mock(CatalogManager.class, invocation -> nullCompletedFuture());
 
-        commandHandler = new DdlCommandHandler(catalogManager, mock(ClockWaiter.class, invocation -> nullCompletedFuture()));
+        commandHandler = new DdlCommandHandler(catalogManager, mock(ClockWaiter.class, invocation -> nullCompletedFuture()), () -> 100);
     }
 
     @Test

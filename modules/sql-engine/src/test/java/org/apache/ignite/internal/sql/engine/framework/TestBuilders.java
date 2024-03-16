@@ -609,7 +609,7 @@ public class TestBuilders {
 
             Runnable initClosure = () -> initAction(catalogManager);
 
-            var ddlHandler = new DdlCommandHandler(catalogManager, new ClockWaiter("test", clock));
+            var ddlHandler = new DdlCommandHandler(catalogManager, new ClockWaiter("test", clock), () -> 100);
             var schemaManager = new SqlSchemaManagerImpl(catalogManager, CaffeineCacheFactory.INSTANCE, 0);
 
             List<LogicalNode> logicalNodes = nodeNames.stream()

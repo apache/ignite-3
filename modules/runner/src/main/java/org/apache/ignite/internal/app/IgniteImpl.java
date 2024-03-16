@@ -774,6 +774,7 @@ public class IgniteImpl implements Ignite {
                 metricManager,
                 systemViewManager,
                 failureProcessor,
+                partitionIdleSafeTimePropagationPeriodMsSupplier,
                 placementDriverMgr.placementDriver(),
                 clusterConfigRegistry.getConfiguration(SqlDistributedConfiguration.KEY),
                 nodeConfigRegistry.getConfiguration(SqlLocalConfiguration.KEY)

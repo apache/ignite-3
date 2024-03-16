@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec.ddl;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.clusterWideEnsuredActivationTsSafeForRoReads;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
@@ -26,6 +27,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.function.BiFunction;
+import java.util.function.LongSupplier;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.ClockWaiter;
@@ -42,7 +44,6 @@ import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.MakeIndexAvailableEventParameters;
 import org.apache.ignite.internal.catalog.events.RemoveIndexEventParameters;
 import org.apache.ignite.internal.event.EventListener;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterColumnCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableAddCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableDropCommand;
@@ -63,12 +64,19 @@ public class DdlCommandHandler {
 
     private final ClockWaiter clockWaiter;
 
+    private final LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier;
+
     /**
      * Constructor.
      */
-    public DdlCommandHandler(CatalogManager catalogManager, ClockWaiter clockWaiter) {
+    public DdlCommandHandler(
+            CatalogManager catalogManager,
+            ClockWaiter clockWaiter,
+            LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier
+    ) {
         this.catalogManager = catalogManager;
         this.clockWaiter = clockWaiter;
+        this.partitionIdleSafeTimePropagationPeriodMsSupplier = partitionIdleSafeTimePropagationPeriodMsSupplier;
     }
 
     /** Handles ddl commands. */
@@ -242,10 +250,8 @@ public class DdlCommandHandler {
         Catalog catalog = catalogManager.catalog(catalogVersion);
         assert catalog != null;
 
-        clockWaiter.waitFor(HybridTimestamp.hybridTimestamp(catalog.time()))
-                .whenComplete((res, ex) -> {
-                    future.complete(null);
-                });
+        clockWaiter.waitFor(clusterWideEnsuredActivationTsSafeForRoReads(catalog, partitionIdleSafeTimePropagationPeriodMsSupplier))
+                .whenComplete((res, ex) -> future.complete(null));
     }
 
     /** Handles drop index command. */
