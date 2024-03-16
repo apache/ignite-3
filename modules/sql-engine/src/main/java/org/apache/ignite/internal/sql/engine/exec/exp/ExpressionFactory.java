@@ -122,6 +122,15 @@ public interface ExpressionFactory<RowT> {
             @Nullable Comparator<RowT> comparator
     );
 
+    RangeIterable<RowT> ranges(
+            List<SearchBounds> searchBounds,
+            RelDataType rowType,
+            @Nullable Comparator<RowT> comparator,
+            @Nullable RelCollation collation
+    );
+
+
+
     /**
      * Executes expression.
      */
