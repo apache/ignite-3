@@ -56,6 +56,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Test class for scenarios related to dropping of indices, executed on a multiple node cluster.
  */
+@SuppressWarnings("resource")
 public class ItDropIndexMultipleNodesTest extends BaseSqlIntegrationTest {
     private static final String TABLE_NAME = "TEST";
 
@@ -234,9 +235,6 @@ public class ItDropIndexMultipleNodesTest extends BaseSqlIntegrationTest {
     void testDropIndexAfterRegistering() {
         CatalogManager catalogManager = CLUSTER.aliveNode().catalogManager();
 
-        // We are going to block index building.
-        setAwaitIndexAvailability(false);
-
         populateTable();
 
         CompletableFuture<Void> indexRemovedFuture = indexRemovedFuture();
@@ -262,9 +260,6 @@ public class ItDropIndexMultipleNodesTest extends BaseSqlIntegrationTest {
 
     @Test
     void testDropIndexDuringBuilding() {
-        // We are going to block index building.
-        setAwaitIndexAvailability(false);
-
         populateTable();
 
         // Block index building messages, this way index will never become AVAILABLE.

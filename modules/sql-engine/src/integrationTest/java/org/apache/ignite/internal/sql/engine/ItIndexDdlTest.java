@@ -119,8 +119,6 @@ public class ItIndexDdlTest extends ClusterPerClassIntegrationTest {
 
     @Test
     public void createIndexFutureCompletesWhenIndexBecomesAvailable() {
-        setAwaitIndexAvailability(false);
-
         CompletableFuture<Void> creationFuture = preventingIndexBuild(() -> {
             CompletableFuture<Void> future = runAsync(() -> tryToCreateIndex(TABLE_NAME, INDEX_NAME, true));
 
@@ -135,8 +133,6 @@ public class ItIndexDdlTest extends ClusterPerClassIntegrationTest {
 
     @Test
     public void createIndexFutureCompletesWhenIndexGetsDropped() {
-        setAwaitIndexAvailability(false);
-
         // Prevent index build by starting a transaction.
         Transaction tx = CLUSTER.aliveNode().transactions().begin(new TransactionOptions().readOnly(false));
 

@@ -46,7 +46,6 @@ import org.apache.ignite.internal.table.distributed.replication.request.BuildInd
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /** Integration test for testing the building of an index in a single node cluster. */
@@ -60,11 +59,6 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
     @Override
     protected int initialNodes() {
         return 1;
-    }
-
-    @BeforeEach
-    void setup() {
-        setAwaitIndexAvailability(false);
     }
 
     @AfterEach

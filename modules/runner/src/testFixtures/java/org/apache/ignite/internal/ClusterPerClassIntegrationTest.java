@@ -29,11 +29,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParametersBuilder;
@@ -41,7 +38,6 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
@@ -53,9 +49,7 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.TestInstance;
 
@@ -91,13 +85,6 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     /** Work directory. */
     @WorkDirectory
     protected static Path WORK_DIR;
-
-    /** Reset {@link #AWAIT_INDEX_AVAILABILITY}. */
-    @BeforeEach
-    @AfterEach
-    void resetIndexAvailabilityFlag() {
-        setAwaitIndexAvailability(DEFAULT_WAIT_FOR_INDEX_AVAILABLE);
-    }
 
     /**
      * Before all.
@@ -380,13 +367,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     }
 
     protected static List<List<Object>> sql(int nodeIndex, @Nullable Transaction tx, @Nullable ZoneId zoneId, String sql, Object[] args) {
-        IgniteImpl node = CLUSTER.node(nodeIndex);
-
-        if (!AWAIT_INDEX_AVAILABILITY.get()) {
-            return sql(node, tx, zoneId, sql, args);
-        } else {
-            return executeAwaitingIndexes(node, (n) -> sql(n, tx, zoneId, sql, args));
-        }
+        return sql(CLUSTER.node(nodeIndex), tx, zoneId, sql, args);
     }
 
     private static List<List<Object>> getAllResultSet(ResultSet<SqlRow> resultSet) {
@@ -453,57 +434,6 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
             TimeUnit.MILLISECONDS.sleep(delay);
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
-        }
-    }
-
-    private static List<List<Object>> executeAwaitingIndexes(IgniteImpl node, Function<IgniteImpl, List<List<Object>>> statement) {
-        CatalogManager catalogManager = node.catalogManager();
-
-        // Get existing indexes
-        Set<Integer> existing = catalogManager.indexes(catalogManager.latestCatalogVersion()).stream()
-                .map(CatalogObjectDescriptor::id)
-                .collect(Collectors.toSet());
-
-        List<List<Object>> result = statement.apply(node);
-
-        // Get indexes after a statement and compute the difference
-        List<Integer> difference = catalogManager.indexes(catalogManager.latestCatalogVersion()).stream()
-                .map(CatalogObjectDescriptor::id)
-                .filter(id -> !existing.contains(id))
-                .collect(Collectors.toList());
-
-        if (difference.isEmpty()) {
-            return result;
-        }
-
-        // If there are new indexes, wait for them to become available.
-        HybridClock clock = node.clock();
-
-        try {
-            assertTrue(waitForCondition(
-                    () -> {
-                        // Using the timestamp instead of the latest Catalog version, because the index update is set in the future and
-                        // we must wait for the activation delay to pass.
-                        long now = clock.nowLong();
-
-                        return difference.stream()
-                                .map(id -> catalogManager.index(id, now))
-                                .allMatch(indexDescriptor -> indexDescriptor != null && indexDescriptor.status() == AVAILABLE);
-                    },
-                    10_000L
-            ));
-
-            // We have no knowledge whether the next transaction is readonly or not,
-            // so we have to assume that the next transaction is read only transaction.
-            // otherwise the statements in that transaction may not observe
-            // the latest catalog version.
-            waitForReadTimestampThatObservesMostRecentCatalog();
-
-            return result;
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-
-            throw new IllegalStateException(e);
         }
     }
 
