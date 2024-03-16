@@ -83,7 +83,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     /** Cluster nodes. */
     protected static Cluster CLUSTER;
 
-    private static final boolean DEFAULT_WAIT_FOR_INDEX_AVAILABLE = true;
+    private static final boolean DEFAULT_WAIT_FOR_INDEX_AVAILABLE = false;
 
     /** Whether to wait for indexes to become available or not. Default is {@code true}. */
     private static final AtomicBoolean AWAIT_INDEX_AVAILABILITY = new AtomicBoolean(DEFAULT_WAIT_FOR_INDEX_AVAILABLE);
