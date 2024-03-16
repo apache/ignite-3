@@ -85,6 +85,7 @@ import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
+import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.MakeIndexAvailableEventParameters;
@@ -1705,11 +1706,15 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     private static CompletableFuture<Void> createTableInCatalog(CatalogManager catalogManager, String tableName, String zoneName) {
         var tableColumn = ColumnParams.builder().name("id").type(INT32).build();
 
+        TableHashPrimaryKey primaryKey = TableHashPrimaryKey.builder()
+                .columns(List.of("id"))
+                .build();
+
         var createTableCommand = CreateTableCommand.builder()
                 .schemaName("PUBLIC")
                 .tableName(tableName)
                 .columns(List.of(tableColumn))
-                .primaryKeyColumns(List.of("id"))
+                .primaryKey(primaryKey)
                 .zone(zoneName)
                 .build();
 
