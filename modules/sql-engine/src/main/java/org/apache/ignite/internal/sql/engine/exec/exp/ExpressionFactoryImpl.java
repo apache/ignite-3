@@ -908,8 +908,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         }
 
         boolean valid() {
-            // TODO Ensure that upperBound >= lowerBound.
-            return true;
+            return compareBounds(lower(), lowerInclude(), upper(), upperInclude()) <= 0;
         }
 
         /** Range intersects another range. */

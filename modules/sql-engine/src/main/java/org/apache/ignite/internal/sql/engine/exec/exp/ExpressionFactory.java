@@ -122,14 +122,20 @@ public interface ExpressionFactory<RowT> {
             @Nullable Comparator<RowT> comparator
     );
 
+    /**
+     * Creates iterable search bounds tuples (lower row/upper row) by search bounds expressions.
+     *
+     * @param searchBounds Search bounds.
+     * @param rowType Row type.
+     * @param comparator Comparator to return bounds in particular order.
+     * @param collation Index collation.
+     */
     RangeIterable<RowT> ranges(
             List<SearchBounds> searchBounds,
             RelDataType rowType,
             @Nullable Comparator<RowT> comparator,
             @Nullable RelCollation collation
     );
-
-
 
     /**
      * Executes expression.
