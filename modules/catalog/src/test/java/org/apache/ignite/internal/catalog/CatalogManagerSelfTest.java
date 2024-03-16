@@ -218,6 +218,22 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     }
 
     @Test
+    public void assignsSuccessiveCatalogVersions() {
+        CompletableFuture<Integer> version1Future = manager.execute(simpleTable(TABLE_NAME));
+        assertThat(version1Future, willCompleteSuccessfully());
+
+        CompletableFuture<Integer> version2Future = manager.execute(simpleIndex());
+        assertThat(version2Future, willCompleteSuccessfully());
+
+        CompletableFuture<Integer> version3Future = manager.execute(simpleTable(TABLE_NAME_2));
+        assertThat(version3Future, willCompleteSuccessfully());
+
+        assertThat(version1Future.join(), is(1));
+        assertThat(version2Future.join(), is(2));
+        assertThat(version3Future.join(), is(3));
+    }
+
+    @Test
     public void testNoInteractionsAfterStop() throws Exception {
         clearInvocations(updateLog);
 
