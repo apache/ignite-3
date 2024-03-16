@@ -199,6 +199,7 @@ public class DdlCommandHandler {
         CompletableFuture<Void> future = new CompletableFuture<>();
 
         Catalog catalog = catalogManager.catalog(creationCatalogVersion);
+        assert catalog != null : creationCatalogVersion;
 
         CatalogSchemaDescriptor schema = catalog.schema(cmd.schemaName());
         assert schema != null : cmd.schemaName();
@@ -217,7 +218,7 @@ public class DdlCommandHandler {
 
         EventListener<CatalogEventParameters> removalListener = event -> {
             if (((RemoveIndexEventParameters) event).indexId() == index.id()) {
-                completeFutureWhenEventVersionActivates(future, event);
+                future.complete(null);
             }
 
             return falseCompletedFuture();
@@ -229,8 +230,12 @@ public class DdlCommandHandler {
         int latestVersion = catalogManager.latestCatalogVersion();
         for (int version = creationCatalogVersion + 1; version <= latestVersion; version++) {
             CatalogIndexDescriptor indexAtVersion = catalogManager.index(index.id(), version);
-            if (indexAtVersion == null || indexAtVersion.status().isAvailableOrLater()) {
+            if (indexAtVersion == null) {
                 // It's already removed.
+                future.complete(null);
+                break;
+            } else if (indexAtVersion.status().isAvailableOrLater()) {
+                // It was already made available.
                 completeFutureWhenEventVersionActivates(future, version);
                 break;
             }
