@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsSu
 
 import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
-import org.apache.ignite.sql.Session;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
@@ -35,18 +34,16 @@ public class ItKeyValueGetTest extends BaseSqlIntegrationTest {
     @BeforeAll
     @SuppressWarnings({"ConcatenationWithEmptyString", "resource"})
     static void initSchema() {
-        try (Session session = CLUSTER.aliveNode().sql().createSession()) {
-            session.executeScript(""
-                    + "CREATE TABLE simple_key (id INT PRIMARY KEY, val INT);"
-                    + "CREATE TABLE complex_key_normal_order (id1 INT, id2 INT, val INT, PRIMARY KEY(id1, id2));"
-                    + "CREATE TABLE complex_key_revers_order (id1 INT, id2 INT, val INT, PRIMARY KEY(id2, id1));"
-                    + ""
-                    + "INSERT INTO simple_key SELECT x, x FROM TABLE(system_range(1, ?));"
-                    + "INSERT INTO complex_key_normal_order SELECT x, 2 * x, x FROM TABLE(system_range(1, ?));"
-                    + "INSERT INTO complex_key_revers_order SELECT x, 2 * x, x FROM TABLE(system_range(1, ?));",
-                    TABLE_SIZE, TABLE_SIZE, TABLE_SIZE
-            );
-        }
+        CLUSTER.aliveNode().sql().executeScript(""
+                + "CREATE TABLE simple_key (id INT PRIMARY KEY, val INT);"
+                + "CREATE TABLE complex_key_normal_order (id1 INT, id2 INT, val INT, PRIMARY KEY(id1, id2));"
+                + "CREATE TABLE complex_key_revers_order (id1 INT, id2 INT, val INT, PRIMARY KEY(id2, id1));"
+                + ""
+                + "INSERT INTO simple_key SELECT x, x FROM TABLE(system_range(1, ?));"
+                + "INSERT INTO complex_key_normal_order SELECT x, 2 * x, x FROM TABLE(system_range(1, ?));"
+                + "INSERT INTO complex_key_revers_order SELECT x, 2 * x, x FROM TABLE(system_range(1, ?));",
+                TABLE_SIZE, TABLE_SIZE, TABLE_SIZE
+        );
     }
 
     @RepeatedTest(3)

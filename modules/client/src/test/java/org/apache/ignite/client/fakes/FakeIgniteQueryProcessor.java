@@ -79,7 +79,7 @@ public class FakeIgniteQueryProcessor implements QueryProcessor {
         }
 
         sb.append(']').append(", ")
-                .append("defaultSchema=").append(properties.get(DEFAULT_SCHEMA)).append(", ")
+                .append("defaultSchema=").append(properties.getOrDefault(DEFAULT_SCHEMA, "<not set>")).append(", ")
                 .append("defaultQueryTimeout=").append(properties.get(QUERY_TIMEOUT));
 
         lastScript = sb.toString();

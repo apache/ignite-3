@@ -22,8 +22,8 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
@@ -63,7 +63,7 @@ public class SqlPartitionPruningBenchmark extends AbstractMultiNodeBenchmark {
     @Param({"1", "2", "3"})
     private int clusterSize;
 
-    private Session session;
+    private IgniteSql sql;
 
     /** Creates tables. */
     @Setup
@@ -100,18 +100,16 @@ public class SqlPartitionPruningBenchmark extends AbstractMultiNodeBenchmark {
         initTable("usertable2", 10);
         initTable("usertable3", 1);
 
-        session = clusterNode.sql().createSession();
+        sql = clusterNode.sql();
     }
 
     private static void initTable(String tableName, int fieldCount) {
         KeyValueView<Tuple, Tuple> keyValueView = clusterNode.tables().table(tableName).keyValueView();
 
-        try (Session session = clusterNode.sql().createSession()) {
-            String query = format("CREATE INDEX {}_sorted_idx ON {} USING TREE (key1, key2)", tableName, tableName);
-            try (var rs = session.execute(null, query)) {
-                while (rs.hasNext()) {
-                    rs.next();
-                }
+        String query = format("CREATE INDEX {}_sorted_idx ON {} USING TREE (key1, key2)", tableName, tableName);
+        try (var rs = clusterNode.sql().execute(null, query)) {
+            while (rs.hasNext()) {
+                rs.next();
             }
         }
 
@@ -136,7 +134,7 @@ public class SqlPartitionPruningBenchmark extends AbstractMultiNodeBenchmark {
         ThreadLocalRandom random = ThreadLocalRandom.current();
         int key = random.nextInt(TABLE_SIZE);
 
-        try (var rs = session.execute(null, "SELECT * FROM usertable2 WHERE key1=? and key2=?", key, key)) {
+        try (var rs = sql.execute(null, "SELECT * FROM usertable2 WHERE key1=? and key2=?", key, key)) {
             expectSingleRecord(rs, bh);
         }
     }
@@ -147,7 +145,7 @@ public class SqlPartitionPruningBenchmark extends AbstractMultiNodeBenchmark {
         ThreadLocalRandom random = ThreadLocalRandom.current();
         int key = random.nextInt(TABLE_SIZE);
 
-        try (var rs = session.execute(null, "SELECT * FROM usertable2 WHERE key1=?", key)) {
+        try (var rs = sql.execute(null, "SELECT * FROM usertable2 WHERE key1=?", key)) {
             expectSingleRecord(rs, bh);
         }
     }
@@ -158,7 +156,7 @@ public class SqlPartitionPruningBenchmark extends AbstractMultiNodeBenchmark {
         ThreadLocalRandom random = ThreadLocalRandom.current();
         int key = random.nextInt(TABLE_SIZE);
 
-        try (var rs = session.execute(null, "SELECT * FROM usertable2 WHERE key1 >= ? and key1 < ?", key, key + 1)) {
+        try (var rs = sql.execute(null, "SELECT * FROM usertable2 WHERE key1 >= ? and key1 < ?", key, key + 1)) {
             expectSingleRecord(rs, bh);
         }
     }
@@ -172,7 +170,7 @@ public class SqlPartitionPruningBenchmark extends AbstractMultiNodeBenchmark {
         String query = "SELECT * FROM usertable2 as cor WHERE EXISTS "
                 + "(SELECT 1 FROM usertable3 WHERE usertable3.key1 = cor.key1) AND key1=?";
 
-        try (var rs = session.execute(null, query, key)) {
+        try (var rs = sql.execute(null, query, key)) {
             expectSingleRecord(rs, bh);
         }
     }
@@ -186,7 +184,7 @@ public class SqlPartitionPruningBenchmark extends AbstractMultiNodeBenchmark {
         String query = "SELECT * FROM usertable2 as cor WHERE EXISTS "
                 + "(SELECT 1 FROM usertable3 WHERE usertable3.key1 >= cor.key1 AND usertable3.key1 < cor.key1 + 1) AND key1=?";
 
-        try (var rs = session.execute(null, query, key)) {
+        try (var rs = sql.execute(null, query, key)) {
             expectSingleRecord(rs, bh);
         }
     }
