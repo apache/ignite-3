@@ -211,10 +211,11 @@ public class DdlCommandHandler implements LifecycleAware {
         assert catalog != null : creationCatalogVersion;
 
         CatalogSchemaDescriptor schema = catalog.schema(cmd.schemaName());
-        assert schema != null : cmd.schemaName();
+        assert schema != null : "Did not find schema " + cmd.schemaName() + " in version " + creationCatalogVersion;
 
         CatalogIndexDescriptor index = schema.aliveIndex(cmd.indexName());
-        assert index != null : cmd.indexName();
+        assert index != null
+                : "Did not find index " + cmd.indexName() + " in schema " + cmd.schemaName() + " in version " + creationCatalogVersion;
 
         EventListener<CatalogEventParameters> availabilityListener = event -> {
             if (((MakeIndexAvailableEventParameters) event).indexId() == index.id()) {
