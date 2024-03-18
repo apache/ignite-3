@@ -24,6 +24,7 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_PROFILE_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getZoneIdStrict;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractPartitionNumber;
@@ -158,6 +159,7 @@ import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.rest.configuration.RestConfiguration;
 import org.apache.ignite.internal.schema.SchemaManager;
@@ -673,7 +675,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         // Write the new assignments to metastore as a pending assignments.
         {
-            TablePartitionId partId = new TablePartitionId(getTableId(node, TABLE_NAME), 0);
+            ZonePartitionId partId = new ZonePartitionId(getZoneIdStrict(node.catalogManager, ZONE_NAME, node.hybridClock.nowLong()), 0);
 
             ByteArray partAssignmentsPendingKey = pendingPartAssignmentsKey(partId);
 
@@ -731,7 +733,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         Set<Assignment> newAssignment = Set.of(Assignment.forPeer(newNodeNameForAssignment));
 
         // Write the new assignments to metastore as a pending assignments.
-        TablePartitionId partId = new TablePartitionId(getTableId(node, TABLE_NAME), 0);
+        ZonePartitionId partId = new ZonePartitionId(getZoneIdStrict(node.catalogManager, ZONE_NAME, node.hybridClock.nowLong()), 0);
 
         ByteArray partAssignmentsPendingKey = pendingPartAssignmentsKey(partId);
 
@@ -798,7 +800,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         Node node0 = getNode(0);
 
-        TablePartitionId partId = new TablePartitionId(getTableId(node0, TABLE_NAME), 0);
+        ZonePartitionId partId = new ZonePartitionId(getZoneIdStrict(node0.catalogManager, ZONE_NAME, node0.hybridClock.nowLong()), 0);
 
         ByteArray partAssignmentsPendingKey = pendingPartAssignmentsKey(partId);
         ByteArray partAssignmentsPlannedKey = plannedPartAssignmentsKey(partId);
@@ -816,7 +818,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             verify(getNode(i).raftManager, timeout(AWAIT_TIMEOUT_MILLIS).times(1))
                     .startRaftGroupNodeWithoutService(any(), any(), any(), any(), any(RaftGroupOptions.class));
             verify(getNode(i).replicaManager, timeout(AWAIT_TIMEOUT_MILLIS).times(1))
-                    .startReplica(any(), any(), any(), any());
+                    .startReplica(any(), any(), any(), any(), any());
         }
     }
 
@@ -876,40 +878,40 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     }
 
     private static Set<Assignment> getPartitionClusterNodes(Node node, String tableName, int partNum) {
-        return Optional.ofNullable(getTableId(node, tableName))
-                .map(tableId -> partitionAssignments(node.metaStorageManager, tableId, partNum).join())
+        return Optional.ofNullable(getTableZoneId(node, tableName))
+                .map(zoneId -> partitionAssignments(node.metaStorageManager, zoneId, partNum)
+                        .thenApply(a -> a == null ? Set.<Assignment>of() : a).join()
+                )
                 .orElse(Set.of());
     }
 
     private static Set<Assignment> getPartitionPendingClusterNodes(Node node, int partNum) {
-        return Optional.ofNullable(getTableId(node, TABLE_NAME))
-                .map(tableId -> partitionPendingAssignments(node.metaStorageManager, tableId, partNum).join())
-                .orElse(Set.of());
+        return partitionPendingAssignments(node.metaStorageManager, getZoneId(node, ZONE_NAME), partNum)
+                .thenApply(a -> a == null ? Set.<Assignment>of() : a).join();
     }
 
     private static Set<Assignment> getPartitionPlannedClusterNodes(Node node, int partNum) {
-        return Optional.ofNullable(getTableId(node, TABLE_NAME))
-                .map(tableId -> partitionPlannedAssignments(node.metaStorageManager, tableId, partNum).join())
-                .orElse(Set.of());
+        return partitionPlannedAssignments(node.metaStorageManager, getZoneId(node, ZONE_NAME), partNum)
+                .thenApply(a -> a == null ? Set.<Assignment>of() : a).join();
     }
 
     private static CompletableFuture<Set<Assignment>> partitionPendingAssignments(
             MetaStorageManager metaStorageManager,
-            int tableId,
+            int zoneId,
             int partitionNumber
     ) {
         return metaStorageManager
-                .get(pendingPartAssignmentsKey(new TablePartitionId(tableId, partitionNumber)))
+                .get(pendingPartAssignmentsKey(new ZonePartitionId(zoneId, partitionNumber)))
                 .thenApply(e -> (e.value() == null) ? null : Assignments.fromBytes(e.value()).nodes());
     }
 
     private static CompletableFuture<Set<Assignment>> partitionPlannedAssignments(
             MetaStorageManager metaStorageManager,
-            int tableId,
+            int zoneId,
             int partitionNumber
     ) {
         return metaStorageManager
-                .get(plannedPartAssignmentsKey(new TablePartitionId(tableId, partitionNumber)))
+                .get(plannedPartAssignmentsKey(new ZonePartitionId(zoneId, partitionNumber)))
                 .thenApply(e -> (e.value() == null) ? null : Assignments.fromBytes(e.value()).nodes());
     }
 
@@ -1552,6 +1554,12 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         return TableTestUtils.getTableId(node.catalogManager, tableName, node.hybridClock.nowLong());
     }
 
+    private static @Nullable Integer getTableZoneId(Node node, String tableName) {
+        CatalogTableDescriptor tblDesc = TableTestUtils.getTable(node.catalogManager, tableName, node.hybridClock.nowLong());
+
+        return tblDesc == null ? null : tblDesc.zoneId();
+    }
+
     private Node getNode(int nodeIndex) {
         return nodes.get(nodeIndex);
     }
@@ -1566,5 +1574,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         for (Node node : nodes) {
             assertEquals(expNodeCount, getPartitionClusterNodes(node, tableName, partitionId).size(), node.name);
         }
+    }
+
+    private static int getZoneId(Node node, String zoneName) {
+        return getZoneIdStrict(node.catalogManager, zoneName, node.hybridClock.nowLong());
     }
 }

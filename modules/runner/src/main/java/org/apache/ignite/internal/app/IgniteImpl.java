@@ -63,6 +63,7 @@ import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationConfiguration;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.sql.IgniteCatalogSqlImpl;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterInitializer;
@@ -157,6 +158,7 @@ import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.storage.impl.VolatileLogStorageFactoryCreator;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.rest.RestComponent;
 import org.apache.ignite.internal.rest.RestFactory;
@@ -309,7 +311,7 @@ public class IgniteImpl implements Ignite {
     private final ClusterInitializer clusterInitializer;
 
     /** Replica manager. */
-    private final ReplicaManager replicaMgr;
+    private ReplicaManager replicaMgr = null;
 
     /** Transactions manager. */
     private final TxManager txManager;
@@ -354,7 +356,7 @@ public class IgniteImpl implements Ignite {
 
     private final IgniteDeployment deploymentManager;
 
-    private final DistributionZoneManager distributionZoneManager;
+    private DistributionZoneManager distributionZoneManager = null;
 
     /** Creator for volatile {@link org.apache.ignite.internal.raft.storage.LogStorageFactory} instances. */
     private final VolatileLogStorageFactoryCreator volatileLogStorageFactoryCreator;
@@ -587,6 +589,19 @@ public class IgniteImpl implements Ignite {
 
         Consumer<LongFunction<CompletableFuture<?>>> registry = c -> metaStorageMgr.registerRevisionUpdateListener(c::apply);
 
+        ReplicationConfiguration replicationConfig = clusterConfigRegistry.getConfiguration(ReplicationConfiguration.KEY);
+
+        LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier = partitionIdleSafeTimePropagationPeriodMsSupplier(replicationConfig);
+
+        LongSupplier delayDurationMsSupplier = delayDurationMsSupplier(schemaSyncConfig);
+
+        CatalogManagerImpl catalogManager = new CatalogManagerImpl(
+                new UpdateLogImpl(metaStorageMgr),
+                clockService,
+                delayDurationMsSupplier,
+                partitionIdleSafeTimePropagationPeriodMsSupplier
+        );
+
         placementDriverMgr = new PlacementDriverManager(
                 name,
                 metaStorageMgr,
@@ -596,10 +611,18 @@ public class IgniteImpl implements Ignite {
                 logicalTopologyService,
                 raftMgr,
                 topologyAwareRaftGroupServiceFactory,
-                clockService
-        );
+                clockService,
+                tablePartId -> {
+                    CatalogTableDescriptor tbl = catalogManager.table(tablePartId.tableId(), catalogManager.latestCatalogVersion());
 
-        ReplicationConfiguration replicationConfig = clusterConfigRegistry.getConfiguration(ReplicationConfiguration.KEY);
+                    int zoneId = tbl == null ? 2 : tbl.zoneId();
+
+                    return new ZonePartitionId(
+                            zoneId,
+                            tablePartId.partitionId()
+                    );
+                }
+        );
 
         ReplicaService replicaSvc = new ReplicaService(
                 messagingServiceReturningToStorageOperationsPool,
@@ -607,8 +630,6 @@ public class IgniteImpl implements Ignite {
                 threadPoolsManager.partitionOperationsExecutor(),
                 replicationConfig
         );
-
-        LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier = partitionIdleSafeTimePropagationPeriodMsSupplier(replicationConfig);
 
         replicaMgr = new ReplicaManager(
                 name,
@@ -652,16 +673,6 @@ public class IgniteImpl implements Ignite {
         volatileLogStorageFactoryCreator = new VolatileLogStorageFactoryCreator(name, workDir.resolve("volatile-log-spillout"));
 
         outgoingSnapshotsManager = new OutgoingSnapshotsManager(name, clusterSvc.messagingService());
-
-        LongSupplier delayDurationMsSupplier = delayDurationMsSupplier(schemaSyncConfig);
-
-        CatalogManagerImpl catalogManager = new CatalogManagerImpl(
-                new UpdateLogImpl(metaStorageMgr),
-                clockService,
-                delayDurationMsSupplier,
-                partitionIdleSafeTimePropagationPeriodMsSupplier
-        );
-
         systemViewManager = new SystemViewManagerImpl(name, catalogManager);
         nodeAttributesCollector.register(systemViewManager);
         logicalTopology.addEventListener(systemViewManager);

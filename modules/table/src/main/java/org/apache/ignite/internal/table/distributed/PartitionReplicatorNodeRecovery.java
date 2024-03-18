@@ -40,7 +40,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
@@ -127,13 +127,13 @@ class PartitionReplicatorNodeRecovery {
     /**
      * Returns a future that completes with a decision: should we start the corresponding group locally or not.
      *
-     * @param tablePartitionId ID of the table partition.
+     * @param zonePartitionId ID of the zone partition.
      * @param internalTable Table we are working with.
      * @param newConfiguration New configuration that is going to be applied if we'll start the group.
      * @param localMemberAssignment Assignment of this node in this group.
      */
     CompletableFuture<Boolean> shouldStartGroup(
-            TablePartitionId tablePartitionId,
+            ZonePartitionId zonePartitionId,
             InternalTable internalTable,
             PeersAndLearners newConfiguration,
             Assignment localMemberAssignment
@@ -141,7 +141,7 @@ class PartitionReplicatorNodeRecovery {
         // If Raft is running in in-memory mode or the PDS has been cleared, we need to remove the current node
         // from the Raft group in order to avoid the double vote problem.
         if (mightNeedGroupRecovery(internalTable)) {
-            return performGroupRecovery(tablePartitionId, newConfiguration, localMemberAssignment);
+            return performGroupRecovery(zonePartitionId, newConfiguration, localMemberAssignment, internalTable.tableId());
         }
 
         return trueCompletedFuture();
@@ -154,12 +154,12 @@ class PartitionReplicatorNodeRecovery {
     }
 
     private CompletableFuture<Boolean> performGroupRecovery(
-            TablePartitionId tablePartitionId,
+            ZonePartitionId zonePartitionId,
             PeersAndLearners newConfiguration,
-            Assignment localMemberAssignment
+            Assignment localMemberAssignment,
+            int tableId
     ) {
-        int tableId = tablePartitionId.tableId();
-        int partId = tablePartitionId.partitionId();
+        int partId = zonePartitionId.partitionId();
 
         // No majority and not a full partition restart - need to 'remove, then add' nodes
         // with current partition.
@@ -174,7 +174,7 @@ class PartitionReplicatorNodeRecovery {
                     boolean majorityAvailable = dataNodesCount >= (newConfiguration.peers().size() / 2) + 1;
 
                     if (majorityAvailable) {
-                        RebalanceUtilEx.startPeerRemoval(tablePartitionId, localMemberAssignment, metaStorageManager);
+                        RebalanceUtilEx.startPeerRemoval(zonePartitionId, localMemberAssignment, metaStorageManager);
 
                         return false;
                     } else {

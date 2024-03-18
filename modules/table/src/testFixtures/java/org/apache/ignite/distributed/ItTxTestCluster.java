@@ -98,6 +98,7 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
@@ -682,6 +683,7 @@ public class ItTxTestCluster {
 
                                 replicaManagers.get(assignment).startReplica(
                                         new TablePartitionId(tableId, partId),
+                                        new ZonePartitionId(globalCatalogId.incrementAndGet(), partId),
                                         listener,
                                         raftSvc,
                                         storageIndexTracker

@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.event.AbstractEventProducer;
@@ -32,6 +33,7 @@ import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 
 /**
  * Fake placement driver.
@@ -136,6 +138,25 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
             public HybridTimestamp getExpirationTime() {
                 return HybridTimestamp.MAX_VALUE;
             }
+
+            @Override
+            public Set<ReplicationGroupId> subgroups() {
+                return null;
+            }
         };
+    }
+
+    @Override
+    public CompletableFuture<Void> addSubgroups(
+            ZonePartitionId zoneId,
+            Long enlistmentConsistencyToken,
+            Set<ReplicationGroupId> subGrps
+    ) {
+        return nullCompletedFuture();
+    }
+
+    @Override
+    public ReplicaMeta getLeaseMeta(ReplicationGroupId grpId) {
+        return null;
     }
 }

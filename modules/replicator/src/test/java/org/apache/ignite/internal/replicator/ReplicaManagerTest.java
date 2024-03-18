@@ -151,9 +151,11 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
         replicaManager.listen(BEFORE_REPLICA_STOPPED, removeReplicaListener);
 
         var groupId = new TablePartitionId(0, 0);
+        var zonePartId = new ZonePartitionId(0, 0);
 
         CompletableFuture<Replica> startReplicaFuture = replicaManager.startReplica(
                 groupId,
+                zonePartId,
                 replicaListener,
                 raftGroupService,
                 new PendingComparableValuesTracker<>(0L)

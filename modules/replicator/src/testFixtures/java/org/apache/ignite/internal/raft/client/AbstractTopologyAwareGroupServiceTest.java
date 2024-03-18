@@ -55,7 +55,8 @@ import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
-import org.apache.ignite.internal.replicator.TestReplicationGroupId;
+import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.topology.LogicalTopologyServiceTestImpl;
@@ -88,7 +89,9 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
     /** Wait timeout, in milliseconds. */
     protected static final int WAIT_TIMEOUT_MILLIS = 10_000;
 
-    protected static final TestReplicationGroupId GROUP_ID = new TestReplicationGroupId("group_1");
+    protected static final TablePartitionId GROUP_ID = new TablePartitionId(1, 1);
+
+    protected static final ZonePartitionId ZONE_GROUP_ID = new ZonePartitionId(1, 1);
 
     /** RPC executor. */
     protected final ScheduledExecutorService executor = new ScheduledThreadPoolExecutor(

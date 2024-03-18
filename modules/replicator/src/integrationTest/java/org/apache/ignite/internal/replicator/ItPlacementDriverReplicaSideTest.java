@@ -101,7 +101,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
     private static final int BASE_PORT = 1234;
 
-    private static final TestReplicationGroupId GROUP_ID = new TestReplicationGroupId("group_1");
+    private static final TablePartitionId GROUP_ID = new TablePartitionId(1, 0);
 
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
@@ -482,6 +482,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                 try {
                     return replicaManager.startReplica(
                             groupId,
+                            new ZonePartitionId(0, 0),
                             (request, senderId) -> {
                                 log.info("Handle request [type={}]", request.getClass().getSimpleName());
 

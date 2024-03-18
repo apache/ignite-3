@@ -21,7 +21,9 @@ import static org.apache.ignite.internal.hlc.HybridTimestamp.MAX_VALUE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.MIN_VALUE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.Set;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -128,5 +130,10 @@ public class TestReplicaMetaImpl implements ReplicaMeta {
     @Override
     public HybridTimestamp getExpirationTime() {
         return expirationTime;
+    }
+
+    @Override
+    public Set<ReplicationGroupId> subgroups() {
+        return null;
     }
 }

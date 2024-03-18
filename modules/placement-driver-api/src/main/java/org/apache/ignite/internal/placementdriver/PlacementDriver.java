@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.placementdriver;
 
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.event.EventProducer;
@@ -24,6 +25,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -88,4 +90,23 @@ public interface PlacementDriver extends EventProducer<PrimaryReplicaEvent, Prim
      */
     @Nullable
     ReplicaMeta currentLease(ReplicationGroupId groupId);
+
+    /**
+     * Gets a cached lease by a zone replication group.
+     *
+     * @param grpId Replication group id.
+     * @return Lease or {@code null}.
+     */
+    ReplicaMeta getLeaseMeta(ReplicationGroupId grpId);
+
+    /**
+     * Tries to update the lease in order to include the new subgroup.
+     * TODO: When replicas are started by zone, the method is removed.
+     *
+     * @param zoneId Zone id.
+     * @param enlistmentConsistencyToken Lease token.
+     * @param subGrps Table ids.
+     * @return Future to complete.
+     */
+    CompletableFuture<Void> addSubgroups(ZonePartitionId zoneId, Long enlistmentConsistencyToken, Set<ReplicationGroupId> subGrps);
 }

@@ -23,6 +23,11 @@ import static java.util.Collections.unmodifiableMap;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.MIN_VALUE;
+import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
+import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
+import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
+import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
+import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_LEASES_KEY;
 import static org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED;
 import static org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED;
@@ -35,17 +40,19 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -60,6 +67,9 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.PendingIndependentComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
@@ -99,6 +109,8 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
     /** Cluster node resolver. */
     private final ClusterNodeResolver clusterNodeResolver;
 
+    private final Function<TablePartitionId, ZonePartitionId> tablePartIdToZoneIdProvider;
+
     private final ClockService clockService;
 
     /**
@@ -107,10 +119,16 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
      * @param msManager Meta storage manager.
      * @param clockService Clock service.
      */
-    public LeaseTracker(MetaStorageManager msManager, ClusterNodeResolver clusterNodeResolver, ClockService clockService) {
+    public LeaseTracker(
+            MetaStorageManager msManager,
+            ClusterNodeResolver clusterNodeResolver,
+            ClockService clockService,
+            Function<TablePartitionId, ZonePartitionId> tablePartIdToZoneIdProvider
+    ) {
         this.msManager = msManager;
         this.clusterNodeResolver = clusterNodeResolver;
         this.clockService = clockService;
+        this.tablePartIdToZoneIdProvider = tablePartIdToZoneIdProvider;
     }
 
     /**
@@ -124,6 +142,78 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
 
             loadLeasesBusyAsync(recoveryRevision);
         });
+    }
+
+    @Override
+    public CompletableFuture<Void> addSubgroups(
+            ZonePartitionId zoneId,
+            Long enlistmentConsistencyToken,
+            Set<ReplicationGroupId> subGrps
+    ) {
+        if (leases.leaseByGroupId().get(zoneId).subgroups().containsAll(subGrps)) {
+            return nullCompletedFuture();
+        }
+
+        CompletableFuture<Void> resultFut = new CompletableFuture<>();
+
+        Leases leasesCurrent = leases;
+        Map<ReplicationGroupId, Lease> previousLeasesMap = leasesCurrent.leaseByGroupId();
+        Map<ReplicationGroupId, Lease> renewedLeases = new HashMap<>(previousLeasesMap);
+
+        Lease previousLease = previousLeasesMap.get(zoneId);
+
+        if (previousLease != null && enlistmentConsistencyToken.equals(previousLease.getStartTime().longValue())) {
+            HashSet<ReplicationGroupId> subgroups = new HashSet<>(previousLease.subgroups());
+
+            subgroups.addAll(subGrps);
+
+            renewedLeases.put(zoneId, new Lease(
+                    previousLease.getLeaseholder(),
+                    previousLease.getLeaseholderId(),
+                    previousLease.getStartTime(),
+                    previousLease.getExpirationTime(),
+                    previousLease.isProlongable(),
+                    previousLease.isAccepted(),
+                    null,
+                    previousLease.replicationGroupId(),
+                    subgroups));
+        } else {
+            resultFut.completeExceptionally(new PrimaryReplicaMissException(
+                    "localNode.name()",
+                    null,
+                    "localNode.id()",
+                    null,
+                    null,
+                    null,
+                    null
+            ));
+        }
+
+        byte[] renewedValue = new LeaseBatch(renewedLeases.values()).bytes();
+
+        msManager.invoke(
+                or(notExists(PLACEMENTDRIVER_LEASES_KEY), value(PLACEMENTDRIVER_LEASES_KEY).eq(leasesCurrent.leasesBytes())),
+                put(PLACEMENTDRIVER_LEASES_KEY, renewedValue),
+                noop()
+        ).whenComplete((invokeResult, throwable) -> {
+            if (throwable != null) {
+                resultFut.completeExceptionally(throwable);
+            }
+
+            if (invokeResult) {
+                resultFut.complete(null);
+            } else {
+                addSubgroups(zoneId, enlistmentConsistencyToken, subGrps).whenComplete((unused, throwable1) -> {
+                    if (throwable1 != null) {
+                        resultFut.completeExceptionally(throwable1);
+                    }
+
+                    resultFut.complete(null);
+                });
+            }
+        });
+
+        return resultFut;
     }
 
     /** Stops the tracker. */
@@ -147,8 +237,14 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
 
     @Override
     public ReplicaMeta currentLease(ReplicationGroupId groupId) {
+        assert groupId instanceof TablePartitionId : "Unexpected replication group type [grp=" + groupId + "].";
+
+        var tblPartId = (TablePartitionId) groupId;
+
+        ReplicationGroupId groupId0 = tablePartIdToZoneIdProvider.apply(tblPartId);
+
         return inBusyLock(busyLock, () -> {
-            Lease lease = getLease(groupId);
+            Lease lease = getLease(groupId0);
 
             return lease.isAccepted() ? lease : null;
         });
@@ -161,6 +257,8 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
      * @return A lease is associated with the group.
      */
     public Lease getLease(ReplicationGroupId grpId) {
+        assert grpId instanceof ZonePartitionId : "Unexpected replication group type [grp=" + grpId + "].";
+
         Leases leases = this.leases;
 
         assert leases != null : "Leases not initialized, probably the local placement driver actor hasn't started lease tracking.";
@@ -168,6 +266,13 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
         Lease lease = leases.leaseByGroupId().get(grpId);
 
         return lease == null ? emptyLease(grpId) : lease;
+    }
+
+    @Override
+    public ReplicaMeta getLeaseMeta(ReplicationGroupId grpId) {
+        Lease lease = getLease(grpId);
+
+        return lease.isAccepted() ? lease : null;
     }
 
     /** Returns collection of leases, ordered by replication group. */
@@ -181,7 +286,7 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
         public CompletableFuture<Void> onUpdate(WatchEvent event) {
             return inBusyLockAsync(busyLock, () -> {
                 List<CompletableFuture<?>> fireEventFutures = new ArrayList<>();
-                List<Lease> expiredLeases = new ArrayList<>();
+                HashMap<ReplicationGroupId, Lease> expiredLeases = new HashMap<>();
 
                 for (EntryEvent entry : event.entryEvents()) {
                     Entry msEntry = entry.newEntry();
@@ -198,35 +303,43 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
 
                         leasesMap.put(grpId, lease);
 
+                        Lease previousLease = previousLeasesMap.get(grpId);
+
                         if (lease.isAccepted()) {
                             primaryReplicaWaiters
                                     .computeIfAbsent(grpId, groupId -> new PendingIndependentComparableValuesTracker<>(MIN_VALUE))
                                     .update(lease.getExpirationTime(), lease);
 
-                            if (needFireEventReplicaBecomePrimary(previousLeasesMap.get(grpId), lease)) {
-                                fireEventFutures.add(fireEventReplicaBecomePrimary(event.revision(), lease));
+                            for (ReplicationGroupId groupToNotify : needFireEventReplicaBecomePrimary(previousLease, lease)) {
+                                fireEventFutures.add(fireEventReplicaBecomePrimary(groupToNotify, event.revision(), lease));
                             }
                         }
 
-                        if (needToFireEventReplicaExpired(grpId, lease)) {
-                            expiredLeases.add(leases.leaseByGroupId().get(grpId));
+                        if (previousLease != null && previousLease.isAccepted()) {
+                            for (ReplicationGroupId groupToNotify : needFireEventReplicaExpired(previousLease, lease)) {
+                                expiredLeases.put(groupToNotify, previousLease);
+                            }
                         }
                     }
 
-                    for (ReplicationGroupId grpId : leases.leaseByGroupId().keySet()) {
+                    for (ReplicationGroupId grpId : previousLeasesMap.keySet()) {
                         if (!leasesMap.containsKey(grpId)) {
                             tryRemoveTracker(grpId);
 
-                            if (needToFireEventReplicaExpired(grpId, null)) {
-                                expiredLeases.add(leases.leaseByGroupId().get(grpId));
+                            Lease previousLease = previousLeasesMap.get(grpId);
+
+                            if (previousLease.isAccepted()) {
+                                for (ReplicationGroupId groupToNotify : needFireEventReplicaExpired(previousLease, null)) {
+                                    expiredLeases.put(groupToNotify, previousLease);
+                                }
                             }
                         }
                     }
 
                     leases = new Leases(unmodifiableMap(leasesMap), leasesBytes);
 
-                    for (Lease expiredLease : expiredLeases) {
-                        firePrimaryReplicaExpiredEvent(event.revision(), expiredLease);
+                    for (Map.Entry<ReplicationGroupId, Lease> expiredLease : expiredLeases.entrySet()) {
+                        fireEventPrimaryReplicaExpired(expiredLease.getKey(), event.revision(), expiredLease.getValue());
                     }
                 }
 
@@ -259,6 +372,7 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
                         resultFuture.complete(replicaMeta);
                     }
                 })
+
         );
     }
 
@@ -269,25 +383,37 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
             long timeout,
             TimeUnit unit
     ) {
+        assert groupId instanceof TablePartitionId : "Unexpected replication group type [grp=" + groupId + "].";
+
+        var tblPartId = (TablePartitionId) groupId;
+
+        ReplicationGroupId groupId0 = tablePartIdToZoneIdProvider.apply(tblPartId);
+
         CompletableFuture<ReplicaMeta> future = new CompletableFuture<>();
 
-        awaitPrimaryReplica(groupId, timestamp, future);
+        awaitPrimaryReplica(groupId0, timestamp, future);
 
         return future
                 .orTimeout(timeout, unit)
                 .exceptionally(e -> {
                     if (e instanceof TimeoutException) {
-                        throw new PrimaryReplicaAwaitTimeoutException(groupId, timestamp, leases.leaseByGroupId().get(groupId), e);
+                        throw new PrimaryReplicaAwaitTimeoutException(groupId0, timestamp, leases.leaseByGroupId().get(groupId0), e);
                     }
 
-                    throw new PrimaryReplicaAwaitException(groupId, timestamp, e);
+                    throw new PrimaryReplicaAwaitException(groupId0, timestamp, e);
                 });
     }
 
     @Override
-    public CompletableFuture<ReplicaMeta> getPrimaryReplica(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp) {
+    public CompletableFuture<ReplicaMeta> getPrimaryReplica(ReplicationGroupId groupId, HybridTimestamp timestamp) {
+        assert groupId instanceof TablePartitionId : "Unexpected replication group type [grp=" + groupId + "].";
+
+        var tblPartId = (TablePartitionId) groupId;
+
+        ReplicationGroupId groupId0 = tablePartIdToZoneIdProvider.apply(tblPartId);
+
         return inBusyLockAsync(busyLock, () -> {
-            Lease lease = getLease(replicationGroupId);
+            Lease lease = getLease(groupId0);
 
             if (lease.isAccepted() && clockService.after(lease.getExpirationTime(), timestamp)) {
                 return completedFuture(lease);
@@ -297,7 +423,7 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
                     .clusterTime()
                     .waitFor(timestamp.addPhysicalTime(clockService.maxClockSkewMillis()))
                     .thenApply(ignored -> inBusyLock(busyLock, () -> {
-                        Lease lease0 = getLease(replicationGroupId);
+                        Lease lease0 = getLease(groupId0);
 
                         if (lease0.isAccepted() && clockService.after(lease0.getExpirationTime(), timestamp)) {
                             return lease0;
@@ -361,51 +487,62 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
     /**
      * Fires the primary replica expire event if it needs.
      *
-     * @param grpId Group id, used for the cases when the {@code lease} parameter is null. Should be always not null.
-     * @param lease Lease to check on expiration.
-     * @return Whether the event is needed.
+     * @param previousLease Lease to check on expiration.
+     * @param newLease A new lease.
+     * @return Collection of replication group ids, which are needed to be notified.
      */
-    private boolean needToFireEventReplicaExpired(ReplicationGroupId grpId, @Nullable Lease lease) {
-        assert lease == null || lease.replicationGroupId().equals(grpId)
-                : IgniteStringFormatter.format("Group id mismatch [groupId={}, lease={}]", grpId, lease);
+    private Set<ReplicationGroupId> needFireEventReplicaExpired(Lease previousLease, @Nullable Lease newLease) {
+        assert previousLease.isAccepted() : previousLease;
 
-        Lease currentLease = leases.leaseByGroupId().get(grpId);
-
-        if (currentLease != null && currentLease.isAccepted()) {
-            boolean sameLease = lease != null && currentLease.getStartTime().equals(lease.getStartTime());
-
-            if (!sameLease) {
-                return true;
-            }
+        if (newLease == null || !newLease.isAccepted() || !newLease.getStartTime().equals(previousLease.getStartTime())) {
+            return previousLease.subgroups();
         }
 
-        return false;
+        Set<ReplicationGroupId> needToBeNotified = new HashSet<>(previousLease.subgroups());
+
+        needToBeNotified.removeAll(newLease.subgroups());
+
+        return needToBeNotified;
     }
 
     /**
      * Fires the primary replica expire event.
      *
+     * @param groupId Replication group id.
      * @param causalityToken Causality token.
      * @param expiredLease Expired lease.
      */
-    private void firePrimaryReplicaExpiredEvent(long causalityToken, Lease expiredLease) {
-        ReplicationGroupId grpId = expiredLease.replicationGroupId();
-
-        CompletableFuture<Void> prev = expirationFutureByGroup.put(grpId, fireEvent(
+    private void fireEventPrimaryReplicaExpired(ReplicationGroupId groupId, long causalityToken, Lease expiredLease) {
+        CompletableFuture<Void> fut = fireEvent(
                 PRIMARY_REPLICA_EXPIRED,
                 new PrimaryReplicaEventParameters(
                         causalityToken,
-                        grpId,
+                        groupId,
                         expiredLease.getLeaseholderId(),
                         expiredLease.getLeaseholder(),
                         expiredLease.getStartTime()
                 )
-        ));
+        );
 
-        assert prev == null || prev.isDone() : "Previous lease expiration process has not completed yet [grpId=" + grpId + ']';
+        CompletableFuture<Void> prev = expirationFutureByGroup.put(
+                groupId,
+                fut
+        );
+
+        assert prev == null || prev.isDone() :
+                "Previous lease expiration process has not completed yet [grpId=" + expiredLease.replicationGroupId()
+                        + ", subGrpId=" + groupId + ']';
     }
 
-    private CompletableFuture<Void> fireEventReplicaBecomePrimary(long causalityToken, Lease lease) {
+    /**
+     * Fires the replica become primary event.
+     *
+     * @param groupId Replication group id.
+     * @param causalityToken Causality token.
+     * @param lease A new lease.
+     * @return Future to notification complete.
+     */
+    private CompletableFuture<Void> fireEventReplicaBecomePrimary(ReplicationGroupId groupId, long causalityToken, Lease lease) {
         String leaseholderId = lease.getLeaseholderId();
 
         assert leaseholderId != null : lease;
@@ -414,7 +551,7 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
                 PRIMARY_REPLICA_ELECTED,
                 new PrimaryReplicaEventParameters(
                         causalityToken,
-                        lease.replicationGroupId(),
+                        groupId,
                         leaseholderId,
                         lease.getLeaseholder(),
                         lease.getStartTime()
@@ -427,11 +564,19 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
      *
      * @param previousLease Previous group lease, {@code null} if absent.
      * @param newLease New group lease.
-     * @return {@code true} if there is no previous lease for the group or the new lease is not prolongation.
+     * @return Collection of replication group ids, which are needed to be notified.
      */
-    private static boolean needFireEventReplicaBecomePrimary(@Nullable Lease previousLease, Lease newLease) {
+    private static Set<ReplicationGroupId> needFireEventReplicaBecomePrimary(@Nullable Lease previousLease, Lease newLease) {
         assert newLease.isAccepted() : newLease;
 
-        return previousLease == null || !previousLease.isAccepted() || !previousLease.getStartTime().equals(newLease.getStartTime());
+        if (previousLease == null || !previousLease.isAccepted() || !previousLease.getStartTime().equals(newLease.getStartTime())) {
+            return newLease.subgroups();
+        }
+
+        Set<ReplicationGroupId> needToBeNotified = new HashSet<>(newLease.subgroups());
+
+        needToBeNotified.removeAll(previousLease.subgroups());
+
+        return needToBeNotified;
     }
 }

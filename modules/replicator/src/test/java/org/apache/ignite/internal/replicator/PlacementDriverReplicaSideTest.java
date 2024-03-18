@@ -117,6 +117,7 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
 
         return new Replica(
                 GRP_ID,
+                new ZonePartitionId(1, 0),
                 mock(ReplicaListener.class),
                 storageIndexTracker,
                 raftClient,
@@ -172,7 +173,7 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
                 .force(force)
                 .build();
 
-        return replica.processPlacementDriverMessage(msg).thenApply(LeaseGrantedMessageResponse.class::cast);
+        return replica.processPlacementDriverMessage(msg);
     }
 
     private HybridTimestamp hts(long physical) {

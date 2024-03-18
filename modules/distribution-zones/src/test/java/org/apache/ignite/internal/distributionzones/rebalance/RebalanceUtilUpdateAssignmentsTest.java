@@ -20,7 +20,7 @@ package org.apache.ignite.internal.distributionzones.rebalance;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.affinity.AffinityUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.affinity.Assignments.toBytes;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -39,8 +39,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.Assignments;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -59,9 +58,8 @@ import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -85,16 +83,16 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
 
     private MetaStorageManager metaStorageManager;
 
-    private final CatalogTableDescriptor tableDescriptor = new CatalogTableDescriptor(
+    private final CatalogZoneDescriptor zoneDescriptor = new CatalogZoneDescriptor(
             1,
-            -1,
-            -1,
-            "table1",
+            "TEST_ZONE",
+            1,
+            1,
             0,
-            List.of(new CatalogTableColumnDescriptor("k1", ColumnType.INT32, false, 0, 0, 0, null)),
-            List.of("k1"),
-            null,
-            DEFAULT_STORAGE_PROFILE
+            0,
+            0,
+            DEFAULT_FILTER,
+            null
     );
 
     private static final int partNum = 2;
@@ -470,7 +468,7 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
             Set<Assignment> expectedPendingAssignments,
             Set<Assignment> expectedPlannedAssignments
     ) {
-        TablePartitionId tablePartitionId = new TablePartitionId(1, 1);
+        ZonePartitionId tablePartitionId = new ZonePartitionId(1, 1);
 
         if (currentStableAssignments != null) {
             keyValueStorage.put(RebalanceUtil.stablePartAssignmentsKey(tablePartitionId).bytes(), toBytes(currentStableAssignments),
@@ -488,7 +486,7 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         }
 
         RebalanceUtil.updatePendingAssignmentsKeys(
-                tableDescriptor, tablePartitionId, nodesForNewAssignments,
+                zoneDescriptor, tablePartitionId, nodesForNewAssignments,
                 replicas, 1, metaStorageManager, partNum, tableCfgAssignments
         );
 

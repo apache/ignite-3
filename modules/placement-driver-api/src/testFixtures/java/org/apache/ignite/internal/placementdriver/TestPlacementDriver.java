@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
@@ -29,6 +30,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.TestOnly;
 
@@ -102,5 +104,19 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
 
     public void setPrimaryReplicaSupplier(Supplier<? extends ReplicaMeta> primaryReplicaSupplier) {
         this.primaryReplicaSupplier = primaryReplicaSupplier;
+    }
+
+    @Override
+    public CompletableFuture<Void> addSubgroups(
+            ZonePartitionId zoneId,
+            Long enlistmentConsistencyToken,
+            Set<ReplicationGroupId> subGrps
+    ) {
+        return nullCompletedFuture();
+    }
+
+    @Override
+    public ReplicaMeta getLeaseMeta(ReplicationGroupId grpId) {
+        return null;
     }
 }

@@ -29,6 +29,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -45,6 +46,7 @@ import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.placementdriver.leases.LeaseBatch;
 import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.network.ClusterNodeResolver;
 import org.junit.jupiter.api.Test;
@@ -73,7 +75,8 @@ public class LeaseTrackerTest extends BaseIgniteAbstractTest {
         LeaseTracker leaseTracker = new LeaseTracker(
                 msManager,
                 mock(ClusterNodeResolver.class),
-                new TestClockService(new HybridClockImpl())
+                new TestClockService(new HybridClockImpl()),
+                tablePartitionId -> new ZonePartitionId(tablePartitionId.tableId(), tablePartitionId.partitionId())
         );
         leaseTracker.startTrack(0L);
 
@@ -94,7 +97,7 @@ public class LeaseTrackerTest extends BaseIgniteAbstractTest {
 
         Lease lease0 = new Lease(leaseholder0, leaseholder0 + "_id", startTime, expirationTime, partId0);
         Lease lease1 = new Lease(leaseholder1, leaseholder1 + "_id", startTime, expirationTime, partId1)
-                .acceptLease(new HybridTimestamp(2000, 0));
+                .acceptLease(new HybridTimestamp(2000, 0), Set.of(partId1));
 
         // In entry0, there are leases for partition ids partId0 and partId1. In entry1, there is only partId0, so partId1 is expired.
         Entry entry0 = new EntryImpl(PLACEMENTDRIVER_LEASES_KEY.bytes(), new LeaseBatch(List.of(lease0, lease1)).bytes(), 0, 0);
