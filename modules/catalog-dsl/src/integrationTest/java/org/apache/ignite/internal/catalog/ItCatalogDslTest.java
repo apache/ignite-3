@@ -29,6 +29,7 @@ import java.util.UUID;
 import org.apache.ignite.catalog.ColumnType;
 import org.apache.ignite.catalog.IgniteCatalog;
 import org.apache.ignite.catalog.SortOrder;
+import org.apache.ignite.catalog.ZoneEngine;
 import org.apache.ignite.catalog.annotations.Column;
 import org.apache.ignite.catalog.annotations.ColumnRef;
 import org.apache.ignite.catalog.annotations.Id;
@@ -72,7 +73,13 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
     @Test
     void zoneCreateAndDropByDefinition() {
         // Given zone definition
-        ZoneDefinition zoneDefinition = ZoneDefinition.builder(ZONE_NAME).build();
+        ZoneDefinition zoneDefinition = ZoneDefinition.builder(ZONE_NAME)
+                .affinity("affinity")
+                .dataNodesAutoAdjust(1)
+                .filter("filter")
+                .engine(ZoneEngine.AIMEM)
+                .dataRegion("dataRegion")
+                .build();
 
         // When create zone from definition
         catalog().createZone(zoneDefinition).execute();

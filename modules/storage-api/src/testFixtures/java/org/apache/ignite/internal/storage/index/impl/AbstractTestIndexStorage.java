@@ -21,7 +21,7 @@ import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.StorageClosedException;
+import org.apache.ignite.internal.storage.StorageDestroyedException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.util.Cursor;
@@ -31,7 +31,7 @@ import org.jetbrains.annotations.Nullable;
  * Test-only abstract index storage class.
  */
 abstract class AbstractTestIndexStorage implements IndexStorage {
-    private volatile boolean closed;
+    private volatile boolean destroyed;
 
     private volatile boolean rebalance;
 
@@ -107,7 +107,7 @@ abstract class AbstractTestIndexStorage implements IndexStorage {
     }
 
     public void destroy() {
-        closed = true;
+        destroyed = true;
 
         clear0();
     }
@@ -154,8 +154,8 @@ abstract class AbstractTestIndexStorage implements IndexStorage {
     }
 
     void checkStorageClosed() {
-        if (closed) {
-            throw new StorageClosedException();
+        if (destroyed) {
+            throw new StorageDestroyedException();
         }
     }
 

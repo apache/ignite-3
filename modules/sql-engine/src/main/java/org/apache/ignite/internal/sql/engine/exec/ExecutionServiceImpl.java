@@ -823,13 +823,12 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 FragmentDescription desc,
                 TxAttributes txAttributes
         ) {
-            // Because fragment execution runs on specific thread selected by taskExecutor,
-            // we should complete dependency resolution on the same thread
-            // that is going to be used for fragment execution.
-            ExecutionContext<RowT> context = createContext(initiatorNode, desc, txAttributes);
-            Executor exec = (r) -> context.execute(r::run, err -> handleError(err, initiatorNode, desc.fragmentId()));
-
             try {
+                // Because fragment execution runs on specific thread selected by taskExecutor,
+                // we should complete dependency resolution on the same thread
+                // that is going to be used for fragment execution.
+                ExecutionContext<RowT> context = createContext(initiatorNode, desc, txAttributes);
+                Executor exec = (r) -> context.execute(r::run, err -> handleError(err, initiatorNode, desc.fragmentId()));
                 IgniteRel treeRoot = relationalTreeFromJsonString(schemaVersion, fragmentString, ctx);
 
                 dependencyResolver.resolveDependencies(List.of(treeRoot), schemaVersion)
@@ -839,7 +838,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
                             return null;
                         });
-            } catch (Exception ex) {
+            } catch (Throwable ex) {
                 handleError(ex, initiatorNode, desc.fragmentId());
             }
         }

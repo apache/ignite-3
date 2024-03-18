@@ -116,7 +116,7 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
      */
     public void startTrack(long recoveryRevision) {
         inBusyLock(busyLock, () -> {
-            msManager.registerPrefixWatch(PLACEMENTDRIVER_LEASES_KEY, updateListener);
+            msManager.registerExactWatch(PLACEMENTDRIVER_LEASES_KEY, updateListener);
 
             loadLeasesBusyAsync(recoveryRevision);
         });

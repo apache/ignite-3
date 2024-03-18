@@ -23,7 +23,10 @@ import org.apache.ignite.internal.cli.call.configuration.NodeConfigShowCallInput
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.node.NodeUrlMixin;
 import org.apache.ignite.internal.cli.commands.questions.ConnectToClusterQuestion;
+import org.apache.ignite.internal.cli.config.CliConfigKeys;
+import org.apache.ignite.internal.cli.config.ConfigManagerProvider;
 import org.apache.ignite.internal.cli.core.flow.builder.Flows;
+import org.apache.ignite.internal.cli.decorators.JsonDecorator;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
 import picocli.CommandLine.Parameters;
@@ -47,6 +50,9 @@ public class NodeConfigShowReplCommand extends BaseCommand implements Runnable {
     @Inject
     private ConnectToClusterQuestion question;
 
+    @Inject
+    private ConfigManagerProvider configManagerProvider;
+
     /** {@inheritDoc} */
     @Override
     public void run() {
@@ -54,11 +60,15 @@ public class NodeConfigShowReplCommand extends BaseCommand implements Runnable {
                 .map(this::nodeConfigShowCallInput)
                 .then(Flows.fromCall(call))
                 .verbose(verbose)
-                .print()
+                .print(new JsonDecorator(isHighlightEnabled()))
                 .start();
     }
 
     private NodeConfigShowCallInput nodeConfigShowCallInput(String nodeUrl) {
         return NodeConfigShowCallInput.builder().selector(selector).nodeUrl(nodeUrl).build();
+    }
+
+    private boolean isHighlightEnabled() {
+        return Boolean.parseBoolean(configManagerProvider.get().getCurrentProperty(CliConfigKeys.SYNTAX_HIGHLIGHTING.value()));
     }
 }

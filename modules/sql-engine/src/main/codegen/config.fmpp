@@ -40,6 +40,8 @@ data: {
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateTable",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateIndex",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateTableOption",
+      "org.apache.ignite.internal.sql.engine.sql.IgniteSqlPrimaryKeyConstraint",
+      "org.apache.ignite.internal.sql.engine.sql.IgniteSqlPrimaryKeyIndexType",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateZone",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOption",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropIndex",
@@ -64,6 +66,7 @@ data: {
       "INDEX"
       "ENGINE"
       "TREE"
+      "SORTED"
       "HASH"
       "RENAME"
       "UUID"
@@ -75,6 +78,7 @@ data: {
       # Keywords introduced by Ignite
       "ENGINE"
       "TREE"
+      "SORTED"
       "HASH"
       "UUID"
 

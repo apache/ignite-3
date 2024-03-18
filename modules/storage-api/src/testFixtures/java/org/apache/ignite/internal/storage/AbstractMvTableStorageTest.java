@@ -88,6 +88,8 @@ import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Abstract class that contains tests for {@link MvTableStorage} implementations.
@@ -270,8 +272,9 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     /**
      * Tests destroying an index.
      */
-    @Test
-    public void testDestroyIndex() throws Exception {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    public void testDestroyIndex(boolean waitForDestroyFuture) throws Exception {
         MvPartitionStorage partitionStorage = getOrCreateMvPartition(PARTITION_ID);
 
         SortedIndexStorage sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx);
@@ -283,12 +286,23 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         CompletableFuture<Void> destroySortedIndexFuture = tableStorage.destroyIndex(sortedIdx.id());
         CompletableFuture<Void> destroyHashIndexFuture = tableStorage.destroyIndex(hashIdx.id());
 
-        assertThat(partitionStorage.flush(), willCompleteSuccessfully());
-        assertThat(destroySortedIndexFuture, willCompleteSuccessfully());
-        assertThat(destroyHashIndexFuture, willCompleteSuccessfully());
+        Runnable waitForDestroy = () -> {
+            assertThat(partitionStorage.flush(), willCompleteSuccessfully());
+            assertThat(destroySortedIndexFuture, willCompleteSuccessfully());
+            assertThat(destroyHashIndexFuture, willCompleteSuccessfully());
+        };
+
+        if (waitForDestroyFuture) {
+            waitForDestroy.run();
+        }
 
         checkStorageDestroyed(sortedIndexStorage);
         checkStorageDestroyed(hashIndexStorage);
+
+        // Make sure the destroy finishes before we recreate the storage.
+        if (!waitForDestroyFuture) {
+            waitForDestroy.run();
+        }
 
         tableStorage.close();
 
@@ -347,52 +361,52 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     }
 
     private static void checkStorageDestroyed(IndexStorage storage) {
-        assertThrows(StorageClosedException.class, () -> storage.get(mock(BinaryTuple.class)));
+        assertThrows(StorageDestroyedException.class, () -> storage.get(mock(BinaryTuple.class)));
 
-        assertThrows(StorageClosedException.class, () -> storage.put(mock(IndexRow.class)));
+        assertThrows(StorageDestroyedException.class, () -> storage.put(mock(IndexRow.class)));
 
-        assertThrows(StorageClosedException.class, () -> storage.remove(mock(IndexRow.class)));
+        assertThrows(StorageDestroyedException.class, () -> storage.remove(mock(IndexRow.class)));
     }
 
     @SuppressWarnings("resource")
     private static void checkStorageDestroyed(SortedIndexStorage storage) {
         checkStorageDestroyed((IndexStorage) storage);
 
-        assertThrows(StorageClosedException.class, () -> storage.scan(null, null, GREATER));
+        assertThrows(StorageDestroyedException.class, () -> storage.scan(null, null, GREATER));
     }
 
     @SuppressWarnings({"resource", "deprecation"})
     private void checkStorageDestroyed(MvPartitionStorage storage) {
         int partId = PARTITION_ID;
 
-        assertThrows(StorageClosedException.class, () -> storage.runConsistently(locker -> null));
+        assertThrows(StorageDestroyedException.class, () -> storage.runConsistently(locker -> null));
 
-        assertThrows(StorageClosedException.class, storage::flush);
+        assertThrows(StorageDestroyedException.class, storage::flush);
 
-        assertThrows(StorageClosedException.class, storage::lastAppliedIndex);
-        assertThrows(StorageClosedException.class, storage::lastAppliedTerm);
-        assertThrows(StorageClosedException.class, storage::committedGroupConfiguration);
+        assertThrows(StorageDestroyedException.class, storage::lastAppliedIndex);
+        assertThrows(StorageDestroyedException.class, storage::lastAppliedTerm);
+        assertThrows(StorageDestroyedException.class, storage::committedGroupConfiguration);
 
         RowId rowId = new RowId(partId);
 
         HybridTimestamp timestamp = clock.now();
 
-        assertThrows(StorageClosedException.class, () -> storage.read(new RowId(PARTITION_ID), timestamp));
+        assertThrows(StorageDestroyedException.class, () -> storage.read(new RowId(PARTITION_ID), timestamp));
 
         BinaryRow binaryRow = binaryRow(new TestKey(0, "0"), new TestValue(1, "1"));
 
-        assertThrows(StorageClosedException.class, () -> storage.addWrite(rowId, binaryRow, UUID.randomUUID(), COMMIT_TABLE_ID, partId));
-        assertThrows(StorageClosedException.class, () -> storage.commitWrite(rowId, timestamp));
-        assertThrows(StorageClosedException.class, () -> storage.abortWrite(rowId));
-        assertThrows(StorageClosedException.class, () -> storage.addWriteCommitted(rowId, binaryRow, timestamp));
+        assertThrows(StorageDestroyedException.class, () -> storage.addWrite(rowId, binaryRow, UUID.randomUUID(), COMMIT_TABLE_ID, partId));
+        assertThrows(StorageDestroyedException.class, () -> storage.commitWrite(rowId, timestamp));
+        assertThrows(StorageDestroyedException.class, () -> storage.abortWrite(rowId));
+        assertThrows(StorageDestroyedException.class, () -> storage.addWriteCommitted(rowId, binaryRow, timestamp));
 
-        assertThrows(StorageClosedException.class, () -> storage.scan(timestamp));
-        assertThrows(StorageClosedException.class, () -> storage.scanVersions(rowId));
-        assertThrows(StorageClosedException.class, () -> storage.scanVersions(rowId));
+        assertThrows(StorageDestroyedException.class, () -> storage.scan(timestamp));
+        assertThrows(StorageDestroyedException.class, () -> storage.scanVersions(rowId));
+        assertThrows(StorageDestroyedException.class, () -> storage.scanVersions(rowId));
 
-        assertThrows(StorageClosedException.class, () -> storage.closestRowId(rowId));
+        assertThrows(StorageDestroyedException.class, () -> storage.closestRowId(rowId));
 
-        assertThrows(StorageClosedException.class, storage::rowsCount);
+        assertThrows(StorageDestroyedException.class, storage::rowsCount);
     }
 
     @Test
@@ -983,8 +997,9 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     }
 
     @SuppressWarnings("resource")
-    @Test
-    public void testDestroyPartition() throws Exception {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    public void testDestroyPartition(boolean waitForDestroyFuture) {
         assertThrows(IllegalArgumentException.class, () -> tableStorage.destroyPartition(getPartitionIdOutOfRange()));
 
         MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
@@ -1024,7 +1039,10 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         Cursor<RowId> getFromSortedIndexCursor = sortedIndexStorage.get(hashIndexRow.indexColumns());
         Cursor<IndexRow> scanFromSortedIndexCursor = sortedIndexStorage.scan(null, null, GREATER);
 
-        assertThat(tableStorage.destroyPartition(PARTITION_ID), willCompleteSuccessfully());
+        CompletableFuture<Void> destroyFuture = tableStorage.destroyPartition(PARTITION_ID);
+        if (waitForDestroyFuture) {
+            assertThat(destroyFuture, willCompleteSuccessfully());
+        }
 
         // Let's check that we won't get destroyed storages.
         assertNull(tableStorage.getMvPartition(PARTITION_ID));
@@ -1035,23 +1053,24 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         checkStorageDestroyed(hashIndexStorage);
         checkStorageDestroyed(sortedIndexStorage);
 
-        assertThrows(StorageClosedException.class, () -> getAll(scanAtTimestampCursor));
-        assertThrows(StorageClosedException.class, () -> getAll(scanLatestCursor));
+        assertThrows(StorageDestroyedException.class, () -> getAll(scanAtTimestampCursor));
+        assertThrows(StorageDestroyedException.class, () -> getAll(scanLatestCursor));
 
-        assertThrows(StorageClosedException.class, () -> getAll(scanVersionsCursor));
+        assertThrows(StorageDestroyedException.class, () -> getAll(scanVersionsCursor));
 
-        assertThrows(StorageClosedException.class, () -> getAll(getFromHashIndexCursor));
+        assertThrows(StorageDestroyedException.class, () -> getAll(getFromHashIndexCursor));
 
-        assertThrows(StorageClosedException.class, () -> getAll(getFromSortedIndexCursor));
-        assertThrows(StorageClosedException.class, () -> getAll(scanFromSortedIndexCursor));
+        assertThrows(StorageDestroyedException.class, () -> getAll(getFromSortedIndexCursor));
+        assertThrows(StorageDestroyedException.class, () -> getAll(scanFromSortedIndexCursor));
 
         // What happens if there is no partition?
         assertThrows(StorageException.class, () -> tableStorage.destroyPartition(PARTITION_ID));
     }
 
     @SuppressWarnings("resource")
-    @Test
-    public void testDestroyTableStorage() {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    public void testDestroyTableStorage(boolean waitForDestroyFuture) {
         MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
         HashIndexStorage hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx);
         SortedIndexStorage sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx);
@@ -1073,21 +1092,32 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         Cursor<RowId> getFromSortedIndexCursor = sortedIndexStorage.get(sortedIndexRow.indexColumns());
         Cursor<IndexRow> scanFromSortedIndexCursor = sortedIndexStorage.scan(null, null, GREATER);
 
-        assertThat(tableStorage.destroy(), willCompleteSuccessfully());
+        CompletableFuture<Void> destroyFuture = tableStorage.destroy();
+
+        Runnable waitForDestroy = () -> assertThat(destroyFuture, willCompleteSuccessfully());
+
+        if (waitForDestroyFuture) {
+            waitForDestroy.run();
+        }
 
         checkStorageDestroyed(mvPartitionStorage);
         checkStorageDestroyed(hashIndexStorage);
         checkStorageDestroyed(sortedIndexStorage);
 
-        assertThrows(StorageClosedException.class, () -> getAll(scanTimestampCursor));
+        assertThrows(StorageDestroyedException.class, () -> getAll(scanTimestampCursor));
 
-        assertThrows(StorageClosedException.class, () -> getAll(getFromHashIndexCursor));
+        assertThrows(StorageDestroyedException.class, () -> getAll(getFromHashIndexCursor));
 
-        assertThrows(StorageClosedException.class, () -> getAll(getFromSortedIndexCursor));
-        assertThrows(StorageClosedException.class, () -> getAll(scanFromSortedIndexCursor));
+        assertThrows(StorageDestroyedException.class, () -> getAll(getFromSortedIndexCursor));
+        assertThrows(StorageDestroyedException.class, () -> getAll(scanFromSortedIndexCursor));
 
         // Let's check that nothing will happen if we try to destroy it again.
         assertThat(tableStorage.destroy(), willCompleteSuccessfully());
+
+        // Make sure the destroy finishes before we recreate the storage.
+        if (!waitForDestroyFuture) {
+            waitForDestroy.run();
+        }
 
         // Let's check that after restarting the table we will have an empty partition.
         tableStorage = createMvTableStorage();
