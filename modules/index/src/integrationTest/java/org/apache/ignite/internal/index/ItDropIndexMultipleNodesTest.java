@@ -231,6 +231,18 @@ public class ItDropIndexMultipleNodesTest extends BaseSqlIntegrationTest {
         assertThat(readDataFromIndexTransaction, willCompleteSuccessfully());
     }
 
+    private static int createIndex() {
+        createIndexBlindly();
+
+        IgniteImpl node = CLUSTER.aliveNode();
+
+        return node.catalogManager().aliveIndex(INDEX_NAME, node.clock().nowLong()).id();
+    }
+
+    private static void createIndexBlindly() {
+        createIndex(TABLE_NAME, INDEX_NAME, "name");
+    }
+
     @Test
     void testDropIndexAfterRegistering() {
         CatalogManager catalogManager = CLUSTER.aliveNode().catalogManager();
@@ -242,7 +254,7 @@ public class ItDropIndexMultipleNodesTest extends BaseSqlIntegrationTest {
         runInRwTransaction(CLUSTER.aliveNode(), tx -> {
             // Create an index inside a transaction, this will prevent the index from building.
             try {
-                runAsync(() -> createIndex());
+                CompletableFuture<Void> creationFuture = runAsync(ItDropIndexMultipleNodesTest::createIndexBlindly);
 
                 assertTrue(waitForCondition(
                         () -> catalogManager.schema(catalogManager.latestCatalogVersion()).aliveIndex(INDEX_NAME) != null,
@@ -250,7 +262,11 @@ public class ItDropIndexMultipleNodesTest extends BaseSqlIntegrationTest {
                 ));
 
                 dropIndex();
-            } catch (Exception e) {
+
+                assertThat(creationFuture, willCompleteSuccessfully());
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+
                 throw new RuntimeException(e);
             }
         });
@@ -269,21 +285,14 @@ public class ItDropIndexMultipleNodesTest extends BaseSqlIntegrationTest {
 
         CompletableFuture<Void> indexRemovedFuture = indexRemovedFuture();
 
-        runAsync(() -> createIndex());
+        CompletableFuture<Void> creationFuture = runAsync(ItDropIndexMultipleNodesTest::createIndexBlindly);
 
         assertThat(indexBuildingFuture, willCompleteSuccessfully());
 
         dropIndex();
 
         assertThat(indexRemovedFuture, willCompleteSuccessfully());
-    }
-
-    private static int createIndex() {
-        createIndex(TABLE_NAME, INDEX_NAME, "name");
-
-        IgniteImpl node = CLUSTER.aliveNode();
-
-        return node.catalogManager().aliveIndex(INDEX_NAME, node.clock().nowLong()).id();
+        assertThat(creationFuture, willCompleteSuccessfully());
     }
 
     private static void dropIndex() {

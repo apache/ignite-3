@@ -19,13 +19,13 @@ package org.apache.ignite.internal.index;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
-import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
@@ -36,6 +36,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Test class for scenarios related to dropping of indices, executed on a single node cluster.
  */
+@SuppressWarnings({"resource", "ThrowableNotThrown"})
 public class ItDropIndexOneNodeTest extends ClusterPerClassIntegrationTest {
     private static final String TABLE_NAME = "TEST";
 
@@ -69,24 +70,15 @@ public class ItDropIndexOneNodeTest extends ClusterPerClassIntegrationTest {
 
     @Test
     void testCreateIndexAfterDropWhileTransactionInProgress() {
-        CatalogManager catalogManager = CLUSTER.aliveNode().catalogManager();
+        Transaction tx = CLUSTER.aliveNode().transactions().begin();
 
-        runInRwTransaction(tx -> {
-            dropIndex(INDEX_NAME);
+        dropIndex(INDEX_NAME);
 
-            runAsync(() -> createIndex(TABLE_NAME, INDEX_NAME, COLUMN_NAME));
+        CompletableFuture<Void> creationFuture = runAsync(() -> createIndex(TABLE_NAME, INDEX_NAME, COLUMN_NAME));
 
-            try {
-                assertTrue(waitForCondition(
-                        () -> catalogManager.schema(catalogManager.latestCatalogVersion()).aliveIndex(INDEX_NAME) != null,
-                        10_000
-                ));
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
+        tx.commit();
 
-                throw new RuntimeException(e);
-            }
-        });
+        assertThat(creationFuture, willCompleteSuccessfully());
     }
 
     @Test
