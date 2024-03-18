@@ -243,7 +243,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
             List<SearchBounds> boundsList = List.of(
                     new MultiBounds(condition, List.of(
                             new ExactBounds(condition, intValue1),
-                            new RangeBounds(condition, intValue5, null, true, true)
+                            new RangeBounds(condition, nullValue, intValue5, false, false)
                     ))
             );
 
@@ -255,14 +255,14 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
 
             ranges.forEach(r -> list.add(new TestRange(r.lower(), r.upper())));
 
-            assertEquals(List.of(new TestRange(new Object[]{5}, null), new TestRange(new Object[]{1})), list);
+            assertEquals(List.of(new TestRange(new Object[]{null}, new Object[]{5}), new TestRange(new Object[]{1})), list);
         }
 
         { // range condition with null value as lower bound should respect collation (NULLS FIRST)
             List<SearchBounds> boundsList = List.of(
                     new MultiBounds(condition, List.of(
                             new ExactBounds(condition, intValue1),
-                            new RangeBounds(condition, nullValue, null, true, true)
+                            new ExactBounds(condition, nullValue)
                     ))
             );
 
@@ -274,14 +274,14 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
 
             ranges.forEach(r -> list.add(new TestRange(r.lower(), r.upper())));
 
-            assertEquals(List.of(new TestRange(new Object[]{null}, null), new TestRange(new Object[]{1})), list);
+            assertEquals(List.of(new TestRange(new Object[]{null}, new Object[]{null}), new TestRange(new Object[]{1})), list);
         }
 
         { // range condition with null value as lower bound should respect collation (NULLS LAST)
             List<SearchBounds> boundsList = List.of(
                     new MultiBounds(condition, List.of(
                             new ExactBounds(condition, intValue1),
-                            new RangeBounds(condition, nullValue, null, true, true)
+                            new ExactBounds(condition, nullValue)
                     ))
             );
 
@@ -293,7 +293,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
 
             ranges.forEach(r -> list.add(new TestRange(r.lower(), r.upper())));
 
-            assertEquals(List.of(new TestRange(new Object[]{1}), new TestRange(new Object[]{null}, null)), list);
+            assertEquals(List.of(new TestRange(new Object[]{1}), new TestRange(new Object[]{null}, new Object[]{null})), list);
         }
 
         { // range condition without lower bound should respect collation (NULLS FIRST)
