@@ -217,22 +217,18 @@ public class DdlCommandHandler implements LifecycleAware {
         assert index != null
                 : "Did not find index " + cmd.indexName() + " in schema " + cmd.schemaName() + " in version " + creationCatalogVersion;
 
-        EventListener<CatalogEventParameters> availabilityListener = event -> {
+        EventListener<CatalogEventParameters> availabilityListener = EventListener.fromConsumer(event -> {
             if (((MakeIndexAvailableEventParameters) event).indexId() == index.id()) {
                 completeFutureWhenEventVersionActivates(future, event);
             }
-
-            return falseCompletedFuture();
-        };
+        });
         catalogManager.listen(CatalogEvent.INDEX_AVAILABLE, availabilityListener);
 
-        EventListener<CatalogEventParameters> removalListener = event -> {
+        EventListener<CatalogEventParameters> removalListener = EventListener.fromConsumer(event -> {
             if (((RemoveIndexEventParameters) event).indexId() == index.id()) {
                 future.complete(null);
             }
-
-            return falseCompletedFuture();
-        };
+        });
         catalogManager.listen(CatalogEvent.INDEX_REMOVED, removalListener);
 
         // We added listeners, but the index could switch to a state of interest before we added them, so check
