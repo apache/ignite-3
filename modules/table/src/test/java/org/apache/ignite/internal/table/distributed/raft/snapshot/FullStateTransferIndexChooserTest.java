@@ -55,14 +55,19 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.table.TableTestUtils;
+import org.apache.ignite.internal.table.distributed.LowWatermark;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 /** For {@link FullStateTransferIndexChooser} testing. */
+@ExtendWith(MockitoExtension.class)
 public class FullStateTransferIndexChooserTest extends BaseIgniteAbstractTest {
     private static final String REGISTERED_INDEX_NAME = INDEX_NAME + "_" + REGISTERED;
 
@@ -78,13 +83,18 @@ public class FullStateTransferIndexChooserTest extends BaseIgniteAbstractTest {
 
     private CatalogManager catalogManager;
 
+    @Mock
+    private LowWatermark lowWatermark;
+
     private FullStateTransferIndexChooser indexChooser;
 
     @BeforeEach
     void setUp() {
+        // TODO: IGNITE-21514 поправить тесты и написать новые
+
         catalogManager = CatalogTestUtils.createTestCatalogManager("test", clock);
 
-        indexChooser = new FullStateTransferIndexChooser(catalogManager);
+        indexChooser = new FullStateTransferIndexChooser(catalogManager, lowWatermark);
 
         assertThat(catalogManager.start(), willCompleteSuccessfully());
 
@@ -407,7 +417,7 @@ public class FullStateTransferIndexChooserTest extends BaseIgniteAbstractTest {
 
     private void recoverIndexChooser() {
         indexChooser.close();
-        indexChooser = new FullStateTransferIndexChooser(catalogManager);
+        indexChooser = new FullStateTransferIndexChooser(catalogManager, lowWatermark);
         indexChooser.start();
     }
 

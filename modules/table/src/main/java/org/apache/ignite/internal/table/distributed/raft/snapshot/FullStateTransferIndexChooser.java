@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
+import static java.util.Comparator.comparingInt;
 import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
@@ -26,20 +27,25 @@ import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_CREATE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_REMOVED;
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CollectionUtils.difference;
 import static org.apache.ignite.internal.util.CollectionUtils.view;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockSafe;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableSet;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -56,6 +62,7 @@ import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.table.distributed.LowWatermark;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
 /** Index chooser for full state transfer. */
@@ -65,8 +72,15 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 public class FullStateTransferIndexChooser implements ManuallyCloseable {
     private final CatalogService catalogService;
 
-    private final NavigableSet<ReadOnlyIndexInfo> readOnlyIndexes = new ConcurrentSkipListSet<>();
+    private final LowWatermark lowWatermark;
 
+    private final NavigableSet<ReadOnlyIndexInfo> readOnlyIndexes = new ConcurrentSkipListSet<>(
+            comparingInt(ReadOnlyIndexInfo::tableId)
+                    .thenComparingLong(ReadOnlyIndexInfo::activationTs)
+                    .thenComparingInt(ReadOnlyIndexInfo::indexId)
+    );
+
+    // TODO: IGNITE-21514 не забыть подчищать
     private final Map<Integer, Integer> tableVersionByIndexId = new ConcurrentHashMap<>();
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -74,8 +88,9 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
     private final AtomicBoolean closeGuard = new AtomicBoolean();
 
     /** Constructor. */
-    public FullStateTransferIndexChooser(CatalogService catalogService) {
+    public FullStateTransferIndexChooser(CatalogService catalogService, LowWatermark lowWatermark) {
         this.catalogService = catalogService;
+        this.lowWatermark = lowWatermark;
     }
 
     /** Starts the component. */
@@ -188,8 +203,8 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
     }
 
     private List<Integer> chooseFromReadOnlyIndexesBusy(int tableId, HybridTimestamp fromTsExcluded) {
-        ReadOnlyIndexInfo fromKeyIncluded = new ReadOnlyIndexInfo(tableId, fromTsExcluded.longValue() + 1, 0);
-        ReadOnlyIndexInfo toKeyExcluded = new ReadOnlyIndexInfo(tableId + 1, 0, 0);
+        ReadOnlyIndexInfo fromKeyIncluded = new ReadOnlyIndexInfo(tableId, fromTsExcluded.longValue() + 1, 0, 0);
+        ReadOnlyIndexInfo toKeyExcluded = new ReadOnlyIndexInfo(tableId + 1, 0, 0, 0);
 
         NavigableSet<ReadOnlyIndexInfo> subSet = readOnlyIndexes.subSet(fromKeyIncluded, true, toKeyExcluded, false);
 
@@ -238,8 +253,11 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
     private void addListenersBusy() {
         catalogService.listen(INDEX_CREATE, fromConsumer(this::onIndexCreated));
         catalogService.listen(INDEX_REMOVED, fromConsumer(this::onIndexRemoved));
+
+        lowWatermark.addUpdateListener(this::onLwmChanged);
     }
 
+    // TODO: IGNITE-21514 нужно добавлять только есть не наступила lwm
     private void onIndexRemoved(RemoveIndexEventParameters parameters) {
         inBusyLock(busyLock, () -> {
             int indexId = parameters.indexId();
@@ -249,9 +267,11 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
 
             if (index.status() == AVAILABLE) {
                 // On drop table event.
-                readOnlyIndexes.add(new ReadOnlyIndexInfo(index, catalogActivationTimestampBusy(catalogVersion)));
+                readOnlyIndexes.add(new ReadOnlyIndexInfo(index, catalogActivationTimestampBusy(catalogVersion), catalogVersion));
             } else if (index.status() == STOPPING) {
-                readOnlyIndexes.add(new ReadOnlyIndexInfo(index, findStoppingActivationTsBusy(indexId, catalogVersion - 1)));
+                readOnlyIndexes.add(
+                        new ReadOnlyIndexInfo(index, findStoppingActivationTsBusy(indexId, catalogVersion - 1), catalogVersion)
+                );
             }
         });
     }
@@ -274,41 +294,55 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
         return catalog.time();
     }
 
+    // TODO: IGNITE-21514 Deal with catalog compaction
     private void recoverStructuresBusy() {
         int earliestCatalogVersion = catalogService.earliestCatalogVersion();
         int latestCatalogVersion = catalogService.latestCatalogVersion();
+        int lwnCatalogVersion = catalogService.activeCatalogVersion(hybridTimestampToLong(lowWatermark.getLowWatermark()));
 
-        var readOnlyIndexById = new HashMap<Integer, ReadOnlyIndexInfo>();
-        var previousCatalogVersionTableIds = Set.<Integer>of();
-        var tableVersionById = new HashMap<Integer, Integer>();
+        var tableVersionByIndexId = new HashMap<Integer, Integer>();
+        var readOnlyIndexes = new HashSet<ReadOnlyIndexInfo>();
 
-        // TODO: IGNITE-21514 Deal with catalog compaction
+        var stoppingActivationTsByIndexId = new HashMap<Integer, Long>();
+        var previousCatalogVersionIndexIds = Set.<Integer>of();
+
         for (int catalogVersion = earliestCatalogVersion; catalogVersion <= latestCatalogVersion; catalogVersion++) {
-            long activationTs = catalogActivationTimestampBusy(catalogVersion);
             int finalCatalogVersion = catalogVersion;
 
-            for (CatalogIndexDescriptor index : catalogService.indexes(catalogVersion)) {
-                tableVersionById.computeIfAbsent(index.id(), i -> tableVersionBusy(index, finalCatalogVersion));
+            var indexIds = new HashSet<Integer>();
+
+            catalogService.indexes(finalCatalogVersion).forEach(index -> {
+                tableVersionByIndexId.computeIfAbsent(index.id(), i -> tableVersionBusy(index, finalCatalogVersion));
 
                 if (index.status() == STOPPING) {
-                    readOnlyIndexById.computeIfAbsent(index.id(), i -> new ReadOnlyIndexInfo(index, activationTs));
+                    stoppingActivationTsByIndexId.computeIfAbsent(index.id(), i -> catalogActivationTimestampBusy(finalCatalogVersion));
                 }
-            }
 
-            Set<Integer> currentCatalogVersionTableIds = tableIds(catalogVersion);
+                indexIds.add(index.id());
+            });
 
-            // Here we look for indices that transitioned directly from AVAILABLE to [deleted] (corresponding to the logical READ_ONLY
-            // state) as such transitions only happen when a table is dropped.
-            difference(previousCatalogVersionTableIds, currentCatalogVersionTableIds).stream()
-                    .flatMap(droppedTableId -> catalogService.indexes(finalCatalogVersion - 1, droppedTableId).stream())
-                    .filter(index -> index.status() == AVAILABLE)
-                    .forEach(index -> readOnlyIndexById.computeIfAbsent(index.id(), i -> new ReadOnlyIndexInfo(index, activationTs)));
+            // We are looking for removed indexes.
+            difference(previousCatalogVersionIndexIds, indexIds).stream()
+                    .map(index -> catalogService.index(index, finalCatalogVersion - 1))
+                    .forEach(index -> {
+                        if (index.status() == STOPPING && finalCatalogVersion > lwnCatalogVersion) {
+                            readOnlyIndexes.add(
+                                    new ReadOnlyIndexInfo(index, stoppingActivationTsByIndexId.get(index.id()), finalCatalogVersion)
+                            );
+                        } else if (index.status() == AVAILABLE && finalCatalogVersion > lwnCatalogVersion) {
+                            readOnlyIndexes.add(
+                                    new ReadOnlyIndexInfo(index, catalogActivationTimestampBusy(finalCatalogVersion), finalCatalogVersion)
+                            );
+                        } else {
+                            tableVersionByIndexId.remove(index.id());
+                        }
+                    });
 
-            previousCatalogVersionTableIds = currentCatalogVersionTableIds;
+            previousCatalogVersionIndexIds = indexIds;
         }
 
-        readOnlyIndexes.addAll(readOnlyIndexById.values());
-        tableVersionByIndexId.putAll(tableVersionById);
+        this.tableVersionByIndexId.putAll(tableVersionByIndexId);
+        this.readOnlyIndexes.addAll(readOnlyIndexes);
     }
 
     private CatalogIndexDescriptor indexBusy(int indexId, int catalogVersion) {
@@ -355,5 +389,13 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
                 })
                 .filter(Objects::nonNull)
                 .collect(toCollection(() -> new ArrayList<>(indexIds.size())));
+    }
+
+    private CompletableFuture<Void> onLwmChanged(HybridTimestamp ts) {
+        return inBusyLockAsync(busyLock, () -> {
+            // TODO: IGNITE-21514 реализовать
+
+            return nullCompletedFuture();
+        });
     }
 }
