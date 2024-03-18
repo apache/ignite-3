@@ -37,6 +37,7 @@ import org.apache.ignite.internal.catalog.commands.DropTableCommand;
 import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
 import org.apache.ignite.internal.catalog.commands.RemoveIndexCommand;
 import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
+import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -80,7 +81,11 @@ public class TableTestUtils {
                 .zone(zoneName)
                 .tableName(tableName)
                 .columns(columns)
-                .primaryKeyColumns(pkColumns)
+                // Hash index for primary key is being used here,
+                // because such index only requests a list of column names.
+                .primaryKey(TableHashPrimaryKey.builder()
+                        .columns(pkColumns)
+                        .build())
                 .build();
 
         assertThat(catalogManager.execute(command), willCompleteSuccessfully());

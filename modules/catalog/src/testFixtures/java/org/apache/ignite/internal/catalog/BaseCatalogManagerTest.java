@@ -41,6 +41,8 @@ import org.apache.ignite.internal.catalog.commands.CreateTableCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.DropIndexCommand;
 import org.apache.ignite.internal.catalog.commands.DropTableCommand;
 import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
+import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
+import org.apache.ignite.internal.catalog.commands.TablePrimaryKey;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
@@ -190,12 +192,16 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
             List<ColumnParams> columns,
             List<String> primaryKeys, @Nullable List<String> colocationColumns) {
 
+        TablePrimaryKey primaryKey = TableHashPrimaryKey.builder()
+                .columns(primaryKeys)
+                .build();
+
         return CreateTableCommand.builder()
                 .schemaName(DEFAULT_SCHEMA_NAME)
                 .zone(DEFAULT_ZONE_NAME)
                 .tableName(tableName)
                 .columns(columns)
-                .primaryKeyColumns(primaryKeys)
+                .primaryKey(primaryKey)
                 .colocationColumns(colocationColumns);
     }
 

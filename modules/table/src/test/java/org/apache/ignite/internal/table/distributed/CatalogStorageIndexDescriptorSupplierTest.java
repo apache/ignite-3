@@ -40,6 +40,8 @@ import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.DropIndexCommand;
+import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
+import org.apache.ignite.internal.catalog.commands.TablePrimaryKey;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -196,12 +198,16 @@ class CatalogStorageIndexDescriptorSupplierTest extends BaseIgniteAbstractTest {
     }
 
     private int createIndex() {
+        TablePrimaryKey primaryKey = TableHashPrimaryKey.builder()
+                .columns(List.of("foo"))
+                .build();
+
         List<CatalogCommand> commands = List.of(
                 CreateTableCommand.builder()
                         .schemaName(DEFAULT_SCHEMA_NAME)
                         .tableName(TABLE_NAME)
                         .columns(List.of(ColumnParams.builder().name("foo").type(ColumnType.INT32).build()))
-                        .primaryKeyColumns(List.of("foo"))
+                        .primaryKey(primaryKey)
                         .build(),
                 CreateHashIndexCommand.builder()
                         .schemaName(DEFAULT_SCHEMA_NAME)

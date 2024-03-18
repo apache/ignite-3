@@ -121,7 +121,7 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
 
     private void createTable() {
         cluster.doInSession(0, session -> {
-            executeUpdate("CREATE TABLE " + TABLE_NAME + " (id int PRIMARY KEY, val varchar)", session);
+            executeUpdate("CREATE TABLE " + TABLE_NAME + " (id int, val varchar, PRIMARY KEY USING HASH (id))", session);
         });
     }
 

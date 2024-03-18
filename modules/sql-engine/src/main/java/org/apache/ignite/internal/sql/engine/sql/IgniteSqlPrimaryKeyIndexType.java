@@ -15,31 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.streamer;
+package org.apache.ignite.internal.sql.engine.sql;
 
 /**
- * Streamer options.
+ * Enumeration of supported primary index types.
  */
-public interface StreamerOptions {
-    /**
-     * Gets the page size (the number of entries that will be sent to the cluster in one network call).
-     *
-     * @return Batch size.
-     */
-    int pageSize();
+public enum IgniteSqlPrimaryKeyIndexType {
+    /** Sorted index. */
+    SORTED,
 
-    /**
-     * Gets the number of parallel operations per partition (how many in-flight requests can be active for a given partition).
-     *
-     * @return Per node parallel operations.
-     */
-    int perPartitionParallelOperations();
+    /** Hash index. */
+    HASH,
 
-    /**
-     * Gets the auto flush frequency, in milliseconds
-     * (the period of time after which the streamer will flush the per-node buffer even if it is not full).
-     *
-     * @return Auto flush frequency.
-     */
-    int autoFlushFrequency();
+    /** The user have omitted USING clause, hence the type is set to {@link #HASH} implicitly. */
+    IMPLICIT_HASH
 }

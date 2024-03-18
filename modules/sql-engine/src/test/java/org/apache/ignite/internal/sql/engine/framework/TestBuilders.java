@@ -57,6 +57,8 @@ import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
 import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
+import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
+import org.apache.ignite.internal.catalog.commands.TablePrimaryKey;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
@@ -961,12 +963,19 @@ public class TestBuilders {
         private List<CatalogCommand> build() {
             List<CatalogCommand> commands = new ArrayList<>(1 + indexBuilders.size());
 
+            // TODO https://issues.apache.org/jira/browse/IGNITE-21715 Update after TestFramework provides API
+            //  to specify type of a primary key index.
+            // Use sorted index by default.
+            TablePrimaryKey primaryKey = TableHashPrimaryKey.builder()
+                    .columns(keyColumns)
+                    .build();
+
             commands.add(
                     CreateTableCommand.builder()
                             .schemaName(schemaName)
                             .tableName(name)
                             .columns(columns)
-                            .primaryKeyColumns(keyColumns)
+                            .primaryKey(primaryKey)
                             .build()
             );
 

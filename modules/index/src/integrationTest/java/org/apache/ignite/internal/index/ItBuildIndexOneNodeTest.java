@@ -341,7 +341,13 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
     }
 
     private static void createTableAndInsertManyPeople(AtomicInteger nextPersonId) {
-        createZoneAndTable(ZONE_NAME, TABLE_NAME, 1, 1);
+        createZoneOnlyIfNotExists(ZONE_NAME, 1, 1, null);
+        // Use hash index for primary key, otherwise if sorted index exists,
+        // the optimizer might choose it (the primary key index) instead of an existing sorted one.
+        sql(format(
+                "CREATE TABLE IF NOT EXISTS {} (id INT, name VARCHAR, salary DOUBLE, PRIMARY KEY USING HASH (id)) WITH PRIMARY_ZONE='{}'",
+                TABLE_NAME, ZONE_NAME
+        ));
 
         insertPeople(TABLE_NAME, createPeopleBatch(nextPersonId, 100 * IndexBuilder.BATCH_SIZE));
     }

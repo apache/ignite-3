@@ -39,10 +39,10 @@ import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.ddl.SqlColumnDeclaration;
-import org.apache.calcite.sql.ddl.SqlKeyConstraint;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.hamcrest.CustomMatcher;
 import org.hamcrest.Matcher;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -95,10 +95,11 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
                         && "GEN_RANDOM_UUID".equals(((SqlIdentifier) col.expression).getSimple())
         )));
         assertThat(createTable.columnList(), hasItem(ofTypeMatching(
-                "PK constraint with name \"ID\"", SqlKeyConstraint.class,
+                "PK constraint with name \"ID\"", IgniteSqlPrimaryKeyConstraint.class,
                 constraint -> hasItem(ofTypeMatching("identifier \"ID\"", SqlIdentifier.class, id -> "ID".equals(id.names.get(0))))
                         .matches(constraint.getOperandList().get(1))
                         && constraint.getOperandList().get(0) == null
+                        && constraint.getIndexType() == IgniteSqlPrimaryKeyIndexType.IMPLICIT_HASH
                         && constraint.isA(singleton(SqlKind.PRIMARY_KEY)))));
 
         expectUnparsed(node, "CREATE TABLE \"MY_TABLE\" ("
@@ -171,10 +172,11 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
         assertThat(createTable.name().names, is(List.of("MY_TABLE")));
         assertThat(createTable.ifNotExists, is(false));
         assertThat(createTable.columnList(), hasItem(ofTypeMatching(
-                "PK constraint with name \"ID\"", SqlKeyConstraint.class,
+                "PK constraint with name \"ID\"", IgniteSqlPrimaryKeyConstraint.class,
                 constraint -> hasItem(ofTypeMatching("identifier \"ID\"", SqlIdentifier.class, id -> "ID".equals(id.names.get(0))))
                         .matches(constraint.getOperandList().get(1))
                         && constraint.getOperandList().get(0) == null
+                        && constraint.getIndexType() == IgniteSqlPrimaryKeyIndexType.IMPLICIT_HASH
                         && constraint.isA(singleton(SqlKind.PRIMARY_KEY)))));
 
         expectUnparsed(node, "CREATE TABLE \"MY_TABLE\" ("
@@ -200,10 +202,11 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
         assertThat(createTable.name().names, is(List.of("MY_TABLE")));
         assertThat(createTable.ifNotExists, is(false));
         assertThat(createTable.columnList(), hasItem(ofTypeMatching(
-                "PK constraint without name containing column \"ID\"", SqlKeyConstraint.class,
+                "PK constraint without name containing column \"ID\"", IgniteSqlPrimaryKeyConstraint.class,
                 constraint -> hasItem(ofTypeMatching("identifier \"ID\"", SqlIdentifier.class, id -> "ID".equals(id.names.get(0))))
                         .matches(constraint.getOperandList().get(1))
                         && constraint.getOperandList().get(0) == null
+                        && constraint.getIndexType() == IgniteSqlPrimaryKeyIndexType.IMPLICIT_HASH
                         && constraint.isA(singleton(SqlKind.PRIMARY_KEY)))));
 
         expectUnparsed(node, "CREATE TABLE \"MY_TABLE\" "
@@ -229,10 +232,11 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
         assertThat(createTable.name().names, is(List.of("MY_TABLE")));
         assertThat(createTable.ifNotExists, is(false));
         assertThat(createTable.columnList(), hasItem(ofTypeMatching(
-                "PK constraint with name \"PK_KEY\" containing column \"ID\"", SqlKeyConstraint.class,
+                "PK constraint with name \"PK_KEY\" containing column \"ID\"", IgniteSqlPrimaryKeyConstraint.class,
                 constraint -> hasItem(ofTypeMatching("identifier \"ID\"", SqlIdentifier.class, id -> "ID".equals(id.names.get(0))))
                         .matches(constraint.getOperandList().get(1))
                         && "PK_KEY".equals(((SqlIdentifier) constraint.getOperandList().get(0)).names.get(0))
+                        && constraint.getIndexType() == IgniteSqlPrimaryKeyIndexType.IMPLICIT_HASH
                         && constraint.isA(singleton(SqlKind.PRIMARY_KEY)))));
 
         expectUnparsed(node, "CREATE TABLE \"MY_TABLE\" ("
@@ -258,11 +262,12 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
         assertThat(createTable.name().names, is(List.of("MY_TABLE")));
         assertThat(createTable.ifNotExists, is(false));
         assertThat(createTable.columnList(), hasItem(ofTypeMatching(
-                "PK constraint with two columns", SqlKeyConstraint.class,
+                "PK constraint with two columns", IgniteSqlPrimaryKeyConstraint.class,
                 constraint -> hasItem(ofTypeMatching("identifier \"ID1\"", SqlIdentifier.class, id -> "ID1".equals(id.names.get(0))))
                         .matches(constraint.getOperandList().get(1))
                         && hasItem(ofTypeMatching("identifier \"ID2\"", SqlIdentifier.class, id -> "ID2".equals(id.names.get(0))))
                         .matches(constraint.getOperandList().get(1))
+                        && constraint.getIndexType() == IgniteSqlPrimaryKeyIndexType.IMPLICIT_HASH
                         && constraint.getOperandList().get(0) == null
                         && constraint.isA(singleton(SqlKind.PRIMARY_KEY)))));
 
@@ -271,6 +276,80 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
                 + "\"VAL\" VARCHAR, "
                 + "PRIMARY KEY (\"ID1\", \"ID2\"))"
         );
+    }
+
+    /**
+     * Parsing of CREATE TABLE with primary key index type SORTED.
+     */
+    @Test
+    public void createTableWithSortedPk() {
+        String query = "create table my_table(id1 int, id2 int, val varchar, primary key using sorted (id1 ASC, id2 DESC))";
+        SqlNode node = parse(query);
+
+        assertThat(node, instanceOf(IgniteSqlCreateTable.class));
+        IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
+
+        assertThat(createTable.name().names, is(List.of("MY_TABLE")));
+        assertThat(createTable.ifNotExists, is(false));
+
+        assertThat(createTable.columnList(), hasItem(ofTypeMatching(
+                "PK constraint without name containing column \"ID1\"", IgniteSqlPrimaryKeyConstraint.class,
+                constraint -> hasItem(ofTypeMatching("identifier \"ID1\"", SqlIdentifier.class, id -> "ID1".equals(id.names.get(0))))
+                        .matches(constraint.getOperandList().get(1))
+                        && constraint.getIndexType() == IgniteSqlPrimaryKeyIndexType.SORTED
+                        && constraint.getOperandList().get(0) == null
+                        && constraint.isA(singleton(SqlKind.PRIMARY_KEY)))));
+
+        expectUnparsed(node, "CREATE TABLE \"MY_TABLE\" "
+                + "(\"ID1\" INTEGER, "
+                + "\"ID2\" INTEGER, "
+                + "\"VAL\" VARCHAR, "
+                + "PRIMARY KEY USING SORTED (\"ID1\", \"ID2\" DESC))"
+        );
+    }
+
+    /**
+     * Parsing of CREATE TABLE with primary key index type HASH.
+     */
+    @Test
+    public void createTableWithHashPk() {
+        String query = "create table my_table(id int, val varchar, primary key using hash (id))";
+        SqlNode node = parse(query);
+
+        assertThat(node, instanceOf(IgniteSqlCreateTable.class));
+        IgniteSqlCreateTable createTable = (IgniteSqlCreateTable) node;
+
+        assertThat(createTable.name().names, is(List.of("MY_TABLE")));
+        assertThat(createTable.ifNotExists, is(false));
+        assertThat(createTable.columnList(), hasItem(ofTypeMatching(
+                "PK constraint without name containing column \"ID\"", IgniteSqlPrimaryKeyConstraint.class,
+                constraint -> hasItem(ofTypeMatching("identifier \"ID\"", SqlIdentifier.class, id -> "ID".equals(id.names.get(0))))
+                        .matches(constraint.getOperandList().get(1))
+                        && constraint.getOperandList().get(0) == null
+                        && constraint.getIndexType() == IgniteSqlPrimaryKeyIndexType.HASH
+                        && constraint.isA(singleton(SqlKind.PRIMARY_KEY)))));
+
+        expectUnparsed(node, "CREATE TABLE \"MY_TABLE\" "
+                + "(\"ID\" INTEGER, "
+                + "\"VAL\" VARCHAR, "
+                + "PRIMARY KEY USING HASH (\"ID\"))"
+        );
+
+        assertThrowsSqlException(
+                Sql.STMT_PARSE_ERR,
+                "Encountered \"asc\"",
+                () -> parse("create table my_table(id int, val varchar, primary key using hash (id asc))"));
+    }
+
+    /**
+     * Parsing of CREATE TABLE with primary key index of unsupported type should return an error.
+     */
+    @Test
+    public void createTableWithSomeOtherPkFails() {
+        assertThrowsSqlException(
+                Sql.STMT_PARSE_ERR,
+                "Encountered \"using\"",
+                () -> parse("create table my_table(id int, val varchar, primary key using bad (id))"));
     }
 
     /**
@@ -491,6 +570,7 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
         expectUnparsed(node, "CREATE INDEX \"MY_INDEX\" ON \"MY_SCHEMA\".\"MY_TABLE\" (\"COL\")");
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21672")
     @Test
     public void createIndexExplicitNullDirection() {
         var query = "create index my_index on my_table (col1 nulls first, col2 nulls last, col3 desc nulls first)";

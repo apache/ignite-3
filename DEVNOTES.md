@@ -75,22 +75,6 @@ Run code style checks only:
 Code style check results are generated at:
 * `<mudule-dir>/build/reports/checkstyle/`
 
-### Legacy API
-The project is checked for legacy APIs with [Modernizer Gradle Plugin](https://plugins.gradle.org/plugin/com.github.andygoossens.gradle-modernizer-plugin).
-* [Modernizer rules](check-rules/modernizer-rules.xml)
-
-Plugin is enabled by default and is bound to `build` task.
-
-Build project without legacy API check:
-```shell
-./gradlew clean build -x modernizer
-```
-
-Run legacy API checks only:
-```shell
-./gradlew modernizer
-```
-
 ### Spotbugs
 The project is checked for bugs with [Spotbugs Gradle Plugin](https://github.com/spotbugs/spotbugs-gradle-plugin).
 * [Spotbugs exclusion rules](check-rules/spotbugs-excludes.xml)
