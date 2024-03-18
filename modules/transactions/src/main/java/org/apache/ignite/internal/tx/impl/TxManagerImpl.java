@@ -517,7 +517,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             if (localNodeId.equals(finishingStateMeta.txCoordinatorId())) {
                 decrementRwTxCount(txId);
             }
-        });
+        }).whenComplete((unused, throwable) -> transactionInflights.clearInflights(txId));
     }
 
     private static CompletableFuture<Void> checkTxOutcome(boolean commit, UUID txId, TransactionMeta stateMeta) {

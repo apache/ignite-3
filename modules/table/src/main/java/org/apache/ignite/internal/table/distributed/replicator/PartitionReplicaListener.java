@@ -1730,7 +1730,6 @@ public class PartitionReplicaListener implements ReplicaListener {
         List<CompletableFuture<?>> txUpdateFutures = new ArrayList<>();
         List<CompletableFuture<?>> txReadFutures = new ArrayList<>();
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-18617
         txCleanupReadyFutures.compute(txId, (id, txOps) -> {
             if (txOps == null) {
                 return null;
@@ -1746,7 +1745,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
             txOps.futures.clear();
 
-            return txOps;
+            return null;
         });
 
         return allOfFuturesExceptionIgnored(txUpdateFutures, commit, txId)

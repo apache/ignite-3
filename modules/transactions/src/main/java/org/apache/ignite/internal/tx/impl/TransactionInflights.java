@@ -99,6 +99,15 @@ public class TransactionInflights {
         tuple.onInflightsRemoved();
     }
 
+    /**
+     * Cleanup tx inflights on tx finish.
+     *
+     * @param txId Transaction id.
+     */
+    void clearInflights(UUID txId) {
+        txCtxMap.remove(txId);
+    }
+
     Collection<UUID> finishedReadOnlyTransactions() {
         return txCtxMap.entrySet().stream()
                 .filter(e -> e.getValue() instanceof ReadOnlyTxContext && e.getValue().isReadyToFinish())
