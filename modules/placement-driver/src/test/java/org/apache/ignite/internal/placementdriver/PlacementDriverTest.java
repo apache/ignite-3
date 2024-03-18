@@ -455,7 +455,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
         assertFalse(primaryReplicaFuture2.isDone());
 
         // Timeout first waiter, and assert that timeout occurred.
-        primaryReplicaFuture1.orTimeout(1, TimeUnit.MILLISECONDS);
+        primaryReplicaFuture1.orTimeout(1, MILLISECONDS);
 
         // noinspection ThrowableNotThrown
         assertThrowsWithCause(primaryReplicaFuture1::get, TimeoutException.class);

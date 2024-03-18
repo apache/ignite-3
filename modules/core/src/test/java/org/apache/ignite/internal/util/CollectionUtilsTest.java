@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.util;
 
 import static java.util.Collections.emptyIterator;
-import static java.util.Collections.emptyList;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.util.CollectionUtils.concat;
@@ -304,7 +303,7 @@ public class CollectionUtilsTest {
     @Test
     void testMapIterableWithPredicate() {
         assertFalse(mapIterable(null, null, null).iterator().hasNext());
-        assertFalse(mapIterable(emptyList(), null, null).iterator().hasNext());
+        assertFalse(mapIterable(Collections.emptyList(), null, null).iterator().hasNext());
 
         assertEquals(List.of(1), collect(mapIterable(List.of(1), null, null)));
         assertEquals(List.of(1), collect(mapIterable(List.of(1), identity(), null)));

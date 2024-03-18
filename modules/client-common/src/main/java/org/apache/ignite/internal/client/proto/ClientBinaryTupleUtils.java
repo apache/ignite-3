@@ -155,7 +155,7 @@ public class ClientBinaryTupleUtils {
             BigDecimal bigDecimal = (BigDecimal) obj;
             appendTypeAndScale(builder, ColumnType.DECIMAL, bigDecimal.scale());
             builder.appendDecimal(bigDecimal, bigDecimal.scale());
-        } else if (obj instanceof java.util.UUID) {
+        } else if (obj instanceof UUID) {
             appendTypeAndScale(builder, ColumnType.UUID);
             builder.appendUuid((UUID) obj);
         } else if (obj instanceof String) {

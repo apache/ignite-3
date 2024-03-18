@@ -801,11 +801,11 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         BinaryRow testBinaryKey = nextBinaryKey();
         BinaryRow testBinaryRow = binaryRow(key(testBinaryKey), new TestValue(1, "v1"));
         var rowId = new RowId(PART_ID);
-        txState = TxState.ABORTED;
+        txState = ABORTED;
 
         pkStorage().put(testBinaryRow, rowId);
         testMvPartitionStorage.addWrite(rowId, testBinaryRow, txId, TABLE_ID, PART_ID);
-        txManager.updateTxMeta(txId, old -> new TxStateMeta(TxState.ABORTED, localNode.id(), commitPartitionId, null));
+        txManager.updateTxMeta(txId, old -> new TxStateMeta(ABORTED, localNode.id(), commitPartitionId, null));
 
         CompletableFuture<ReplicaResult> fut = doReadOnlySingleGet(testBinaryKey);
 
