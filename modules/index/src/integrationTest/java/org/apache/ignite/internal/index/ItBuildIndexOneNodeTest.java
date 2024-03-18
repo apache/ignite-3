@@ -42,7 +42,6 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.MakeIndexAvailableEventParameters;
-import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.table.distributed.replication.request.BuildIndexReplicaRequest;
@@ -53,6 +52,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 /** Integration test for testing the building of an index in a single node cluster. */
+@SuppressWarnings("resource")
 public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
     private static final String TABLE_NAME = "TEST_TABLE";
 
@@ -271,7 +271,7 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    void testBuildingIndexWithUpdateSchemaAfterCreateIndex() throws Exception {
+    void testBuildingIndexWithUpdateSchemaAfterCreateIndex() {
         createZoneAndTable(ZONE_NAME, TABLE_NAME, 1, 1);
 
         insertPeople(TABLE_NAME, new Person(0, "0", 10.0));
