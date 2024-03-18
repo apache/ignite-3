@@ -846,20 +846,14 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         }
 
         /** {@inheritDoc} */
-        @SuppressWarnings("CompareToUsesNonFinalVariable")
         @Override public int compareTo(RangeConditionImpl o) {
-            int res = compareBounds(lower(), lowerInclude(), o.lower(), o.lowerInclude());
+            int res = compareBounds(lower(), lowerInclude(), o.lower(), !o.lowerInclude());
 
             if (res == 0) {
-                return compareBounds(upper(), !upperInclude(), o.upper(), !o.upperInclude());
+                return compareBounds(upper(), !upperInclude(), o.upper(), o.upperInclude());
             } else {
                 return res;
             }
-        }
-
-        /** {@inheritDoc} */
-        @Override public boolean equals(Object o) {
-            return o instanceof ExpressionFactoryImpl.RangeConditionImpl && compareTo((RangeConditionImpl) o) == 0;
         }
 
         /** {@inheritDoc} */
@@ -936,9 +930,9 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                     }
                 } else {
                     if (o2include) {
-                        return 1;
-                    } else {
                         return -1;
+                    } else {
+                        return 1;
                     }
                 }
             }
@@ -979,7 +973,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                 return 0;
             }
 
-            return o1include ? -1 : 1;
+            return o1include ? 1 : -1;
         }
 
         /** Merge two intersected ranges. */
@@ -992,7 +986,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             RowT newLowerRow;
             boolean newLowerInclude;
 
-            if (compareBounds(lowerRow, lowerInclude, o.lowerRow, o.lowerInclude) <= 0) {
+            if (compareBounds(lowerRow, lowerInclude, o.lowerRow, !o.lowerInclude) <= 0) {
                 newLowerBound = lowerBound;
                 newLowerRow = lowerRow;
                 newLowerInclude = lowerInclude;
@@ -1010,7 +1004,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             RowT newUpperRow;
             boolean newUpperInclude;
 
-            if (compareBounds(upperRow, !upperInclude, o.upperRow, !o.upperInclude) >= 0) {
+            if (compareBounds(upperRow, !upperInclude, o.upperRow, o.upperInclude) >= 0) {
                 newUpperScalar = upperBound;
                 newUpperRow = upperRow;
                 newUpperInclude = upperInclude;
