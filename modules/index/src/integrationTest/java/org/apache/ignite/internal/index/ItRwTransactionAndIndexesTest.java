@@ -17,14 +17,13 @@
 
 package org.apache.ignite.internal.index;
 
+import static org.apache.ignite.internal.IndexTestUtils.waitForIndexToAppearInAnyState;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.storage.impl.TestStorageEngine.ENGINE_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.never;
@@ -79,10 +78,7 @@ public class ItRwTransactionAndIndexesTest extends ClusterPerClassIntegrationTes
 
         runAsync(() -> createIndex(TABLE_NAME, INDEX_NAME, COLUMN_NAME));
 
-        assertTrue(waitForCondition(
-                () -> catalogManager.aliveIndex(INDEX_NAME, node().clock().nowLong()) != null,
-                10_000
-        ));
+        waitForIndexToAppearInAnyState(INDEX_NAME, node());
 
         IndexStorage pkIndexStorage = indexStorage(table, PK_INDEX_NAME);
         IndexStorage newIndexStorage = indexStorage(table, INDEX_NAME);

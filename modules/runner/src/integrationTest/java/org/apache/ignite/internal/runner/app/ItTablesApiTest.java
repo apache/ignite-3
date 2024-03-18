@@ -19,11 +19,11 @@ package org.apache.ignite.internal.runner.app;
 
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
+import static org.apache.ignite.internal.IndexTestUtils.waitForIndexToAppearInAnyState;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.test.WatchListenerInhibitor.metastorageEventsInhibitor;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -31,7 +31,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -263,13 +262,6 @@ public class ItTablesApiTest extends IgniteAbstractTest {
         tryToCreateIndex(ignite0, TABLE_NAME, false);
     }
 
-    private static void waitForIndexToAppearInAnyState(IgniteImpl ignite0) throws InterruptedException {
-        assertTrue(waitForCondition(
-                () -> ignite0.catalogManager().aliveIndex(INDEX_NAME, ignite0.clock().nowLong()) != null,
-                10_000
-        ));
-    }
-
     /**
      * Tries to create an index which is already created from lagged node.
      *
@@ -294,7 +286,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
 
         try {
             runAsync(() -> tryToCreateIndex(ignite0, TABLE_NAME, true));
-            waitForIndexToAppearInAnyState(ignite0);
+            waitForIndexToAppearInAnyState(INDEX_NAME, ignite0);
 
             addIndexFut = runAsync(() -> tryToCreateIndex(ignite1, TABLE_NAME, true));
             addIndexIfNotExistsFut = runAsync(() -> addIndexIfNotExists(ignite1, TABLE_NAME));
