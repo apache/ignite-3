@@ -31,7 +31,6 @@ import java.util.function.Supplier;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.catalog.IndexExistsValidationException;
 import org.apache.ignite.internal.catalog.IndexNotFoundValidationException;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.AfterEach;
@@ -95,12 +94,10 @@ public class ItIndexDdlTest extends ClusterPerClassIntegrationTest {
      * @param failIfExist Throw an exception if the index exist.
      */
     private static void tryToCreateIndex(String tableName, String indexName, boolean failIfExist) {
-        Loggers.forClass(ItIndexDdlTest.class).info("XXX starting index creation");
         sql(String.format(
                 "CREATE INDEX %s ON %s (valInt, valStr)",
                 failIfExist ? indexName : "IF NOT EXISTS " + indexName, tableName
         ));
-        Loggers.forClass(ItIndexDdlTest.class).info("XXX finished index creation");
     }
 
     /**
