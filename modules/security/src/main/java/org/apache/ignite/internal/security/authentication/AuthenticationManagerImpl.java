@@ -31,6 +31,9 @@ import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.internal.event.AbstractEventProducer;
+import org.apache.ignite.internal.eventlog.api.EventLog;
+import org.apache.ignite.internal.eventlog.event.EventUser;
+import org.apache.ignite.internal.eventlog.event.IgniteEvents;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticationProviderConfiguration;
@@ -96,13 +99,17 @@ public class AuthenticationManagerImpl
      */
     private boolean authEnabled = false;
 
+    private final EventLog eventLog;
+
     /**
      * Constructor.
      *
      * @param securityConfiguration Security configuration.
+     * @param eventLog Event log.
      */
-    public AuthenticationManagerImpl(SecurityConfiguration securityConfiguration) {
+    public AuthenticationManagerImpl(SecurityConfiguration securityConfiguration, EventLog eventLog) {
         this.securityConfiguration = securityConfiguration;
+        this.eventLog = eventLog;
 
         securityConfigurationListener = ctx -> {
             refreshProviders(ctx.newValue());
@@ -158,6 +165,14 @@ public class AuthenticationManagerImpl
                         .map(authenticator -> authenticate(authenticator, authenticationRequest))
                         .filter(Objects::nonNull)
                         .findFirst()
+                        .map(userDetails ->  {
+                            eventLog.log(() ->
+                                    IgniteEvents.CONNECTION_ESTABLISHED.create(EventUser.of(
+                                            userDetails.username(), userDetails.providerName()
+                                    )));
+
+                            return userDetails;
+                        })
                         .orElseThrow(() -> new InvalidCredentialsException("Authentication failed"));
             } else {
                 return UserDetails.UNKNOWN;

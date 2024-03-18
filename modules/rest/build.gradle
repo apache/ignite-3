@@ -39,6 +39,7 @@ dependencies {
     implementation project(':ignite-code-deployment')
     implementation project(':ignite-security-api')
     implementation project(':ignite-compute')
+    api project(':ignite-eventlog')
     implementation libs.jetbrains.annotations
     implementation libs.micronaut.inject
     implementation libs.micronaut.http.server.netty
