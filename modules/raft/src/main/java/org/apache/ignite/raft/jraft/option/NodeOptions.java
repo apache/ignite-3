@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.raft.JraftGroupEventsListener;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager.Stripe;
@@ -241,7 +242,17 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     /**
      * Amount of Disruptors that will handle the RAFT server.
      */
-    private int stripes = DEFAULT_STRIPES;
+    private int stripes = IgniteSystemProperties.getInteger("IGNITE_RAFT_STRIPES", DEFAULT_STRIPES);
+
+    /**
+     * Amount of log manager Disruptors stripes.
+     */
+    private int walStripes = IgniteSystemProperties.getInteger("IGNITE_RAFT_WAL_STRIPES", DEFAULT_STRIPES);
+
+    /**
+     * Set true to use the non-blocking strategy in the log manager.
+     */
+    private boolean walYieldStrategy = IgniteSystemProperties.getBoolean("IGNITE_RAFT_WAL_YIELD_STRATEGY");
 
     /** */
     private boolean sharedPools = false;
@@ -272,6 +283,28 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
      */
     public void setStripes(int stripes) {
         this.stripes = stripes;
+    }
+
+    /**
+     * @return Wal stripes count.
+     */
+    public int getWalStripes() {
+        return walStripes;
+    }
+
+    /**
+     * @param walStripes Wal stripes.
+     */
+    public void setWalStripes(int walStripes) {
+        this.walStripes = walStripes;
+    }
+
+    public boolean isWalYieldStrategy() {
+        return walYieldStrategy;
+    }
+
+    public void setWalYieldStrategy(boolean walYieldStrategy) {
+        this.walYieldStrategy = walYieldStrategy;
     }
 
     /**

@@ -1247,6 +1247,7 @@ public class NodeImpl implements Node, RaftServerService {
                 opts.getRaftOptions().getDisruptorBufferSize(),
                 () -> new FSMCallerImpl.ApplyTask(),
                 opts.getStripes(),
+                false,
                 false
             ));
         } else if (ownFsmCallerExecutorDisruptorConfig != null) {
@@ -1256,6 +1257,7 @@ public class NodeImpl implements Node, RaftServerService {
                 opts.getRaftOptions().getDisruptorBufferSize(),
                 () -> new FSMCallerImpl.ApplyTask(),
                 ownFsmCallerExecutorDisruptorConfig.getStripes(),
+                false,
                 false
             ));
         }
@@ -1267,6 +1269,7 @@ public class NodeImpl implements Node, RaftServerService {
                 opts.getRaftOptions().getDisruptorBufferSize(),
                 () -> new NodeImpl.LogEntryAndClosure(),
                 opts.getStripes(),
+                false,
                 false
             ));
         }
@@ -1278,6 +1281,7 @@ public class NodeImpl implements Node, RaftServerService {
                 opts.getRaftOptions().getDisruptorBufferSize(),
                 () -> new ReadOnlyServiceImpl.ReadIndexEvent(),
                 opts.getStripes(),
+                false,
                 false
             ));
         }
@@ -1288,8 +1292,9 @@ public class NodeImpl implements Node, RaftServerService {
                 "JRaft-LogManager-Disruptor",
                 opts.getRaftOptions().getDisruptorBufferSize(),
                 () -> new LogManagerImpl.StableClosureEvent(),
-                opts.getStripes(),
-                logStorage instanceof RocksDbSharedLogStorage
+                opts.getWalStripes(),
+                logStorage instanceof RocksDbSharedLogStorage,
+                false
             ));
 
             opts.setLogStripes(IntStream.range(0, opts.getStripes()).mapToObj(i -> new Stripe()).collect(toList()));

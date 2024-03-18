@@ -299,6 +299,7 @@ public class JraftServerImpl implements RaftServer {
                     opts.getRaftOptions().getDisruptorBufferSize(),
                     ApplyTask::new,
                     opts.getStripes(),
+                    false,
                     false
             ));
         }
@@ -310,6 +311,7 @@ public class JraftServerImpl implements RaftServer {
                     opts.getRaftOptions().getDisruptorBufferSize(),
                     LogEntryAndClosure::new,
                     opts.getStripes(),
+                    false,
                     false
             ));
         }
@@ -321,6 +323,7 @@ public class JraftServerImpl implements RaftServer {
                     opts.getRaftOptions().getDisruptorBufferSize(),
                     ReadIndexEvent::new,
                     opts.getStripes(),
+                    false,
                     false
             ));
         }
@@ -331,8 +334,9 @@ public class JraftServerImpl implements RaftServer {
                     "JRaft-LogManager-Disruptor",
                     opts.getRaftOptions().getDisruptorBufferSize(),
                     StableClosureEvent::new,
-                    opts.getStripes(),
-                    true
+                    opts.getWalStripes(),
+                    true,
+                    opts.isWalYieldStrategy()
             ));
 
             opts.setLogStripes(IntStream.range(0, opts.getStripes()).mapToObj(i -> new Stripe()).collect(toList()));
