@@ -45,6 +45,7 @@ import static org.mockito.Mockito.mock;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -676,16 +677,21 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     }
 
     private LeaseTracker createPlacementDriver() {
-        return new LeaseTracker(metastore, new ClusterNodeResolver() {
-            @Override
-            public @Nullable ClusterNode getByConsistentId(String consistentId) {
-                return leaseholder;
-            }
+        return new LeaseTracker(
+                metastore,
+                new ClusterNodeResolver() {
+                    @Override
+                    public @Nullable ClusterNode getByConsistentId(String consistentId) {
+                        return leaseholder;
+                    }
 
-            @Override
-            public @Nullable ClusterNode getById(String id) {
-                return leaseholder;
-            }
-        });
+                    @Override
+                    public @Nullable ClusterNode getById(String id) {
+                        return leaseholder;
+                    }
+                },
+                CompletableFuture::completedFuture,
+                (grpId, token) -> Set.of(grpId)
+        );
     }
 }

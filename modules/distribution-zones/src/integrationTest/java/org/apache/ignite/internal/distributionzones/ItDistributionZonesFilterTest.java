@@ -43,7 +43,7 @@ import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -118,11 +118,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
         MetaStorageManager metaStorageManager = (MetaStorageManager) IgniteTestUtils
                 .getFieldValue(node, IgniteImpl.class, "metaStorageMgr");
 
-        TableManager tableManager = (TableManager) IgniteTestUtils.getFieldValue(node, IgniteImpl.class, "distributedTblMgr");
-
-        TableViewInternal table = (TableViewInternal) tableManager.table(TABLE_NAME);
-
-        TablePartitionId partId = new TablePartitionId(table.tableId(), 0);
+        ZonePartitionId partId = new ZonePartitionId(getZoneId(node), 0);
 
         assertValueInStorage(
                 metaStorageManager,
@@ -183,11 +179,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
         MetaStorageManager metaStorageManager = (MetaStorageManager) IgniteTestUtils
                 .getFieldValue(node0, IgniteImpl.class, "metaStorageMgr");
 
-        TableManager tableManager = (TableManager) IgniteTestUtils.getFieldValue(node0, IgniteImpl.class, "distributedTblMgr");
-
-        TableViewInternal table = (TableViewInternal) tableManager.table(TABLE_NAME);
-
-        TablePartitionId partId = new TablePartitionId(table.tableId(), 0);
+        ZonePartitionId partId = new ZonePartitionId(getZoneId(node0), 0);
 
         assertValueInStorage(
                 metaStorageManager,
@@ -240,11 +232,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
         MetaStorageManager metaStorageManager = (MetaStorageManager) IgniteTestUtils
                 .getFieldValue(node0, IgniteImpl.class, "metaStorageMgr");
 
-        TableManager tableManager = (TableManager) IgniteTestUtils.getFieldValue(node0, IgniteImpl.class, "distributedTblMgr");
-
-        TableViewInternal table = (TableViewInternal) tableManager.table(TABLE_NAME);
-
-        TablePartitionId partId = new TablePartitionId(table.tableId(), 0);
+        ZonePartitionId partId = new ZonePartitionId(getZoneId(node0), 0);
 
         assertValueInStorage(
                 metaStorageManager,
@@ -320,7 +308,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
 
         TableViewInternal table = (TableViewInternal) tableManager.table(TABLE_NAME);
 
-        TablePartitionId partId = new TablePartitionId(table.tableId(), 0);
+        ZonePartitionId partId = new ZonePartitionId(zoneId, 0);
 
         // Table was created after both nodes was up, so there wasn't any rebalance.
         assertPendingAssignmentsWereNeverExist(metaStorageManager, partId);
@@ -362,11 +350,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
 
         session.execute(null, createTableSql());
 
-        TableManager tableManager = (TableManager) IgniteTestUtils.getFieldValue(node0, IgniteImpl.class, "distributedTblMgr");
-
-        TableViewInternal table = (TableViewInternal) tableManager.table(TABLE_NAME);
-
-        TablePartitionId partId = new TablePartitionId(table.tableId(), 0);
+        ZonePartitionId partId = new ZonePartitionId(zoneId, 0);
 
         // Table was created after both nodes was up, so there wasn't any rebalance.
         assertPendingAssignmentsWereNeverExist(metaStorageManager, partId);
@@ -433,7 +417,7 @@ public class ItDistributionZonesFilterTest extends ClusterPerTestIntegrationTest
 
     private static void assertPendingAssignmentsWereNeverExist(
             MetaStorageManager metaStorageManager,
-            TablePartitionId partId
+            ZonePartitionId partId
     ) throws InterruptedException, ExecutionException {
         assertTrue(metaStorageManager.get(pendingPartAssignmentsKey(partId)).get().empty());
     }

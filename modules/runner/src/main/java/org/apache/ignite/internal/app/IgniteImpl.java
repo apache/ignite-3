@@ -293,7 +293,7 @@ public class IgniteImpl implements Ignite {
     private final ClusterInitializer clusterInitializer;
 
     /** Replica manager. */
-    private final ReplicaManager replicaMgr;
+    private ReplicaManager replicaMgr = null;
 
     /** Transactions manager. */
     private final TxManager txManager;
@@ -335,7 +335,7 @@ public class IgniteImpl implements Ignite {
 
     private final IgniteDeployment deploymentManager;
 
-    private final DistributionZoneManager distributionZoneManager;
+    private DistributionZoneManager distributionZoneManager = null;
 
     /** Creator for volatile {@link org.apache.ignite.internal.raft.storage.LogStorageFactory} instances. */
     private final VolatileLogStorageFactoryCreator volatileLogStorageFactoryCreator;
@@ -572,7 +572,9 @@ public class IgniteImpl implements Ignite {
                 logicalTopologyService,
                 raftMgr,
                 topologyAwareRaftGroupServiceFactory,
-                clock
+                clock,
+                (tablePartId) -> replicaMgr.tablePartIdToZonePartId(tablePartId),
+                (zonePartId, causalityToken) -> distributionZoneManager.zoneIdToTablePartIdProvider(zonePartId, causalityToken)
         );
 
         ReplicationConfiguration replicationConfig = clusterConfigRegistry.getConfiguration(ReplicationConfiguration.KEY);

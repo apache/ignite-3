@@ -69,6 +69,15 @@ public interface RaftGroupListener {
      */
     void onSnapshotSave(Path path, Consumer<Throwable> doneClo);
 
+    // node was restarted
+    // commitIndex = 10 -> [11, 20]
+    // leader commit index = 20
+    // leader firstIndex = 0 => send data to follower (catchUp proccess)
+
+    // commitIndex = 10 -> [11, 20]
+    // leader commit index = 20
+    // leader firstIndex = 12 => follower ask snapshot
+
     /**
      * The callback to load a snapshot.
      *

@@ -35,6 +35,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -69,6 +70,7 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFacto
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
@@ -108,7 +110,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
     /** This closure handles {@link LeaseGrantedMessage} to check the placement driver manager behavior. */
     private IgniteTriFunction<LeaseGrantedMessage, String, String, LeaseGrantedMessageResponse> leaseGrantHandler;
 
-    private final AtomicInteger nextTableId = new AtomicInteger(1);
+    private final AtomicInteger nextZoneId = new AtomicInteger(1);
 
     @BeforeEach
     public void beforeTest(TestInfo testInfo) {
@@ -274,7 +276,9 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
                     logicalTopologyService,
                     raftManager,
                     topologyAwareRaftGroupServiceFactory,
-                    nodeClock
+                    nodeClock,
+                    CompletableFuture::completedFuture,
+                    (grpId, token) -> Set.of(grpId)
             );
 
             res.add(new Node(nodeName, clusterService, raftManager, metaStorageManager, placementDriverManager));
@@ -287,7 +291,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
 
     @Test
     public void testLeaseCreate() throws Exception {
-        TablePartitionId grpPart0 = createTableAssignment();
+        ZonePartitionId grpPart0 = createTableAssignment();
 
         checkLeaseCreated(grpPart0, true);
     }
@@ -304,7 +308,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
                     .build();
         };
 
-        TablePartitionId grpPart0 = createTableAssignment();
+        ZonePartitionId grpPart0 = createTableAssignment();
 
         Lease lease = checkLeaseCreated(grpPart0, true);
         Lease leaseRenew = waitForProlong(grpPart0, lease);
@@ -324,7 +328,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
                     .build();
         };
 
-        TablePartitionId grpPart0 = createTableAssignment();
+        ZonePartitionId grpPart0 = createTableAssignment();
 
         Lease lease = checkLeaseCreated(grpPart0, true);
 
@@ -377,7 +381,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
             }
         };
 
-        TablePartitionId grpPart0 = createTableAssignment();
+        ZonePartitionId grpPart0 = createTableAssignment();
 
         Lease lease = checkLeaseCreated(grpPart0, true);
 
@@ -400,7 +404,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
                     .build();
         };
 
-        TablePartitionId grpPart = createTableAssignment();
+        ZonePartitionId grpPart = createTableAssignment();
 
         Lease lease = checkLeaseCreated(grpPart, true);
 
@@ -444,7 +448,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
      * @return Renewed lease.
      * @throws InterruptedException If the waiting is interrupted.
      */
-    private Lease waitNewLeaseholder(TablePartitionId grpPart, Lease lease) throws InterruptedException {
+    private Lease waitNewLeaseholder(ZonePartitionId grpPart, Lease lease) throws InterruptedException {
         var leaseRenewRef = new AtomicReference<Lease>();
 
         assertTrue(waitForCondition(() -> {
@@ -478,7 +482,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
      * @return Renewed lease.
      * @throws InterruptedException If the waiting is interrupted.
      */
-    private Lease waitForProlong(TablePartitionId grpPart, Lease lease) throws InterruptedException {
+    private Lease waitForProlong(ZonePartitionId grpPart, Lease lease) throws InterruptedException {
         var leaseRenewRef = new AtomicReference<Lease>();
 
         assertTrue(waitForCondition(() -> {
@@ -523,7 +527,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
      * @return A lease that is read from Meta storage.
      * @throws InterruptedException If the waiting is interrupted.
      */
-    private Lease checkLeaseCreated(TablePartitionId grpPartId, boolean waitAccept) throws InterruptedException {
+    private Lease checkLeaseCreated(ZonePartitionId grpPartId, boolean waitAccept) throws InterruptedException {
         AtomicReference<Lease> leaseRef = new AtomicReference<>();
 
         assertTrue(waitForCondition(() -> {
@@ -556,7 +560,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
      *
      * @return Replication group id.
      */
-    private TablePartitionId createTableAssignment() {
-        return createTableAssignment(metaStorageManager, nextTableId.get(), nodeNames);
+    private ZonePartitionId createTableAssignment() {
+        return createZoneAssignment(metaStorageManager, nextZoneId.get(), nodeNames);
     }
 }

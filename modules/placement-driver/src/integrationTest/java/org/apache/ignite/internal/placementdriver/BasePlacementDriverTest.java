@@ -33,7 +33,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.placementdriver.leases.LeaseBatch;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.jetbrains.annotations.Nullable;
 
@@ -44,22 +44,23 @@ abstract class BasePlacementDriverTest extends IgniteAbstractTest {
      *
      * @return Replication group id.
      */
-    protected TablePartitionId createTableAssignment(MetaStorageManager metastore, int tableId, List<String> dataNodes) {
+    protected ZonePartitionId createZoneAssignment(MetaStorageManager metastore, int zoneId, List<String> dataNodes) {
         List<Set<Assignment>> assignments = AffinityUtils.calculateAssignments(dataNodes, 1, dataNodes.size());
 
         Map<ByteArray, byte[]> partitionAssignments = new HashMap<>(assignments.size());
 
         for (int i = 0; i < assignments.size(); i++) {
             partitionAssignments.put(
-                    stablePartAssignmentsKey(new TablePartitionId(tableId, i)),
+                    stablePartAssignmentsKey(new ZonePartitionId(zoneId, i)),
                     Assignments.toBytes(assignments.get(i)));
         }
 
         metastore.putAll(partitionAssignments).join();
 
-        var grpPart0 = new TablePartitionId(tableId, 0);
+        var grpPart0 = new ZonePartitionId(zoneId, 0);
 
-        log.info("Fake table created [id={}, repGrp={}]", tableId, grpPart0);
+        // TODO
+        log.info("Fake zone created [id={}, repGrp={}]", zoneId, grpPart0);
 
         return grpPart0;
     }

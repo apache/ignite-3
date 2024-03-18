@@ -36,6 +36,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.deleteDataNodesAndTriggerKeys;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractChangeTriggerRevision;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractDataNodes;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.findTablesByZoneId;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.toDataNodesMap;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.triggerScaleUpScaleDownKeysCondition;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.updateDataNodesAndScaleDownTriggerKey;
@@ -87,6 +88,8 @@ import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
@@ -101,6 +104,7 @@ import org.apache.ignite.internal.distributionzones.disaster.DisasterRecoveryMan
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
 import org.apache.ignite.internal.distributionzones.rebalance.DistributionZoneRebalanceEngine;
 import org.apache.ignite.internal.distributionzones.utils.CatalogAlterZoneEventListener;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
@@ -120,6 +124,9 @@ import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.dsl.Update;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.thread.StripedScheduledThreadPoolExecutor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -323,6 +330,21 @@ public class DistributionZoneManager implements IgniteComponent {
      */
     public CompletableFuture<Set<String>> dataNodes(long causalityToken, int catalogVersion, int zoneId) {
         return causalityDataNodesEngine.dataNodes(causalityToken, catalogVersion, zoneId);
+    }
+
+    public Set<ReplicationGroupId> zoneIdToTablePartIdProvider(ReplicationGroupId replicationGroupId, Long causalityToken) {
+
+        ZonePartitionId zonePartId = (ZonePartitionId) replicationGroupId;
+
+        HybridTimestamp msSafeTime = metaStorageManager.timestampByRevision(causalityToken);
+
+        int catalogVersion = catalogManager.activeCatalogVersion(msSafeTime.longValue());
+
+        Set<Integer> tablesInZone = findTablesByZoneId(zonePartId.zoneId(), catalogVersion, catalogManager).stream()
+                .map(CatalogObjectDescriptor::id)
+                .collect(toSet());
+
+        return tablesInZone.stream().map(t -> new TablePartitionId(t, zonePartId.partitionId())).collect(toSet());
     }
 
     /**

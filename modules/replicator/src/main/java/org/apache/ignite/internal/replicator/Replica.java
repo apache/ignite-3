@@ -27,11 +27,11 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessage;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
@@ -86,6 +86,10 @@ public class Replica {
 
     private final PlacementDriver placementDriver;
 
+    private final HybridClock clock;
+
+    private final CompletableFuture<Void> waitForActualStateFuture = new CompletableFuture<>();
+
     /**
      * The constructor of a replica server.
      *
@@ -104,7 +108,8 @@ public class Replica {
             TopologyAwareRaftGroupService raftClient,
             ClusterNode localNode,
             ExecutorService executor,
-            PlacementDriver placementDriver
+            PlacementDriver placementDriver,
+            HybridClock clock
     ) {
         this.replicaGrpId = replicaGrpId;
         this.listener = listener;
@@ -113,6 +118,7 @@ public class Replica {
         this.localNode = localNode;
         this.executor = executor;
         this.placementDriver = placementDriver;
+        this.clock = clock;
 
         raftClient.subscribeLeader(this::onLeaderElected);
     }
@@ -137,7 +143,11 @@ public class Replica {
                 request.groupId(),
                 replicaGrpId);
 
-        return listener.invoke(request, senderId);
+        if (!waitForActualStateFuture.isDone()) {
+            waitForActualState(clock.nowLong());
+        }
+
+        return waitForActualStateFuture.thenCompose((ignore) -> listener.invoke(request, senderId));
     }
 
     /**
@@ -167,7 +177,7 @@ public class Replica {
      * @param msg Message to process.
      * @return Future that contains a result.
      */
-    public CompletableFuture<? extends NetworkMessage> processPlacementDriverMessage(PlacementDriverReplicaMessage msg) {
+    public CompletableFuture<LeaseGrantedMessageResponse> processPlacementDriverMessage(PlacementDriverReplicaMessage msg) {
         if (msg instanceof LeaseGrantedMessage) {
             return processLeaseGrantedMessage((LeaseGrantedMessage) msg);
         }
@@ -185,7 +195,7 @@ public class Replica {
     public CompletableFuture<LeaseGrantedMessageResponse> processLeaseGrantedMessage(LeaseGrantedMessage msg) {
         LOG.info("Received LeaseGrantedMessage for replica belonging to group=" + groupId() + ", force=" + msg.force());
 
-        return placementDriver.previousPrimaryExpired(groupId()).thenCompose(unused -> leaderFuture().thenCompose(leader -> {
+        return placementDriver.previousPrimaryExpired(msg.groupId()).thenCompose(unused -> leaderFuture().thenCompose(leader -> {
             HybridTimestamp leaseExpirationTime = this.leaseExpirationTime;
 
             if (leaseExpirationTime != null) {
@@ -213,6 +223,7 @@ public class Replica {
                     return waitForActualState(msg.leaseExpirationTime().getPhysical())
                             .thenCompose(v -> acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime()));
                 } else {
+                    // TODO ??
                     return proposeLeaseRedirect(leader);
                 }
             }
@@ -263,7 +274,8 @@ public class Replica {
 
         return retryOperationUntilSuccess(raftClient::readIndex, e -> currentTimeMillis() > expirationTime, executor)
                 .orTimeout(timeout, TimeUnit.MILLISECONDS)
-                .thenCompose(storageIndexTracker::waitFor);
+                .thenCompose(storageIndexTracker::waitFor)
+                .thenRun(() -> waitForActualStateFuture.complete(null));
     }
 
     /**

@@ -34,6 +34,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -113,7 +114,9 @@ public class ActiveActorTest extends AbstractTopologyAwareGroupServiceTest {
                 logicalTopologyService,
                 raftManager,
                 raftGroupServiceFactory,
-                new HybridClockImpl()
+                new HybridClockImpl(),
+                CompletableFuture::completedFuture,
+                (grpId, token) -> Set.of(grpId)
         );
 
         placementDriverManager.start();

@@ -40,6 +40,7 @@ import java.util.List;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.BrokenBarrierException;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -66,6 +67,7 @@ import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
 import org.apache.ignite.internal.placementdriver.leases.Leases;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.Cursor;
@@ -106,7 +108,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
     @BeforeEach
     void setUp() {
         Entry entry = new EntryImpl(
-                stablePartAssignmentsKey(new TablePartitionId(1, 0)).bytes(),
+                stablePartAssignmentsKey(new ZonePartitionId(1, 0)).bytes(),
                 Assignments.of(Assignment.forPeer(node.name())).toBytes(),
                 1,
                 0
@@ -142,7 +144,8 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
                 metaStorageManager,
                 topologyService,
                 leaseTracker,
-                new HybridClockImpl()
+                new HybridClockImpl(),
+                CompletableFuture::completedFuture
         );
 
         leaseUpdater.init();

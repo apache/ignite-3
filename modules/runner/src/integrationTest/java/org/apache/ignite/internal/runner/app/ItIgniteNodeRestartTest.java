@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.alterZone;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getZoneIdStrict;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
@@ -148,6 +149,7 @@ import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
@@ -425,6 +427,12 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 ConfigurationValidatorImpl.withDefaultValidators(distributedConfigurationGenerator, modules.distributed().validators())
         );
 
+        ReplicaManager replicaMgr = null;
+
+        ReplicaManager finalReplicaMgr = replicaMgr;
+
+        DistributionZoneManager distributionZoneManager = null;
+
         var placementDriverManager = new PlacementDriverManager(
                 name,
                 metaStorageMgr,
@@ -434,10 +442,12 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 logicalTopologyService,
                 raftMgr,
                 topologyAwareRaftGroupServiceFactory,
-                hybridClock
+                hybridClock,
+                (grpId) -> finalReplicaMgr.tablePartIdToZonePartId(grpId),
+                (grpId, causalityToken) -> distributionZoneManager.zoneIdToTablePartIdProvider(grpId, causalityToken)
         );
 
-        ReplicaManager replicaMgr = new ReplicaManager(
+        replicaMgr = new ReplicaManager(
                 name,
                 clusterSvc,
                 cmgManager,
@@ -512,7 +522,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         ScheduledExecutorService rebalanceScheduler = new ScheduledThreadPoolExecutor(REBALANCE_SCHEDULER_POOL_SIZE,
                 NamedThreadFactory.create(name, "test-rebalance-scheduler", logger()));
 
-        DistributionZoneManager distributionZoneManager = new DistributionZoneManager(
+        distributionZoneManager = new DistributionZoneManager(
                 name,
                 registry,
                 metaStorageMgr,
@@ -1352,7 +1362,11 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         inhibitor.startInhibit();
 
-        alterZone(nodes.get(0).catalogManager(), String.format("ZONE_%s", TABLE_NAME.toUpperCase()), 1);
+        String zoneName = String.format("ZONE_%s", TABLE_NAME.toUpperCase());
+
+        alterZone(nodes.get(0).catalogManager(), zoneName, 1);
+
+        int zoneId = getZoneIdStrict(nodes.get(0).catalogManager(), zoneName, nodes.get(0).clock().nowLong());
 
         stopNode(restartedNodeIndex);
 
@@ -1370,9 +1384,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 .collect(toSet()), Set.of());
 
         for (int p = 0; p < partitions; p++) {
-            TablePartitionId tablePartitionId = new TablePartitionId(table.tableId(), p);
+            ZonePartitionId zonePartitionId = new ZonePartitionId(zoneId, p);
 
-            Entry e = restartedNode.metaStorageManager().getLocally(stablePartAssignmentsKey(tablePartitionId), recoveryRevision);
+            Entry e = restartedNode.metaStorageManager().getLocally(stablePartAssignmentsKey(zonePartitionId), recoveryRevision);
 
             Set<Assignment> assignment = Assignments.fromBytes(e.value()).nodes();
 
@@ -1380,7 +1394,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
             Peer peer = configuration.peer(restartedNode.name());
 
-            boolean isStarted = restartedNode.raftManager().isStarted(new RaftNodeId(tablePartitionId, peer));
+            boolean isStarted = restartedNode.raftManager().isStarted(new RaftNodeId(new TablePartitionId(table.tableId(), p), peer));
 
             assertEquals(shouldBe, isStarted);
         }

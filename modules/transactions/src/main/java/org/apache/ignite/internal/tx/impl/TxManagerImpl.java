@@ -989,6 +989,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         private CompletableFuture<Void> waitReadyToFinish(boolean commit) {
             if (commit) {
                 for (Map.Entry<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> e : enlistedGroups.entrySet()) {
+                    // TODO mapping TablePartitionId -> ZonePartitionId
+                    // ZoneTablePartitionId
                     ReplicaMeta replicaMeta = placementDriver.currentLease(e.getKey());
 
                     Long enlistmentConsistencyToken = e.getValue().get2();

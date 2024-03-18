@@ -29,6 +29,8 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -68,7 +70,12 @@ public class LeaseTrackerTest extends BaseIgniteAbstractTest {
 
         when(msManager.getLocally(any(), anyLong())).thenAnswer(invocation -> emptyEntry);
 
-        LeaseTracker leaseTracker = new LeaseTracker(msManager, mock(ClusterNodeResolver.class));
+        LeaseTracker leaseTracker = new LeaseTracker(
+                msManager,
+                mock(ClusterNodeResolver.class),
+                CompletableFuture::completedFuture,
+                (grpId, token) -> Set.of(grpId)
+        );
         leaseTracker.startTrack(0L);
 
         AtomicReference<PrimaryReplicaEventParameters> parametersRef = new AtomicReference<>();

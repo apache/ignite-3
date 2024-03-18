@@ -38,11 +38,15 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
@@ -99,14 +103,25 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
     /** Cluster node resolver. */
     private final ClusterNodeResolver clusterNodeResolver;
 
+    private final Function<ReplicationGroupId, CompletableFuture<ReplicationGroupId>> tablePartIdToZoneIdProvider;
+
+    private final BiFunction<ReplicationGroupId, Long, Set<ReplicationGroupId>> zoneIdToTablePartIdProvider;
+
     /**
      * Constructor.
      *
      * @param msManager Meta storage manager.
      */
-    public LeaseTracker(MetaStorageManager msManager, ClusterNodeResolver clusterNodeResolver) {
+    public LeaseTracker(
+            MetaStorageManager msManager,
+            ClusterNodeResolver clusterNodeResolver,
+            Function<ReplicationGroupId, CompletableFuture<ReplicationGroupId>> tablePartIdToZoneIdProvider,
+            BiFunction<ReplicationGroupId, Long, Set<ReplicationGroupId>> zoneIdToTablePartIdProvider
+    ) {
         this.msManager = msManager;
         this.clusterNodeResolver = clusterNodeResolver;
+        this.tablePartIdToZoneIdProvider = tablePartIdToZoneIdProvider;
+        this.zoneIdToTablePartIdProvider = zoneIdToTablePartIdProvider;
     }
 
     /**
@@ -144,7 +159,14 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
     @Override
     public ReplicaMeta currentLease(ReplicationGroupId groupId) {
         return inBusyLock(busyLock, () -> {
-            Lease lease = getLease(groupId);
+            ReplicationGroupId grpId;
+            try {
+                grpId = tablePartIdToZoneIdProvider.apply(groupId).get(10, TimeUnit.SECONDS);
+            } catch (InterruptedException | ExecutionException | TimeoutException e) {
+                throw new RuntimeException(e);
+            }
+
+            Lease lease = getLease(grpId);
 
             return lease.isAccepted() ? lease : null;
         });
@@ -241,20 +263,22 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
             HybridTimestamp timestamp,
             CompletableFuture<ReplicaMeta> resultFuture
     ) {
-        inBusyLockAsync(busyLock, () -> getOrCreatePrimaryReplicaWaiter(groupId).waitFor(timestamp)
-                .thenAccept(replicaMeta -> {
-                    ClusterNode leaseholderNode = clusterNodeResolver.getById(replicaMeta.getLeaseholderId());
+        inBusyLockAsync(busyLock, () -> tablePartIdToZoneIdProvider.apply(groupId).thenCompose(
+                        (grpId) -> getOrCreatePrimaryReplicaWaiter(grpId).waitFor(timestamp)
+                                .thenAccept(replicaMeta -> {
+                                    ClusterNode leaseholderNode = clusterNodeResolver.getById(replicaMeta.getLeaseholderId());
 
-                    if (leaseholderNode == null && !resultFuture.isDone()) {
-                        awaitPrimaryReplica(
-                                groupId,
-                                replicaMeta.getExpirationTime().tick(),
-                                resultFuture
-                        );
-                    } else {
-                        resultFuture.complete(replicaMeta);
-                    }
-                })
+                                    if (leaseholderNode == null && !resultFuture.isDone()) {
+                                        awaitPrimaryReplica(
+                                                groupId,
+                                                replicaMeta.getExpirationTime().tick(),
+                                                resultFuture
+                                        );
+                                    } else {
+                                        resultFuture.complete(replicaMeta);
+                                    }
+                                })
+                )
         );
     }
 
@@ -283,7 +307,14 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
     @Override
     public CompletableFuture<ReplicaMeta> getPrimaryReplica(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp) {
         return inBusyLockAsync(busyLock, () -> {
-            Lease lease = getLease(replicationGroupId);
+            ReplicationGroupId grpId;
+            try {
+                grpId = tablePartIdToZoneIdProvider.apply(replicationGroupId).get(10, TimeUnit.SECONDS);
+            } catch (InterruptedException | ExecutionException | TimeoutException e) {
+                throw new RuntimeException(e);
+            }
+
+            Lease lease = getLease(grpId);
 
             if (lease.isAccepted() && lease.getExpirationTime().after(timestamp)) {
                 return completedFuture(lease);
@@ -293,7 +324,7 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
                     .clusterTime()
                     .waitFor(timestamp.addPhysicalTime(CLOCK_SKEW))
                     .thenApply(ignored -> inBusyLock(busyLock, () -> {
-                        Lease lease0 = getLease(replicationGroupId);
+                        Lease lease0 = getLease(grpId);
 
                         if (lease0.isAccepted() && lease0.getExpirationTime().after(timestamp)) {
                             return lease0;
@@ -385,20 +416,33 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
      * @param expiredLease Expired lease.
      */
     private void firePrimaryReplicaExpiredEvent(long causalityToken, Lease expiredLease) {
-        ReplicationGroupId grpId = expiredLease.replicationGroupId();
+        ReplicationGroupId zonePartId = expiredLease.replicationGroupId();
 
-        CompletableFuture<Void> prev = expirationFutureByGroup.put(grpId, fireEvent(
-                PRIMARY_REPLICA_EXPIRED,
-                new PrimaryReplicaEventParameters(
-                        causalityToken,
-                        grpId,
-                        expiredLease.getLeaseholderId(),
-                        expiredLease.getLeaseholder(),
-                        expiredLease.getStartTime()
-                )
-        ));
+        Set<ReplicationGroupId> replicationGroupIds = zoneIdToTablePartIdProvider.apply(zonePartId, causalityToken);
 
-        assert prev == null || prev.isDone() : "Previous lease expiration process has not completed yet [grpId=" + grpId + ']';
+        List<CompletableFuture<Void>> futures = new ArrayList<>();
+
+        for (ReplicationGroupId groupId : replicationGroupIds) {
+            futures.add(
+                    fireEvent(
+                            PRIMARY_REPLICA_EXPIRED,
+                            new PrimaryReplicaEventParameters(
+                                    causalityToken,
+                                    groupId,
+                                    expiredLease.getLeaseholderId(),
+                                    expiredLease.getLeaseholder(),
+                                    expiredLease.getStartTime()
+                            )
+                    )
+            );
+        }
+
+        CompletableFuture<Void> prev = expirationFutureByGroup.put(
+                zonePartId,
+                allOf(futures.toArray(CompletableFuture[]::new))
+        );
+
+        assert prev == null || prev.isDone() : "Previous lease expiration process has not completed yet [grpId=" + zonePartId + ']';
     }
 
     private CompletableFuture<Void> fireEventReplicaBecomePrimary(long causalityToken, Lease lease) {
@@ -406,16 +450,25 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
 
         assert leaseholderId != null : lease;
 
-        return fireEvent(
-                PRIMARY_REPLICA_ELECTED,
-                new PrimaryReplicaEventParameters(
-                        causalityToken,
-                        lease.replicationGroupId(),
-                        leaseholderId,
-                        lease.getLeaseholder(),
-                        lease.getStartTime()
-                )
-        );
+        Set<ReplicationGroupId> replicationGroupIds = zoneIdToTablePartIdProvider.apply(lease.replicationGroupId(), causalityToken);
+
+        List<CompletableFuture<Void>> futures = new ArrayList<>();
+
+        for (ReplicationGroupId groupId : replicationGroupIds) {
+            futures.add(
+                    fireEvent(
+                            PRIMARY_REPLICA_ELECTED,
+                            new PrimaryReplicaEventParameters(
+                                    causalityToken,
+                                    groupId,
+                                    leaseholderId,
+                                    lease.getLeaseholder(),
+                                    lease.getStartTime()
+                            )
+                    ));
+        }
+
+        return allOf(futures.toArray(CompletableFuture[]::new));
     }
 
     /**

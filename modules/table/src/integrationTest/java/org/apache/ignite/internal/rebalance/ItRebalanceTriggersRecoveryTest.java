@@ -17,8 +17,9 @@
 
 package org.apache.ignite.internal.rebalance;
 
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getZoneId;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getZoneIdStrict;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
-import static org.apache.ignite.internal.table.TableTestUtils.getTableId;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -35,7 +36,7 @@ import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
@@ -111,10 +112,10 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
                 10_000));
 
         // Remove the pending keys in a barbarian way. So, the rebalance can be triggered only by the recovery logic now.
-        Integer tableId = getTableId(node(0).catalogManager(), "TEST", new HybridClockImpl().nowLong());
+        int zoneId = getZoneIdStrict(node(0).catalogManager(), "TEST_ZONE", node(0).clock().nowLong());
         node(0)
                 .metaStorageManager()
-                .remove(pendingPartAssignmentsKey(new TablePartitionId(tableId, 0))).join();
+                .remove(pendingPartAssignmentsKey(new ZonePartitionId(zoneId, 0))).join();
 
         restartNode(1);
         restartNode(2);
@@ -155,10 +156,10 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
                 10_000));
 
         // Remove the pending keys in a barbarian way. So, the rebalance can be triggered only by the recovery logic now.
-        Integer tableId = getTableId(node(0).catalogManager(), "TEST", new HybridClockImpl().nowLong());
+        int zoneId = getZoneIdStrict(node(0).catalogManager(), "TEST_ZONE", node(0).clock().nowLong());
         node(0)
                 .metaStorageManager()
-                .remove(pendingPartAssignmentsKey(new TablePartitionId(tableId, 0))).join();
+                .remove(pendingPartAssignmentsKey(new ZonePartitionId(zoneId, 0))).join();
 
         restartNode(1);
         restartNode(2);
@@ -196,22 +197,22 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
                 (() -> getPartitionPendingClusterNodes(node(0), 0).equals(Set.of())),
                 10_000));
 
-        TablePartitionId tablePartitionId =
-                new TablePartitionId(
-                        getTableId(node(0).catalogManager(),
-                                "TEST",
+        ZonePartitionId zonePartitionId =
+                new ZonePartitionId(
+                        getZoneIdStrict(node(0).catalogManager(),
+                                "TEST_ZONE",
                                 new HybridClockImpl().nowLong()),
                         0
                 );
         long pendingsKeysRevisionBeforeRecovery = node(0).metaStorageManager()
-                .get(pendingPartAssignmentsKey(tablePartitionId))
+                .get(pendingPartAssignmentsKey(zonePartitionId))
                 .get(10, TimeUnit.SECONDS).revision();
 
 
         startNode(3, GLOBAL_NODE_BOOTSTRAP_CFG_TEMPLATE);
 
         long pendingsKeysRevisionAfterRecovery = node(0).metaStorageManager()
-                .get(pendingPartAssignmentsKey(tablePartitionId))
+                .get(pendingPartAssignmentsKey(zonePartitionId))
                 .get(10, TimeUnit.SECONDS).revision();
 
         // Check that recovered node doesn't produce new rebalances for already processed triggers.
@@ -219,18 +220,18 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
     }
 
     private static Set<Assignment> getPartitionPendingClusterNodes(IgniteImpl node, int partNum) {
-        return Optional.ofNullable(getTableId(node.catalogManager(), "TEST", new HybridClockImpl().nowLong()))
-                .map(tableId -> partitionPendingAssignments(node.metaStorageManager(), tableId, partNum).join())
+        return Optional.ofNullable(getZoneId(node.catalogManager(), "TEST_ZONE", new HybridClockImpl().nowLong()))
+                .map(zoneId -> partitionPendingAssignments(node.metaStorageManager(), zoneId, partNum).join())
                 .orElse(Set.of());
     }
 
     private static CompletableFuture<Set<Assignment>> partitionPendingAssignments(
             MetaStorageManager metaStorageManager,
-            int tableId,
+            int zoneId,
             int partitionNumber
     ) {
         return metaStorageManager
-                .get(pendingPartAssignmentsKey(new TablePartitionId(tableId, partitionNumber)))
+                .get(pendingPartAssignmentsKey(new ZonePartitionId(zoneId, partitionNumber)))
                 .thenApply(e -> (e.value() == null) ? null : Assignments.fromBytes(e.value()).nodes());
     }
 

@@ -23,12 +23,15 @@ import static org.apache.ignite.internal.replicator.LocalReplicaEvent.AFTER_REPL
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.BEFORE_REPLICA_STOPPED;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
+import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.io.IOException;
+import java.util.HashSet;
 import java.util.Map.Entry;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -57,6 +60,7 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessageGroup;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
@@ -130,6 +134,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
     /** Replicas. */
     private final ConcurrentHashMap<ReplicationGroupId, CompletableFuture<Replica>> replicas = new ConcurrentHashMap<>();
+
+    private final ConcurrentHashMap<ZonePartitionId, Set<ReplicationGroupId>> zonePartIdToTablePartId = new ConcurrentHashMap<>();
+
+    private final ConcurrentHashMap<ReplicationGroupId, CompletableFuture<ReplicationGroupId>> tablePartIdToZoneId =
+            new ConcurrentHashMap<>();
 
     /** A hybrid logical clock. */
     private final HybridClock clock;
@@ -414,12 +423,38 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         }
 
         try {
-            CompletableFuture<Replica> replicaFut = replicas.computeIfAbsent(msg.groupId(), k -> new CompletableFuture<>());
+            Set<ReplicationGroupId> replicationGroupIds = zonePartIdToTablePartId.get((ZonePartitionId) msg.groupId());
 
-            replicaFut
-                    .thenCompose(replica -> replica.processPlacementDriverMessage(msg))
-                    .whenComplete((response, ex) -> {
+            CompletableFuture<LeaseGrantedMessageResponse>[] futures = new CompletableFuture[replicationGroupIds.size()];
+
+            int i = 0;
+
+            for (ReplicationGroupId grpId : replicationGroupIds) {
+                CompletableFuture<Replica> replicaFut = replicas.computeIfAbsent(grpId, k -> new CompletableFuture<>());
+                futures[i++] = replicaFut.thenCompose(replica -> replica.processPlacementDriverMessage(msg));
+            }
+
+            // 1) PD -> Zones instead of Tables
+            // 2) TX flow from TableId to ZoneId
+
+            // 3) Refactoring for encapsulating raft into Replica entity
+            // 4) One Replica many rafts
+            // 5) One Replica one raft group
+
+            allOf(futures)
+                    .whenComplete((responses, ex) -> {
+                        // TODO allOf all replicas of the zone from msg.groupId() (zoneId, partId) from {@code replicas}
                         if (ex == null) {
+                            Optional<LeaseGrantedMessageResponse> o = responses.stream().findAny();
+
+                            LeaseGrantedMessageResponse response;
+
+                            response = o.map(LeaseGrantedMessageResponse.class::cast)
+                                    .orElseGet(() -> PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse()
+                                            .accepted(true)
+                                            .build()
+                                    );
+
                             clusterNetSvc.messagingService().respond(senderConsistentId, response, correlationId);
                         } else if (!(unwrapCause(ex) instanceof NodeStoppingException)) {
                             LOG.error("Failed to process placement driver message [msg={}].", ex, msg);
@@ -467,6 +502,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      */
     public CompletableFuture<Replica> startReplica(
             ReplicationGroupId replicaGrpId,
+            ZonePartitionId zonePartitionId,
             ReplicaListener listener,
             TopologyAwareRaftGroupService raftClient,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker
@@ -476,10 +512,14 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         }
 
         try {
-            return startReplicaInternal(replicaGrpId, listener, raftClient, storageIndexTracker);
+            return startReplicaInternal(replicaGrpId, zonePartitionId, listener, raftClient, storageIndexTracker);
         } finally {
             busyLock.leaveBusy();
         }
+    }
+
+    public CompletableFuture<ReplicationGroupId> tablePartIdToZonePartId(ReplicationGroupId replicationGroupId) {
+        return tablePartIdToZoneId.computeIfAbsent(replicationGroupId, (k) -> new CompletableFuture<ReplicationGroupId>());
     }
 
     /**
@@ -492,6 +532,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      */
     private CompletableFuture<Replica> startReplicaInternal(
             ReplicationGroupId replicaGrpId,
+            ZonePartitionId zonePartitionId,
             ReplicaListener listener,
             TopologyAwareRaftGroupService raftClient,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker
@@ -505,10 +546,31 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 raftClient,
                 localNode,
                 executor,
-                placementDriver
+                placementDriver,
+                clock
         );
 
         CompletableFuture<Replica> replicaFuture = replicas.compute(replicaGrpId, (k, existingReplicaFuture) -> {
+            zonePartIdToTablePartId.compute(zonePartitionId, (key, tablePartIds) -> {
+                if (tablePartIds == null) {
+                    tablePartIds = new HashSet<>();
+                }
+
+                tablePartIds.add(replicaGrpId);
+
+                return tablePartIds;
+            });
+
+            tablePartIdToZoneId.compute(replicaGrpId, (key, zonePartIdFut) -> {
+                if (zonePartIdFut != null) {
+                    zonePartIdFut.complete(zonePartitionId);
+
+                    return zonePartIdFut;
+                }
+
+                return completedFuture(zonePartitionId);
+            });
+
             if (existingReplicaFuture == null || existingReplicaFuture.isDone()) {
                 assert existingReplicaFuture == null || isCompletedSuccessfully(existingReplicaFuture);
 
@@ -599,6 +661,10 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                     isRemovedFuture.complete(throwable == null);
                                 });
                     }
+
+                    zonePartIdToTablePartId.forEach((zonePartId, tblPartIds) -> {
+                        tblPartIds.remove(replicaGrpId);
+                    });
 
                     return null;
                 });

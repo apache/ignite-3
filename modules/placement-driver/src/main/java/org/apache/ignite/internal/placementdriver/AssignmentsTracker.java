@@ -39,6 +39,7 @@ import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.Cursor;
 
@@ -95,7 +96,7 @@ public class AssignmentsTracker {
 
                     strKey = strKey.replace(STABLE_ASSIGNMENTS_PREFIX, "");
 
-                    TablePartitionId grpId = TablePartitionId.fromString(strKey);
+                    ZonePartitionId grpId = ZonePartitionId.fromString(strKey);
 
                     Set<Assignment> assignments = Assignments.fromBytes(entry.value()).nodes();
 
@@ -141,7 +142,7 @@ public class AssignmentsTracker {
             boolean leaseRenewalRequired = false;
 
             for (EntryEvent evt : event.entryEvents()) {
-                var replicationGrpId = TablePartitionId.fromString(
+                var replicationGrpId = ZonePartitionId.fromString(
                         new String(evt.newEntry().key(), StandardCharsets.UTF_8).replace(STABLE_ASSIGNMENTS_PREFIX, ""));
 
                 if (evt.newEntry().tombstone()) {

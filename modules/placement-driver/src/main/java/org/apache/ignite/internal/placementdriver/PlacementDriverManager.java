@@ -24,7 +24,9 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.BiFunction;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -72,6 +74,8 @@ public class PlacementDriverManager implements IgniteComponent {
     /** The closure determines nodes where are participants of placement driver. */
     private final Supplier<CompletableFuture<Set<String>>> placementDriverNodesNamesProvider;
 
+    private final Function<ReplicationGroupId, CompletableFuture<ReplicationGroupId>> tablePartIdToZoneIdProvider;
+
     private final RaftManager raftManager;
 
     private final TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory;
@@ -110,7 +114,9 @@ public class PlacementDriverManager implements IgniteComponent {
             LogicalTopologyService logicalTopologyService,
             RaftManager raftManager,
             TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory,
-            HybridClock clock
+            HybridClock clock,
+            Function<ReplicationGroupId, CompletableFuture<ReplicationGroupId>> tablePartIdToZoneIdProvider,
+            BiFunction<ReplicationGroupId, Long, Set<ReplicationGroupId>> zoneIdToTablePartIdProvider
     ) {
         this.replicationGroupId = replicationGroupId;
         this.clusterService = clusterService;
@@ -121,7 +127,13 @@ public class PlacementDriverManager implements IgniteComponent {
 
         this.raftClientFuture = new CompletableFuture<>();
 
-        this.leaseTracker = new LeaseTracker(metastore, clusterService.topologyService());
+        this.leaseTracker = new LeaseTracker(
+                metastore,
+                clusterService.topologyService(),
+                tablePartIdToZoneIdProvider,
+                zoneIdToTablePartIdProvider
+        );
+        this.tablePartIdToZoneIdProvider = tablePartIdToZoneIdProvider;
 
         this.leaseUpdater = new LeaseUpdater(
                 nodeName,
@@ -129,7 +141,8 @@ public class PlacementDriverManager implements IgniteComponent {
                 metastore,
                 logicalTopologyService,
                 leaseTracker,
-                clock
+                clock,
+                tablePartIdToZoneIdProvider
         );
     }
 

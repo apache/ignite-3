@@ -32,7 +32,11 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -55,6 +59,7 @@ import org.apache.ignite.internal.placementdriver.message.StopLeaseProlongationM
 import org.apache.ignite.internal.placementdriver.negotiation.LeaseAgreement;
 import org.apache.ignite.internal.placementdriver.negotiation.LeaseNegotiator;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
@@ -68,7 +73,7 @@ import org.jetbrains.annotations.Nullable;
 public class LeaseUpdater {
     /** Negative value means that printing statistics is disabled. */
     private static final int LEASE_UPDATE_STATISTICS_PRINT_ONCE_PER_ITERATIONS = IgniteSystemProperties
-            .getInteger("LEASE_STATISTICS_PRINT_ONCE_PER_ITERATIONS", 10);
+            .getInteger("LEASE_STATISTICS_PRINT_ONCE_PER_ITERATIONS", 0);
 
     /** Ignite logger. */
     private static final IgniteLogger LOG = Loggers.forClass(LeaseUpdater.class);
@@ -105,6 +110,8 @@ public class LeaseUpdater {
     /** Cluster clock. */
     private final HybridClock clock;
 
+    private final Function<ReplicationGroupId, CompletableFuture<ReplicationGroupId>> groupIdProvider;
+
     /** Closure to update leases. */
     private final Updater updater;
 
@@ -132,13 +139,15 @@ public class LeaseUpdater {
             MetaStorageManager msManager,
             LogicalTopologyService topologyService,
             LeaseTracker leaseTracker,
-            HybridClock clock
+            HybridClock clock,
+            Function<ReplicationGroupId, CompletableFuture<ReplicationGroupId>> groupIdProvider
     ) {
         this.nodeName = nodeName;
         this.clusterService = clusterService;
         this.msManager = msManager;
         this.leaseTracker = leaseTracker;
         this.clock = clock;
+        this.groupIdProvider = groupIdProvider;
 
         this.longLeaseInterval = IgniteSystemProperties.getLong("IGNITE_LONG_LEASE", 120_000);
         this.assignmentsTracker = new AssignmentsTracker(msManager);
@@ -431,7 +440,8 @@ public class LeaseUpdater {
 
                 for (Map.Entry<ReplicationGroupId, Boolean> entry : toBeNegotiated.entrySet()) {
                     Lease lease = renewedLeases.get(entry.getKey());
-                    boolean force = entry.getValue();
+                    // TODO check if tests are failed?
+                    boolean force = true;
 
                     leaseNegotiator.negotiate(lease, force);
                 }
@@ -588,11 +598,22 @@ public class LeaseUpdater {
         private void processMessageInternal(String sender, PlacementDriverActorMessage msg) {
             ReplicationGroupId grpId = msg.groupId();
 
+            ReplicationGroupId zonePartitionId;
+
+            try {
+                zonePartitionId = groupIdProvider.apply(grpId).get(10, TimeUnit.SECONDS);
+            } catch (InterruptedException | ExecutionException | TimeoutException e) {
+                throw new RuntimeException(e);
+            }
+
             Lease lease = leaseTracker.getLease(grpId);
 
             if (msg instanceof StopLeaseProlongationMessage) {
-                if (lease.isProlongable() && sender.equals(lease.getLeaseholder())) {
-                    denyLease(grpId, lease).whenComplete((res, th) -> {
+                System.out.println("!@#$HEHREHRH");
+                boolean prolongable = lease.isProlongable();
+                System.out.println("PROLONGABLE = " + prolongable);
+                if (prolongable && sender.equals(lease.getLeaseholder())) {
+                    denyLease(zonePartitionId, lease).whenComplete((res, th) -> {
                         if (th != null) {
                             LOG.warn("Prolongation denial failed due to exception [groupId={}]", th, grpId);
                         } else {
