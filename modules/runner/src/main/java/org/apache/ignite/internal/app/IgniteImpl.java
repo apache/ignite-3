@@ -182,7 +182,7 @@ import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.ThreadAssertingStorageEngine;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.systemview.api.SystemViewManager;
-import org.apache.ignite.internal.table.distributed.LowWatermark;
+import org.apache.ignite.internal.table.distributed.LowWatermarkImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
@@ -350,7 +350,7 @@ public class IgniteImpl implements Ignite {
 
     private final ClockWaiter clockWaiter;
 
-    private final LowWatermark lowWatermark;
+    private final LowWatermarkImpl lowWatermarkImpl;
 
     private final OutgoingSnapshotsManager outgoingSnapshotsManager;
 
@@ -700,7 +700,7 @@ public class IgniteImpl implements Ignite {
 
         StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry.getConfiguration(StorageUpdateConfiguration.KEY);
 
-        lowWatermark = new LowWatermark(name, gcConfig.lowWatermark(), clock, txManager, vaultMgr, failureProcessor);
+        lowWatermarkImpl = new LowWatermarkImpl(name, gcConfig.lowWatermark(), clock, txManager, vaultMgr, failureProcessor);
 
         distributedTblMgr = new TableManager(
                 name,
@@ -733,7 +733,7 @@ public class IgniteImpl implements Ignite {
                 this::sql,
                 resourcesRegistry,
                 rebalanceScheduler,
-                lowWatermark,
+                lowWatermarkImpl,
                 asyncContinuationExecutor
         );
 
@@ -979,7 +979,7 @@ public class IgniteImpl implements Ignite {
                     raftMgr,
                     clusterStateStorage,
                     cmgMgr,
-                    lowWatermark
+                    lowWatermarkImpl
             );
 
             clusterSvc.updateMetadata(new NodeMetadata(restComponent.hostName(), restComponent.httpPort(), restComponent.httpsPort()));
@@ -1056,7 +1056,7 @@ public class IgniteImpl implements Ignite {
                     .thenRunAsync(() -> {
                         try {
                             // Enable watermark events.
-                            lowWatermark.scheduleUpdates();
+                            lowWatermarkImpl.scheduleUpdates();
 
                             // Enable REST component on start complete.
                             restComponent.enable();

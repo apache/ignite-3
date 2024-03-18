@@ -39,6 +39,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockSafe;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableSet;
@@ -68,7 +69,6 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 /** Index chooser for full state transfer. */
 // TODO: IGNITE-21502 Deal with the case of drop a table
 // TODO: IGNITE-21502 Stop writing to a dropped index that was in status before AVAILABLE
-// TODO: IGNITE-21514 Stop writing to indexes that are destroyed during catalog compaction
 public class FullStateTransferIndexChooser implements ManuallyCloseable {
     private final CatalogService catalogService;
 
@@ -80,7 +80,6 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
                     .thenComparingInt(ReadOnlyIndexInfo::indexId)
     );
 
-    // TODO: IGNITE-21514 не забыть подчищать
     private final Map<Integer, Integer> tableVersionByIndexId = new ConcurrentHashMap<>();
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -257,22 +256,32 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
         lowWatermark.addUpdateListener(this::onLwmChanged);
     }
 
-    // TODO: IGNITE-21514 нужно добавлять только есть не наступила lwm
     private void onIndexRemoved(RemoveIndexEventParameters parameters) {
         inBusyLock(busyLock, () -> {
             int indexId = parameters.indexId();
             int catalogVersion = parameters.catalogVersion();
 
-            CatalogIndexDescriptor index = indexBusy(indexId, catalogVersion - 1);
+            lowWatermark.getLowWatermarkSafe(lwm -> {
+                int lwmCatalogVersion = catalogService.activeCatalogVersion(hybridTimestampToLong(lwm));
 
-            if (index.status() == AVAILABLE) {
-                // On drop table event.
-                readOnlyIndexes.add(new ReadOnlyIndexInfo(index, catalogActivationTimestampBusy(catalogVersion), catalogVersion));
-            } else if (index.status() == STOPPING) {
-                readOnlyIndexes.add(
-                        new ReadOnlyIndexInfo(index, findStoppingActivationTsBusy(indexId, catalogVersion - 1), catalogVersion)
-                );
-            }
+                if (catalogVersion <= lwmCatalogVersion) {
+                    // There is no need to add a read-only indexes, since the index should be destroyed under the updated low watermark.
+                    tableVersionByIndexId.remove(indexId);
+                } else {
+                    CatalogIndexDescriptor index = indexBusy(indexId, catalogVersion - 1);
+
+                    if (index.status() == AVAILABLE) {
+                        // On drop table event.
+                        readOnlyIndexes.add(new ReadOnlyIndexInfo(index, catalogActivationTimestampBusy(catalogVersion), catalogVersion));
+                    } else if (index.status() == STOPPING) {
+                        readOnlyIndexes.add(
+                                new ReadOnlyIndexInfo(index, findStoppingActivationTsBusy(indexId, catalogVersion - 1), catalogVersion)
+                        );
+                    } else {
+                        tableVersionByIndexId.remove(indexId);
+                    }
+                }
+            });
         });
     }
 
@@ -294,7 +303,7 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
         return catalog.time();
     }
 
-    // TODO: IGNITE-21514 Deal with catalog compaction
+    // TODO: IGNITE-21771 Deal with catalog compaction
     private void recoverStructuresBusy() {
         int earliestCatalogVersion = catalogService.earliestCatalogVersion();
         int latestCatalogVersion = catalogService.latestCatalogVersion();
@@ -330,6 +339,7 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
                                     new ReadOnlyIndexInfo(index, stoppingActivationTsByIndexId.get(index.id()), finalCatalogVersion)
                             );
                         } else if (index.status() == AVAILABLE && finalCatalogVersion > lwnCatalogVersion) {
+                            // Drop table case.
                             readOnlyIndexes.add(
                                     new ReadOnlyIndexInfo(index, catalogActivationTimestampBusy(finalCatalogVersion), finalCatalogVersion)
                             );
@@ -393,7 +403,19 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
 
     private CompletableFuture<Void> onLwmChanged(HybridTimestamp ts) {
         return inBusyLockAsync(busyLock, () -> {
-            // TODO: IGNITE-21514 реализовать
+            int lwmCatalogVersion = catalogService.activeCatalogVersion(ts.longValue());
+
+            Iterator<ReadOnlyIndexInfo> it = readOnlyIndexes.iterator();
+
+            while (it.hasNext()) {
+                ReadOnlyIndexInfo readOnlyIndexInfo = it.next();
+
+                if (readOnlyIndexInfo.indexRemovalCatalogVersion() <= lwmCatalogVersion) {
+                    it.remove();
+
+                    tableVersionByIndexId.remove(readOnlyIndexInfo.indexId());
+                }
+            }
 
             return nullCompletedFuture();
         });

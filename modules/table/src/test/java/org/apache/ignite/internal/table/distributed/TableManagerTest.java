@@ -778,7 +778,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 () -> mock(IgniteSql.class),
                 new RemotelyTriggeredResourceRegistry(),
                 mock(ScheduledExecutorService.class),
-                new LowWatermark(NODE_NAME, gcConfig.lowWatermark(), clock, tm, vaultManager, mock(FailureProcessor.class)),
+                new LowWatermarkImpl(NODE_NAME, gcConfig.lowWatermark(), clock, tm, vaultManager, mock(FailureProcessor.class)),
                 ForkJoinPool.commonPool()
         ) {
 

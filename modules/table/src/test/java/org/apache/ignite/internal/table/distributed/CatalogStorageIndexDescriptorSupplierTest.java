@@ -77,7 +77,7 @@ class CatalogStorageIndexDescriptorSupplierTest extends BaseIgniteAbstractTest {
 
     private CatalogManager catalogManager;
 
-    private LowWatermark lowWatermark;
+    private LowWatermarkImpl lowWatermark;
 
     private StorageIndexDescriptorSupplier indexDescriptorSupplier;
 
@@ -96,7 +96,7 @@ class CatalogStorageIndexDescriptorSupplierTest extends BaseIgniteAbstractTest {
 
         lenient().when(txManager.updateLowWatermark(any())).thenReturn(nullCompletedFuture());
 
-        lowWatermark = new LowWatermark(
+        lowWatermark = new LowWatermarkImpl(
                 nodeName,
                 lowWatermarkConfiguration,
                 clock,

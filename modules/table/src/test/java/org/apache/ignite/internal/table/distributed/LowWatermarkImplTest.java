@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed;
 
-import static org.apache.ignite.internal.table.distributed.LowWatermark.LOW_WATERMARK_VAULT_KEY;
+import static org.apache.ignite.internal.table.distributed.LowWatermarkImpl.LOW_WATERMARK_VAULT_KEY;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -58,10 +58,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InOrder;
 
 /**
- * For {@link LowWatermark} testing.
+ * For {@link LowWatermarkImpl} testing.
  */
 @ExtendWith(ConfigurationExtension.class)
-public class LowWatermarkTest extends BaseIgniteAbstractTest {
+public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
     @InjectConfiguration
     private LowWatermarkConfiguration lowWatermarkConfig;
 
@@ -73,14 +73,14 @@ public class LowWatermarkTest extends BaseIgniteAbstractTest {
 
     private LowWatermarkChangedListener listener;
 
-    private LowWatermark lowWatermark;
+    private LowWatermarkImpl lowWatermark;
 
     @BeforeEach
     void setUp() {
         listener = mock(LowWatermarkChangedListener.class);
         when(listener.onLwmChanged(any(HybridTimestamp.class))).thenReturn(nullCompletedFuture());
 
-        lowWatermark = new LowWatermark("test", lowWatermarkConfig, clock, txManager, vaultManager, mock(FailureProcessor.class));
+        lowWatermark = new LowWatermarkImpl("test", lowWatermarkConfig, clock, txManager, vaultManager, mock(FailureProcessor.class));
         lowWatermark.addUpdateListener(listener);
     }
 
