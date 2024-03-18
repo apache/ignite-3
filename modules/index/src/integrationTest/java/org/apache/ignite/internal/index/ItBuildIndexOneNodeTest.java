@@ -22,11 +22,13 @@ import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_N
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -40,9 +42,11 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.MakeIndexAvailableEventParameters;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.table.distributed.replication.request.BuildIndexReplicaRequest;
+import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.AfterEach;
@@ -87,7 +91,7 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
             return false;
         });
 
-        runAsync(() -> createIndex(TABLE_NAME, INDEX_NAME, "ID"));
+        CompletableFuture<Void> createIndexFuture = runAsync(() -> createIndex(TABLE_NAME, INDEX_NAME, "ID"));
 
         assertThat(awaitBuildIndexReplicaRequest, willCompleteSuccessfully());
 
@@ -97,6 +101,7 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
         CLUSTER.stopNode(0);
         CLUSTER.startNode(0);
 
+        assertThat(createIndexFuture, willThrow(SqlException.class, containsString("Operation has been cancelled (node is stopping)")));
         awaitIndexesBecomeAvailable(node(), INDEX_NAME);
     }
 
