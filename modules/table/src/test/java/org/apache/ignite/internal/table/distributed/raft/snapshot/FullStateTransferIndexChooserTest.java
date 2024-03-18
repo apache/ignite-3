@@ -55,7 +55,6 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.table.TableTestUtils;
-import org.apache.ignite.internal.table.distributed.LowWatermark;
 import org.apache.ignite.internal.table.distributed.TestLowWatermarkImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
@@ -65,7 +64,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /** For {@link FullStateTransferIndexChooser} testing. */
-// TODO: IGNITE-21514 поправить тесты и написать новые
 public class FullStateTransferIndexChooserTest extends BaseIgniteAbstractTest {
     private static final String REGISTERED_INDEX_NAME = INDEX_NAME + "_" + REGISTERED;
 
@@ -81,7 +79,7 @@ public class FullStateTransferIndexChooserTest extends BaseIgniteAbstractTest {
 
     private CatalogManager catalogManager;
 
-    private final LowWatermark lowWatermark = new TestLowWatermarkImpl();
+    private final TestLowWatermarkImpl lowWatermark = new TestLowWatermarkImpl();
 
     private FullStateTransferIndexChooser indexChooser;
 
@@ -324,6 +322,66 @@ public class FullStateTransferIndexChooserTest extends BaseIgniteAbstractTest {
 
         assertThat(chooseForAddWriteLatest(), contains(pkIndexIdAndTableVersion, readOnlyIndexIdAndTableVersion));
         assertThat(chooseForAddWriteCommittedLatest(), contains(pkIndexIdAndTableVersion, readOnlyIndexIdAndTableVersion));
+    }
+
+    @ParameterizedTest(name = "recovery = {0}")
+    @ValueSource(booleans = {false, true})
+    void chooseWithRemovedNotAvailableIndexes(boolean recovery) {
+        createSimpleRegisteredIndex(REGISTERED_INDEX_NAME);
+        createSimpleBuildingIndex(BUILDING_INDEX_NAME);
+
+        int catalogVersionBeforeRemoveIndexes = catalogManager.latestCatalogVersion();
+
+        dropIndex(REGISTERED_INDEX_NAME);
+        dropIndex(BUILDING_INDEX_NAME);
+
+        if (recovery) {
+            recoverIndexChooser();
+        }
+
+        int pkIndexId = indexId(PK_INDEX_NAME);
+
+        assertThat(indexIds(chooseForAddWriteLatest()), contains(pkIndexId));
+        assertThat(indexIds(chooseForAddWriteCommittedLatest()), contains(pkIndexId));
+
+        int tableId = tableId(TABLE_NAME);
+
+        assertThat(
+                indexIds(indexChooser.chooseForAddWrite(catalogVersionBeforeRemoveIndexes, tableId, HybridTimestamp.MAX_VALUE)),
+                contains(pkIndexId)
+        );
+
+        assertThat(
+                indexIds(indexChooser.chooseForAddWriteCommitted(catalogVersionBeforeRemoveIndexes, tableId, HybridTimestamp.MAX_VALUE)),
+                contains(pkIndexId)
+        );
+    }
+
+    @ParameterizedTest(name = "recovery = {0}")
+    @ValueSource(booleans = {false, true})
+    void chooseWithUpdateLowWatermark(boolean recovery) {
+        createSimpleRegisteredIndex(REGISTERED_INDEX_NAME);
+        createSimpleBuildingIndex(BUILDING_INDEX_NAME);
+        createSimpleAvailableIndex(AVAILABLE_INDEX_NAME);
+
+        int availableIndexId = indexId(AVAILABLE_INDEX_NAME);
+
+        dropIndex(AVAILABLE_INDEX_NAME);
+        removeIndex(availableIndexId);
+
+        assertThat(lowWatermark.setLowWatermark(clock.now()), willCompleteSuccessfully());
+
+        if (recovery) {
+            recoverIndexChooser();
+        }
+
+        int pkIndexId = indexId(PK_INDEX_NAME);
+        int registeredIndexId = indexId(REGISTERED_INDEX_NAME);
+        int buildingIndexId = indexId(BUILDING_INDEX_NAME);
+
+        // Let's make sure that there will be no read-only indexes.
+        assertThat(indexIds(chooseForAddWriteLatest()), contains(pkIndexId, registeredIndexId, buildingIndexId));
+        assertThat(indexIds(chooseForAddWriteCommittedLatest()), contains(pkIndexId, buildingIndexId));
     }
 
     private List<IndexIdAndTableVersion> chooseForAddWriteCommittedLatest(int tableId, HybridTimestamp commitTs) {

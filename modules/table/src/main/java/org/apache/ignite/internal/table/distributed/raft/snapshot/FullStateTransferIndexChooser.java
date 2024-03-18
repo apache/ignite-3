@@ -115,13 +115,17 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
     /**
      * Collect indexes for {@link PartitionAccess#addWrite(RowId, BinaryRow, UUID, int, int, int)} (write intent).
      *
+     * <p>NOTE: When updating a low watermark, the index storages that were returned from the method may begin to be destroyed, such a
+     * situation should occur by the calling code.</p>
+     *
      * <p>Index selection algorithm:</p>
      * <ul>
      *     <li>If the index in the snapshot catalog version is in status {@link CatalogIndexStatus#BUILDING},
-     *     {@link CatalogIndexStatus#AVAILABLE} or {@link CatalogIndexStatus#STOPPING}.</li>
+     *     {@link CatalogIndexStatus#AVAILABLE} or {@link CatalogIndexStatus#STOPPING} and not removed in latest catalog version.</li>
      *     <li>If the index in status {@link CatalogIndexStatus#REGISTERED} and it is in this status on the active version of the catalog
-     *     for {@code beginTs}.</li>
-     *     <li>For a read-only index, if {@code beginTs} is strictly less than the activation time of dropping the index.</li>
+     *     for {@code beginTs} and not removed in latest catalog version.</li>
+     *     <li>For a read-only index, if {@code beginTs} is strictly less than the activation time of dropping the index and not removed due
+     *     to low watermark.</li>
      * </ul>
      *
      * @param catalogVersion Catalog version of the incoming partition snapshot.
@@ -152,11 +156,15 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
     /**
      * Collect indexes for {@link PartitionAccess#addWriteCommitted(RowId, BinaryRow, HybridTimestamp, int)} (write committed only).
      *
+     * <p>NOTE: When updating a low watermark, the index storages that were returned from the method may begin to be destroyed, such a
+     * situation should occur by the calling code.</p>
+     *
      * <p>Index selection algorithm:</p>
      * <ul>
      *     <li>If the index in the snapshot catalog version is in status {@link CatalogIndexStatus#BUILDING},
-     *     {@link CatalogIndexStatus#AVAILABLE} or {@link CatalogIndexStatus#STOPPING}.</li>
-     *     <li>For a read-only index, if {@code commitTs} is strictly less than the activation time of dropping the index.</li>
+     *     {@link CatalogIndexStatus#AVAILABLE} or {@link CatalogIndexStatus#STOPPING} and not removed in latest catalog version.</li>
+     *     <li>For a read-only index, if {@code commitTs} is strictly less than the activation time of dropping the index and not removed
+     *     due to low watermark.</li>
      * </ul>
      *
      * @param catalogVersion Catalog version of the incoming partition snapshot.
