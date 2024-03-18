@@ -661,7 +661,7 @@ public class RecordBinaryViewOperationsTest extends TableKvOperationsTestBase {
             final Object val1 = expected.value(col.name());
             final Object val2 = actual.value(col.name());
 
-            Assertions.assertEquals(val1, val2, "Value columns equality check failed: " + col);
+            assertEquals(val1, val2, "Value columns equality check failed: " + col);
 
             if (col.positionInKey() != -1 && val1 != null) {
                 nonNullKey++;
@@ -688,7 +688,7 @@ public class RecordBinaryViewOperationsTest extends TableKvOperationsTestBase {
             if (val1 instanceof byte[] && val2 instanceof byte[]) {
                 Assertions.assertArrayEquals((byte[]) val1, (byte[]) val2, "Equality check failed: colIdx=" + col.positionInRow());
             } else {
-                Assertions.assertEquals(val1, val2, "Equality check failed: colIdx=" + col.positionInRow());
+                assertEquals(val1, val2, "Equality check failed: colIdx=" + col.positionInRow());
             }
         }
     }

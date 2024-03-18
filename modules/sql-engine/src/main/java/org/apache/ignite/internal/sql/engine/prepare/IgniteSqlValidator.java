@@ -687,7 +687,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             BigDecimal max = (BigDecimal) toType.getSqlTypeName().getLimit(true, Limit.OVERFLOW, false, precision, scale);
             BigDecimal min = (BigDecimal) toType.getSqlTypeName().getLimit(false, Limit.OVERFLOW, false, precision, scale);
 
-            String litValue = Objects.requireNonNull(literal.toValue());
+            String litValue = requireNonNull(literal.toValue());
 
             BigDecimal litValueToDecimal = null;
 

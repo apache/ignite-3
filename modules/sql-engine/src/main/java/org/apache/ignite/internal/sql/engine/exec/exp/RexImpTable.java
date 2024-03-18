@@ -420,7 +420,6 @@ import org.apache.calcite.sql.fun.SqlJsonArrayAggAggFunction;
 import org.apache.calcite.sql.fun.SqlJsonObjectAggAggFunction;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.fun.SqlTrimFunction;
-import org.apache.calcite.sql.type.SqlTypeFamily;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.sql.validate.SqlUserDefinedAggFunction;
@@ -442,6 +441,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
  *
  * <p>Immutable.
  */
+@SuppressWarnings("PMD.UnnecessaryFullyQualifiedName")
 public class RexImpTable {
   /** The singleton instance. */
   public static final RexImpTable INSTANCE =

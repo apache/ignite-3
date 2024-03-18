@@ -1097,7 +1097,7 @@ public class PersistentPageMemory implements PageMemory {
             long tmpRelPtr = checkpointPool.borrowOrAllocateFreePage(tag(fullId.pageId()));
 
             if (tmpRelPtr == INVALID_REL_PTR) {
-                rwLock.writeUnlock(absPtr + PAGE_LOCK_OFFSET, OffheapReadWriteLock.TAG_LOCK_ALWAYS);
+                rwLock.writeUnlock(absPtr + PAGE_LOCK_OFFSET, TAG_LOCK_ALWAYS);
 
                 throw new IgniteInternalException(
                         "Failed to allocate temporary buffer for checkpoint (increase checkpointPageBufferSize configuration property): "

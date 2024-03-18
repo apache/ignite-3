@@ -81,7 +81,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
@@ -300,7 +299,7 @@ public class DistributionZoneManager implements IgniteComponent {
         metaStorageManager.unregisterWatch(topologyWatchListener);
 
         shutdownAndAwaitTermination(executor, 10, SECONDS);
-        shutdownAndAwaitTermination(rebalanceScheduler, 10, TimeUnit.SECONDS);
+        shutdownAndAwaitTermination(rebalanceScheduler, 10, SECONDS);
     }
 
     /**

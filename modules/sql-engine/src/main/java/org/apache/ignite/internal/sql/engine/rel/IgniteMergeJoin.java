@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.rel;
 
-import static org.apache.calcite.rel.RelCollations.EMPTY;
 import static org.apache.calcite.rel.RelCollations.containsOrderless;
 import static org.apache.calcite.rel.core.JoinRelType.FULL;
 import static org.apache.calcite.rel.core.JoinRelType.LEFT;
@@ -328,7 +327,7 @@ public class IgniteMergeJoin extends AbstractIgniteJoin {
             RelTraitSet rightInputTraits
     ) {
         return Pair.of(
-                nodeTraits.replace(EMPTY),
+                nodeTraits.replace(RelCollations.EMPTY),
                 List.of(
                         leftInputTraits.replace(RelCollations.of(joinInfo.leftKeys)),
                         rightInputTraits.replace(RelCollations.of(joinInfo.rightKeys))

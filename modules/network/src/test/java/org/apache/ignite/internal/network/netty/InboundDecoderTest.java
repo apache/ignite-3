@@ -166,7 +166,7 @@ public class InboundDecoderTest extends BaseIgniteAbstractTest {
      */
     @Test
     public void testPartialReadWithReuseBuffer() throws Exception {
-        ChannelHandlerContext ctx = Mockito.mock(ChannelHandlerContext.class);
+        ChannelHandlerContext ctx = mock(ChannelHandlerContext.class);
 
         var channel = new EmbeddedChannel();
 

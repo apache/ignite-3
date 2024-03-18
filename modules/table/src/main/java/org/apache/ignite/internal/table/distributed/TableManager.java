@@ -129,7 +129,6 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
-import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
@@ -677,7 +676,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         newAssignments.get(i).toBytes()));
             }
 
-            Condition condition = Conditions.notExists(new ByteArray(partitionAssignments.get(0).key()));
+            Condition condition = notExists(new ByteArray(partitionAssignments.get(0).key()));
 
             return metaStorageMgr
                     .invoke(condition, partitionAssignments, Collections.emptyList())
