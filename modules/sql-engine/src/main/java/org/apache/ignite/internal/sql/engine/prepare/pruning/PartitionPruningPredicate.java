@@ -119,7 +119,6 @@ public final class PartitionPruningPredicate {
             }
         }
 
-        // Keep assignments intact, because they are used by DestinationFactory.
         return new ColocationGroup(
                 colocationGroup.sourceIds(),
                 List.copyOf(newNodes),
