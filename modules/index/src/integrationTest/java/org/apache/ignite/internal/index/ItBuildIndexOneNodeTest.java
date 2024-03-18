@@ -278,17 +278,16 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
         // Hack to prevent the index from going into status BUILDING until we update the default value for the column.
         Transaction rwTx = node().transactions().begin(new TransactionOptions().readOnly(false));
 
+        CompletableFuture<Void> createIndexFuture;
         try {
-            runAsync(() -> createIndex(TABLE_NAME, INDEX_NAME, columName));
+            createIndexFuture = runAsync(() -> createIndex(TABLE_NAME, INDEX_NAME, columName));
 
             sql(format("ALTER TABLE {} ALTER COLUMN {} SET DEFAULT 'bar'", TABLE_NAME, columName));
         } finally {
             rwTx.commit();
         }
 
-        // Hack so that we can wait for the index to be added to the sql planner.
-        awaitIndexesBecomeAvailable(node(), INDEX_NAME);
-        waitForReadTimestampThatObservesMostRecentCatalog();
+        assertThat(createIndexFuture, willCompleteSuccessfully());
 
         assertQuery(format("SELECT * FROM {} WHERE SURNAME = 'foo'", TABLE_NAME))
                 .matches(containsIndexScan(DEFAULT_SCHEMA_NAME, TABLE_NAME, INDEX_NAME))
