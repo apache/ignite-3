@@ -30,7 +30,7 @@ import org.junit.jupiter.api.Test;
  * Tests custom key column order table operations with thin client.
  */
 @SuppressWarnings("resource")
-public class ItThinClientCustomKeyColumnOrderTest extends ItAbstractThinClientTest {
+public class ItCustomKeyColumnOrderClientTest extends ItAbstractThinClientTest {
     private static final String TABLE_NAME2 = "TBL2";
 
     @BeforeAll
