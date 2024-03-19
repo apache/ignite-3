@@ -365,10 +365,9 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
             if (idx.type() == Type.SORTED) {
                 searchRowComparator = expressionFactory.comparator(IgniteIndex.createSearchRowCollation(idx.collation()));
-                collation = IgniteIndex.createSearchRowCollation(idx.collation());
             }
 
-            ranges = expressionFactory.ranges(searchBounds, idx.rowType(typeFactory, tbl.descriptor()), searchRowComparator, collation);
+            ranges = expressionFactory.ranges(searchBounds, idx.rowType(typeFactory, tbl.descriptor()), searchRowComparator);
         }
 
         RelCollation outputCollation = rel.collation();
@@ -560,7 +559,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
         Predicate<RowT> filter = expressionFactory.predicate(rel.condition(), rel.getRowType());
         Comparator<RowT> comparator = expressionFactory.comparator(collation);
-        RangeIterable<RowT> ranges = expressionFactory.ranges(rel.searchBounds(), rel.getRowType(), comparator, collation);
+        RangeIterable<RowT> ranges = expressionFactory.ranges(rel.searchBounds(), rel.getRowType(), comparator);
 
         IndexSpoolNode<RowT> node = IndexSpoolNode.createTreeSpool(
                 ctx,

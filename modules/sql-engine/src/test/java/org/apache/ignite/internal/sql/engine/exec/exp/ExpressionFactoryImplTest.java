@@ -36,7 +36,6 @@ import java.util.UUID;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.function.Predicate;
-import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelFieldCollation;
 import org.apache.calcite.rel.RelFieldCollation.Direction;
@@ -152,10 +151,9 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
                     ))
             );
 
-            RelCollation collation = RelCollations.of(0);
-            Comparator<Object[]> comparator = expFactory.comparator(collation);
+            Comparator<Object[]> comparator = expFactory.comparator(RelCollations.of(0));
 
-            RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator, collation);
+            RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator);
             List<TestRange> list = new ArrayList<>();
 
             ranges.forEach(r -> list.add(new TestRange(r.lower(), r.upper())));
@@ -171,10 +169,9 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
                     ))
             );
 
-            RelCollation collation = RelCollations.of(new RelFieldCollation(0, Direction.DESCENDING));
-            Comparator<Object[]> comparator = expFactory.comparator(collation);
+            Comparator<Object[]> comparator = expFactory.comparator(RelCollations.of(new RelFieldCollation(0, Direction.DESCENDING)));
 
-            RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator, collation);
+            RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator);
             List<TestRange> list = new ArrayList<>();
 
             ranges.forEach(r -> list.add(new TestRange(r.lower(), r.upper())));
@@ -190,10 +187,10 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
                     ))
             );
 
-            RelCollation collation = RelCollations.of(new RelFieldCollation(0, Direction.DESCENDING, NullDirection.FIRST));
-            Comparator<Object[]> comparator = expFactory.comparator(collation);
+            Comparator<Object[]> comparator = expFactory.comparator(RelCollations.of(
+                    new RelFieldCollation(0, Direction.DESCENDING, NullDirection.FIRST)));
 
-            RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator, collation);
+            RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator);
             List<TestRange> list = new ArrayList<>();
 
             ranges.forEach(r -> list.add(new TestRange(r.lower(), r.upper())));
@@ -209,10 +206,10 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
                     ))
             );
 
-            RelCollation collation = RelCollations.of(new RelFieldCollation(0, Direction.DESCENDING, NullDirection.LAST));
-            Comparator<Object[]> comparator = expFactory.comparator(collation);
+            Comparator<Object[]> comparator = expFactory.comparator(RelCollations.of(
+                    new RelFieldCollation(0, Direction.DESCENDING, NullDirection.LAST)));
 
-            RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator, collation);
+            RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator);
             List<TestRange> list = new ArrayList<>();
 
             ranges.forEach(r -> list.add(new TestRange(r.lower(), r.upper())));
@@ -228,10 +225,9 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
                     ))
             );
 
-            RelCollation collation = RelCollations.of(0);
-            Comparator<Object[]> comparator = expFactory.comparator(collation);
+            Comparator<Object[]> comparator = expFactory.comparator(RelCollations.of(0));
 
-            RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator, collation);
+            RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator);
             List<TestRange> list = new ArrayList<>();
 
             ranges.forEach(r -> list.add(new TestRange(r.lower(), r.upper())));
@@ -247,10 +243,9 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
                     ))
             );
 
-            RelCollation collation = RelCollations.of(new RelFieldCollation(0, Direction.DESCENDING));
-            Comparator<Object[]> comparator = expFactory.comparator(collation);
+            Comparator<Object[]> comparator = expFactory.comparator(RelCollations.of(new RelFieldCollation(0, Direction.DESCENDING)));
 
-            RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator, collation);
+            RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator);
             List<TestRange> list = new ArrayList<>();
 
             ranges.forEach(r -> list.add(new TestRange(r.lower(), r.upper())));
@@ -266,10 +261,10 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
                     ))
             );
 
-            RelCollation collation = RelCollations.of(new RelFieldCollation(0, Direction.DESCENDING, NullDirection.FIRST));
-            Comparator<Object[]> comparator = expFactory.comparator(collation);
+            Comparator<Object[]> comparator = expFactory.comparator(RelCollations.of(
+                    new RelFieldCollation(0, Direction.DESCENDING, NullDirection.FIRST)));
 
-            RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator, collation);
+            RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator);
             List<TestRange> list = new ArrayList<>();
 
             ranges.forEach(r -> list.add(new TestRange(r.lower(), r.upper())));
@@ -285,10 +280,10 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
                     ))
             );
 
-            RelCollation collation = RelCollations.of(new RelFieldCollation(0, Direction.DESCENDING, NullDirection.LAST));
-            Comparator<Object[]> comparator = expFactory.comparator(collation);
+            Comparator<Object[]> comparator = expFactory.comparator(RelCollations.of(
+                    new RelFieldCollation(0, Direction.DESCENDING, NullDirection.LAST)));
 
-            RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator, collation);
+            RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator);
             List<TestRange> list = new ArrayList<>();
 
             ranges.forEach(r -> list.add(new TestRange(r.lower(), r.upper())));
@@ -304,10 +299,10 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
                     ))
             );
 
-            RelCollation collation = RelCollations.of(new RelFieldCollation(0, Direction.DESCENDING, NullDirection.FIRST));
-            Comparator<Object[]> comparator = expFactory.comparator(collation);
+            Comparator<Object[]> comparator = expFactory.comparator(RelCollations.of(
+                    new RelFieldCollation(0, Direction.DESCENDING, NullDirection.FIRST)));
 
-            RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator, collation);
+            RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator);
             List<TestRange> list = new ArrayList<>();
 
             ranges.forEach(r -> list.add(new TestRange(r.lower(), r.upper())));
