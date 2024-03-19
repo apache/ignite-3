@@ -17,12 +17,15 @@
 
 package org.apache.ignite.internal.cluster.management.raft;
 
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+
+import org.apache.ignite.internal.lang.IgniteInternalException;
+
 /**
- * Tests for {@link RaftStorageManager} based on {@link TestClusterStateStorage}.
+ * Exception used by {@link RocksDbClusterStateStorage} to signal about errors.
  */
-public class TestClusterStateStorageManagerTest extends AbstractClusterStateStorageManagerTest {
-    @Override
-    ClusterStateStorage clusterStateStorage(String nodeName) {
-        return new TestClusterStateStorage();
+public class StorageException extends IgniteInternalException {
+    public StorageException(String msg, Throwable cause) {
+        super(INTERNAL_ERR, msg, cause);
     }
 }

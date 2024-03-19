@@ -29,11 +29,13 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
-import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.rocksdb.snapshot.RocksSnapshotManager;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
@@ -50,15 +52,16 @@ import org.rocksdb.WriteOptions;
  * {@link ClusterStateStorage} implementation based on RocksDB.
  */
 public class RocksDbClusterStateStorage implements ClusterStateStorage {
+    private static final IgniteLogger LOG = Loggers.forClass(RocksDbClusterStateStorage.class);
+
     /** Thread-pool for snapshot operations execution. */
-    private final ExecutorService snapshotExecutor = Executors.newFixedThreadPool(2);
+    private final ExecutorService snapshotExecutor;
 
     /** Path to the rocksdb database. */
     private final Path dbPath;
 
     /** RockDB options. */
-    @Nullable
-    private volatile Options options;
+    private final Options options = new Options().setCreateIfMissing(true);
 
     /** RocksDb instance. */
     @Nullable
@@ -68,25 +71,38 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
 
     private final Object snapshotRestoreLock = new Object();
 
-    public RocksDbClusterStateStorage(Path dbPath) {
+    /**
+     * Creates a new instance.
+     *
+     * @param dbPath Path to the database.
+     * @param nodeName Ignite node name.
+     */
+    public RocksDbClusterStateStorage(Path dbPath, String nodeName) {
         this.dbPath = dbPath;
+        this.snapshotExecutor = Executors.newSingleThreadExecutor(
+                NamedThreadFactory.create(nodeName, "cluster-state-snapshot-executor", LOG)
+        );
     }
 
     @Override
     public CompletableFuture<Void> start() {
-        options = new Options().setCreateIfMissing(true);
+        init();
 
+        return nullCompletedFuture();
+    }
+
+    private void init() {
         try {
-            db = RocksDB.open(options, dbPath.toString());
+            RocksDB db = RocksDB.open(options, dbPath.toString());
 
             ColumnFamily defaultCf = ColumnFamily.wrap(db, db.getDefaultColumnFamily());
 
             snapshotManager = new RocksSnapshotManager(db, List.of(fullRange(defaultCf)), snapshotExecutor);
-        } catch (RocksDBException e) {
-            throw new IgniteInternalException("Failed to start the storage", e);
-        }
 
-        return nullCompletedFuture();
+            this.db = db;
+        } catch (RocksDBException e) {
+            throw new StorageException("Failed to start the storage", e);
+        }
     }
 
     @Override
@@ -94,7 +110,7 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
         try {
             return db.get(key);
         } catch (RocksDBException e) {
-            throw new IgniteInternalException("Unable to get data from Rocks DB", e);
+            throw new StorageException("Unable to get data from Rocks DB", e);
         }
     }
 
@@ -103,7 +119,7 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
         try {
             db.put(key, value);
         } catch (RocksDBException e) {
-            throw new IgniteInternalException("Unable to put data into Rocks DB", e);
+            throw new StorageException("Unable to put data into Rocks DB", e);
         }
     }
 
@@ -123,7 +139,7 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
 
             db.write(options, batch);
         } catch (RocksDBException e) {
-            throw new IgniteInternalException("Unable to replace data in Rocks DB", e);
+            throw new StorageException("Unable to replace data in Rocks DB", e);
         }
     }
 
@@ -132,7 +148,7 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
         try {
             db.delete(key);
         } catch (RocksDBException e) {
-            throw new IgniteInternalException("Unable to remove data from Rocks DB", e);
+            throw new StorageException("Unable to remove data from Rocks DB", e);
         }
     }
 
@@ -148,7 +164,7 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
 
             db.write(options, batch);
         } catch (RocksDBException e) {
-            throw new IgniteInternalException("Unable to remove data from Rocks DB", e);
+            throw new StorageException("Unable to remove data from Rocks DB", e);
         }
     }
 
@@ -187,9 +203,9 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
     @Override
     public void restoreSnapshot(Path snapshotPath) {
         synchronized (snapshotRestoreLock) {
-            destroy();
+            destroyDb();
 
-            start();
+            init();
 
             snapshotManager.restoreSnapshot(snapshotPath);
         }
@@ -197,23 +213,27 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
 
     @Override
     public void destroy() {
-        try (Options options = new Options()) {
-            stop();
+        IgniteUtils.shutdownAndAwaitTermination(snapshotExecutor, 10, TimeUnit.SECONDS);
 
-            RocksDB.destroyDB(dbPath.toString(), options);
-        } catch (Exception e) {
-            throw new IgniteInternalException("Unable to clear RocksDB instance", e);
-        }
+        destroyDb();
+
+        options.close();
     }
 
     @Override
     public void stop() {
         IgniteUtils.shutdownAndAwaitTermination(snapshotExecutor, 10, TimeUnit.SECONDS);
 
-        RocksUtils.closeAll(options, db);
+        RocksUtils.closeAll(db, options);
+    }
 
-        db = null;
+    private void destroyDb() {
+        db.close();
 
-        options = null;
+        try {
+            RocksDB.destroyDB(dbPath.toString(), options);
+        } catch (RocksDBException e) {
+            throw new StorageException("Unable to stop the RocksDB instance", e);
+        }
     }
 }
