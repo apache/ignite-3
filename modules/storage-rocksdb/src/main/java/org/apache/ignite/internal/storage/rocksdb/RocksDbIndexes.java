@@ -95,7 +95,7 @@ class RocksDbIndexes {
 
             if (!indexCfsToDestroy.isEmpty()) {
                 rocksDb.flusher.awaitFlush(false)
-                        .thenRun(() -> {
+                        .thenRunAsync(() -> {
                             for (Map.Entry<Integer, ColumnFamily> e : indexCfsToDestroy) {
                                 int indexId = e.getKey();
 
@@ -103,7 +103,7 @@ class RocksDbIndexes {
 
                                 rocksDb.destroySortedIndexCfIfNeeded(indexCf.nameBytes(), indexId);
                             }
-                        });
+                        }, rocksDb.engine.threadPool());
             }
         }
     }
@@ -130,7 +130,7 @@ class RocksDbIndexes {
         HashIndex hashIndex = hashIndices.get(indexId);
 
         if (hashIndex != null) {
-            assert !sortedIndices.containsKey(indexId);
+            assert !sortedIndices.containsKey(indexId) : indexId;
 
             return hashIndex.getStorage(partitionId);
         }
@@ -191,7 +191,7 @@ class RocksDbIndexes {
 
         if (sortedIdx != null) {
             rocksDb.flusher.awaitFlush(false)
-                    .thenRun(sortedIdx::destroySortedIndexCfIfNeeded);
+                    .thenRunAsync(sortedIdx::destroySortedIndexCfIfNeeded, rocksDb.engine.threadPool());
         }
     }
 
@@ -217,7 +217,7 @@ class RocksDbIndexes {
 
     void scheduleAllIndexCfDestroy() {
         rocksDb.flusher.awaitFlush(false)
-                .thenRun(() -> sortedIndices.values().forEach(SortedIndex::destroySortedIndexCfIfNeeded));
+                .thenRunAsync(() -> sortedIndices.values().forEach(SortedIndex::destroySortedIndexCfIfNeeded), rocksDb.engine.threadPool());
     }
 
     Stream<AbstractRocksDbIndexStorage> getAllStorages(int partitionId) {
