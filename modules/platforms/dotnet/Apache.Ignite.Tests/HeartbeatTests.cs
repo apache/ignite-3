@@ -53,9 +53,9 @@ namespace Apache.Ignite.Tests
             var log = await ConnectAndGetLog(IgniteClientConfiguration.DefaultHeartbeatInterval);
 
             StringAssert.Contains(
-                "[Warning] Server-side IdleTimeout is 00:00:03, " +
+                "[Warning] Server-side IdleTimeout is 00:00:06, " +
                 "configured IgniteClientConfiguration.HeartbeatInterval is 00:00:30, which is longer than recommended IdleTimeout / 3. " +
-                "Overriding heartbeat interval with max(IdleTimeout / 3, 500ms): 00:00:01",
+                "Overriding heartbeat interval with max(IdleTimeout / 3, 500ms): 00:00:02",
                 log);
         }
 
@@ -65,7 +65,7 @@ namespace Apache.Ignite.Tests
             var log = await ConnectAndGetLog(TimeSpan.FromMilliseconds(50));
 
             StringAssert.Contains(
-                "[Information] Server-side IdleTimeout is 00:00:03, " +
+                "[Information] Server-side IdleTimeout is 00:00:06, " +
                 "using configured IgniteClientConfiguration.HeartbeatInterval: 00:00:00.0500000",
                 log);
         }
@@ -73,12 +73,12 @@ namespace Apache.Ignite.Tests
         [Test]
         public async Task TestCustomHeartbeatIntervalLongerThanRecommendedDoesNotOverrideCalculatedFromIdleTimeout()
         {
-            var log = await ConnectAndGetLog(TimeSpan.FromSeconds(4));
+            var log = await ConnectAndGetLog(TimeSpan.FromSeconds(8));
 
             StringAssert.Contains(
-                "[Warning] Server-side IdleTimeout is 00:00:03, " +
-                "configured IgniteClientConfiguration.HeartbeatInterval is 00:00:04, which is longer than recommended IdleTimeout / 3. " +
-                "Overriding heartbeat interval with max(IdleTimeout / 3, 500ms): 00:00:01",
+                "[Warning] Server-side IdleTimeout is 00:00:06, " +
+                "configured IgniteClientConfiguration.HeartbeatInterval is 00:00:08, which is longer than recommended IdleTimeout / 3. " +
+                "Overriding heartbeat interval with max(IdleTimeout / 3, 500ms): 00:00:02",
                 log);
         }
 
