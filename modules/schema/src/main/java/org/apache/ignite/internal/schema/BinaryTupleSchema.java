@@ -24,6 +24,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.BitSet;
+import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleFormatException;
@@ -184,7 +185,7 @@ public class BinaryTupleSchema {
      * @return Tuple schema.
      */
     public static BinaryTupleSchema createRowSchema(SchemaDescriptor descriptor) {
-        return createSchema(descriptor, 0, descriptor.length());
+        return createSchema(descriptor, descriptor.columns());
     }
 
     /**
@@ -194,7 +195,7 @@ public class BinaryTupleSchema {
      * @return Tuple schema.
      */
     public static BinaryTupleSchema createKeySchema(SchemaDescriptor descriptor) {
-        return createSchema(descriptor, 0, descriptor.keyColumns().size());
+        return createSchema(descriptor, descriptor.keyColumns());
     }
 
     /**
@@ -204,29 +205,25 @@ public class BinaryTupleSchema {
      * @return Tuple schema.
      */
     public static BinaryTupleSchema createValueSchema(SchemaDescriptor descriptor) {
-        return createSchema(descriptor, descriptor.keyColumns().size(), descriptor.length());
+        return createSchema(descriptor, descriptor.valueColumns());
     }
 
     /**
      * Creates a tuple schema based on a range of row columns.
      *
      * @param descriptor Row schema.
-     * @param colBegin First columns in the range.
-     * @param colEnd Last column in the range (exclusive).
+     * @param columns Columns to use.
      * @return Tuple schema.
      */
-    private static BinaryTupleSchema createSchema(SchemaDescriptor descriptor, int colBegin, int colEnd) {
-        int numCols = colEnd - colBegin;
+    private static BinaryTupleSchema createSchema(SchemaDescriptor descriptor, List<Column> columns) {
+        Element[] elements = new Element[columns.size()];
 
-        Element[] elements = new Element[numCols];
-
-        for (int i = 0; i < numCols; i++) {
-            Column column = descriptor.column(colBegin + i);
-            elements[i] = new Element(column.type(), column.nullable());
+        for (int i = 0; i < columns.size(); i++) {
+            Column col = columns.get(i);
+            elements[i] = new Element(col.type(), col.nullable());
         }
 
-        boolean fullSize = (colBegin == 0
-                && (colEnd == descriptor.length() || colEnd == descriptor.keyColumns().size()));
+        boolean fullSize = columns.size() == descriptor.columns().size();
 
         return new DenseRowSchema(elements, colBegin, fullSize);
     }
