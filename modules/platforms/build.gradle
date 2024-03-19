@@ -57,39 +57,56 @@ task copyNativeLibs(type: Copy) {
     into("$buildDir/classes/")
 }
 
+def cppBuildDir = file("$buildDir/cpp")
+def cppSources = file("$projectDir/cpp")
+def cppBuildType = 'Release'
+def conanToolchain = 'conan_toolchain.cmake'
+
 cmake {
-    workingFolder=file("$buildDir/cpp")
-    sourceFolder=file("$projectDir/cpp")
-    buildConfig='Release'
+    workingFolder=cppBuildDir
+    sourceFolder=cppSources
+    buildConfig=cppBuildType
     buildTarget='install'
+    getDef().CMAKE_TOOLCHAIN_FILE=conanToolchain
     getDef().CMAKE_INSTALL_PREFIX="$buildDir/install"
-    getDef().CMAKE_BUILD_TYPE='Release'
-    getDef().CMAKE_CONFIGURATION_TYPES='Release'
+    getDef().CMAKE_BUILD_TYPE=cppBuildType
+    getDef().CMAKE_CONFIGURATION_TYPES=cppBuildType
+}
+
+cmakeConfigure {
+    enabled false
+}
+
+task conanInstall(type: Exec) {
+    workingDir cppSources
+    commandLine 'conan', 'install', '.', "--output-folder=$cppBuildDir", '--build=missing', '-s', "build_type=$cppBuildType"
+    inputs.file("$cppSources/conanfile.py")
+    outputs.file("$cppBuildDir/$conanToolchain")
 }
 
 task cmakeConfigureClient(type: net.freudasoft.CMakeConfigureTask) {
+    dependsOn conanInstall
     configureFromProject() // uses everything in the cmake { ... } section.
     getDef().put('ENABLE_CLIENT', 'ON')
     getDef().put('ENABLE_ODBC', 'OFF')
 }
 
 task cmakeBuildClient(type: net.freudasoft.CMakeBuildTask) {
+    dependsOn cmakeConfigureClient
     configureFromProject() // uses everything in the cmake { ... } section.
 }
 
-cmakeBuildClient.dependsOn cmakeConfigureClient
-
 task cmakeConfigureOdbc(type: net.freudasoft.CMakeConfigureTask) {
+    dependsOn conanInstall
     configureFromProject() // uses everything in the cmake { ... } section.
     getDef().put('ENABLE_CLIENT', 'OFF')
     getDef().put('ENABLE_ODBC', 'ON')
 }
 
 task cmakeBuildOdbc(type: net.freudasoft.CMakeBuildTask) {
+    dependsOn cmakeConfigureOdbc
     configureFromProject() // uses everything in the cmake { ... } section.
 }
-
-cmakeBuildOdbc.dependsOn cmakeConfigureOdbc
 
 task buildNuGet(type: Exec) {
     workingDir "$rootDir/modules/platforms/dotnet"
