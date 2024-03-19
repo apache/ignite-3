@@ -1190,7 +1190,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * The test for node restart when there is a gap between the node local configuration and distributed configuration.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21354")
     public void testCfgGapWithoutData() {
         List<IgniteImpl> nodes = startNodes(3);
 
