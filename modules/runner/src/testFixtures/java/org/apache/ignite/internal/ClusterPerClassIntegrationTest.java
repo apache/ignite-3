@@ -30,7 +30,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParametersBuilder;
@@ -56,6 +55,7 @@ import org.junit.jupiter.api.TestInstance;
 /**
  * Abstract basic integration test that starts a cluster once for all the tests it runs.
  */
+@SuppressWarnings("resource")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTest {
     /** Test default table name. */
@@ -76,11 +76,6 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
 
     /** Cluster nodes. */
     protected static Cluster CLUSTER;
-
-    private static final boolean DEFAULT_WAIT_FOR_INDEX_AVAILABLE = false;
-
-    /** Whether to wait for indexes to become available or not. Default is {@code true}. */
-    private static final AtomicBoolean AWAIT_INDEX_AVAILABILITY = new AtomicBoolean(DEFAULT_WAIT_FOR_INDEX_AVAILABLE);
 
     /** Work directory. */
     @WorkDirectory
@@ -303,15 +298,6 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      */
     protected static void dropIndex(String indexName) {
         sql(format("DROP INDEX {}", indexName));
-    }
-
-    /**
-     * Sets whether to wait for indexes to become available.
-     *
-     * @param value Whether to wait for indexes to become available.
-     */
-    protected static void setAwaitIndexAvailability(boolean value) {
-        AWAIT_INDEX_AVAILABILITY.set(value);
     }
 
     protected static void insertData(String tblName, List<String> columnNames, Object[]... tuples) {
