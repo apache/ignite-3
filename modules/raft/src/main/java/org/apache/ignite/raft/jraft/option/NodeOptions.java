@@ -242,17 +242,17 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     /**
      * Amount of Disruptors that will handle the RAFT server.
      */
-    private int stripes = IgniteSystemProperties.getInteger("IGNITE_RAFT_STRIPES", DEFAULT_STRIPES);
+    private int stripes = DEFAULT_STRIPES;
 
     /**
      * Amount of log manager Disruptors stripes.
      */
-    private int logStripesCount = IgniteSystemProperties.getInteger("IGNITE_RAFT_LOG_STRIPES", DEFAULT_STRIPES);
+    private int logStripesCount = DEFAULT_STRIPES;
 
     /**
      * Set true to use the non-blocking strategy in the log manager.
      */
-    private boolean logYieldStrategy = IgniteSystemProperties.getBoolean("IGNITE_RAFT_LOG_YIELD_STRATEGY");
+    private boolean logYieldStrategy;
 
     /** */
     private boolean sharedPools = false;
@@ -697,6 +697,9 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         nodeOptions.setElectionTimeoutStrategy(this.getElectionTimeoutStrategy());
         nodeOptions.setClock(this.getClock());
         nodeOptions.setCommandsMarshaller(this.getCommandsMarshaller());
+        nodeOptions.setStripes(this.getStripes());
+        nodeOptions.setLogStripesCount(this.getLogStripesCount());
+        nodeOptions.setLogYieldStrategy(this.isLogYieldStrategy());
 
         return nodeOptions;
     }

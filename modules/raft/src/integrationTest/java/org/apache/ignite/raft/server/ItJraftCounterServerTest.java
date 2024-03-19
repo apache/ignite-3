@@ -63,7 +63,6 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.core.StateMachineAdapter;
@@ -134,8 +133,6 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
      * Checks that the number of Disruptor threads does not depend on  count started RAFT nodes.
      */
     @Test
-    @WithSystemProperty(key = "IGNITE_RAFT_STRIPES", value = "" + RAFT_STRIPES)
-    @WithSystemProperty(key = "IGNITE_RAFT_LOG_STRIPES", value = "" + RAFT_LOG_STRIPES)
     public void testDisruptorThreadsCount() {
         startServer(0, raftServer -> {
             String localNodeName = raftServer.clusterService().topologyService().localMember().name();
@@ -143,7 +140,11 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
             var nodeId = new RaftNodeId(new TestReplicationGroupId("test_raft_group"), initialMembersConf.peer(localNodeName));
 
             raftServer.startRaftNode(nodeId, initialMembersConf, listenerFactory.get(), groupOptions(raftServer));
-        }, opts -> {});
+        }, opts -> {
+            opts.setStripes(RAFT_STRIPES);
+            opts.setLogStripesCount(RAFT_LOG_STRIPES);
+            opts.setLogYieldStrategy(true);
+        });
 
         Set<Thread> threads = getAllDisruptorCurrentThreads();
 
