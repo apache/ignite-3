@@ -276,7 +276,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         Consumer<LongFunction<CompletableFuture<?>>> revisionUpdater = c -> metaStorageManager.registerRevisionUpdateListener(c::apply);
 
         lowWatermark = new TestLowWatermark();
-        lowWatermark.update(savedWatermark);
+        lowWatermark.updateWithoutNotify(savedWatermark);
         tableManager = new TableManager(
                 NODE_NAME,
                 revisionUpdater,
