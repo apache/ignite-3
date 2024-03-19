@@ -34,11 +34,13 @@ namespace ignite::detail {
  */
 struct column {
     std::string name;
-    ignite_type type{};
+    ignite_type type{ignite_type::UNDEFINED};
     bool nullable{false};
-    bool is_key{false};
-    std::int32_t schema_index{0};
+    std::int32_t colocation_index{-1};
+    std::int32_t key_index{-1};
+    std::int32_t schema_index{-1};
     std::int32_t scale{0};
+    std::int32_t precision{0};
 
     /**
      * Unpack column from MsgPack object.
@@ -47,18 +49,20 @@ struct column {
      * @return Column value.
      */
     [[nodiscard]] static column read(protocol::reader &reader) {
+        auto constexpr minimum_expected_columns = 7;
+
         auto fields_num = reader.read_int32();
-        assert(fields_num >= 7); // Expect at least six columns.
+        assert(fields_num >= minimum_expected_columns);
 
         column res{};
         res.name = reader.read_string();
         res.type = static_cast<ignite_type>(reader.read_int32());
-        res.is_key = reader.read_int32() >= 0;
+        res.key_index = reader.read_int32();
         res.nullable = reader.read_bool();
-        reader.skip(); // Colocation index.
+        res.colocation_index = reader.read_int32();
         res.scale = reader.read_int32();
-        reader.skip(); // Precision
-        reader.skip(fields_num - 7);
+        res.precision = reader.read_int32();
+        reader.skip(fields_num - minimum_expected_columns);
 
         return res;
     }
@@ -69,7 +73,6 @@ struct column {
  */
 struct schema {
     std::int32_t version{-1};
-    std::int32_t key_column_count{0};
     std::vector<column> columns;
 
     // Default
@@ -79,12 +82,10 @@ struct schema {
      * Constructor.
      *
      * @param version Version.
-     * @param key_column_count Key column count.
      * @param columns Columns.
      */
-    schema(std::int32_t version, std::int32_t key_column_count, std::vector<column> &&columns)
+    schema(std::int32_t version, std::vector<column> &&columns)
         : version(version)
-        , key_column_count(key_column_count)
         , columns(std::move(columns)) {}
 
     /**
@@ -94,7 +95,6 @@ struct schema {
      * @return Schema instance.
      */
     static std::shared_ptr<schema> read(protocol::reader &reader) {
-        std::int32_t key_column_count = 0;
         auto schema_version = reader.read_int32();
 
         auto columns_count = reader.read_int32();
@@ -103,13 +103,11 @@ struct schema {
 
         for (std::int32_t column_idx = 0; column_idx < columns_count; ++column_idx) {
             auto val = column::read(reader);
-            if (val.is_key)
-                ++key_column_count;
 
             columns.emplace_back(std::move(val));
         }
 
-        return std::make_shared<schema>(schema_version, key_column_count, std::move(columns));
+        return std::make_shared<schema>(schema_version, std::move(columns));
     }
 };
 
