@@ -846,17 +846,6 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         }
 
         /** {@inheritDoc} */
-        @Override public int compareTo(RangeConditionImpl o) {
-            int res = compareBounds(lower(), lowerInclude(), o.lower(), !o.lowerInclude());
-
-            if (res == 0) {
-                return compareBounds(upper(), !upperInclude(), o.upper(), o.upperInclude());
-            } else {
-                return res;
-            }
-        }
-
-        /** {@inheritDoc} */
         @Override
         public @Nullable RowT lower() {
             if (lowerBound == null) {
@@ -905,6 +894,17 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             return compareBounds(lower(), lowerInclude(), upper(), upperInclude()) <= 0;
         }
 
+        /** {@inheritDoc} */
+        @Override public int compareTo(RangeConditionImpl o) {
+            int res = compareBounds(lower(), lowerInclude(), o.lower(), !o.lowerInclude());
+
+            if (res == 0) {
+                return compareBounds(upper(), !upperInclude(), o.upper(), o.upperInclude());
+            } else {
+                return res;
+            }
+        }
+
         /** Range intersects another range. */
         boolean intersects(RangeConditionImpl o) {
             return compareBounds(lower(), lowerInclude(), o.upper(), o.upperInclude()) <= 0
@@ -912,6 +912,20 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         }
 
         private int compareBounds(@Nullable RowT o1, boolean o1include, @Nullable RowT o2, boolean o2include) {
+            int res = compareBounds0(o1, o1include, o2, o2include);
+
+            if (res != 0) {
+                return res;
+            }
+
+            if (o1include == o2include) {
+                return 0;
+            }
+
+            return o1include ? -1 : 1;
+        }
+
+        private int compareBounds0(@Nullable RowT o1, boolean o1include, @Nullable RowT o2, boolean o2include) {
             RowHandler<RowT> hnd = ctx.rowHandler();
             List<RelFieldCollation> collations = collation.getFieldCollations();
 
@@ -948,12 +962,14 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                 RelFieldCollation field = collations.get(idx);
                 int nullComparison = field.nullDirection.nullComparison;
 
+                boolean asc = field.direction == RelFieldCollation.Direction.ASCENDING;
+
                 if (idx == colCnt1) {
-                    return -1;
+                    return asc ? -1 : 1;
                 }
 
                 if (idx == colCnt2) {
-                    return 1;
+                    return asc ? 1 : -1;
                 }
 
                 Object c1 = hnd.get(idx, o1);
@@ -969,11 +985,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                 }
             }
 
-            if (o1include == o2include) {
-                return 0;
-            }
-
-            return o1include ? 1 : -1;
+            return 0;
         }
 
         /** Merge two intersected ranges. */
@@ -986,7 +998,9 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             RowT newLowerRow;
             boolean newLowerInclude;
 
-            if (compareBounds(lowerRow, lowerInclude, o.lowerRow, !o.lowerInclude) <= 0) {
+            int cmp = compareBounds0(lowerRow, lowerInclude, o.lowerRow, !o.lowerInclude);
+
+            if (cmp < 0 || (cmp == 0 && lowerInclude)) {
                 newLowerBound = lowerBound;
                 newLowerRow = lowerRow;
                 newLowerInclude = lowerInclude;
@@ -1004,7 +1018,9 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             RowT newUpperRow;
             boolean newUpperInclude;
 
-            if (compareBounds(upperRow, !upperInclude, o.upperRow, o.upperInclude) >= 0) {
+            cmp = compareBounds0(upperRow, !upperInclude, o.upperRow, o.upperInclude);
+
+            if (cmp > 0 || (cmp == 0 && upperInclude)) {
                 newUpperScalar = upperBound;
                 newUpperRow = upperRow;
                 newUpperInclude = upperInclude;
