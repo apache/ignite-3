@@ -20,10 +20,10 @@ package org.apache.ignite.internal.runner.app.client;
 import org.junit.jupiter.api.BeforeAll;
 
 /**
- * Tests table operations with thin client.
+ * Tests custom key column order table operations with thin client.
  */
 @SuppressWarnings("resource")
-public class ItThinClientTableTest extends ItAbstractThinClientTest {
+public class ItThinClientCustomKeyColumnOrderTest extends ItAbstractThinClientTest {
     private static final String TABLE_NAME2 = "TBL2";
 
     @BeforeAll
