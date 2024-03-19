@@ -27,7 +27,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.apache.ignite.catalog.IndexType;
 import org.apache.ignite.catalog.Options;
 import org.apache.ignite.catalog.SortOrder;
-import org.apache.ignite.catalog.ZoneEngine;
 import org.apache.ignite.catalog.annotations.Column;
 import org.apache.ignite.catalog.annotations.ColumnRef;
 import org.apache.ignite.catalog.annotations.Id;
@@ -63,9 +62,9 @@ class CreateFromAnnotationsTest {
     void testDefinitionCompatibility() {
         ZoneDefinition zoneDefinition = ZoneDefinition.builder("zone_test")
                 .ifNotExists()
-                .engine(ZoneEngine.AIMEM)
                 .partitions(1)
                 .replicas(3)
+                .storageProfiles("default")
                 .build();
         String sqlZoneFromDefinition = new CreateFromDefinitionImpl(null, Options.DEFAULT).from(zoneDefinition).toSqlString();
 
@@ -88,7 +87,7 @@ class CreateFromAnnotationsTest {
         // primitive/boxed key class is a primary key with default name 'id'
         assertThat(
                 createTable().processKeyValueClasses(Integer.class, PojoValue.class).toSqlString(),
-                is("CREATE ZONE IF NOT EXISTS zone_test ENGINE AIMEM WITH PARTITIONS=1, REPLICAS=3;"
+                is("CREATE ZONE IF NOT EXISTS zone_test WITH STORAGE_PROFILES='default', PARTITIONS=1, REPLICAS=3;"
                         + "CREATE TABLE IF NOT EXISTS pojo_value_test (id int, f_name varchar, l_name varchar, str varchar,"
                         + " PRIMARY KEY (id)) COLOCATE BY (id, id_str) WITH PRIMARY_ZONE='ZONE_TEST';"
                         + "CREATE INDEX IF NOT EXISTS ix_pojo ON pojo_value_test (f_name, l_name desc);")
@@ -100,7 +99,7 @@ class CreateFromAnnotationsTest {
         // primitive/boxed key class is a primary key with default name 'id'
         assertThat(
                 createTableQuoted().processKeyValueClasses(Integer.class, PojoValue.class).toSqlString(),
-                is("CREATE ZONE IF NOT EXISTS \"zone_test\" ENGINE AIMEM WITH PARTITIONS=1, REPLICAS=3;"
+                is("CREATE ZONE IF NOT EXISTS \"zone_test\" WITH STORAGE_PROFILES='default', PARTITIONS=1, REPLICAS=3;"
                         + "CREATE TABLE IF NOT EXISTS \"pojo_value_test\" (\"id\" int, \"f_name\" varchar, \"l_name\" varchar,"
                         + " \"str\" varchar, PRIMARY KEY (\"id\")) COLOCATE BY (\"id\", \"id_str\") WITH PRIMARY_ZONE='ZONE_TEST';"
                         + "CREATE INDEX IF NOT EXISTS \"ix_pojo\" ON \"pojo_value_test\" (\"f_name\", \"l_name\" desc);")
@@ -112,7 +111,7 @@ class CreateFromAnnotationsTest {
         // key class fields (annotated only) is a composite primary keys
         assertThat(
                 createTable().processKeyValueClasses(PojoKey.class, PojoValue.class).toSqlString(),
-                is("CREATE ZONE IF NOT EXISTS zone_test ENGINE AIMEM WITH PARTITIONS=1, REPLICAS=3;"
+                is("CREATE ZONE IF NOT EXISTS zone_test WITH STORAGE_PROFILES='default', PARTITIONS=1, REPLICAS=3;"
                         + "CREATE TABLE IF NOT EXISTS pojo_value_test (id int, id_str varchar(20), f_name varchar, l_name varchar,"
                         + " str varchar, PRIMARY KEY (id, id_str)) COLOCATE BY (id, id_str) WITH PRIMARY_ZONE='ZONE_TEST';"
                         + "CREATE INDEX IF NOT EXISTS ix_pojo ON pojo_value_test (f_name, l_name desc);")
@@ -124,7 +123,7 @@ class CreateFromAnnotationsTest {
         // key class fields (annotated only) is a composite primary keys
         assertThat(
                 createTableQuoted().processKeyValueClasses(PojoKey.class, PojoValue.class).toSqlString(),
-                is("CREATE ZONE IF NOT EXISTS \"zone_test\" ENGINE AIMEM WITH PARTITIONS=1, REPLICAS=3;"
+                is("CREATE ZONE IF NOT EXISTS \"zone_test\" WITH STORAGE_PROFILES='default', PARTITIONS=1, REPLICAS=3;"
                         + "CREATE TABLE IF NOT EXISTS \"pojo_value_test\" (\"id\" int, \"id_str\" varchar(20), \"f_name\" varchar,"
                         + " \"l_name\" varchar, \"str\" varchar, PRIMARY KEY (\"id\", \"id_str\")) COLOCATE BY (\"id\", \"id_str\")"
                         + " WITH PRIMARY_ZONE='ZONE_TEST';"
@@ -136,7 +135,7 @@ class CreateFromAnnotationsTest {
     void createFromRecordClass() {
         assertThat(
                 createTable().processRecordClass(Pojo.class).toSqlString(),
-                is("CREATE ZONE IF NOT EXISTS zone_test ENGINE AIMEM WITH PARTITIONS=1, REPLICAS=3;"
+                is("CREATE ZONE IF NOT EXISTS zone_test WITH STORAGE_PROFILES='default', PARTITIONS=1, REPLICAS=3;"
                         + "CREATE TABLE IF NOT EXISTS pojo_test (id int, id_str varchar(20), f_name varchar(20) not null default 'a',"
                         + " l_name varchar, str varchar, PRIMARY KEY (id, id_str))"
                         + " COLOCATE BY (id, id_str) WITH PRIMARY_ZONE='ZONE_TEST';"
@@ -148,7 +147,7 @@ class CreateFromAnnotationsTest {
     void createFromRecordClassQuoted() {
         assertThat(
                 createTableQuoted().processRecordClass(Pojo.class).toSqlString(),
-                is("CREATE ZONE IF NOT EXISTS \"zone_test\" ENGINE AIMEM WITH PARTITIONS=1, REPLICAS=3;"
+                is("CREATE ZONE IF NOT EXISTS \"zone_test\" WITH STORAGE_PROFILES='default', PARTITIONS=1, REPLICAS=3;"
                         + "CREATE TABLE IF NOT EXISTS \"pojo_test\" (\"id\" int, \"id_str\" varchar(20),"
                         + " \"f_name\" varchar(20) not null default 'a', \"l_name\" varchar, \"str\" varchar,"
                         + " PRIMARY KEY (\"id\", \"id_str\")) COLOCATE BY (\"id\", \"id_str\") WITH PRIMARY_ZONE='ZONE_TEST';"
@@ -205,7 +204,7 @@ class CreateFromAnnotationsTest {
             value = "zone_test",
             replicas = 3,
             partitions = 1,
-            engine = ZoneEngine.AIMEM
+            storageProfiles = "default"
     )
     private static class ZoneTest {}
 

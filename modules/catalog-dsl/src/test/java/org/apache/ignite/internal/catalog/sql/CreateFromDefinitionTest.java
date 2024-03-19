@@ -29,7 +29,6 @@ import static org.hamcrest.Matchers.is;
 import org.apache.ignite.catalog.ColumnType;
 import org.apache.ignite.catalog.IndexType;
 import org.apache.ignite.catalog.Options;
-import org.apache.ignite.catalog.ZoneEngine;
 import org.apache.ignite.catalog.annotations.Column;
 import org.apache.ignite.catalog.annotations.Id;
 import org.apache.ignite.catalog.definitions.TableDefinition;
@@ -41,9 +40,9 @@ import org.junit.jupiter.api.Test;
 class CreateFromDefinitionTest {
     @Test
     void createFromZoneBuilderSimple() {
-        ZoneDefinition zone = ZoneDefinition.builder("zone_test").build();
+        ZoneDefinition zone = ZoneDefinition.builder("zone_test").storageProfiles("default").build();
 
-        assertThat(createZone(zone), is("CREATE ZONE zone_test;"));
+        assertThat(createZone(zone), is("CREATE ZONE zone_test WITH STORAGE_PROFILES='default';"));
     }
 
     @Test
@@ -52,12 +51,12 @@ class CreateFromDefinitionTest {
                 .ifNotExists()
                 .partitions(3)
                 .replicas(3)
-                .engine(ZoneEngine.AIMEM)
+                .storageProfiles("default")
                 .build();
 
         assertThat(
                 createZone(zone),
-                is("CREATE ZONE IF NOT EXISTS zone_test ENGINE AIMEM WITH PARTITIONS=3, REPLICAS=3;")
+                is("CREATE ZONE IF NOT EXISTS zone_test WITH STORAGE_PROFILES='default', PARTITIONS=3, REPLICAS=3;")
         );
     }
 
