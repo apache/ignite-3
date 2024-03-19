@@ -17,7 +17,11 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 
 /**
  * Tests custom key column order table operations with thin client.
@@ -33,5 +37,20 @@ public class ItThinClientCustomKeyColumnOrderTest extends ItAbstractThinClientTe
                 + "colocate by (key2, key1)";
 
         client().sql().createSession().execute(null, query);
+    }
+
+    @Test
+    void testRecordBinaryView() {
+        var table = client().tables().table(TABLE_NAME2);
+
+        var recView = table.recordView();
+
+        Tuple key = Tuple.create().set("key1", 1).set("key2", "key2");
+        Tuple val = Tuple.create().set("key1", 1).set("key2", "key2").set("val1", "val1").set("val2", 2L);
+        recView.insert(null, val);
+
+        Tuple res = recView.get(null, key);
+
+        assertEquals(val, res);
     }
 }
