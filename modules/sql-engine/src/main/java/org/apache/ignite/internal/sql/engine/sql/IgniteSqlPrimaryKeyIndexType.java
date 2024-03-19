@@ -15,29 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog.events;
+package org.apache.ignite.internal.sql.engine.sql;
 
 /**
- * Destroy table event parameters contains an id of destroying table.
+ * Enumeration of supported primary index types.
  */
-public class DestroyTableEventParameters extends TableEventParameters {
-    private final int partitions;
+public enum IgniteSqlPrimaryKeyIndexType {
+    /** Sorted index. */
+    SORTED,
 
-    /**
-     * Constructor.
-     *
-     * @param causalityToken Causality token.
-     * @param catalogVersion Catalog version.
-     * @param tableId An Id of destroying table.
-     * @param partitions Number of table partitions.
-     */
-    public DestroyTableEventParameters(long causalityToken, int catalogVersion, int tableId, int partitions) {
-        super(causalityToken, catalogVersion, tableId);
-        this.partitions = partitions;
-    }
+    /** Hash index. */
+    HASH,
 
-    /** Returns number of table partitions. */
-    public int partitions() {
-        return partitions;
-    }
+    /** The user have omitted USING clause, hence the type is set to {@link #HASH} implicitly. */
+    IMPLICIT_HASH
 }

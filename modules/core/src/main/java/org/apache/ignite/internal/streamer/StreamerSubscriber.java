@@ -236,9 +236,9 @@ public class StreamerSubscriber<T, P> implements Subscriber<DataStreamerItem<T>>
 
     private void requestMore() {
         // This method controls backpressure. We won't get more items than we requested.
-        // The idea is to have perNodeParallelOperations batches in flight for every connection.
+        // The idea is to have perPartitionParallelOperations batches in flight for every connection.
         var pending = pendingItemCount.get();
-        var desiredInFlight = Math.max(1, buffers.size()) * options.pageSize() * options.perNodeParallelOperations();
+        var desiredInFlight = Math.max(1, buffers.size()) * options.pageSize() * options.perPartitionParallelOperations();
         var inFlight = inFlightItemCount.get();
         var count = desiredInFlight - inFlight - pending;
 

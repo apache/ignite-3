@@ -42,7 +42,6 @@ import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Immutable;
 import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
-import org.hamcrest.CoreMatchers;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -241,7 +240,7 @@ public class TraversableTreeNodeTest {
 
         elementsNode.delete("keyPut");
 
-        assertThat(elementsNode.namedListKeys(), CoreMatchers.hasItem("keyPut"));
+        assertThat(elementsNode.namedListKeys(), hasItem("keyPut"));
 
         assertNull(elementsNode.get("keyPut"));
 

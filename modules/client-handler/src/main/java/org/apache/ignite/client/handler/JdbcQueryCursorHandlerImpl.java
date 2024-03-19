@@ -17,7 +17,6 @@
 
 package org.apache.ignite.client.handler;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.client.handler.JdbcQueryEventHandlerImpl.buildSingleRequest;
 import static org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode.UNSUPPORTED_OPERATION;
 
@@ -170,13 +169,13 @@ public class JdbcQueryCursorHandlerImpl implements JdbcQueryCursorHandler {
                             if (cur.hasNextResult()) {
                                 return cur.nextResult().thenCompose(this);
                             } else {
-                                return completedFuture(cur);
+                                return CompletableFuture.completedFuture(cur);
                             }
                         });
             }
         };
 
-        completedFuture(cursor).thenCompose(traverser);
+        CompletableFuture.completedFuture(cursor).thenCompose(traverser);
     }
 
     /** {@inheritDoc} */

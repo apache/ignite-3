@@ -47,6 +47,7 @@ import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.STOPPING;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -128,8 +129,6 @@ import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
-import org.apache.ignite.internal.catalog.events.DestroyIndexEventParameters;
-import org.apache.ignite.internal.catalog.events.DestroyTableEventParameters;
 import org.apache.ignite.internal.catalog.events.DropColumnEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.catalog.events.DropZoneEventParameters;
@@ -1169,7 +1168,6 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         manager.listen(CatalogEvent.TABLE_CREATE, eventListener);
         manager.listen(CatalogEvent.TABLE_DROP, eventListener);
-        manager.listen(CatalogEvent.TABLE_DESTROY, eventListener);
 
         assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
         assertThat(manager.execute(simpleTable(TABLE_NAME_2)), willBe(nullValue()));
@@ -1182,17 +1180,6 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         verifyNoMoreInteractions(eventListener);
         clearInvocations(eventListener);
-
-        // Got 'destroy' event only after Catalog compaction.
-        assertThat(CatalogTestUtils.waitCatalogCompaction(manager, clock.nowLong()), equalTo(true));
-        verify(eventListener, times(2)).notify(any(DestroyTableEventParameters.class));
-
-        verifyNoMoreInteractions(eventListener);
-        clearInvocations();
-
-        // Expect no events if Catalog wasn't compacted.
-        assertThat(CatalogTestUtils.waitCatalogCompaction(manager, clock.nowLong()), equalTo(false));
-        verifyNoMoreInteractions(eventListener);
     }
 
     @Test
@@ -1209,7 +1196,6 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         manager.listen(CatalogEvent.INDEX_AVAILABLE, eventListener);
         manager.listen(CatalogEvent.INDEX_STOPPING, eventListener);
         manager.listen(CatalogEvent.INDEX_REMOVED, eventListener);
-        manager.listen(CatalogEvent.INDEX_DESTROY, eventListener);
 
         // Try to create index without table.
         assertThat(manager.execute(createIndexCmd), willThrow(TableNotFoundValidationException.class));
@@ -1258,16 +1244,6 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         verify(eventListener).notify(any(RemoveIndexEventParameters.class));
         verifyNoMoreInteractions(eventListener);
         clearInvocations(eventListener);
-
-        // Got 'destroy' event only after Catalog compaction.
-        assertThat(CatalogTestUtils.waitCatalogCompaction(manager, clock.nowLong()), equalTo(true));
-        verify(eventListener, times(2 /* PK + secondary index */)).notify(any(DestroyIndexEventParameters.class));
-
-        clearInvocations();
-
-        // Expect no events if Catalog wasn't compacted.
-        assertThat(CatalogTestUtils.waitCatalogCompaction(manager, clock.nowLong()), equalTo(false));
-        verifyNoMoreInteractions(eventListener);
     }
 
     @Test
@@ -2488,7 +2464,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     }
 
     @Test
-    public void testCatalogCompaction() {
+    public void testCatalogCompaction() throws Exception {
         assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
         assertThat(manager.execute(simpleTable(TABLE_NAME_2)), willBe(nullValue()));
 
@@ -2499,9 +2475,8 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertThat(manager.execute(simpleIndex(TABLE_NAME, INDEX_NAME)), willBe(nullValue()));
         assertThat(manager.execute(simpleIndex(TABLE_NAME, INDEX_NAME_2)), willBe(nullValue()));
 
-        assertThat(CatalogTestUtils.waitCatalogCompaction(manager, timestamp), equalTo(true));
-
-        assertEquals(catalog.version(), manager.earliestCatalogVersion());
+        assertThat(manager.compactCatalog(timestamp), willBe(Boolean.TRUE));
+        assertTrue(waitForCondition(() -> catalog.version() == manager.earliestCatalogVersion(), 3_000));
 
         assertNull(manager.catalog(0));
         assertNull(manager.catalog(catalog.version() - 1));

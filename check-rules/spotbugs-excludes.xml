@@ -251,18 +251,6 @@
     <Class name="org.apache.ignite.internal.pagememory.util.PageHandler"/>
   </Match>
   <Match>
-    <!-- TODO: https://issues.apache.org/jira/browse/IGNITE-21696 -->
-    <Bug pattern="JLM_JSR166_UTILCONCURRENT_MONITORENTER"/>
-    <Class name="org.apache.ignite.internal.network.LazyStripedExecutors"/>
-    <Method name="stripedExecutorFor"/>
-  </Match>
-  <Match>
-    <!-- TODO: https://issues.apache.org/jira/browse/IGNITE-21697 -->
-    <Bug pattern="RV_RETURN_VALUE_IGNORED_BAD_PRACTICE"/>
-    <Class name="org.apache.ignite.internal.network.netty.ConnectionManager"/>
-    <Method name="handleNodeLeft"/>
-  </Match>
-  <Match>
     <!-- TODO: https://issues.apache.org/jira/browse/IGNITE-21698 -->
     <Bug pattern="BX_UNBOXING_IMMEDIATELY_REBOXED"/>
     <Source name="LocalConfigurationStorage.java"/>

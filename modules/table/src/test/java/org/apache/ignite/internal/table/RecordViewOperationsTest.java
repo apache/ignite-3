@@ -117,7 +117,7 @@ public class RecordViewOperationsTest extends TableKvOperationsTestBase {
 
     private final SchemaDescriptor schema = new SchemaDescriptor(
             SCHEMA_VERSION,
-            new Column[]{new Column("primitiveLongCol".toUpperCase(), NativeTypes.INT64, false)},
+            new Column[]{new Column("primitiveLongCol".toUpperCase(), INT64, false)},
             valCols
     );
 

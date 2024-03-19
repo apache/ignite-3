@@ -29,6 +29,7 @@ import java.util.List;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommandBuilder;
+import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -56,7 +57,9 @@ class CatalogTestUtilsTest extends BaseIgniteAbstractTest {
                         ColumnParams.builder().name("C1").type(ColumnType.INT32).build(),
                         ColumnParams.builder().name("C2").type(ColumnType.INT32).build()
                 ))
-                .primaryKeyColumns(List.of("C1"));
+                .primaryKey(TableHashPrimaryKey.builder()
+                        .columns(List.of("C1"))
+                        .build());
 
         assertThat(manager.execute(createTableTemplate.tableName("T1").build()), willCompleteSuccessfully());
 

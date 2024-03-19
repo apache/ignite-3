@@ -197,7 +197,7 @@ class FileTransferServiceImplTest extends BaseIgniteAbstractTest {
         RuntimeException testException = new RuntimeException("Test exception");
         doReturn(failedFuture(testException))
                 .when(messagingService)
-                .respond(eq(TARGET_CONSISTENT_ID), eq(Channel.FILE_TRANSFER_CHANNEL), any(FileTransferInitResponse.class),
+                .respond(eq(TARGET_CONSISTENT_ID), eq(FILE_TRANSFER_CHANNEL), any(FileTransferInitResponse.class),
                         eq(correlationId));
 
         // Set file receiver to complete transfer registration.
@@ -241,7 +241,7 @@ class FileTransferServiceImplTest extends BaseIgniteAbstractTest {
         RuntimeException testException = new RuntimeException("Test exception");
         doReturn(failedFuture(testException))
                 .when(messagingService)
-                .invoke(eq(SOURCE_CONSISTENT_ID), eq(Channel.FILE_TRANSFER_CHANNEL), any(FileDownloadRequest.class), any(Long.class));
+                .invoke(eq(SOURCE_CONSISTENT_ID), eq(FILE_TRANSFER_CHANNEL), any(FileDownloadRequest.class), any(Long.class));
 
 
         CompletableFuture<List<Path>> downloaded = fileTransferService.download(SOURCE_CONSISTENT_ID, messageFactory.identifier().build(),
@@ -262,7 +262,7 @@ class FileTransferServiceImplTest extends BaseIgniteAbstractTest {
                 .build();
         doReturn(completedFuture(response))
                 .when(messagingService)
-                .invoke(eq(SOURCE_CONSISTENT_ID), eq(Channel.FILE_TRANSFER_CHANNEL), any(FileDownloadRequest.class), any(Long.class));
+                .invoke(eq(SOURCE_CONSISTENT_ID), eq(FILE_TRANSFER_CHANNEL), any(FileDownloadRequest.class), any(Long.class));
 
         CompletableFuture<List<Path>> downloaded = fileTransferService.download(SOURCE_CONSISTENT_ID, messageFactory.identifier().build(),
                 workDir.resolve("download"));
