@@ -38,7 +38,6 @@ import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.DataContext.Variable;
 import org.apache.calcite.adapter.enumerable.EnumUtils;
@@ -365,8 +364,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                 Arrays.asList(new RexNode[rowType.getFieldCount()]),
                 Arrays.asList(new RexNode[rowType.getFieldCount()]),
                 true,
-                true,
-                comparator
+                true
         );
 
         return new RangeIterableImpl(ranges, comparator);
@@ -418,8 +416,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             List<RexNode> curLower,
             List<RexNode> curUpper,
             boolean lowerInclude,
-            boolean upperInclude,
-            @Nullable Comparator<RowT> rowComparator
+            boolean upperInclude
     ) {
         if ((fieldIdx >= searchBounds.size())
                 || (!lowerInclude && !upperInclude)
@@ -452,8 +449,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                     lowerInclude,
                     upperInclude,
                     lowerFactory.rowBuilder(),
-                    upperFactory.rowBuilder(),
-                    rowComparator
+                    upperFactory.rowBuilder()
             ));
 
             return;
@@ -502,8 +498,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                     curLower,
                     curUpper,
                     lowerInclude && fieldLowerInclude,
-                    upperInclude && fieldUpperInclude,
-                    rowComparator
+                    upperInclude && fieldUpperInclude
             );
         }
 
@@ -797,10 +792,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         }
     }
 
-    /**
-     * Note: this class has a natural ordering that is inconsistent with equals.
-     */
-    private class RangeConditionImpl implements RangeCondition<RowT>, Comparable<RangeConditionImpl> {
+    private class RangeConditionImpl implements RangeCondition<RowT> {
         /** Lower bound expression. */
         private final @Nullable SingleScalar lowerBound;
 
@@ -825,17 +817,13 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         /** Upper bound row factory. */
         private final RowBuilder<RowT> upperRowBuilder;
 
-        /** Rows comparator. */
-        private final Comparator<RowT> rowComparator;
-
         private RangeConditionImpl(
                 @Nullable SingleScalar lowerScalar,
                 @Nullable SingleScalar upperScalar,
                 boolean lowerInclude,
                 boolean upperInclude,
                 RowBuilder<RowT> lowerRowBuilder,
-                RowBuilder<RowT> upperRowBuilder,
-                Comparator<RowT> rowComparator
+                RowBuilder<RowT> upperRowBuilder
         ) {
             this.lowerBound = lowerScalar;
             this.upperBound = upperScalar;
@@ -844,8 +832,6 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
             this.lowerRowBuilder = lowerRowBuilder;
             this.upperRowBuilder = upperRowBuilder;
-
-            this.rowComparator = rowComparator;
         }
 
         /** {@inheritDoc} */
@@ -892,110 +878,6 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             lowerRow = null;
             upperRow = null;
         }
-
-        boolean valid() {
-            return compareBounds(lower(), lowerInclude(), upper(), upperInclude()) <= 0;
-        }
-
-        /** {@inheritDoc} */
-        @Override public int compareTo(RangeConditionImpl o) {
-            int res = compareBounds(lower(), lowerInclude(), o.lower(), !o.lowerInclude());
-
-            if (res == 0) {
-                return compareBounds(upper(), !upperInclude(), o.upper(), o.upperInclude());
-            } else {
-                return res;
-            }
-        }
-
-        /** Range intersects another range. */
-        boolean intersects(RangeConditionImpl o) {
-            return compareBounds(lower(), lowerInclude(), o.upper(), o.upperInclude()) <= 0
-                    && compareBounds(o.lower(), o.lowerInclude(), upper(), upperInclude()) <= 0;
-        }
-
-        private int compareBounds(@Nullable RowT lower, boolean lowerInclude, @Nullable RowT upper, boolean upperInclude) {
-            int res = compareBounds0(lower, lowerInclude, upper, upperInclude);
-
-            if (res != 0) {
-                return res;
-            }
-
-            if (lowerInclude == upperInclude) {
-                return 0;
-            }
-
-            return lowerInclude ? -1 : 1;
-        }
-
-        private int compareBounds0(@Nullable RowT lower, boolean lowerInclude, @Nullable RowT upper, boolean upperInclude) {
-            if (lower == null || upper == null) {
-                if (lower == upper) {
-                    if (lowerInclude == upperInclude) {
-                        return 0;
-                    }
-
-                    return lowerInclude ? -1 : 1;
-                } else if (lower == null) {
-                    return lowerInclude ? -1 : 1;
-                } else {
-                    return upperInclude ? -1 : 1;
-                }
-            }
-
-            return rowComparator.compare(lower, upper);
-        }
-
-        /** Merge two intersected ranges. */
-        RangeConditionImpl merge(RangeConditionImpl o) {
-            // Fill lower bounds.
-            lower();
-            o.lower();
-
-            SingleScalar newLowerBound;
-            RowT newLowerRow;
-            boolean newLowerInclude;
-
-            int cmp = compareBounds0(lowerRow, lowerInclude, o.lowerRow, !o.lowerInclude);
-
-            if (cmp < 0 || (cmp == 0 && lowerInclude)) {
-                newLowerBound = lowerBound;
-                newLowerRow = lowerRow;
-                newLowerInclude = lowerInclude;
-            } else {
-                newLowerBound = o.lowerBound;
-                newLowerRow = o.lowerRow;
-                newLowerInclude = o.lowerInclude;
-            }
-
-            // Fill upper bounds.
-            upper();
-            o.upper();
-
-            SingleScalar newUpperBound;
-            RowT newUpperRow;
-            boolean newUpperInclude;
-
-            cmp = compareBounds0(upperRow, !upperInclude, o.upperRow, o.upperInclude);
-
-            if (cmp > 0 || (cmp == 0 && upperInclude)) {
-                newUpperBound = upperBound;
-                newUpperRow = upperRow;
-                newUpperInclude = upperInclude;
-            } else {
-                newUpperBound = o.upperBound;
-                newUpperRow = o.upperRow;
-                newUpperInclude = o.upperInclude;
-            }
-
-            RangeConditionImpl newRangeCondition = new RangeConditionImpl(newLowerBound, newUpperBound,
-                    newLowerInclude, newUpperInclude, lowerRowBuilder, upperRowBuilder, rowComparator);
-
-            newRangeCondition.lowerRow = newLowerRow;
-            newRangeCondition.upperRow = newUpperRow;
-
-            return newRangeCondition;
-        }
     }
 
     private class RangeIterableImpl implements RangeIterable<RowT> {
@@ -1032,7 +914,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             // Do not sort again if ranges already were sorted before, different values of correlated variables
             // should not affect ordering.
             if (!sorted && comparator != null) {
-                ranges = ranges.stream().sorted().collect(Collectors.toList());
+                ranges.sort(this::compareRanges);
 
                 List<RangeCondition<RowT>> ranges0 = new ArrayList<>(ranges.size());
 
@@ -1041,15 +923,18 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                 for (RangeCondition<RowT> range0 : ranges) {
                     RangeConditionImpl range = (RangeConditionImpl) range0;
 
-                    if (!range.valid()) {
+                    if (compareBounds(range.lower(), range.lowerInclude(), range.upper(), range.upperInclude()) > 0) {
+                        // Invalid range (low > up).
                         continue;
                     }
 
                     if (prevRange != null) {
-                        if (prevRange.intersects(range)) {
-                            range = prevRange.merge(range);
-                        } else {
+                        RangeConditionImpl merged = tryMerge(prevRange, range);
+
+                        if (merged == null) {
                             ranges0.add(prevRange);
+                        } else {
+                            range = merged;
                         }
                     }
 
@@ -1065,6 +950,84 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             }
 
             return ranges.iterator();
+        }
+
+        private int compareRanges(RangeCondition<RowT> first, RangeCondition<RowT> second) {
+            int cmp = compareBounds(first.lower(), first.lowerInclude(), second.lower(), !second.lowerInclude());
+
+            if (cmp != 0) {
+                return cmp;
+            }
+
+            return compareBounds(first.upper(), !first.upperInclude(), second.upper(), second.upperInclude());
+        }
+
+        private int compareBounds(@Nullable RowT lower, boolean lowerInclude, @Nullable RowT upper, boolean upperInclude) {
+            assert comparator != null;
+
+            if (lower == null || upper == null) {
+                if (lower == upper) {
+                    if (lowerInclude == upperInclude) {
+                        return 0;
+                    }
+
+                    return lowerInclude ? -1 : 1;
+                } else if (lower == null) {
+                    return lowerInclude ? -1 : 1;
+                } else {
+                    return upperInclude ? -1 : 1;
+                }
+            }
+
+            return comparator.compare(lower, upper);
+        }
+
+        /** Returns combined range if the provided ranges intersect, {@code null} otherwise. */
+        @Nullable RangeConditionImpl tryMerge(RangeConditionImpl first, RangeConditionImpl second) {
+            if (compareBounds(first.lower(), first.lowerInclude(), second.upper(), second.upperInclude()) > 0
+                    || compareBounds(second.lower(), second.lowerInclude(), first.upper(), first.upperInclude()) > 0) {
+                return null;
+            }
+
+            SingleScalar newLowerBound;
+            RowT newLowerRow;
+            boolean newLowerInclude;
+
+            int cmp = compareBounds(first.lower(), first.lowerInclude(), second.lower(), !second.lowerInclude());
+
+            if (cmp < 0 || (cmp == 0 && first.lowerInclude())) {
+                newLowerBound = first.lowerBound;
+                newLowerRow = first.lower();
+                newLowerInclude = first.lowerInclude();
+            } else {
+                newLowerBound = second.lowerBound;
+                newLowerRow = second.lower();
+                newLowerInclude = second.lowerInclude();
+            }
+
+            SingleScalar newUpperBound;
+            RowT newUpperRow;
+            boolean newUpperInclude;
+
+            cmp = compareBounds(first.upper(), !first.upperInclude(), second.upper(), second.upperInclude());
+
+            if (cmp > 0 || (cmp == 0 && first.upperInclude())) {
+                newUpperBound = first.upperBound;
+                newUpperRow = first.upper();
+                newUpperInclude = first.upperInclude();
+            } else {
+                newUpperBound = second.upperBound;
+                newUpperRow = second.upper();
+                newUpperInclude = second.upperInclude();
+            }
+
+            RangeConditionImpl newRangeCondition = new RangeConditionImpl(newLowerBound, newUpperBound,
+                    newLowerInclude, newUpperInclude, first.lowerRowBuilder, first.upperRowBuilder);
+
+            newRangeCondition.lowerRow = newLowerRow;
+            newRangeCondition.upperRow = newUpperRow;
+
+            return newRangeCondition;
         }
     }
 

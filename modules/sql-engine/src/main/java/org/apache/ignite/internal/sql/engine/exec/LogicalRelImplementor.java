@@ -361,7 +361,6 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
         if (searchBounds != null) {
             Comparator<RowT> searchRowComparator = null;
-            RelCollation collation = null;
 
             if (idx.type() == Type.SORTED) {
                 searchRowComparator = expressionFactory.comparator(IgniteIndex.createSearchRowCollation(idx.collation()));
