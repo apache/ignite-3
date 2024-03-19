@@ -49,7 +49,7 @@ import org.apache.ignite.raft.jraft.util.timer.Timer;
  */
 public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     /** This value is used by default to determine the count of stripes in the striped queue. */
-    public static final int DEFAULT_STRIPES = Utils.cpus() * 2;
+    private static final int DEFAULT_STRIPES = Utils.cpus() * 2;
 
     // A follower would become a candidate if it doesn't receive any message
     // from the leader in |election_timeout_ms| milliseconds

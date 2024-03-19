@@ -79,7 +79,7 @@ public class StripedDisruptor<T extends NodeIdAware> {
      * @param stripes Amount of stripes.
      * @param supportsBatches If {@code false}, this stripe will always pass {@code true} into
      *      {@link EventHandler#onEvent(Object, long, boolean)}. Otherwise, the data will be provided with batches.
-     * @param useYieldStrategy If the parameter is true, the yield strategy is to be used otherwise, the blocking strategy.
+     * @param useYieldStrategy If {@code true}, the yield strategy is to be used, otherwise the blocking strategy.
      */
     public StripedDisruptor(
             String nodeName,
@@ -111,7 +111,7 @@ public class StripedDisruptor<T extends NodeIdAware> {
      * @param stripes Amount of stripes.
      * @param supportsBatches If {@code false}, this stripe will always pass {@code true} into
      *      {@link EventHandler#onEvent(Object, long, boolean)}. Otherwise, the data will be provided with batches.
-     * @param useYieldStrategy If the parameter is true, the yield strategy is to be used otherwise, the blocking strategy.
+     * @param useYieldStrategy If {@code true}, the yield strategy is to be used, otherwise the blocking strategy.
      */
     public StripedDisruptor(
             String nodeName,

@@ -1294,7 +1294,7 @@ public class NodeImpl implements Node, RaftServerService {
                 () -> new LogManagerImpl.StableClosureEvent(),
                 opts.getWalStripes(),
                 logStorage instanceof RocksDbSharedLogStorage,
-                false
+                opts.isWalYieldStrategy()
             ));
 
             opts.setLogStripes(IntStream.range(0, opts.getStripes()).mapToObj(i -> new Stripe()).collect(toList()));

@@ -63,11 +63,11 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.core.StateMachineAdapter;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
-import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftException;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.messages.TestRaftMessagesFactory;
@@ -91,6 +91,12 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
      * Counter group name 1.
      */
     private static final TestReplicationGroupId COUNTER_GROUP_1 = new TestReplicationGroupId("counter1");
+
+    /** Amount of stripes for disruptors that are used by JRAFT. */
+    private static final int RAFT_STRIPES = 3;
+
+    /** Amount of stripes for disruptors that are used by WAL for JRAFT. */
+    private static final int RAFT_WAL_STRIPES = 1;
 
     /**
      * Listener factory.
@@ -128,6 +134,8 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
      * Checks that the number of Disruptor threads does not depend on  count started RAFT nodes.
      */
     @Test
+    @WithSystemProperty(key = "IGNITE_RAFT_STRIPES", value = "" + RAFT_STRIPES)
+    @WithSystemProperty(key = "IGNITE_RAFT_WAL_STRIPES", value = "" + RAFT_WAL_STRIPES)
     public void testDisruptorThreadsCount() {
         startServer(0, raftServer -> {
             String localNodeName = raftServer.clusterService().topologyService().localMember().name();
@@ -143,7 +151,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
         Set<String> threadNamesBefore = threads.stream().map(Thread::getName).collect(toSet());
 
-        assertEquals(NodeOptions.DEFAULT_STRIPES * 4/* services */, threadsBefore, "Started thread names: " + threadNamesBefore);
+        assertEquals(RAFT_STRIPES * 3/* services */ + RAFT_WAL_STRIPES, threadsBefore, "Started thread names: " + threadNamesBefore);
 
         servers.forEach(srv -> {
             String localNodeName = srv.clusterService().topologyService().localMember().name();
