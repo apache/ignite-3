@@ -182,7 +182,7 @@ import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.ThreadAssertingStorageEngine;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.systemview.api.SystemViewManager;
-import org.apache.ignite.internal.table.distributed.LowWatermark;
+import org.apache.ignite.internal.table.distributed.LowWatermarkImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
@@ -350,7 +350,7 @@ public class IgniteImpl implements Ignite {
 
     private final ClockWaiter clockWaiter;
 
-    private final LowWatermark lowWatermark;
+    private final LowWatermarkImpl lowWatermark;
 
     private final OutgoingSnapshotsManager outgoingSnapshotsManager;
 
@@ -700,7 +700,7 @@ public class IgniteImpl implements Ignite {
 
         StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry.getConfiguration(StorageUpdateConfiguration.KEY);
 
-        lowWatermark = new LowWatermark(name, gcConfig.lowWatermark(), clock, txManager, vaultMgr, failureProcessor);
+        lowWatermark = new LowWatermarkImpl(name, gcConfig.lowWatermark(), clock, txManager, vaultMgr, failureProcessor);
 
         distributedTblMgr = new TableManager(
                 name,
@@ -742,7 +742,8 @@ public class IgniteImpl implements Ignite {
                 distributedTblMgr,
                 catalogManager,
                 threadPoolsManager.tableIoExecutor(),
-                registry
+                registry,
+                lowWatermark
         );
 
         indexBuildingManager = new IndexBuildingManager(
@@ -832,7 +833,8 @@ public class IgniteImpl implements Ignite {
                 schemaSyncService,
                 catalogManager,
                 placementDriverMgr.placementDriver(),
-                clientConnectorConfiguration
+                clientConnectorConfiguration,
+                lowWatermark
         );
 
         restComponent = createRestComponent(name);
@@ -1474,5 +1476,11 @@ public class IgniteImpl implements Ignite {
     @TestOnly
     public RemotelyTriggeredResourceRegistry resourcesRegistry() {
         return resourcesRegistry;
+    }
+
+    /** Returns low watermark. */
+    @TestOnly
+    public LowWatermarkImpl lowWatermark() {
+        return lowWatermark;
     }
 }

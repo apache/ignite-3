@@ -37,6 +37,7 @@ import org.apache.ignite.internal.security.authentication.AuthenticationManagerI
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
+import org.apache.ignite.internal.table.TestLowWatermark;
 import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.sql.IgniteSql;
@@ -129,7 +130,8 @@ public class TestServer {
                 new AlwaysSyncedSchemaSyncService(),
                 mock(CatalogService.class),
                 mock(PlacementDriver.class),
-                clientConnectorConfiguration
+                clientConnectorConfiguration,
+                new TestLowWatermark()
         );
 
         module.start().join();

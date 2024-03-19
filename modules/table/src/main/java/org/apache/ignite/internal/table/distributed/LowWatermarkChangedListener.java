@@ -21,7 +21,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 
 /**
- * LWM event listener interface.
+ * Low watermark event listener interface.
  *
  * @see LowWatermark
  */

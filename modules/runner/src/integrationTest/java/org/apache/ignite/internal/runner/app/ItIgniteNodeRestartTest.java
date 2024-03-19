@@ -163,7 +163,7 @@ import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
-import org.apache.ignite.internal.table.distributed.LowWatermark;
+import org.apache.ignite.internal.table.distributed.LowWatermarkImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
@@ -540,7 +540,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var sqlRef = new AtomicReference<IgniteSqlImpl>();
 
-        LowWatermark lowWatermark = new LowWatermark(name, gcConfig.lowWatermark(), hybridClock, txManager, vault, failureProcessor);
+        var lowWatermark = new LowWatermarkImpl(name, gcConfig.lowWatermark(), hybridClock, txManager, vault, failureProcessor);
 
         TableManager tableManager = new TableManager(
                 name,
@@ -582,7 +582,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 tableManager,
                 catalogManager,
                 threadPoolsManager.tableIoExecutor(),
-                registry
+                registry,
+                lowWatermark
         );
 
         var metricManager = new MetricManager();
