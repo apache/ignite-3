@@ -78,7 +78,11 @@ public class TestLowWatermark implements LowWatermark {
      */
     public CompletableFuture<Void> updateAndNotify(HybridTimestamp newTs) {
         try {
-            updateWithoutNotify(newTs);
+            assertNotNull(newTs);
+
+            assertTrue(ts == null || ts.longValue() < newTs.longValue(), "ts=" + ts + ", newTs=" + newTs);
+
+            setLowWatermark(newTs);
 
             return allOf(listeners.stream().map(l -> l.onLwmChanged(newTs)).toArray(CompletableFuture[]::new));
         } catch (Throwable t) {
@@ -87,14 +91,14 @@ public class TestLowWatermark implements LowWatermark {
     }
 
     /** Set low watermark without listeners notification. */
-    public void updateWithoutNotify(HybridTimestamp newTs) {
-        assertNotNull(newTs);
+    public void updateWithoutNotify(@Nullable HybridTimestamp newTs) {
+        setLowWatermark(newTs);
+    }
 
+    private void setLowWatermark(@Nullable HybridTimestamp newTs) {
         updateLowWatermarkLock.writeLock().lock();
 
         try {
-            assertTrue(ts == null || ts.longValue() < newTs.longValue(), "ts=" + ts + ", newTs=" + newTs);
-
             ts = newTs;
         } finally {
             updateLowWatermarkLock.writeLock().unlock();
