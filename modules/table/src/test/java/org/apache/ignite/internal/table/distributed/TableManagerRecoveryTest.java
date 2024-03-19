@@ -74,6 +74,7 @@ import org.apache.ignite.internal.metastorage.server.TestRocksDbKeyValueStorage;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
@@ -104,6 +105,7 @@ import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
+import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
@@ -275,6 +277,8 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
 
         Consumer<LongFunction<CompletableFuture<?>>> revisionUpdater = c -> metaStorageManager.registerRevisionUpdateListener(c::apply);
 
+        PlacementDriver placementDriver = new TestPlacementDriver(node);
+
         lowWatermark = new TestLowWatermark();
         lowWatermark.update(savedWatermark);
         tableManager = new TableManager(
@@ -304,12 +308,13 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 new AlwaysSyncedSchemaSyncService(),
                 catalogManager,
                 new HybridTimestampTracker(),
-                new TestPlacementDriver(node),
+                placementDriver,
                 () -> mock(IgniteSql.class),
                 new RemotelyTriggeredResourceRegistry(),
                 mock(ScheduledExecutorService.class),
                 lowWatermark,
-                ForkJoinPool.commonPool()
+                ForkJoinPool.commonPool(),
+                new TransactionInflights(placementDriver)
         ) {
 
             @Override

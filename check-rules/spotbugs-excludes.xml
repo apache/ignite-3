@@ -187,15 +187,21 @@
     <Method name="cancel"/>
   </Match>
   <Match>
-    <!-- suppressed in code as well -->
-    <Bug pattern="VO_VOLATILE_INCREMENT"/>
-    <Class name="org.apache.ignite.internal.tx.impl.TxManagerImpl"/>
-    <Field name="inflights"/>
-  </Match>
-  <Match>
     <!-- duplicate reported because constants have same value -->
     <Bug pattern="DB_DUPLICATE_BRANCHES"/>
     <Source name="AbstractPageMemoryIndexStorage.java"/>
+  </Match>
+  <Match>
+    <!-- suppressed in code as well -->
+    <Bug pattern="VO_VOLATILE_INCREMENT"/>
+    <Class name="org.apache.ignite.internal.tx.impl.TransactionInflights$TxContext"/>
+    <Field name="inflights"/>
+  </Match>
+  <Match>
+    <!-- suppressed in code as well -->
+    <Bug pattern="VO_VOLATILE_DECREMENT"/>
+    <Class name="org.apache.ignite.internal.tx.impl.TransactionInflights$TxContext"/>
+    <Field name="inflights"/>
   </Match>
   <!-- end of false-positive exclusions -->
 
