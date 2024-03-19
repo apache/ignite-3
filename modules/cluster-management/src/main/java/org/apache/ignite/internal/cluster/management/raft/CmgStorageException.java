@@ -24,8 +24,8 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 /**
  * Exception used by {@link RocksDbClusterStateStorage} to signal about errors.
  */
-public class StorageException extends IgniteInternalException {
-    public StorageException(String msg, Throwable cause) {
+public class CmgStorageException extends IgniteInternalException {
+    public CmgStorageException(String msg, Throwable cause) {
         super(INTERNAL_ERR, msg, cause);
     }
 }

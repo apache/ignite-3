@@ -101,7 +101,7 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
 
             this.db = db;
         } catch (RocksDBException e) {
-            throw new StorageException("Failed to start the storage", e);
+            throw new CmgStorageException("Failed to start the storage", e);
         }
     }
 
@@ -110,7 +110,7 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
         try {
             return db.get(key);
         } catch (RocksDBException e) {
-            throw new StorageException("Unable to get data from Rocks DB", e);
+            throw new CmgStorageException("Unable to get data from Rocks DB", e);
         }
     }
 
@@ -119,7 +119,7 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
         try {
             db.put(key, value);
         } catch (RocksDBException e) {
-            throw new StorageException("Unable to put data into Rocks DB", e);
+            throw new CmgStorageException("Unable to put data into Rocks DB", e);
         }
     }
 
@@ -139,7 +139,7 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
 
             db.write(options, batch);
         } catch (RocksDBException e) {
-            throw new StorageException("Unable to replace data in Rocks DB", e);
+            throw new CmgStorageException("Unable to replace data in Rocks DB", e);
         }
     }
 
@@ -148,7 +148,7 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
         try {
             db.delete(key);
         } catch (RocksDBException e) {
-            throw new StorageException("Unable to remove data from Rocks DB", e);
+            throw new CmgStorageException("Unable to remove data from Rocks DB", e);
         }
     }
 
@@ -164,7 +164,7 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
 
             db.write(options, batch);
         } catch (RocksDBException e) {
-            throw new StorageException("Unable to remove data from Rocks DB", e);
+            throw new CmgStorageException("Unable to remove data from Rocks DB", e);
         }
     }
 
@@ -233,7 +233,7 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
         try {
             RocksDB.destroyDB(dbPath.toString(), options);
         } catch (RocksDBException e) {
-            throw new StorageException("Unable to stop the RocksDB instance", e);
+            throw new CmgStorageException("Unable to stop the RocksDB instance", e);
         }
     }
 }
