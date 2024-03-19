@@ -742,7 +742,8 @@ public class IgniteImpl implements Ignite {
                 distributedTblMgr,
                 catalogManager,
                 threadPoolsManager.tableIoExecutor(),
-                registry
+                registry,
+                lowWatermark
         );
 
         indexBuildingManager = new IndexBuildingManager(
@@ -832,7 +833,8 @@ public class IgniteImpl implements Ignite {
                 schemaSyncService,
                 catalogManager,
                 placementDriverMgr.placementDriver(),
-                clientConnectorConfiguration
+                clientConnectorConfiguration,
+                lowWatermark
         );
 
         restComponent = createRestComponent(name);
@@ -1474,5 +1476,11 @@ public class IgniteImpl implements Ignite {
     @TestOnly
     public RemotelyTriggeredResourceRegistry resourcesRegistry() {
         return resourcesRegistry;
+    }
+
+    /** Returns low watermark. */
+    @TestOnly
+    public LowWatermarkImpl lowWatermark() {
+        return lowWatermark;
     }
 }

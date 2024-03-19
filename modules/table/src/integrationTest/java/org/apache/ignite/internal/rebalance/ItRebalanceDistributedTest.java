@@ -826,8 +826,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     try {
                         return nodes.stream().allMatch(n ->
                                 n.tableManager
-                                        .startedTables()
-                                        .get(getTableId(n, tableName))
+                                        .cachedTable(getTableId(n, tableName))
                                         .internalTable()
                                         .tableRaftService()
                                         .partitionRaftGroupService(partNum) != null
@@ -1259,7 +1258,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     tableManager,
                     catalogManager,
                     threadPoolsManager.tableIoExecutor(),
-                    registry
+                    registry,
+                    lowWatermark
             );
         }
 

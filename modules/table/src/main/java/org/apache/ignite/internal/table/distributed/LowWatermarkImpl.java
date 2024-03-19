@@ -32,6 +32,8 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
@@ -70,7 +72,7 @@ public class LowWatermarkImpl implements LowWatermark, IgniteComponent {
 
     private final List<LowWatermarkChangedListener> updateListeners = new CopyOnWriteArrayList<>();
 
-    // TODO: IGNITE-21772 Consider using a shared pool to update a low watermark 
+    // TODO: IGNITE-21772 Consider using a shared pool to update a low watermark
     private final ScheduledExecutorService scheduledThreadPool;
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -124,7 +126,7 @@ public class LowWatermarkImpl implements LowWatermark, IgniteComponent {
     }
 
     /**
-     * Schedule watermark updates.
+     * Schedule low watermark updates.
      */
     public void scheduleUpdates() {
         inBusyLock(busyLock, () -> {
@@ -140,6 +142,8 @@ public class LowWatermarkImpl implements LowWatermark, IgniteComponent {
 
             LOG.info("Low watermark has been scheduled to be updated: {}", lowWatermarkCandidate);
 
+            // TODO IGNTIE-21751: txManager should read lwm on recocvery instead.
+            //  Other components uses the lwm recovered from the vault, so notification shouldn't have any effect.
             // TODO: IGNITE-21773 No need to notify listeners at node start
             txManager.updateLowWatermark(lowWatermarkCandidate)
                     .thenComposeAsync(unused -> inBusyLock(busyLock, () -> notifyListeners(lowWatermarkCandidate)), scheduledThreadPool)
@@ -183,17 +187,6 @@ public class LowWatermarkImpl implements LowWatermark, IgniteComponent {
     @Override
     public @Nullable HybridTimestamp getLowWatermark() {
         return lowWatermark;
-    }
-
-    @Override
-    public void getLowWatermarkSafe(Consumer<HybridTimestamp> consumer) {
-        updateLowWatermarkLock.readLock().lock();
-
-        try {
-            consumer.accept(lowWatermark);
-        } finally {
-            updateLowWatermarkLock.readLock().unlock();
-        }
     }
 
     CompletableFuture<Void> updateLowWatermark() {
@@ -243,12 +236,22 @@ public class LowWatermarkImpl implements LowWatermark, IgniteComponent {
         }
 
         var res = new ArrayList<CompletableFuture<?>>();
-
         for (LowWatermarkChangedListener updateListener : updateListeners) {
             res.add(updateListener.onLwmChanged(lowWatermark));
         }
 
         return CompletableFuture.allOf(res.toArray(CompletableFuture[]::new));
+    }
+
+    @Override
+    public void getLowWatermarkSafe(Consumer<@Nullable HybridTimestamp> consumer) {
+        updateLowWatermarkLock.readLock().lock();
+
+        try {
+            consumer.accept(lowWatermark);
+        } finally {
+            updateLowWatermarkLock.readLock().unlock();
+        }
     }
 
     private void scheduleUpdateLowWatermarkBusy() {
