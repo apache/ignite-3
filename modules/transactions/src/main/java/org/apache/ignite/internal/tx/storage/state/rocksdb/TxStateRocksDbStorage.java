@@ -22,6 +22,8 @@ import static org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDb
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.putLongToBytes;
+import static org.apache.ignite.internal.util.ByteUtils.stringFromBytes;
+import static org.apache.ignite.internal.util.ByteUtils.stringToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_ERR;
@@ -78,6 +80,8 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     /** Database key for the last applied index+term. */
     private final byte[] lastAppliedIndexAndTermKey;
 
+    private final byte[] leaseKey;
+
     /** Shared TX state storage. */
     private final TxStateRocksDbSharedStorage sharedStorage;
 
@@ -89,6 +93,11 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
     /** On-heap-cached last applied term value. */
     private volatile long lastAppliedTerm;
+
+    @Nullable
+    private volatile String leaseholderId;
+
+    private volatile long leaseStartTime;
 
     /** Current state of the storage. */
     private final AtomicReference<StorageState> state = new AtomicReference<>(StorageState.RUNNABLE);
@@ -111,6 +120,11 @@ public class TxStateRocksDbStorage implements TxStateStorage {
                 .putInt(tableId)
                 .putShort((short) partitionId)
                 .array();
+        this.leaseKey = ByteBuffer.allocate(PREFIX_SIZE_BYTES + 1).order(BIG_ENDIAN)
+                .putInt(tableId)
+                .putShort((short) partitionId)
+                .put((byte) 0)
+                .array();
     }
 
     /**
@@ -125,6 +139,14 @@ public class TxStateRocksDbStorage implements TxStateStorage {
             if (indexAndTermBytes != null) {
                 lastAppliedIndex = bytesToLong(indexAndTermBytes);
                 lastAppliedTerm = bytesToLong(indexAndTermBytes, Long.BYTES);
+            }
+
+            byte[] leaseBytes = readLease(sharedStorage.readOptions);
+
+            if (leaseBytes != null) {
+                byte[] leaseholderIdBytes = ByteBuffer.wrap(leaseBytes, 0, leaseBytes.length - Long.BYTES).array();
+                leaseholderId = stringFromBytes(leaseholderIdBytes);
+                leaseStartTime = bytesToLong(leaseBytes, leaseholderIdBytes.length);
             }
 
             return null;
@@ -380,6 +402,18 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         }
     }
 
+    private byte @Nullable [] readLease(ReadOptions readOptions) {
+        try {
+            return sharedStorage.db().get(readOptions, leaseKey);
+        } catch (RocksDBException e) {
+            throw new IgniteInternalException(
+                    TX_STATE_STORAGE_ERR,
+                    IgniteStringFormatter.format("Failed to read a lease from a storage: [{}]", createStorageInfo()),
+                    e
+            );
+        }
+    }
+
     @Override
     public void destroy() {
         if (!tryToCloseStorageAndResources()) {
@@ -390,6 +424,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
             clearStorageData(writeBatch);
 
             writeBatch.delete(lastAppliedIndexAndTermKey);
+            writeBatch.delete(leaseKey);
 
             sharedStorage.db().write(sharedStorage.writeOptions, writeBatch);
         } catch (Exception e) {
@@ -473,11 +508,15 @@ public class TxStateRocksDbStorage implements TxStateStorage {
             clearStorageData(writeBatch);
 
             writeBatch.delete(lastAppliedIndexAndTermKey);
+            writeBatch.delete(leaseKey);
 
             sharedStorage.db().write(sharedStorage.writeOptions, writeBatch);
 
             lastAppliedIndex = 0;
             lastAppliedTerm = 0;
+
+            leaseholderId = null;
+            leaseStartTime = Long.MIN_VALUE;
 
             state.set(StorageState.RUNNABLE);
         } catch (Exception e) {
@@ -545,6 +584,48 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
             busyLock.unblock();
         }
+    }
+
+    @Override
+    public void updateLease(String leaseholderId, long leaseStartTime) {
+        busy(() -> {
+            try (WriteBatch writeBatch = new WriteBatch()) {
+                byte[] leaseBytes = new byte[leaseholderId.length() + Long.BYTES];
+
+                byte[] leaseholderIdBytes = stringToBytes(leaseholderId);
+
+                for (int i = 0; i < leaseholderIdBytes.length; i++) {
+                    leaseBytes[i] = leaseholderIdBytes[i];
+                }
+
+                putLongToBytes(leaseStartTime, leaseBytes, leaseholderIdBytes.length);
+
+                writeBatch.put(leaseKey, leaseBytes);
+
+                this.leaseholderId = leaseholderId;
+                this.leaseStartTime = leaseStartTime;
+
+                sharedStorage.db().write(sharedStorage.writeOptions, writeBatch);
+            } catch (RocksDBException e) {
+                throw new IgniteInternalException(
+                        TX_STATE_STORAGE_ERR,
+                        IgniteStringFormatter.format("Failed update lease in a storage: [{}]", createStorageInfo()),
+                        e
+                );
+            }
+
+            return null;
+        });
+    }
+
+    @Override
+    public String leaseholderId() {
+        return leaseholderId;
+    }
+
+    @Override
+    public long leaseStartTime() {
+        return leaseStartTime;
     }
 
     private void clearStorageData(WriteBatch writeBatch) throws RocksDBException {

@@ -61,6 +61,7 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.message.ErrorTimestampAwareReplicaResponse;
 import org.apache.ignite.internal.replicator.message.TimestampAwareReplicaResponse;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
@@ -1050,7 +1051,9 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
             if (msg instanceof WriteActionRequest) {
                 WriteActionRequest writeActionRequest = (WriteActionRequest) msg;
 
-                if (tblReplicationGrp.toString().equals(writeActionRequest.groupId()) && !fullTxReplicationAttemptLatch.isDone()) {
+                if (tblReplicationGrp.toString().equals(writeActionRequest.groupId())
+                        && writeActionRequest.deserializedCommand() instanceof UpdateCommand
+                        && !fullTxReplicationAttemptLatch.isDone()) {
                     fullTxReplicationAttemptLatch.complete(null);
 
                     regularTxComplete.join();

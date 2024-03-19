@@ -70,6 +70,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
@@ -130,6 +131,7 @@ import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage
 import org.apache.ignite.internal.table.distributed.TableUtils;
 import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommandBuilder;
+import org.apache.ignite.internal.table.distributed.command.PrimaryReplicaChangeCommand;
 import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
 import org.apache.ignite.internal.table.distributed.command.TimedBinaryRowMessage;
 import org.apache.ignite.internal.table.distributed.command.TimedBinaryRowMessageBuilder;
@@ -291,6 +293,8 @@ public class PartitionReplicaListener implements ReplicaListener {
     private final EventListener<CatalogEventParameters> indexBuildingCatalogEventListener = this::onIndexBuilding;
 
     private final SchemaRegistry schemaRegistry;
+
+    private final PrimaryReplicaChangeCommandWaiter primaryReplicaChangeCommandWaiter = new PrimaryReplicaChangeCommandWaiter();
 
     /**
      * The constructor.
@@ -1308,7 +1312,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         RowId rowId = indexRow.rowId();
 
         return resolvePlainReadResult(rowId, null, readTimestamp).thenComposeAsync(resolvedReadResult -> {
-            BinaryRow binaryRow = upgrage(binaryRow(resolvedReadResult), tableVersion);
+            BinaryRow binaryRow = upgrade(binaryRow(resolvedReadResult), tableVersion);
 
             if (binaryRow != null && indexRowMatches(indexRow, binaryRow, schemaAwareIndexStorage)) {
                 result.add(binaryRow);
@@ -1356,7 +1360,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     return lockManager.acquire(txId, new LockKey(tableId(), rowId), LockMode.S)
                             .thenComposeAsync(rowLock -> { // Table row S lock
                                 return resolvePlainReadResult(rowId, txId).thenCompose(resolvedReadResult -> {
-                                    BinaryRow binaryRow = upgrage(binaryRow(resolvedReadResult), tableVersion);
+                                    BinaryRow binaryRow = upgrade(binaryRow(resolvedReadResult), tableVersion);
 
                                     if (binaryRow != null && indexRowMatches(currentRow, binaryRow, schemaAwareIndexStorage)) {
                                         result.add(resolvedReadResult.binaryRow());
@@ -3370,7 +3374,12 @@ public class PartitionReplicaListener implements ReplicaListener {
                             );
                         }
 
-                        return nullCompletedFuture();
+                        return primaryReplicaChangeCommandWaiter
+                                .changePrimaryReplicaFuture(
+                                        primaryReplicaMeta.getLeaseholderId(),
+                                        primaryReplicaMeta.getStartTime().longValue()
+                                )
+                                .thenApply(unused -> null);
                     });
         } else if (request instanceof ReadOnlyReplicaRequest || request instanceof ReplicaSafeTimeSyncRequest) {
             return placementDriver.getPrimaryReplica(replicationGroupId, now)
@@ -3579,7 +3588,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 });
     }
 
-    private static UpdateCommand updateCommand(
+    private UpdateCommand updateCommand(
             TablePartitionId tablePartId,
             UUID rowUuid,
             @Nullable BinaryRow row,
@@ -3590,6 +3599,11 @@ public class PartitionReplicaListener implements ReplicaListener {
             HybridTimestamp safeTimeTimestamp,
             int catalogVersion
     ) {
+        PrimaryReplicaChangeCommandFuture f = primaryReplicaChangeCommandWaiter.futureRef;
+
+        String leaseholderId = full ? f.leaseholderId : null;
+        Long leaseStartTime = full ? f.leaseStartTime : null;
+
         UpdateCommandBuilder bldr = MSG_FACTORY.updateCommand()
                 .tablePartitionId(tablePartitionId(tablePartId))
                 .rowUuid(rowUuid)
@@ -3597,7 +3611,9 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .full(full)
                 .safeTimeLong(safeTimeTimestamp.longValue())
                 .txCoordinatorId(txCoordinatorId)
-                .requiredCatalogVersion(catalogVersion);
+                .requiredCatalogVersion(catalogVersion)
+                .leaseholderId(leaseholderId)
+                .leaseStartTime(leaseStartTime);
 
         if (lastCommitTimestamp != null || row != null) {
             TimedBinaryRowMessageBuilder rowMsgBldr = MSG_FACTORY.timedBinaryRowMessage();
@@ -3623,7 +3639,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .build();
     }
 
-    private static UpdateAllCommand updateAllCommand(
+    private UpdateAllCommand updateAllCommand(
             Map<UUID, TimedBinaryRowMessage> rowsToUpdate,
             TablePartitionIdMessage commitPartitionId,
             UUID transactionId,
@@ -3632,6 +3648,11 @@ public class PartitionReplicaListener implements ReplicaListener {
             String txCoordinatorId,
             int catalogVersion
     ) {
+        PrimaryReplicaChangeCommandFuture f = primaryReplicaChangeCommandWaiter.futureRef;
+
+        String leaseholderId = full ? f.leaseholderId : null;
+        Long leaseStartTime = full ? f.leaseStartTime : null;
+
         return MSG_FACTORY.updateAllCommand()
                 .tablePartitionId(commitPartitionId)
                 .messageRowsToUpdate(rowsToUpdate)
@@ -3640,6 +3661,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .full(full)
                 .txCoordinatorId(txCoordinatorId)
                 .requiredCatalogVersion(catalogVersion)
+                .leaseholderId(leaseholderId)
+                .leaseStartTime(leaseStartTime)
                 .build();
     }
 
@@ -3860,7 +3883,47 @@ public class PartitionReplicaListener implements ReplicaListener {
         return timedBinaryRow == null ? null : timedBinaryRow.binaryRow();
     }
 
-    private @Nullable BinaryRow upgrage(@Nullable BinaryRow source, int targetSchemaVersion) {
+    private @Nullable BinaryRow upgrade(@Nullable BinaryRow source, int targetSchemaVersion) {
         return source == null ? null : new BinaryRowUpgrader(schemaRegistry, targetSchemaVersion).upgrade(source);
+    }
+
+    private class PrimaryReplicaChangeCommandWaiter {
+        private volatile PrimaryReplicaChangeCommandFuture futureRef = new PrimaryReplicaChangeCommandFuture("", -1, nullCompletedFuture());
+
+        CompletableFuture<Void> changePrimaryReplicaFuture(String leaseholderId, long leaseStartTime) {
+            PrimaryReplicaChangeCommandFuture f = futureRef;
+
+            if (leaseholderId.equals(f.leaseholderId) && leaseStartTime == f.leaseStartTime) {
+                return f.future;
+            } else {
+                PrimaryReplicaChangeCommand cmd = MSG_FACTORY.primaryReplicaChangeCommand()
+                        .leaseholderId(leaseholderId)
+                        .leaseStartTime(leaseStartTime)
+                        .safeTimeLong(hybridClock.nowLong())
+                        .build();
+
+                synchronized (this) {
+                    futureRef = new PrimaryReplicaChangeCommandFuture(
+                            leaseholderId,
+                            leaseStartTime,
+                            futureRef.future.thenCompose(unused -> raftClient.run(cmd))
+                    );
+
+                    return futureRef.future;
+                }
+            }
+        }
+    }
+
+    private static class PrimaryReplicaChangeCommandFuture {
+        final String leaseholderId;
+        final long leaseStartTime;
+        final CompletableFuture<Void> future;
+
+        PrimaryReplicaChangeCommandFuture(String leaseholderId, long leaseStartTime, CompletableFuture<Void> future) {
+            this.leaseholderId = leaseholderId;
+            this.leaseStartTime = leaseStartTime;
+            this.future = future;
+        }
     }
 }

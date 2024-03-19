@@ -51,6 +51,10 @@ public class TestTxStateStorage implements TxStateStorage {
 
     private volatile boolean closed;
 
+    private volatile String leaseholderId;
+
+    private volatile long leaseStartTime;
+
     @Override
     @Nullable
     public TxMeta get(UUID txId) {
@@ -240,6 +244,22 @@ public class TestTxStateStorage implements TxStateStorage {
         lastAppliedTerm = 0;
 
         return nullCompletedFuture();
+    }
+
+    @Override
+    public void updateLease(String leaseholderId, long leaseStartTime) {
+        this.leaseholderId = leaseholderId;
+        this.leaseStartTime = leaseStartTime;
+    }
+
+    @Override
+    public String leaseholderId() {
+        return leaseholderId;
+    }
+
+    @Override
+    public long leaseStartTime() {
+        return leaseStartTime;
     }
 
     private void checkStorageInProgreesOfRebalance() {

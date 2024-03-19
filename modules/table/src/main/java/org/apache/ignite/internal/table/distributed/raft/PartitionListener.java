@@ -54,6 +54,7 @@ import org.apache.ignite.internal.raft.service.BeforeApplyHandler;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.CommittedConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -67,6 +68,7 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
+import org.apache.ignite.internal.table.distributed.command.PrimaryReplicaChangeCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.command.WriteIntentSwitchCommand;
@@ -78,6 +80,7 @@ import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.TrackerClosedException;
+import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -210,6 +213,8 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                     handleSafeTimeSyncCommand((SafeTimeSyncCommand) command, commandIndex, commandTerm);
                 } else if (command instanceof BuildIndexCommand) {
                     handleBuildIndexCommand((BuildIndexCommand) command, commandIndex, commandTerm);
+                } else if (command instanceof PrimaryReplicaChangeCommand) {
+                    handlePrimaryReplicaChangeCommand((PrimaryReplicaChangeCommand) command, commandIndex, commandTerm);
                 } else {
                     assert false : "Command was not found [cmd=" + command + ']';
                 }
@@ -258,6 +263,15 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
             return;
         }
 
+        if (cmd.leaseholderId() != null) {
+            long leaseStartTime = requireNonNull(cmd.leaseStartTime(), "Inconsistent lease information in command [cmd=" + cmd + "].");
+
+            if (!txStateStorage.leaseholderId().equals(cmd.leaseholderId())
+                    || leaseStartTime != txStateStorage.leaseStartTime()) {
+                throw new IgniteException("Primary replica changed.");
+            }
+        }
+
         UUID txId = cmd.txId();
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Proper storage/raft index handling is required.
@@ -293,6 +307,15 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= storage.lastAppliedIndex()) {
             return;
+        }
+
+        if (cmd.leaseholderId() != null) {
+            long leaseStartTime = requireNonNull(cmd.leaseStartTime(), "Inconsistent lease information in command [cmd=" + cmd + "].");
+
+            if (!txStateStorage.leaseholderId().equals(cmd.leaseholderId())
+                    || leaseStartTime != txStateStorage.leaseStartTime()) {
+                throw new IgniteException("Primary replica changed.");
+            }
         }
 
         UUID txId = cmd.txId();
@@ -556,6 +579,29 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                     "Finish building the index: [tableId={}, partitionId={}, indexId={}]",
                     storage.tableId(), storage.partitionId(), cmd.indexId()
             );
+        }
+    }
+
+    /**
+     * Handler for {@link PrimaryReplicaChangeCommand}.
+     *
+     * @param cmd Command.
+     * @param commandIndex Command index.
+     * @param commandTerm Command term.
+     */
+    private void handlePrimaryReplicaChangeCommand(PrimaryReplicaChangeCommand cmd, long commandIndex, long commandTerm) {
+        // Skips the write command because the storage has already executed it.
+        if (commandIndex <= storage.lastAppliedIndex()) {
+            return;
+        }
+
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Proper storage/raft index handling is required.
+        synchronized (safeTime) {
+            if (cmd.safeTime().compareTo(safeTime.current()) > 0) {
+                txStateStorage.updateLease(cmd.leaseholderId(), cmd.leaseStartTime());
+
+                updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
+            }
         }
     }
 
