@@ -58,9 +58,11 @@ import java.util.BitSet;
 import java.util.Collection;
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -2169,16 +2171,14 @@ public class PartitionReplicaListener implements ReplicaListener {
                     // TODO:IGNITE-20669 Replace the result to BitSet.
                     Collection<BinaryRow> result = new ArrayList<>();
                     Map<RowId, BinaryRow> rowsToInsert = new HashMap<>();
-                    Map<ByteBuffer, RowId> newKeyMap = new HashMap<>();
-                    Function<ByteBuffer, RowId> rowIdGen = unused -> new RowId(partId(), UUID.randomUUID());
+                    Set<ByteBuffer> uniqueKeys = new HashSet<>();
 
                     for (int i = 0; i < searchRows.size(); i++) {
                         BinaryRow row = searchRows.get(i);
                         RowId lockedRow = pkReadLockFuts[i].join();
 
-                        if (lockedRow == null) {
-                            RowId rowId = newKeyMap.computeIfAbsent(pks.get(i).byteBuffer(), rowIdGen);
-                            rowsToInsert.put(rowId, row);
+                        if (lockedRow == null && uniqueKeys.add(pks.get(i).byteBuffer())) {
+                            rowsToInsert.put(new RowId(partId(), UUID.randomUUID()), row);
 
                             result.add(new NullBinaryRow());
                         } else {
