@@ -169,7 +169,7 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableRaftService;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
-import org.apache.ignite.internal.table.distributed.LowWatermark;
+import org.apache.ignite.internal.table.distributed.LowWatermarkImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
@@ -826,8 +826,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     try {
                         return nodes.stream().allMatch(n ->
                                 n.tableManager
-                                        .startedTables()
-                                        .get(getTableId(n, tableName))
+                                        .cachedTable(getTableId(n, tableName))
                                         .internalTable()
                                         .tableRaftService()
                                         .partitionRaftGroupService(partNum) != null
@@ -957,7 +956,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         private final NetworkAddress networkAddress;
 
-        private final LowWatermark lowWatermark;
+        private final LowWatermarkImpl lowWatermark;
 
         /** The future have to be complete after the node start and all Meta storage watches are deployd. */
         private CompletableFuture<Void> deployWatchesFut;
@@ -1183,7 +1182,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry.getConfiguration(StorageUpdateConfiguration.KEY);
 
             HybridClockImpl clock = new HybridClockImpl();
-            lowWatermark = new LowWatermark(name, gcConfig.lowWatermark(), clock, txManager, vaultManager, failureProcessor);
+            lowWatermark = new LowWatermarkImpl(name, gcConfig.lowWatermark(), clock, txManager, vaultManager, failureProcessor);
 
             tableManager = new TableManager(
                     name,
@@ -1259,7 +1258,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     tableManager,
                     catalogManager,
                     threadPoolsManager.tableIoExecutor(),
-                    registry
+                    registry,
+                    lowWatermark
             );
         }
 

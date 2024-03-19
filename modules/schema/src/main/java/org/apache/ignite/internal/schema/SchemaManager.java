@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.util.Collection;
@@ -38,7 +39,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableSchemaVersions
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
-import org.apache.ignite.internal.catalog.events.DestroyTableEventParameters;
 import org.apache.ignite.internal.catalog.events.TableEventParameters;
 import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -79,7 +79,6 @@ public class SchemaManager implements IgniteComponent {
     public CompletableFuture<Void> start() {
         catalogService.listen(CatalogEvent.TABLE_CREATE, this::onTableCreated);
         catalogService.listen(CatalogEvent.TABLE_ALTER, this::onTableAltered);
-        catalogService.listen(CatalogEvent.TABLE_DESTROY, this::onTableDestroyed);
 
         registerExistingTables();
 
@@ -171,12 +170,6 @@ public class SchemaManager implements IgniteComponent {
         } finally {
             busyLock.leaveBusy();
         }
-    }
-
-    private CompletableFuture<Boolean> onTableDestroyed(CatalogEventParameters event) {
-        DestroyTableEventParameters creationEvent = (DestroyTableEventParameters) event;
-
-        return dropRegistry(creationEvent.causalityToken(), creationEvent.tableId()).thenApply(ignored -> false);
     }
 
     private void setColumnMapping(SchemaDescriptor schema, int tableId) throws ExecutionException, InterruptedException {
@@ -309,29 +302,15 @@ public class SchemaManager implements IgniteComponent {
     /**
      * Drops schema registry for the given table id (along with the corresponding schemas).
      *
-     * @param causalityToken Causality token.
      * @param tableId Table id.
      */
-    private CompletableFuture<?> dropRegistry(long causalityToken, int tableId) {
-        if (!busyLock.enterBusy()) {
-            throw new IgniteException(NODE_STOPPING_ERR, new NodeStoppingException());
-        }
+    public CompletableFuture<?> dropRegistryAsync(int tableId) {
+        return inBusyLockAsync(busyLock, () -> {
+            SchemaRegistryImpl removedRegistry = registriesById.remove(tableId);
+            removedRegistry.close();
 
-        try {
-            return registriesVv.update(causalityToken, (registries, e) -> inBusyLock(busyLock, () -> {
-                if (e != null) {
-                    return failedFuture(new IgniteInternalException(
-                            format("Cannot remove a schema registry for the table [tblId={}]", tableId), e));
-                }
-
-                SchemaRegistryImpl removedRegistry = registriesById.remove(tableId);
-                removedRegistry.close();
-
-                return nullCompletedFuture();
-            }));
-        } finally {
-            busyLock.leaveBusy();
-        }
+            return falseCompletedFuture();
+        });
     }
 
     @Override

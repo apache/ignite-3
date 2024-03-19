@@ -42,7 +42,7 @@ public interface Flow<I, O> {
      */
     default <OT> Flow<I, OT> composite(Flow<O, OT> next) {
         return input -> {
-            Flowable<O> outputFlowable = Flow.this.start(input);
+            Flowable<O> outputFlowable = this.start(input);
             return next.start(outputFlowable);
         };
     }

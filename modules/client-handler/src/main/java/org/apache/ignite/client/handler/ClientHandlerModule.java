@@ -57,6 +57,7 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
+import org.apache.ignite.internal.table.distributed.LowWatermark;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -145,6 +146,7 @@ public class ClientHandlerModule implements IgniteComponent {
      * @param authenticationManager Authentication manager.
      * @param clock Hybrid clock.
      * @param clientConnectorConfiguration Configuration of the connector.
+     * @param lowWatermark Low watermark.
      */
     public ClientHandlerModule(
             QueryProcessor queryProcessor,
@@ -162,7 +164,8 @@ public class ClientHandlerModule implements IgniteComponent {
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
             PlacementDriver placementDriver,
-            ClientConnectorConfiguration clientConnectorConfiguration
+            ClientConnectorConfiguration clientConnectorConfiguration,
+            LowWatermark lowWatermark
     ) {
         assert igniteTables != null;
         assert queryProcessor != null;
@@ -179,6 +182,7 @@ public class ClientHandlerModule implements IgniteComponent {
         assert catalogService != null;
         assert placementDriver != null;
         assert clientConnectorConfiguration != null;
+        assert lowWatermark != null;
 
         this.queryProcessor = queryProcessor;
         this.igniteTables = igniteTables;
@@ -194,7 +198,8 @@ public class ClientHandlerModule implements IgniteComponent {
         this.clock = clock;
         this.schemaSyncService = schemaSyncService;
         this.catalogService = catalogService;
-        this.primaryReplicaTracker = new ClientPrimaryReplicaTracker(placementDriver, catalogService, clock, schemaSyncService);
+        this.primaryReplicaTracker = new ClientPrimaryReplicaTracker(placementDriver, catalogService, clock, schemaSyncService,
+                lowWatermark);
         this.clientConnectorConfiguration = clientConnectorConfiguration;
     }
 

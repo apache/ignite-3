@@ -24,7 +24,6 @@ import static java.util.stream.Collectors.joining;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.clusterWideEnsuredActivationTsSafeForRoReads;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor.CatalogIndexDescriptorType.HASH;
-import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.type.NativeTypes.BOOLEAN;
 import static org.apache.ignite.internal.type.NativeTypes.INT32;
 import static org.apache.ignite.internal.type.NativeTypes.STRING;
@@ -32,25 +31,19 @@ import static org.apache.ignite.internal.type.NativeTypes.stringOf;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
-import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
-import it.unimi.dsi.fastutil.ints.IntSet;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.NavigableMap;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.Flow.Publisher;
-import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
-import java.util.function.Predicate;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
@@ -60,8 +53,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
-import org.apache.ignite.internal.catalog.events.DestroyIndexEvent;
-import org.apache.ignite.internal.catalog.events.DestroyTableEvent;
 import org.apache.ignite.internal.catalog.storage.Fireable;
 import org.apache.ignite.internal.catalog.storage.SnapshotEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
@@ -382,6 +373,8 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     private void truncateUpTo(Catalog catalog) {
         catalogByVer.headMap(catalog.version(), false).clear();
         catalogByTs.headMap(catalog.time(), false).clear();
+
+        LOG.info("Catalog history was truncated up to version=" + catalog.version());
     }
 
     private CompletableFuture<Integer> saveUpdateAndWaitForActivation(UpdateProducer updateProducer) {
@@ -463,61 +456,20 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         @Override
         public CompletableFuture<Void> handle(UpdateLogEvent event, HybridTimestamp metaStorageUpdateTimestamp, long causalityToken) {
             if (event instanceof SnapshotEntry) {
-                return handle((SnapshotEntry) event, causalityToken);
+                return handle((SnapshotEntry) event);
             }
 
             return handle((VersionedUpdate) event, metaStorageUpdateTimestamp, causalityToken);
         }
 
-        private CompletableFuture<Void> handle(SnapshotEntry event, long causalityToken) {
+        private CompletableFuture<Void> handle(SnapshotEntry event) {
             Catalog catalog = event.snapshot();
-
-            // Use reverse order to find latest descriptors.
-            Collection<Catalog> droppedCatalogVersions = catalogByVer.headMap(catalog.version(), false).descendingMap().values();
-
-            List<Fireable> events = new ArrayList<>();
-            IntSet objectToSkip = new IntOpenHashSet();
-            Predicate<CatalogObjectDescriptor> filter = obj -> objectToSkip.add(obj.id());
-
-            // At first, add alive indexes to filter.
-            applyToAliveIndexesFrom(catalog.version(), filter::test);
-
-            // Create destroy events for dropped indexes.
-            droppedCatalogVersions.forEach(oldCatalog -> oldCatalog.indexes().stream()
-                    .filter(filter)
-                    .forEach(idx -> events.add(
-                            new DestroyIndexEvent(idx.id(), idx.tableId(), tableZoneDescriptor(oldCatalog, idx.tableId()).partitions()))
-                    ));
-
-            objectToSkip.clear();
-            // At last, create destroy events for dropped tables.
-            droppedCatalogVersions.forEach(oldCatalog -> oldCatalog.tables().stream()
-                    .filter(tbl -> catalog.table(tbl.id()) == null)
-                    .filter(filter)
-                    .forEach(tbl -> events.add(new DestroyTableEvent(tbl.id(), tableZoneDescriptor(oldCatalog, tbl.id()).partitions()))));
-
             // On recovery phase, we must register catalog from the snapshot.
             // In other cases, it is ok to rewrite an existed version, because it's exactly the same.
             registerCatalog(catalog);
+            truncateUpTo(catalog);
 
-            List<CompletableFuture<?>> eventFutures = new ArrayList<>(events.size());
-
-            for (Fireable fireEvent : events) {
-                eventFutures.add(fireEvent(
-                        fireEvent.eventType(),
-                        fireEvent.createEventParameters(causalityToken, catalog.version())
-                ));
-            }
-
-            return allOf(eventFutures.toArray(CompletableFuture[]::new))
-                    .whenComplete((ignore, err) -> {
-                        if (err != null) {
-                            LOG.warn("Failed to compact catalog.", err);
-                            // TODO: IGNITE-14611 Pass exception to an error handler?
-                        } else {
-                            truncateUpTo(catalog);
-                        }
-                    });
+            return nullCompletedFuture();
         }
 
         private CompletableFuture<Void> handle(VersionedUpdate update, HybridTimestamp metaStorageUpdateTimestamp, long causalityToken) {
@@ -562,34 +514,6 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                         versionTracker.update(version, null);
                     });
         }
-    }
-
-    /**
-     * Scans Catalog versions from given version and preform an action to alive indexes.
-     * Index considered to be alive if any Catalog version has the index in {@link CatalogIndexStatus#AVAILABLE} state,
-     * or index is present in the latest Catalog version.
-     *
-     * @param startVersion Earliest Catalog version to start scan from.
-     * @param action A action to perform.
-     */
-    private void applyToAliveIndexesFrom(int startVersion, Consumer<CatalogIndexDescriptor> action) {
-        // All indexes from latest version.
-        int latestCatalogVersion = latestCatalogVersion();
-        catalogByVer.get(latestCatalogVersion).indexes().forEach(action);
-
-        if (startVersion == latestCatalogVersion) {
-            return;
-        }
-
-        // All indexes, which were ever in available state.
-        catalogByVer.tailMap(startVersion, true).values().stream()
-                .flatMap(c -> c.indexes().stream())
-                .filter(idx -> idx.status() == AVAILABLE)
-                .forEach(action);
-    }
-
-    private static CatalogZoneDescriptor tableZoneDescriptor(Catalog catalog, int tableId) {
-        return Objects.requireNonNull(catalog.zone(Objects.requireNonNull(catalog.table(tableId), "table").zoneId()), "zone");
     }
 
     private static Catalog applyUpdateFinal(Catalog catalog, VersionedUpdate update, HybridTimestamp metaStorageUpdateTimestamp) {
