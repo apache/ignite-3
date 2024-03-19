@@ -46,6 +46,7 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
@@ -70,7 +71,8 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 mock(HybridClock.class),
                 new HybridTimestampTracker(),
                 mock(PlacementDriver.class),
-                new TableRaftServiceImpl("test", 1, Int2ObjectMaps.emptyMap(), new SingleClusterNodeResolver(mock(ClusterNode.class)))
+                new TableRaftServiceImpl("test", 1, Int2ObjectMaps.emptyMap(), new SingleClusterNodeResolver(mock(ClusterNode.class))),
+                mock(TransactionInflights.class)
         );
 
         // Let's check the empty table.
@@ -116,7 +118,8 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 mock(HybridClock.class),
                 new HybridTimestampTracker(),
                 mock(PlacementDriver.class),
-                new TableRaftServiceImpl("test", 3, Int2ObjectMaps.emptyMap(), new SingleClusterNodeResolver(mock(ClusterNode.class)))
+                new TableRaftServiceImpl("test", 3, Int2ObjectMaps.emptyMap(), new SingleClusterNodeResolver(mock(ClusterNode.class))),
+                mock(TransactionInflights.class)
         );
 
         List<BinaryRowEx> originalRows = List.of(

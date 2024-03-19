@@ -18,13 +18,10 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.allOf;
-import static java.util.stream.Collectors.toSet;
 
 import java.util.Collection;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.LinkedBlockingQueue;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.tx.message.FinishedTransactionsBatchMessage;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
@@ -35,14 +32,8 @@ import org.apache.ignite.network.TopologyService;
  * Keeps track of all finished RO transactions.
  */
 public class FinishedReadOnlyTransactionTracker {
-
-    private static final int MAX_FINISHED_TRANSACTIONS_IN_BATCH = 10_000;
-
     /** Tx messages factory. */
     private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
-
-    /** A collection of finished read only transactions ordered by the time when when they were finished. */
-    private final Collection<UUID> finishedTransactions = new LinkedBlockingQueue<>();
 
     /** Topology service. */
     private final TopologyService topologyService;
@@ -50,45 +41,50 @@ public class FinishedReadOnlyTransactionTracker {
     /** Messaging service. */
     private final MessagingService messagingService;
 
+    /** Transaction inflights. */
+    private final TransactionInflights transactionInflights;
+
     /**
      * Constructor.
      *
      * @param topologyService Topology service.
      * @param messagingService Messaging service.
+     * @param transactionInflights Transaction inflights.
      */
-    public FinishedReadOnlyTransactionTracker(TopologyService topologyService, MessagingService messagingService) {
+    public FinishedReadOnlyTransactionTracker(
+            TopologyService topologyService,
+            MessagingService messagingService,
+            TransactionInflights transactionInflights
+    ) {
         this.topologyService = topologyService;
         this.messagingService = messagingService;
+        this.transactionInflights = transactionInflights;
     }
 
     /**
      * Send close cursors batch message to all cluster nodes.
      */
     public void broadcastClosedTransactions() {
-        if (finishedTransactions.isEmpty()) {
-            return;
+        Collection<UUID> txToSend = transactionInflights.finishedReadOnlyTransactions();
+
+        if (!txToSend.isEmpty()) {
+            FinishedTransactionsBatchMessage message = FACTORY.finishedTransactionsBatchMessage()
+                    .transactions(txToSend)
+                    .build();
+
+            CompletableFuture<?>[] messages = topologyService.allMembers()
+                    .stream()
+                    .map(clusterNode -> sendCursorCleanupCommand(clusterNode, message))
+                    .toArray(CompletableFuture[]::new);
+            allOf(messages).thenRun(() -> transactionInflights.removeTxContexts(txToSend));
         }
-
-        Set<UUID> txToSend = finishedTransactions.stream()
-                .limit(MAX_FINISHED_TRANSACTIONS_IN_BATCH)
-                .collect(toSet());
-
-        FinishedTransactionsBatchMessage message = FACTORY.finishedTransactionsBatchMessage()
-                .transactions(txToSend)
-                .build();
-
-        CompletableFuture<?>[] messages = topologyService.allMembers()
-                .stream()
-                .map(clusterNode -> sendCursorCleanupCommand(clusterNode, message))
-                .toArray(CompletableFuture[]::new);
-        allOf(messages).thenRun(() -> finishedTransactions.removeAll(txToSend));
     }
 
     private CompletableFuture<Void> sendCursorCleanupCommand(ClusterNode node, FinishedTransactionsBatchMessage message) {
         return messagingService.send(node, message);
     }
 
-    public void onTransactionFinished(UUID id) {
-        finishedTransactions.add(id);
+    void onTransactionFinished(UUID id) {
+        transactionInflights.markReadOnlyTxFinished(id);
     }
 }

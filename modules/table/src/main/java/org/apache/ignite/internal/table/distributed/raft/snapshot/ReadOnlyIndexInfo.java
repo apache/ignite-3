@@ -22,7 +22,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.tostring.S;
 
 /** Internal class for use in {@link FullStateTransferIndexChooser} for read-only indexes. */
-final class ReadOnlyIndexInfo implements Comparable<ReadOnlyIndexInfo> {
+final class ReadOnlyIndexInfo {
     private final int tableId;
 
     /**
@@ -33,14 +33,18 @@ final class ReadOnlyIndexInfo implements Comparable<ReadOnlyIndexInfo> {
 
     private final int indexId;
 
-    public ReadOnlyIndexInfo(CatalogIndexDescriptor index, long activationTs) {
-        this(index.tableId(), activationTs, index.id());
+    /** Catalog version in which the index was removed from the catalog. */
+    private final int indexRemovalCatalogVersion;
+
+    ReadOnlyIndexInfo(CatalogIndexDescriptor index, long activationTs, int indexRemovalCatalogVersion) {
+        this(index.tableId(), activationTs, index.id(), indexRemovalCatalogVersion);
     }
 
-    ReadOnlyIndexInfo(int tableId, long activationTs, int indexId) {
+    ReadOnlyIndexInfo(int tableId, long activationTs, int indexId, int indexRemovalCatalogVersion) {
         this.tableId = tableId;
         this.activationTs = activationTs;
         this.indexId = indexId;
+        this.indexRemovalCatalogVersion = indexRemovalCatalogVersion;
     }
 
     int tableId() {
@@ -53,6 +57,10 @@ final class ReadOnlyIndexInfo implements Comparable<ReadOnlyIndexInfo> {
 
     int indexId() {
         return indexId;
+    }
+
+    int indexRemovalCatalogVersion() {
+        return indexRemovalCatalogVersion;
     }
 
     @Override
@@ -82,23 +90,5 @@ final class ReadOnlyIndexInfo implements Comparable<ReadOnlyIndexInfo> {
     @Override
     public String toString() {
         return S.toString(this);
-    }
-
-
-    @Override
-    public int compareTo(ReadOnlyIndexInfo other) {
-        int cmp = Integer.compare(tableId, other.tableId);
-
-        if (cmp != 0) {
-            return cmp;
-        }
-
-        cmp = Long.compare(activationTs, other.activationTs);
-
-        if (cmp != 0) {
-            return cmp;
-        }
-
-        return Integer.compare(indexId, other.indexId);
     }
 }

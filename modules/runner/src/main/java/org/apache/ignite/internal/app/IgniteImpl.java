@@ -182,7 +182,7 @@ import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.ThreadAssertingStorageEngine;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.systemview.api.SystemViewManager;
-import org.apache.ignite.internal.table.distributed.LowWatermark;
+import org.apache.ignite.internal.table.distributed.LowWatermarkImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
@@ -201,6 +201,7 @@ import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.ResourceCleanupManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
+import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -350,7 +351,7 @@ public class IgniteImpl implements Ignite {
 
     private final ClockWaiter clockWaiter;
 
-    private final LowWatermark lowWatermark;
+    private final LowWatermarkImpl lowWatermark;
 
     private final OutgoingSnapshotsManager outgoingSnapshotsManager;
 
@@ -673,11 +674,14 @@ public class IgniteImpl implements Ignite {
 
         resourcesRegistry = new RemotelyTriggeredResourceRegistry();
 
+        TransactionInflights transactionInflights = new TransactionInflights(placementDriverMgr.placementDriver());
+
         resourceCleanupManager = new ResourceCleanupManager(
                 name,
                 resourcesRegistry,
                 clusterSvc.topologyService(),
-                messagingServiceReturningToStorageOperationsPool
+                messagingServiceReturningToStorageOperationsPool,
+                transactionInflights
         );
 
         // TODO: IGNITE-19344 - use nodeId that is validated on join (and probably generated differently).
@@ -695,12 +699,13 @@ public class IgniteImpl implements Ignite {
                 indexNodeFinishedRwTransactionsChecker,
                 threadPoolsManager.partitionOperationsExecutor(),
                 resourcesRegistry,
-                resourceCleanupManager
+                resourceCleanupManager,
+                transactionInflights
         );
 
         StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry.getConfiguration(StorageUpdateConfiguration.KEY);
 
-        lowWatermark = new LowWatermark(name, gcConfig.lowWatermark(), clock, txManager, vaultMgr, failureProcessor);
+        lowWatermark = new LowWatermarkImpl(name, gcConfig.lowWatermark(), clock, txManager, vaultMgr, failureProcessor);
 
         distributedTblMgr = new TableManager(
                 name,
@@ -734,7 +739,8 @@ public class IgniteImpl implements Ignite {
                 resourcesRegistry,
                 rebalanceScheduler,
                 lowWatermark,
-                asyncContinuationExecutor
+                asyncContinuationExecutor,
+                transactionInflights
         );
 
         indexManager = new IndexManager(
@@ -742,7 +748,8 @@ public class IgniteImpl implements Ignite {
                 distributedTblMgr,
                 catalogManager,
                 threadPoolsManager.tableIoExecutor(),
-                registry
+                registry,
+                lowWatermark
         );
 
         indexBuildingManager = new IndexBuildingManager(
@@ -775,7 +782,8 @@ public class IgniteImpl implements Ignite {
                 failureProcessor,
                 placementDriverMgr.placementDriver(),
                 clusterConfigRegistry.getConfiguration(SqlDistributedConfiguration.KEY),
-                nodeConfigRegistry.getConfiguration(SqlLocalConfiguration.KEY)
+                nodeConfigRegistry.getConfiguration(SqlLocalConfiguration.KEY),
+                transactionInflights
         );
 
         sql = new IgniteSqlImpl(name, qryEngine, new IgniteTransactionsImpl(txManager, observableTimestampTracker));
@@ -832,7 +840,8 @@ public class IgniteImpl implements Ignite {
                 schemaSyncService,
                 catalogManager,
                 placementDriverMgr.placementDriver(),
-                clientConnectorConfiguration
+                clientConnectorConfiguration,
+                lowWatermark
         );
 
         restComponent = createRestComponent(name);
@@ -1474,5 +1483,11 @@ public class IgniteImpl implements Ignite {
     @TestOnly
     public RemotelyTriggeredResourceRegistry resourcesRegistry() {
         return resourcesRegistry;
+    }
+
+    /** Returns low watermark. */
+    @TestOnly
+    public LowWatermarkImpl lowWatermark() {
+        return lowWatermark;
     }
 }

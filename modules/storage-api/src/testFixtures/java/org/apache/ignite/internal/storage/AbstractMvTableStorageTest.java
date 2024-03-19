@@ -884,12 +884,13 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         tableStorage = createMvTableStorage();
 
         mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
-        hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx);
-        sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx);
+        hashIndexStorage = (HashIndexStorage) tableStorage.getIndex(PARTITION_ID, hashIdx.id());
+        sortedIndexStorage = (SortedIndexStorage) tableStorage.getIndex(PARTITION_ID, sortedIdx.id());
 
         // Data should remain in the partition storages, but the indexes must be cleaned up.
         checkForPresenceRows(mvPartitionStorage, null, null, rows);
-        checkForMissingRows(null, hashIndexStorage, sortedIndexStorage, rows);
+        assertThat(hashIndexStorage, is(nullValue()));
+        assertThat(sortedIndexStorage, is(nullValue()));
     }
 
     private static void createTestTableAndIndexes(CatalogService catalogService) {

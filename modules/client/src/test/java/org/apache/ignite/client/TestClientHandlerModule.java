@@ -53,6 +53,7 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
+import org.apache.ignite.internal.table.TestLowWatermark;
 import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.lang.IgniteException;
@@ -226,7 +227,8 @@ public class TestClientHandlerModule implements IgniteComponent {
                                                 placementDriver,
                                                 catalogService,
                                                 clock,
-                                                new AlwaysSyncedSchemaSyncService()
+                                                new AlwaysSyncedSchemaSyncService(),
+                                                new TestLowWatermark()
                                         )
                                 )
                         );
