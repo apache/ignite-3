@@ -70,14 +70,10 @@ public class TestIgnitionManager {
             "replication.idleSafeTimePropagationDuration", Integer.toString(DEFAULT_PARTITION_IDLE_SYNC_TIME_INTERVAL_MS)
     );
 
-    private static final Map<String, String> PRODUCTION_CLUSTER_CONFIG = Map.of(
-            "schemaSync.delayDuration", Integer.toString(1000),
-            "metaStorage.idleSyncTimeInterval", Integer.toString(500),
-            "replication.idleSafeTimePropagationDuration", Integer.toString(1000)
-    );
-
-    /** Config string that explicitly returns test defaults to production defaults. */
-    public static final String PRODUCTION_CLUSTER_CONFIG_STRING = mapToHocon(PRODUCTION_CLUSTER_CONFIG);
+    /**
+     * Marker that explicitly requests production defaults when put to {@link InitParametersBuilder#clusterConfiguration(String)}.
+     */
+    public static final String PRODUCTION_CLUSTER_CONFIG_STRING = "<production-cluster-config>";
 
     /**
      * Starts an Ignite node with an optional bootstrap configuration from an input stream with HOCON configs.
@@ -159,7 +155,9 @@ public class TestIgnitionManager {
                 .metaStorageNodeNames(params.metaStorageNodeNames())
                 .cmgNodeNames(params.cmgNodeNames());
 
-        builder.clusterConfiguration(applyTestDefaultsToConfig(params.clusterConfiguration(), DEFAULT_CLUSTER_CONFIG));
+        if (!PRODUCTION_CLUSTER_CONFIG_STRING.equals(params.clusterConfiguration())) {
+            builder.clusterConfiguration(applyTestDefaultsToConfig(params.clusterConfiguration(), DEFAULT_CLUSTER_CONFIG));
+        }
 
         return builder.build();
     }
@@ -201,15 +199,5 @@ public class TestIgnitionManager {
         } else {
             return document.withValueText(path, value);
         }
-    }
-
-    private static String mapToHocon(Map<String, String> configAsMap) {
-        ConfigDocument document = ConfigDocumentFactory.parseString("{}");
-
-        for (Entry<String, String> entry : configAsMap.entrySet()) {
-            document = document.withValueText(entry.getKey(), entry.getValue());
-        }
-
-        return document.render();
     }
 }
