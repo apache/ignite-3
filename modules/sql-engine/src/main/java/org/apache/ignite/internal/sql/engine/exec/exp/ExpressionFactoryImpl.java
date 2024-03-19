@@ -51,6 +51,7 @@ import org.apache.calcite.linq4j.tree.ParameterExpression;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelFieldCollation;
+import org.apache.calcite.rel.RelFieldCollation.Direction;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -144,20 +145,40 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             return null;
         }
 
-        return (o1, o2) -> {
+        return (row1, row2) -> {
             RowHandler<RowT> hnd = ctx.rowHandler();
 
-            for (RelFieldCollation field : collation.getFieldCollations()) {
+            List<RelFieldCollation> collations = collation.getFieldCollations();
+
+            int colsCountRow1 = hnd.columnCount(row1);
+            int colsCountRow2 = hnd.columnCount(row2);
+
+            int maxCols = Math.min(Math.max(colsCountRow1, colsCountRow2), collations.size());
+
+            for (int i = 0; i < maxCols; i++) {
+                RelFieldCollation field = collations.get(i);
+                boolean ascending = field.direction == Direction.ASCENDING;
+
+                if (i == colsCountRow1) {
+                    // There is no more values in row1.
+                    return ascending ? -1 : 1;
+                }
+
+                if (i == colsCountRow2) {
+                    // There is no more values in row2.
+                    return ascending ? 1 : -1;
+                }
+
                 int fieldIdx = field.getFieldIndex();
+
+                Object c1 = hnd.get(fieldIdx, row1);
+                Object c2 = hnd.get(fieldIdx, row2);
+
                 int nullComparison = field.nullDirection.nullComparison;
 
-                Object c1 = hnd.get(fieldIdx, o1);
-                Object c2 = hnd.get(fieldIdx, o2);
-
-                int res = (field.direction == RelFieldCollation.Direction.ASCENDING)
-                        ?
-                        compare(c1, c2, nullComparison) :
-                        compare(c2, c1, -nullComparison);
+                int res = ascending
+                        ? compare(c1, c2, nullComparison)
+                        : compare(c2, c1, -nullComparison);
 
                 if (res != 0) {
                     return res;
@@ -938,10 +959,10 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
             int lowerColumnsCount = hnd.columnCount(lower);
             int upperColumnsCount = hnd.columnCount(upper);
+            int maxCols = Math.max(lowerColumnsCount, upperColumnsCount);
 
-            for (int i = 0; i < collations.size(); i++) {
+            for (int i = 0; i < maxCols; i++) {
                 RelFieldCollation field = collations.get(i);
-                int nullComparison = field.nullDirection.nullComparison;
                 boolean ascending = field.direction == RelFieldCollation.Direction.ASCENDING;
 
                 if (i == lowerColumnsCount) {
@@ -954,8 +975,12 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                     return ascending ? 1 : -1;
                 }
 
-                Object c1 = hnd.get(i, lower);
-                Object c2 = hnd.get(i, upper);
+                int fieldIdx = field.getFieldIndex();
+
+                Object c1 = hnd.get(fieldIdx, lower);
+                Object c2 = hnd.get(fieldIdx, upper);
+
+                int nullComparison = field.nullDirection.nullComparison;
 
                 int res = ascending
                         ? compare(c1, c2, nullComparison)
