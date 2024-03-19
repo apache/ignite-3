@@ -334,12 +334,12 @@ public class JraftServerImpl implements RaftServer {
                     "JRaft-LogManager-Disruptor",
                     opts.getRaftOptions().getDisruptorBufferSize(),
                     StableClosureEvent::new,
-                    opts.getWalStripes(),
+                    opts.getLogStripesCount(),
                     true,
-                    opts.isWalYieldStrategy()
+                    opts.isLogYieldStrategy()
             ));
 
-            opts.setLogStripes(IntStream.range(0, opts.getStripes()).mapToObj(i -> new Stripe()).collect(toList()));
+            opts.setLogStripes(IntStream.range(0, opts.getLogStripesCount()).mapToObj(i -> new Stripe()).collect(toList()));
         }
 
         logStorageFactory.start();

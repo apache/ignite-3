@@ -247,12 +247,12 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     /**
      * Amount of log manager Disruptors stripes.
      */
-    private int walStripes = IgniteSystemProperties.getInteger("IGNITE_RAFT_WAL_STRIPES", DEFAULT_STRIPES);
+    private int logStripesCount = IgniteSystemProperties.getInteger("IGNITE_RAFT_LOG_STRIPES", DEFAULT_STRIPES);
 
     /**
      * Set true to use the non-blocking strategy in the log manager.
      */
-    private boolean walYieldStrategy = IgniteSystemProperties.getBoolean("IGNITE_RAFT_WAL_YIELD_STRATEGY");
+    private boolean logYieldStrategy = IgniteSystemProperties.getBoolean("IGNITE_RAFT_LOG_YIELD_STRATEGY");
 
     /** */
     private boolean sharedPools = false;
@@ -286,25 +286,25 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     }
 
     /**
-     * @return Wal stripes count.
+     * @return Log stripes count.
      */
-    public int getWalStripes() {
-        return walStripes;
+    public int getLogStripesCount() {
+        return logStripesCount;
     }
 
     /**
-     * @param walStripes Wal stripes.
+     * @param logStripesCount Log stripes.
      */
-    public void setWalStripes(int walStripes) {
-        this.walStripes = walStripes;
+    public void setLogStripesCount(int logStripesCount) {
+        this.logStripesCount = logStripesCount;
     }
 
-    public boolean isWalYieldStrategy() {
-        return walYieldStrategy;
+    public boolean isLogYieldStrategy() {
+        return logYieldStrategy;
     }
 
-    public void setWalYieldStrategy(boolean walYieldStrategy) {
-        this.walYieldStrategy = walYieldStrategy;
+    public void setLogYieldStrategy(boolean logYieldStrategy) {
+        this.logYieldStrategy = logYieldStrategy;
     }
 
     /**

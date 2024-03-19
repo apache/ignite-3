@@ -95,8 +95,8 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
     /** Amount of stripes for disruptors that are used by JRAFT. */
     private static final int RAFT_STRIPES = 3;
 
-    /** Amount of stripes for disruptors that are used by WAL for JRAFT. */
-    private static final int RAFT_WAL_STRIPES = 1;
+    /** Amount of stripes for disruptors that are used by the log service for JRAFT. */
+    private static final int RAFT_LOG_STRIPES = 1;
 
     /**
      * Listener factory.
@@ -135,7 +135,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
      */
     @Test
     @WithSystemProperty(key = "IGNITE_RAFT_STRIPES", value = "" + RAFT_STRIPES)
-    @WithSystemProperty(key = "IGNITE_RAFT_WAL_STRIPES", value = "" + RAFT_WAL_STRIPES)
+    @WithSystemProperty(key = "IGNITE_RAFT_LOG_STRIPES", value = "" + RAFT_LOG_STRIPES)
     public void testDisruptorThreadsCount() {
         startServer(0, raftServer -> {
             String localNodeName = raftServer.clusterService().topologyService().localMember().name();
@@ -151,7 +151,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
         Set<String> threadNamesBefore = threads.stream().map(Thread::getName).collect(toSet());
 
-        assertEquals(RAFT_STRIPES * 3/* services */ + RAFT_WAL_STRIPES, threadsBefore, "Started thread names: " + threadNamesBefore);
+        assertEquals(RAFT_STRIPES * 3/* services */ + RAFT_LOG_STRIPES, threadsBefore, "Started thread names: " + threadNamesBefore);
 
         servers.forEach(srv -> {
             String localNodeName = srv.clusterService().topologyService().localMember().name();
