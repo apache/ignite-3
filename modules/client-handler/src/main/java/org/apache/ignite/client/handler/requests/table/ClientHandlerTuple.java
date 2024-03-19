@@ -18,6 +18,7 @@
 package org.apache.ignite.client.handler.requests.table;
 
 import java.util.BitSet;
+import java.util.List;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.table.MutableTupleBinaryTupleAdapter;
 import org.apache.ignite.internal.schema.Column;
@@ -110,7 +111,7 @@ class ClientHandlerTuple extends MutableTupleBinaryTupleAdapter implements Schem
     /** {@inheritDoc} */
     @Override
     protected ColumnType schemaColumnType(int binaryTupleIndex) {
-        NativeTypeSpec spec = schema.column(binaryTupleIndex).type().spec();
+        NativeTypeSpec spec = column(binaryTupleIndex).type().spec();
 
         return ClientTableCommon.getColumnType(spec);
     }
@@ -118,6 +119,11 @@ class ClientHandlerTuple extends MutableTupleBinaryTupleAdapter implements Schem
     /** {@inheritDoc} */
     @Override
     protected int schemaDecimalScale(int binaryTupleIndex) {
-        return ClientTableCommon.getDecimalScale(schema.column(binaryTupleIndex).type());
+        return ClientTableCommon.getDecimalScale(column(binaryTupleIndex).type());
+    }
+
+    private Column column(int binaryTupleIndex) {
+        List<Column> columns = keyOnly ? schema.keyColumns() : schema.columns();
+        return columns.get(binaryTupleIndex);
     }
 }
