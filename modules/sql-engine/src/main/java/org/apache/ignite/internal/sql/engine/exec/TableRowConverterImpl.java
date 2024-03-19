@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import java.util.BitSet;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -46,7 +47,7 @@ public class TableRowConverterImpl implements TableRowConverter {
      */
     private final int[] requiredColumnsMapping;
 
-    private final boolean skipTrimming;
+    private final Supplier<TupleFactory> tupleFactory;
 
     /** Constructor. */
     TableRowConverterImpl(
@@ -59,7 +60,16 @@ public class TableRowConverterImpl implements TableRowConverter {
         this.schemaDescriptor = schemaDescriptor;
         this.fullTupleSchema = fullTupleSchema;
 
-        this.skipTrimming = requiredColumns == null;
+        tupleFactory = requiredColumns == null ? () ->
+                tableRow -> new BinaryTuple(schemaDescriptor.length(), tableRow.tupleSlice()) : new Supplier<>() {
+                    @Override
+                    public TupleFactory get() {
+                        return tableRow -> {
+                            BinaryTuple tableTuple = new BinaryTuple(schemaDescriptor.length(), tableRow.tupleSlice());
+                            return new FormatAwareProjectedTuple(tableTuple, requiredColumnsMapping);
+                        };
+                    }
+                };
 
         int size = requiredColumns == null
                 ? schemaDescriptor.length()
@@ -92,11 +102,7 @@ public class TableRowConverterImpl implements TableRowConverter {
     ) {
         InternalTuple tuple;
         if (tableRow.schemaVersion() == schemaDescriptor.version()) {
-            InternalTuple tableTuple = new BinaryTuple(schemaDescriptor.length(), tableRow.tupleSlice());
-
-            tuple = skipTrimming
-                    ? tableTuple
-                    : new FormatAwareProjectedTuple(tableTuple, requiredColumnsMapping);
+            tuple = tupleFactory.get().buildTuple(tableRow);
         } else {
             InternalTuple tableTuple = schemaRegistry.resolve(tableRow, schemaDescriptor);
 
@@ -108,5 +114,10 @@ public class TableRowConverterImpl implements TableRowConverter {
         }
 
         return factory.create(tuple);
+    }
+
+    @FunctionalInterface
+    private interface TupleFactory {
+        InternalTuple buildTuple(BinaryRow tableRow);
     }
 }
