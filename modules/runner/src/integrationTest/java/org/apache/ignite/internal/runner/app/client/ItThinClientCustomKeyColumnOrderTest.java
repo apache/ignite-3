@@ -71,14 +71,46 @@ public class ItThinClientCustomKeyColumnOrderTest extends ItAbstractThinClientTe
         assertEquals(val.val2, res.val2);
     }
 
+    @Test
+    void testKeyValueBinaryView() {
+        var table = client().tables().table(TABLE_NAME2);
+
+        var kvView = table.keyValueView();
+
+        Tuple key = Tuple.create().set("key1", 1).set("key2", "key2");
+        Tuple val = Tuple.create().set("val1", "val1").set("val2", 2L);
+        kvView.put(null, key, val);
+
+        Tuple res = kvView.get(null, key);
+        assertEquals(val, res);
+    }
+
+    @Test
+    void testKeyValueView() {
+        var table = client().tables().table(TABLE_NAME2);
+
+        var kvView = table.keyValueView(PojoKey.class, PojoVal.class);
+
+        PojoKey key = new PojoKey(1, "key2");
+        PojoVal val = new PojoVal("val1", 2L);
+        kvView.put(null, key, val);
+
+        PojoVal res = kvView.get(null, key);
+        assertEquals(val.val1, res.val1);
+        assertEquals(val.val2, res.val2);
+    }
+
     @SuppressWarnings("FieldMayBeFinal")
     private static class Pojo {
         private int key1;
-        @Nullable private String key2;
-        @Nullable private String val1;
+        @Nullable
+        private String key2;
+        @Nullable
+        private String val1;
         private long val2;
 
-        @SuppressWarnings("unused") // Required by serializer.
+        @SuppressWarnings("unused")
+            // Required by serializer.
         Pojo() {
             this(0, null, null, 0L);
         }
@@ -90,6 +122,40 @@ public class ItThinClientCustomKeyColumnOrderTest extends ItAbstractThinClientTe
         Pojo(int key1, @Nullable String key2, @Nullable String val1, long val2) {
             this.key1 = key1;
             this.key2 = key2;
+            this.val1 = val1;
+            this.val2 = val2;
+        }
+    }
+
+    @SuppressWarnings("FieldMayBeFinal")
+    private static class PojoKey {
+        private int key1;
+        @Nullable
+        private String key2;
+
+        @SuppressWarnings("unused") // Required by serializer.
+        PojoKey() {
+            this(0, null);
+        }
+
+        PojoKey(int key1, @Nullable String key2) {
+            this.key1 = key1;
+            this.key2 = key2;
+        }
+    }
+
+    @SuppressWarnings("FieldMayBeFinal")
+    private static class PojoVal {
+        @Nullable
+        private String val1;
+        private long val2;
+
+        @SuppressWarnings("unused") // Required by serializer.
+        PojoVal() {
+            this(null, 0L);
+        }
+
+        PojoVal(@Nullable String val1, long val2) {
             this.val1 = val1;
             this.val2 = val2;
         }
