@@ -2171,14 +2171,16 @@ public class PartitionReplicaListener implements ReplicaListener {
                     // TODO:IGNITE-20669 Replace the result to BitSet.
                     Collection<BinaryRow> result = new ArrayList<>();
                     Map<RowId, BinaryRow> rowsToInsert = new HashMap<>();
-                    Set<ByteBuffer> uniqueKeys = new HashSet<>();
+                    Map<ByteBuffer, RowId> newKeyMap = new HashMap<>();
+                    Function<ByteBuffer, RowId> rowIdGen = unused -> new RowId(partId(), UUID.randomUUID());
 
                     for (int i = 0; i < searchRows.size(); i++) {
                         BinaryRow row = searchRows.get(i);
                         RowId lockedRow = pkReadLockFuts[i].join();
 
-                        if (lockedRow == null && uniqueKeys.add(pks.get(i).byteBuffer())) {
-                            rowsToInsert.put(new RowId(partId(), UUID.randomUUID()), row);
+                        if (lockedRow == null) {
+                            RowId rowId = newKeyMap.computeIfAbsent(pks.get(i).byteBuffer(), rowIdGen);
+                            rowsToInsert.put(rowId, row);
 
                             result.add(new NullBinaryRow());
                         } else {
