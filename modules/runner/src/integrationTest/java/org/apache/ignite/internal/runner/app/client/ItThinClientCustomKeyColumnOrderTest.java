@@ -20,6 +20,7 @@ package org.apache.ignite.internal.runner.app.client;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import org.apache.ignite.table.Tuple;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -50,7 +51,47 @@ public class ItThinClientCustomKeyColumnOrderTest extends ItAbstractThinClientTe
         recView.insert(null, val);
 
         Tuple res = recView.get(null, key);
-
         assertEquals(val, res);
+    }
+
+    @Test
+    void testRecordView() {
+        var table = client().tables().table(TABLE_NAME2);
+
+        var recView = table.recordView(Pojo.class);
+
+        Pojo key = new Pojo(1, "key2");
+        Pojo val = new Pojo(1, "key2", "val1", 2L);
+        recView.insert(null, val);
+
+        Pojo res = recView.get(null, key);
+        assertEquals(val.key1, res.key1);
+        assertEquals(val.key2, res.key2);
+        assertEquals(val.val1, res.val1);
+        assertEquals(val.val2, res.val2);
+    }
+
+    @SuppressWarnings("FieldMayBeFinal")
+    private static class Pojo {
+        private int key1;
+        @Nullable private String key2;
+        @Nullable private String val1;
+        private long val2;
+
+        @SuppressWarnings("unused") // Required by serializer.
+        Pojo() {
+            this(0, null, null, 0L);
+        }
+
+        Pojo(int key1, String key2) {
+            this(key1, key2, null, 0L);
+        }
+
+        Pojo(int key1, @Nullable String key2, @Nullable String val1, long val2) {
+            this.key1 = key1;
+            this.key2 = key2;
+            this.val1 = val1;
+            this.val2 = val2;
+        }
     }
 }
