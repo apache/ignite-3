@@ -55,7 +55,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.table.TableTestUtils;
-import org.apache.ignite.internal.table.distributed.TestLowWatermarkImpl;
+import org.apache.ignite.internal.table.distributed.TestLowWatermark;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -79,7 +79,7 @@ public class FullStateTransferIndexChooserTest extends BaseIgniteAbstractTest {
 
     private CatalogManager catalogManager;
 
-    private final TestLowWatermarkImpl lowWatermark = new TestLowWatermarkImpl();
+    private final TestLowWatermark lowWatermark = new TestLowWatermark();
 
     private FullStateTransferIndexChooser indexChooser;
 

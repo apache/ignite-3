@@ -350,7 +350,7 @@ public class IgniteImpl implements Ignite {
 
     private final ClockWaiter clockWaiter;
 
-    private final LowWatermarkImpl lowWatermarkImpl;
+    private final LowWatermarkImpl lowWatermark;
 
     private final OutgoingSnapshotsManager outgoingSnapshotsManager;
 
@@ -700,7 +700,7 @@ public class IgniteImpl implements Ignite {
 
         StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry.getConfiguration(StorageUpdateConfiguration.KEY);
 
-        lowWatermarkImpl = new LowWatermarkImpl(name, gcConfig.lowWatermark(), clock, txManager, vaultMgr, failureProcessor);
+        lowWatermark = new LowWatermarkImpl(name, gcConfig.lowWatermark(), clock, txManager, vaultMgr, failureProcessor);
 
         distributedTblMgr = new TableManager(
                 name,
@@ -733,7 +733,7 @@ public class IgniteImpl implements Ignite {
                 this::sql,
                 resourcesRegistry,
                 rebalanceScheduler,
-                lowWatermarkImpl,
+                lowWatermark,
                 asyncContinuationExecutor
         );
 
@@ -979,7 +979,7 @@ public class IgniteImpl implements Ignite {
                     raftMgr,
                     clusterStateStorage,
                     cmgMgr,
-                    lowWatermarkImpl
+                    lowWatermark
             );
 
             clusterSvc.updateMetadata(new NodeMetadata(restComponent.hostName(), restComponent.httpPort(), restComponent.httpsPort()));
@@ -1056,7 +1056,7 @@ public class IgniteImpl implements Ignite {
                     .thenRunAsync(() -> {
                         try {
                             // Enable watermark events.
-                            lowWatermarkImpl.scheduleUpdates();
+                            lowWatermark.scheduleUpdates();
 
                             // Enable REST component on start complete.
                             restComponent.enable();

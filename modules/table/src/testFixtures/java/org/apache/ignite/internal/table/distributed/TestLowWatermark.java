@@ -31,7 +31,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.jetbrains.annotations.Nullable;
 
 /** Test implementation. */
-public class TestLowWatermarkImpl implements LowWatermark {
+public class TestLowWatermark implements LowWatermark {
     private volatile HybridTimestamp lowWatermark;
 
     private final ReadWriteLock updateLowWatermarkLock = new ReentrantReadWriteLock();

@@ -81,7 +81,7 @@ public class IndexUpdateHandlerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testAddToIndexesOnDestroyIndexes() {
+    void testAddToIndexesOnDestroyedIndexes() {
         TableSchemaAwareIndexStorage indexStorage = createIndexStorage();
 
         doThrow(StorageDestroyedException.class).when(indexStorage).put(any(), any());
@@ -111,7 +111,7 @@ public class IndexUpdateHandlerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testAddToIndexOnDestroyIndexes() {
+    void testAddToIndexOnDestroyedIndexes() {
         TableSchemaAwareIndexStorage indexStorage = createIndexStorage();
 
         doThrow(StorageDestroyedException.class).when(indexStorage).put(any(), any());
@@ -139,7 +139,7 @@ public class IndexUpdateHandlerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testBuildIndexOnDestroyIndex() {
+    void testBuildIndexOnDestroyedIndex() {
         TableSchemaAwareIndexStorage indexStorage = createIndexStorage();
         IndexStorage storage = indexStorage.storage();
 
@@ -181,7 +181,7 @@ public class IndexUpdateHandlerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testGetNextRowIdToBuildIndexOnDestroyIndex() {
+    void testGetNextRowIdToBuildIndexOnDestroyedIndex() {
         TableSchemaAwareIndexStorage indexStorage = createIndexStorage();
         IndexStorage storage = indexStorage.storage();
 
@@ -208,7 +208,7 @@ public class IndexUpdateHandlerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testSetNextRowIdToBuildIndexOnDestroyIndex() {
+    void testSetNextRowIdToBuildIndexOnDestroyedIndex() {
         TableSchemaAwareIndexStorage indexStorage = createIndexStorage();
         IndexStorage storage = indexStorage.storage();
 
@@ -239,7 +239,7 @@ public class IndexUpdateHandlerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testTryRemoveFromIndexesOnDestroyIndex() {
+    void testTryRemoveFromIndexesOnDestroyedIndex() {
         TableSchemaAwareIndexStorage indexStorage = createIndexStorage();
         ColumnsExtractor columnsExtractor = indexStorage.indexRowResolver();
 

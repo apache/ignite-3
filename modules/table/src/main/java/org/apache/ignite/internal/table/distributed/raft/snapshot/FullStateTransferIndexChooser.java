@@ -116,14 +116,14 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
      * Collect indexes for {@link PartitionAccess#addWrite(RowId, BinaryRow, UUID, int, int, int)} (write intent).
      *
      * <p>NOTE: When updating a low watermark, the index storages that were returned from the method may begin to be destroyed, such a
-     * situation should occur by the calling code.</p>
+     * situation should be handled by the calling code.</p>
      *
      * <p>Index selection algorithm:</p>
      * <ul>
      *     <li>If the index in the snapshot catalog version is in status {@link CatalogIndexStatus#BUILDING},
-     *     {@link CatalogIndexStatus#AVAILABLE} or {@link CatalogIndexStatus#STOPPING} and not removed in latest catalog version.</li>
+     *     {@link CatalogIndexStatus#AVAILABLE} or {@link CatalogIndexStatus#STOPPING} and not removed in the latest catalog version.</li>
      *     <li>If the index in status {@link CatalogIndexStatus#REGISTERED} and it is in this status on the active version of the catalog
-     *     for {@code beginTs} and not removed in latest catalog version.</li>
+     *     for {@code beginTs} and not removed in the latest catalog version.</li>
      *     <li>For a read-only index, if {@code beginTs} is strictly less than the activation time of dropping the index and not removed due
      *     to low watermark.</li>
      * </ul>
@@ -157,12 +157,12 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
      * Collect indexes for {@link PartitionAccess#addWriteCommitted(RowId, BinaryRow, HybridTimestamp, int)} (write committed only).
      *
      * <p>NOTE: When updating a low watermark, the index storages that were returned from the method may begin to be destroyed, such a
-     * situation should occur by the calling code.</p>
+     * situation should be handled by the calling code.</p>
      *
      * <p>Index selection algorithm:</p>
      * <ul>
      *     <li>If the index in the snapshot catalog version is in status {@link CatalogIndexStatus#BUILDING},
-     *     {@link CatalogIndexStatus#AVAILABLE} or {@link CatalogIndexStatus#STOPPING} and not removed in latest catalog version.</li>
+     *     {@link CatalogIndexStatus#AVAILABLE} or {@link CatalogIndexStatus#STOPPING} and not removed in the latest catalog version.</li>
      *     <li>For a read-only index, if {@code commitTs} is strictly less than the activation time of dropping the index and not removed
      *     due to low watermark.</li>
      * </ul>
@@ -286,6 +286,7 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
                                 new ReadOnlyIndexInfo(index, findStoppingActivationTsBusy(indexId, catalogVersion - 1), catalogVersion)
                         );
                     } else {
+                        // Index that is dropped before even becoming available.
                         tableVersionByIndexId.remove(indexId);
                     }
                 }
@@ -315,7 +316,7 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
     private void recoverStructuresBusy() {
         int earliestCatalogVersion = catalogService.earliestCatalogVersion();
         int latestCatalogVersion = catalogService.latestCatalogVersion();
-        int lwnCatalogVersion = catalogService.activeCatalogVersion(hybridTimestampToLong(lowWatermark.getLowWatermark()));
+        int lwmCatalogVersion = catalogService.activeCatalogVersion(hybridTimestampToLong(lowWatermark.getLowWatermark()));
 
         var tableVersionByIndexId = new HashMap<Integer, Integer>();
         var readOnlyIndexes = new HashSet<ReadOnlyIndexInfo>();
@@ -340,13 +341,13 @@ public class FullStateTransferIndexChooser implements ManuallyCloseable {
 
             // We are looking for removed indexes.
             difference(previousCatalogVersionIndexIds, indexIds).stream()
-                    .map(index -> catalogService.index(index, finalCatalogVersion - 1))
+                    .map(indexId -> catalogService.index(indexId, finalCatalogVersion - 1))
                     .forEach(index -> {
-                        if (index.status() == STOPPING && finalCatalogVersion > lwnCatalogVersion) {
+                        if (index.status() == STOPPING && finalCatalogVersion > lwmCatalogVersion) {
                             readOnlyIndexes.add(
                                     new ReadOnlyIndexInfo(index, stoppingActivationTsByIndexId.get(index.id()), finalCatalogVersion)
                             );
-                        } else if (index.status() == AVAILABLE && finalCatalogVersion > lwnCatalogVersion) {
+                        } else if (index.status() == AVAILABLE && finalCatalogVersion > lwmCatalogVersion) {
                             // Drop table case.
                             readOnlyIndexes.add(
                                     new ReadOnlyIndexInfo(index, catalogActivationTimestampBusy(finalCatalogVersion), finalCatalogVersion)
