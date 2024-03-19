@@ -81,8 +81,8 @@ public class MutableRowTupleAdapterTest {
     /** Schema descriptor. */
     private final SchemaDescriptor schema = new SchemaDescriptor(
             42,
-            new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
-            new Column[]{new Column("name".toUpperCase(), NativeTypes.STRING, false)}
+            new Column[]{new Column("id".toUpperCase(), INT64, false)},
+            new Column[]{new Column("name".toUpperCase(), STRING, false)}
     );
 
     /** Schema descriptor. */
@@ -556,11 +556,11 @@ public class MutableRowTupleAdapterTest {
     @Test
     void testTemporalValuesPrecisionConstraint() throws Exception {
         SchemaDescriptor schemaDescriptor = new SchemaDescriptor(1,
-                new Column[]{new Column("key", NativeTypes.INT32, false)},
+                new Column[]{new Column("key", INT32, false)},
                 new Column[]{
-                        new Column("time", NativeTypes.time(2), true),
-                        new Column("datetime", NativeTypes.datetime(2), true),
-                        new Column("timestamp", NativeTypes.timestamp(2), true)
+                        new Column("time", time(2), true),
+                        new Column("datetime", datetime(2), true),
+                        new Column("timestamp", timestamp(2), true)
                 }
         );
 
@@ -585,7 +585,7 @@ public class MutableRowTupleAdapterTest {
     @Test
     void testVarlenValuesLengthConstraints() throws Exception {
         SchemaDescriptor schemaDescriptor = new SchemaDescriptor(1,
-                new Column[]{new Column("key", NativeTypes.INT32, false)},
+                new Column[]{new Column("key", INT32, false)},
                 new Column[]{
                         new Column("string", NativeTypes.stringOf(5), true),
                         new Column("bytes", NativeTypes.blobOf(5), true),
