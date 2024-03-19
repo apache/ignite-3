@@ -151,16 +151,6 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                 int fieldIdx = field.getFieldIndex();
                 int nullComparison = field.nullDirection.nullComparison;
 
-                if (o1 == null || o2 == null) {
-                    if (o1 == o2) {
-                        return 0;
-                    } else if (o1 == null) {
-                        return nullComparison;
-                    } else {
-                        return -nullComparison;
-                    }
-                }
-
                 Object c1 = hnd.get(fieldIdx, o1);
                 Object c2 = hnd.get(fieldIdx, o2);
 
@@ -797,6 +787,9 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         }
     }
 
+    /**
+     * Note: this class has a natural ordering that is inconsistent with equals.
+     */
     private class RangeConditionImpl implements RangeCondition<RowT>, Comparable<RangeConditionImpl> {
         /** Lower bound expression. */
         private final @Nullable SingleScalar lowerBound;
@@ -911,74 +904,62 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                     && compareBounds(o.lower(), o.lowerInclude(), upper(), upperInclude()) <= 0;
         }
 
-        private int compareBounds(@Nullable RowT o1, boolean o1include, @Nullable RowT o2, boolean o2include) {
-            int res = compareBounds0(o1, o1include, o2, o2include);
+        private int compareBounds(@Nullable RowT lower, boolean lowerInclude, @Nullable RowT upper, boolean upperInclude) {
+            int res = compareBounds0(lower, lowerInclude, upper, upperInclude);
 
             if (res != 0) {
                 return res;
             }
 
-            if (o1include == o2include) {
+            if (lowerInclude == upperInclude) {
                 return 0;
             }
 
-            return o1include ? -1 : 1;
+            return lowerInclude ? -1 : 1;
         }
 
-        private int compareBounds0(@Nullable RowT o1, boolean o1include, @Nullable RowT o2, boolean o2include) {
-            RowHandler<RowT> hnd = ctx.rowHandler();
-            List<RelFieldCollation> collations = collation.getFieldCollations();
-
-            if (o1 == null || o2 == null) {
-                if (o1 == o2) {
-                    if (o1include == o2include) {
+        private int compareBounds0(@Nullable RowT lower, boolean lowerInclude, @Nullable RowT upper, boolean upperInclude) {
+            if (lower == null || upper == null) {
+                if (lower == upper) {
+                    if (lowerInclude == upperInclude) {
                         return 0;
                     }
 
-                    return o1include ? -1 : 1;
-                } else if (o1 == null) {
-                    if (o1include) {
-                        return -1;
-                    } else {
-                        return 1;
-                    }
+                    return lowerInclude ? -1 : 1;
+                } else if (lower == null) {
+                    return lowerInclude ? -1 : 1;
                 } else {
-                    if (o2include) {
-                        return -1;
-                    } else {
-                        return 1;
-                    }
+                    return upperInclude ? -1 : 1;
                 }
             }
 
-            int colCnt1 = hnd.columnCount(o1);
-            int colCnt2 = hnd.columnCount(o2);
+            RowHandler<RowT> hnd = ctx.rowHandler();
+            List<RelFieldCollation> collations = collation.getFieldCollations();
 
-            int colCnt = Math.max(colCnt1, colCnt2);
+            int lowerColumnsCount = hnd.columnCount(lower);
+            int upperColumnsCount = hnd.columnCount(upper);
 
-            assert colCnt <= collations.size() : "invalid row [size=" + colCnt + ", max=" + collations.size() + ']';
-
-            for (int idx = 0; idx < colCnt; idx++) {
-                RelFieldCollation field = collations.get(idx);
+            for (int i = 0; i < collations.size(); i++) {
+                RelFieldCollation field = collations.get(i);
                 int nullComparison = field.nullDirection.nullComparison;
+                boolean ascending = field.direction == RelFieldCollation.Direction.ASCENDING;
 
-                boolean asc = field.direction == RelFieldCollation.Direction.ASCENDING;
-
-                if (idx == colCnt1) {
-                    return asc ? -1 : 1;
+                if (i == lowerColumnsCount) {
+                    // There is no more values in 'lower' prefix.
+                    return ascending ? -1 : 1;
                 }
 
-                if (idx == colCnt2) {
-                    return asc ? 1 : -1;
+                if (i == upperColumnsCount) {
+                    // There is no more values in 'upper' prefix.
+                    return ascending ? 1 : -1;
                 }
 
-                Object c1 = hnd.get(idx, o1);
-                Object c2 = hnd.get(idx, o2);
+                Object c1 = hnd.get(i, lower);
+                Object c2 = hnd.get(i, upper);
 
-                int res = (field.direction == RelFieldCollation.Direction.ASCENDING)
-                        ?
-                        compare(c1, c2, nullComparison) :
-                        compare(c2, c1, -nullComparison);
+                int res = ascending
+                        ? compare(c1, c2, nullComparison)
+                        : compare(c2, c1, -nullComparison);
 
                 if (res != 0) {
                     return res;
@@ -1014,23 +995,23 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             upper();
             o.upper();
 
-            SingleScalar newUpperScalar;
+            SingleScalar newUpperBound;
             RowT newUpperRow;
             boolean newUpperInclude;
 
             cmp = compareBounds0(upperRow, !upperInclude, o.upperRow, o.upperInclude);
 
             if (cmp > 0 || (cmp == 0 && upperInclude)) {
-                newUpperScalar = upperBound;
+                newUpperBound = upperBound;
                 newUpperRow = upperRow;
                 newUpperInclude = upperInclude;
             } else {
-                newUpperScalar = o.upperBound;
+                newUpperBound = o.upperBound;
                 newUpperRow = o.upperRow;
                 newUpperInclude = o.upperInclude;
             }
 
-            RangeConditionImpl newRangeCondition = new RangeConditionImpl(newLowerBound, newUpperScalar,
+            RangeConditionImpl newRangeCondition = new RangeConditionImpl(newLowerBound, newUpperBound,
                     newLowerInclude, newUpperInclude, lowerRowBuilder, upperRowBuilder, collation);
 
             newRangeCondition.lowerRow = newLowerRow;
