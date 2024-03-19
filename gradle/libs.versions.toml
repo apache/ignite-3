@@ -99,7 +99,7 @@ docker = "com.palantir.docker:0.35.0"
 checksum = "org.gradle.crypto.checksum:1.4.0"
 setupbuilder = "de.inetsoftware.setupbuilder:7.2.21"
 aggregateJavadoc = "io.freefair.aggregate-javadoc:6.6.3"
-ideaext = "org.jetbrains.gradle.plugin.idea-ext:1.1.7"
+ideaext = "org.jetbrains.gradle.plugin.idea-ext:1.1.8"
 spotbugs = "com.github.spotbugs:6.0.7"
 
 
