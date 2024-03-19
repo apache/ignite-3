@@ -104,7 +104,7 @@ public class BinaryTupleSchema {
 
     /** Tuple schema corresponding to a set of row columns going in a contiguous range. */
     private static final class DenseRowSchema extends BinaryTupleSchema {
-        int columnBase;
+        List<Column> columns;
 
         boolean fullSize;
 
@@ -112,19 +112,19 @@ public class BinaryTupleSchema {
          * Constructs a tuple schema for a contiguous range of columns.
          *
          * @param elements Tuple elements.
-         * @param columnBase Row column matching the first tuple element.
+         * @param columns Schema columns.
          * @param fullSize True if the tuple contains enough elements to form a full row.
          */
-        private DenseRowSchema(Element[] elements, int columnBase, boolean fullSize) {
+        private DenseRowSchema(Element[] elements, List<Column> columns, boolean fullSize) {
             super(elements);
-            this.columnBase = columnBase;
+            this.columns = columns;
             this.fullSize = fullSize;
         }
 
         /** {@inheritDoc} */
         @Override
         public int columnIndex(int index) {
-            return index + columnBase;
+            return columns.get(index).positionInRow();
         }
 
         /** {@inheritDoc} */
@@ -225,7 +225,7 @@ public class BinaryTupleSchema {
 
         boolean fullSize = columns.size() == descriptor.columns().size();
 
-        return new DenseRowSchema(elements, colBegin, fullSize);
+        return new DenseRowSchema(elements, columns, fullSize);
     }
 
     /**
