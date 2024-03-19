@@ -46,7 +46,7 @@ public class BinaryTupleSchemaTest {
     public void keySchema() {
         BinaryTupleSchema schema = BinaryTupleSchema.createKeySchema(SCHEMA);
         assertEquals(0, schema.columnIndex(0));
-        assertTrue(schema.convertible());
+        assertFalse(schema.convertible());
     }
 
     @Test
