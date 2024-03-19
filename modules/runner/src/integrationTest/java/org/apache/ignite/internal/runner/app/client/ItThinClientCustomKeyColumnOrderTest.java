@@ -19,6 +19,8 @@ package org.apache.ignite.internal.runner.app.client;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import org.apache.ignite.Ignite;
+import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeAll;
@@ -40,11 +42,17 @@ public class ItThinClientCustomKeyColumnOrderTest extends ItAbstractThinClientTe
         client().sql().createSession().execute(null, query);
     }
 
+    protected Ignite ignite() {
+        return client();
+    }
+
+    private Table table() {
+        return ignite().tables().table(TABLE_NAME2);
+    }
+
     @Test
     void testRecordBinaryView() {
-        var table = client().tables().table(TABLE_NAME2);
-
-        var recView = table.recordView();
+        var recView = table().recordView();
 
         Tuple key = Tuple.create().set("key1", 1).set("key2", "key2");
         Tuple val = Tuple.create().set("key1", 1).set("key2", "key2").set("val1", "val1").set("val2", 2L);
@@ -56,9 +64,7 @@ public class ItThinClientCustomKeyColumnOrderTest extends ItAbstractThinClientTe
 
     @Test
     void testRecordView() {
-        var table = client().tables().table(TABLE_NAME2);
-
-        var recView = table.recordView(Pojo.class);
+        var recView = table().recordView(Pojo.class);
 
         Pojo key = new Pojo(1, "key2");
         Pojo val = new Pojo(1, "key2", "val1", 2L);
@@ -73,9 +79,7 @@ public class ItThinClientCustomKeyColumnOrderTest extends ItAbstractThinClientTe
 
     @Test
     void testKeyValueBinaryView() {
-        var table = client().tables().table(TABLE_NAME2);
-
-        var kvView = table.keyValueView();
+        var kvView = table().keyValueView();
 
         Tuple key = Tuple.create().set("key1", 1).set("key2", "key2");
         Tuple val = Tuple.create().set("val1", "val1").set("val2", 2L);
@@ -87,9 +91,7 @@ public class ItThinClientCustomKeyColumnOrderTest extends ItAbstractThinClientTe
 
     @Test
     void testKeyValueView() {
-        var table = client().tables().table(TABLE_NAME2);
-
-        var kvView = table.keyValueView(PojoKey.class, PojoVal.class);
+        var kvView = table().keyValueView(PojoKey.class, PojoVal.class);
 
         PojoKey key = new PojoKey(1, "key2");
         PojoVal val = new PojoVal("val1", 2L);
