@@ -22,7 +22,11 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * An interface for tracking Low watermark.
+ * Low watermark is the node's local time, which ensures that read-only transactions have completed by this time, and new read-only
+ * transactions will only be created after this time, and we can safely delete obsolete/garbage data such as: obsolete versions of table
+ * rows, remote indexes, remote tables, etc.
+ *
+ * @see <a href="https://cwiki.apache.org/confluence/display/IGNITE/IEP-91%3A+Transaction+protocol">IEP-91</a>
  */
 public interface LowWatermark {
     /** Returns the current low watermark, {@code null} means no low watermark has been assigned yet. */
@@ -34,6 +38,9 @@ public interface LowWatermark {
     /** Unsubscribes on watermark changes. */
     void removeUpdateListener(LowWatermarkChangedListener listener);
 
-    /** Runs the provided {@code consumer} under the {@code lock} preventing concurrent LWM update. */
-    void getLowWatermarkSafe(Consumer<HybridTimestamp> consumer);
+    /**
+     * Runs the provided {@code consumer} under the {@code lock} preventing concurrent LWM update, {@code null} means no low watermark has
+     * been assigned yet.
+     */
+    void getLowWatermarkSafe(Consumer<@Nullable HybridTimestamp> consumer);
 }

@@ -17,9 +17,16 @@
 
 package org.apache.ignite.internal.table;
 
+import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.table.distributed.LowWatermark;
@@ -32,7 +39,10 @@ import org.jetbrains.annotations.Nullable;
  */
 public class TestLowWatermark implements LowWatermark {
     private final List<LowWatermarkChangedListener> listeners = new CopyOnWriteArrayList<>();
+
     private volatile @Nullable HybridTimestamp ts;
+
+    private final ReadWriteLock updateLowWatermarkLock = new ReentrantReadWriteLock();
 
     @Override
     public @Nullable HybridTimestamp getLowWatermark() {
@@ -41,17 +51,23 @@ public class TestLowWatermark implements LowWatermark {
 
     @Override
     public void addUpdateListener(LowWatermarkChangedListener listener) {
-        this.listeners.add(listener);
+        listeners.add(listener);
     }
 
     @Override
     public void removeUpdateListener(LowWatermarkChangedListener listener) {
-        this.listeners.remove(listener);
+        listeners.remove(listener);
     }
 
     @Override
-    public void getLowWatermarkSafe(Consumer<HybridTimestamp> consumer) {
-        consumer.accept(ts);
+    public void getLowWatermarkSafe(Consumer<@Nullable HybridTimestamp> consumer) {
+        updateLowWatermarkLock.readLock().lock();
+
+        try {
+            consumer.accept(ts);
+        } finally {
+            updateLowWatermarkLock.readLock().unlock();
+        }
     }
 
     /**
@@ -61,16 +77,31 @@ public class TestLowWatermark implements LowWatermark {
      * @return Listener notification future.
      */
     public CompletableFuture<Void> updateAndNotify(HybridTimestamp newTs) {
-        assert newTs != null;
-        assert ts == null || ts.longValue() < newTs.longValue() : "ts=" + ts + ", newTs=" + newTs;
+        try {
+            assertNotNull(newTs);
 
-        this.ts = newTs;
+            assertTrue(ts == null || ts.longValue() < newTs.longValue(), "ts=" + ts + ", newTs=" + newTs);
 
-        return CompletableFuture.allOf(listeners.stream().map(l -> l.onLwmChanged(newTs)).toArray(CompletableFuture[]::new));
+            setLowWatermark(newTs);
+
+            return allOf(listeners.stream().map(l -> l.onLwmChanged(newTs)).toArray(CompletableFuture[]::new));
+        } catch (Throwable t) {
+            return failedFuture(t);
+        }
     }
 
     /** Set low watermark without listeners notification. */
-    public void update(HybridTimestamp newTs) {
-        this.ts = newTs;
+    public void updateWithoutNotify(@Nullable HybridTimestamp newTs) {
+        setLowWatermark(newTs);
+    }
+
+    private void setLowWatermark(@Nullable HybridTimestamp newTs) {
+        updateLowWatermarkLock.writeLock().lock();
+
+        try {
+            ts = newTs;
+        } finally {
+            updateLowWatermarkLock.writeLock().unlock();
+        }
     }
 }

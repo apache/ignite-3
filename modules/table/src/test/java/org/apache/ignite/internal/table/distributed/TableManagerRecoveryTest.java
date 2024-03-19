@@ -280,7 +280,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         PlacementDriver placementDriver = new TestPlacementDriver(node);
 
         lowWatermark = new TestLowWatermark();
-        lowWatermark.update(savedWatermark);
+        lowWatermark.updateWithoutNotify(savedWatermark);
         tableManager = new TableManager(
                 NODE_NAME,
                 revisionUpdater,

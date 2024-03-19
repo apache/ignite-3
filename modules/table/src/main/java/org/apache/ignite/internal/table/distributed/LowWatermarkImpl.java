@@ -32,8 +32,8 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -54,16 +54,8 @@ import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.jetbrains.annotations.Nullable;
 
-/**
- * Class to manage the low watermark.
- *
- * <p>Low watermark is the node's local time, which ensures that read-only transactions have completed by this time, and new read-only
- * transactions will only be created after this time, and we can safely delete obsolete/garbage data such as: obsolete versions of table
- * rows, remote indexes, remote tables, etc.
- *
- * @see <a href="https://cwiki.apache.org/confluence/display/IGNITE/IEP-91%3A+Transaction+protocol">IEP-91</a>
- */
-public class LowWatermarkImpl implements IgniteComponent, LowWatermark {
+/** Class to manage the low watermark. */
+public class LowWatermarkImpl implements LowWatermark, IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(LowWatermarkImpl.class);
 
     static final ByteArray LOW_WATERMARK_VAULT_KEY = new ByteArray("low-watermark");
@@ -78,6 +70,7 @@ public class LowWatermarkImpl implements IgniteComponent, LowWatermark {
 
     private final List<LowWatermarkChangedListener> updateListeners = new CopyOnWriteArrayList<>();
 
+    // TODO: IGNITE-21772 Consider using a shared pool to update a low watermark
     private final ScheduledExecutorService scheduledThreadPool;
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -90,7 +83,7 @@ public class LowWatermarkImpl implements IgniteComponent, LowWatermark {
 
     private final FailureProcessor failureProcessor;
 
-    private final Lock lwmLock = new ReentrantLock();
+    private final ReadWriteLock updateLowWatermarkLock = new ReentrantReadWriteLock();
 
     /**
      * Constructor.
@@ -124,7 +117,7 @@ public class LowWatermarkImpl implements IgniteComponent, LowWatermark {
     @Override
     public CompletableFuture<Void> start() {
         return inBusyLockAsync(busyLock, () -> {
-            lowWatermark = readLowWatermarkFromVault();
+            setLowWatermark(readLowWatermarkFromVault());
 
             return nullCompletedFuture();
         });
@@ -149,6 +142,7 @@ public class LowWatermarkImpl implements IgniteComponent, LowWatermark {
 
             // TODO IGNTIE-21751: txManager should read lwm on recocvery instead.
             //  Other components uses the lwm recovered from the vault, so notification shouldn't have any effect.
+            // TODO: IGNITE-21773 No need to notify listeners at node start
             txManager.updateLowWatermark(lowWatermarkCandidate)
                     .thenComposeAsync(unused -> inBusyLock(busyLock, () -> notifyListeners(lowWatermarkCandidate)), scheduledThreadPool)
                     .whenComplete((unused, throwable) -> {
@@ -204,14 +198,9 @@ public class LowWatermarkImpl implements IgniteComponent, LowWatermark {
                     .thenComposeAsync(unused -> inBusyLock(busyLock, () -> {
                         vaultManager.put(LOW_WATERMARK_VAULT_KEY, ByteUtils.toBytes(lowWatermarkCandidate));
 
-                        lwmLock.lock();
-                        try {
-                            lowWatermark = lowWatermarkCandidate;
+                        setLowWatermark(lowWatermarkCandidate);
 
-                            return notifyListeners(lowWatermarkCandidate);
-                        } finally {
-                            lwmLock.unlock();
-                        }
+                        return notifyListeners(lowWatermarkCandidate);
                     }), scheduledThreadPool)
                     .whenComplete((unused, throwable) -> {
                         if (throwable != null) {
@@ -253,12 +242,13 @@ public class LowWatermarkImpl implements IgniteComponent, LowWatermark {
     }
 
     @Override
-    public void getLowWatermarkSafe(Consumer<HybridTimestamp> consumer) {
-        lwmLock.lock();
+    public void getLowWatermarkSafe(Consumer<@Nullable HybridTimestamp> consumer) {
+        updateLowWatermarkLock.readLock().lock();
+
         try {
             consumer.accept(lowWatermark);
         } finally {
-            lwmLock.unlock();
+            updateLowWatermarkLock.readLock().unlock();
         }
     }
 
@@ -296,5 +286,15 @@ public class LowWatermarkImpl implements IgniteComponent, LowWatermark {
     private long getMaxClockSkew() {
         // TODO: IGNITE-19287 Add Implementation
         return HybridTimestamp.CLOCK_SKEW;
+    }
+
+    private void setLowWatermark(@Nullable HybridTimestamp newLowWatermark) {
+        updateLowWatermarkLock.writeLock().lock();
+
+        try {
+            lowWatermark = newLowWatermark;
+        } finally {
+            updateLowWatermarkLock.writeLock().unlock();
+        }
     }
 }

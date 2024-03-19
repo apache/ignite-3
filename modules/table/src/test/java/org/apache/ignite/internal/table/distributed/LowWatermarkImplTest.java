@@ -61,7 +61,7 @@ import org.mockito.InOrder;
  * For {@link LowWatermarkImpl} testing.
  */
 @ExtendWith(ConfigurationExtension.class)
-public class LowWatermarkTest extends BaseIgniteAbstractTest {
+public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
     @InjectConfiguration
     private LowWatermarkConfiguration lowWatermarkConfig;
 
