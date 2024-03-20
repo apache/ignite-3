@@ -41,7 +41,9 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.sql.AbstractSession;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
@@ -69,6 +71,7 @@ import org.apache.ignite.sql.reactive.ReactiveResultSet;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -309,92 +312,117 @@ public class SessionImpl implements AbstractSession {
                     .set(QueryProperty.ALLOWED_QUERY_TYPES, EnumSet.of(SqlQueryType.DML))
                     .build();
 
-            var counters = new LongArrayList(batch.size());
-            CompletableFuture<?> tail = nullCompletedFuture();
-            ArrayList<CompletableFuture<?>> batchFuts = new ArrayList<>(batch.size());
-
-            for (int i = 0; i < batch.size(); ++i) {
-                Object[] args = batch.get(i).toArray();
-
-                tail = tail.thenCompose(v -> {
-                    if (!busyLock.enterBusy()) {
-                        return CompletableFuture.failedFuture(sessionIsClosedException());
-                    }
-
-                    try {
-                        return qryProc.querySingleAsync(properties, transactions, (InternalTransaction) transaction, query, args)
-                                .thenCompose(cursor -> {
-                                    if (!busyLock.enterBusy()) {
-                                        cursor.closeAsync();
-
-                                        return CompletableFuture.failedFuture(sessionIsClosedException());
-                                    }
-
-                                    try {
-                                        int cursorId = registerCursor(cursor);
-
-                                        return cursor.requestNextAsync(1)
-                                                .handle((page, th) -> {
-                                                    openedCursors.remove(cursorId);
-                                                    cursor.closeAsync();
-
-                                                    if (th != null) {
-                                                        return CompletableFuture.failedFuture(th);
-                                                    }
-
-                                                    validateDmlResult(page);
-
-                                                    counters.add((long) page.items().get(0).get(0));
-
-                                                    return nullCompletedFuture();
-                                                }).thenCompose(Function.identity());
-                                    } finally {
-                                        busyLock.leaveBusy();
-                                    }
-                                });
-                    } finally {
-                        busyLock.leaveBusy();
-                    }
-                });
-
-                batchFuts.add(tail);
-            }
-
-            CompletableFuture<long[]> resFut = tail
-                    .exceptionally((ex) -> {
-                        Throwable cause = ExceptionUtils.unwrapCause(ex);
-
-                        if (cause instanceof CancellationException) {
-                            throw (CancellationException) cause;
-                        }
-
-                        Throwable t = mapToPublicSqlException(cause);
-
-                        if (t instanceof TraceableException) {
-                            throw new SqlBatchException(
-                                    ((TraceableException) t).traceId(),
-                                    ((TraceableException) t).code(),
-                                    counters.toArray(ArrayUtils.LONG_EMPTY_ARRAY),
-                                    t);
-                        }
-
-                        // JVM error.
-                        throw new CompletionException(cause);
-                    })
-                    .thenApply(v -> counters.toArray(ArrayUtils.LONG_EMPTY_ARRAY));
-
-            resFut.whenComplete((cur, ex) -> {
-                if (ExceptionUtils.unwrapCause(ex) instanceof CancellationException) {
-                    batchFuts.forEach(f -> f.cancel(false));
-                }
-            });
-
-            return resFut;
+            return executeBatchCore(
+                    qryProc,
+                    transactions,
+                    (InternalTransaction) transaction,
+                    query,
+                    batch,
+                    properties,
+                    busyLock::enterBusy,
+                    busyLock::leaveBusy,
+                    this::registerCursor,
+                    openedCursors::remove);
         } catch (Exception e) {
             return CompletableFuture.failedFuture(mapToPublicSqlException(e));
         } finally {
             busyLock.leaveBusy();
         }
+    }
+
+    @NotNull
+    static CompletableFuture<long[]> executeBatchCore(
+            QueryProcessor qryProc,
+            IgniteTransactions transactions,
+            InternalTransaction transaction,
+            String query,
+            BatchedArguments batch,
+            SqlProperties properties,
+            Supplier<Boolean> enterBusy,
+            Runnable leaveBusy,
+            Function<AsyncSqlCursor<?>, Integer> registerCursor,
+            Consumer<Integer> removeCursor) {
+        var counters = new LongArrayList(batch.size());
+        CompletableFuture<?> tail = nullCompletedFuture();
+        ArrayList<CompletableFuture<?>> batchFuts = new ArrayList<>(batch.size());
+
+        for (int i = 0; i < batch.size(); ++i) {
+            Object[] args = batch.get(i).toArray();
+
+            tail = tail.thenCompose(v -> {
+                if (!enterBusy.get()) {
+                    return CompletableFuture.failedFuture(sessionIsClosedException());
+                }
+
+                try {
+                    return qryProc.querySingleAsync(properties, transactions, transaction, query, args)
+                            .thenCompose(cursor -> {
+                                if (!enterBusy.get()) {
+                                    cursor.closeAsync();
+
+                                    return CompletableFuture.failedFuture(sessionIsClosedException());
+                                }
+
+                                try {
+                                    int cursorId = registerCursor.apply(cursor);
+
+                                    return cursor.requestNextAsync(1)
+                                            .handle((page, th) -> {
+                                                removeCursor.accept(cursorId);
+                                                cursor.closeAsync();
+
+                                                if (th != null) {
+                                                    return CompletableFuture.failedFuture(th);
+                                                }
+
+                                                validateDmlResult(page);
+
+                                                counters.add((long) page.items().get(0).get(0));
+
+                                                return nullCompletedFuture();
+                                            }).thenCompose(Function.identity());
+                                } finally {
+                                    leaveBusy.run();
+                                }
+                            });
+                } finally {
+                    leaveBusy.run();
+                }
+            });
+
+            batchFuts.add(tail);
+        }
+
+        CompletableFuture<long[]> resFut = tail
+                .exceptionally((ex) -> {
+                    Throwable cause = ExceptionUtils.unwrapCause(ex);
+
+                    if (cause instanceof CancellationException) {
+                        throw (CancellationException) cause;
+                    }
+
+                    Throwable t = mapToPublicSqlException(cause);
+
+                    if (t instanceof TraceableException) {
+                        throw new SqlBatchException(
+                                ((TraceableException) t).traceId(),
+                                ((TraceableException) t).code(),
+                                counters.toArray(ArrayUtils.LONG_EMPTY_ARRAY),
+                                t);
+                    }
+
+                    // JVM error.
+                    throw new CompletionException(cause);
+                })
+                .thenApply(v -> counters.toArray(ArrayUtils.LONG_EMPTY_ARRAY));
+
+        resFut.whenComplete((cur, ex) -> {
+            if (ExceptionUtils.unwrapCause(ex) instanceof CancellationException) {
+                batchFuts.forEach(f -> f.cancel(false));
+            }
+        });
+
+        return resFut;
     }
 
     /** {@inheritDoc} */
