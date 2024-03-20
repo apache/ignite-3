@@ -289,7 +289,14 @@ public final class IgniteTestUtils {
         try {
             run.execute();
         } catch (Throwable throwable) {
-            assertInstanceOf(expectedClass, throwable);
+            try {
+                assertInstanceOf(expectedClass, throwable);
+            } catch (AssertionError err) {
+                // An AssertionError from assertInstanceOf has nothing but a class name of the original exception.
+                err.initCause(throwable);
+                
+                throw err;
+            }
 
             IgniteException igniteException = (IgniteException) throwable;
             assertEquals(expectedErrorCode, igniteException.code());
