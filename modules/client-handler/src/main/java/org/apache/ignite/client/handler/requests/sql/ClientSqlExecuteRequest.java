@@ -32,8 +32,8 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
-import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.jetbrains.annotations.Nullable;
@@ -62,19 +62,12 @@ public class ClientSqlExecuteRequest {
             ClientHandlerMetricSource metrics,
             IgniteTransactionsImpl transactions
     ) {
-        var tx = readTx(in, out, resources);
+        InternalTransaction tx = readTx(in, out, resources);
         ClientSqlProperties props = new ClientSqlProperties(in);
         String statement = in.unpackString();
         Object[] arguments = in.unpackObjectArrayFromBinaryTuple();
 
-        if (arguments == null) {
-            // SQL engine requires non-null arguments, but we don't want to complicate the protocol with this requirement.
-            arguments = ArrayUtils.OBJECT_EMPTY_ARRAY;
-        }
-
-        // TODO IGNITE-20232 Propagate observable timestamp to sql engine using internal API.
         HybridTimestamp clientTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
-
         transactions.updateObservableTimestamp(clientTs);
 
         return ClientSqlCommon.executeAsync(tx, sql, transactions, statement, props.pageSize(), props.toSqlProps(), arguments)
