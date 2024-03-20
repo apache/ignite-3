@@ -20,24 +20,20 @@ package org.apache.ignite.client.handler.requests.sql;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTx;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
-import java.util.function.Function;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.sql.api.SessionImpl;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.sql.BatchedArguments;
-import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSetMetadata;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlBatchException;
-import org.apache.ignite.sql.Statement;
-import org.apache.ignite.sql.Statement.StatementBuilder;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -63,48 +59,54 @@ public class ClientSqlExecuteBatchRequest {
             ClientHandlerMetricSource metrics,
             IgniteTransactionsImpl transactions
     ) {
-        return CompletableFuture.completedFuture(null);
-//        var tx = readTx(in, out, resources);
-//        Session session = readSession(in, sql, transactions);
-//        String statement = in.unpackString();
-//        BatchedArguments arguments = in.unpackObjectArrayFromBinaryTupleArray();
-//
-//        if (arguments == null) {
-//            // SQL engine requires non-null arguments, but we don't want to complicate the protocol with this requirement.
-//            arguments = BatchedArguments.of(ArrayUtils.OBJECT_EMPTY_ARRAY);
-//        }
-//
-//        // TODO IGNITE-20232 Propagate observable timestamp to sql engine using internal API.
-//        HybridTimestamp clientTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
-//
-//        transactions.updateObservableTimestamp(clientTs);
-//
-//        return session
-//                .executeBatchAsync(tx, statement, arguments)
-//                .handle((affectedRows, ex) -> {
-//                    out.meta(transactions.observableTimestamp());
-//                    if (ex != null) {
-//                        var cause = ExceptionUtils.unwrapCause(ex.getCause());
-//
-//                        if (cause instanceof SqlBatchException) {
-//                            var exBatch = ((SqlBatchException) cause);
-//                            return writeBatchResultAsync(out, resources, exBatch.updateCounters(),
-//                                    exBatch.errorCode(), exBatch.getMessage(), session, metrics);
-//                        }
-//                        affectedRows = ArrayUtils.LONG_EMPTY_ARRAY;
-//                    }
-//
-//                    return writeBatchResultAsync(out, resources, affectedRows, session, metrics);
-//                }).thenCompose(Function.identity());
+        InternalTransaction tx = readTx(in, out, resources);
+        ClientSqlProperties props = new ClientSqlProperties(in);
+        String statement = in.unpackString();
+        BatchedArguments arguments = in.unpackObjectArrayFromBinaryTupleArray();
+
+        HybridTimestamp clientTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
+        transactions.updateObservableTimestamp(clientTs);
+
+        return SessionImpl.executeBatchCore(
+                sql,
+                        transactions,
+                        tx,
+                        statement,
+                        arguments,
+                        props.toSqlProps(),
+                        () -> true,
+                        () -> {},
+                        cursor -> 0,
+                        cursorId -> {})
+                .handle((affectedRows, ex) -> {
+                    out.meta(transactions.observableTimestamp());
+
+                    if (ex != null) {
+                        var cause = ExceptionUtils.unwrapCause(ex.getCause());
+
+                        if (cause instanceof SqlBatchException) {
+                            var exBatch = ((SqlBatchException) cause);
+
+                            writeBatchResult(out, resources, exBatch.updateCounters(),
+                                    exBatch.errorCode(), exBatch.getMessage(), metrics);
+
+                            return null;
+                        }
+
+                        affectedRows = ArrayUtils.LONG_EMPTY_ARRAY;
+                    }
+
+                    writeBatchResult(out, resources, affectedRows, metrics);
+                    return null;
+                });
     }
 
-    private static CompletionStage<Void> writeBatchResultAsync(
+    private static void writeBatchResult(
             ClientMessagePacker out,
             ClientResourceRegistry resources,
             long[] affectedRows,
             Short errorCode,
             String errorMessage,
-            Session session,
             ClientHandlerMetricSource metrics) {
         out.packNil(); // resourceId
 
@@ -114,15 +116,12 @@ public class ClientSqlExecuteBatchRequest {
         out.packLongArray(affectedRows); // affected rows
         out.packShort(errorCode); // error code
         out.packString(errorMessage); // error message
-
-        return session.closeAsync();
     }
 
-    private static CompletionStage<Void> writeBatchResultAsync(
+    private static void writeBatchResult(
             ClientMessagePacker out,
             ClientResourceRegistry resources,
             long[] affectedRows,
-            Session session,
             ClientHandlerMetricSource metrics) {
         out.packNil(); // resourceId
 
@@ -132,8 +131,6 @@ public class ClientSqlExecuteBatchRequest {
         out.packLongArray(affectedRows); // affected rows
         out.packNil(); // error code
         out.packNil(); // error message
-
-        return session.closeAsync();
     }
 
     private static void packMeta(ClientMessagePacker out, @Nullable ResultSetMetadata meta) {

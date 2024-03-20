@@ -331,10 +331,10 @@ public class SessionImpl implements AbstractSession {
     }
 
     @NotNull
-    static CompletableFuture<long[]> executeBatchCore(
+    public static CompletableFuture<long[]> executeBatchCore(
             QueryProcessor qryProc,
             IgniteTransactions transactions,
-            InternalTransaction transaction,
+            @Nullable InternalTransaction transaction,
             String query,
             BatchedArguments batch,
             SqlProperties properties,
