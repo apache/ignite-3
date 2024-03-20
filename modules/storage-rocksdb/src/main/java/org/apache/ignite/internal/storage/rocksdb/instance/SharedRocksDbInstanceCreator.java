@@ -27,9 +27,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.flush.RocksDbFlusher;
 import org.apache.ignite.internal.storage.StorageException;
@@ -100,7 +97,7 @@ public class SharedRocksDbInstanceCreator {
             ColumnFamily partitionCf = null;
             ColumnFamily gcQueueCf = null;
             ColumnFamily hashIndexCf = null;
-            ConcurrentMap<ByteArray, ColumnFamily> sortedIndexCfs = new ConcurrentHashMap<>();
+            var sortedIndexCfs = new ArrayList<ColumnFamily>();
 
             // Read all existing Column Families from the db and parse them according to type: meta, partition data or index.
             for (ColumnFamilyHandle cfHandle : cfHandles) {
@@ -128,7 +125,7 @@ public class SharedRocksDbInstanceCreator {
                         break;
 
                     case SORTED_INDEX:
-                        sortedIndexCfs.put(new ByteArray(cf.handle().getName()), cf);
+                        sortedIndexCfs.add(cf);
 
                         break;
 
@@ -211,6 +208,7 @@ public class SharedRocksDbInstanceCreator {
         }
     }
 
+    @SuppressWarnings("resource")
     private static ColumnFamilyOptions defaultCfOptions() {
         return new ColumnFamilyOptions()
                 .setMemtablePrefixBloomSizeRatio(0.125)

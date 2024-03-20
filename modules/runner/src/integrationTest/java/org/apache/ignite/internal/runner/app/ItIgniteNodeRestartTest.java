@@ -253,12 +253,12 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     /**
      * Interceptor of {@link MetaStorageManager#invoke(Condition, Collection, Collection)}.
      */
-    private Map<Integer, InvokeInterceptor> metaStorageInvokeInterceptorByNode = new ConcurrentHashMap<>();
+    private final Map<Integer, InvokeInterceptor> metaStorageInvokeInterceptorByNode = new ConcurrentHashMap<>();
 
     /**
      * Mocks the data nodes returned by {@link DistributionZoneManager#dataNodes(long, int, int)} method on different nodes.
      */
-    private Map<Integer, Supplier<CompletableFuture<Set<String>>>> dataNodesMockByNode = new ConcurrentHashMap<>();
+    private final Map<Integer, Supplier<CompletableFuture<Set<String>>>> dataNodesMockByNode = new ConcurrentHashMap<>();
 
     @BeforeEach
     public void beforeTest() {
@@ -341,7 +341,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var raftMgr = new Loza(clusterSvc, raftConfiguration, dir, hybridClock, raftGroupEventsClientListener);
 
-        var clusterStateStorage = new RocksDbClusterStateStorage(dir.resolve("cmg"));
+        var clusterStateStorage = new RocksDbClusterStateStorage(dir.resolve("cmg"), name);
 
         var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
