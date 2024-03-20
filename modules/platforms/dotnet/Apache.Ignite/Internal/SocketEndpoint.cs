@@ -17,6 +17,8 @@
 
 namespace Apache.Ignite.Internal
 {
+    using System;
+    using System.Collections.Generic;
     using System.Diagnostics;
     using System.Net;
 
@@ -27,6 +29,9 @@ namespace Apache.Ignite.Internal
     {
         /** */
         private volatile ClientSocket? _socket;
+
+        /** Cached metric tags. */
+        private KeyValuePair<string, object?>[]? _metricTags;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SocketEndpoint"/> class.
@@ -74,5 +79,15 @@ namespace Apache.Ignite.Internal
         /// Gets the cached endpoint string.
         /// </summary>
         public string EndPointString { get; }
+
+        /// <summary>
+        /// Gets the metric tags.
+        /// </summary>
+        /// <returns>Metric tags for this node.</returns>
+        internal ReadOnlySpan<KeyValuePair<string, object?>> GetMetricTags() =>
+            _metricTags ??= new[]
+            {
+                new KeyValuePair<string, object?>(MetricTags.NodeAddress, EndPointString)
+            };
     }
 }

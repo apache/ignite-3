@@ -239,11 +239,11 @@ namespace Apache.Ignite.Internal
 
                 if (ex.GetBaseException() is TimeoutException)
                 {
-                    Metrics.HandshakesFailedTimeout.Add(1);
+                    Metrics.HandshakesFailedTimeout.Add(1, endPoint.GetMetricTags());
                 }
                 else
                 {
-                    Metrics.HandshakesFailed.Add(1);
+                    Metrics.HandshakesFailed.Add(1, endPoint.GetMetricTags());
                 }
 
                 if (connected)
