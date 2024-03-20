@@ -215,7 +215,6 @@ public class TestClientHandlerModule implements IgniteComponent {
                                         configuration,
                                         compute,
                                         clusterService,
-                                        ignite.sql(),
                                         CompletableFuture.completedFuture(clusterTag),
                                         metrics,
                                         authenticationManager,
