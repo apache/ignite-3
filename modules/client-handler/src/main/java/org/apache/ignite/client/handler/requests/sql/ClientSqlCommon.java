@@ -17,38 +17,16 @@
 
 package org.apache.ignite.client.handler.requests.sql;
 
-import static org.apache.ignite.internal.lang.SqlExceptionMapperUtil.mapToPublicSqlException;
-
-import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
-import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
-import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
-import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.internal.sql.api.AsyncResultSetImpl;
-import org.apache.ignite.internal.sql.api.SessionBuilderImpl;
-import org.apache.ignite.internal.sql.engine.QueryProcessor;
-import org.apache.ignite.internal.sql.engine.QueryProperty;
-import org.apache.ignite.internal.sql.engine.SqlQueryType;
-import org.apache.ignite.internal.sql.engine.property.SqlProperties;
-import org.apache.ignite.internal.sql.engine.property.SqlProperties.Builder;
-import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
-import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnMetadata.ColumnOrigin;
 import org.apache.ignite.sql.ResultSetMetadata;
-import org.apache.ignite.sql.Session;
-import org.apache.ignite.sql.Session.SessionBuilder;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
-import org.apache.ignite.tx.IgniteTransactions;
-import org.apache.ignite.tx.Transaction;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Common SQL request handling logic.
@@ -224,37 +202,6 @@ class ClientSqlCommon {
             } else {
                 out.packInt(tableIdx);
             }
-        }
-    }
-
-    static CompletableFuture<AsyncResultSet<SqlRow>> executeAsync(
-            @Nullable Transaction transaction,
-            QueryProcessor qryProc,
-            IgniteTransactions transactions,
-            String query,
-            int pageSize,
-            SqlProperties props,
-            @Nullable Object... arguments
-    ) {
-        try {
-            SqlProperties properties = SqlPropertiesHelper.builderFromProperties(props)
-                    .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.SINGLE_STMT_TYPES)
-                    .build();
-
-            return qryProc.querySingleAsync(properties, transactions, (InternalTransaction) transaction, query, arguments)
-                    .thenCompose(cur -> {
-                                return cur.requestNextAsync(pageSize)
-                                        .thenApply(
-                                                batchRes -> new AsyncResultSetImpl<>(
-                                                        cur,
-                                                        batchRes,
-                                                        pageSize
-                                                )
-                                        );
-                            }
-                    );
-        } catch (Exception e) {
-            return CompletableFuture.failedFuture(mapToPublicSqlException(e));
         }
     }
 }

@@ -19,9 +19,11 @@ package org.apache.ignite.client.handler.requests.sql;
 
 import static org.apache.ignite.client.handler.requests.sql.ClientSqlCommon.packCurrentPage;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTx;
+import static org.apache.ignite.internal.lang.SqlExceptionMapperUtil.mapToPublicSqlException;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientResource;
@@ -31,11 +33,20 @@ import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.sql.api.AsyncResultSetImpl;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.internal.sql.engine.QueryProperty;
+import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.property.SqlProperties;
+import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.sql.ResultSetMetadata;
+import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
+import org.apache.ignite.tx.IgniteTransactions;
+import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -70,7 +81,7 @@ public class ClientSqlExecuteRequest {
         HybridTimestamp clientTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
         transactions.updateObservableTimestamp(clientTs);
 
-        return ClientSqlCommon.executeAsync(tx, sql, transactions, statement, props.pageSize(), props.toSqlProps(), arguments)
+        return executeAsync(tx, sql, transactions, statement, props.pageSize(), props.toSqlProps(), arguments)
                 .thenCompose(asyncResultSet -> {
                     out.meta(transactions.observableTimestamp());
 
@@ -134,5 +145,41 @@ public class ClientSqlExecuteRequest {
         }
 
         ClientSqlCommon.packColumns(out, meta.columns());
+    }
+
+    private static CompletableFuture<AsyncResultSet<SqlRow>> executeAsync(
+            @Nullable Transaction transaction,
+            QueryProcessor qryProc,
+            IgniteTransactions transactions,
+            String query,
+            int pageSize,
+            SqlProperties props,
+            @Nullable Object... arguments
+    ) {
+        try {
+            SqlProperties properties = SqlPropertiesHelper.builderFromProperties(props)
+                    .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.SINGLE_STMT_TYPES)
+                    .build();
+
+            CompletableFuture<AsyncResultSet<SqlRow>> fut = qryProc.querySingleAsync(
+                            properties, transactions, (InternalTransaction) transaction, query, arguments)
+                    .thenCompose(cur -> cur.requestNextAsync(pageSize)
+                            .thenApply(
+                                    batchRes -> new AsyncResultSetImpl<>(
+                                            cur,
+                                            batchRes,
+                                            pageSize
+                                    )
+                            )
+                    );
+
+            return fut.exceptionally((th) -> {
+                Throwable cause = ExceptionUtils.unwrapCause(th);
+
+                throw new CompletionException(mapToPublicSqlException(cause));
+            });
+        } catch (Exception e) {
+            return CompletableFuture.failedFuture(mapToPublicSqlException(e));
+        }
     }
 }
