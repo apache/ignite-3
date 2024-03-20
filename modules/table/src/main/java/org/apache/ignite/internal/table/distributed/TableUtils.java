@@ -17,10 +17,15 @@
 
 package org.apache.ignite.internal.table.distributed;
 
+import static java.util.Comparator.comparingInt;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.BUILDING;
+import static org.apache.ignite.internal.util.CollectionUtils.difference;
 import static org.apache.ignite.internal.util.CollectionUtils.view;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
@@ -28,6 +33,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tx.TransactionIds;
+import org.jetbrains.annotations.Nullable;
 
 /** Contains common helper methods and fields for use within a module. */
 public class TableUtils {
@@ -80,5 +86,45 @@ public class TableUtils {
                 "Could not find index in status %s: [indexId=%s, fromCatalogVersionIncluded=%s, latestCatalogVersion=%s]",
                 BUILDING, indexId, fromCatalogVersionIncluded, latestCatalogVersion
         ));
+    }
+
+    /**
+     * Collects a list of tables that were removed from the catalog and should have been dropped due to a low watermark (if the catalog
+     * version in which the table was removed is less than or equal to the active catalog version of low watermark).
+     *
+     * @param catalogService Catalog service.
+     * @param lowWatermark Low watermark, {@code null} if it has never been updated.
+     * @return Result is sorted by the catalog version in which the table was removed from the catalog and by the table ID.
+     */
+    // TODO: IGNITE-21771 Process or check catalog compaction
+    static List<DroppedTableInfo> droppedTables(CatalogService catalogService, @Nullable HybridTimestamp lowWatermark) {
+        if (lowWatermark == null) {
+            return List.of();
+        }
+
+        int earliestCatalogVersion = catalogService.earliestCatalogVersion();
+        int lwmCatalogVersion = catalogService.activeCatalogVersion(lowWatermark.longValue());
+
+        Set<Integer> previousCatalogVersionTableIds = Set.of();
+
+        var res = new ArrayList<DroppedTableInfo>();
+
+        for (int catalogVersion = earliestCatalogVersion; catalogVersion <= lwmCatalogVersion; catalogVersion++) {
+            int finalCatalogVersion = catalogVersion;
+
+            Set<Integer> tableIds = catalogService.tables(catalogVersion).stream()
+                    .map(CatalogObjectDescriptor::id)
+                    .collect(toSet());
+
+            difference(previousCatalogVersionTableIds, tableIds).stream()
+                    .map(tableId -> new DroppedTableInfo(tableId, finalCatalogVersion))
+                    .forEach(res::add);
+
+            previousCatalogVersionTableIds = tableIds;
+        }
+
+        res.sort(comparingInt(DroppedTableInfo::tableRemovalCatalogVersion).thenComparing(DroppedTableInfo::tableId));
+
+        return res;
     }
 }

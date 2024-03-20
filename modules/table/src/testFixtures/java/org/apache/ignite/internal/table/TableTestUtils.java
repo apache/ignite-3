@@ -106,6 +106,16 @@ public class TableTestUtils {
     }
 
     /**
+     * Drops table from {@link #createSimpleTable(CatalogManager, String)} in the catalog.
+     *
+     * @param catalogManager Catalog manager.
+     * @param tableName Table name.
+     */
+    public static void dropSimpleTable(CatalogManager catalogManager, String tableName) {
+        dropTable(catalogManager, DEFAULT_SCHEMA_NAME, tableName);
+    }
+
+    /**
      * Drops index in the catalog.
      *
      * @param catalogManager Catalog manager.

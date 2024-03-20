@@ -59,4 +59,9 @@ public class ThreadAssertingStorageEngine implements StorageEngine {
         MvTableStorage tableStorage = storageEngine.createMvTable(tableDescriptor, indexDescriptorSupplier);
         return new ThreadAssertingMvTableStorage(tableStorage);
     }
+
+    @Override
+    public void dropMvTableOnRecovery(int tableId) {
+        storageEngine.dropMvTableOnRecovery(tableId);
+    }
 }

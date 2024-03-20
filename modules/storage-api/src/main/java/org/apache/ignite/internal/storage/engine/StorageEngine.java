@@ -57,4 +57,12 @@ public interface StorageEngine {
      */
     // TODO: IGNITE-19717 Get rid of indexDescriptorSupplier
     MvTableStorage createMvTable(StorageTableDescriptor tableDescriptor, StorageIndexDescriptorSupplier indexDescriptorSupplier);
+
+    /**
+     * Destroys the table on node recovery if it exists.
+     *
+     * @param tableId Table ID.
+     * @throws StorageException If an error has occurs while dropping the table.
+     */
+    void dropMvTableOnRecovery(int tableId);
 }

@@ -525,13 +525,33 @@ public class FilePageStoreManagerTest extends BaseIgniteAbstractTest {
         );
     }
 
+    @Test
+    void testDestroyGroupIfExists() throws Exception {
+        FilePageStoreManager manager = createManager();
+
+        manager.start();
+
+        int groupId = 1;
+
+        Path dbDir = workDir.resolve("db");
+
+        // Directory does not exist.
+        assertDoesNotThrow(() -> manager.destroyGroupIfExists(groupId));
+        assertThat(collectAllSubFileAndDirs(dbDir), empty());
+
+        createAndAddFilePageStore(manager, new GroupPartitionId(groupId, 0));
+        manager.destroyGroupIfExists(groupId);
+        assertThat(collectAllSubFileAndDirs(dbDir), empty());
+    }
+
     private FilePageStoreManager createManager() throws Exception {
         FilePageStoreManager manager = new FilePageStoreManager(
                 "test",
                 workDir,
                 new RandomAccessFileIoFactory(),
                 PAGE_SIZE,
-                mock(FailureProcessor.class));
+                mock(FailureProcessor.class)
+        );
 
         managers.add(manager);
 
@@ -540,6 +560,12 @@ public class FilePageStoreManagerTest extends BaseIgniteAbstractTest {
 
     private static List<Path> collectFilesOnly(Path start) throws Exception {
         try (Stream<Path> fileStream = Files.find(start, Integer.MAX_VALUE, (path, basicFileAttributes) -> Files.isRegularFile(path))) {
+            return fileStream.collect(toList());
+        }
+    }
+
+    private static List<Path> collectAllSubFileAndDirs(Path start) throws Exception {
+        try (Stream<Path> fileStream = Files.find(start, Integer.MAX_VALUE, (path, basicFileAttributes) -> !start.equals(path))) {
             return fileStream.collect(toList());
         }
     }

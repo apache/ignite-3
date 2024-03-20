@@ -160,6 +160,11 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
         return new VolatilePageMemoryTableStorage(tableDescriptor, indexDescriptorSupplier, dataRegion, destructionExecutor);
     }
 
+    @Override
+    public void dropMvTableOnRecovery(int tableId) {
+        // No-op.
+    }
+
     /**
      * Creates, starts and adds a new data region to the engine.
      *

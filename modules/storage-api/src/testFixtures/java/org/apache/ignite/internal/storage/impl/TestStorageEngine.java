@@ -59,4 +59,9 @@ public class TestStorageEngine implements StorageEngine {
     ) throws StorageException {
         return spy(new TestMvTableStorage(tableDescriptor));
     }
+
+    @Override
+    public void dropMvTableOnRecovery(int tableId) {
+        // No-op.
+    }
 }
