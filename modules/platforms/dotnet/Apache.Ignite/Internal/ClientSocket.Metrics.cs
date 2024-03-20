@@ -42,7 +42,7 @@ internal sealed partial class ClientSocket
     }
 
     private static KeyValuePair<string, object?> GetNodeAddrTag(ClusterNode node) =>
-        new(MetricTags.NodeAddress, node.AddressString);
+        new(MetricTags.NodeAddress, node.GetAddressString());
 
     private static KeyValuePair<string, object?> GetNodeNameTag(ClusterNode node) =>
         new(MetricTags.NodeName, node.Name);
