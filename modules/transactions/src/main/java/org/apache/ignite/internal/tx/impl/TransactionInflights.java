@@ -87,16 +87,17 @@ public class TransactionInflights {
      * @param txId The transaction id.
      */
     public void removeInflight(UUID txId) {
-        TxContext tuple = txCtxMap.compute(txId, (uuid, ctx) -> {
-            assert ctx != null : format("No tx context found on removing inflight [txId={}]", txId);
-
+        // Can be null if tx was aborted and inflights were removed from the collection.
+        TxContext tuple = txCtxMap.computeIfPresent(txId, (uuid, ctx) -> {
             ctx.removeInflight(txId);
 
             return ctx;
         });
 
         // Avoid completion under lock.
-        tuple.onInflightsRemoved();
+        if (tuple != null) {
+            tuple.onInflightsRemoved();
+        }
     }
 
     /**
