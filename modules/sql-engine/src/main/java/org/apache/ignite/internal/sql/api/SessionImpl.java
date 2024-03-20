@@ -329,6 +329,12 @@ public class SessionImpl implements AbstractSession {
         }
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, Statement statement, BatchedArguments batch) {
+        throw new UnsupportedOperationException("Not implemented yet.");
+    }
+
     /**
      * Execute batch of DML statements.
      *
@@ -441,12 +447,6 @@ public class SessionImpl implements AbstractSession {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, Statement statement, BatchedArguments batch) {
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public CompletableFuture<Void> executeScriptAsync(String query, @Nullable Object... arguments) {
         touchAndCloseIfExpired();
 
@@ -472,6 +472,18 @@ public class SessionImpl implements AbstractSession {
         }
     }
 
+    /**
+     * Execute SQL script.
+     *
+     * @param qryProc Query processor.
+     * @param transactions Transactions facade.
+     * @param enterBusy Enter busy lock action.
+     * @param leaveBusy Leave busy lock action.
+     * @param query SQL script.
+     * @param arguments Arguments.
+     * @param properties Properties.
+     * @return Operation future.
+     */
     public static CompletableFuture<Void> executeScriptCore(
             QueryProcessor qryProc,
             IgniteTransactions transactions,
