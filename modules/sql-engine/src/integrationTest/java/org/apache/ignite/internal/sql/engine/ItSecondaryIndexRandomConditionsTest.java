@@ -82,12 +82,12 @@ public class ItSecondaryIndexRandomConditionsTest extends BaseSqlIntegrationTest
     @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
     @ParameterizedTest
     @ValueSource(strings = {
-            "a,b,c ASC", "a,b,c DESC",
-            "a,c,b ASC", "a,c,b DESC",
-            "b,a,c ASC", "b,a,c DESC",
-            "b,c,a ASC", "b,c,a DESC",
-            "c,a,b ASC", "c,a,b DESC",
-            "c,b,a ASC", "c,b,a DESC"
+            "a ASC, b ASC, c ASC", "a DESC, b DESC, c DESC",
+            "a ASC, c ASC, b ASC", "a DESC, c DESC, b DESC",
+            "b ASC, a ASC, c ASC", "b DESC, a DESC, c DESC",
+            "b ASC, c ASC, a ASC", "b DESC, c DESC, a DESC",
+            "c ASC, a ASC, b ASC", "c DESC, a DESC, b DESC",
+            "c ASC, b ASC, a ASC", "c DESC, b DESC, a DESC"
     })
     public void testRandomConditionsWithIndexFieldsPermutations(String idxFields) {
         sql("create table test0(a int, b int, c int, d int) with primary_zone='IN_MEM_ZONE'");
@@ -112,7 +112,6 @@ public class ItSecondaryIndexRandomConditionsTest extends BaseSqlIntegrationTest
     private static void doRandomQueries(long ... seeds) {
         String[] columns = { "a", "b", "c" };
         Object[] values = { null, 0, 0, 1, 2, 10, "a", "?" };
-        // TODO Issue hangs "in(select", "not in(select".
         String[] compares = { "in(", "not in(", "=", "=", ">", "<", ">=", "<=", "<>"};
 
         for (long seed : seeds) {
