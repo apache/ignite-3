@@ -2263,19 +2263,19 @@ public class PartitionReplicaListener implements ReplicaListener {
                         RowId rowId0;
 
                         if (insert) {
-                            int prevRowIdx = newKeyMap.getOrDefault(pk.byteBuffer(), -1);
+                            Integer prevRowIdx = newKeyMap.put(pk.byteBuffer(), rowIdx);
 
-                            if (prevRowIdx != -1) {
-                                // Use existing lock, and skip previous row with the same key.
+                            if (prevRowIdx != null) {
+                                // Return existing lock.
                                 CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>> lockFut = rowIdFuts[prevRowIdx];
+
+                                // Skip previous update with the same key.
                                 rowIdFuts[prevRowIdx] = nullCompletedFuture();
-                                newKeyMap.put(pk.byteBuffer(), rowIdx);
 
                                 return lockFut;
                             }
 
                             rowId0 = new RowId(partId(), UUID.randomUUID());
-                            newKeyMap.put(pk.byteBuffer(), rowIdx);
                         } else {
                             rowId0 = rowId;
                         }
