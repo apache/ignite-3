@@ -233,10 +233,10 @@ class ClientSqlCommon {
             IgniteTransactions transactions,
             String query,
             int pageSize,
+            SqlProperties props,
             @Nullable Object... arguments
     ) {
         try {
-            SqlProperties props = null; // TODO
             SqlProperties properties = SqlPropertiesHelper.builderFromProperties(props)
                     .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.SINGLE_STMT_TYPES)
                     .build();

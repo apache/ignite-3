@@ -17,7 +17,6 @@
 
 package org.apache.ignite.client.handler.requests.sql;
 
-import static org.apache.ignite.client.handler.requests.sql.ClientSqlCommon.readSession;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTx;
 
 import java.util.concurrent.CompletableFuture;
@@ -64,38 +63,39 @@ public class ClientSqlExecuteBatchRequest {
             ClientHandlerMetricSource metrics,
             IgniteTransactionsImpl transactions
     ) {
-        var tx = readTx(in, out, resources);
-        Session session = readSession(in, sql, transactions);
-        String statement = in.unpackString();
-        BatchedArguments arguments = in.unpackObjectArrayFromBinaryTupleArray();
-
-        if (arguments == null) {
-            // SQL engine requires non-null arguments, but we don't want to complicate the protocol with this requirement.
-            arguments = BatchedArguments.of(ArrayUtils.OBJECT_EMPTY_ARRAY);
-        }
-
-        // TODO IGNITE-20232 Propagate observable timestamp to sql engine using internal API.
-        HybridTimestamp clientTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
-
-        transactions.updateObservableTimestamp(clientTs);
-
-        return session
-                .executeBatchAsync(tx, statement, arguments)
-                .handle((affectedRows, ex) -> {
-                    out.meta(transactions.observableTimestamp());
-                    if (ex != null) {
-                        var cause = ExceptionUtils.unwrapCause(ex.getCause());
-
-                        if (cause instanceof SqlBatchException) {
-                            var exBatch = ((SqlBatchException) cause);
-                            return writeBatchResultAsync(out, resources, exBatch.updateCounters(),
-                                    exBatch.errorCode(), exBatch.getMessage(), session, metrics);
-                        }
-                        affectedRows = ArrayUtils.LONG_EMPTY_ARRAY;
-                    }
-
-                    return writeBatchResultAsync(out, resources, affectedRows, session, metrics);
-                }).thenCompose(Function.identity());
+        return CompletableFuture.completedFuture(null);
+//        var tx = readTx(in, out, resources);
+//        Session session = readSession(in, sql, transactions);
+//        String statement = in.unpackString();
+//        BatchedArguments arguments = in.unpackObjectArrayFromBinaryTupleArray();
+//
+//        if (arguments == null) {
+//            // SQL engine requires non-null arguments, but we don't want to complicate the protocol with this requirement.
+//            arguments = BatchedArguments.of(ArrayUtils.OBJECT_EMPTY_ARRAY);
+//        }
+//
+//        // TODO IGNITE-20232 Propagate observable timestamp to sql engine using internal API.
+//        HybridTimestamp clientTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
+//
+//        transactions.updateObservableTimestamp(clientTs);
+//
+//        return session
+//                .executeBatchAsync(tx, statement, arguments)
+//                .handle((affectedRows, ex) -> {
+//                    out.meta(transactions.observableTimestamp());
+//                    if (ex != null) {
+//                        var cause = ExceptionUtils.unwrapCause(ex.getCause());
+//
+//                        if (cause instanceof SqlBatchException) {
+//                            var exBatch = ((SqlBatchException) cause);
+//                            return writeBatchResultAsync(out, resources, exBatch.updateCounters(),
+//                                    exBatch.errorCode(), exBatch.getMessage(), session, metrics);
+//                        }
+//                        affectedRows = ArrayUtils.LONG_EMPTY_ARRAY;
+//                    }
+//
+//                    return writeBatchResultAsync(out, resources, affectedRows, session, metrics);
+//                }).thenCompose(Function.identity());
     }
 
     private static CompletionStage<Void> writeBatchResultAsync(

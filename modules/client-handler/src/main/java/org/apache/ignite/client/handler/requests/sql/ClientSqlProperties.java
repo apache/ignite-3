@@ -18,6 +18,10 @@
 package org.apache.ignite.client.handler.requests.sql;
 
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.sql.AbstractSession;
+import org.apache.ignite.internal.sql.engine.QueryProperty;
+import org.apache.ignite.internal.sql.engine.property.SqlProperties;
+import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 
 class ClientSqlProperties {
     private final String schema;
@@ -29,10 +33,10 @@ class ClientSqlProperties {
     private final long idleTimeout;
 
     ClientSqlProperties(ClientMessageUnpacker in) {
-        schema = in.unpackString();
-        pageSize = in.unpackInt();
-        queryTimeout = in.unpackLong();
-        idleTimeout = in.unpackLong();
+        schema = in.tryUnpackNil() ? AbstractSession.DEFAULT_SCHEMA : in.unpackString();
+        pageSize = in.tryUnpackNil() ? AbstractSession.DEFAULT_PAGE_SIZE : in.unpackInt();
+        queryTimeout = in.tryUnpackNil() ? 0 : in.unpackLong();
+        idleTimeout = in.tryUnpackNil() ? 0 : in.unpackLong();
 
         // Skip properties - not used by SQL engine.
         in.unpackInt(); // Number of properties.
@@ -53,5 +57,12 @@ class ClientSqlProperties {
 
     public long idleTimeout() {
         return idleTimeout;
+    }
+
+    SqlProperties toSqlProps() {
+        return  SqlPropertiesHelper.newBuilder()
+                .set(QueryProperty.QUERY_TIMEOUT, queryTimeout)
+                .set(QueryProperty.DEFAULT_SCHEMA, schema)
+                .build();
     }
 }

@@ -18,7 +18,6 @@
 package org.apache.ignite.client.handler.requests.sql;
 
 import static org.apache.ignite.client.handler.requests.sql.ClientSqlCommon.packCurrentPage;
-import static org.apache.ignite.client.handler.requests.sql.ClientSqlCommon.readSession;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTx;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
@@ -35,11 +34,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.util.ArrayUtils;
-import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSetMetadata;
-import org.apache.ignite.sql.Session;
-import org.apache.ignite.sql.Statement;
-import org.apache.ignite.sql.Statement.StatementBuilder;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.jetbrains.annotations.Nullable;
 
@@ -68,7 +63,7 @@ public class ClientSqlExecuteRequest {
             IgniteTransactionsImpl transactions
     ) {
         var tx = readTx(in, out, resources);
-        Session session = readSession(in, sql, transactions);
+        ClientSqlProperties props = new ClientSqlProperties(in);
         String statement = in.unpackString();
         Object[] arguments = in.unpackObjectArrayFromBinaryTuple();
 
@@ -82,12 +77,11 @@ public class ClientSqlExecuteRequest {
 
         transactions.updateObservableTimestamp(clientTs);
 
-        return session
-                .executeAsync(tx, statement, arguments)
+        return ClientSqlCommon.executeAsync(tx, sql, transactions, statement, props.pageSize(), props.toSqlProps(), arguments)
                 .thenCompose(asyncResultSet -> {
                     out.meta(transactions.observableTimestamp());
 
-                    return writeResultSetAsync(out, resources, asyncResultSet, session, metrics);
+                    return writeResultSetAsync(out, resources, asyncResultSet, metrics);
                 });
     }
 
@@ -95,7 +89,6 @@ public class ClientSqlExecuteRequest {
             ClientMessagePacker out,
             ClientResourceRegistry resources,
             AsyncResultSet asyncResultSet,
-            Session session,
             ClientHandlerMetricSource metrics) {
         boolean hasResource = asyncResultSet.hasRowSet() && asyncResultSet.hasMorePages();
 
@@ -103,7 +96,7 @@ public class ClientSqlExecuteRequest {
             try {
                 metrics.cursorsActiveIncrement();
 
-                var clientResultSet = new ClientSqlResultSet(asyncResultSet, session, metrics);
+                var clientResultSet = new ClientSqlResultSet(asyncResultSet, metrics);
 
                 ClientResource resource = new ClientResource(
                         clientResultSet,
@@ -134,9 +127,9 @@ public class ClientSqlExecuteRequest {
 
             return hasResource
                     ? nullCompletedFuture()
-                    : asyncResultSet.closeAsync().thenCompose(res -> session.closeAsync());
+                    : asyncResultSet.closeAsync();
         } else {
-            return asyncResultSet.closeAsync().thenCompose(res -> session.closeAsync());
+            return asyncResultSet.closeAsync();
         }
     }
 
