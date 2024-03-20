@@ -292,24 +292,28 @@ namespace Apache.Ignite.Internal
             IgniteClientConfiguration configuration,
             CancellationToken cancellationToken)
         {
+            // Node ID and name are not known at this point. This is used only for metrics.
+            var node = new ClusterNode(id: string.Empty, name: string.Empty, address: endPoint);
+
             await stream.WriteAsync(ProtoCommon.MagicBytes, cancellationToken).ConfigureAwait(false);
-            await WriteHandshakeAsync(stream, CurrentProtocolVersion, configuration, cancellationToken).ConfigureAwait(false);
+            await WriteHandshakeAsync(stream, CurrentProtocolVersion, configuration, node, cancellationToken).ConfigureAwait(false);
 
             await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
 
-            await CheckMagicBytesAsync(stream, cancellationToken).ConfigureAwait(false);
+            await CheckMagicBytesAsync(stream, node, cancellationToken).ConfigureAwait(false);
 
-            using var response = await ReadResponseAsync(stream, new byte[4], CancellationToken.None).ConfigureAwait(false);
+            using var response = await ReadResponseAsync(stream, new byte[4], node, CancellationToken.None).ConfigureAwait(false);
             return ReadHandshakeResponse(response.GetReader(), endPoint, GetSslInfo(stream));
         }
 
-        private static async ValueTask CheckMagicBytesAsync(Stream stream, CancellationToken cancellationToken)
+        private static async ValueTask CheckMagicBytesAsync(Stream stream, ClusterNode node, CancellationToken cancellationToken)
         {
             var responseMagic = ByteArrayPool.Rent(ProtoCommon.MagicBytes.Length);
 
             try
             {
-                await ReceiveBytesAsync(stream, responseMagic, ProtoCommon.MagicBytes.Length, cancellationToken).ConfigureAwait(false);
+                await ReceiveBytesAsync(stream, responseMagic, ProtoCommon.MagicBytes.Length, node, cancellationToken)
+                    .ConfigureAwait(false);
 
                 for (var i = 0; i < ProtoCommon.MagicBytes.Length; i++)
                 {
@@ -386,15 +390,16 @@ namespace Apache.Ignite.Internal
         private static async ValueTask<PooledBuffer> ReadResponseAsync(
             Stream stream,
             byte[] messageSizeBytes,
+            ClusterNode node,
             CancellationToken cancellationToken)
         {
-            var size = await ReadMessageSizeAsync(stream, messageSizeBytes, cancellationToken).ConfigureAwait(false);
+            var size = await ReadMessageSizeAsync(stream, messageSizeBytes, node, cancellationToken).ConfigureAwait(false);
 
             var bytes = ByteArrayPool.Rent(size);
 
             try
             {
-                await ReceiveBytesAsync(stream, bytes, size, cancellationToken).ConfigureAwait(false);
+                await ReceiveBytesAsync(stream, bytes, size, node, cancellationToken).ConfigureAwait(false);
 
                 return new PooledBuffer(bytes, 0, size);
             }
@@ -409,12 +414,13 @@ namespace Apache.Ignite.Internal
         private static async Task<int> ReadMessageSizeAsync(
             Stream stream,
             byte[] buffer,
+            ClusterNode node,
             CancellationToken cancellationToken)
         {
             const int messageSizeByteCount = 4;
             Debug.Assert(buffer.Length >= messageSizeByteCount, "buffer.Length >= messageSizeByteCount");
 
-            await ReceiveBytesAsync(stream, buffer, messageSizeByteCount, cancellationToken).ConfigureAwait(false);
+            await ReceiveBytesAsync(stream, buffer, messageSizeByteCount, node, cancellationToken).ConfigureAwait(false);
 
             return ReadMessageSize(buffer);
         }
@@ -423,6 +429,7 @@ namespace Apache.Ignite.Internal
             Stream stream,
             byte[] buffer,
             int size,
+            ClusterNode node,
             CancellationToken cancellationToken)
         {
             int received = 0;
@@ -442,7 +449,7 @@ namespace Apache.Ignite.Internal
 
                 received += res;
 
-                Metrics.BytesReceived.Add(res);
+                AddBytesReceived(res, node);
             }
         }
 
@@ -450,6 +457,7 @@ namespace Apache.Ignite.Internal
             Stream stream,
             ClientProtocolVersion version,
             IgniteClientConfiguration configuration,
+            ClusterNode node,
             CancellationToken token)
         {
             using var bufferWriter = new PooledArrayBuffer(prefixSize: ProtoCommon.MessagePrefixSize);
@@ -463,8 +471,7 @@ namespace Apache.Ignite.Internal
 
             await stream.WriteAsync(resBuf, token).ConfigureAwait(false);
 
-            // TODO
-            Metrics.BytesSent.Add(resBuf.Length + ProtoCommon.MagicBytes.Length);
+            AddBytesSent(resBuf.Length + ProtoCommon.MagicBytes.Length, node);
         }
 
         private static void WriteHandshake(MsgPackWriter w, ClientProtocolVersion version, IgniteClientConfiguration configuration)
@@ -690,7 +697,8 @@ namespace Apache.Ignite.Internal
             {
                 while (!cancellationToken.IsCancellationRequested)
                 {
-                    PooledBuffer response = await ReadResponseAsync(_stream, messageSizeBytes, cancellationToken).ConfigureAwait(false);
+                    PooledBuffer response = await ReadResponseAsync(
+                        _stream, messageSizeBytes, ConnectionContext.ClusterNode, cancellationToken).ConfigureAwait(false);
 
                     // Invoke response handler in another thread to continue the receive loop.
                     // Response buffer should be disposed by the task handler.

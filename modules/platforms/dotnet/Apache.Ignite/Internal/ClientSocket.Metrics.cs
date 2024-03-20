@@ -18,19 +18,24 @@
 namespace Apache.Ignite.Internal;
 
 using System.Collections.Generic;
+using Network;
 
 /// <summary>
 /// Metrics-related functionality.
 /// </summary>
 internal sealed partial class ClientSocket
 {
-    private void AddBytesSent(int bytes) => Metrics.BytesSent.Add(bytes, GetNodeNameMetricTag(), GetNodeAddrMetricTag());
+    private static void AddBytesSent(int bytes, ClusterNode node) =>
+        Metrics.BytesSent.Add(bytes, GetNodeAddrTag(node), GetNodeNameTag(node));
 
-    private void AddBytesReceived(int bytes) => Metrics.BytesReceived.Add(bytes, GetNodeNameMetricTag(), GetNodeAddrMetricTag());
+    private static void AddBytesReceived(int bytes, ClusterNode node) =>
+        Metrics.BytesReceived.Add(bytes, GetNodeAddrTag(node), GetNodeNameTag(node));
 
-    private KeyValuePair<string, object?> GetNodeNameMetricTag() =>
-        new(MetricTags.NodeName, ConnectionContext.ClusterNode.Name);
+    private static KeyValuePair<string, object?> GetNodeAddrTag(ClusterNode node) =>
+        new(MetricTags.NodeAddress, node.AddressString);
 
-    private KeyValuePair<string, object?> GetNodeAddrMetricTag() =>
-        new(MetricTags.NodeAddress, ConnectionContext.ClusterNode.AddressString);
+    private static KeyValuePair<string, object?> GetNodeNameTag(ClusterNode node) =>
+        new(MetricTags.NodeName, node.Name);
+
+    private void AddBytesSent(int bytes) => AddBytesReceived(bytes, ConnectionContext.ClusterNode);
 }
