@@ -83,9 +83,23 @@ public interface RaftGroupListener {
     void onShutdown();
 
     /**
+     * Invoked when the belonging node is about to become the leader of the group.
+     */
+    default void onBeforeLeaderStart() {
+        // No-op.
+    }
+
+    /**
      * Invoked when the belonging node becomes the leader of the group.
      */
     default void onLeaderStart() {
+        // No-op.
+    }
+
+    /**
+     * Invoked when the belonging node stops being the leader of the group.
+     */
+    default void onLeaderStop() {
         // No-op.
     }
 }

@@ -80,6 +80,11 @@ public interface FSMCaller extends Lifecycle<FSMCallerOptions>, Describer {
     boolean onLeaderStop(final Status status);
 
     /**
+     * Called when the node is about to become a leader. Pay attention that it's a synchronous callback that should be lightweight.
+     */
+    boolean onBeforeLeaderStart();
+
+    /**
      * Called when the leader starts.
      *
      * @param term current term

@@ -59,6 +59,11 @@ public abstract class StateMachineAdapter implements StateMachine {
     }
 
     @Override
+    public void onBeforeLeaderStart() {
+        LOG.info("onBeforeLeaderStart.");
+    }
+
+    @Override
     public void onLeaderStart(final long term) {
         this.leaderTerm = term;
         LOG.info("onLeaderStart: term={}.", term);
