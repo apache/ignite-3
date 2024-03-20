@@ -3893,7 +3893,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         CompletableFuture<Void> changePrimaryReplicaFuture(String leaseholderId, long leaseStartTime) {
             PrimaryReplicaChangeCommandFuture f = futureRef;
 
-            if (leaseholderId.equals(f.leaseholderId) && leaseStartTime == f.leaseStartTime) {
+            if (leaseholderId.equals(f.leaseholderId) && leaseStartTime <= f.leaseStartTime) {
                 return f.future;
             } else {
                 PrimaryReplicaChangeCommand cmd = MSG_FACTORY.primaryReplicaChangeCommand()
@@ -3903,6 +3903,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         .build();
 
                 synchronized (this) {
+                    LOG.info("qqq Sending PrimaryReplicaChangeCommand cmd=" + cmd);
                     futureRef = new PrimaryReplicaChangeCommandFuture(
                             leaseholderId,
                             leaseStartTime,

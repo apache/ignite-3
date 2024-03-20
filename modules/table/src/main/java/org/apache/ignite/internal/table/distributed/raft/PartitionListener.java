@@ -54,7 +54,6 @@ import org.apache.ignite.internal.raft.service.BeforeApplyHandler;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.CommittedConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -598,6 +597,8 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Proper storage/raft index handling is required.
         synchronized (safeTime) {
             if (cmd.safeTime().compareTo(safeTime.current()) > 0) {
+                LOG.info("qqq Handling primary replica change command=" + cmd);
+
                 txStateStorage.updateLease(cmd.leaseholderId(), cmd.leaseStartTime());
 
                 updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());

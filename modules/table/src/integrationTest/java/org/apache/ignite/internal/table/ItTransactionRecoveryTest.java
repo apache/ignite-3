@@ -1056,6 +1056,8 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
                         && !fullTxReplicationAttemptLatch.isDone()) {
                     fullTxReplicationAttemptLatch.complete(null);
 
+                    log.info("Stopped the full tx before sending write command.");
+
                     regularTxComplete.join();
                 }
             }
@@ -1063,7 +1065,8 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
             return false;
         });
 
-        // Starting full transaction.
+        // Starting the full transaction.
+        log.info("Starting the full transaction.");
         CompletableFuture<Tuple> fullTxFut = view.getAndDeleteAsync(null, Tuple.create().set("key", 1));
 
         assertThat(fullTxReplicationAttemptLatch, willCompleteSuccessfully());
@@ -1084,6 +1087,8 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         } finally {
             regularTxComplete.complete(null);
         }
+
+        log.info("Completed the regular transaction [txId={}].", ((ReadWriteTransactionImpl) tx).id());
 
         // Full transaction should finally complete.
         assertThat(fullTxFut, willCompleteSuccessfully());
