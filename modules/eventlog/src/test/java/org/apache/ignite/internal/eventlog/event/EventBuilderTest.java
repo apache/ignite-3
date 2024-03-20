@@ -77,11 +77,11 @@ class EventBuilderTest {
 
     @Test
     void buildWithDefaults() {
-       Event event = Event.builder()
-               .type(EVENT_TYPE)
-               .user(EventUser.system())
-               .build();
-       
+        Event event = Event.builder()
+                .type(EVENT_TYPE)
+                .user(EventUser.system())
+                .build();
+
         assertEquals(EVENT_TYPE, event.type());
         assertThat(event.timestamp(), greaterThan(0L));
         assertEquals("3.0.0", event.productVersion());
