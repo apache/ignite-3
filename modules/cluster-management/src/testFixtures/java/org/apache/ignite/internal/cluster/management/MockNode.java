@@ -109,7 +109,7 @@ public class MockNode {
 
         Loza raftManager = new Loza(clusterService, raftConfiguration, workDir, new HybridClockImpl());
 
-        var clusterStateStorage = new RocksDbClusterStateStorage(workDir.resolve("cmg"));
+        var clusterStateStorage = new RocksDbClusterStateStorage(workDir.resolve("cmg"), clusterService.nodeName());
 
         var logicalTopologyService = new LogicalTopologyImpl(clusterStateStorage);
 

@@ -22,7 +22,7 @@ package org.apache.ignite.internal.cluster.management.raft;
  */
 public class TestClusterStateStorageTest extends AbstractClusterStateStorageTest {
     @Override
-    ClusterStateStorage createStorage() {
+    ClusterStateStorage createStorage(String nodeName) {
         return new TestClusterStateStorage();
     }
 }

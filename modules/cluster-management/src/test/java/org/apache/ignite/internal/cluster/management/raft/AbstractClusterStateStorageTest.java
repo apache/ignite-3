@@ -19,7 +19,8 @@ package org.apache.ignite.internal.cluster.management.raft;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -34,29 +35,24 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
-import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.util.Cursor;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.TestInfo;
 
 /**
  * Base class for testing {@link ClusterStateStorage} implementations.
  */
-@ExtendWith(WorkDirectoryExtension.class)
-public abstract class AbstractClusterStateStorageTest {
-    @WorkDirectory
-    protected Path workDir;
-
+public abstract class AbstractClusterStateStorageTest extends IgniteAbstractTest {
     private ClusterStateStorage storage;
 
-    abstract ClusterStateStorage createStorage();
+    abstract ClusterStateStorage createStorage(String nodeName);
 
     @BeforeEach
-    void setUp() {
-        storage = createStorage();
+    void setUp(TestInfo testInfo) {
+        storage = createStorage(testNodeName(testInfo, 0));
 
         storage.start();
     }
@@ -280,7 +276,7 @@ public abstract class AbstractClusterStateStorageTest {
      * Tests the {@link ClusterStateStorage#destroy()} method.
      */
     @Test
-    void testDestroy() {
+    void testDestroy(TestInfo testInfo) {
         byte[] key = "key".getBytes(UTF_8);
 
         byte[] value = "value".getBytes(UTF_8);
@@ -290,6 +286,8 @@ public abstract class AbstractClusterStateStorageTest {
         assertThat(storage.get(key), is(equalTo(value)));
 
         storage.destroy();
+
+        storage = createStorage(testNodeName(testInfo, 0));
 
         storage.start();
 
@@ -304,7 +302,7 @@ public abstract class AbstractClusterStateStorageTest {
      * Tests creating and restoring snapshots.
      */
     @Test
-    void testSnapshot() throws IOException {
+    void testSnapshot(TestInfo testInfo) throws IOException {
         Path snapshotDir = workDir.resolve("snapshot");
 
         Files.createDirectory(snapshotDir);
@@ -318,14 +316,24 @@ public abstract class AbstractClusterStateStorageTest {
         storage.put(key1, value1);
         storage.put(key2, value2);
 
-        assertThat(storage.snapshot(snapshotDir), willBe(nullValue(Void.class)));
+        assertThat(storage.snapshot(snapshotDir), willCompleteSuccessfully());
 
         storage.destroy();
+
+        storage = createStorage(testNodeName(testInfo, 0));
 
         storage.start();
 
         assertThat(storage.get(key1), is(nullValue()));
         assertThat(storage.get(key2), is(nullValue()));
+
+        storage.restoreSnapshot(snapshotDir);
+
+        assertThat(storage.get(key1), is(value1));
+        assertThat(storage.get(key2), is(value2));
+
+        // Try restoring a snapshot a second time.
+        assertThat(storage.snapshot(snapshotDir), willCompleteSuccessfully());
 
         storage.restoreSnapshot(snapshotDir);
 
