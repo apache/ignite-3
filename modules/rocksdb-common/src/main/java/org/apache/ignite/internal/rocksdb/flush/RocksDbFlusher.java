@@ -123,7 +123,7 @@ public class RocksDbFlusher {
 
     /**
      * Returns an instance of {@link AbstractEventListener} to process actual RocksDB events. Returned listener must be set into
-     * {@link Options#setListeners(List)} before database is started. Otherwise, no events would occurre.
+     * {@link Options#setListeners(List)} before database is started. Otherwise, no events would occur.
      */
     public AbstractEventListener listener() {
         return new RocksDbFlushListener(this);

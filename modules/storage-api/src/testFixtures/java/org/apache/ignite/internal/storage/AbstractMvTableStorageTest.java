@@ -314,6 +314,113 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertThat(tableStorage.getIndex(PARTITION_ID, hashIdx.id()), is(nullValue()));
     }
 
+    /**
+     * Tests that removing one Sorted Index does not affect the data in the other.
+     */
+    @Test
+    public void testDestroySortedIndexIndependence() {
+        CatalogTableDescriptor catalogTableDescriptor = catalogService.table(TABLE_NAME, clock.nowLong());
+
+        var catalogSortedIndex1 = new CatalogSortedIndexDescriptor(
+                200,
+                "TEST_INDEX_1",
+                catalogTableDescriptor.id(),
+                false,
+                AVAILABLE,
+                catalogService.latestCatalogVersion(),
+                List.of(new CatalogIndexColumnDescriptor("STRKEY", ASC_NULLS_LAST))
+        );
+
+        var catalogSortedIndex2 = new CatalogSortedIndexDescriptor(
+                201,
+                "TEST_INDEX_2",
+                catalogTableDescriptor.id(),
+                false,
+                AVAILABLE,
+                catalogService.latestCatalogVersion(),
+                List.of(new CatalogIndexColumnDescriptor("STRKEY", ASC_NULLS_LAST))
+        );
+
+        var sortedIndexDescriptor1 = new StorageSortedIndexDescriptor(catalogTableDescriptor, catalogSortedIndex1);
+        var sortedIndexDescriptor2 = new StorageSortedIndexDescriptor(catalogTableDescriptor, catalogSortedIndex2);
+
+        MvPartitionStorage partitionStorage = getOrCreateMvPartition(PARTITION_ID);
+
+        SortedIndexStorage sortedIndexStorage1 = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIndexDescriptor1);
+        SortedIndexStorage sortedIndexStorage2 = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIndexDescriptor2);
+
+        List<TestRow> rows = List.of(
+                new TestRow(new RowId(PARTITION_ID), binaryRow(new TestKey(0, "0"), new TestValue(0, "0"))),
+                new TestRow(new RowId(PARTITION_ID), binaryRow(new TestKey(1, "1"), new TestValue(1, "1")))
+        );
+
+        fillStorages(partitionStorage, null, sortedIndexStorage1, rows);
+        fillStorages(partitionStorage, null, sortedIndexStorage2, rows);
+
+        checkForPresenceRows(null, null, sortedIndexStorage1, rows);
+        checkForPresenceRows(null, null, sortedIndexStorage2, rows);
+
+        assertThat(tableStorage.destroyIndex(sortedIndexDescriptor1.id()), willCompleteSuccessfully());
+
+        assertThat(tableStorage.getIndex(PARTITION_ID, sortedIndexDescriptor1.id()), is(nullValue()));
+
+        checkForPresenceRows(null, null, sortedIndexStorage2, rows);
+    }
+
+    /**
+     * Tests that removing one Hash Index does not affect the data in the other.
+     */
+    @Test
+    public void testDestroyHashIndexIndependence() {
+        CatalogTableDescriptor catalogTableDescriptor = catalogService.table(TABLE_NAME, clock.nowLong());
+
+        var catalogHashIndex1 = new CatalogHashIndexDescriptor(
+                200,
+                "TEST_INDEX_1",
+                catalogTableDescriptor.id(),
+                true,
+                AVAILABLE,
+                catalogService.latestCatalogVersion(),
+                List.of("STRKEY")
+        );
+
+        var catalogHashIndex2 = new CatalogHashIndexDescriptor(
+                201,
+                "TEST_INDEX_2",
+                catalogTableDescriptor.id(),
+                true,
+                AVAILABLE,
+                catalogService.latestCatalogVersion(),
+                List.of("STRKEY")
+        );
+
+        var hashIndexDescriptor1 = new StorageHashIndexDescriptor(catalogTableDescriptor, catalogHashIndex1);
+        var hashIndexDescriptor2 = new StorageHashIndexDescriptor(catalogTableDescriptor, catalogHashIndex2);
+
+        MvPartitionStorage partitionStorage = getOrCreateMvPartition(PARTITION_ID);
+
+        HashIndexStorage hashIndexStorage1 = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIndexDescriptor1);
+        HashIndexStorage hashIndexStorage2 = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIndexDescriptor2);
+
+        List<TestRow> rows = List.of(
+                new TestRow(new RowId(PARTITION_ID), binaryRow(new TestKey(0, "0"), new TestValue(0, "0"))),
+                new TestRow(new RowId(PARTITION_ID), binaryRow(new TestKey(1, "1"), new TestValue(1, "1")))
+        );
+
+        fillStorages(partitionStorage, hashIndexStorage1, null, rows);
+        fillStorages(partitionStorage, hashIndexStorage2, null, rows);
+
+        checkForPresenceRows(null, hashIndexStorage1, null, rows);
+        checkForPresenceRows(null, hashIndexStorage2, null, rows);
+
+        assertThat(tableStorage.destroyIndex(hashIndexDescriptor1.id()), willCompleteSuccessfully());
+
+        assertThat(tableStorage.getIndex(PARTITION_ID, hashIndexDescriptor1.id()), is(nullValue()));
+
+        checkForPresenceRows(null, hashIndexStorage2, null, rows);
+    }
+
+
     @Test
     public void testHashIndexIndependence() {
         MvPartitionStorage partitionStorage1 = getOrCreateMvPartition(PARTITION_ID);
@@ -859,8 +966,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
     private static void fillStorages(
             MvPartitionStorage mvPartitionStorage,
-            HashIndexStorage hashIndexStorage,
-            SortedIndexStorage sortedIndexStorage,
+            @Nullable HashIndexStorage hashIndexStorage,
+            @Nullable SortedIndexStorage sortedIndexStorage,
             List<TestRow> rows
     ) {
         assertThat(rows, hasSize(greaterThanOrEqualTo(2)));
@@ -878,9 +985,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
             assertNotNull(binaryRow);
             assertNotNull(timestamp);
 
-            IndexRow hashIndexRow = indexRow(hashIndexStorage.indexDescriptor(), binaryRow, rowId);
-            IndexRow sortedIndexRow = indexRow(sortedIndexStorage.indexDescriptor(), binaryRow, rowId);
-
             mvPartitionStorage.runConsistently(locker -> {
                 locker.lock(rowId);
 
@@ -892,9 +996,17 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                     mvPartitionStorage.addWriteCommitted(rowId, binaryRow, timestamp);
                 }
 
-                hashIndexStorage.put(hashIndexRow);
+                if (hashIndexStorage != null) {
+                    IndexRow hashIndexRow = indexRow(hashIndexStorage.indexDescriptor(), binaryRow, rowId);
 
-                sortedIndexStorage.put(sortedIndexRow);
+                    hashIndexStorage.put(hashIndexRow);
+                }
+
+                if (sortedIndexStorage != null) {
+                    IndexRow sortedIndexRow = indexRow(sortedIndexStorage.indexDescriptor(), binaryRow, rowId);
+
+                    sortedIndexStorage.put(sortedIndexRow);
+                }
 
                 return null;
             });

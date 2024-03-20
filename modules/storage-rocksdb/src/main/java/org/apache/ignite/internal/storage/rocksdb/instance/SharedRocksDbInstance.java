@@ -24,9 +24,12 @@ import static org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbI
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -38,6 +41,7 @@ import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
+import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.rocksdb.ColumnFamilyDescriptor;
@@ -53,6 +57,35 @@ import org.rocksdb.WriteOptions;
 public final class SharedRocksDbInstance {
     /** Write options. */
     public static final WriteOptions DFLT_WRITE_OPTS = new WriteOptions().setDisableWAL(true);
+
+    /**
+     * Class that represents a Column Family for sorted indexes and all index IDs that map to this Column Family.
+     *
+     * <p>Sorted indexes that have the same order and type of indexed columns get mapped to the same Column Family in order to share
+     * the same comparator.
+     */
+    private static class SortedIndexColumnFamily implements AutoCloseable {
+        final ColumnFamily columnFamily;
+
+        final Set<Integer> indexIds;
+
+        SortedIndexColumnFamily(ColumnFamily columnFamily, int indexId) {
+            this.columnFamily = columnFamily;
+            this.indexIds = new HashSet<>();
+
+            indexIds.add(indexId);
+        }
+
+        SortedIndexColumnFamily(ColumnFamily columnFamily, Set<Integer> indexIds) {
+            this.columnFamily = columnFamily;
+            this.indexIds = indexIds;
+        }
+
+        @Override
+        public void close() {
+            columnFamily.handle().close();
+        }
+    }
 
     /** RocksDB storage engine instance. */
     public final RocksDbStorageEngine engine;
@@ -76,13 +109,10 @@ public final class SharedRocksDbInstance {
     public final ColumnFamily gcQueueCf;
 
     /** Column Family for Hash Index data. */
-    public final ColumnFamily hashIndexCf;
+    private final ColumnFamily hashIndexCf;
 
     /** Column Family instances for different types of sorted indexes, identified by the column family name. */
-    private final ConcurrentMap<ByteArray, ColumnFamily> sortedIndexCfs;
-
-    /** Column family names mapped to sets of index IDs, that use that CF. */
-    private final ConcurrentMap<ByteArray, Set<Integer>> sortedIndexIdsByCfName = new ConcurrentHashMap<>();
+    private final ConcurrentMap<ByteArray, SortedIndexColumnFamily> sortedIndexCfsByName = new ConcurrentHashMap<>();
 
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock;
@@ -100,7 +130,7 @@ public final class SharedRocksDbInstance {
             ColumnFamily partitionCf,
             ColumnFamily gcQueueCf,
             ColumnFamily hashIndexCf,
-            ConcurrentMap<ByteArray, ColumnFamily> sortedIndexCfs
+            List<ColumnFamily> sortedIndexCfs
     ) {
         this.engine = engine;
         this.path = path;
@@ -113,7 +143,29 @@ public final class SharedRocksDbInstance {
         this.partitionCf = partitionCf;
         this.gcQueueCf = gcQueueCf;
         this.hashIndexCf = hashIndexCf;
-        this.sortedIndexCfs = sortedIndexCfs;
+
+        recoverExistingSortedIndexes(sortedIndexCfs);
+    }
+
+    private void recoverExistingSortedIndexes(List<ColumnFamily> sortedIndexCfs) {
+        for (ColumnFamily sortedIndexCf : sortedIndexCfs) {
+            var indexIds = new HashSet<Integer>();
+
+            try (Cursor<Integer> sortedIndexIdCursor = indexIdsCursor(sortedIndexCf)) {
+                for (Integer indexId : sortedIndexIdCursor) {
+                    indexIds.add(indexId);
+                }
+            }
+
+            if (indexIds.isEmpty()) {
+                destroyColumnFamily(sortedIndexCf);
+            } else {
+                this.sortedIndexCfsByName.put(
+                        new ByteArray(sortedIndexCf.nameBytes()),
+                        new SortedIndexColumnFamily(sortedIndexCf, indexIds)
+                );
+            }
+        }
     }
 
     /**
@@ -141,10 +193,7 @@ public final class SharedRocksDbInstance {
         resources.add(partitionCf.handle());
         resources.add(gcQueueCf.handle());
         resources.add(hashIndexCf.handle());
-        resources.addAll(sortedIndexCfs.values().stream()
-                .map(ColumnFamily::handle)
-                .collect(toList())
-        );
+        resources.addAll(sortedIndexCfsByName.values());
 
         resources.add(db);
         resources.add(flusher::stop);
@@ -159,32 +208,57 @@ public final class SharedRocksDbInstance {
     }
 
     /**
-     * Returns Column Family instance with the desired name. Creates it it it doesn't exist.
-     * Tracks every created index by its {@code indexId}.
+     * Returns the Column Family containing all hash indexes.
      */
-    public ColumnFamily getSortedIndexCfOnIndexCreate(byte[] cfName, int indexId) {
+    public ColumnFamily hashIndexCf() {
+        return hashIndexCf;
+    }
+
+    /**
+     * Returns a collection of all hash index IDs that currently exist in the storage.
+     */
+    public Collection<Integer> hashIndexIds() {
+        try (Cursor<Integer> hashIndexIdCursor = indexIdsCursor(hashIndexCf)) {
+            return hashIndexIdCursor.stream().collect(toList());
+        }
+    }
+
+    /**
+     * Returns an "index ID - Column Family" mapping for all sorted indexes that currently exist in the storage.
+     */
+    public Map<Integer, ColumnFamily> sortedIndexes() {
+        var result = new HashMap<Integer, ColumnFamily>();
+
+        for (SortedIndexColumnFamily indexCf : sortedIndexCfsByName.values()) {
+            for (Integer indexId : indexCf.indexIds) {
+                result.put(indexId, indexCf.columnFamily);
+            }
+        }
+
+        return result;
+    }
+
+    /**
+     * Returns Column Family instance with the desired name. Creates it if it doesn't exist. Tracks every created index by its
+     * {@code indexId}.
+     */
+    public ColumnFamily getOrCreateSortedIndexCf(byte[] cfName, int indexId) {
         if (!busyLock.enterBusy()) {
             throw new StorageClosedException();
         }
 
         try {
-            ColumnFamily[] result = {null};
+            SortedIndexColumnFamily result = sortedIndexCfsByName.compute(new ByteArray(cfName), (unused, sortedIndexCf) -> {
+                if (sortedIndexCf == null) {
+                    return new SortedIndexColumnFamily(createColumnFamily(cfName), indexId);
+                } else {
+                    sortedIndexCf.indexIds.add(indexId);
 
-            sortedIndexIdsByCfName.compute(new ByteArray(cfName), (name, indexIds) -> {
-                ColumnFamily columnFamily = getOrCreateColumnFamily(cfName, name);
-
-                result[0] = columnFamily;
-
-                if (indexIds == null) {
-                    indexIds = new HashSet<>();
+                    return sortedIndexCf;
                 }
-
-                indexIds.add(indexId);
-
-                return indexIds;
             });
 
-            return result[0];
+            return result.columnFamily;
         } finally {
             busyLock.leaveBusy();
         }
@@ -193,67 +267,59 @@ public final class SharedRocksDbInstance {
     /**
      * Possibly drops the column family after destroying the index.
      */
-    public void dropCfOnIndexDestroy(byte[] cfName, int indexId) {
+    public void destroySortedIndexCfIfNeeded(byte[] cfName, int indexId) {
         if (!busyLock.enterBusy()) {
             throw new StorageClosedException();
         }
 
         try {
-            sortedIndexIdsByCfName.compute(new ByteArray(cfName), (name, indexIds) -> {
-                if (indexIds == null) {
-                    return null;
+            sortedIndexCfsByName.computeIfPresent(new ByteArray(cfName), (unused, indexCf) -> {
+                indexCf.indexIds.remove(indexId);
+
+                if (!indexCf.indexIds.isEmpty()) {
+                    return indexCf;
                 }
 
-                indexIds.remove(indexId);
+                destroyColumnFamily(indexCf.columnFamily);
 
-                if (indexIds.isEmpty()) {
-                    indexIds = null;
-
-                    destroyColumnFamily(name);
-                }
-
-                return indexIds;
+                return null;
             });
         } finally {
             busyLock.leaveBusy();
         }
     }
 
-    private ColumnFamily getOrCreateColumnFamily(byte[] cfName, ByteArray name) {
-        return sortedIndexCfs.computeIfAbsent(name, unused -> {
-            ColumnFamilyDescriptor cfDescriptor = new ColumnFamilyDescriptor(cfName, sortedIndexCfOptions(cfName));
-
-            ColumnFamily columnFamily;
-            try {
-                columnFamily = ColumnFamily.create(db, cfDescriptor);
-            } catch (RocksDBException e) {
-                throw new StorageException("Failed to create new RocksDB column family: " + toStringName(cfDescriptor.getName()), e);
-            }
-
-            flusher.addColumnFamily(columnFamily.handle());
-
-            return columnFamily;
-        });
+    private static Cursor<Integer> indexIdsCursor(ColumnFamily cf) {
+        return new IndexIdCursor(cf.newIterator());
     }
 
-    private void destroyColumnFamily(ByteArray cfName) {
-        sortedIndexCfs.computeIfPresent(cfName, (unused, columnFamily) -> {
-            ColumnFamilyHandle columnFamilyHandle = columnFamily.handle();
+    private ColumnFamily createColumnFamily(byte[] cfName) {
+        ColumnFamilyDescriptor cfDescriptor = new ColumnFamilyDescriptor(cfName, sortedIndexCfOptions(cfName));
 
-            flusher.removeColumnFamily(columnFamilyHandle);
+        ColumnFamily columnFamily;
+        try {
+            columnFamily = ColumnFamily.create(db, cfDescriptor);
+        } catch (RocksDBException e) {
+            throw new StorageException("Failed to create new RocksDB column family: " + toStringName(cfDescriptor.getName()), e);
+        }
 
-            try {
-                db.dropColumnFamily(columnFamilyHandle);
+        flusher.addColumnFamily(columnFamily.handle());
 
-                db.destroyColumnFamilyHandle(columnFamilyHandle);
-            } catch (RocksDBException e) {
-                throw new StorageException(
-                        "Failed to destroy RocksDB Column Family. [cfName={}, path={}]",
-                        e, toStringName(cfName.bytes()), path
-                );
-            }
+        return columnFamily;
+    }
 
-            return null;
-        });
+    private void destroyColumnFamily(ColumnFamily columnFamily) {
+        ColumnFamilyHandle columnFamilyHandle = columnFamily.handle();
+
+        flusher.removeColumnFamily(columnFamilyHandle);
+
+        try {
+            columnFamily.destroy();
+        } catch (RocksDBException e) {
+            throw new StorageException(
+                    "Failed to destroy RocksDB Column Family. [cfName={}, path={}]",
+                    e, columnFamily.name(), path
+            );
+        }
     }
 }
