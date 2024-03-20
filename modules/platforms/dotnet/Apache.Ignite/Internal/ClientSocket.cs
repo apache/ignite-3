@@ -462,7 +462,9 @@ namespace Apache.Ignite.Internal
             WriteMessageSize(resBuf, size);
 
             await stream.WriteAsync(resBuf, token).ConfigureAwait(false);
-            Metrics.BytesSent.Add(resBuf.Length);
+
+            // TODO
+            Metrics.BytesSent.Add(resBuf.Length + ProtoCommon.MagicBytes.Length);
         }
 
         private static void WriteHandshake(MsgPackWriter w, ClientProtocolVersion version, IgniteClientConfiguration configuration)
