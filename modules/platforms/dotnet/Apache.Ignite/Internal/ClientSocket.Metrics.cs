@@ -25,11 +25,21 @@ using Network;
 /// </summary>
 internal sealed partial class ClientSocket
 {
-    private static void AddBytesSent(int bytes, ClusterNode node) =>
-        Metrics.BytesSent.Add(bytes, GetNodeAddrTag(node), GetNodeNameTag(node));
+    private static void AddBytesSent(int bytes, ClusterNode? node)
+    {
+        if (node != null)
+        {
+            Metrics.BytesSent.Add(bytes, GetNodeAddrTag(node), GetNodeNameTag(node));
+        }
+    }
 
-    private static void AddBytesReceived(int bytes, ClusterNode node) =>
-        Metrics.BytesReceived.Add(bytes, GetNodeAddrTag(node), GetNodeNameTag(node));
+    private static void AddBytesReceived(int bytes, ClusterNode? node)
+    {
+        if (node != null)
+        {
+            Metrics.BytesReceived.Add(bytes, GetNodeAddrTag(node), GetNodeNameTag(node));
+        }
+    }
 
     private static KeyValuePair<string, object?> GetNodeAddrTag(ClusterNode node) =>
         new(MetricTags.NodeAddress, node.AddressString);
@@ -37,5 +47,5 @@ internal sealed partial class ClientSocket
     private static KeyValuePair<string, object?> GetNodeNameTag(ClusterNode node) =>
         new(MetricTags.NodeName, node.Name);
 
-    private void AddBytesSent(int bytes) => AddBytesReceived(bytes, ConnectionContext.ClusterNode);
+    private void AddBytesSent(int bytes) => AddBytesSent(bytes, ConnectionContext.ClusterNode);
 }
