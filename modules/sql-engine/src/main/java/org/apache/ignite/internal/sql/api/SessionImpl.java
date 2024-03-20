@@ -329,6 +329,22 @@ public class SessionImpl implements AbstractSession {
         }
     }
 
+    /**
+     * Execute batch of DML statements.
+     *
+     * @param qryProc Query processor.
+     * @param transactions Transactions facade.
+     * @param transaction Transaction.
+     * @param query Query.
+     * @param batch Batch of arguments.
+     * @param properties Properties.
+     * @param enterBusy Enter busy lock action.
+     * @param leaveBusy Leave busy lock action.
+     * @param registerCursor Register cursor action.
+     * @param removeCursor Remove cursor action.
+     * @return Operation Future completed with the number of rows affected by each query in the batch
+     *         (if the batch succeeds), future completed with the {@link SqlBatchException} (if the batch fails).
+     */
     public static CompletableFuture<long[]> executeBatchCore(
             QueryProcessor qryProc,
             IgniteTransactions transactions,
