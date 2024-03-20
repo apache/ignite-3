@@ -41,6 +41,7 @@ import org.jetbrains.annotations.Nullable;
  * Asynchronous result set implementation.
  */
 public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
+    @Nullable
     private final IdleExpirationTracker expirationTracker;
 
     private final AsyncSqlCursor<InternalSqlRow> cursor;
@@ -48,6 +49,24 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
     private volatile BatchedResult<InternalSqlRow> curPage;
 
     private final int pageSize;
+
+    /**
+     * Constructor.
+     *
+     * @param cursor Query cursor representing the result of execution.
+     * @param page Current page.
+     * @param pageSize Size of the page to fetch.
+     */
+    public AsyncResultSetImpl(
+            AsyncSqlCursor<InternalSqlRow> cursor,
+            BatchedResult<InternalSqlRow> page,
+            int pageSize
+    ) {
+        this.cursor = cursor;
+        this.curPage = page;
+        this.pageSize = pageSize;
+        this.expirationTracker = null;
+    }
 
     /**
      * Constructor.
@@ -111,7 +130,9 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
     public Iterable<T> currentPage() {
         requireResultSet();
 
-        expirationTracker.touch();
+        if (expirationTracker != null) {
+            expirationTracker.touch();
+        }
 
         Iterator<InternalSqlRow> it0 = curPage.items().iterator();
         ResultSetMetadata meta0 = cursor.metadata();
@@ -133,7 +154,9 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
     public CompletableFuture<? extends AsyncResultSet<T>> fetchNextPage() {
         requireResultSet();
 
-        expirationTracker.touch();
+        if (expirationTracker != null) {
+            expirationTracker.touch();
+        }
 
         return cursor.requestNextAsync(pageSize)
                 .thenApply(page -> {
