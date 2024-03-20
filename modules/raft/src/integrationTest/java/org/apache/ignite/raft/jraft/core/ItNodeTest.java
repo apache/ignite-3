@@ -3832,6 +3832,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
      */
     private RaftGroupService createService(String groupId, TestPeer peer, NodeOptions nodeOptions, Collection<TestPeer> peers) {
         nodeOptions.setStripes(1);
+        nodeOptions.setLogStripesCount(1);
 
         List<NetworkAddress> addressList = peers.stream()
             .map(p -> new NetworkAddress(TestUtils.getLocalAddress(), p.getPort()))

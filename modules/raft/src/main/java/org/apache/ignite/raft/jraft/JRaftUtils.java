@@ -63,6 +63,7 @@ public final class JRaftUtils {
 
         if (nodeOpts != null) {
             nodeOpts.setStripes(1);
+            nodeOpts.setLogStripesCount(1);
         }
 
         final boolean ret = node.bootstrap(opts);
