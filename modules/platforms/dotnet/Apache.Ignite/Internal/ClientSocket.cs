@@ -20,6 +20,7 @@ namespace Apache.Ignite.Internal
     using System;
     using System.Buffers.Binary;
     using System.Collections.Concurrent;
+    using System.Collections.Generic;
     using System.Diagnostics;
     using System.Diagnostics.CodeAnalysis;
     using System.IO;
@@ -40,7 +41,7 @@ namespace Apache.Ignite.Internal
     /// Wrapper over framework socket for Ignite thin client operations.
     /// </summary>
     // ReSharper disable SuggestBaseTypeForParameter (NetworkStream has more efficient read/write methods).
-    internal sealed class ClientSocket : IDisposable
+    internal sealed partial class ClientSocket : IDisposable
     {
         /** General-purpose client type code. */
         private const byte ClientType = 2;
@@ -645,7 +646,7 @@ namespace Apache.Ignite.Internal
 
                     await _stream.WriteAsync(requestBufWithPrefix, _disposeTokenSource.Token).ConfigureAwait(false);
 
-                    Metrics.BytesSent.Add(requestBufWithPrefix.Length);
+                    AddBytesSent(requestBufWithPrefix.Length);
                 }
                 else
                 {
@@ -654,7 +655,7 @@ namespace Apache.Ignite.Internal
                     var prefixBytes = _prefixBuffer.AsMemory()[..(prefixSize + 4)];
                     await _stream.WriteAsync(prefixBytes, _disposeTokenSource.Token).ConfigureAwait(false);
 
-                    Metrics.BytesSent.Add(prefixBytes.Length);
+                    AddBytesSent(prefixBytes.Length);
                 }
 
                 Metrics.RequestsSent.Add(1);
