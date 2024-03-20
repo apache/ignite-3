@@ -525,6 +525,7 @@ namespace Apache.Ignite.Internal
 
                 foreach (var ip in GetIps(host))
                 {
+                    // TODO: Pass original endpoint string to SocketEndpoint.
                     yield return new SocketEndpoint(new IPEndPoint(ip, e.Port), host);
                 }
             }

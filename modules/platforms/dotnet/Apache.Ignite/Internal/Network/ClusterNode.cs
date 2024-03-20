@@ -37,7 +37,7 @@ namespace Apache.Ignite.Internal.Network
         internal ReadOnlySpan<KeyValuePair<string, object?>> GetMetricTags() =>
             _metricTags ??= new[]
             {
-                new KeyValuePair<string, object?>(MetricTags.NodeAddress, Address.ToString()),
+                new KeyValuePair<string, object?>(MetricTags.NodeAddress, Address.ToString()), // TODO: Cache address string in SocketEndpoint.
                 new KeyValuePair<string, object?>(MetricTags.NodeName, Name)
             };
     }
