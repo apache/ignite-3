@@ -53,6 +53,7 @@ dependencies {
     testImplementation libs.mockito.junit
     testImplementation libs.jmh.core
     testImplementation project(':ignite-core')
+    testImplementation project(':ignite-configuration')
     testImplementation testFixtures(project(':ignite-core'))
     testImplementation testFixtures(project(':ignite-configuration'))
 
@@ -61,8 +62,10 @@ dependencies {
     integrationTestImplementation project(':ignite-runner')
     integrationTestImplementation project(':ignite-client')
     integrationTestImplementation project(':ignite-jdbc')
+    integrationTestImplementation project(':ignite-configuration')
     integrationTestImplementation(testFixtures(project(':ignite-core')))
     integrationTestImplementation testFixtures(project(':ignite-runner'))
+    integrationTestImplementation testFixtures(project(':ignite-configuration'))
     integrationTestImplementation libs.auto.service.annotations
 }
 

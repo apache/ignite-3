@@ -386,7 +386,7 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
         public void tearDown() throws Exception {
             clusterNode.clusterConfiguration().getConfiguration(TracingConfiguration.KEY).change(change -> {
                 change.changeRatio(0.0d);
-            });
+            }).get();
         }
     }
 

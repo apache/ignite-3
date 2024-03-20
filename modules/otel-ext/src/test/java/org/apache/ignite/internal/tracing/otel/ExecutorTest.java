@@ -22,27 +22,82 @@ import static org.apache.ignite.internal.tracing.TracingManager.span;
 import static org.apache.ignite.internal.tracing.TracingManager.taskWrapping;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
+import org.apache.ignite.internal.tracing.TracingManager;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /** Tests for ExecutorService. */
-public class ExecutorTest {
+class ExecutorTest {
     private static final IgniteLogger LOG = Loggers.forClass(ExecutorTest.class);
 
-    @Test
-    public void stripedThreadPoolExecutor() throws ExecutionException, InterruptedException {
-        var executor = taskWrapping(Executors.newSingleThreadExecutor(new NamedThreadFactory("cli-check-connection-thread", LOG)));
+    private static ExecutorService executorService;
 
-        rootSpan("run", (parentSpan) -> {
-            return executor.submit(() -> {
-                span("process", (span) -> {
+    private static StripedThreadPoolExecutor stripedThreadPoolExecutor;
+
+    @BeforeAll
+    static void setUp() {
+        executorService = Executors.newSingleThreadExecutor(new NamedThreadFactory("single-thread-pool", LOG));
+
+        stripedThreadPoolExecutor = new StripedThreadPoolExecutor(
+                2,
+                new NamedThreadFactory("striped-thread-pool", LOG),
+                false,
+                0
+        );
+
+        TracingManager.initialize("ignite-node-0", 1.0d);
+    }
+
+    @AfterAll
+    static void tearDown() {
+        executorService.shutdown();
+        stripedThreadPoolExecutor.shutdown();
+    }
+
+    @Test
+    public void singleThreadExecutor() {
+        ExecutorService executor = taskWrapping(executorService);
+
+        rootSpan("singleThreadExecutor", (parentSpan) -> {
+            try {
+                executor.submit(() -> {
+                    span("runnable", (span) -> {
+                        assertTrue(span.isValid());
+                    });
+                }).get();
+
+                executor.submit(() -> {
+                    span("callable", (span) -> {
+                        assertTrue(span.isValid());
+                    });
+
+                    return 0;
+                }).get();
+
+                return null;
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        });
+    }
+
+    @Test
+    public void stripedThreadPoolExecutor() {
+        rootSpan("stripedThreadPoolExecutor", (parentSpan) -> {
+            stripedThreadPoolExecutor.submit(() -> {
+                span("runnable-0", (span) -> {
                     assertTrue(span.isValid());
                 });
-            }, 0);
-        }).get();
+            }, 0).join();
+
+            return null;
+        });
     }
 }

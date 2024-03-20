@@ -22,7 +22,10 @@ import static org.apache.ignite.internal.tracing.TracingManager.span;
 
 import java.util.Map;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
+import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.tracing.TraceSpan;
+import org.apache.ignite.internal.tracing.TracingManager;
+import org.apache.ignite.internal.tracing.configuration.TracingConfiguration;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.BeforeAll;
@@ -30,7 +33,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
 /**
- * S.
+ * Tests for get operation.
  */
 public class KvOperationTest extends ClusterPerClassIntegrationTest {
     @BeforeAll
@@ -69,8 +72,14 @@ public class KvOperationTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
-    void kvGetWithTracing() {
-        KeyValueView<Tuple, Tuple> keyValueView = CLUSTER.aliveNode().tables().table(DEFAULT_TABLE_NAME).keyValueView();
+    void kvGetWithTracing() throws Exception {
+        IgniteImpl ignite = CLUSTER.aliveNode();
+
+        ignite.clusterConfiguration().getConfiguration(TracingConfiguration.KEY).change(change -> {
+            change.changeRatio(1.0d);
+        }).get();
+
+        KeyValueView<Tuple, Tuple> keyValueView = ignite.tables().table(DEFAULT_TABLE_NAME).keyValueView();
 
         // Warm-up
         try (TraceSpan parentSpan = rootSpan("WarmSpan")) {
@@ -93,9 +102,9 @@ public class KvOperationTest extends ClusterPerClassIntegrationTest {
 
         System.out.println(">>> " + (System.nanoTime() - start) / 1000L);
 
-        // try (TraceSpan parentSpan = rootSpan("kvGetOperation")) {
-        //     keyValueView.get(null, key);
-        // }
+         try (TraceSpan parentSpan = rootSpan("kvGetOperation")) {
+             keyValueView.get(null, key);
+         }
     }
 
     @Override

@@ -93,4 +93,9 @@ public class NoopSpanManager implements SpanManager {
     public void initialize(Ignite ignite) {
         // No-op.
     }
+
+    @Override
+    public void initialize(String name, double ratio) {
+        // No-op.
+    }
 }

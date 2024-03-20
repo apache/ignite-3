@@ -31,6 +31,7 @@ import io.opentelemetry.sdk.autoconfigure.AutoConfiguredOpenTelemetrySdk;
 import io.opentelemetry.sdk.trace.SdkTracerProvider;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -198,24 +199,31 @@ public class OtelSpanManager implements SpanManager {
                 .getConfiguration(TracingConfiguration.KEY);
 
         tracingConfiguration.listen((ctx) -> {
-            refreshTracers(ignite.name(), ctx.newValue());
+            @Nullable TracingView view = ctx.newValue();
+
+            refreshTracers(ignite.name(), view == null ? SAMPLING_RATE_NEVER : view.ratio());
 
             return nullCompletedFuture();
         });
     }
 
-    private void refreshTracers(String name, @Nullable TracingView view) {
+    @Override
+    public void initialize(String name, double ratio) {
+        refreshTracers(name, ratio);
+    }
+
+    private void refreshTracers(String name, double ratio) {
         rwLock.writeLock().lock();
         try {
-            if (view == null || view.ratio() == SAMPLING_RATE_NEVER) {
+            if (ratio == SAMPLING_RATE_NEVER) {
                 tracingEnabled = false;
             } else {
                 tracingEnabled = true;
 
                 DynamicRatioSampler sampler = (DynamicRatioSampler) tracerProvider.getSampler();
-                sampler.configure(view.ratio(), true);
+                sampler.configure(ratio, true);
 
-                LOG.debug("refresh tracing configuration [name={}, ratio={}]", name, view.ratio());
+                LOG.debug("refresh tracing configuration [name={}, ratio={}]", name, ratio);
             }
         } catch (Exception exception) {
             LOG.error("Couldn't refresh tracing configuration for `{}`. Leaving the old settings", name, exception);

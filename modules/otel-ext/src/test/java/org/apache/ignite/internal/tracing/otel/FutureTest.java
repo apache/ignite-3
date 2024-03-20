@@ -26,16 +26,22 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import io.opentelemetry.api.trace.Span;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.tracing.TracingManager;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /** Tests for CompletableFuture wrapper. */
 public class FutureTest {
+    @BeforeAll
+    static void setUp() {
+        TracingManager.initialize("ignite-node-0", 1.0d);
+    }
+
     @Test
-    public void preserveContextInFutureHandler() throws InterruptedException {
+    public void preserveContextInFutureHandler() {
         var fut = new CompletableFuture<>();
 
         rootSpan("root", (parent) -> {
-            var allOf = TracingManager.span("child", (span) -> {
+            var allOf = span("child", (span) -> {
                 var childSpanId = ((OtelTraceSpan) span).span.getSpanContext().getSpanId();
                 var wrappedFut = wrap(fut);
 
