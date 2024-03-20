@@ -20,10 +20,9 @@ package org.apache.ignite.client.handler.requests.sql;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.sql.api.SessionImpl;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
-import org.apache.ignite.internal.util.ArrayUtils;
-import org.apache.ignite.sql.Session;
 
 /**
  * Client SQL execute script request.
@@ -41,21 +40,13 @@ public class ClientSqlExecuteScriptRequest {
             QueryProcessor sql,
             IgniteTransactionsImpl transactions
     ) {
-        return CompletableFuture.completedFuture(null);
-//        Session session = readSession(in, sql, transactions);
-//        String script = in.unpackString();
-//        Object[] arguments = in.unpackObjectArrayFromBinaryTuple();
-//
-//        if (arguments == null) {
-//            // SQL engine requires non-null arguments, but we don't want to complicate the protocol with this requirement.
-//            arguments = ArrayUtils.OBJECT_EMPTY_ARRAY;
-//        }
-//
-//        // TODO IGNITE-20232 Propagate observable timestamp to sql engine using internal API.
-//        HybridTimestamp clientTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
-//
-//        transactions.updateObservableTimestamp(clientTs);
-//
-//        return session.executeScriptAsync(script, arguments);
+        ClientSqlProperties props = new ClientSqlProperties(in);
+        String script = in.unpackString();
+        Object[] arguments = in.unpackObjectArrayFromBinaryTuple();
+
+        HybridTimestamp clientTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
+        transactions.updateObservableTimestamp(clientTs);
+
+        return SessionImpl.executeScriptCore(sql, transactions, () -> true, () -> {}, script, arguments, props.toSqlProps());
     }
 }
