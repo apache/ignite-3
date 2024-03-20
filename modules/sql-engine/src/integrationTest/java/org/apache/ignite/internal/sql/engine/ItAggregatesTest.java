@@ -101,6 +101,12 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
                 + "dec2_col DECIMAL(2), "
                 + "dec4_2_col DECIMAL(4,2) "
                 + ")");
+
+        sql("CREATE TABLE IF NOT EXISTS not_null_numbers ("
+                + "id INTEGER PRIMARY KEY, "
+                + "int_col INTEGER NOT NULL, "
+                + "dec4_2_col DECIMAL(4,2) NOT NULL"
+                + ")");
     }
 
     @ParameterizedTest
@@ -569,6 +575,62 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT AVG(dec4_2_col) FROM numbers")
                 .disableRules(rules)
                 .returns(new BigDecimal("1.665"))
+                .check();
+
+        sql("DELETE FROM numbers");
+        sql("INSERT INTO numbers (id, int_col, dec4_2_col) VALUES (1, null, null)");
+
+        assertQuery("SELECT AVG(int_col), AVG(dec4_2_col) FROM numbers")
+                .disableRules(rules)
+                .returns(null, null)
+                .check();
+
+        sql("DELETE FROM numbers");
+        sql("INSERT INTO numbers (id, int_col, dec4_2_col) VALUES (1, 1, 1), (2, null, null)");
+
+        assertQuery("SELECT AVG(int_col), AVG(dec4_2_col) FROM numbers")
+                .disableRules(rules)
+                .returns(1, new BigDecimal("1.00"))
+                .check();
+    }
+
+    @ParameterizedTest
+    @MethodSource("provideRules")
+    public void testAvgNullNotNull(String[] rules) {
+        sql("DELETE FROM not_null_numbers");
+        sql("INSERT INTO not_null_numbers (id, int_col, dec4_2_col) VALUES (1, 1, 1), (2, 2, 2)");
+
+        assertQuery("SELECT AVG(int_col), AVG(dec4_2_col) FROM not_null_numbers")
+                .disableRules(rules)
+                .returns(1, new BigDecimal("1.50"))
+                .check();
+
+        // Return type of an AVG aggregate can never be null.
+        assertQuery("SELECT AVG(int_col) FROM not_null_numbers GROUP BY int_col")
+                .disableRules(rules)
+                .returns(1)
+                .returns(2)
+                .check();
+
+        assertQuery("SELECT AVG(dec4_2_col) FROM not_null_numbers GROUP BY dec4_2_col")
+                .disableRules(rules)
+                .returns(new BigDecimal("1.00"))
+                .returns(new BigDecimal("2.00"))
+                .check();
+
+        sql("DELETE FROM numbers");
+        sql("INSERT INTO numbers (id, int_col, dec4_2_col) VALUES (1, 1, 1), (2, 2, 2)");
+
+        assertQuery("SELECT AVG(int_col) FROM numbers GROUP BY int_col")
+                .disableRules(rules)
+                .returns(1)
+                .returns(2)
+                .check();
+
+        assertQuery("SELECT AVG(dec4_2_col) FROM numbers GROUP BY dec4_2_col")
+                .disableRules(rules)
+                .returns(new BigDecimal("1.00"))
+                .returns(new BigDecimal("2.00"))
                 .check();
     }
 

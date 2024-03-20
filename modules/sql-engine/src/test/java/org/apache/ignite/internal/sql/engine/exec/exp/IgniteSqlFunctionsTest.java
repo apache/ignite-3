@@ -529,12 +529,14 @@ public class IgniteSqlFunctionsTest {
             delimiterString = ";"
     )
     public void testAvgDivide(String a, String b, @Nullable String expected) {
-        BigDecimal actual = IgniteSqlFunctions.avgDivide(new BigDecimal(a), new BigDecimal(b), 4, 2);
+        BigDecimal num = new BigDecimal(a);
+        BigDecimal denum = new BigDecimal(b);
 
         if (expected != null) {
+            BigDecimal actual = IgniteSqlFunctions.decimalDivide(num, denum, 4, 2);
             assertEquals(new BigDecimal(expected), actual);
         } else {
-            assertNull(actual);
+            assertThrows(ArithmeticException.class, () -> IgniteSqlFunctions.decimalDivide(num, denum, 4, 2));
         }
     }
 }

@@ -130,9 +130,9 @@ public enum IgniteMethod {
 
     /**
      * Division operator used by REDUCE phase of AVG aggregate.
-     * See {@link IgniteSqlFunctions#avgDivide(BigDecimal, BigDecimal, int, int)}.
+     * See {@link IgniteSqlFunctions#decimalDivide(BigDecimal, BigDecimal, int, int)}.
      */
-    AVG_DIVIDE(IgniteSqlFunctions.class, "avgDivide", BigDecimal.class, BigDecimal.class, int.class, int.class),
+    DECIMAL_DIVIDE(IgniteSqlFunctions.class, "decimalDivide", BigDecimal.class, BigDecimal.class, int.class, int.class),
     ;
 
     private final Method method;

@@ -635,18 +635,31 @@ public class MapReduceAggregates {
             RelDataType avgType = typeFactory.createTypeWithNullability(mapSum0.type, numeratorRef.getType().isNullable());
             numeratorRef = rexBuilder.ensureType(avgType, numeratorRef, true);
 
-            // Return correct decimal type with correct scale and precision.
+            RexNode sumDivCnt;
             if (call.getType().getSqlTypeName() == SqlTypeName.DECIMAL) {
+                // Return correct decimal type with correct scale and precision.
                 int precision = call.getType().getPrecision();
                 int scale = call.getType().getScale();
 
                 RexLiteral p = rexBuilder.makeExactLiteral(BigDecimal.valueOf(precision), tf.createSqlType(SqlTypeName.INTEGER));
                 RexLiteral s = rexBuilder.makeExactLiteral(BigDecimal.valueOf(scale), tf.createSqlType(SqlTypeName.INTEGER));
 
-                return rexBuilder.makeCall(IgniteSqlOperatorTable.AVG_DIVIDE, numeratorRef, denominatorRef, p, s);
+                sumDivCnt = rexBuilder.makeCall(IgniteSqlOperatorTable.DECIMAL_DIVIDE, numeratorRef, denominatorRef, p, s);
             } else {
                 RexNode divideRef = rexBuilder.makeCall(SqlStdOperatorTable.DIVIDE, numeratorRef, denominatorRef);
-                return rexBuilder.makeCast(call.getType(), divideRef);
+                sumDivCnt = rexBuilder.makeCast(call.getType(), divideRef);
+            }
+
+            if (canBeNull) {
+                // CASE cnt == 0 THEN null
+                // OTHERWISE sum / cnt
+                RexLiteral zero = rexBuilder.makeExactLiteral(BigDecimal.ZERO, denominatorRef.getType());
+                RexNode eqZero = rexBuilder.makeCall(SqlStdOperatorTable.EQUALS, numeratorRef, zero);
+                RexLiteral nullRes = rexBuilder.makeNullLiteral(call.getType());
+
+                return rexBuilder.makeCall(SqlStdOperatorTable.CASE, eqZero, nullRes, sumDivCnt);
+            } else {
+                return sumDivCnt;
             }
         };
 

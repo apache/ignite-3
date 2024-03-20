@@ -477,10 +477,10 @@ public class IgniteSqlFunctions {
 
     /**
      * Division function for REDUCE phase of AVG aggregate. Precision and scale is only used by type inference
-     * (see {@link IgniteSqlOperatorTable#AVG_DIVIDE}, their values are ignored at runtime.
+     * (see {@link IgniteSqlOperatorTable#DECIMAL_DIVIDE}, their values are ignored at runtime.
      */
-    public static BigDecimal avgDivide(BigDecimal sum, BigDecimal cnt, int p, int s) {
-        return cnt.compareTo(BigDecimal.ZERO) == 0 ? null : sum.divide(cnt, MathContext.DECIMAL64);
+    public static BigDecimal decimalDivide(BigDecimal sum, BigDecimal cnt, int p, int s) {
+        return sum.divide(cnt, MathContext.DECIMAL64);
     }
 
     private static BigDecimal processValueWithIntegralPart(Number value, int precision, int scale) {
