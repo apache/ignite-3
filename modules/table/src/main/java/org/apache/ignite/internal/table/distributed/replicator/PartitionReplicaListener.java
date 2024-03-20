@@ -2233,8 +2233,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                 Map<UUID, HybridTimestamp> lastCommitTimes = new HashMap<>();
                 BitSet deleted = request.deleted();
 
-                // When the same key is inserted multiple times within the same batch, we need to maintain operation order.
-                // newKeyMap ensures that the same key is always assigned the same rowId.
+                // When the same key is updated multiple times within the same batch, we need to maintain operation order and apply
+                // only the last update. This map stores the previous searchRows index for each key.
                 Map<ByteBuffer, Integer> newKeyMap = new HashMap<>();
 
                 for (int i = 0; i < searchRows.size(); i++) {
