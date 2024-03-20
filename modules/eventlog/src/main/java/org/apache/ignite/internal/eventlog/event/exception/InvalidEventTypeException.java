@@ -25,7 +25,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 public class InvalidEventTypeException extends IgniteInternalException {
     private static final long serialVersionUID = 3974826166860537715L;
 
-    private static final String MSG_FORMAT = "Invalid event type `%s` during event creation. "
+    private static final String MSG_FORMAT = "Got invalid event type `%s` during event creation. "
             + "If you want to use `%s`, register it in EventTypeRegistry.";
 
     /**

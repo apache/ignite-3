@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.eventlog.event;
 
+import java.util.HashSet;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.eventlog.event.exception.NotUniqueEventTypeException;
@@ -32,7 +33,7 @@ public final class EventTypeRegistry {
 
     /** Registers a set of event types. */
     public static void register(Set<String> types) {
-        types.forEach(EventTypeRegistry::register);
+       new HashSet<>(types).forEach(EventTypeRegistry::register);
     }
 
     /** Registers an event type. */

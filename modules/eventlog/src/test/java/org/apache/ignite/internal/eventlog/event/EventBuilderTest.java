@@ -102,7 +102,7 @@ class EventBuilderTest {
         );
 
         assertEquals(
-                "Invalid event type `INCORRECT_TYPE` during event creation. "
+                "Got invalid event type `INCORRECT_TYPE` during event creation. "
                         + "If you want to use `INCORRECT_TYPE`, register it in EventTypeRegistry.",
                 thrown.getMessage()
         );
