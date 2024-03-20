@@ -24,6 +24,7 @@ import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.StorageDestroyedException;
 import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.PeekCursor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
@@ -161,6 +162,9 @@ public class SortedIndexLocker implements IndexLocker {
             if (cursor.hasNext()) {
                 nextRow = cursor.next();
             }
+        } catch (StorageDestroyedException ignored) {
+            // The index storage is already destroyed, so noone can scan it. This means we can just omit taking insertion locks
+            // on it: we are not going to write to it (as we can't) anyway. That's why we can just ignore the exception.
         }
 
         var nextLockKey = new LockKey(indexId, indexKey(nextRow));

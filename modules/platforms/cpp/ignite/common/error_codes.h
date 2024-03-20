@@ -101,6 +101,7 @@ enum class code : underlying_t {
     SESSION_CLOSED = 0x4000b,
     MAPPING = 0x4000c,
     TX_CONTROL_INSIDE_EXTERNAL_TX = 0x4000d,
+    STALE_PLAN = 0x4000e,
 
     // MetaStorage group. Group code: 5
     STARTING_STORAGE = 0x50001,

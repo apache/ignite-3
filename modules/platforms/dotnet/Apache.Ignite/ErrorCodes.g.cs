@@ -198,6 +198,9 @@ namespace Apache.Ignite
 
             /// <summary> TxControlInsideExternalTx error. </summary>
             public const int TxControlInsideExternalTx = (GroupCode << 16) | (13 & 0xFFFF);
+
+            /// <summary> StalePlan error. </summary>
+            public const int StalePlan = (GroupCode << 16) | (14 & 0xFFFF);
         }
 
         /// <summary> MetaStorage errors. </summary>

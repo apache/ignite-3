@@ -21,6 +21,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.storage.ReadFromDestroyedIndexStorageException;
 import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageDestroyedException;
 import org.apache.ignite.internal.storage.StorageException;
@@ -141,6 +142,35 @@ public class StorageUtils {
     }
 
     /**
+     * Throws an exception depending on {@link StorageState}.
+     *
+     * @param state Storage state.
+     * @param read If this is a read.
+     * @param storageInfo Storage information, for example in the format "table=user, partitionId=1".
+     * @throws StorageClosedException If the storage is closed.
+     * @throws StorageRebalanceException If storage is in the process of rebalancing.
+     * @throws StorageException For other {@link StorageState}.
+     */
+    public static void throwExceptionDependingOnIndexStorageState(StorageState state, boolean read, String storageInfo) {
+        switch (state) {
+            case CLOSED:
+                throw new StorageClosedException(createStorageClosedErrorMessage(storageInfo));
+            case REBALANCE:
+                throw new StorageRebalanceException(createStorageInProcessOfRebalanceErrorMessage(storageInfo));
+            case CLEANUP:
+                throw new StorageException(createStorageInProcessOfCleanupErrorMessage(storageInfo));
+            case DESTROYED:
+                if (read) {
+                    throw new ReadFromDestroyedIndexStorageException(createStorageDestroyedErrorMessage(storageInfo));
+                } else {
+                    throw new StorageDestroyedException(createStorageDestroyedErrorMessage(storageInfo));
+                }
+            default:
+                throw new StorageException(createUnexpectedStorageStateErrorMessage(state, storageInfo));
+        }
+    }
+
+    /**
      * Throws an {@link StorageRebalanceException} if the storage is <strong>NOT</strong> in the process of rebalancing.
      *
      * @param state Storage state.
@@ -178,7 +208,7 @@ public class StorageUtils {
     }
 
     private static String createStorageDestroyedErrorMessage(String storageInfo) {
-        return IgniteStringFormatter.format("Storage is in the process of being destroyed or destroyed: [{}]", storageInfo);
+        return IgniteStringFormatter.format("Storage is in the process of being destroyed or already destroyed: [{}]", storageInfo);
     }
 
     /**

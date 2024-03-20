@@ -57,10 +57,6 @@ public class CriteriaExceptionMapperUtil {
             return e;
         }
 
-        if (e instanceof SqlException) {
-            return new CriteriaException(INTERNAL_ERR, e);
-        }
-
         if (e instanceof TraceableException) {
             TraceableException traceable = (TraceableException) e;
             return new CriteriaException(traceable.traceId(), traceable.code(), e.getMessage(), e);

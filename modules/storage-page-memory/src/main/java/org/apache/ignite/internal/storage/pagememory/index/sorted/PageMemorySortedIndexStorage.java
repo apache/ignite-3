@@ -91,7 +91,7 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
 
     @Override
     public Cursor<RowId> get(BinaryTuple key) throws StorageException {
-        return busy(() -> {
+        return busyRead(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
             SortedIndexRowKey lowerBound = toSortedIndexRow(key, lowestRowId);
@@ -112,7 +112,7 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
 
     @Override
     public void put(IndexRow row) {
-        busy(() -> {
+        busyNonRead(() -> {
             try {
                 SortedIndexRow sortedIndexRow = toSortedIndexRow(row.indexColumns(), row.rowId());
 
@@ -129,7 +129,7 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
 
     @Override
     public void remove(IndexRow row) {
-        busy(() -> {
+        busyNonRead(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
             try {
@@ -151,7 +151,7 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
 
     @Override
     public PeekCursor<IndexRow> scan(@Nullable BinaryTuplePrefix lowerBound, @Nullable BinaryTuplePrefix upperBound, int flags) {
-        return busy(() -> {
+        return busyRead(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
             boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;

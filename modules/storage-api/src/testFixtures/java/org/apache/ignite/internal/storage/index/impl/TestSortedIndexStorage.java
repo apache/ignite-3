@@ -86,14 +86,14 @@ public class TestSortedIndexStorage extends AbstractTestIndexStorage implements 
 
     @Override
     public void put(IndexRow row) {
-        checkStorageClosed();
+        checkStorageClosed(false);
 
         index.add(row);
     }
 
     @Override
     public void remove(IndexRow row) {
-        checkStorageClosedOrInProcessOfRebalance();
+        checkStorageClosedOrInProcessOfRebalance(false);
 
         index.remove(row);
     }
@@ -104,7 +104,7 @@ public class TestSortedIndexStorage extends AbstractTestIndexStorage implements 
             @Nullable BinaryTuplePrefix upperBound,
             int flags
     ) {
-        checkStorageClosedOrInProcessOfRebalance();
+        checkStorageClosedOrInProcessOfRebalance(true);
 
         boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;
         boolean includeUpper = (flags & LESS_OR_EQUAL) != 0;
@@ -188,7 +188,7 @@ public class TestSortedIndexStorage extends AbstractTestIndexStorage implements 
 
         @Override
         public boolean hasNext() {
-            checkStorageClosedOrInProcessOfRebalance();
+            checkStorageClosedOrInProcessOfRebalance(true);
 
             if (hasNext != null) {
                 return hasNext;
@@ -214,7 +214,7 @@ public class TestSortedIndexStorage extends AbstractTestIndexStorage implements 
 
         @Override
         public @Nullable IndexRow peek() {
-            checkStorageClosedOrInProcessOfRebalance();
+            checkStorageClosedOrInProcessOfRebalance(true);
 
             if (hasNext != null) {
                 return currentRow;

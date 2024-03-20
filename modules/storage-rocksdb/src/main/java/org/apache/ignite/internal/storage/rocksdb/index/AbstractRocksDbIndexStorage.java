@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.rocksdb.index;
 
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.KEY_BYTE_ORDER;
+import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnIndexStorageState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
@@ -81,7 +82,7 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
 
     @Override
     public @Nullable RowId getNextRowIdToBuild() {
-        return busy(() -> {
+        return busyNonRead(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
             return nextRowIdToBuilt;
@@ -90,7 +91,7 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
 
     @Override
     public void setNextRowIdToBuild(@Nullable RowId rowId) {
-        busy(() -> {
+        busyNonRead(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
             WriteBatchWithIndex writeBatch = PartitionDataHelper.requireWriteBatch();
@@ -200,9 +201,17 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
         }
     }
 
-    <V> V busy(Supplier<V> supplier) {
+    <V> V busyNonRead(Supplier<V> supplier) {
+        return busy(supplier, false);
+    }
+
+    <V> V busyRead(Supplier<V> supplier) {
+        return busy(supplier, true);
+    }
+
+    private <V> V busy(Supplier<V> supplier, boolean read) {
         if (!busyLock.enterBusy()) {
-            throwExceptionDependingOnStorageState(state.get(), createStorageInfo());
+            throwExceptionDependingOnIndexStorageState(state.get(), read, createStorageInfo());
         }
 
         try {
@@ -270,12 +279,12 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
 
         @Override
         public boolean hasNext() {
-            return busy(this::advanceIfNeededBusy);
+            return busyRead(this::advanceIfNeededBusy);
         }
 
         @Override
         public T next() {
-            return busy(() -> {
+            return busyRead(() -> {
                 if (!advanceIfNeededBusy()) {
                     throw new NoSuchElementException();
                 }
@@ -288,7 +297,7 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
 
         @Override
         public @Nullable T peek() {
-            return busy(() -> {
+            return busyRead(() -> {
                 throwExceptionIfStorageInProgressOfRebalance(state.get(), AbstractRocksDbIndexStorage.this::createStorageInfo);
 
                 byte[] res = peekBusy();

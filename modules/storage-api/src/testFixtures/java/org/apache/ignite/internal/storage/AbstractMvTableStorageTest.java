@@ -468,7 +468,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     }
 
     private static void checkStorageDestroyed(IndexStorage storage) {
-        assertThrows(StorageDestroyedException.class, () -> storage.get(mock(BinaryTuple.class)));
+        assertThrows(ReadFromDestroyedIndexStorageException.class, () -> storage.get(mock(BinaryTuple.class)));
 
         assertThrows(StorageDestroyedException.class, () -> storage.put(mock(IndexRow.class)));
 
@@ -479,7 +479,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     private static void checkStorageDestroyed(SortedIndexStorage storage) {
         checkStorageDestroyed((IndexStorage) storage);
 
-        assertThrows(StorageDestroyedException.class, () -> storage.scan(null, null, GREATER));
+        assertThrows(ReadFromDestroyedIndexStorageException.class, () -> storage.scan(null, null, GREATER));
     }
 
     @SuppressWarnings({"resource", "deprecation"})
@@ -1171,10 +1171,10 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         assertThrows(StorageDestroyedException.class, () -> getAll(scanVersionsCursor));
 
-        assertThrows(StorageDestroyedException.class, () -> getAll(getFromHashIndexCursor));
+        assertThrows(ReadFromDestroyedIndexStorageException.class, () -> getAll(getFromHashIndexCursor));
 
-        assertThrows(StorageDestroyedException.class, () -> getAll(getFromSortedIndexCursor));
-        assertThrows(StorageDestroyedException.class, () -> getAll(scanFromSortedIndexCursor));
+        assertThrows(ReadFromDestroyedIndexStorageException.class, () -> getAll(getFromSortedIndexCursor));
+        assertThrows(ReadFromDestroyedIndexStorageException.class, () -> getAll(scanFromSortedIndexCursor));
 
         // What happens if there is no partition?
         assertThrows(StorageException.class, () -> tableStorage.destroyPartition(PARTITION_ID));
@@ -1219,10 +1219,10 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         assertThrows(StorageDestroyedException.class, () -> getAll(scanTimestampCursor));
 
-        assertThrows(StorageDestroyedException.class, () -> getAll(getFromHashIndexCursor));
+        assertThrows(ReadFromDestroyedIndexStorageException.class, () -> getAll(getFromHashIndexCursor));
 
-        assertThrows(StorageDestroyedException.class, () -> getAll(getFromSortedIndexCursor));
-        assertThrows(StorageDestroyedException.class, () -> getAll(scanFromSortedIndexCursor));
+        assertThrows(ReadFromDestroyedIndexStorageException.class, () -> getAll(getFromSortedIndexCursor));
+        assertThrows(ReadFromDestroyedIndexStorageException.class, () -> getAll(scanFromSortedIndexCursor));
 
         // Let's check that nothing will happen if we try to destroy it again.
         assertThat(tableStorage.destroy(), willCompleteSuccessfully());

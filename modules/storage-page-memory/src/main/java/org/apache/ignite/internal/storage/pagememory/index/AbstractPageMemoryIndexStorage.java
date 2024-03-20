@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.storage.pagememory.index;
 
+import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnIndexStorageState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
@@ -108,7 +109,7 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
 
     @Override
     public @Nullable RowId getNextRowIdToBuild() {
-        return busy(() -> {
+        return busyNonRead(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
             return nextRowIdToBuilt;
@@ -117,7 +118,7 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
 
     @Override
     public void setNextRowIdToBuild(@Nullable RowId rowId) {
-        busy(() -> {
+        busyNonRead(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
             UUID rowIdUuid = rowId == null ? null : rowId.uuid();
@@ -255,6 +256,26 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
     /** Constant that represents the absence of value in {@link ScanCursor}. Not equivalent to {@code null} value. */
     private static final IndexRowKey NO_INDEX_ROW = () -> null;
 
+    protected <T> T busyNonRead(Supplier<T> supplier) {
+        return busy(supplier, false);
+    }
+
+    protected <T> T busyRead(Supplier<T> supplier) {
+        return busy(supplier, true);
+    }
+
+    private <T> T busy(Supplier<T> supplier, boolean read) {
+        if (!busyLock.enterBusy()) {
+            throwExceptionDependingOnIndexStorageState(state.get(), read, createStorageInfo());
+        }
+
+        try {
+            return supplier.get();
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
     /**
      * Cursor that always returns up-to-date next element.
      *
@@ -301,7 +322,7 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
 
         @Override
         public boolean hasNext() {
-            return busy(() -> {
+            return busyRead(() -> {
                 try {
                     return advanceIfNeededBusy();
                 } catch (IgniteInternalCheckedException e) {
@@ -312,7 +333,7 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
 
         @Override
         public R next() {
-            return busy(() -> {
+            return busyRead(() -> {
                 try {
                     if (!advanceIfNeededBusy()) {
                         throw new NoSuchElementException();
@@ -329,7 +350,7 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
 
         @Override
         public @Nullable R peek() {
-            return busy(() -> {
+            return busyRead(() -> {
                 throwExceptionIfStorageInProgressOfRebalance(state.get(), AbstractPageMemoryIndexStorage.this::createStorageInfo);
 
                 try {
@@ -370,18 +391,6 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
 
             hasNext = treeRow != null;
             return hasNext;
-        }
-    }
-
-    protected <T> T busy(Supplier<T> supplier) {
-        if (!busyLock.enterBusy()) {
-            throwExceptionDependingOnStorageState(state.get(), createStorageInfo());
-        }
-
-        try {
-            return supplier.get();
-        } finally {
-            busyLock.leaveBusy();
         }
     }
 

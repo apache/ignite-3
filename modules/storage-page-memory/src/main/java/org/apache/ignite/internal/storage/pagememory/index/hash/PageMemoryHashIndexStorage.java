@@ -85,7 +85,7 @@ public class PageMemoryHashIndexStorage extends AbstractPageMemoryIndexStorage<H
 
     @Override
     public Cursor<RowId> get(BinaryTuple key) throws StorageException {
-        return busy(() -> {
+        return busyRead(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
             IndexColumns indexColumns = new IndexColumns(partitionId, key.byteBuffer());
@@ -108,7 +108,7 @@ public class PageMemoryHashIndexStorage extends AbstractPageMemoryIndexStorage<H
 
     @Override
     public void put(IndexRow row) throws StorageException {
-        busy(() -> {
+        busyNonRead(() -> {
             try {
                 IndexColumns indexColumns = new IndexColumns(partitionId, row.indexColumns().byteBuffer());
 
@@ -127,7 +127,7 @@ public class PageMemoryHashIndexStorage extends AbstractPageMemoryIndexStorage<H
 
     @Override
     public void remove(IndexRow row) throws StorageException {
-        busy(() -> {
+        busyNonRead(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
             try {

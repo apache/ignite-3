@@ -274,6 +274,12 @@ public class ErrorGroups {
 
         /** Execution of transaction control statement inside an external transaction is forbidden. */
         public static final int TX_CONTROL_INSIDE_EXTERNAL_TX_ERR = SQL_ERR_GROUP.registerErrorCode((short) 13);
+
+        /**
+         * Trying to execute a plan that cannot be executed anymore (for example, if there is an index scan and the storage of the index
+         * is already under destruction/destroyed).
+         */
+        public static final int STALE_PLAN_ERR = SQL_ERR_GROUP.registerErrorCode((short) 14);
     }
 
     /** Meta storage error group. */

@@ -208,8 +208,7 @@ public class OrderedMergePublisher<T> implements Publisher<T> {
                 if (current == null) {
                     next = throwable;
                 } else {
-                    next = new Throwable();
-                    next.addSuppressed(current);
+                    next = current;
                     next.addSuppressed(throwable);
                 }
 

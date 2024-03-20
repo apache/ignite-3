@@ -48,6 +48,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.findFirst;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.CURSOR_CLOSE_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.STALE_PLAN_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_COMMIT_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ROLLBACK_ERR;
@@ -65,6 +66,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
@@ -115,6 +117,7 @@ import org.apache.ignite.internal.schema.NullBinaryRow;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
+import org.apache.ignite.internal.storage.ReadFromDestroyedIndexStorageException;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.BinaryTupleComparator;
@@ -392,6 +395,23 @@ public class PartitionReplicaListener implements ReplicaListener {
         prepareIndexBuilderTxRwOperationTracker();
     }
 
+    private static void rethrowTranslated(Throwable ex) {
+        Throwable unwrapped = ex;
+        if (ex instanceof CompletionException && ex.getCause() != null) {
+            unwrapped = ex.getCause();
+        }
+
+        if (unwrapped instanceof ReadFromDestroyedIndexStorageException) {
+            throw new IgniteException(STALE_PLAN_ERR, "The plan is stale. Please retry.", unwrapped);
+        }
+
+        if (ex instanceof CompletionException) {
+            throw (CompletionException) ex;
+        }
+
+        throw new CompletionException(ex);
+    }
+
     @Override
     public CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, String senderId) {
         return ensureReplicaIsPrimary(request)
@@ -402,6 +422,12 @@ public class PartitionReplicaListener implements ReplicaListener {
                     } else {
                         return new ReplicaResult(res, null);
                     }
+                })
+                .exceptionally(ex -> {
+                    rethrowTranslated(ex);
+
+                    // This return is never reached.
+                    return null;
                 });
     }
 
