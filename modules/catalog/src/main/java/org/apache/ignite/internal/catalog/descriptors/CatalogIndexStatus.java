@@ -80,6 +80,19 @@ public enum CatalogIndexStatus {
         return this != STOPPING;
     }
 
+    /**
+     * Returns {@code true} if the index is {@link #AVAILABLE} or follows it.
+     */
+    public boolean isAvailableOrLater() {
+        switch (this) {
+            case AVAILABLE:
+            case STOPPING:
+                return true;
+            default:
+                return false;
+        }
+    }
+
     static {
         for (CatalogIndexStatus status : values()) {
             assert VALS[status.id] == null : "Found duplicate id " + status.id;

@@ -21,7 +21,7 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.joining;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.clusterWideEnsuredActivationTimestamp;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.clusterWideEnsuredActivationTsSafeForRoReads;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor.CatalogIndexDescriptorType.HASH;
 import static org.apache.ignite.internal.type.NativeTypes.BOOLEAN;
@@ -339,12 +339,12 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     @Override
-    public CompletableFuture<Void> execute(CatalogCommand command) {
+    public CompletableFuture<Integer> execute(CatalogCommand command) {
         return saveUpdateAndWaitForActivation(command);
     }
 
     @Override
-    public CompletableFuture<Void> execute(List<CatalogCommand> commands) {
+    public CompletableFuture<Integer> execute(List<CatalogCommand> commands) {
         if (nullOrEmpty(commands)) {
             return nullCompletedFuture();
         }
@@ -377,18 +377,16 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         LOG.info("Catalog history was truncated up to version=" + catalog.version());
     }
 
-    private CompletableFuture<Void> saveUpdateAndWaitForActivation(UpdateProducer updateProducer) {
+    private CompletableFuture<Integer> saveUpdateAndWaitForActivation(UpdateProducer updateProducer) {
         return saveUpdate(updateProducer, 0)
                 .thenCompose(newVersion -> {
                     Catalog catalog = catalogByVer.get(newVersion);
 
-                    HybridTimestamp clusterWideEnsuredActivationTs = clusterWideEnsuredActivationTimestamp(catalog);
-                    // TODO: this addition has to be removed when IGNITE-20378 is implemented.
-                    HybridTimestamp tsSafeForRoReadingInPastOptimization = clusterWideEnsuredActivationTs.addPhysicalTime(
-                            partitionIdleSafeTimePropagationPeriodMsSupplier.getAsLong() + HybridTimestamp.maxClockSkew()
+                    HybridTimestamp tsSafeForRoReadingInPastOptimization = clusterWideEnsuredActivationTsSafeForRoReads(
+                            catalog, partitionIdleSafeTimePropagationPeriodMsSupplier
                     );
 
-                    return clockWaiter.waitFor(tsSafeForRoReadingInPastOptimization);
+                    return clockWaiter.waitFor(tsSafeForRoReadingInPastOptimization).thenApply(unused -> newVersion);
                 });
     }
 
