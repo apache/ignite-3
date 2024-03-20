@@ -444,16 +444,34 @@ public class SessionImpl implements AbstractSession {
                 .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.ALL)
                 .build();
 
-        CompletableFuture<Void> resFut = new CompletableFuture<>();
         try {
-            CompletableFuture<AsyncSqlCursor<InternalSqlRow>> f =
-                    qryProc.queryScriptAsync(properties, transactions, null, query, arguments);
-
-            ScriptHandler handler = new ScriptHandler(resFut);
-            f.whenComplete(handler::processCursor);
+            return executeScriptCore(
+                    qryProc,
+                    transactions,
+                    busyLock::enterBusy,
+                    busyLock::leaveBusy,
+                    query,
+                    arguments,
+                    properties);
         } finally {
             busyLock.leaveBusy();
         }
+    }
+
+    public static CompletableFuture<Void> executeScriptCore(
+            QueryProcessor qryProc,
+            IgniteTransactions transactions,
+            Supplier<Boolean> enterBusy,
+            Runnable leaveBusy,
+            String query,
+            @Nullable Object[] arguments,
+            SqlProperties properties) {
+        CompletableFuture<AsyncSqlCursor<InternalSqlRow>> f =
+                qryProc.queryScriptAsync(properties, transactions, null, query, arguments);
+
+        CompletableFuture<Void> resFut = new CompletableFuture<>();
+        ScriptHandler handler = new ScriptHandler(resFut, enterBusy, leaveBusy);
+        f.whenComplete(handler::processCursor);
 
         return resFut.exceptionally((th) -> {
             Throwable cause = ExceptionUtils.unwrapCause(th);
@@ -634,12 +652,19 @@ public class SessionImpl implements AbstractSession {
         return List.copyOf(openedCursors.values());
     }
 
-    private class ScriptHandler {
+    private static class ScriptHandler {
         private final CompletableFuture<Void> resFut;
         private final List<Throwable> cursorCloseErrors = Collections.synchronizedList(new ArrayList<>());
+        private final Supplier<Boolean> enterBusy;
+        private final Runnable leaveBusy;
 
-        ScriptHandler(CompletableFuture<Void> resFut) {
+        ScriptHandler(
+                CompletableFuture<Void> resFut,
+                Supplier<Boolean> enterBusy,
+                Runnable leaveBusy) {
             this.resFut = resFut;
+            this.enterBusy = enterBusy;
+            this.leaveBusy = leaveBusy;
         }
 
         void processCursor(AsyncSqlCursor<InternalSqlRow> cursor, Throwable scriptError) {
@@ -656,7 +681,7 @@ public class SessionImpl implements AbstractSession {
                     cursorCloseErrors.add(cursorCloseError);
                 }
 
-                if (!busyLock.enterBusy()) {
+                if (!enterBusy.get()) {
                     onFail(sessionIsClosedException());
                     return;
                 }
@@ -667,7 +692,7 @@ public class SessionImpl implements AbstractSession {
                         return;
                     }
                 } finally {
-                    busyLock.leaveBusy();
+                    leaveBusy.run();
                 }
 
                 onComplete();
