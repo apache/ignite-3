@@ -19,6 +19,7 @@ package org.apache.ignite.client.handler.requests.sql;
 
 import static org.apache.ignite.internal.lang.SqlExceptionMapperUtil.mapToPublicSqlException;
 
+import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,6 +36,7 @@ import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.QueryProperty;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
+import org.apache.ignite.internal.sql.engine.property.SqlProperties.Builder;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.sql.ColumnMetadata;
@@ -161,45 +163,6 @@ class ClientSqlCommon {
 
             default:
                 throw new UnsupportedOperationException("Unsupported column type: " + col.type());
-        }
-    }
-
-    static Session readSession(ClientMessageUnpacker in, QueryProcessor sql, IgniteTransactions transactions) {
-        // TODO
-        SessionBuilder sessionBuilder = null;
-
-        if (transactions != null && sessionBuilder instanceof SessionBuilderImpl) {
-            ((SessionBuilderImpl) sessionBuilder).igniteTransactions(transactions);
-        }
-
-        if (!in.tryUnpackNil()) {
-            sessionBuilder.defaultSchema(in.unpackString());
-        }
-
-        if (!in.tryUnpackNil()) {
-            sessionBuilder.defaultPageSize(in.unpackInt());
-        }
-
-        if (!in.tryUnpackNil()) {
-            sessionBuilder.defaultQueryTimeout(in.unpackLong(), TimeUnit.MILLISECONDS);
-        }
-
-        if (!in.tryUnpackNil()) {
-            sessionBuilder.idleTimeout(in.unpackLong(), TimeUnit.MILLISECONDS);
-        }
-
-        readSessionProperties(in, sessionBuilder);
-
-        return sessionBuilder.build();
-    }
-
-    private static void readSessionProperties(ClientMessageUnpacker in, SessionBuilder sessionBuilder) {
-        var propCount = in.unpackInt();
-        var reader = new BinaryTupleReader(propCount * 4, in.readBinaryUnsafe());
-
-        for (int i = 0; i < propCount; i++) {
-            // noinspection DataFlowIssue
-            sessionBuilder.property(reader.stringValue(i * 4), ClientBinaryTupleUtils.readObject(reader, i * 4 + 1));
         }
     }
 
