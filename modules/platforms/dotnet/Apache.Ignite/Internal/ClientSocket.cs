@@ -196,7 +196,7 @@ namespace Apache.Ignite.Internal
                 connected = true;
                 logger.LogConnectionEstablishedDebug(socket.RemoteEndPoint);
 
-                Metrics.ConnectionsEstablished.Add(1);
+                Metrics.ConnectionsEstablished.Add(1, endPoint.GetMetricTags());
                 Metrics.ConnectionsActiveIncrement();
 
                 stream = new NetworkStream(socket, ownsSocket: true);
@@ -662,7 +662,7 @@ namespace Apache.Ignite.Internal
                     AddBytesSent(prefixBytes.Length);
                 }
 
-                Metrics.RequestsSent.Add(1);
+                Metrics.RequestsSent.Add(1, ConnectionContext.ClusterNode.GetMetricTags());
             }
             catch (Exception e)
             {
@@ -786,7 +786,7 @@ namespace Apache.Ignite.Internal
                 return false;
             }
 
-            Metrics.RequestsCompleted.Add(1);
+            Metrics.RequestsCompleted.Add(1, ConnectionContext.ClusterNode.GetMetricTags());
 
             return taskCompletionSource.TrySetResult(response);
         }
@@ -879,11 +879,11 @@ namespace Apache.Ignite.Internal
                 {
                     _logger.LogConnectionClosedWithErrorWarn(ex, ConnectionContext.ClusterNode.Address, ex.Message);
 
-                    Metrics.ConnectionsLost.Add(1);
+                    Metrics.ConnectionsLost.Add(1, ConnectionContext.ClusterNode.GetMetricTags());
 
                     if (ex.GetBaseException() is TimeoutException)
                     {
-                        Metrics.ConnectionsLostTimeout.Add(1);
+                        Metrics.ConnectionsLostTimeout.Add(1, ConnectionContext.ClusterNode.GetMetricTags());
                     }
                 }
                 else
