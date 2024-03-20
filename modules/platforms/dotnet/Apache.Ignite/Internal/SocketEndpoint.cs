@@ -37,6 +37,9 @@ namespace Apache.Ignite.Internal
         {
             EndPoint = endPoint;
             Host = host;
+
+            // Cache endpoint string for metrics and logging.
+            EndPointString = endPoint.ToString();
         }
 
         /// <summary>
@@ -66,5 +69,10 @@ namespace Apache.Ignite.Internal
         /// Gets the host.
         /// </summary>
         public string Host { get; }
+
+        /// <summary>
+        /// Gets the cached endpoint string.
+        /// </summary>
+        public string EndPointString { get; }
     }
 }

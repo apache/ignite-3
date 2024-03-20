@@ -25,10 +25,36 @@ namespace Apache.Ignite.Internal.Network
     /// <summary>
     /// Cluster node.
     /// </summary>
-    internal sealed record ClusterNode(string Id, string Name, IPEndPoint Address) : IClusterNode
+    internal sealed record ClusterNode : IClusterNode
     {
+        private readonly string _addressString;
+
         /** Cached metric tags. */
         private KeyValuePair<string, object?>[]? _metricTags;
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ClusterNode"/> class.
+        /// </summary>
+        /// <param name="id">Id.</param>
+        /// <param name="name">Name.</param>
+        /// <param name="endpoint">Endpoint.</param>
+        /// <param name="endpointString">Endpoint string.</param>
+        internal ClusterNode(string id, string name, IPEndPoint endpoint, string? endpointString = null)
+        {
+            Id = id;
+            Name = name;
+            Address = endpoint;
+            _addressString = endpointString ?? endpoint.ToString();
+        }
+
+        /// <inheritdoc/>
+        public string Id { get; }
+
+        /// <inheritdoc/>
+        public string Name { get; }
+
+        /// <inheritdoc/>
+        public IPEndPoint Address { get; }
 
         /// <summary>
         /// Gets the metric tags.
@@ -37,7 +63,7 @@ namespace Apache.Ignite.Internal.Network
         internal ReadOnlySpan<KeyValuePair<string, object?>> GetMetricTags() =>
             _metricTags ??= new[]
             {
-                new KeyValuePair<string, object?>(MetricTags.NodeAddress, Address.ToString()), // TODO: Cache address string in SocketEndpoint.
+                new KeyValuePair<string, object?>(MetricTags.NodeAddress, _addressString),
                 new KeyValuePair<string, object?>(MetricTags.NodeName, Name)
             };
     }

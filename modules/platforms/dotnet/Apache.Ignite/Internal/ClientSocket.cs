@@ -24,7 +24,6 @@ namespace Apache.Ignite.Internal
     using System.Diagnostics.CodeAnalysis;
     using System.IO;
     using System.Linq;
-    using System.Net;
     using System.Net.Security;
     using System.Net.Sockets;
     using System.Threading;
@@ -211,7 +210,7 @@ namespace Apache.Ignite.Internal
                     logger.LogSslConnectionEstablishedDebug(socket.RemoteEndPoint, sslStream.NegotiatedCipherSuite);
                 }
 
-                var context = await HandshakeAsync(stream, endPoint.EndPoint, configuration, cts.Token)
+                var context = await HandshakeAsync(stream, endPoint, configuration, cts.Token)
                     .WaitAsync(configuration.SocketTimeout, cts.Token)
                     .ConfigureAwait(false);
 
@@ -288,7 +287,7 @@ namespace Apache.Ignite.Internal
         /// <param name="cancellationToken">Cancellation token.</param>
         private static async Task<ConnectionContext> HandshakeAsync(
             Stream stream,
-            IPEndPoint endPoint,
+            SocketEndpoint endPoint,
             IgniteClientConfiguration configuration,
             CancellationToken cancellationToken)
         {
@@ -328,7 +327,7 @@ namespace Apache.Ignite.Internal
             }
         }
 
-        private static ConnectionContext ReadHandshakeResponse(MsgPackReader reader, IPEndPoint endPoint, ISslInfo? sslInfo)
+        private static ConnectionContext ReadHandshakeResponse(MsgPackReader reader, SocketEndpoint endPoint, ISslInfo? sslInfo)
         {
             var serverVer = new ClientProtocolVersion(reader.ReadInt16(), reader.ReadInt16(), reader.ReadInt16());
 
@@ -353,7 +352,7 @@ namespace Apache.Ignite.Internal
             return new ConnectionContext(
                 serverVer,
                 TimeSpan.FromMilliseconds(idleTimeoutMs),
-                new ClusterNode(clusterNodeId, clusterNodeName, endPoint),
+                new ClusterNode(clusterNodeId, clusterNodeName, endPoint.EndPoint, endPoint.EndPointString),
                 clusterId,
                 sslInfo);
         }
