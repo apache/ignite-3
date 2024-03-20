@@ -2235,7 +2235,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                 // When the same key is inserted multiple times within the same batch, we need to maintain operation order.
                 // newKeyMap ensures that the same key is always assigned the same rowId.
-                Map<ByteBuffer, RowId> newKeyMap = new HashMap<>();
+                Map<ByteBuffer, Integer> newKeyMap = new HashMap<>();
 
                 for (int i = 0; i < searchRows.size(); i++) {
                     BinaryRow searchRow = searchRows.get(i);
@@ -2245,6 +2245,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                     BinaryTuple pk = isDelete
                             ? resolvePk(searchRow.tupleSlice())
                             : extractPk(searchRow);
+
+                    int rowIdx = i;
 
                     rowIdFuts[i] = resolveRowByPk(pk, txId, (rowId, row, lastCommitTime) -> {
                         if (isDelete && rowId == null) {
@@ -2261,13 +2263,19 @@ public class PartitionReplicaListener implements ReplicaListener {
                         RowId rowId0;
 
                         if (insert) {
-                            if (newKeyMap.containsKey(pk.byteBuffer())) {
-                                // Don't take locks for the same key again.
-                                return nullCompletedFuture();
+                            int prevRowIdx = newKeyMap.getOrDefault(pk.byteBuffer(), -1);
+
+                            if (prevRowIdx != -1) {
+                                // Use existing lock, and skip previous row with the same key.
+                                CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>> lockFut = rowIdFuts[prevRowIdx];
+                                rowIdFuts[prevRowIdx] = nullCompletedFuture();
+                                newKeyMap.put(pk.byteBuffer(), rowIdx);
+
+                                return lockFut;
                             }
 
                             rowId0 = new RowId(partId(), UUID.randomUUID());
-                            newKeyMap.put(pk.byteBuffer(), rowId0);
+                            newKeyMap.put(pk.byteBuffer(), rowIdx);
                         } else {
                             rowId0 = rowId;
                         }
