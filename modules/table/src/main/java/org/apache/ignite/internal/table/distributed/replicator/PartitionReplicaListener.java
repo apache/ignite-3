@@ -2255,7 +2255,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         }
 
                         if (lastCommitTime != null) {
-                            //noinspection DataFlowIssue (rowId is not null if lastCommitTime is not null)
+                            // noinspection DataFlowIssue (rowId is not null if lastCommitTime is not null)
                             lastCommitTimes.put(rowId.uuid(), lastCommitTime);
                         }
 
