@@ -26,4 +26,9 @@ public static class MetricTags
     /// Node name (consistent id).
     /// </summary>
     public const string NodeName = "node.name";
+
+    /// <summary>
+    /// Node address.
+    /// </summary>
+    public const string NodeAddress = "node.addr";
 }

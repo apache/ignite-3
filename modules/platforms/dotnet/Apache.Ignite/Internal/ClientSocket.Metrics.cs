@@ -24,10 +24,13 @@ using System.Collections.Generic;
 /// </summary>
 internal sealed partial class ClientSocket
 {
-    private void AddBytesSent(int sent) => Metrics.BytesSent.Add(sent, GetNodeNameMetricTag());
+    private void AddBytesSent(int sent) => Metrics.BytesSent.Add(sent, GetNodeNameMetricTag(), GetNodeAddrMetricTag());
 
-    private void AddBytesReceived(int sent) => Metrics.BytesReceived.Add(sent, GetNodeNameMetricTag());
+    private void AddBytesReceived(int sent) => Metrics.BytesReceived.Add(sent, GetNodeNameMetricTag(), GetNodeAddrMetricTag());
 
     private KeyValuePair<string, object?> GetNodeNameMetricTag() =>
         new(MetricTags.NodeName, ConnectionContext.ClusterNode.Name);
+
+    private KeyValuePair<string, object?> GetNodeAddrMetricTag() =>
+        new(MetricTags.NodeName, ConnectionContext.ClusterNode.AddressString);
 }

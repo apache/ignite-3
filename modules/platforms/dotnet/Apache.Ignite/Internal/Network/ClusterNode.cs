@@ -23,5 +23,18 @@ namespace Apache.Ignite.Internal.Network
     /// <summary>
     /// Cluster node.
     /// </summary>
-    internal sealed record ClusterNode(string Id, string Name, IPEndPoint Address) : IClusterNode;
+    internal sealed record ClusterNode(string Id, string Name, IPEndPoint Address, string AddressString) : IClusterNode
+    {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ClusterNode"/> class.
+        /// </summary>
+        /// <param name="id">Id.</param>
+        /// <param name="name">Name.</param>
+        /// <param name="address">Address.</param>
+        public ClusterNode(string id, string name, IPEndPoint address)
+            : this(id, name, address, address.ToString())
+        {
+            // No-op.
+        }
+    }
 }
