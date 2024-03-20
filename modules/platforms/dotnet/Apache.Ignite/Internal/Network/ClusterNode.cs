@@ -17,6 +17,8 @@
 
 namespace Apache.Ignite.Internal.Network
 {
+    using System;
+    using System.Collections.Generic;
     using System.Net;
     using Ignite.Network;
 
@@ -25,12 +27,18 @@ namespace Apache.Ignite.Internal.Network
     /// </summary>
     internal sealed record ClusterNode(string Id, string Name, IPEndPoint Address) : IClusterNode
     {
-        private string? _addressString;
+        /** Cached metric tags. */
+        private KeyValuePair<string, object?>[]? _metricTags;
 
         /// <summary>
-        /// Gets the address string.
+        /// Gets the metric tags.
         /// </summary>
-        /// <returns>Address string.</returns>
-        public string GetAddressString() => _addressString ??= Address.ToString();
+        /// <returns>Metric tags for this node.</returns>
+        internal ReadOnlySpan<KeyValuePair<string, object?>> GetMetricTags() =>
+            _metricTags ??= new[]
+            {
+                new KeyValuePair<string, object?>(MetricTags.NodeAddress, Address.ToString()),
+                new KeyValuePair<string, object?>(MetricTags.NodeName, Name)
+            };
     }
 }

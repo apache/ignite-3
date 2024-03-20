@@ -601,7 +601,7 @@ namespace Apache.Ignite.Internal
             {
                 if (_requests.TryRemove(requestId, out _))
                 {
-                    Metrics.RequestsFailed.Add(1);
+                    AddFailedRequest();
                     Metrics.RequestsActiveDecrement();
                 }
 
@@ -781,7 +781,7 @@ namespace Apache.Ignite.Internal
 
             if (exception != null)
             {
-                Metrics.RequestsFailed.Add(1);
+                AddFailedRequest();
 
                 taskCompletionSource.TrySetException(exception);
                 return false;

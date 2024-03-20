@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Internal;
 
+using System;
 using System.Collections.Generic;
 using Network;
 
@@ -29,7 +30,7 @@ internal sealed partial class ClientSocket
     {
         if (node != null)
         {
-            Metrics.BytesSent.Add(bytes, GetNodeAddrTag(node), GetNodeNameTag(node));
+            Metrics.BytesSent.Add(bytes, node.GetMetricTags());
         }
     }
 
@@ -37,15 +38,13 @@ internal sealed partial class ClientSocket
     {
         if (node != null)
         {
-            Metrics.BytesReceived.Add(bytes, GetNodeAddrTag(node), GetNodeNameTag(node));
+            Metrics.BytesReceived.Add(bytes, node.GetMetricTags());
         }
     }
 
-    private static KeyValuePair<string, object?> GetNodeAddrTag(ClusterNode node) =>
-        new(MetricTags.NodeAddress, node.GetAddressString());
+    private void AddBytesSent(int bytes) => Metrics.BytesSent.Add(bytes, GetMetricTags());
 
-    private static KeyValuePair<string, object?> GetNodeNameTag(ClusterNode node) =>
-        new(MetricTags.NodeName, node.Name);
+    private void AddFailedRequest() => Metrics.RequestsFailed.Add(1, GetMetricTags());
 
-    private void AddBytesSent(int bytes) => AddBytesSent(bytes, ConnectionContext.ClusterNode);
+    private ReadOnlySpan<KeyValuePair<string, object?>> GetMetricTags() => ConnectionContext.ClusterNode.GetMetricTags();
 }
