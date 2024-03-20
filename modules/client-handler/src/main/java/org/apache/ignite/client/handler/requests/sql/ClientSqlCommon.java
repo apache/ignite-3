@@ -27,6 +27,7 @@ import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.sql.api.SessionBuilderImpl;
+import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnMetadata.ColumnOrigin;
 import org.apache.ignite.sql.IgniteSql;
@@ -153,8 +154,9 @@ class ClientSqlCommon {
         }
     }
 
-    static Session readSession(ClientMessageUnpacker in, IgniteSql sql, IgniteTransactions transactions) {
-        SessionBuilder sessionBuilder = sql.sessionBuilder();
+    static Session readSession(ClientMessageUnpacker in, QueryProcessor sql, IgniteTransactions transactions) {
+        // TODO
+        SessionBuilder sessionBuilder = null;
 
         if (transactions != null && sessionBuilder instanceof SessionBuilderImpl) {
             ((SessionBuilderImpl) sessionBuilder).igniteTransactions(transactions);

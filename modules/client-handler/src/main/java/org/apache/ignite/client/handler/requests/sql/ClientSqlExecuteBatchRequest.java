@@ -28,6 +28,7 @@ import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -58,14 +59,14 @@ public class ClientSqlExecuteBatchRequest {
     public static CompletableFuture<Void> process(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
-            IgniteSql sql,
+            QueryProcessor sql,
             ClientResourceRegistry resources,
             ClientHandlerMetricSource metrics,
             IgniteTransactionsImpl transactions
     ) {
         var tx = readTx(in, out, resources);
         Session session = readSession(in, sql, transactions);
-        Statement statement = readStatement(in, sql);
+        String statement = in.unpackString();
         BatchedArguments arguments = in.unpackObjectArrayFromBinaryTupleArray();
 
         if (arguments == null) {
@@ -79,7 +80,7 @@ public class ClientSqlExecuteBatchRequest {
         transactions.updateObservableTimestamp(clientTs);
 
         return session
-                .executeBatchAsync(tx, statement.query(), arguments)
+                .executeBatchAsync(tx, statement, arguments)
                 .handle((affectedRows, ex) -> {
                     out.meta(transactions.observableTimestamp());
                     if (ex != null) {
@@ -133,14 +134,6 @@ public class ClientSqlExecuteBatchRequest {
         out.packNil(); // error message
 
         return session.closeAsync();
-    }
-
-    private static Statement readStatement(ClientMessageUnpacker in, IgniteSql sql) {
-        StatementBuilder statementBuilder = sql.statementBuilder();
-
-        statementBuilder.query(in.unpackString());
-
-        return statementBuilder.build();
     }
 
     private static void packMeta(ClientMessagePacker out, @Nullable ResultSetMetadata meta) {

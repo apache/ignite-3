@@ -22,6 +22,7 @@ import static org.apache.ignite.client.handler.requests.sql.ClientSqlCommon.read
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.sql.IgniteSql;
@@ -40,7 +41,7 @@ public class ClientSqlExecuteScriptRequest {
      */
     public static CompletableFuture<Void> process(
             ClientMessageUnpacker in,
-            IgniteSql sql,
+            QueryProcessor sql,
             IgniteTransactionsImpl transactions
     ) {
         Session session = readSession(in, sql, transactions);

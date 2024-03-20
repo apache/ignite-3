@@ -32,6 +32,7 @@ import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.sql.IgniteSql;
@@ -61,14 +62,14 @@ public class ClientSqlExecuteRequest {
     public static CompletableFuture<Void> process(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
-            IgniteSql sql,
+            QueryProcessor sql,
             ClientResourceRegistry resources,
             ClientHandlerMetricSource metrics,
             IgniteTransactionsImpl transactions
     ) {
         var tx = readTx(in, out, resources);
         Session session = readSession(in, sql, transactions);
-        Statement statement = readStatement(in, sql);
+        String statement = in.unpackString();
         Object[] arguments = in.unpackObjectArrayFromBinaryTuple();
 
         if (arguments == null) {
@@ -137,14 +138,6 @@ public class ClientSqlExecuteRequest {
         } else {
             return asyncResultSet.closeAsync().thenCompose(res -> session.closeAsync());
         }
-    }
-
-    private static Statement readStatement(ClientMessageUnpacker in, IgniteSql sql) {
-        StatementBuilder statementBuilder = sql.statementBuilder();
-
-        statementBuilder.query(in.unpackString());
-
-        return statementBuilder.build();
     }
 
     private static void packMeta(ClientMessagePacker out, @Nullable ResultSetMetadata meta) {

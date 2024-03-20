@@ -121,7 +121,6 @@ public class TestServer {
                 mock(IgniteComputeInternal.class),
                 clusterService,
                 bootstrapFactory,
-                mock(IgniteSql.class),
                 () -> CompletableFuture.completedFuture(ClusterTag.clusterTag(msgFactory, "Test Server")),
                 mock(MetricManager.class),
                 metrics,
