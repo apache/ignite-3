@@ -261,7 +261,7 @@ class IndexStorageFactory {
     void updateDataStructuresIn(PageMemoryHashIndexStorage indexStorage) {
         HashIndexTree indexTree = createHashIndexTreeAndMeta(indexStorage.indexDescriptor()).indexTree;
 
-        indexStorage.updateDataStructures(indexFreeList, indexTree);
+        indexStorage.updateDataStructures(indexMetaTree, indexFreeList, indexTree);
     }
 
     /**
@@ -270,7 +270,7 @@ class IndexStorageFactory {
     void updateDataStructuresIn(PageMemorySortedIndexStorage indexStorage) {
         SortedIndexTree indexTree = createSortedIndexTreeAndMeta(indexStorage.indexDescriptor()).indexTree;
 
-        indexStorage.updateDataStructures(indexFreeList, indexTree);
+        indexStorage.updateDataStructures(indexMetaTree, indexFreeList, indexTree);
     }
 
     private <T> IndexTreeAndMeta<T> createIndexTree(StorageIndexDescriptor descriptor, IndexTreeConstructor<T> treeConstructor) {

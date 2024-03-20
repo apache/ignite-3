@@ -249,7 +249,7 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
     }
 
     @Override
-    public void destroyData(WriteBatch writeBatch) throws RocksDBException {
+    public void destroyData0(WriteBatch writeBatch) throws RocksDBException {
         byte[] constantPrefix = ByteBuffer.allocate(BINARY_TUPLE_OFFSET)
                 .order(KEY_BYTE_ORDER)
                 .putInt(indexId)

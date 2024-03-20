@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.storage.MvPartitionStorage.REBALANCE_IN
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATER;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.apache.ignite.sql.ColumnType.STRING;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -554,7 +555,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         // Error because rebalance has not yet started for the partition.
         assertThrows(
                 StorageRebalanceException.class,
-                () -> tableStorage.finishRebalancePartition(PARTITION_ID, 100, 500, new byte[0])
+                () -> tableStorage.finishRebalancePartition(PARTITION_ID, 100, 500, BYTE_EMPTY_ARRAY)
         );
 
         List<TestRow> rowsBeforeRebalanceStart = List.of(
@@ -586,13 +587,13 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         // Partition is out of configuration range.
         assertThrows(
                 IllegalArgumentException.class,
-                () -> tableStorage.finishRebalancePartition(getPartitionIdOutOfRange(), 100, 500, new byte[0])
+                () -> tableStorage.finishRebalancePartition(getPartitionIdOutOfRange(), 100, 500, BYTE_EMPTY_ARRAY)
         );
 
         // Partition does not exist.
         assertThrows(
                 StorageRebalanceException.class,
-                () -> tableStorage.finishRebalancePartition(1, 100, 500, new byte[0])
+                () -> tableStorage.finishRebalancePartition(1, 100, 500, BYTE_EMPTY_ARRAY)
         );
 
         byte[] raftGroupConfig = createRandomRaftGroupConfiguration();
@@ -855,6 +856,53 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
             assertThat(hashIndexStorageRestarted.getNextRowIdToBuild(), equalTo(rowId0));
             assertThat(sortedIndexStorageRestarted.getNextRowIdToBuild(), equalTo(rowId1));
         }
+    }
+
+    @Test
+    void testNextRowIdToBuiltAfterRebalance() {
+        MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
+
+        IndexStorage hashIndexStorage = tableStorage.getOrCreateIndex(PARTITION_ID, hashIdx);
+        IndexStorage sortedIndexStorage = tableStorage.getOrCreateIndex(PARTITION_ID, sortedIdx);
+
+        RowId rowId0 = new RowId(PARTITION_ID);
+        RowId rowId1 = new RowId(PARTITION_ID);
+
+        mvPartitionStorage.runConsistently(locker -> {
+            hashIndexStorage.setNextRowIdToBuild(rowId0);
+            sortedIndexStorage.setNextRowIdToBuild(rowId1);
+
+            return null;
+        });
+
+        assertThat(hashIndexStorage.getNextRowIdToBuild(), is(equalTo(rowId0)));
+        assertThat(sortedIndexStorage.getNextRowIdToBuild(), is(equalTo(rowId1)));
+
+        assertThat(mvPartitionStorage.flush(), willCompleteSuccessfully());
+
+        // We expect that nextRowIdToBuild will be reverted to its default value after the rebalance.
+        assertThat(tableStorage.startRebalancePartition(PARTITION_ID), willCompleteSuccessfully());
+        assertThat(tableStorage.finishRebalancePartition(PARTITION_ID, 100, 100, BYTE_EMPTY_ARRAY), willCompleteSuccessfully());
+
+        assertThat(hashIndexStorage.getNextRowIdToBuild(), is(equalTo(RowId.lowestRowId(PARTITION_ID))));
+        assertThat(sortedIndexStorage.getNextRowIdToBuild(), is(equalTo(RowId.lowestRowId(PARTITION_ID))));
+
+        IndexStorage recreatedHashIndexStorage = tableStorage.getOrCreateIndex(PARTITION_ID, hashIdx);
+        IndexStorage recreatedSortedIndexStorage = tableStorage.getOrCreateIndex(PARTITION_ID, sortedIdx);
+
+        assertThat(recreatedHashIndexStorage.getNextRowIdToBuild(), is(equalTo(RowId.lowestRowId(PARTITION_ID))));
+        assertThat(recreatedSortedIndexStorage.getNextRowIdToBuild(), is(equalTo(RowId.lowestRowId(PARTITION_ID))));
+
+        // Check that rowId can be set successfully.
+        mvPartitionStorage.runConsistently(locker -> {
+            recreatedHashIndexStorage.setNextRowIdToBuild(rowId0);
+            recreatedSortedIndexStorage.setNextRowIdToBuild(rowId1);
+
+            return null;
+        });
+
+        assertThat(recreatedHashIndexStorage.getNextRowIdToBuild(), is(equalTo(rowId0)));
+        assertThat(recreatedSortedIndexStorage.getNextRowIdToBuild(), is(equalTo(rowId1)));
     }
 
     @Test
@@ -1298,11 +1346,11 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         storage.runConsistently(locker -> {
             assertThrows(StorageRebalanceException.class, () -> storage.lastApplied(100, 500));
-            assertThrows(StorageRebalanceException.class, () -> storage.committedGroupConfiguration(new byte[0]));
+            assertThrows(StorageRebalanceException.class, () -> storage.committedGroupConfiguration(BYTE_EMPTY_ARRAY));
 
             assertThrows(
                     StorageRebalanceException.class,
-                    () -> storage.committedGroupConfiguration(new byte[0])
+                    () -> storage.committedGroupConfiguration(BYTE_EMPTY_ARRAY)
             );
 
             RowId rowId = new RowId(PARTITION_ID);

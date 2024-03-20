@@ -26,7 +26,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Closure for update {@link IndexMeta#nextRowIdUuidToBuild()}.
  */
-public class UpdateLastRowIdUuidToBuiltInvokeClosure implements InvokeClosure<IndexMeta> {
+public class UpdateLastRowIdUuidToBuildInvokeClosure implements InvokeClosure<IndexMeta> {
     private final @Nullable UUID newLastRowIdUuidToBuilt;
 
     private IndexMeta newRow;
@@ -37,7 +37,7 @@ public class UpdateLastRowIdUuidToBuiltInvokeClosure implements InvokeClosure<In
      * @param newLastRowIdUuidToBuilt Row ID uuid for which the index needs to be built, {@code null} means that the index building has
      *      completed.
      */
-    public UpdateLastRowIdUuidToBuiltInvokeClosure(@Nullable UUID newLastRowIdUuidToBuilt) {
+    public UpdateLastRowIdUuidToBuildInvokeClosure(@Nullable UUID newLastRowIdUuidToBuilt) {
         this.newLastRowIdUuidToBuilt = newLastRowIdUuidToBuilt;
     }
 

@@ -73,7 +73,7 @@ public class RocksDbMetaStorage {
      * @param partitionId Partition ID.
      * @param ifAbsent Will be returned if next the row ID for which the index needs to be built has never been saved.
      */
-    public @Nullable RowId getNextRowIdToBuilt(int indexId, int partitionId, RowId ifAbsent) {
+    public @Nullable RowId getNextRowIdToBuild(int indexId, int partitionId, RowId ifAbsent) {
         try {
             byte[] lastBuiltRowIdBytes = metaColumnFamily.get(createKey(INDEX_ROW_ID_PREFIX, indexId, partitionId));
 
@@ -88,7 +88,7 @@ public class RocksDbMetaStorage {
             return new RowId(partitionId, getRowIdUuid(ByteBuffer.wrap(lastBuiltRowIdBytes), 0));
         } catch (RocksDBException e) {
             throw new StorageException(
-                    "Failed to read next row ID to built: [partitionId={}, indexId={}]",
+                    "Failed to read next row ID to build: [partitionId={}, indexId={}]",
                     e,
                     partitionId, indexId
             );
@@ -103,14 +103,29 @@ public class RocksDbMetaStorage {
      * @param indexId Index ID.
      * @param rowId Row ID.
      */
-    public void putNextRowIdToBuilt(AbstractWriteBatch writeBatch, int indexId, int partitionId, @Nullable RowId rowId) {
+    public void putNextRowIdToBuild(AbstractWriteBatch writeBatch, int indexId, int partitionId, @Nullable RowId rowId) {
         try {
             writeBatch.put(metaColumnFamily.handle(), createKey(INDEX_ROW_ID_PREFIX, indexId, partitionId), indexLastBuildRowId(rowId));
         } catch (RocksDBException e) {
             throw new StorageException(
-                    "Failed to save next row ID to built: [partitionId={}, indexId={}, rowId={}]",
+                    "Failed to save next row ID to build: [partitionId={}, indexId={}, rowId={}]",
                     e,
                     partitionId, indexId, rowId
+            );
+        }
+    }
+
+    /**
+     * Removes the "next row ID to build" information for the given partition's index.
+     */
+    public void removeNextRowIdToBuild(AbstractWriteBatch writeBatch, int indexId, int partitionId) {
+        try {
+            writeBatch.delete(metaColumnFamily.handle(), createKey(INDEX_ROW_ID_PREFIX, indexId, partitionId));
+        } catch (RocksDBException e) {
+            throw new StorageException(
+                    "Failed to remove next row ID to build: [partitionId={}, indexId={}]",
+                    e,
+                    partitionId, indexId
             );
         }
     }

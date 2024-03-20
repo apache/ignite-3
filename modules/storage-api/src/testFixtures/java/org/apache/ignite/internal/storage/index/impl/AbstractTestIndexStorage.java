@@ -37,10 +37,13 @@ abstract class AbstractTestIndexStorage implements IndexStorage {
 
     private volatile @Nullable RowId nextRowIdToBuild;
 
+    private final int partitionId;
+
     /** Amount of cursors that opened and still do not close. */
     protected final AtomicInteger pendingCursors = new AtomicInteger();
 
     AbstractTestIndexStorage(int partitionId) {
+        this.partitionId = partitionId;
         nextRowIdToBuild = RowId.lowestRowId(partitionId);
     }
 
@@ -103,13 +106,19 @@ abstract class AbstractTestIndexStorage implements IndexStorage {
     public void clear() {
         checkStorageClosedOrInProcessOfRebalance();
 
+        clearAndReset();
+    }
+
+    private void clearAndReset() {
         clear0();
+
+        nextRowIdToBuild = RowId.lowestRowId(partitionId);
     }
 
     public void destroy() {
         destroyed = true;
 
-        clear0();
+        clearAndReset();
     }
 
     abstract Iterator<RowId> getRowIdIteratorForGetByBinaryTuple(BinaryTuple key);
@@ -124,7 +133,7 @@ abstract class AbstractTestIndexStorage implements IndexStorage {
 
         rebalance = true;
 
-        clear0();
+        clearAndReset();
     }
 
     /**
@@ -139,7 +148,7 @@ abstract class AbstractTestIndexStorage implements IndexStorage {
 
         rebalance = false;
 
-        clear0();
+        clearAndReset();
     }
 
     /**
