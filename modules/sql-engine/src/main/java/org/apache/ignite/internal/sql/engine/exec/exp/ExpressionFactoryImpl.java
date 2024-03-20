@@ -144,13 +144,12 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             return null;
         }
 
-        return (row1, row2) -> {
+        return (o1, o2) -> {
             RowHandler<RowT> hnd = ctx.rowHandler();
-
             List<RelFieldCollation> collations = collation.getFieldCollations();
 
-            int colsCountRow1 = hnd.columnCount(row1);
-            int colsCountRow2 = hnd.columnCount(row2);
+            int colsCountRow1 = hnd.columnCount(o1);
+            int colsCountRow2 = hnd.columnCount(o2);
 
             int maxCols = Math.min(Math.max(colsCountRow1, colsCountRow2), collations.size());
 
@@ -159,19 +158,19 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                 boolean ascending = field.direction == Direction.ASCENDING;
 
                 if (i == colsCountRow1) {
-                    // There is no more values in row1.
+                    // There is no more values in first row.
                     return ascending ? -1 : 1;
                 }
 
                 if (i == colsCountRow2) {
-                    // There is no more values in row2.
+                    // There is no more values in second row.
                     return ascending ? 1 : -1;
                 }
 
                 int fieldIdx = field.getFieldIndex();
 
-                Object c1 = hnd.get(fieldIdx, row1);
-                Object c2 = hnd.get(fieldIdx, row2);
+                Object c1 = hnd.get(fieldIdx, o1);
+                Object c2 = hnd.get(fieldIdx, o2);
 
                 int nullComparison = field.nullDirection.nullComparison;
 
@@ -885,6 +884,8 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
         private final @Nullable Comparator<RowT> comparator;
 
+        private final int direction;
+
         private boolean sorted;
 
         RangeIterableImpl(
@@ -893,6 +894,9 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         ) {
             this.ranges = ranges;
             this.comparator = comparator;
+
+            // TODO IGNITE-21672 Should be revised when NULLS FIRST/LAST policy can be set arbitrarily.
+            this.direction = 1;
         }
 
         /** {@inheritDoc} */
@@ -923,7 +927,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                 for (RangeCondition<RowT> range0 : ranges) {
                     RangeConditionImpl range = (RangeConditionImpl) range0;
 
-                    if (compareBounds(range.lower(), range.lowerInclude(), range.upper(), range.upperInclude()) > 0) {
+                    if (compareLowerAndUpperBounds(range.lower(), range.upper()) > 0) {
                         // Invalid range (low > up).
                         continue;
                     }
@@ -953,29 +957,39 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         }
 
         private int compareRanges(RangeCondition<RowT> first, RangeCondition<RowT> second) {
-            int cmp = compareBounds(first.lower(), first.lowerInclude(), second.lower(), !second.lowerInclude());
+            int cmp = compareBounds(first.lower(), second.lower(), true);
 
             if (cmp != 0) {
                 return cmp;
             }
 
-            return compareBounds(first.upper(), !first.upperInclude(), second.upper(), second.upperInclude());
+            return compareBounds(first.upper(), second.upper(), false);
         }
 
-        private int compareBounds(@Nullable RowT lower, boolean lowerInclude, @Nullable RowT upper, boolean upperInclude) {
+        private int compareBounds(@Nullable RowT row1, @Nullable RowT row2, boolean lower) {
+            if (row1 == null || row2 == null) {
+                if (row1 == row2) {
+                    return 0;
+                }
+
+                RowT row = lower ? row2 : row1;
+
+                return row == null ? direction : -direction;
+            }
+
+            return comparator.compare(row1, row2);
+        }
+
+        private int compareLowerAndUpperBounds(@Nullable RowT lower, @Nullable RowT upper) {
             assert comparator != null;
 
             if (lower == null || upper == null) {
                 if (lower == upper) {
-                    if (lowerInclude == upperInclude) {
-                        return 0;
-                    }
-
-                    return lowerInclude ? -1 : 1;
-                } else if (lower == null) {
-                    return lowerInclude ? -1 : 1;
+                    return 0;
                 } else {
-                    return upperInclude ? -1 : 1;
+                    // lower = null -> lower < any upper
+                    // upper = null -> upper > any lower
+                    return -1;
                 }
             }
 
@@ -984,8 +998,9 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
         /** Returns combined range if the provided ranges intersect, {@code null} otherwise. */
         @Nullable RangeConditionImpl tryMerge(RangeConditionImpl first, RangeConditionImpl second) {
-            if (compareBounds(first.lower(), first.lowerInclude(), second.upper(), second.upperInclude()) > 0
-                    || compareBounds(second.lower(), second.lowerInclude(), first.upper(), first.upperInclude()) > 0) {
+            if (compareLowerAndUpperBounds(first.lower(), second.upper()) > 0
+                    || compareLowerAndUpperBounds(second.lower(), first.upper()) > 0) {
+                // Ranges are not intersect.
                 return null;
             }
 
@@ -993,7 +1008,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             RowT newLowerRow;
             boolean newLowerInclude;
 
-            int cmp = compareBounds(first.lower(), first.lowerInclude(), second.lower(), !second.lowerInclude());
+            int cmp = compareBounds(first.lower(), second.lower(), true);
 
             if (cmp < 0 || (cmp == 0 && first.lowerInclude())) {
                 newLowerBound = first.lowerBound;
@@ -1009,7 +1024,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             RowT newUpperRow;
             boolean newUpperInclude;
 
-            cmp = compareBounds(first.upper(), !first.upperInclude(), second.upper(), second.upperInclude());
+            cmp = compareBounds(first.upper(), second.upper(), false);
 
             if (cmp > 0 || (cmp == 0 && first.upperInclude())) {
                 newUpperBound = first.upperBound;
