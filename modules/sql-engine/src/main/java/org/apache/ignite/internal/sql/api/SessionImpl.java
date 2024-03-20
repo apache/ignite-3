@@ -71,7 +71,6 @@ import org.apache.ignite.sql.reactive.ReactiveResultSet;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -330,7 +329,6 @@ public class SessionImpl implements AbstractSession {
         }
     }
 
-    @NotNull
     public static CompletableFuture<long[]> executeBatchCore(
             QueryProcessor qryProc,
             IgniteTransactions transactions,
