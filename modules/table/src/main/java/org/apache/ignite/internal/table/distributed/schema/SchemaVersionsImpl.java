@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.schema;
 
-import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Table.TABLE_NOT_FOUND_ERR;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -64,7 +64,7 @@ public class SchemaVersionsImpl implements SchemaVersions {
                     if (table == null) {
                         String message = "Table does not exist or was dropped concurrently: " + tableId;
 
-                        throw new TableNotFoundException(UUID.randomUUID(), TABLE_ID_NOT_FOUND_ERR, message, null);
+                        throw new TableNotFoundException(UUID.randomUUID(), TABLE_NOT_FOUND_ERR, message, null);
                     }
 
                     return table;
