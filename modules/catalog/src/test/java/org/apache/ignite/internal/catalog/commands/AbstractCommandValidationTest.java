@@ -26,6 +26,8 @@ import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Set;
@@ -53,6 +55,9 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
     static final String SCHEMA_NAME = "PUBLIC";
     static final String TABLE_NAME = "TEST";
     static final String ZONE_NAME = "Default";
+    static final TablePrimaryKey ID_PK = TableHashPrimaryKey.builder()
+            .columns(List.of("ID"))
+            .build();
 
     private static final CatalogZoneDescriptor DEFAULT_ZONE = new CatalogZoneDescriptor(
             0, ZONE_NAME, 1, -1, -1, -1, -1, "", null
@@ -134,7 +139,7 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
                         ColumnParams.builder().name("ID").type(INT32).build(),
                         ColumnParams.builder().name("VAL").type(INT32).build()
                 ))
-                .primaryKeyColumns(List.of("ID"))
+                .primaryKey(ID_PK)
                 .build();
     }
 
@@ -223,6 +228,17 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
         assertThat(findIndex(catalog, indexName).status(), is(CatalogIndexStatus.STOPPING));
 
         return catalog;
+    }
+
+    /** Creates a primary key with a hash index that consists of the given columns. */
+    static TablePrimaryKey primaryKey(String column, String... columns) {
+        List<String> pkColumns = new ArrayList<>();
+        pkColumns.add(column);
+        pkColumns.addAll(Arrays.asList(columns));
+
+        return TableHashPrimaryKey.builder()
+                .columns(pkColumns)
+                .build();
     }
 
     private static CatalogIndexDescriptor findIndex(Catalog catalog, String indexName) {

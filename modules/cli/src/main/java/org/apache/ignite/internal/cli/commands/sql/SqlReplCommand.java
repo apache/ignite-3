@@ -34,9 +34,13 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.sql.SQLException;
+import java.util.regex.Pattern;
 import org.apache.ignite.internal.cli.call.sql.SqlQueryCall;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.sql.help.IgniteSqlCommandCompleter;
+import org.apache.ignite.internal.cli.commands.treesitter.highlighter.SqlAttributedStringHighlighter;
+import org.apache.ignite.internal.cli.config.CliConfigKeys;
+import org.apache.ignite.internal.cli.config.ConfigManagerProvider;
 import org.apache.ignite.internal.cli.core.CallExecutionPipelineProvider;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.internal.cli.core.call.StringCallInput;
@@ -53,7 +57,16 @@ import org.apache.ignite.internal.cli.decorators.SqlQueryResultDecorator;
 import org.apache.ignite.internal.cli.sql.SqlManager;
 import org.apache.ignite.internal.cli.sql.SqlSchemaProvider;
 import org.apache.ignite.internal.util.StringUtils;
+import org.jline.reader.EOFError;
+import org.jline.reader.Highlighter;
+import org.jline.reader.LineReader;
+import org.jline.reader.ParsedLine;
+import org.jline.reader.Parser;
+import org.jline.reader.SyntaxError;
+import org.jline.reader.impl.DefaultHighlighter;
+import org.jline.reader.impl.DefaultParser;
 import org.jline.reader.impl.completer.AggregateCompleter;
+import org.jline.utils.AttributedString;
 import picocli.CommandLine.ArgGroup;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Option;
@@ -89,6 +102,9 @@ public class SqlReplCommand extends BaseCommand implements Runnable {
     @Inject
     private EventListeningActivationPoint eventListeningActivationPoint;
 
+    @Inject
+    private ConfigManagerProvider configManagerProvider;
+
     private static String extract(File file) {
         try {
             return String.join("\n", Files.readAllLines(file.toPath(), StandardCharsets.UTF_8));
@@ -110,6 +126,7 @@ public class SqlReplCommand extends BaseCommand implements Runnable {
 
                 SqlCompleter sqlCompleter = new SqlCompleter(schemaProvider);
                 IgniteSqlCommandCompleter sqlCommandCompleter = new IgniteSqlCommandCompleter();
+
                 replExecutorProvider.get().execute(Repl.builder()
                         .withPromptProvider(() -> ansi(fg(Color.GREEN).mark("sql-cli> ")))
                         .withCompleter(new AggregateCompleter(sqlCommandCompleter, sqlCompleter))
@@ -117,7 +134,9 @@ public class SqlReplCommand extends BaseCommand implements Runnable {
                         .withCallExecutionPipelineProvider(provider(sqlManager))
                         .withHistoryFileName("sqlhistory")
                         .withAutosuggestionsWidgets()
+                        .withHighlighter(highlightingEnabled() ? new HighlighterImpl() : new DefaultHighlighter())
                         .withEventSubscriber(eventListeningActivationPoint)
+                        .withParser(multilineSupported() ? new MultilineParser() : new DefaultParser())
                         .build());
             } else {
                 String executeCommand = execOptions.file != null ? extract(execOptions.file) : execOptions.command;
@@ -130,8 +149,54 @@ public class SqlReplCommand extends BaseCommand implements Runnable {
         }
     }
 
+    private boolean multilineSupported() {
+        return Boolean.parseBoolean(configManagerProvider.get().getCurrentProperty(CliConfigKeys.SQL_MULTILINE.value()));
+    }
+
+    private boolean highlightingEnabled() {
+        return Boolean.parseBoolean(configManagerProvider.get().getCurrentProperty(CliConfigKeys.SYNTAX_HIGHLIGHTING.value()));
+    }
+
+    /**
+     * Multiline parser, expects ";" at the end of the line.
+     */
+    static final class MultilineParser implements Parser {
+
+        private static final Parser DEFAULT_PARSER = new DefaultParser();
+
+        @Override
+        public ParsedLine parse(String line, int cursor, Parser.ParseContext context) throws SyntaxError {
+            if ((Parser.ParseContext.UNSPECIFIED.equals(context) || Parser.ParseContext.ACCEPT_LINE.equals(context))
+                    && !line.trim().endsWith(";")) {
+                throw new EOFError(-1, cursor, "Missing semicolon (;)");
+            }
+
+            return DEFAULT_PARSER.parse(line, cursor, context);
+        }
+
+        MultilineParser() {}
+    }
+
+    private static class HighlighterImpl implements Highlighter {
+
+        @Override
+        public AttributedString highlight(LineReader lineReader, String s) {
+            return SqlAttributedStringHighlighter.highlight(s);
+        }
+
+        @Override
+        public void setErrorPattern(Pattern pattern) {
+
+        }
+
+        @Override
+        public void setErrorIndex(int i) {
+
+        }
+    }
+
     private CallExecutionPipelineProvider provider(SqlManager sqlManager) {
-        return (executor, exceptionHandlers, line) -> executor.hasCommand(line)
+        return (executor, exceptionHandlers, line) -> executor.hasCommand(dropSemicolon(line))
                 ? createInternalCommandPipeline(executor, exceptionHandlers, line)
                 : createSqlExecPipeline(sqlManager, line);
     }
@@ -150,11 +215,18 @@ public class SqlReplCommand extends BaseCommand implements Runnable {
             ExceptionHandlers exceptionHandlers,
             String line) {
         return CallExecutionPipeline.builder(call)
-                .inputProvider(() -> new StringCallInput(line))
+                .inputProvider(() -> new StringCallInput(dropSemicolon(line)))
                 .output(spec.commandLine().getOut())
                 .errOutput(spec.commandLine().getErr())
                 .exceptionHandlers(exceptionHandlers)
                 .verbose(verbose)
                 .build();
+    }
+
+    private static String dropSemicolon(String line) {
+        if (line.trim().endsWith(";")) {
+            line = line.substring(0, line.length() - 1);
+        }
+        return line;
     }
 }

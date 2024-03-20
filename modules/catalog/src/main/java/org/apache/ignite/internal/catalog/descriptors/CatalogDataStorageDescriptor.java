@@ -31,7 +31,7 @@ import org.apache.ignite.internal.util.io.IgniteDataOutput;
  */
 // TODO: IGNITE-19719 Must be storage engine specific
 public class CatalogDataStorageDescriptor {
-    public static CatalogObjectSerializer<CatalogDataStorageDescriptor> SERIALIZER = new DataStorageDescriptorSerializer();
+    public static final CatalogObjectSerializer<CatalogDataStorageDescriptor> SERIALIZER = new DataStorageDescriptorSerializer();
 
     private final String engine;
 

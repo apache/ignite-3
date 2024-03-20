@@ -17,9 +17,9 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
-import static java.nio.ByteOrder.BIG_ENDIAN;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.KEY_BYTE_ORDER;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.ROW_ID_SIZE;
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.createKey;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.getRowIdUuid;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.putRowIdUuid;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
@@ -41,37 +41,22 @@ public class RocksDbMetaStorage {
      * Prefix to store partition meta information, such as last applied index and term.
      * Key format is {@code [prefix, tableId, partitionId]} in BE.
      */
-    public static final byte[] PARTITION_META_PREFIX = {0};
+    static final byte[] PARTITION_META_PREFIX = {0};
 
     /**
      * Prefix to store partition configuration. Key format is {@code [prefix, tableId, partitionId]} in BE.
      */
-    public static final byte[] PARTITION_CONF_PREFIX = {1};
+    static final byte[] PARTITION_CONF_PREFIX = {1};
 
     /**
      * Prefix to store next row id to build in index. Key format is {@code [prefix, indexId, partitionId]} in BE.
      */
-    public static final byte[] INDEX_ROW_ID_PREFIX = {2};
+    private static final byte[] INDEX_ROW_ID_PREFIX = {2};
 
     private final ColumnFamily metaColumnFamily;
 
     public RocksDbMetaStorage(ColumnFamily metaColumnFamily) {
         this.metaColumnFamily = metaColumnFamily;
-    }
-
-    /**
-     * Creates a byte array, that uses the {@code prefix} as a prefix, and every other {@code int} values as a 4-bytes chunk in Big Endian.
-     */
-    public static byte[] createKey(byte[] prefix, int... values) {
-        ByteBuffer buf = ByteBuffer.allocate(prefix.length + Integer.BYTES * values.length).order(BIG_ENDIAN);
-
-        buf.put(prefix);
-
-        for (int value : values) {
-            buf.putInt(value);
-        }
-
-        return buf.array();
     }
 
     /**

@@ -174,7 +174,8 @@ abstract class ChangeIndexStatusTask {
                                 LOG.error("Error starting index task: {}", cause, indexDescriptor.id());
                             }
                         }
-                    });
+                    })
+                    .thenApply(unused -> null);
         } finally {
             leaveBusy();
         }

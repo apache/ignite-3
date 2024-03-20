@@ -178,6 +178,9 @@ public class Loza implements RaftManager {
         RaftView raftConfig = raftConfiguration.value();
 
         opts.setRpcInstallSnapshotTimeout(raftConfig.rpcInstallSnapshotTimeout());
+        opts.setStripes(raftConfig.stripes());
+        opts.setLogStripesCount(raftConfig.logStripesCount());
+        opts.setLogYieldStrategy(raftConfig.logYieldStrategy());
 
         opts.getRaftOptions().setSync(raftConfig.fsync());
 

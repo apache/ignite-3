@@ -66,7 +66,7 @@ class PersistentPageMemorySortedIndexStorageTest extends AbstractPageMemorySorte
 
         tableStorage = engine.createMvTable(
                 new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, DEFAULT_DATA_REGION_NAME),
-                new StorageIndexDescriptorSupplier(catalogService)
+                mock(StorageIndexDescriptorSupplier.class)
         );
 
         initialize(tableStorage, engineConfig);

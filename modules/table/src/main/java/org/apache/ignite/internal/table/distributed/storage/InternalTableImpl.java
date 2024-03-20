@@ -53,7 +53,6 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -98,6 +97,7 @@ import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -121,6 +121,10 @@ public class InternalTableImpl implements InternalTable {
     /** Primary replica await timeout. */
     public static final int AWAIT_PRIMARY_REPLICA_TIMEOUT = 30;
 
+    /** Default no-op implementation to avoid unnecessary allocations. */
+    private static final ReadWriteInflightBatchRequestTracker READ_WRITE_INFLIGHT_BATCH_REQUEST_TRACKER =
+            new ReadWriteInflightBatchRequestTracker();
+
     /** Partitions. */
     private final int partitions;
 
@@ -135,6 +139,8 @@ public class InternalTableImpl implements InternalTable {
 
     /** Transactional manager. */
     protected final TxManager txManager;
+
+    private final TransactionInflights transactionInflights;
 
     /** Storage for table data. */
     private final MvTableStorage tableStorage;
@@ -183,6 +189,7 @@ public class InternalTableImpl implements InternalTable {
      * @param clock A hybrid logical clock.
      * @param placementDriver Placement driver.
      * @param tableRaftService Table raft service.
+     * @param transactionInflights Transaction inflights.
      */
     public InternalTableImpl(
             String tableName,
@@ -196,7 +203,8 @@ public class InternalTableImpl implements InternalTable {
             HybridClock clock,
             HybridTimestampTracker observableTimestampTracker,
             PlacementDriver placementDriver,
-            TableRaftServiceImpl tableRaftService
+            TableRaftServiceImpl tableRaftService,
+            TransactionInflights transactionInflights
     ) {
         this.tableName = tableName;
         this.tableId = tableId;
@@ -211,6 +219,7 @@ public class InternalTableImpl implements InternalTable {
         this.observableTimestampTracker = observableTimestampTracker;
         this.placementDriver = placementDriver;
         this.tableRaftService = tableRaftService;
+        this.transactionInflights = transactionInflights;
     }
 
     /** {@inheritDoc} */
@@ -533,6 +542,8 @@ public class InternalTableImpl implements InternalTable {
             @Nullable BiPredicate<R, ReplicaRequest> noWriteChecker,
             boolean retryOnLockConflict
     ) {
+        assert !tx.isReadOnly() : format("Tracking invoke is available only for read-write transactions [tx={}].", tx);
+
         ReplicaRequest request = mapFunc.apply(primaryReplicaAndConsistencyToken.get2());
 
         boolean write = request instanceof SingleRowReplicaRequest && ((SingleRowReplicaRequest) request).requestType() != RW_GET
@@ -543,7 +554,7 @@ public class InternalTableImpl implements InternalTable {
 
         if (write && !full) {
             // Track only write requests from explicit transactions.
-            if (!txManager.addInflight(tx.id())) {
+            if (!transactionInflights.addInflight(tx.id(), false)) {
                 return failedFuture(
                         new TransactionException(TX_ALREADY_FINISHED_ERR, format(
                                 "Transaction is already finished [tableName={}, partId={}, txState={}].",
@@ -558,13 +569,13 @@ public class InternalTableImpl implements InternalTable {
 
                 // Remove inflight if no replication was scheduled, otherwise inflight will be removed by delayed response.
                 if (noWriteChecker.test(res, request)) {
-                    txManager.removeInflight(tx.id());
+                    transactionInflights.removeInflight(tx.id());
                 }
 
                 return res;
             }).exceptionally(e -> {
                 if (retryOnLockConflict && e.getCause() instanceof LockException) {
-                    txManager.removeInflight(tx.id()); // Will be retried.
+                    transactionInflights.removeInflight(tx.id()); // Will be retried.
                 }
 
                 ExceptionUtils.sneakyThrow(e);
@@ -691,7 +702,7 @@ public class InternalTableImpl implements InternalTable {
                 tablePartitionId,
                 tx.startTimestamp(),
                 AWAIT_PRIMARY_REPLICA_TIMEOUT,
-                TimeUnit.SECONDS
+                SECONDS
         );
 
         CompletableFuture<R> fut = primaryReplicaFuture.thenCompose(primaryReplica -> {
@@ -1470,7 +1481,8 @@ public class InternalTableImpl implements InternalTable {
                     return replicaSvc.invoke(recipientNode, request);
                 },
                 // TODO: IGNITE-17666 Close cursor tx finish.
-                (intentionallyClose, fut) -> completeScan(txId, tablePartitionId, fut, recipientNode, intentionallyClose)
+                (intentionallyClose, fut) -> completeScan(txId, tablePartitionId, fut, recipientNode, intentionallyClose),
+                new ReadOnlyInflightBatchRequestTracker(transactionInflights, txId)
         );
     }
 
@@ -1531,7 +1543,8 @@ public class InternalTableImpl implements InternalTable {
                     }
 
                     return postEnlist(opFut, intentionallyClose, actualTx, implicit && !intentionallyClose);
-                }
+                },
+                READ_WRITE_INFLIGHT_BATCH_REQUEST_TRACKER
         );
     }
 
@@ -1573,7 +1586,9 @@ public class InternalTableImpl implements InternalTable {
                     return replicaSvc.invoke(recipient.node(), request);
                 },
                 // TODO: IGNITE-17666 Close cursor tx finish.
-                (intentionallyClose, fut) -> completeScan(txId, tablePartitionId, fut, recipient.node(), intentionallyClose));
+                (intentionallyClose, fut) -> completeScan(txId, tablePartitionId, fut, recipient.node(), intentionallyClose),
+                READ_WRITE_INFLIGHT_BATCH_REQUEST_TRACKER
+        );
     }
 
     /**
@@ -1802,19 +1817,24 @@ public class InternalTableImpl implements InternalTable {
         /** True when the publisher has a subscriber, false otherwise. */
         private final AtomicBoolean subscribed;
 
+        private final InflightBatchRequestTracker inflightBatchRequestTracker;
+
         /**
          * The constructor.
          *
          * @param retrieveBatch Closure that gets a new batch from the remote replica.
          * @param onClose The closure will be applied when {@link Subscription#cancel} is invoked directly or the cursor is
          *         finished.
+         * @param inflightBatchRequestTracker {@link InflightBatchRequestTracker} to track betch requests completion.
          */
         PartitionScanPublisher(
                 BiFunction<Long, Integer, CompletableFuture<Collection<BinaryRow>>> retrieveBatch,
-                BiFunction<Boolean, CompletableFuture<Long>, CompletableFuture<Void>> onClose
+                BiFunction<Boolean, CompletableFuture<Long>, CompletableFuture<Void>> onClose,
+                InflightBatchRequestTracker inflightBatchRequestTracker
         ) {
             this.retrieveBatch = retrieveBatch;
             this.onClose = onClose;
+            this.inflightBatchRequestTracker = inflightBatchRequestTracker;
 
             this.subscribed = new AtomicBoolean(false);
         }
@@ -1927,9 +1947,13 @@ public class InternalTableImpl implements InternalTable {
                     return;
                 }
 
+                inflightBatchRequestTracker.onRequestBegin();
+
                 retrieveBatch.apply(scanId, n).thenAccept(binaryRows -> {
                     assert binaryRows != null;
                     assert binaryRows.size() <= n : "Rows more then requested " + binaryRows.size() + " " + n;
+
+                    inflightBatchRequestTracker.onRequestEnd();
 
                     binaryRows.forEach(subscriber::onNext);
 
@@ -1943,11 +1967,65 @@ public class InternalTableImpl implements InternalTable {
                         }
                     }
                 }).exceptionally(t -> {
+                    inflightBatchRequestTracker.onRequestEnd();
+
                     cancel(t, false);
 
                     return null;
                 });
             }
+        }
+    }
+
+    /**
+     * Created for {@code PartitionScanSubscription} to track inflight batch requests.
+     */
+    private interface InflightBatchRequestTracker {
+        void onRequestBegin();
+
+        void onRequestEnd();
+    }
+
+    /**
+     * This is, in fact, no-op {@code InflightBatchRequestTracker} because tracking batch requests for read-write transactions is not
+     * needed.
+     */
+    private static class ReadWriteInflightBatchRequestTracker implements InflightBatchRequestTracker {
+        @Override
+        public void onRequestBegin() {
+            // No-op.
+        }
+
+        @Override
+        public void onRequestEnd() {
+            // No-op.
+        }
+    }
+
+    private static class ReadOnlyInflightBatchRequestTracker implements InflightBatchRequestTracker {
+        private final TransactionInflights transactionInflights;
+
+        private final UUID txId;
+
+        ReadOnlyInflightBatchRequestTracker(TransactionInflights transactionInflights, UUID txId) {
+            this.transactionInflights = transactionInflights;
+            this.txId = txId;
+        }
+
+        @Override
+        public void onRequestBegin() {
+            // Track read only requests which are able to create cursors.
+            if (!transactionInflights.addInflight(txId, true)) {
+                throw new TransactionException(TX_ALREADY_FINISHED_ERR, format(
+                        "Transaction is already finished () [txId={}, readOnly=true].",
+                        txId
+                ));
+            }
+        }
+
+        @Override
+        public void onRequestEnd() {
+            transactionInflights.removeInflight(txId);
         }
     }
 

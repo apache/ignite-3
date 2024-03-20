@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.lang.SqlExceptionMapperUtil.mapToPublicSqlException;
@@ -26,11 +27,13 @@ import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFI
 import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.AWAIT_PRIMARY_REPLICA_TIMEOUT;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
 
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -50,12 +53,15 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongFunction;
+import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.ClockWaiter;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -119,6 +125,7 @@ import org.apache.ignite.internal.systemview.api.SystemViewManager;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.AsyncWrapper;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -129,6 +136,7 @@ import org.apache.ignite.lang.SchemaNotFoundException;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.tx.IgniteTransactions;
+import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -191,6 +199,8 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private final SqlSchemaManager sqlSchemaManager;
 
+    private final FailureProcessor failureProcessor;
+
     private final SystemViewManager systemViewManager;
 
     private volatile QueryTaskExecutor taskExecutor;
@@ -202,10 +212,14 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** Clock. */
     private final HybridClock clock;
 
+    private final ClockWaiter clockWaiter;
+
     private final SchemaSyncService schemaSyncService;
 
     /** Distributed catalog manager. */
     private final CatalogManager catalogManager;
+
+    private final LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier;
 
     /** Metric manager. */
     private final MetricManager metricManager;
@@ -221,6 +235,8 @@ public class SqlQueryProcessor implements QueryProcessor {
     /** Node SQL configuration. */
     private final SqlLocalConfiguration nodeCfg;
 
+    private final TransactionInflights transactionInflights;
+
     /** Constructor. */
     public SqlQueryProcessor(
             Consumer<LongFunction<CompletableFuture<?>>> registry,
@@ -232,13 +248,17 @@ public class SqlQueryProcessor implements QueryProcessor {
             Supplier<Map<String, Map<String, Class<?>>>> dataStorageFieldsSupplier,
             ReplicaService replicaService,
             HybridClock clock,
+            ClockWaiter clockWaiter,
             SchemaSyncService schemaSyncService,
             CatalogManager catalogManager,
             MetricManager metricManager,
             SystemViewManager systemViewManager,
+            FailureProcessor failureProcessor,
+            LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier,
             PlacementDriver placementDriver,
             SqlDistributedConfiguration clusterCfg,
-            SqlLocalConfiguration nodeCfg
+            SqlLocalConfiguration nodeCfg,
+            TransactionInflights transactionInflights
     ) {
         this.clusterSrvc = clusterSrvc;
         this.logicalTopologyService = logicalTopologyService;
@@ -248,13 +268,17 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.dataStorageFieldsSupplier = dataStorageFieldsSupplier;
         this.replicaService = replicaService;
         this.clock = clock;
+        this.clockWaiter = clockWaiter;
         this.schemaSyncService = schemaSyncService;
         this.catalogManager = catalogManager;
         this.metricManager = metricManager;
         this.systemViewManager = systemViewManager;
+        this.failureProcessor = failureProcessor;
+        this.partitionIdleSafeTimePropagationPeriodMsSupplier = partitionIdleSafeTimePropagationPeriodMsSupplier;
         this.placementDriver = placementDriver;
         this.clusterCfg = clusterCfg;
         this.nodeCfg = nodeCfg;
+        this.transactionInflights = transactionInflights;
 
         sqlSchemaManager = new SqlSchemaManagerImpl(
                 catalogManager,
@@ -268,7 +292,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     public synchronized CompletableFuture<Void> start() {
         var nodeName = clusterSrvc.topologyService().localMember().name();
 
-        taskExecutor = registerService(new QueryTaskExecutorImpl(nodeName, nodeCfg.execution().threadCount().value()));
+        taskExecutor = registerService(new QueryTaskExecutorImpl(nodeName, nodeCfg.execution().threadCount().value(), failureProcessor));
         var mailboxRegistry = registerService(new MailboxRegistryImpl());
 
         SqlClientMetricSource sqlClientMetricSource = new SqlClientMetricSource(openedCursors::size);
@@ -300,7 +324,9 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         this.prepareSvc = prepareSvc;
 
-        var ddlCommandHandler = new DdlCommandHandler(catalogManager);
+        var ddlCommandHandler = registerService(
+                new DdlCommandHandler(catalogManager, clockWaiter, partitionIdleSafeTimePropagationPeriodMsSupplier)
+        );
 
         var executableTableRegistry = new ExecutableTableRegistryImpl(
                 tableManager, schemaManager, sqlSchemaManager, replicaService, clock, TABLE_CACHE_SIZE
@@ -315,7 +341,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             @Override
             public CompletableFuture<ExecutionTarget> forTable(ExecutionTargetFactory factory, IgniteTable table) {
                 return primaryReplicas(table)
-                        .thenApply(replicas -> factory.partitioned(replicas));
+                        .thenApply(factory::partitioned);
             }
 
             @Override
@@ -323,7 +349,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 List<String> nodes = systemViewManager.owningNodes(view.name());
 
                 if (nullOrEmpty(nodes)) {
-                    return CompletableFuture.failedFuture(
+                    return failedFuture(
                             new SqlException(Sql.MAPPING_ERR, format("The view with name '{}' could not be found on"
                                     + " any active nodes in the cluster", view.name()))
                     );
@@ -563,7 +589,27 @@ public class SqlQueryProcessor implements QueryProcessor {
 
             QueryTransactionWrapper txWrapper = txCtx.getOrStartImplicit(result.queryType());
 
-            return executeParsedStatement(schemaName, result, txWrapper, queryCancel, timeZoneId, params, null);
+            InternalTransaction tx = txWrapper.unwrap();
+
+            // Adding inflights only for read-only transactions.
+            if (tx.isReadOnly() && !transactionInflights.addInflight(tx.id(), tx.isReadOnly())) {
+                return failedFuture(new TransactionException(
+                        TX_ALREADY_FINISHED_ERR, format("Transaction is already finished [tx={}]", tx)
+                ));
+            }
+
+            return executeParsedStatement(schemaName, result, txWrapper, queryCancel, timeZoneId, params, null)
+                    .handle((executionResult, e) -> {
+                        if (tx.isReadOnly()) {
+                            transactionInflights.removeInflight(txWrapper.unwrap().id());
+                        }
+
+                        if (e != null) {
+                            sneakyThrow(e);
+                        }
+
+                        return executionResult;
+                    });
         });
 
         // TODO IGNITE-20078 Improve (or remove) CancellationException handling.
@@ -667,7 +713,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 return schema;
             });
         } catch (Throwable t) {
-            return CompletableFuture.failedFuture(t);
+            return failedFuture(t);
         }
     }
 

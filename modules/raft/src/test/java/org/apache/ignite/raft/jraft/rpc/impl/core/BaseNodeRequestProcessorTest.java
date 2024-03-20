@@ -78,7 +78,7 @@ public abstract class BaseNodeRequestProcessorTest<T extends Message> extends Ba
     }
 
     protected PeerId mockNode() {
-        Mockito.when(node.getGroupId()).thenReturn(this.groupId);
+        Mockito.lenient().when(node.getGroupId()).thenReturn(this.groupId);
         final PeerId peerId = new PeerId();
         peerId.parse(this.peerIdStr);
         Mockito.when(node.getNodeId()).thenReturn(new NodeId(groupId, peerId));

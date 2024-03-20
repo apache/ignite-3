@@ -57,34 +57,38 @@ public class RocksDbBinaryTupleComparator extends AbstractComparator {
 
     @Override
     public int compare(ByteBuffer a, ByteBuffer b) {
-        int compareTableId = Integer.compare(a.getInt(), b.getInt());
+        int compareIndexId = Integer.compare(a.getInt(), b.getInt());
 
-        if (compareTableId != 0) {
-            return compareTableId;
+        if (compareIndexId != 0) {
+            return compareIndexId;
         }
 
-        // Compare table ids.
+        // Handle index ID-only buffers, probably coming from the range tombstones.
+        if (!bothHasRemaining(a, b)) {
+            return Integer.compare(a.remaining(), b.remaining());
+        }
+
         int comparePartitionId = Short.compareUnsigned(a.getShort(), b.getShort());
 
         if (comparePartitionId != 0) {
             return comparePartitionId;
         }
 
+        // Handle partition bounds.
+        if (!bothHasRemaining(a, b)) {
+            return Integer.compare(a.remaining(), b.remaining());
+        }
+
         ByteBuffer firstBinaryTupleBuffer = a.slice().order(ByteOrder.LITTLE_ENDIAN);
         ByteBuffer secondBinaryTupleBuffer = b.slice().order(ByteOrder.LITTLE_ENDIAN);
-
-        // Handle partition bounds.
-        if (!firstBinaryTupleBuffer.hasRemaining()) {
-            return -1;
-        }
-
-        if (!secondBinaryTupleBuffer.hasRemaining()) {
-            return 1;
-        }
 
         int compareTuples = comparator.compare(firstBinaryTupleBuffer, secondBinaryTupleBuffer);
 
         return compareTuples == 0 ? compareRowIds(a, b) : compareTuples;
+    }
+
+    private static boolean bothHasRemaining(ByteBuffer a, ByteBuffer b) {
+        return a.hasRemaining() && b.hasRemaining();
     }
 
     private static int compareRowIds(ByteBuffer a, ByteBuffer b) {

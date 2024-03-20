@@ -17,9 +17,6 @@
 
 package org.apache.ignite.internal;
 
-import org.apache.ignite.Ignite;
-import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.junit.StopAllIgnitesAfterTests;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -31,13 +28,4 @@ import org.junit.jupiter.api.extension.ExtendWith;
 // The order is important here.
 @ExtendWith({WorkDirectoryExtension.class, StopAllIgnitesAfterTests.class})
 public abstract class IgniteIntegrationTest extends BaseIgniteAbstractTest {
-    /**
-     * Forcibly destroys partitions for dropped tables and indexes via triggering catalog compaction to the latest catalog version.
-     */
-    public static void forceCleanupAbandonedResources(Ignite node) {
-        IgniteImpl node0 = (IgniteImpl) node;
-        CatalogManagerImpl catalogManager = (CatalogManagerImpl) node0.catalogManager();
-
-        catalogManager.compactCatalog(Long.MAX_VALUE);
-    }
 }

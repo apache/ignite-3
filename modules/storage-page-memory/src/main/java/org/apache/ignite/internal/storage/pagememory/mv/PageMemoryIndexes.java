@@ -27,6 +27,8 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
 import org.apache.ignite.internal.storage.StorageException;
@@ -48,6 +50,8 @@ import org.jetbrains.annotations.Nullable;
  * Class that manages indexes of a single {@link AbstractPageMemoryMvPartitionStorage}.
  */
 class PageMemoryIndexes {
+    private static final IgniteLogger LOG = Loggers.forClass(PageMemoryIndexes.class);
+
     private final Consumer<WriteClosure<Void>> runConsistently;
 
     private final GradualTaskExecutor destructionExecutor;
@@ -105,8 +109,19 @@ class PageMemoryIndexes {
                 StorageIndexDescriptor indexDescriptor = indexDescriptorSupplier.get(indexId);
 
                 if (indexDescriptor == null) {
-                    // TODO: IGNITE-21671 destroy the index if it can't be found in the Catalog.
-                    continue;
+                    // Index has not been found in the Catalog, we can treat it as destroyed and remove the storage.
+                    runConsistently.accept(locker -> {
+                        destroyIndexOnRecovery(indexMeta, indexStorageFactory, indexMetaTree)
+                                .whenComplete((v, e) -> {
+                                    if (e != null) {
+                                        LOG.error(
+                                                "Unable to destroy existing index {}, that has been removed from the Catalog", e, indexId
+                                        );
+                                    }
+                                });
+
+                        return null;
+                    });
                 } else if (indexDescriptor instanceof StorageHashIndexDescriptor) {
                     PageMemoryHashIndexStorage indexStorage = indexStorageFactory
                             .restoreHashIndexStorage((StorageHashIndexDescriptor) indexDescriptor, indexMeta);
@@ -121,6 +136,29 @@ class PageMemoryIndexes {
                     throw new AssertionError("Unexpected index descriptor type: " + indexDescriptor);
                 }
             }
+        }
+    }
+
+    private CompletableFuture<Void> destroyIndexOnRecovery(
+            IndexMeta indexMeta,
+            IndexStorageFactory indexStorageFactory,
+            IndexMetaTree indexMetaTree
+    ) {
+        switch (indexMeta.indexType()) {
+            case HASH:
+                PageMemoryHashIndexStorage hashIndexStorage = indexStorageFactory.restoreHashIndexStorageForDestroy(indexMeta);
+
+                return destroyStorage(indexMeta.indexId(), hashIndexStorage, indexMetaTree);
+
+            case SORTED:
+                PageMemorySortedIndexStorage sortedIndexStorage = indexStorageFactory.restoreSortedIndexStorageForDestroy(indexMeta);
+
+                return destroyStorage(indexMeta.indexId(), sortedIndexStorage, indexMetaTree);
+
+            default:
+                throw new AssertionError(String.format(
+                        "Unexpected index type %s for index %d", indexMeta.indexType(), indexMeta.indexId()
+                ));
         }
     }
 
@@ -143,10 +181,12 @@ class PageMemoryIndexes {
     }
 
     private CompletableFuture<Void> destroyStorage(int indexId, AbstractPageMemoryIndexStorage<?, ?> storage, IndexMetaTree indexMetaTree) {
-        storage.transitionToDestroyingState();
+        if (!storage.transitionToDestroyedState()) {
+            return nullCompletedFuture();
+        }
 
         return storage.startDestructionOn(destructionExecutor)
-                .whenComplete((v, e) -> storage.close())
+                .whenComplete((v, e) -> storage.closeStructures())
                 .thenRunAsync(() -> runConsistently.accept(locker -> {
                     try {
                         indexMetaTree.removex(new IndexMetaKey(indexId));
@@ -183,8 +223,8 @@ class PageMemoryIndexes {
         forEachIndex(AbstractPageMemoryIndexStorage::finishCleanup);
     }
 
-    void transitionToDestroyingState() {
-        forEachIndex(AbstractPageMemoryIndexStorage::transitionToDestroyingState);
+    void transitionToDestroyedState() {
+        forEachIndex(AbstractPageMemoryIndexStorage::transitionToDestroyedState);
     }
 
     void updateDataStructures(IndexStorageFactory indexStorageFactory) {

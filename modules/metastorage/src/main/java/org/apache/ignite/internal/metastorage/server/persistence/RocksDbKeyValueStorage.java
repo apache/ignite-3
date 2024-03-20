@@ -1030,9 +1030,9 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     public void compact(HybridTimestamp lowWatermark) {
         rwLock.writeLock().lock();
 
-        byte[] tsBytes = hybridTsToArray(lowWatermark);
 
         try (WriteBatch batch = new WriteBatch()) {
+            byte[] tsBytes = hybridTsToArray(lowWatermark);
             long maxRevision;
 
             // Find a revision with timestamp lesser or equal to the watermark.

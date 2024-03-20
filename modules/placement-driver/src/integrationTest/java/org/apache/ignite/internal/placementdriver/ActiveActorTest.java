@@ -18,11 +18,9 @@
 package org.apache.ignite.internal.placementdriver;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
-import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -36,6 +34,7 @@ import java.util.Map;
 import java.util.Set;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
@@ -77,13 +76,14 @@ public class ActiveActorTest extends AbstractTopologyAwareGroupServiceTest {
     @AfterEach
     @Override
     public void tearDown() throws Exception {
-        super.tearDown();
-
-        List<AutoCloseable> closeables = placementDriverManagers.values().stream().map(p -> (AutoCloseable) p::stop).collect(toList());
-
-        closeAll(closeables);
+        for (PlacementDriverManager pdMgr : placementDriverManagers.values()) {
+            pdMgr.beforeNodeStop();
+            pdMgr.stop();
+        }
 
         placementDriverManagers.clear();
+
+        super.tearDown();
     }
 
     @Override
@@ -97,14 +97,28 @@ public class ActiveActorTest extends AbstractTopologyAwareGroupServiceTest {
     ) {
         Set<String> placementDriverNodesNames = peersAndLearners.peers().stream().map(Peer::consistentId).collect(toSet());
 
-        var raftManager = new Loza(clusterService, raftConfiguration, dataPath, new HybridClockImpl(), eventsClientListener);
-
         var raftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
                 clusterService,
                 logicalTopologyService,
                 Loza.FACTORY,
                 eventsClientListener
         );
+
+        var mockRaftMgr = mock(Loza.class);
+
+        try {
+            when(mockRaftMgr.startRaftGroupService(any(), any(), any(), any())).then(invocation ->
+                    raftGroupServiceFactory.startRaftGroupService(
+                            GROUP_ID,
+                            peersAndLearners,
+                            raftConfiguration,
+                            executor,
+                            null
+                    )
+            );
+        } catch (NodeStoppingException e) {
+            throw new RuntimeException(e);
+        }
 
         PlacementDriverManager placementDriverManager = new PlacementDriverManager(
                 nodeName,
@@ -113,7 +127,7 @@ public class ActiveActorTest extends AbstractTopologyAwareGroupServiceTest {
                 clusterService,
                 () -> completedFuture(placementDriverNodesNames),
                 logicalTopologyService,
-                raftManager,
+                mockRaftMgr,
                 raftGroupServiceFactory,
                 new HybridClockImpl()
         );
@@ -127,6 +141,7 @@ public class ActiveActorTest extends AbstractTopologyAwareGroupServiceTest {
     protected void afterNodeStop(String nodeName) throws Exception {
         PlacementDriverManager placementDriverManager = placementDriverManagers.remove(nodeName);
 
+        placementDriverManager.beforeNodeStop();
         placementDriverManager.stop();
     }
 

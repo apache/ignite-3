@@ -18,8 +18,12 @@
 package org.apache.ignite.internal.index;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
@@ -32,6 +36,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Test class for scenarios related to dropping of indices, executed on a single node cluster.
  */
+@SuppressWarnings({"resource", "ThrowableNotThrown"})
 public class ItDropIndexOneNodeTest extends ClusterPerClassIntegrationTest {
     private static final String TABLE_NAME = "TEST";
 
@@ -65,15 +70,15 @@ public class ItDropIndexOneNodeTest extends ClusterPerClassIntegrationTest {
 
     @Test
     void testCreateIndexAfterDropWhileTransactionInProgress() {
-        runInRwTransaction(tx -> {
-            dropIndex(INDEX_NAME);
+        Transaction tx = CLUSTER.aliveNode().transactions().begin();
 
-            // The new index will not become available, since we are inside a transaction that has been started before this index was
-            // created.
-            setAwaitIndexAvailability(false);
+        dropIndex(INDEX_NAME);
 
-            assertDoesNotThrow(() -> createIndex(TABLE_NAME, INDEX_NAME, COLUMN_NAME));
-        });
+        CompletableFuture<Void> creationFuture = runAsync(() -> createIndex(TABLE_NAME, INDEX_NAME, COLUMN_NAME));
+
+        tx.commit();
+
+        assertThat(creationFuture, willCompleteSuccessfully());
     }
 
     @Test

@@ -412,11 +412,14 @@ public class ErrorGroups {
         /** Failed to create a directory. */
         public static final int DIRECTORY_CREATION_ERR = STORAGE_ERR_GROUP.registerErrorCode((short) 2);
 
-        /** Operation on closed storage. */
+        /** Operation on a closed storage. */
         public static final int ALREADY_CLOSED_ERR = STORAGE_ERR_GROUP.registerErrorCode((short) 3);
 
         /** Storage rebalancing error. */
         public static final int STORAGE_REBALANCE_ERR = STORAGE_ERR_GROUP.registerErrorCode((short) 4);
+
+        /** Operation on a destroyed storage. */
+        public static final int ALREADY_DESTROYED_ERR = STORAGE_ERR_GROUP.registerErrorCode((short) 5);
     }
 
     /** Distribution zones error group. */

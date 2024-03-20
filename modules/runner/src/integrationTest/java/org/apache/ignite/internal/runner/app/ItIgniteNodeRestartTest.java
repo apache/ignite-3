@@ -85,6 +85,7 @@ import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
+import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.MakeIndexAvailableEventParameters;
@@ -162,7 +163,7 @@ import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
-import org.apache.ignite.internal.table.distributed.LowWatermark;
+import org.apache.ignite.internal.table.distributed.LowWatermarkImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
@@ -178,6 +179,7 @@ import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.ResourceCleanupManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
+import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
@@ -251,12 +253,12 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     /**
      * Interceptor of {@link MetaStorageManager#invoke(Condition, Collection, Collection)}.
      */
-    private Map<Integer, InvokeInterceptor> metaStorageInvokeInterceptorByNode = new ConcurrentHashMap<>();
+    private final Map<Integer, InvokeInterceptor> metaStorageInvokeInterceptorByNode = new ConcurrentHashMap<>();
 
     /**
      * Mocks the data nodes returned by {@link DistributionZoneManager#dataNodes(long, int, int)} method on different nodes.
      */
-    private Map<Integer, Supplier<CompletableFuture<Set<String>>>> dataNodesMockByNode = new ConcurrentHashMap<>();
+    private final Map<Integer, Supplier<CompletableFuture<Set<String>>>> dataNodesMockByNode = new ConcurrentHashMap<>();
 
     @BeforeEach
     public void beforeTest() {
@@ -339,7 +341,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var raftMgr = new Loza(clusterSvc, raftConfiguration, dir, hybridClock, raftGroupEventsClientListener);
 
-        var clusterStateStorage = new RocksDbClusterStateStorage(dir.resolve("cmg"));
+        var clusterStateStorage = new RocksDbClusterStateStorage(dir.resolve("cmg"), name);
 
         var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
@@ -454,11 +456,14 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var resourcesRegistry = new RemotelyTriggeredResourceRegistry();
 
+        TransactionInflights transactionInflights = new TransactionInflights(placementDriverManager.placementDriver());
+
         ResourceCleanupManager resourceCleanupManager = new ResourceCleanupManager(
                 name,
                 resourcesRegistry,
                 clusterSvc.topologyService(),
-                clusterSvc.messagingService()
+                clusterSvc.messagingService(),
+                transactionInflights
         );
 
         var txManager = new TxManagerImpl(
@@ -475,7 +480,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 new TestLocalRwTxCounter(),
                 threadPoolsManager.partitionOperationsExecutor(),
                 resourcesRegistry,
-                resourceCleanupManager
+                resourceCleanupManager,
+                transactionInflights
         );
 
         ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
@@ -539,7 +545,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var sqlRef = new AtomicReference<IgniteSqlImpl>();
 
-        LowWatermark lowWatermark = new LowWatermark(name, gcConfig.lowWatermark(), hybridClock, txManager, vault, failureProcessor);
+        var lowWatermark = new LowWatermarkImpl(name, gcConfig.lowWatermark(), hybridClock, txManager, vault, failureProcessor);
 
         TableManager tableManager = new TableManager(
                 name,
@@ -573,7 +579,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 resourcesRegistry,
                 rebalanceScheduler,
                 lowWatermark,
-                ForkJoinPool.commonPool()
+                ForkJoinPool.commonPool(),
+                transactionInflights
         );
 
         var indexManager = new IndexManager(
@@ -581,7 +588,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 tableManager,
                 catalogManager,
                 threadPoolsManager.tableIoExecutor(),
-                registry
+                registry,
+                lowWatermark
         );
 
         var metricManager = new MetricManager();
@@ -596,13 +604,17 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 () -> dataStorageModules.collectSchemasFields(modules.local().polymorphicSchemaExtensions()),
                 replicaService,
                 hybridClock,
+                clockWaiter,
                 schemaSyncService,
                 catalogManager,
                 metricManager,
                 new SystemViewManagerImpl(name, catalogManager),
+                failureProcessor,
+                partitionIdleSafeTimePropagationPeriodMsSupplier,
                 placementDriverManager.placementDriver(),
                 clusterConfigRegistry.getConfiguration(SqlDistributedConfiguration.KEY),
-                nodeCfgMgr.configurationRegistry().getConfiguration(SqlLocalConfiguration.KEY)
+                nodeCfgMgr.configurationRegistry().getConfiguration(SqlLocalConfiguration.KEY),
+                transactionInflights
         );
 
         sqlRef.set(new IgniteSqlImpl(name, qryEngine, new IgniteTransactionsImpl(txManager, new HybridTimestampTracker())));
@@ -1188,7 +1200,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * The test for node restart when there is a gap between the node local configuration and distributed configuration.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21354")
     public void testCfgGapWithoutData() {
         List<IgniteImpl> nodes = startNodes(3);
 
@@ -1701,21 +1712,25 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         return ByteUtils.bytesToInt(e.value());
     }
 
-    private static CompletableFuture<Void> createTableInCatalog(CatalogManager catalogManager, String tableName, String zoneName) {
+    private static CompletableFuture<?> createTableInCatalog(CatalogManager catalogManager, String tableName, String zoneName) {
         var tableColumn = ColumnParams.builder().name("id").type(INT32).build();
+
+        TableHashPrimaryKey primaryKey = TableHashPrimaryKey.builder()
+                .columns(List.of("id"))
+                .build();
 
         var createTableCommand = CreateTableCommand.builder()
                 .schemaName("PUBLIC")
                 .tableName(tableName)
                 .columns(List.of(tableColumn))
-                .primaryKeyColumns(List.of("id"))
+                .primaryKey(primaryKey)
                 .zone(zoneName)
                 .build();
 
         return catalogManager.execute(createTableCommand);
     }
 
-    private static CompletableFuture<Void> alterZoneAsync(
+    private static CompletableFuture<?> alterZoneAsync(
             CatalogManager catalogManager,
             String zoneName,
             @Nullable Integer replicas

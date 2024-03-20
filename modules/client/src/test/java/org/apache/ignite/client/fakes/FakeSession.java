@@ -206,10 +206,10 @@ public class FakeSession implements AbstractSession {
             sb.append(']');
         }
 
-        sb.append(", ").append("defaultPageSize=").append(defaultPageSize);
-        sb.append(", ").append("defaultSchema=").append(defaultSchema);
-        sb.append(", ").append("defaultQueryTimeout=").append(defaultQueryTimeout);
-        sb.append(", ").append("defaultSessionTimeout=").append(defaultSessionTimeout);
+        sb.append(", ").append("defaultPageSize=").append(defaultPageSize)
+                .append(", ").append("defaultSchema=").append(defaultSchema)
+                .append(", ").append("defaultQueryTimeout=").append(defaultQueryTimeout)
+                .append(", ").append("defaultSessionTimeout=").append(defaultSessionTimeout);
 
         sql.lastScript = sb.toString();
 

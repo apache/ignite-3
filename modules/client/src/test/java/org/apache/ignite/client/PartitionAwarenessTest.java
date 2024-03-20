@@ -541,7 +541,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     public void testDataStreamerReceivesPartitionAssignmentUpdates() {
         DataStreamerOptions options = DataStreamerOptions.builder()
                 .pageSize(1)
-                .perNodeParallelOperations(1)
+                .perPartitionParallelOperations(1)
                 .autoFlushFrequency(50)
                 .build();
 

@@ -15,14 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.cli.core.repl.config;
+package org.apache.ignite.internal.cluster.management.raft;
+
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+
+import org.apache.ignite.internal.lang.IgniteInternalException;
 
 /**
- * DTO class for node configuration JSON.
+ * Exception used by {@link RocksDbClusterStateStorage} to signal about errors.
  */
-public class RootConfig {
-    /**
-     * Client connector part.
-     */
-    public ClientConnectorConfig clientConnector;
+public class CmgStorageException extends IgniteInternalException {
+    public CmgStorageException(String msg, Throwable cause) {
+        super(INTERNAL_ERR, msg, cause);
+    }
 }

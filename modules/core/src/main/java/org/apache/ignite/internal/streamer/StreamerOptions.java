@@ -29,11 +29,11 @@ public interface StreamerOptions {
     int pageSize();
 
     /**
-     * Gets the number of parallel operations per node (how many in-flight requests can be active for a given node).
+     * Gets the number of parallel operations per partition (how many in-flight requests can be active for a given partition).
      *
      * @return Per node parallel operations.
      */
-    int perNodeParallelOperations();
+    int perPartitionParallelOperations();
 
     /**
      * Gets the auto flush frequency, in milliseconds

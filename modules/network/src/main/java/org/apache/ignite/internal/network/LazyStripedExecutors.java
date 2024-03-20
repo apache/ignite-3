@@ -42,6 +42,8 @@ abstract class LazyStripedExecutors implements ManuallyCloseable {
     private final AtomicBoolean closed = new AtomicBoolean();
     private final AtomicReferenceArray<StripedExecutor> array = new AtomicReferenceArray<>(Short.MAX_VALUE + 1);
 
+    private final Object executorCreationMutex = new Object();
+
     /**
      * Executes a command on a stripe with the given index. If the executor is stopped, returns a special executor that executes nothing.
      *
@@ -68,7 +70,7 @@ abstract class LazyStripedExecutors implements ManuallyCloseable {
             return existing;
         }
 
-        synchronized (array) {
+        synchronized (executorCreationMutex) {
             existing = array.get(executorIndex);
             if (existing != null) {
                 return existing;

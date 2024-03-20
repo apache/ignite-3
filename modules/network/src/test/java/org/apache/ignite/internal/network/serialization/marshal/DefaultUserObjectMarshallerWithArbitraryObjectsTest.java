@@ -281,7 +281,7 @@ class DefaultUserObjectMarshallerWithArbitraryObjectsTest {
     }
 
     private Runnable capturingNonSerializableLambda() {
-        return () -> System.out.println(DefaultUserObjectMarshallerWithArbitraryObjectsTest.this);
+        return () -> System.out.println(this);
     }
 
     @Test
@@ -292,7 +292,7 @@ class DefaultUserObjectMarshallerWithArbitraryObjectsTest {
     }
 
     private Runnable capturingSerializableLambda() {
-        return (Runnable & Serializable) () -> System.out.println(DefaultUserObjectMarshallerWithArbitraryObjectsTest.this);
+        return (Runnable & Serializable) () -> System.out.println(this);
     }
 
     @Test

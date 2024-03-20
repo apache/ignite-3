@@ -21,6 +21,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.ignite.internal.cli.call.configuration.JsonString;
+import org.apache.ignite.internal.cli.commands.treesitter.highlighter.JsonAnsiHighlighter;
 import org.apache.ignite.internal.cli.core.decorator.Decorator;
 import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
 
@@ -28,17 +29,27 @@ import org.apache.ignite.internal.cli.core.decorator.TerminalOutput;
  * Pretty json decorator.
  */
 public class JsonDecorator implements Decorator<JsonString, TerminalOutput> {
+
+    private final boolean highlight;
+
+    public JsonDecorator(boolean highlight) {
+        this.highlight = highlight;
+    }
+
     /** {@inheritDoc} */
     @Override
     public TerminalOutput decorate(JsonString json) {
         ObjectMapper mapper = new ObjectMapper();
         return () -> {
             try {
-                return mapper.writerWithDefaultPrettyPrinter().writeValueAsString(mapper.readValue(json.getValue(), JsonNode.class));
+                String text = mapper.writerWithDefaultPrettyPrinter()
+                        .writeValueAsString(mapper.readValue(json.getValue(), JsonNode.class));
+
+                return highlight ? JsonAnsiHighlighter.highlight(text) : text;
+
             } catch (JsonProcessingException e) {
                 return json.getValue(); // no-op
             }
-
         };
     }
 }

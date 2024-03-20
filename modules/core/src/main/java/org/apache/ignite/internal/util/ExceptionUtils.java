@@ -918,7 +918,7 @@ public final class ExceptionUtils {
     /**
      * This class is used as workaround to avoid error code and trace id duplication in the error message.
      * The root cause of this issue is that the constructor Throwable(Throwable cause) uses cause.toString() method
-     * to create a detailedMessage instead of getMessage(), ans so this message will be enriched by class name, error code and trace id.
+     * to create a detailedMessage instead of getMessage(), and so this message will be enriched by class name, error code and trace id.
      * For example,
      * <pre><code>
      *     class CustomException extends IgniteException {
@@ -951,7 +951,7 @@ public final class ExceptionUtils {
      * </code></pre>
      *
      */
-    private static class UtilException extends Throwable {
+    private static class UtilException extends RuntimeException {
         public UtilException(String message, Throwable t) {
             super(message, t, false, false);
         }

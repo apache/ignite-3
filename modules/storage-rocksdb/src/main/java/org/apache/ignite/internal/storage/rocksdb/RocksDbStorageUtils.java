@@ -68,4 +68,19 @@ public class RocksDbStorageUtils {
     static long normalize(long value) {
         return value ^ (1L << 63);
     }
+
+    /**
+     * Creates a byte array, that uses the {@code prefix} as a prefix, and every other {@code int} values as a 4-bytes chunk in Big Endian.
+     */
+    public static byte[] createKey(byte[] prefix, int... values) {
+        ByteBuffer buf = ByteBuffer.allocate(prefix.length + Integer.BYTES * values.length).order(KEY_BYTE_ORDER);
+
+        buf.put(prefix);
+
+        for (int value : values) {
+            buf.putInt(value);
+        }
+
+        return buf.array();
+    }
 }
