@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine.planner;
 
 import static java.util.function.Predicate.not;
-import static org.apache.ignite.internal.sql.engine.trait.IgniteDistributions.single;
 
 import java.util.List;
 import java.util.Objects;
@@ -498,7 +497,7 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
                 .and(in -> hasAggregates(sumReduce, sum0Reduce).test(in.getAggregateCalls()))
                 .and(input(isInstanceOf(IgniteProject.class)
                         .and(input(isInstanceOf(IgniteExchange.class)
-                                .and(hasDistribution(single()))
+                                .and(hasDistribution(IgniteDistributions.single()))
                                 .and(input(isInstanceOf(IgniteMapHashAggregate.class)
                                                 .and(in -> hasAggregates(sumMap, countMap).test(in.getAggCallList()))
                                         )
