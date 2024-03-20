@@ -71,6 +71,11 @@ public class TestIgnitionManager {
     );
 
     /**
+     * Marker that explicitly requests production defaults when put to {@link InitParametersBuilder#clusterConfiguration(String)}.
+     */
+    public static final String PRODUCTION_CLUSTER_CONFIG_STRING = "<production-cluster-config>";
+
+    /**
      * Starts an Ignite node with an optional bootstrap configuration from an input stream with HOCON configs.
      *
      * <p>Test defaults are mixed to the configuration (only if the corresponding config keys are not explicitly defined).
@@ -150,7 +155,9 @@ public class TestIgnitionManager {
                 .metaStorageNodeNames(params.metaStorageNodeNames())
                 .cmgNodeNames(params.cmgNodeNames());
 
-        builder.clusterConfiguration(applyTestDefaultsToConfig(params.clusterConfiguration(), DEFAULT_CLUSTER_CONFIG));
+        if (!PRODUCTION_CLUSTER_CONFIG_STRING.equals(params.clusterConfiguration())) {
+            builder.clusterConfiguration(applyTestDefaultsToConfig(params.clusterConfiguration(), DEFAULT_CLUSTER_CONFIG));
+        }
 
         return builder.build();
     }

@@ -15,46 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.pagememory.index.meta;
+package org.apache.ignite.internal.cluster.management.raft;
+
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+
+import org.apache.ignite.internal.lang.IgniteInternalException;
 
 /**
- * Index meta key.
+ * Exception used by {@link RocksDbClusterStateStorage} to signal about errors.
  */
-public class IndexMetaKey {
-    private final int indexId;
-
-    /**
-     * Constructor.
-     *
-     * @param indexId Index ID.
-     */
-    public IndexMetaKey(int indexId) {
-        this.indexId = indexId;
-    }
-
-    /**
-     * Returns the index ID.
-     */
-    public int indexId() {
-        return indexId;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-
-        IndexMetaKey that = (IndexMetaKey) o;
-
-        return indexId == that.indexId;
-    }
-
-    @Override
-    public int hashCode() {
-        return indexId;
+public class CmgStorageException extends IgniteInternalException {
+    public CmgStorageException(String msg, Throwable cause) {
+        super(INTERNAL_ERR, msg, cause);
     }
 }

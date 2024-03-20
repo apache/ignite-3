@@ -253,12 +253,12 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     /**
      * Interceptor of {@link MetaStorageManager#invoke(Condition, Collection, Collection)}.
      */
-    private Map<Integer, InvokeInterceptor> metaStorageInvokeInterceptorByNode = new ConcurrentHashMap<>();
+    private final Map<Integer, InvokeInterceptor> metaStorageInvokeInterceptorByNode = new ConcurrentHashMap<>();
 
     /**
      * Mocks the data nodes returned by {@link DistributionZoneManager#dataNodes(long, int, int)} method on different nodes.
      */
-    private Map<Integer, Supplier<CompletableFuture<Set<String>>>> dataNodesMockByNode = new ConcurrentHashMap<>();
+    private final Map<Integer, Supplier<CompletableFuture<Set<String>>>> dataNodesMockByNode = new ConcurrentHashMap<>();
 
     @BeforeEach
     public void beforeTest() {
@@ -341,7 +341,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var raftMgr = new Loza(clusterSvc, raftConfiguration, dir, hybridClock, raftGroupEventsClientListener);
 
-        var clusterStateStorage = new RocksDbClusterStateStorage(dir.resolve("cmg"));
+        var clusterStateStorage = new RocksDbClusterStateStorage(dir.resolve("cmg"), name);
 
         var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
@@ -604,11 +604,13 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 () -> dataStorageModules.collectSchemasFields(modules.local().polymorphicSchemaExtensions()),
                 replicaService,
                 hybridClock,
+                clockWaiter,
                 schemaSyncService,
                 catalogManager,
                 metricManager,
                 new SystemViewManagerImpl(name, catalogManager),
                 failureProcessor,
+                partitionIdleSafeTimePropagationPeriodMsSupplier,
                 placementDriverManager.placementDriver(),
                 clusterConfigRegistry.getConfiguration(SqlDistributedConfiguration.KEY),
                 nodeCfgMgr.configurationRegistry().getConfiguration(SqlLocalConfiguration.KEY),
@@ -1710,7 +1712,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         return ByteUtils.bytesToInt(e.value());
     }
 
-    private static CompletableFuture<Void> createTableInCatalog(CatalogManager catalogManager, String tableName, String zoneName) {
+    private static CompletableFuture<?> createTableInCatalog(CatalogManager catalogManager, String tableName, String zoneName) {
         var tableColumn = ColumnParams.builder().name("id").type(INT32).build();
 
         TableHashPrimaryKey primaryKey = TableHashPrimaryKey.builder()
@@ -1728,7 +1730,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         return catalogManager.execute(createTableCommand);
     }
 
-    private static CompletableFuture<Void> alterZoneAsync(
+    private static CompletableFuture<?> alterZoneAsync(
             CatalogManager catalogManager,
             String zoneName,
             @Nullable Integer replicas

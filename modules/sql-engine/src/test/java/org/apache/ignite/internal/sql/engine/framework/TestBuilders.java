@@ -48,6 +48,7 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
+import org.apache.ignite.internal.catalog.ClockWaiter;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams.Builder;
@@ -64,6 +65,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
@@ -305,6 +307,17 @@ public class TestBuilders {
         ClusterBuilder nodes(String firstNodeName, String... otherNodeNames);
 
         /**
+         * Sets desired names for the cluster nodes.
+         *
+         * @param firstNodeName A name of the first node. There is no difference in what node should be first. This parameter was
+         *         introduced to force user to provide at least one node name.
+         * @param useTablePartitions If {@code true} map table partitions to whole defined nodes.
+         * @param otherNodeNames An array of rest of the names to create cluster from.
+         * @return {@code this} for chaining.
+         */
+        public ClusterBuilder nodes(String firstNodeName, boolean useTablePartitions, String... otherNodeNames);
+
+        /**
          * Creates a table builder to add to the cluster.
          *
          * @return An instance of table builder.
@@ -531,6 +544,7 @@ public class TestBuilders {
     private static class ClusterBuilderImpl implements ClusterBuilder {
         private final List<ClusterTableBuilderImpl> tableBuilders = new ArrayList<>();
         private List<String> nodeNames;
+        private boolean useTablePartitions;
         private final Map<String, Map<String, ScannableTable>> nodeName2tableName2table = new HashMap<>();
         private final List<SystemView<?>> systemViews = new ArrayList<>();
         private final Map<String, Set<String>> nodeName2SystemView = new HashMap<>();
@@ -539,6 +553,18 @@ public class TestBuilders {
         @Override
         public ClusterBuilder nodes(String firstNodeName, String... otherNodeNames) {
             this.nodeNames = new ArrayList<>();
+
+            nodeNames.add(firstNodeName);
+            nodeNames.addAll(Arrays.asList(otherNodeNames));
+
+            return this;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public ClusterBuilder nodes(String firstNodeName, boolean useTablePartitions, String... otherNodeNames) {
+            this.nodeNames = new ArrayList<>();
+            this.useTablePartitions = useTablePartitions;
 
             nodeNames.add(firstNodeName);
             nodeNames.addAll(Arrays.asList(otherNodeNames));
@@ -581,7 +607,8 @@ public class TestBuilders {
 
             var clusterName = "test_cluster";
 
-            CatalogManager catalogManager = CatalogTestUtils.createCatalogManagerWithTestUpdateLog(clusterName, new HybridClockImpl());
+            HybridClock clock = new HybridClockImpl();
+            CatalogManager catalogManager = CatalogTestUtils.createCatalogManagerWithTestUpdateLog(clusterName, clock);
 
             var parserService = new ParserServiceImpl(0, EmptyCacheFactory.INSTANCE);
             var prepareService = new PrepareServiceImpl(clusterName, 0, CaffeineCacheFactory.INSTANCE,
@@ -606,7 +633,7 @@ public class TestBuilders {
 
             Runnable initClosure = () -> initAction(catalogManager);
 
-            var ddlHandler = new DdlCommandHandler(catalogManager);
+            var ddlHandler = new DdlCommandHandler(catalogManager, new ClockWaiter("test", clock), () -> 100);
             var schemaManager = new SqlSchemaManagerImpl(catalogManager, CaffeineCacheFactory.INSTANCE, 0);
 
             List<LogicalNode> logicalNodes = nodeNames.stream()
@@ -633,7 +660,7 @@ public class TestBuilders {
                         var targetProvider = new TestNodeExecutionTargetProvider(
                                 systemViewManager::owningNodes,
                                 owningNodesByTableName,
-                                false
+                                useTablePartitions
                         );
                         var partitionPruner = new PartitionPrunerImpl();
                         var mappingService = new MappingServiceImpl(
@@ -1317,7 +1344,7 @@ public class TestBuilders {
 
                 @Override
                 public Supplier<PartitionCalculator> partitionCalculator() {
-                    throw new UnsupportedOperationException();
+                    return table.partitionCalculator();
                 }
             });
         }

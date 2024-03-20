@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.raft.JraftGroupEventsListener;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager.Stripe;
@@ -48,7 +49,7 @@ import org.apache.ignite.raft.jraft.util.timer.Timer;
  */
 public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     /** This value is used by default to determine the count of stripes in the striped queue. */
-    public static final int DEFAULT_STRIPES = Utils.cpus() * 2;
+    private static final int DEFAULT_STRIPES = Utils.cpus() * 2;
 
     // A follower would become a candidate if it doesn't receive any message
     // from the leader in |election_timeout_ms| milliseconds
@@ -243,6 +244,16 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
      */
     private int stripes = DEFAULT_STRIPES;
 
+    /**
+     * Amount of log manager Disruptors stripes.
+     */
+    private int logStripesCount = DEFAULT_STRIPES;
+
+    /**
+     * Set true to use the non-blocking strategy in the log manager.
+     */
+    private boolean logYieldStrategy;
+
     /** */
     private boolean sharedPools = false;
 
@@ -272,6 +283,28 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
      */
     public void setStripes(int stripes) {
         this.stripes = stripes;
+    }
+
+    /**
+     * @return Log stripes count.
+     */
+    public int getLogStripesCount() {
+        return logStripesCount;
+    }
+
+    /**
+     * @param logStripesCount Log stripes.
+     */
+    public void setLogStripesCount(int logStripesCount) {
+        this.logStripesCount = logStripesCount;
+    }
+
+    public boolean isLogYieldStrategy() {
+        return logYieldStrategy;
+    }
+
+    public void setLogYieldStrategy(boolean logYieldStrategy) {
+        this.logYieldStrategy = logYieldStrategy;
     }
 
     /**
@@ -664,6 +697,9 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
         nodeOptions.setElectionTimeoutStrategy(this.getElectionTimeoutStrategy());
         nodeOptions.setClock(this.getClock());
         nodeOptions.setCommandsMarshaller(this.getCommandsMarshaller());
+        nodeOptions.setStripes(this.getStripes());
+        nodeOptions.setLogStripesCount(this.getLogStripesCount());
+        nodeOptions.setLogYieldStrategy(this.isLogYieldStrategy());
 
         return nodeOptions;
     }

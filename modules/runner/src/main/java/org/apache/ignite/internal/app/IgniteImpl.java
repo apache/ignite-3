@@ -494,7 +494,7 @@ public class IgniteImpl implements Ignite {
         );
 
         // TODO: IGNITE-16841 - use common RocksDB instance to store cluster state as well.
-        clusterStateStorage = new RocksDbClusterStateStorage(workDir.resolve(CMG_DB_PATH));
+        clusterStateStorage = new RocksDbClusterStateStorage(workDir.resolve(CMG_DB_PATH), name);
 
         var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
@@ -775,11 +775,13 @@ public class IgniteImpl implements Ignite {
                 () -> dataStorageModules.collectSchemasFields(modules.local().polymorphicSchemaExtensions()),
                 replicaSvc,
                 clock,
+                clockWaiter,
                 schemaSyncService,
                 catalogManager,
                 metricManager,
                 systemViewManager,
                 failureProcessor,
+                partitionIdleSafeTimePropagationPeriodMsSupplier,
                 placementDriverMgr.placementDriver(),
                 clusterConfigRegistry.getConfiguration(SqlDistributedConfiguration.KEY),
                 nodeConfigRegistry.getConfiguration(SqlLocalConfiguration.KEY),

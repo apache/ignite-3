@@ -53,6 +53,7 @@ import org.rocksdb.WriteBatchWithIndex;
  *
  * <p>This storage uses the following format for keys:
  * <pre>
+ * Index ID - 4 bytes
  * Partition ID - 2 bytes
  * Tuple value - variable length
  * Row ID (UUID) - 16 bytes

@@ -22,11 +22,13 @@ import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_N
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -43,13 +45,14 @@ import org.apache.ignite.internal.catalog.events.MakeIndexAvailableEventParamete
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.table.distributed.replication.request.BuildIndexReplicaRequest;
+import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /** Integration test for testing the building of an index in a single node cluster. */
+@SuppressWarnings("resource")
 public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
     private static final String TABLE_NAME = "TEST_TABLE";
 
@@ -60,11 +63,6 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
     @Override
     protected int initialNodes() {
         return 1;
-    }
-
-    @BeforeEach
-    void setup() {
-        setAwaitIndexAvailability(false);
     }
 
     @AfterEach
@@ -93,7 +91,7 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
             return false;
         });
 
-        createIndex(TABLE_NAME, INDEX_NAME, "ID");
+        CompletableFuture<Void> createIndexFuture = runAsync(() -> createIndex(TABLE_NAME, INDEX_NAME, "ID"));
 
         assertThat(awaitBuildIndexReplicaRequest, willCompleteSuccessfully());
 
@@ -103,6 +101,7 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
         CLUSTER.stopNode(0);
         CLUSTER.startNode(0);
 
+        assertThat(createIndexFuture, willThrow(SqlException.class, containsString("Operation has been cancelled (node is stopping)")));
         awaitIndexesBecomeAvailable(node(), INDEX_NAME);
     }
 
@@ -272,7 +271,7 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    void testBuildingIndexWithUpdateSchemaAfterCreateIndex() throws Exception {
+    void testBuildingIndexWithUpdateSchemaAfterCreateIndex() {
         createZoneAndTable(ZONE_NAME, TABLE_NAME, 1, 1);
 
         insertPeople(TABLE_NAME, new Person(0, "0", 10.0));
@@ -284,20 +283,16 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
         // Hack to prevent the index from going into status BUILDING until we update the default value for the column.
         Transaction rwTx = node().transactions().begin(new TransactionOptions().readOnly(false));
 
+        CompletableFuture<Void> createIndexFuture;
         try {
-            setAwaitIndexAvailability(false);
-
-            createIndex(TABLE_NAME, INDEX_NAME, columName);
+            createIndexFuture = runAsync(() -> createIndex(TABLE_NAME, INDEX_NAME, columName));
 
             sql(format("ALTER TABLE {} ALTER COLUMN {} SET DEFAULT 'bar'", TABLE_NAME, columName));
         } finally {
-            setAwaitIndexAvailability(true);
             rwTx.commit();
         }
 
-        // Hack so that we can wait for the index to be added to the sql planner.
-        awaitIndexesBecomeAvailable(node(), INDEX_NAME);
-        waitForReadTimestampThatObservesMostRecentCatalog();
+        assertThat(createIndexFuture, willCompleteSuccessfully());
 
         assertQuery(format("SELECT * FROM {} WHERE SURNAME = 'foo'", TABLE_NAME))
                 .matches(containsIndexScan(DEFAULT_SCHEMA_NAME, TABLE_NAME, INDEX_NAME))

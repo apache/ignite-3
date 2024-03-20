@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec.mapping.smallcluster;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.objects.Object2LongMap;
 import it.unimi.dsi.fastutil.objects.Object2LongOpenHashMap;
 import java.util.List;
@@ -86,7 +87,7 @@ public class SmallClusterFactory implements ExecutionTargetFactory {
     }
 
     @Override
-    public List<NodeWithConsistencyToken> resolveAssignments(ExecutionTarget target) {
+    public Int2ObjectMap<NodeWithConsistencyToken> resolveAssignments(ExecutionTarget target) {
         target = target.finalise();
 
         assert target instanceof AbstractTarget : target == null ? "<null>" : target.getClass().getCanonicalName();
