@@ -22,8 +22,6 @@ import static org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDb
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.putLongToBytes;
-import static org.apache.ignite.internal.util.ByteUtils.stringFromBytes;
-import static org.apache.ignite.internal.util.ByteUtils.stringToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_ERR;
@@ -94,9 +92,6 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     /** On-heap-cached last applied term value. */
     private volatile long lastAppliedTerm;
 
-    @Nullable
-    private volatile String leaseholderId;
-
     private volatile long leaseStartTime;
 
     /** Current state of the storage. */
@@ -144,9 +139,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
             byte[] leaseBytes = readLease(sharedStorage.readOptions);
 
             if (leaseBytes != null) {
-                byte[] leaseholderIdBytes = ByteBuffer.wrap(leaseBytes, 0, leaseBytes.length - Long.BYTES).array();
-                leaseholderId = stringFromBytes(leaseholderIdBytes);
-                leaseStartTime = bytesToLong(leaseBytes, leaseholderIdBytes.length);
+                leaseStartTime = bytesToLong(leaseBytes);
             }
 
             return null;
@@ -515,7 +508,6 @@ public class TxStateRocksDbStorage implements TxStateStorage {
             lastAppliedIndex = 0;
             lastAppliedTerm = 0;
 
-            leaseholderId = null;
             leaseStartTime = Long.MIN_VALUE;
 
             state.set(StorageState.RUNNABLE);
@@ -587,22 +579,15 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     }
 
     @Override
-    public void updateLease(String leaseholderId, long leaseStartTime) {
+    public void updateLease(long leaseStartTime) {
         busy(() -> {
             try (WriteBatch writeBatch = new WriteBatch()) {
-                byte[] leaseBytes = new byte[leaseholderId.length() + Long.BYTES];
+                byte[] leaseBytes = new byte[Long.BYTES];
 
-                byte[] leaseholderIdBytes = stringToBytes(leaseholderId);
-
-                for (int i = 0; i < leaseholderIdBytes.length; i++) {
-                    leaseBytes[i] = leaseholderIdBytes[i];
-                }
-
-                putLongToBytes(leaseStartTime, leaseBytes, leaseholderIdBytes.length);
+                putLongToBytes(leaseStartTime, leaseBytes, 0);
 
                 writeBatch.put(leaseKey, leaseBytes);
 
-                this.leaseholderId = leaseholderId;
                 this.leaseStartTime = leaseStartTime;
 
                 sharedStorage.db().write(sharedStorage.writeOptions, writeBatch);
@@ -616,11 +601,6 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
             return null;
         });
-    }
-
-    @Override
-    public String leaseholderId() {
-        return leaseholderId;
     }
 
     @Override

@@ -264,14 +264,13 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
             return;
         }
 
-        if (cmd.leaseholderId() != null) {
+        /*if (cmd.leaseholderId() != null) {
             long leaseStartTime = requireNonNull(cmd.leaseStartTime(), "Inconsistent lease information in command [cmd=" + cmd + "].");
 
-            if (!txStateStorage.leaseholderId().equals(cmd.leaseholderId())
-                    || leaseStartTime != txStateStorage.leaseStartTime()) {
-                throw new IgniteException("Primary replica changed.");
+            if (leaseStartTime != txStateStorage.leaseStartTime()) {
+                //throw new IgniteException("Primary replica changed.");
             }
-        }
+        }*/
 
         UUID txId = cmd.txId();
 
@@ -313,8 +312,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         if (cmd.leaseholderId() != null) {
             long leaseStartTime = requireNonNull(cmd.leaseStartTime(), "Inconsistent lease information in command [cmd=" + cmd + "].");
 
-            if (!txStateStorage.leaseholderId().equals(cmd.leaseholderId())
-                    || leaseStartTime != txStateStorage.leaseStartTime()) {
+            if (leaseStartTime != txStateStorage.leaseStartTime()) {
                 throw new IgniteException("Primary replica changed.");
             }
         }
@@ -601,7 +599,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
             if (cmd.safeTime().compareTo(safeTime.current()) > 0) {
                 LOG.info("qqq Handling primary replica change command=" + cmd);
 
-                txStateStorage.updateLease(cmd.leaseholderId(), cmd.leaseStartTime());
+                txStateStorage.updateLease(cmd.leaseStartTime());
 
                 updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
             }

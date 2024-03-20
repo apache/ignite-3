@@ -28,9 +28,6 @@ import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
  */
 @Transferable(PRIMARY_REPLICA_CHANGE_COMMAND)
 public interface PrimaryReplicaChangeCommand extends SafeTimePropagatingCommand {
-    /** Ephemeral id of the leaseholder node. */
-    String leaseholderId();
-
     /** Lease start time, hybrid timestamp as long, see {@link HybridTimestamp#longValue()}. */
     long leaseStartTime();
 }

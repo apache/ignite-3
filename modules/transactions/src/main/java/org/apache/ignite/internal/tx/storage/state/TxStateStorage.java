@@ -207,9 +207,7 @@ public interface TxStateStorage extends ManuallyCloseable {
      */
     CompletableFuture<Void> clear();
 
-    void updateLease(String leaseholderId, long leaseStartTime);
-
-    String leaseholderId();
+    void updateLease(long leaseStartTime);
 
     long leaseStartTime();
 }

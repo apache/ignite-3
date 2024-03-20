@@ -3403,12 +3403,10 @@ public class PartitionReplicaListener implements ReplicaListener {
                             );
                         }
 
-                        return primaryReplicaChangeCommandWaiter
-                                .changePrimaryReplicaFuture(
-                                        primaryReplicaMeta.getLeaseholderId(),
-                                        primaryReplicaMeta.getStartTime().longValue()
-                                )
-                                .thenApply(unused -> null);
+                        /*return primaryReplicaChangeCommandWaiter
+                                .changePrimaryReplicaFuture(primaryReplicaMeta.getStartTime().longValue())
+                                .thenApply(unused -> null);*/
+                        return nullCompletedFuture();
                     });
         } else if (request instanceof ReadOnlyReplicaRequest || request instanceof ReplicaSafeTimeSyncRequest) {
             return placementDriver.getPrimaryReplica(replicationGroupId, now)
@@ -3630,10 +3628,9 @@ public class PartitionReplicaListener implements ReplicaListener {
             HybridTimestamp safeTimeTimestamp,
             int catalogVersion
     ) {
-        PrimaryReplicaChangeCommandFuture f = primaryReplicaChangeCommandWaiter.futureRef;
+        IgniteBiTuple<Long, CompletableFuture<Void>> f = primaryReplicaChangeCommandWaiter.futureRef;
 
-        String leaseholderId = full ? f.leaseholderId : null;
-        Long leaseStartTime = full ? f.leaseStartTime : null;
+        Long leaseStartTime = full ? f.get1() : null;
 
         UpdateCommandBuilder bldr = MSG_FACTORY.updateCommand()
                 .tablePartitionId(tablePartitionId(tablePartId))
@@ -3643,7 +3640,6 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .safeTimeLong(safeTimeTimestamp.longValue())
                 .txCoordinatorId(txCoordinatorId)
                 .requiredCatalogVersion(catalogVersion)
-                .leaseholderId(leaseholderId)
                 .leaseStartTime(leaseStartTime);
 
         if (lastCommitTimestamp != null || row != null) {
@@ -3679,10 +3675,9 @@ public class PartitionReplicaListener implements ReplicaListener {
             String txCoordinatorId,
             int catalogVersion
     ) {
-        PrimaryReplicaChangeCommandFuture f = primaryReplicaChangeCommandWaiter.futureRef;
+        IgniteBiTuple<Long, CompletableFuture<Void>> f = primaryReplicaChangeCommandWaiter.futureRef;
 
-        String leaseholderId = full ? f.leaseholderId : null;
-        Long leaseStartTime = full ? f.leaseStartTime : null;
+        Long leaseStartTime = full ? f.get1() : null;
 
         return MSG_FACTORY.updateAllCommand()
                 .tablePartitionId(commitPartitionId)
@@ -3692,7 +3687,6 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .full(full)
                 .txCoordinatorId(txCoordinatorId)
                 .requiredCatalogVersion(catalogVersion)
-                .leaseholderId(leaseholderId)
                 .leaseStartTime(leaseStartTime)
                 .build();
     }
@@ -3919,43 +3913,29 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private class PrimaryReplicaChangeCommandWaiter {
-        private volatile PrimaryReplicaChangeCommandFuture futureRef = new PrimaryReplicaChangeCommandFuture("", -1, nullCompletedFuture());
+        private volatile IgniteBiTuple<Long, CompletableFuture<Void>> futureRef = new IgniteBiTuple<>(-1L, nullCompletedFuture());
 
-        CompletableFuture<Void> changePrimaryReplicaFuture(String leaseholderId, long leaseStartTime) {
-            PrimaryReplicaChangeCommandFuture f = futureRef;
+        CompletableFuture<Void> changePrimaryReplicaFuture(long leaseStartTime) {
+            IgniteBiTuple<Long, CompletableFuture<Void>> f = futureRef;
 
-            if (leaseholderId.equals(f.leaseholderId) && leaseStartTime <= f.leaseStartTime) {
-                return f.future;
+            if (leaseStartTime <= f.get1()) {
+                return f.get2();
             } else {
                 PrimaryReplicaChangeCommand cmd = MSG_FACTORY.primaryReplicaChangeCommand()
-                        .leaseholderId(leaseholderId)
                         .leaseStartTime(leaseStartTime)
                         .safeTimeLong(hybridClock.nowLong())
                         .build();
 
                 synchronized (this) {
                     LOG.info("qqq Sending PrimaryReplicaChangeCommand cmd=" + cmd);
-                    futureRef = new PrimaryReplicaChangeCommandFuture(
-                            leaseholderId,
+                    futureRef = new IgniteBiTuple<>(
                             leaseStartTime,
-                            futureRef.future.thenCompose(unused -> raftClient.run(cmd))
+                            nullCompletedFuture()//futureRef.get2().thenCompose(unused -> raftClient.run(cmd))
                     );
 
-                    return futureRef.future;
+                    return futureRef.get2();
                 }
             }
-        }
-    }
-
-    private static class PrimaryReplicaChangeCommandFuture {
-        final String leaseholderId;
-        final long leaseStartTime;
-        final CompletableFuture<Void> future;
-
-        PrimaryReplicaChangeCommandFuture(String leaseholderId, long leaseStartTime, CompletableFuture<Void> future) {
-            this.leaseholderId = leaseholderId;
-            this.leaseStartTime = leaseStartTime;
-            this.future = future;
         }
     }
 }

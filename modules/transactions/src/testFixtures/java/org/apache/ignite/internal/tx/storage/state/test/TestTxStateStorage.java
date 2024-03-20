@@ -247,14 +247,8 @@ public class TestTxStateStorage implements TxStateStorage {
     }
 
     @Override
-    public void updateLease(String leaseholderId, long leaseStartTime) {
-        this.leaseholderId = leaseholderId;
+    public void updateLease(long leaseStartTime) {
         this.leaseStartTime = leaseStartTime;
-    }
-
-    @Override
-    public String leaseholderId() {
-        return leaseholderId;
     }
 
     @Override

@@ -413,20 +413,16 @@ public abstract class AbstractTxStateStorageTest {
     void testLeases() {
         TxStateStorage storage0 = tableStorage.getOrCreateTxStateStorage(0);
 
-        String lh0 = UUID.randomUUID().toString();
         long lst0 = 1000;
 
-        String lh1 = UUID.randomUUID().toString();
         long lst1 = 2000;
 
-        storage0.updateLease(lh0, lst0);
+        storage0.updateLease(lst0);
 
-        assertEquals(lh0, storage0.leaseholderId());
         assertEquals(lst0, storage0.leaseStartTime());
 
-        storage0.updateLease(lh1, lst1);
+        storage0.updateLease(lst1);
 
-        assertEquals(lh1, storage0.leaseholderId());
         assertEquals(lst1, storage0.leaseStartTime());
     }
 
