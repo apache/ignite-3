@@ -22,6 +22,9 @@ namespace Apache.Ignite;
 /// </summary>
 public static class MetricTags
 {
+    // Naming guidelines: https://github.com/open-telemetry/semantic-conventions/blob/main/docs/general/attribute-naming.md
+    // https://learn.microsoft.com/en-us/dotnet/core/diagnostics/metrics-instrumentation#best-practices-4
+
     /// <summary>
     /// Node name (consistent id).
     /// </summary>
