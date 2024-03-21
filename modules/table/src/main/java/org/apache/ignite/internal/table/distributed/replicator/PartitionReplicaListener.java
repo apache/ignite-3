@@ -396,10 +396,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private static void rethrowTranslated(Throwable ex) {
-        Throwable unwrapped = ex;
-        if (ex instanceof CompletionException && ex.getCause() != null) {
-            unwrapped = ex.getCause();
-        }
+        Throwable unwrapped = ExceptionUtils.unwrapCause(ex);
 
         if (unwrapped instanceof ReadFromDestroyedIndexStorageException) {
             throw new IgniteException(STALE_PLAN_ERR, "The plan is stale. Please retry.", unwrapped);
