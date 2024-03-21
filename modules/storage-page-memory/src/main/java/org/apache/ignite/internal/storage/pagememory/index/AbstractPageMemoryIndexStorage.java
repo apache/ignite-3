@@ -266,18 +266,6 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
 
     protected abstract GradualTask createDestructionTask(int maxWorkUnits) throws IgniteInternalCheckedException;
 
-    protected <T> T busy(Supplier<T> supplier) {
-        if (!busyLock.enterBusy()) {
-            throwExceptionDependingOnStorageState(state.get(), createStorageInfo());
-        }
-
-        try {
-            return supplier.get();
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
     protected String createStorageInfo() {
         return IgniteStringFormatter.format("indexId={}, partitionId={}", indexId, partitionId);
     }
