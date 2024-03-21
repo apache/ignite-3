@@ -33,7 +33,6 @@ import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collections;
 import java.util.List;
-import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
@@ -49,17 +48,12 @@ import org.apache.ignite.sql.ResultSetMetadata;
  * Fake {@link AsyncSqlCursor}.
  */
 public class FakeCursor implements AsyncSqlCursor<InternalSqlRow> {
-    private final Random random = new Random();
     private final String qry;
-    private final Object[] params;
-
     private final List<ColumnMetadata> columns = new ArrayList<>();
-
     private final List<InternalSqlRow> rows = new ArrayList<>();
 
     FakeCursor(String qry, SqlProperties properties, Object[] params, FakeIgniteQueryProcessor proc) {
         this.qry = qry;
-        this.params = params;
 
         if ("SELECT PROPS".equals(qry)) {
             columns.add(new FakeColumnMetadata("name", ColumnType.STRING));
@@ -129,11 +123,6 @@ public class FakeCursor implements AsyncSqlCursor<InternalSqlRow> {
 
         if ("SELECT PROPS".equals(qry)) {
             batch.add(getRow("pageSize", String.valueOf(rows)));
-        } else if ("TODO JDBC".equals(qry)) {
-            for (int i = 0; i < rows; i++) {
-                batch.add(getRow(
-                        random.nextInt(), random.nextLong(), random.nextFloat(), random.nextDouble(), UUID.randomUUID().toString(), null));
-            }
         }
 
         return CompletableFuture.completedFuture(new BatchedResult<>(batch, true));
