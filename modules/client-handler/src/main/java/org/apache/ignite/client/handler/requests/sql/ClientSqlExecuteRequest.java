@@ -41,6 +41,7 @@ import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
+import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
@@ -77,6 +78,11 @@ public class ClientSqlExecuteRequest {
         ClientSqlProperties props = new ClientSqlProperties(in);
         String statement = in.unpackString();
         Object[] arguments = in.unpackObjectArrayFromBinaryTuple();
+
+        if (arguments == null) {
+            // SQL engine requires non-null arguments, but we don't want to complicate the protocol with this requirement.
+            arguments = ArrayUtils.OBJECT_EMPTY_ARRAY;
+        }
 
         HybridTimestamp clientTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
         transactions.updateObservableTimestamp(clientTs);
