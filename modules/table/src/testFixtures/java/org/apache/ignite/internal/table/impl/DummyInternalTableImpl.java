@@ -246,7 +246,9 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                         Int2ObjectMaps.singleton(PART_ID, mock(RaftGroupService.class)),
                         new SingleClusterNodeResolver(LOCAL_NODE)
                 ),
-                transactionInflights
+                transactionInflights,
+                3_000,
+                0
         );
 
         RaftGroupService svc = tableRaftService().partitionRaftGroupService(PART_ID);
