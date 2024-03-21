@@ -21,6 +21,7 @@ import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.util.StorageUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
@@ -60,7 +61,7 @@ public interface IndexStorage {
     /**
      * Returns the row ID for which the index needs to be built, {@code null} means that the index building has completed.
      *
-     * <p>If index building has not started yet, it will return {@link RowId#lowestRowId(int)}.
+     * <p>If index building has not started yet, it will return {@link StorageUtils#initialRowIdToBuild}.
      *
      * @throws StorageException If failed to get the row ID.
      */
