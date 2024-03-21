@@ -40,7 +40,6 @@ class EventTypeRegistryTest {
         EventTypeRegistry.register("register_twice_test");
         assertTrue(EventTypeRegistry.contains("register_twice_test"));
 
-
         assertThrows(
                 NotUniqueEventTypeException.class,
                 () -> EventTypeRegistry.register("register_twice_test"),
