@@ -84,7 +84,7 @@ class ItIndexAndIndexStorageDestructionTest extends ClusterPerTestIntegrationTes
             IndexStorage indexStorage = schemaAwareStorage.storage();
 
             if (indexStorage instanceof AbstractPageMemoryIndexStorage) {
-                ((AbstractPageMemoryIndexStorage<?, ?>) indexStorage).transitionToDestroyedState();
+                ((AbstractPageMemoryIndexStorage<?, ?, ?>) indexStorage).transitionToDestroyedState();
             } else if (indexStorage instanceof AbstractRocksDbIndexStorage) {
                 ((AbstractRocksDbIndexStorage) indexStorage).transitionToDestroyedState();
             } else {
