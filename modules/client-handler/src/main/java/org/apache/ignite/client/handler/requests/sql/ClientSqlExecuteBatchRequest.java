@@ -59,6 +59,11 @@ public class ClientSqlExecuteBatchRequest {
         String statement = in.unpackString();
         BatchedArguments arguments = in.unpackObjectArrayFromBinaryTupleArray();
 
+        if (arguments == null) {
+            // SQL engine requires non-null arguments, but we don't want to complicate the protocol with this requirement.
+            arguments = BatchedArguments.of(ArrayUtils.OBJECT_EMPTY_ARRAY);
+        }
+
         HybridTimestamp clientTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
         transactions.updateObservableTimestamp(clientTs);
 

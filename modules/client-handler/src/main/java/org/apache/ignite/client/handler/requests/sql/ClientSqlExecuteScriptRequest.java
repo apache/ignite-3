@@ -23,6 +23,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.sql.api.SessionImpl;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
+import org.apache.ignite.internal.util.ArrayUtils;
 
 /**
  * Client SQL execute script request.
@@ -43,6 +44,11 @@ public class ClientSqlExecuteScriptRequest {
         ClientSqlProperties props = new ClientSqlProperties(in);
         String script = in.unpackString();
         Object[] arguments = in.unpackObjectArrayFromBinaryTuple();
+
+        if (arguments == null) {
+            // SQL engine requires non-null arguments, but we don't want to complicate the protocol with this requirement.
+            arguments = ArrayUtils.OBJECT_EMPTY_ARRAY;
+        }
 
         HybridTimestamp clientTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
         transactions.updateObservableTimestamp(clientTs);
