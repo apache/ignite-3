@@ -304,7 +304,7 @@ public class InternalTableImpl implements InternalTable {
             @Nullable InternalTransaction tx,
             IgniteTriFunction<InternalTransaction, ReplicationGroupId, Long, ReplicaRequest> fac,
             BiPredicate<R, ReplicaRequest> noWriteChecker,
-            Long txStartTs
+            @Nullable Long txStartTs
     ) {
         // Check whether proposed tx is read-only. Complete future exceptionally if true.
         // Attempting to enlist a read-only in a read-write transaction does not corrupt the transaction itself, thus read-write transaction
@@ -409,7 +409,7 @@ public class InternalTableImpl implements InternalTable {
                     > fac,
             Function<Collection<RowBatch>, CompletableFuture<T>> reducer,
             BiPredicate<T, ReplicaRequest> noOpChecker,
-            Long txStartTs
+            @Nullable Long txStartTs
     ) {
         // Check whether proposed tx is read-only. Complete future exceptionally if true.
         // Attempting to enlist a read-only in a read-write transaction does not corrupt the transaction itself, thus read-write transaction

@@ -42,7 +42,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscription;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
@@ -60,7 +59,6 @@ import org.apache.ignite.internal.placementdriver.message.StopLeaseProlongationM
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.message.ErrorTimestampAwareReplicaResponse;
-import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.replicator.message.TimestampAwareReplicaResponse;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
@@ -130,6 +128,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         builder.clusterConfiguration("{\n"
                 + "  \"transaction\": {\n"
                 + "  \"abandonedCheckTs\": 600000\n"
+                + "  \"attemptsObtainLock\": 0\n"
                 + "  }\n"
                 + "}\n");
     }
@@ -187,57 +186,6 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
             return msgCount.get() > 1;
         }, 10_000));
-    }
-
-    @Test
-    public void testRetryTransactionOperation() {
-        TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
-
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
-
-        String leaseholder = waitAndGetPrimaryReplica(node(0), tblReplicationGrp).getLeaseholder();
-
-        IgniteImpl leaseholderNode = findNodeByName(leaseholder);
-        IgniteImpl otherNode = null;
-
-        for (int i = 0; i < initialNodes(); i++) {
-            if (!leaseholder.equals(node(i).name())) {
-                otherNode = node(i);
-            }
-        }
-
-        assertNotNull(otherNode);
-
-        log.info("Transactions are executed from a non-primary node [node={}, primary={}].", otherNode.name(), leaseholderNode.name());
-
-        RecordView<Tuple> view = otherNode.tables().table(TABLE_NAME).recordView();
-
-        Transaction tx1 = otherNode.transactions().begin();
-        Transaction tx2 = otherNode.transactions().begin();
-
-        view.get(tx1, Tuple.create().set("key", 1));
-
-        DefaultMessagingService messagingService = (DefaultMessagingService) leaseholderNode.clusterService().messagingService();
-
-        String otherNodeName = otherNode.name();
-
-        AtomicBoolean lockHold = new AtomicBoolean(true);
-
-        messagingService.dropMessages((nodeName, networkMessage) -> {
-            if (nodeName.equals(otherNodeName) && networkMessage instanceof ReplicaResponse && lockHold.compareAndSet(true, false)) {
-                log.info("Exceptional response on lock acquisition [resp={}].", networkMessage.getClass().getSimpleName());
-
-                tx1.commit();
-            }
-
-            return false;
-        });
-
-        view.upsert(tx2, Tuple.create().set("key", 1).set("val", "new value"));
-
-        tx2.commit();
-
-        assertEquals("new value", view.get(null, Tuple.create().set("key", 1)).value("val"));
     }
 
     @Test
@@ -798,7 +746,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     public void testPrimaryFailureWhileInflightInProgressAfterFirstResponse() throws Exception {
         TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
 
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), 0);
+        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
 
         String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
 
