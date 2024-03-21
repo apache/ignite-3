@@ -33,7 +33,6 @@ import java.util.function.Function;
 import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
-import org.apache.ignite.client.fakes.FakeSession;
 import org.apache.ignite.internal.client.ClientMetricSource;
 import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.metrics.AbstractMetricSource;
@@ -192,7 +191,7 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
         assertThrowsSqlException(
                 Sql.STMT_VALIDATION_ERR,
                 "Query failed",
-                () -> client.sql().createSession().execute(null, FakeSession.FAILED_SQL));
+                () -> client.sql().createSession().execute(null, "TODO FakeSession.FAILED_SQL"));
 
         assertEquals(0, metrics().requestsActive());
         assertEquals(1, metrics().requestsFailed());

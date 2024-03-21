@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.fakes;
 
+import org.apache.ignite.internal.client.sql.ClientSessionBuilder;
 import org.apache.ignite.internal.client.sql.ClientStatementBuilder;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.Session;
@@ -28,8 +29,6 @@ import org.apache.ignite.sql.Statement.StatementBuilder;
  * Fake SQL implementation.
  */
 public class FakeIgniteSql implements IgniteSql {
-    String lastScript;
-
     @Override
     public Session createSession() {
         return sessionBuilder().build();
@@ -37,7 +36,7 @@ public class FakeIgniteSql implements IgniteSql {
 
     @Override
     public SessionBuilder sessionBuilder() {
-        return new FakeSessionBuilder(this);
+        throw new UnsupportedOperationException();
     }
 
     @Override
