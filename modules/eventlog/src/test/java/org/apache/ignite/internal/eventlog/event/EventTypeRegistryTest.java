@@ -45,7 +45,6 @@ class EventTypeRegistryTest {
                 NotUniqueEventTypeException.class,
                 () -> EventTypeRegistry.register("register_twice_test"),
                 "Event type `register_twice_test` is already registered. Please, use another name."
-
         );
     }
 
