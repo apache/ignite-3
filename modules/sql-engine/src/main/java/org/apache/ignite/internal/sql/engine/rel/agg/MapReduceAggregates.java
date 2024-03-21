@@ -566,7 +566,7 @@ public class MapReduceAggregates {
                 mapCountType,
                 "AVG" + reduceArgumentOffset + "_MAP_COUNT");
 
-        // REDUCE : SUM0(s) as reduce_sum, SUM0(c) as reduce_count
+        // REDUCE : SUM(s) as reduce_sum, SUM0(c) as reduce_count
         List<Integer> reduceSumArgs = List.of(reduceArgumentOffset);
 
         // SUM0(s)
