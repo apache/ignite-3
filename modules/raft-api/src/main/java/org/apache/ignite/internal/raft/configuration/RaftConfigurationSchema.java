@@ -65,4 +65,22 @@ public class RaftConfigurationSchema {
      */
     @Value(hasDefault = true)
     public boolean fsync = true;
+
+    /**
+     * Amount of Disruptors that will handle the RAFT server.
+     */
+    @Value(hasDefault = true)
+    public int stripes = Runtime.getRuntime().availableProcessors() * 2;
+
+    /**
+     * Amount of log manager Disruptors stripes.
+     */
+    @Value(hasDefault = true)
+    public int logStripesCount = Runtime.getRuntime().availableProcessors() * 2;
+
+    /**
+     * Set true to use the non-blocking strategy in the log manager.
+     */
+    @Value(hasDefault = true)
+    public boolean logYieldStrategy = false;
 }
