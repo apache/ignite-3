@@ -109,7 +109,7 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
 
     @Override
     public @Nullable RowId getNextRowIdToBuild() {
-        return busyNonRead(() -> {
+        return busyNonDataRead(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
             return nextRowIdToBuilt;
@@ -118,7 +118,7 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
 
     @Override
     public void setNextRowIdToBuild(@Nullable RowId rowId) {
-        busyNonRead(() -> {
+        busyNonDataRead(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
             UUID rowIdUuid = rowId == null ? null : rowId.uuid();
@@ -256,11 +256,11 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
     /** Constant that represents the absence of value in {@link ScanCursor}. Not equivalent to {@code null} value. */
     private static final IndexRowKey NO_INDEX_ROW = () -> null;
 
-    protected <T> T busyNonRead(Supplier<T> supplier) {
+    protected <T> T busyNonDataRead(Supplier<T> supplier) {
         return busy(supplier, false);
     }
 
-    protected <T> T busyRead(Supplier<T> supplier) {
+    protected <T> T busyDataRead(Supplier<T> supplier) {
         return busy(supplier, true);
     }
 
@@ -322,7 +322,7 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
 
         @Override
         public boolean hasNext() {
-            return busyRead(() -> {
+            return busyDataRead(() -> {
                 try {
                     return advanceIfNeededBusy();
                 } catch (IgniteInternalCheckedException e) {
@@ -333,7 +333,7 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
 
         @Override
         public R next() {
-            return busyRead(() -> {
+            return busyDataRead(() -> {
                 try {
                     if (!advanceIfNeededBusy()) {
                         throw new NoSuchElementException();
@@ -350,7 +350,7 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
 
         @Override
         public @Nullable R peek() {
-            return busyRead(() -> {
+            return busyDataRead(() -> {
                 throwExceptionIfStorageInProgressOfRebalance(state.get(), AbstractPageMemoryIndexStorage.this::createStorageInfo);
 
                 try {

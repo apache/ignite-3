@@ -82,7 +82,7 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
 
     @Override
     public @Nullable RowId getNextRowIdToBuild() {
-        return busyNonRead(() -> {
+        return busyNonDataRead(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
             return nextRowIdToBuilt;
@@ -91,7 +91,7 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
 
     @Override
     public void setNextRowIdToBuild(@Nullable RowId rowId) {
-        busyNonRead(() -> {
+        busyNonDataRead(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
             WriteBatchWithIndex writeBatch = PartitionDataHelper.requireWriteBatch();
@@ -201,11 +201,11 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
         }
     }
 
-    <V> V busyNonRead(Supplier<V> supplier) {
+    <V> V busyNonDataRead(Supplier<V> supplier) {
         return busy(supplier, false);
     }
 
-    <V> V busyRead(Supplier<V> supplier) {
+    <V> V busyDataRead(Supplier<V> supplier) {
         return busy(supplier, true);
     }
 
@@ -279,12 +279,12 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
 
         @Override
         public boolean hasNext() {
-            return busyRead(this::advanceIfNeededBusy);
+            return busyDataRead(this::advanceIfNeededBusy);
         }
 
         @Override
         public T next() {
-            return busyRead(() -> {
+            return busyDataRead(() -> {
                 if (!advanceIfNeededBusy()) {
                     throw new NoSuchElementException();
                 }
@@ -297,7 +297,7 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
 
         @Override
         public @Nullable T peek() {
-            return busyRead(() -> {
+            return busyDataRead(() -> {
                 throwExceptionIfStorageInProgressOfRebalance(state.get(), AbstractRocksDbIndexStorage.this::createStorageInfo);
 
                 byte[] res = peekBusy();
