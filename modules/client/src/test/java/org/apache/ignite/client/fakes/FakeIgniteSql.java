@@ -17,7 +17,6 @@
 
 package org.apache.ignite.client.fakes;
 
-import org.apache.ignite.internal.client.sql.ClientSessionBuilder;
 import org.apache.ignite.internal.client.sql.ClientStatementBuilder;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.Session;
