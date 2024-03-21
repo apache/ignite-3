@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.storage.index.impl;
 
+import static org.apache.ignite.internal.storage.util.StorageUtils.initialRowIdToBuild;
+
 import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -38,11 +40,14 @@ abstract class AbstractTestIndexStorage implements IndexStorage {
 
     private volatile @Nullable RowId nextRowIdToBuild;
 
+    private final int partitionId;
+
     /** Amount of cursors that opened and still do not close. */
     protected final AtomicInteger pendingCursors = new AtomicInteger();
 
     AbstractTestIndexStorage(int partitionId) {
-        nextRowIdToBuild = RowId.lowestRowId(partitionId);
+        this.partitionId = partitionId;
+        nextRowIdToBuild = initialRowIdToBuild(partitionId);
     }
 
     /**
@@ -104,13 +109,19 @@ abstract class AbstractTestIndexStorage implements IndexStorage {
     public void clear() {
         checkStorageClosedOrInProcessOfRebalance(false);
 
+        clearAndReset();
+    }
+
+    private void clearAndReset() {
         clear0();
+
+        nextRowIdToBuild = initialRowIdToBuild(partitionId);
     }
 
     public void destroy() {
         destroyed = true;
 
-        clear0();
+        clearAndReset();
     }
 
     abstract Iterator<RowId> getRowIdIteratorForGetByBinaryTuple(BinaryTuple key);
@@ -125,7 +136,7 @@ abstract class AbstractTestIndexStorage implements IndexStorage {
 
         rebalance = true;
 
-        clear0();
+        clearAndReset();
     }
 
     /**
@@ -140,7 +151,7 @@ abstract class AbstractTestIndexStorage implements IndexStorage {
 
         rebalance = false;
 
-        clear0();
+        clearAndReset();
     }
 
     /**

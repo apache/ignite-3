@@ -177,7 +177,7 @@ public class RocksDbHashIndexStorage extends AbstractRocksDbIndexStorage impleme
     }
 
     @Override
-    public void destroyData(WriteBatch writeBatch) throws RocksDBException {
+    public void clearIndex(WriteBatch writeBatch) throws RocksDBException {
         deleteByPrefix(writeBatch, indexCf, constantPrefix);
     }
 }

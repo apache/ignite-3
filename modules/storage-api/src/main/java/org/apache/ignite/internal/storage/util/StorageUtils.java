@@ -22,6 +22,7 @@ import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.storage.ReadFromDestroyedIndexStorageException;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageDestroyedException;
 import org.apache.ignite.internal.storage.StorageException;
@@ -228,5 +229,12 @@ public class StorageUtils {
                 return true;
             }
         }
+    }
+
+    /**
+     * Returns the row ID value used by index storages as the row ID to start the index building process with.
+     */
+    public static RowId initialRowIdToBuild(int partitionId) {
+        return RowId.lowestRowId(partitionId);
     }
 }
