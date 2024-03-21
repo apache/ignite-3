@@ -1425,7 +1425,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
         List<CompletableFuture<Void>> futures = new ArrayList<>();
 
-        // TODO: IGNITE-20287 Clean up abandoned resources for dropped zones from volt and metastore
+        // TODO: IGNITE-20287 Clean up abandoned resources for dropped tables from vault and metastore
         for (CatalogZoneDescriptor zone : catalogManager.zones(catalogVersion)) {
             futures.add(restoreZoneStateBusy(zone, recoveryRevision));
         }

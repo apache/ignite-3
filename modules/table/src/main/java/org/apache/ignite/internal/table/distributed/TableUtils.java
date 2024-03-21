@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.table.distributed;
 
-import static java.util.Comparator.comparingInt;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.BUILDING;
 import static org.apache.ignite.internal.util.CollectionUtils.difference;
@@ -90,14 +89,40 @@ public class TableUtils {
 
     /**
      * Collects a list of tables that were removed from the catalog and should have been dropped due to a low watermark (if the catalog
-     * version in which the table was removed is less than or equal to the active catalog version of low watermark).
+     * version in which the table was removed is less than or equal to the active catalog version of the low watermark).
      *
      * @param catalogService Catalog service.
      * @param lowWatermark Low watermark, {@code null} if it has never been updated.
-     * @return Result is sorted by the catalog version in which the table was removed from the catalog and by the table ID.
      */
     // TODO: IGNITE-21771 Process or check catalog compaction
     static List<DroppedTableInfo> droppedTables(CatalogService catalogService, @Nullable HybridTimestamp lowWatermark) {
+        if (lowWatermark == null) {
+            return List.of();
+        }
+
+        int earliestCatalogVersion = catalogService.earliestCatalogVersion();
+        int lwmCatalogVersion = catalogService.activeCatalogVersion(lowWatermark.longValue());
+
+        var tableIds = catalogService.tables(lwmCatalogVersion).stream()
+                .map(CatalogObjectDescriptor::id)
+                .collect(toSet());
+
+        var res = new ArrayList<DroppedTableInfo>();
+
+        for (int catalogVersion = lwmCatalogVersion - 1; catalogVersion >= earliestCatalogVersion; catalogVersion--) {
+            int finalCatalogVersion = catalogVersion;
+
+            catalogService.tables(catalogVersion).stream()
+                    .map(CatalogObjectDescriptor::id)
+                    .filter(tableIds::add)
+                    .map(tableId -> new DroppedTableInfo(tableId, finalCatalogVersion + 1))
+                    .forEach(res::add);
+        }
+
+        return res;
+    }
+
+    static List<DroppedTableInfo> droppedTables0(CatalogService catalogService, @Nullable HybridTimestamp lowWatermark) {
         if (lowWatermark == null) {
             return List.of();
         }
@@ -122,8 +147,6 @@ public class TableUtils {
 
             previousCatalogVersionTableIds = tableIds;
         }
-
-        res.sort(comparingInt(DroppedTableInfo::tableRemovalCatalogVersion).thenComparing(DroppedTableInfo::tableId));
 
         return res;
     }

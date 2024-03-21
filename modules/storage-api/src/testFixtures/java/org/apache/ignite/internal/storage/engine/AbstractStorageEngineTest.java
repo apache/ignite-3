@@ -89,7 +89,7 @@ public abstract class AbstractStorageEngineTest extends BaseMvStoragesTest {
         int tableId = 1;
 
         // Table does not exist.
-        assertDoesNotThrow(() -> storageEngine.dropMvTableOnRecovery(tableId));
+        assertDoesNotThrow(() -> storageEngine.dropMvTable(tableId));
 
         createMvTableWithPartitionAndFill(tableId, 10, 20);
 
@@ -97,7 +97,7 @@ public abstract class AbstractStorageEngineTest extends BaseMvStoragesTest {
         stopEngineAfterTest();
         createEngineBeforeTest();
 
-        assertDoesNotThrow(() -> storageEngine.dropMvTableOnRecovery(tableId));
+        assertDoesNotThrow(() -> storageEngine.dropMvTable(tableId));
 
         checkMvTableStorageWithPartitionAfterRestart(tableId, 0, 0);
     }

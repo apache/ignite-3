@@ -59,10 +59,10 @@ public interface StorageEngine {
     MvTableStorage createMvTable(StorageTableDescriptor tableDescriptor, StorageIndexDescriptorSupplier indexDescriptorSupplier);
 
     /**
-     * Destroys the table on node recovery if it exists.
+     * Destroys the table if it exists.
      *
      * @param tableId Table ID.
      * @throws StorageException If an error has occurs while dropping the table.
      */
-    void dropMvTableOnRecovery(int tableId);
+    void dropMvTable(int tableId);
 }

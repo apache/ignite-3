@@ -2499,7 +2499,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private void cleanUpResourcesForDroppedTablesOnRecoveryBusy() {
-        // TODO: IGNITE-20384 Clean up abandoned resources for dropped zones from volt and metastore
+        // TODO: IGNITE-20384 Clean up abandoned resources for dropped zones from vault and metastore
         for (DroppedTableInfo droppedTableInfo : droppedTables(catalogService, lowWatermark.getLowWatermark())) {
             int catalogVersion = droppedTableInfo.tableRemovalCatalogVersion() - 1;
 
@@ -2520,8 +2520,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         assert engine != null : "tableId=" + tableDescriptor.id() + ", engineName=" + zoneDescriptor.dataStorage().engine();
 
-        if (!engine.isVolatile()) {
-            engine.dropMvTableOnRecovery(tableDescriptor.id());
-        }
+        engine.dropMvTable(tableDescriptor.id());
     }
 }

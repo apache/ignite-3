@@ -29,6 +29,7 @@ import java.util.List;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnCommand;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
@@ -338,5 +339,42 @@ public class TableTestUtils {
      */
     public static void makeIndexAvailable(CatalogManager catalogManager, int indexId) {
         assertThat(catalogManager.execute(MakeIndexAvailableCommand.builder().indexId(indexId).build()), willCompleteSuccessfully());
+    }
+
+    /**
+     * Adds a column to the table to catalog.
+     *
+     * @param catalogManager Catalog manager.
+     * @param schemaName Schema name.
+     * @param tableName Table name.
+     * @param columnName Column name.
+     * @param columnType Column type.
+     */
+    public static void addColumnForTable(
+            CatalogManager catalogManager,
+            String schemaName,
+            String tableName,
+            String columnName,
+            ColumnType columnType
+    ) {
+        CatalogCommand command = AlterTableAddColumnCommand.builder()
+                .schemaName(schemaName)
+                .tableName(tableName)
+                .columns(List.of(ColumnParams.builder().name(columnName).type(columnType).build()))
+                .build();
+
+        assertThat(catalogManager.execute(command), willCompleteSuccessfully());
+    }
+
+    /**
+     * Adds a column to the table from {@link #createSimpleTable(CatalogManager, String)} to catalog.
+     *
+     * @param catalogManager Catalog manager.
+     * @param tableName Table name.
+     * @param columnName Column name.
+     * @param columnType Column type.
+     */
+    public static void addColumnForSimpleTable(CatalogManager catalogManager, String tableName, String columnName, ColumnType columnType) {
+        addColumnForTable(catalogManager, DEFAULT_SCHEMA_NAME, tableName, columnName, columnType);
     }
 }

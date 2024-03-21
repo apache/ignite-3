@@ -204,7 +204,7 @@ public class RocksDbStorageEngine implements StorageEngine {
 
     @Override
     // TODO: IGNITE-21760 Implement
-    public void dropMvTableOnRecovery(int tableId) {
+    public void dropMvTable(int tableId) {
         throw new UnsupportedOperationException("https://issues.apache.org/jira/browse/IGNITE-21760");
     }
 }

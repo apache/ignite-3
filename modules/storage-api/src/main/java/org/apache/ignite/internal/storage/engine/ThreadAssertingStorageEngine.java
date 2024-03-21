@@ -61,7 +61,7 @@ public class ThreadAssertingStorageEngine implements StorageEngine {
     }
 
     @Override
-    public void dropMvTableOnRecovery(int tableId) {
-        storageEngine.dropMvTableOnRecovery(tableId);
+    public void dropMvTable(int tableId) {
+        storageEngine.dropMvTable(tableId);
     }
 }

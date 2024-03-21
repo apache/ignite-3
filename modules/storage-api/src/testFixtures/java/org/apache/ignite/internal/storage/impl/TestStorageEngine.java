@@ -61,7 +61,7 @@ public class TestStorageEngine implements StorageEngine {
     }
 
     @Override
-    public void dropMvTableOnRecovery(int tableId) {
+    public void dropMvTable(int tableId) {
         // No-op.
     }
 }

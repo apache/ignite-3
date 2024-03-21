@@ -245,7 +245,7 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
     }
 
     @Override
-    public void dropMvTableOnRecovery(int tableId) {
+    public void dropMvTable(int tableId) {
         FilePageStoreManager filePageStoreManager = this.filePageStoreManager;
 
         assert filePageStoreManager != null : "Component has not started";

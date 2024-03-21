@@ -40,6 +40,7 @@ import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.emptyArray;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -540,6 +541,8 @@ public class FilePageStoreManagerTest extends BaseIgniteAbstractTest {
         assertThat(collectAllSubFileAndDirs(dbDir), empty());
 
         createAndAddFilePageStore(manager, new GroupPartitionId(groupId, 0));
+        assertThat(collectAllSubFileAndDirs(dbDir), not(empty()));
+
         manager.destroyGroupIfExists(groupId);
         assertThat(collectAllSubFileAndDirs(dbDir), empty());
     }
