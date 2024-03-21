@@ -395,18 +395,18 @@ public class PartitionReplicaListener implements ReplicaListener {
         prepareIndexBuilderTxRwOperationTracker();
     }
 
-    private static void rethrowTranslated(Throwable ex) {
+    private static RuntimeException translateForRethrowing(Throwable ex) {
         Throwable unwrapped = ExceptionUtils.unwrapCause(ex);
 
         if (unwrapped instanceof ReadFromDestroyedIndexStorageException) {
-            throw new IgniteException(STALE_PLAN_ERR, "The plan is stale. Please retry.", unwrapped);
+            return new IgniteException(STALE_PLAN_ERR, "The plan is stale. Please retry.", unwrapped);
         }
 
         if (ex instanceof CompletionException) {
-            throw (CompletionException) ex;
+            return (CompletionException) ex;
         }
 
-        throw new CompletionException(ex);
+        return new CompletionException(ex);
     }
 
     @Override
@@ -421,10 +421,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     }
                 })
                 .exceptionally(ex -> {
-                    rethrowTranslated(ex);
-
-                    // This return is never reached.
-                    return null;
+                    throw translateForRethrowing(ex);
                 });
     }
 
