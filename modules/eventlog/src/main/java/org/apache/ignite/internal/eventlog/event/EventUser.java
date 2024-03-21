@@ -68,7 +68,6 @@ public final class EventUser {
         return Objects.hash(username, authenticationProvider);
     }
 
-
     @Override
     public String toString() {
         return "EventUser{"
