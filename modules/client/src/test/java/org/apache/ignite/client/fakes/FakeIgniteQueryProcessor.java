@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client.fakes;
 
+import static org.apache.ignite.internal.sql.engine.QueryProperty.DEFAULT_SCHEMA;
+import static org.apache.ignite.internal.sql.engine.QueryProperty.QUERY_TIMEOUT;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.concurrent.CompletableFuture;
@@ -33,6 +35,8 @@ import org.jetbrains.annotations.Nullable;
  * Fake {@link QueryProcessor}.
  */
 public class FakeIgniteQueryProcessor implements QueryProcessor {
+    String lastScript;
+
     @Override
     public CompletableFuture<QueryMetadata> prepareSingleAsync(SqlProperties properties,
             @Nullable InternalTransaction transaction, String qry, Object... params) {
@@ -47,7 +51,7 @@ public class FakeIgniteQueryProcessor implements QueryProcessor {
             String qry,
             Object... params
     ) {
-        return CompletableFuture.completedFuture(new FakeCursor(qry, properties, params));
+        return CompletableFuture.completedFuture(new FakeCursor(qry, properties, params, this));
     }
 
     @Override
@@ -58,7 +62,22 @@ public class FakeIgniteQueryProcessor implements QueryProcessor {
             String qry,
             Object... params
     ) {
-        return CompletableFuture.completedFuture(new FakeCursor(qry, properties, params));
+        var sb = new StringBuilder(qry);
+
+        sb.append(", arguments: [");
+
+        for (Object arg : params) {
+            sb.append(arg).append(", ");
+        }
+
+        sb.append(']');
+
+        sb.append(", ").append("defaultSchema=").append(properties.get(DEFAULT_SCHEMA))
+                .append(", ").append("defaultQueryTimeout=").append(properties.get(QUERY_TIMEOUT));
+
+        lastScript = sb.toString();
+
+        return CompletableFuture.completedFuture(new FakeCursor(qry, properties, params, this));
     }
 
     @Override

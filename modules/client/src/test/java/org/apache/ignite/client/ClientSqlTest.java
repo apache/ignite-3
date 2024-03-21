@@ -232,8 +232,7 @@ public class ClientSqlTest extends AbstractClientTableTest {
         SqlRow row = resultSet.next();
 
         assertEquals(
-                "foo, arguments: [], properties: [], defaultPageSize=null, defaultSchema=null, "
-                        + "defaultQueryTimeout=null, defaultSessionTimeout=null",
+                "foo, arguments: [], defaultSchema=PUBLIC, defaultQueryTimeout=0",
                 row.value(0));
     }
 
@@ -255,8 +254,7 @@ public class ClientSqlTest extends AbstractClientTableTest {
         SqlRow row = resultSet.next();
 
         assertEquals(
-                "do bar baz, arguments: [arg1, null, 2, ], properties: [prop2=-5, prop1=val1, prop3=null, ], "
-                        + "defaultPageSize=123, defaultSchema=script-schema, defaultQueryTimeout=456, defaultSessionTimeout=789000",
+                "do bar baz, arguments: [arg1, null, 2, ], defaultSchema=script-schema, defaultQueryTimeout=456",
                 row.value(0));
     }
 }

@@ -57,7 +57,7 @@ public class FakeCursor implements AsyncSqlCursor<InternalSqlRow> {
 
     private final List<InternalSqlRow> rows = new ArrayList<>();
 
-    FakeCursor(String qry, SqlProperties properties, Object[] params) {
+    FakeCursor(String qry, SqlProperties properties, Object[] params, FakeIgniteQueryProcessor proc) {
         this.qry = qry;
         this.params = params;
 
@@ -110,9 +110,7 @@ public class FakeCursor implements AsyncSqlCursor<InternalSqlRow> {
 
             rows.add(row);
         } else if ("SELECT LAST SCRIPT".equals(qry)) {
-            // TODO
-            // rows = List.of(getRow(sql.lastScript));
-            rows.add(getRow("TODO LAST SCRIPT"));
+            rows.add(getRow(proc.lastScript));
             columns.add(new FakeColumnMetadata("script", ColumnType.STRING));
         } else {
             rows.add(getRow(1));
