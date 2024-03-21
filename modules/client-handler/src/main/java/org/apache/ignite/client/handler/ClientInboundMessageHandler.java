@@ -779,7 +779,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return ClientSqlQueryMetadataRequest.process(in, out, queryProcessor, resources);
 
             case ClientOp.SQL_EXEC_BATCH:
-                return ClientSqlExecuteBatchRequest.process(in, out, queryProcessor, resources, metrics, igniteTransactions);
+                return ClientSqlExecuteBatchRequest.process(in, out, queryProcessor, resources, igniteTransactions);
 
             case ClientOp.STREAMER_BATCH_SEND:
                 return ClientStreamerBatchSendRequest.process(in, out, igniteTables);
