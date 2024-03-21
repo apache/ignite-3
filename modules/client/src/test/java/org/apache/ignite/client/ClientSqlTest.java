@@ -131,9 +131,11 @@ public class ClientSqlTest extends AbstractClientTableTest {
         assertEquals("SCHEMA2", props.get("schema"));
         assertEquals("124000", props.get("timeout"));
         assertEquals("235", props.get("pageSize"));
-        assertEquals("1", props.get("prop1"));
-        assertEquals("22", props.get("prop2"));
-        assertEquals("3", props.get("prop3"));
+
+        // Properties are ignored by the SQL engine for now.
+        assertNull(props.get("prop1"));
+        assertNull(props.get("prop2"));
+        assertNull(props.get("prop3"));
     }
 
     @Test
