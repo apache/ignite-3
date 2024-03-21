@@ -22,6 +22,6 @@ package org.apache.ignite.internal.eventlog.event;
  * within the system. The event type is used to filter the events in the event log.
  */
 public enum IgniteEventTypes {
-    CONNECTION_ESTABLISHED,
+    USER_AUTHENTICATED,
     CONNECTION_CLOSED
 }

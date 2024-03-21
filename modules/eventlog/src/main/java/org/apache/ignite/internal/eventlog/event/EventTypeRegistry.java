@@ -23,8 +23,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.eventlog.event.exception.NotUniqueEventTypeException;
 
 /**
- * Registry of all event types that are known to the system. Every new event type must be registered in this registry once.
- * For the example of usage, see {@link IgniteEvents}. The class is thread-safe.
+ * Registry of all event types that are known to the system. Every new event type must be registered in this registry once. For the example
+ * of usage, see {@link IgniteEvents}. The class is thread-safe.
  */
 public final class EventTypeRegistry {
     private static final Object DUMMY = new Object();
@@ -33,7 +33,7 @@ public final class EventTypeRegistry {
 
     /** Registers a set of event types. */
     public static void register(Set<String> types) {
-       new HashSet<>(types).forEach(EventTypeRegistry::register);
+        new HashSet<>(types).forEach(EventTypeRegistry::register);
     }
 
     /** Registers an event type. */

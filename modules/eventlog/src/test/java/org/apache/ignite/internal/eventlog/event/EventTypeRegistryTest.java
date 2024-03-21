@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.eventlog.event;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Set;
@@ -40,9 +40,12 @@ class EventTypeRegistryTest {
         EventTypeRegistry.register("register_twice_test");
         assertTrue(EventTypeRegistry.contains("register_twice_test"));
 
+
         assertThrows(
                 NotUniqueEventTypeException.class,
-                () -> EventTypeRegistry.register("register_twice_test")
+                () -> EventTypeRegistry.register("register_twice_test"),
+                "Event type `register_twice_test` is already registered. Please, use another name."
+
         );
     }
 

@@ -167,7 +167,7 @@ public class AuthenticationManagerImpl
                         .findFirst()
                         .map(userDetails ->  {
                             eventLog.log(() ->
-                                    IgniteEvents.CONNECTION_ESTABLISHED.create(EventUser.of(
+                                    IgniteEvents.USER_AUTHENTICATED.create(EventUser.of(
                                             userDetails.username(), userDetails.providerName()
                                     )));
 

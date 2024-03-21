@@ -33,7 +33,7 @@ class IgniteEventsTest {
 
     public static Stream<Arguments> events() {
         Event connectionClosedEvent = IgniteEvents.CONNECTION_CLOSED.create(EventUser.of(USER, PROVIDER));
-        Event connectionEstablishedEvent = IgniteEvents.CONNECTION_ESTABLISHED.create(EventUser.of(USER, PROVIDER));
+        Event connectionEstablishedEvent = IgniteEvents.USER_AUTHENTICATED.create(EventUser.of(USER, PROVIDER));
 
         return Stream.of(
                 Arguments.of(

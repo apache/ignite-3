@@ -91,47 +91,38 @@ class EventBuilderTest {
 
     @Test
     void buildIncorrectType() {
-        var thrown = assertThrows(
+        assertThrows(
                 InvalidEventTypeException.class,
                 () -> Event.builder()
                         .type("INCORRECT_TYPE")
                         .timestamp(1)
                         .productVersion("1.1.1")
                         .user(EventUser.system())
-                        .build()
-        );
-
-        assertEquals(
+                        .build(),
                 "Got invalid event type `INCORRECT_TYPE` during event creation. "
-                        + "If you want to use `INCORRECT_TYPE`, register it in EventTypeRegistry.",
-                thrown.getMessage()
+                        + "If you want to use `INCORRECT_TYPE`, register it in EventTypeRegistry."
         );
     }
 
     @Test
     void typeFieldIsRequired() {
-        var thrown = assertThrows(
+        assertThrows(
                 MissingEventTypeException.class,
-                () -> Event.builder().build()
+                () -> Event.builder().build(),
+                "Missing event type during event creation."
         );
-
-        assertEquals("Missing event type during event creation.", thrown.getMessage());
     }
 
     @Test
     void userFieldIsRequired() {
-        var thrown = assertThrows(
+        assertThrows(
                 MissingEventUserException.class,
                 () -> Event.builder()
                         .type(EVENT_TYPE)
                         .timestamp(1)
                         .productVersion("1.1.1")
-                        .build()
-        );
-
-        assertEquals(
-                "Missing event user during event creation. If there is no user, use `EventUser.system()`",
-                thrown.getMessage()
+                        .build(),
+                "Missing event user during event creation. If there is no user, use `EventUser.system()`"
         );
     }
 

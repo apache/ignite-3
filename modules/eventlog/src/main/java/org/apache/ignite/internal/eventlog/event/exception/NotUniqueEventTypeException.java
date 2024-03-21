@@ -32,6 +32,9 @@ public class NotUniqueEventTypeException extends IgniteInternalException {
      * @param type The type of the event.
      */
     public NotUniqueEventTypeException(String type) {
-        super(INTERNAL_ERR, "Event type `%s` is already registered. Please, use another name.");
+        super(
+                INTERNAL_ERR,
+                String.format("Event type `%s` is already registered. Please, use another name.", type)
+        );
     }
 }

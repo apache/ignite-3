@@ -26,11 +26,11 @@ import org.apache.ignite.internal.eventlog.api.EventFactory;
  *
  * <p>If you want to create an instance of the Event with the specified type, use the {@link #create} method.
  *
- * <p>For example, to create an event of the type CONNECTION_ESTABLISHED:
- * <pre>{@code IgniteEvents.CONNECTION_ESTABLISHED.create(EventUser.system());}</pre>
+ * <p>For example, to create an event of the type USER_AUTHENTICATED:
+ * <pre>{@code IgniteEvents.USER_AUTHENTICATED.create(EventUser.system());}</pre>
  */
 public final class IgniteEvents implements EventFactory {
-    public static final IgniteEvents CONNECTION_ESTABLISHED = new IgniteEvents(IgniteEventTypes.CONNECTION_ESTABLISHED.name());
+    public static final IgniteEvents USER_AUTHENTICATED = new IgniteEvents(IgniteEventTypes.USER_AUTHENTICATED.name());
 
     public static final IgniteEvents CONNECTION_CLOSED = new IgniteEvents(IgniteEventTypes.CONNECTION_CLOSED.name());
 

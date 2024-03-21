@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.eventlog.event;
 
 import java.util.Map;
+import java.util.regex.Pattern;
 import org.apache.ignite.internal.eventlog.api.Event;
 import org.apache.ignite.internal.eventlog.api.EventFactory;
 import org.apache.ignite.internal.eventlog.event.exception.InvalidEventTypeException;
@@ -33,9 +34,9 @@ public class EventBuilder {
     // TODO: https://issues.apache.org/jira/browse/IGNITE-21812
     private static final String DEFAULT_VERSION = "3.0.0";
 
-    private static final String SEMVER_REGEX =
+    private static final Pattern SEMVER_REGEX = Pattern.compile(
             "(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<maintenance>\\d+)"
-                    + "((?<snapshot>-SNAPSHOT)|-(?<alpha>alpha\\d+)|--(?<beta>beta\\d+)|---(?<ea>ea\\d+))?";
+                    + "((?<snapshot>-SNAPSHOT)|-(?<alpha>alpha\\d+)|--(?<beta>beta\\d+)|---(?<ea>ea\\d+))?");
 
     private String type;
 
@@ -106,7 +107,7 @@ public class EventBuilder {
             productVersion = DEFAULT_VERSION;
         }
 
-        if (!productVersion.matches(SEMVER_REGEX)) {
+        if (!SEMVER_REGEX.matcher(productVersion).matches()) {
             throw new InvalidProductVersionException(productVersion);
         }
 
