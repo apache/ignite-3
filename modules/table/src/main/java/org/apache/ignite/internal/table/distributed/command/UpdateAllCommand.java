@@ -40,9 +40,6 @@ public interface UpdateAllCommand extends PartitionCommand {
 
     String txCoordinatorId();
 
-    /** Ephemeral leaseholder id for the active lease at the moment of this command call. Should be non-null for the full transactions. */
-    @Nullable String leaseholderId();
-
     /** Lease start time, hybrid timestamp as long, see {@link HybridTimestamp#longValue()}. Should be non-null for the full transactions.*/
     @Nullable Long leaseStartTime();
 

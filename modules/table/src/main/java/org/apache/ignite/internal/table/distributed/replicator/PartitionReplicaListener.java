@@ -70,7 +70,6 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
@@ -96,6 +95,7 @@ import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
+import org.apache.ignite.internal.replicator.exception.FullTransactionPrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.exception.ReplicationMaxRetriesExceededException;
@@ -173,6 +173,7 @@ import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.TxStateMetaFinishing;
+import org.apache.ignite.internal.tx.UpdateCommandResult;
 import org.apache.ignite.internal.tx.impl.FullyQualifiedResourceId;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
@@ -2588,8 +2589,8 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                 CompletableFuture<UUID> fut = applyCmdWithExceptionHandling(cmd, new CompletableFuture<>())
                         .thenApply(res -> {
-                            // This check guaranties the result will never be lost. Currently always null.
-                            assert res == null : "Replication result is lost";
+                            // This check guaranties the result will never be lost.
+                            assert res != null : "Replication result is lost";
 
                             // Set context for delayed response.
                             return cmd.txId();
@@ -2602,8 +2603,14 @@ public class PartitionReplicaListener implements ReplicaListener {
                 applyCmdWithExceptionHandling(cmd, resultFuture);
 
                 return resultFuture.thenApply(res -> {
-                    // This check guaranties the result will never be lost. Currently always null.
-                    assert res == null : "Replication result is lost";
+                    // This check guaranties the result will never be lost.
+                    assert res != null : "Replication result is lost";
+
+                    UpdateCommandResult updateCommandResult = (UpdateCommandResult) res;
+
+                    if (!updateCommandResult.isPrimaryReplicaSuccess()) {
+                        throw new FullTransactionPrimaryReplicaMissException();
+                    }
 
                     // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Temporary code below
                     // Try to avoid double write if an entry is already replicated.
@@ -2731,9 +2738,8 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     CompletableFuture<Object> fut = applyCmdWithExceptionHandling(cmd, new CompletableFuture<>())
                             .thenApply(res -> {
-                                // Currently result is always null on a successfull execution of a replication command.
                                 // This check guaranties the result will never be lost.
-                                assert res == null : "Replication result is lost";
+                                assert res != null : "Replication result is lost";
 
                                 // Set context for delayed response.
                                 return cmd.txId();
@@ -2744,7 +2750,13 @@ public class PartitionReplicaListener implements ReplicaListener {
             } else {
                 return applyCmdWithExceptionHandling(cmd, new CompletableFuture<>())
                         .thenApply(res -> {
-                            assert res == null : "Replication result is lost";
+                            assert res != null : "Replication result is lost";
+
+                            UpdateCommandResult updateCommandResult = (UpdateCommandResult) res;
+
+                            if (!updateCommandResult.isPrimaryReplicaSuccess()) {
+                                throw new FullTransactionPrimaryReplicaMissException();
+                            }
 
                             // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Temporary code below
                             // Try to avoid double write if an entry is already replicated.
@@ -3403,10 +3415,9 @@ public class PartitionReplicaListener implements ReplicaListener {
                             );
                         }
 
-                        /*return primaryReplicaChangeCommandWaiter
+                        return primaryReplicaChangeCommandWaiter
                                 .changePrimaryReplicaFuture(primaryReplicaMeta.getStartTime().longValue())
-                                .thenApply(unused -> null);*/
-                        return nullCompletedFuture();
+                                .thenApply(unused -> null);
                     });
         } else if (request instanceof ReadOnlyReplicaRequest || request instanceof ReplicaSafeTimeSyncRequest) {
             return placementDriver.getPrimaryReplica(replicationGroupId, now)

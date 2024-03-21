@@ -56,6 +56,7 @@ import org.apache.ignite.internal.raft.service.CommittedConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
+import org.apache.ignite.internal.tx.UpdateCommandResult;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowUpgrader;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -79,7 +80,6 @@ import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.TrackerClosedException;
-import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -201,9 +201,9 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
             try {
                 if (command instanceof UpdateCommand) {
-                    handleUpdateCommand((UpdateCommand) command, commandIndex, commandTerm);
+                    result = handleUpdateCommand((UpdateCommand) command, commandIndex, commandTerm);
                 } else if (command instanceof UpdateAllCommand) {
-                    handleUpdateAllCommand((UpdateAllCommand) command, commandIndex, commandTerm);
+                    result = handleUpdateAllCommand((UpdateAllCommand) command, commandIndex, commandTerm);
                 } else if (command instanceof FinishTxCommand) {
                     result = handleFinishTxCommand((FinishTxCommand) command, commandIndex, commandTerm);
                 } else if (command instanceof WriteIntentSwitchCommand) {
@@ -258,19 +258,19 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
      * @param commandIndex Index of the RAFT command.
      * @param commandTerm Term of the RAFT command.
      */
-    private void handleUpdateCommand(UpdateCommand cmd, long commandIndex, long commandTerm) {
+    private UpdateCommandResult handleUpdateCommand(UpdateCommand cmd, long commandIndex, long commandTerm) {
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= storage.lastAppliedIndex()) {
-            return;
+            return new UpdateCommandResult(true);
         }
 
-        /*if (cmd.leaseholderId() != null) {
+        if (cmd.leaseStartTime() != null) {
             long leaseStartTime = requireNonNull(cmd.leaseStartTime(), "Inconsistent lease information in command [cmd=" + cmd + "].");
 
             if (leaseStartTime != txStateStorage.leaseStartTime()) {
-                //throw new IgniteException("Primary replica changed.");
+                return new UpdateCommandResult(false);
             }
-        }*/
+        }
 
         UUID txId = cmd.txId();
 
@@ -294,6 +294,8 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         }
 
         replicaTouch(txId, cmd.txCoordinatorId(), cmd.full() ? cmd.safeTime() : null, cmd.full());
+
+        return new UpdateCommandResult(true);
     }
 
     /**
@@ -303,17 +305,17 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
      * @param commandIndex Index of the RAFT command.
      * @param commandTerm Term of the RAFT command.
      */
-    private void handleUpdateAllCommand(UpdateAllCommand cmd, long commandIndex, long commandTerm) {
+    private UpdateCommandResult handleUpdateAllCommand(UpdateAllCommand cmd, long commandIndex, long commandTerm) {
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= storage.lastAppliedIndex()) {
-            return;
+            return new UpdateCommandResult(true);
         }
 
-        if (cmd.leaseholderId() != null) {
+        if (cmd.leaseStartTime() != null) {
             long leaseStartTime = requireNonNull(cmd.leaseStartTime(), "Inconsistent lease information in command [cmd=" + cmd + "].");
 
             if (leaseStartTime != txStateStorage.leaseStartTime()) {
-                throw new IgniteException("Primary replica changed.");
+                return new UpdateCommandResult(false);
             }
         }
 
@@ -337,6 +339,8 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         }
 
         replicaTouch(txId, cmd.txCoordinatorId(), cmd.full() ? cmd.safeTime() : null, cmd.full());
+
+        return new UpdateCommandResult(true);
     }
 
     /**

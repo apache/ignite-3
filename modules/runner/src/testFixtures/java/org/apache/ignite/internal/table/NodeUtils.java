@@ -18,25 +18,31 @@
 package org.apache.ignite.internal.table;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.IntFunction;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
+import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
+import org.apache.ignite.internal.placementdriver.message.StopLeaseProlongationMessage;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.table.Tuple;
+import org.checkerframework.common.value.qual.IntRange;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -46,6 +52,8 @@ public class NodeUtils {
     private static final IgniteLogger LOG = Loggers.forClass(NodeUtils.class);
 
     private static final int AWAIT_PRIMARY_REPLICA_TIMEOUT = 10;
+
+    private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
 
     /**
      * Transfers the primary rights to another node.
@@ -113,7 +121,7 @@ public class NodeUtils {
 
         AtomicLong lastInsertAttempt = new AtomicLong();
 
-        assertTrue(IgniteTestUtils.waitForCondition(() -> {
+        assertTrue(waitForCondition(() -> {
             CompletableFuture<ReplicaMeta> newPrimaryReplicaFut = nodes.apply(0).placementDriver().awaitPrimaryReplica(
                     tblReplicationGrp,
                     nodes.apply(0).clock().now(),
@@ -133,7 +141,23 @@ public class NodeUtils {
                     long lastTs = lastInsertAttempt.get();
 
                     if (coarseCurrentTimeMillis() - lastTs > 1_000 && lastInsertAttempt.compareAndSet(lastTs, coarseCurrentTimeMillis())) {
-                        tbl.recordView().upsert(null, Tuple.create().set("key", 1).set("val", "val 1"));
+                        int nodeCount = nodes.apply(0).clusterNodes().size();
+
+                        IgniteImpl primaryNode = IntStream.range(0, nodeCount)
+                                .mapToObj(i -> nodes.apply(i))
+                                .filter(n -> n.name().equals(primary))
+                                .findAny().orElseThrow();
+
+                        StopLeaseProlongationMessage msg = PLACEMENT_DRIVER_MESSAGES_FACTORY.stopLeaseProlongationMessage()
+                                .groupId(tblReplicationGrp)
+                                .build();
+
+                        IntStream.range(0, nodeCount)
+                                .mapToObj(i -> nodes.apply(i))
+                                .forEach(n -> primaryNode.clusterService().messagingService().send(
+                                        n.clusterService().topologyService().localMember(),
+                                        msg
+                                ));
                     }
                 } catch (Exception e) {
                     LOG.error("Failed to perform insert", e);
