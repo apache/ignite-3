@@ -646,7 +646,7 @@ public class InternalTableImpl implements InternalTable {
                         return trackingInvoke(
                                 tx,
                                 partId,
-                                mapFunc,
+                                ignored -> request,
                                 full,
                                 primaryReplicaAndConsistencyToken,
                                 noWriteChecker,
