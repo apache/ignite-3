@@ -487,7 +487,6 @@ public class MapReduceAggregates {
     }
 
     /**
-     * TODO: Rename to MakeExpr.
      * Produces intermediate expressions that modify results of MAP/REDUCE aggregate.
      * For example: after splitting a function into a MAP aggregate and REDUCE aggregate it is necessary to add casts to
      * output of a REDUCE phase aggregate.
@@ -548,7 +547,7 @@ public class MapReduceAggregates {
                 null,
                 call.collation,
                 mapSumType,
-                "AVG" + reduceArgumentOffset + "_MAP_SUM");
+                "AVG_SUM" + reduceArgumentOffset);
 
         // COUNT(x) as c
         RelDataType mapCountType = tf.createSqlType(SqlTypeName.BIGINT);
@@ -564,7 +563,7 @@ public class MapReduceAggregates {
                 null,
                 call.collation,
                 mapCountType,
-                "AVG" + reduceArgumentOffset + "_MAP_COUNT");
+                "AVG_COUNT" + reduceArgumentOffset);
 
         // REDUCE : SUM(s) as reduce_sum, SUM0(c) as reduce_count
         List<Integer> reduceSumArgs = List.of(reduceArgumentOffset);
@@ -587,7 +586,7 @@ public class MapReduceAggregates {
                 null,
                 call.collation,
                 reduceSumType,
-                "AVG" + reduceArgumentOffset + "_RED_VAL_SUM");
+                "AVG_SUM" + reduceArgumentOffset);
 
 
         // SUM0(c)
@@ -606,7 +605,7 @@ public class MapReduceAggregates {
                 null,
                 call.collation,
                 reduceSumCountType,
-                "AVG" + reduceArgumentOffset + "_RED_COUNT_SUM");
+                "AVG_SUM0" + reduceArgumentOffset);
 
         RelDataType finalReduceSumType = reduceSumType;
 
