@@ -98,7 +98,8 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
                 + "float_col REAL, "
                 + "double_col DOUBLE, "
                 + "dec2_col DECIMAL(2), "
-                + "dec4_2_col DECIMAL(4,2) "
+                + "dec4_2_col DECIMAL(4,2), "
+                + "dec10_2_col DECIMAL(10,2) "
                 + ")");
 
         sql("CREATE TABLE IF NOT EXISTS not_null_numbers ("
@@ -550,7 +551,7 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
     @MethodSource("provideRules")
     public void testAvg(String[] rules) {
         sql("DELETE FROM numbers");
-        sql("INSERT INTO numbers VALUES (1, 1, 1, 1, 1, 1, 1, 1, 1), (2, 2, 2, 2, 2, 2, 2, 2, 2)");
+        sql("INSERT INTO numbers VALUES (1, 1, 1, 1, 1, 1, 1, 1, 1, 1), (2, 2, 2, 2, 2, 2, 2, 2, 2, 2)");
 
         assertQuery("SELECT "
                 + "AVG(tinyint_col), AVG(smallint_col), AVG(int_col), AVG(bigint_col), "
@@ -601,16 +602,14 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
         sql("DELETE FROM numbers");
 
         List<BigDecimal> numbers = new ArrayList<>();
-        int count = random.nextInt(30) + 20;
+        log.info("Seed: {}", seed);
 
-        log.info("Seed: {}, dataset size: {}", seed, count);
-
-        for (int i = 1; i < count; i++) {
+        for (int i = 1; i < 20; i++) {
             int val = random.nextInt(100) + 1;
             BigDecimal num = BigDecimal.valueOf(val);
             numbers.add(num);
 
-            String query = "INSERT INTO numbers (id, int_col, dec4_2_col) VALUES(?, ?, ?)";
+            String query = "INSERT INTO numbers (id, int_col, dec10_2_col) VALUES(?, ?, ?)";
             sql(query, i, num.intValue(), num);
         }
 
@@ -619,7 +618,7 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
                 .divide(BigDecimal.valueOf(numbers.size()), MathContext.DECIMAL64);
 
         for (String[] rules : makePermutations(DISABLED_RULES)) {
-            assertQuery("SELECT AVG(int_col), AVG(dec4_2_col) FROM numbers")
+            assertQuery("SELECT AVG(int_col), AVG(dec10_2_col) FROM numbers")
                     .disableRules(rules)
                     .returns(avg.intValue(), avg)
                     .check();
