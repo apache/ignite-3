@@ -399,7 +399,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         Throwable unwrapped = ExceptionUtils.unwrapCause(ex);
 
         if (unwrapped instanceof ReadFromDestroyedIndexStorageException) {
-            return new IgniteException(STALE_PLAN_ERR, "The plan is stale. Please retry.", unwrapped);
+            return new IgniteException(STALE_PLAN_ERR, "Query has been executed using an outdated plan. Retry the query.", unwrapped);
         }
 
         if (ex instanceof CompletionException) {

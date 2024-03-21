@@ -138,7 +138,7 @@ class ItIndexAndIndexStorageDestructionTest extends ClusterPerTestIntegrationTes
         );
 
         assertThat(ex.code(), is(STALE_PLAN_ERR));
-        assertThat(ex.getMessage(), is("The plan is stale. Please retry."));
+        assertThat(ex.getMessage(), is("Query has been executed using an outdated plan. Retry the query."));
     }
 
     @Test
@@ -152,6 +152,6 @@ class ItIndexAndIndexStorageDestructionTest extends ClusterPerTestIntegrationTes
         });
 
         assertThat(ex.code(), is(STALE_PLAN_ERR));
-        assertThat(ex.getMessage(), is("The plan is stale. Please retry."));
+        assertThat(ex.getMessage(), is("Query has been executed using an outdated plan. Retry the query."));
     }
 }
