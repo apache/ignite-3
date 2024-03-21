@@ -58,7 +58,7 @@ public class FakeIgniteQueryProcessor implements QueryProcessor {
             String qry,
             Object... params
     ) {
-        throw new UnsupportedOperationException();
+        return CompletableFuture.completedFuture(new FakeCursor(qry, properties, params));
     }
 
     @Override
