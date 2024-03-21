@@ -49,6 +49,9 @@ class ItIndexAndIndexStorageDestructionTest extends ClusterPerTestIntegrationTes
     private static final String TABLE_NAME = "TEST_TABLE";
     private static final String INDEX_NAME = "TEST_INDEX";
 
+    private static final int PREEXISTING_KEY = 1;
+    private static final int ANOTHER_KEY = 2;
+
     private IgniteImpl node;
 
     @Override
@@ -64,7 +67,7 @@ class ItIndexAndIndexStorageDestructionTest extends ClusterPerTestIntegrationTes
             session.execute(null, "CREATE TABLE " + TABLE_NAME + " (id INT PRIMARY KEY, name VARCHAR)");
             session.execute(null, "CREATE INDEX " + INDEX_NAME + " ON " + TABLE_NAME + "(name)");
 
-            session.execute(null, "INSERT INTO " + TABLE_NAME + " (id, name) VALUES (1, 'John')");
+            session.execute(null, "INSERT INTO " + TABLE_NAME + " (id, name) VALUES (" + PREEXISTING_KEY + ", 'John')");
         });
 
         TableImpl table = (TableImpl) node.tables().table(TABLE_NAME);
@@ -98,13 +101,33 @@ class ItIndexAndIndexStorageDestructionTest extends ClusterPerTestIntegrationTes
     }
 
     @Test
-    void writeToDestroyedIndexStorageDoesNotFailWholeWrite() {
+    void insertTouchingDestroyedIndexStorageDoesNotFailWholeWrite() {
         KeyValueView<Integer, String> view = node.tables().table(TABLE_NAME)
                 .keyValueView(Integer.class, String.class);
 
-        assertDoesNotThrow(() -> view.put(null, 2, "Mary"));
+        assertDoesNotThrow(() -> view.put(null, ANOTHER_KEY, "Mary"));
 
-        assertThat(view.get(null, 2), is("Mary"));
+        assertThat(view.get(null, ANOTHER_KEY), is("Mary"));
+    }
+
+    @Test
+    void updateTouchingDestroyedIndexStorageDoesNotFailWholeWrite() {
+        KeyValueView<Integer, String> view = node.tables().table(TABLE_NAME)
+                .keyValueView(Integer.class, String.class);
+
+        assertDoesNotThrow(() -> view.put(null, PREEXISTING_KEY, "Mary"));
+
+        assertThat(view.get(null, PREEXISTING_KEY), is("Mary"));
+    }
+
+    @Test
+    void replaceTouchingDestroyedIndexStorageDoesNotFailWholeWrite() {
+        KeyValueView<Integer, String> view = node.tables().table(TABLE_NAME)
+                .keyValueView(Integer.class, String.class);
+
+        assertDoesNotThrow(() -> view.replace(null, PREEXISTING_KEY, "John", "Mary"));
+
+        assertThat(view.get(null, PREEXISTING_KEY), is("Mary"));
     }
 
     @Test
