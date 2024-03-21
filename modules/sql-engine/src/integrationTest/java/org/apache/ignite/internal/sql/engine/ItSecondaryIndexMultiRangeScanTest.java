@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+
 import java.util.Arrays;
 import java.util.List;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
@@ -45,7 +47,7 @@ public class ItSecondaryIndexMultiRangeScanTest extends BaseSqlIntegrationTest {
     @BeforeAll
     protected void prepare() {
         sql("CREATE TABLE test_asc (c1 INTEGER, c2 VARCHAR, c3 INTEGER)");
-        sql("CREATE INDEX c1c2c3 ON test_asc(c1 ASC, c2 ASC, c3 ASC)");
+        sql("CREATE INDEX c1c2c3_asc ON test_asc(c1 ASC, c2 ASC, c3 ASC)");
         sql("CREATE TABLE test_desc (c1 INTEGER, c2 VARCHAR, c3 INTEGER)");
         sql("CREATE INDEX c1c2c3_desc ON test_desc(c1 DESC, c2 DESC, c3 DESC)");
 
@@ -184,7 +186,8 @@ public class ItSecondaryIndexMultiRangeScanTest extends BaseSqlIntegrationTest {
     @ParameterizedTest(name = "dynamicParams={0}")
     @ValueSource(booleans = {true, false})
     public void testOrdering(boolean useDynamicParameters) {
-        assertQuery(useDynamicParameters, "SELECT * FROM test_asc WHERE c1 IN (%s, %s) AND c2 IN (%s, %s) ORDER BY c1, c2, c3",
+        assertQuery(useDynamicParameters,
+                "SELECT /*+ FORCE_INDEX(c1c2c3_ASC) */ * FROM test_asc WHERE c1 IN (%s, %s) AND c2 IN (%s, %s) ORDER BY c1, c2, c3",
                 3, 2, "3", "2")
                 .matches(CoreMatchers.not(QueryChecker.containsSubPlan("Sort"))) // Don't require additional sorting.
                 .ordered()
@@ -194,7 +197,8 @@ public class ItSecondaryIndexMultiRangeScanTest extends BaseSqlIntegrationTest {
                 .returns(3, "3", 9)
                 .check();
 
-        assertQuery(useDynamicParameters, "SELECT * FROM test_asc WHERE c1 IN (%s, %s) AND c2 < %s ORDER BY c1, c2, c3", 2, 3, "3")
+        assertQuery(useDynamicParameters,
+                "SELECT /*+ FORCE_INDEX(c1c2c3_ASC) */ * FROM test_asc WHERE c1 IN (%s, %s) AND c2 < %s ORDER BY c1, c2, c3", 2, 3, "3")
                 .matches(CoreMatchers.not(QueryChecker.containsSubPlan("Sort"))) // Don't require additional sorting.
                 .ordered()
                 .returns(2, "1", 2)
@@ -204,7 +208,8 @@ public class ItSecondaryIndexMultiRangeScanTest extends BaseSqlIntegrationTest {
                 .check();
 
         assertQuery(useDynamicParameters,
-                "SELECT * FROM test_asc WHERE c1 IN (%s, %s) AND c2 IN (%s, %s) AND c3 BETWEEN %s AND %s ORDER BY c1, c2, c3",
+                "SELECT /*+ FORCE_INDEX(c1c2c3_ASC) */ * FROM test_asc"
+                        + " WHERE c1 IN (%s, %s) AND c2 IN (%s, %s) AND c3 BETWEEN %s AND %s ORDER BY c1, c2, c3",
                 2, 3, "2", "3", 5, 7)
                 .matches(CoreMatchers.not(QueryChecker.containsSubPlan("Sort"))) // Don't require additional sorting.
                 .ordered()
@@ -214,7 +219,8 @@ public class ItSecondaryIndexMultiRangeScanTest extends BaseSqlIntegrationTest {
 
         // Check order for table with DESC ordering.
         assertQuery(useDynamicParameters,
-                "SELECT * FROM test_desc WHERE c1 IN (%s, %s) AND c2 IN (%s, %s) ORDER BY c1 DESC, c2 DESC, c3 DESC",
+                "SELECT /*+ FORCE_INDEX(c1c2c3_DESC) */ * FROM test_desc"
+                        + " WHERE c1 IN (%s, %s) AND c2 IN (%s, %s) ORDER BY c1 DESC, c2 DESC, c3 DESC",
                 3, 2, "3", "2")
                 .matches(CoreMatchers.not(QueryChecker.containsSubPlan("Sort"))) // Don't require additional sorting.
                 .ordered()
@@ -225,7 +231,8 @@ public class ItSecondaryIndexMultiRangeScanTest extends BaseSqlIntegrationTest {
                 .check();
 
         assertQuery(useDynamicParameters,
-                "SELECT * FROM test_desc WHERE c1 IN (%s, %s) AND c2 < %s ORDER BY c1 DESC, c2 DESC, c3 DESC",
+                "SELECT /*+ FORCE_INDEX(c1c2c3_DESC) */ * FROM test_desc"
+                        + " WHERE c1 IN (%s, %s) AND c2 < %s ORDER BY c1 DESC, c2 DESC, c3 DESC",
                 2, 3, "3")
                 .matches(CoreMatchers.not(QueryChecker.containsSubPlan("Sort"))) // Don't require additional sorting.
                 .ordered()
@@ -236,8 +243,9 @@ public class ItSecondaryIndexMultiRangeScanTest extends BaseSqlIntegrationTest {
                 .check();
 
         assertQuery(useDynamicParameters,
-                "SELECT * FROM test_desc WHERE c1 IN (%s, %s) AND c2 IN (%s, %s) AND c3 BETWEEN %s AND %s "
-                        + "ORDER BY c1 DESC, c2 DESC, c3 DESC",
+                "SELECT /*+ FORCE_INDEX(c1c2c3_DESC) */ * FROM test_desc"
+                        + " WHERE c1 IN (%s, %s) AND c2 IN (%s, %s) AND c3 BETWEEN %s AND %s"
+                        + " ORDER BY c1 DESC, c2 DESC, c3 DESC",
                 2, 3, "2", "3", 5, 7)
                 .matches(CoreMatchers.not(QueryChecker.containsSubPlan("Sort"))) // Don't require additional sorting.
                 .ordered()
@@ -329,7 +337,7 @@ public class ItSecondaryIndexMultiRangeScanTest extends BaseSqlIntegrationTest {
     }
 
     private static QueryChecker assertCondition(String direction, boolean dynamicParams, String condition, Object... params) {
-        String sqlPattern = "SELECT * FROM test_" + direction + " WHERE " + condition;
+        String sqlPattern = format("SELECT /*+ FORCE_INDEX(c1c2c3_{}) */ * FROM test_{} WHERE {}", direction, direction, condition);
 
         return assertQuery(dynamicParams, sqlPattern, params);
     }
@@ -359,4 +367,3 @@ public class ItSecondaryIndexMultiRangeScanTest extends BaseSqlIntegrationTest {
         );
     }
 }
-
