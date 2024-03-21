@@ -47,7 +47,7 @@ public class FakeIgniteQueryProcessor implements QueryProcessor {
             String qry,
             Object... params
     ) {
-        return CompletableFuture.completedFuture(new FakeCursor());
+        return CompletableFuture.completedFuture(new FakeCursor(qry, properties, params));
     }
 
     @Override

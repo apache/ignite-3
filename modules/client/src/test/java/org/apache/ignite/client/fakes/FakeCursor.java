@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client.fakes;
 
+import static org.apache.ignite.internal.sql.engine.QueryProperty.DEFAULT_SCHEMA;
+import static org.apache.ignite.internal.sql.engine.QueryProperty.QUERY_TIMEOUT;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.ArrayList;
@@ -27,7 +29,10 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.util.ListToInternalSqlRowAdapter;
+import org.apache.ignite.sql.ColumnMetadata;
+import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSetMetadata;
 
 /**
@@ -35,9 +40,24 @@ import org.apache.ignite.sql.ResultSetMetadata;
  */
 public class FakeCursor implements AsyncSqlCursor<InternalSqlRow> {
     private final Random random;
+    private final String qry;
+    private final SqlProperties properties;
+    private final Object[] params;
 
-    FakeCursor() {
+    private final List<ColumnMetadata> columns;
+
+    FakeCursor(String qry, SqlProperties properties, Object[] params) {
+        this.qry = qry;
+        this.properties = properties;
+        this.params = params;
+
         random = new Random();
+        columns = new ArrayList<>();
+
+        if ("SELECT PROPS".equals(qry)) {
+            columns.add(new FakeColumnMetadata("name", ColumnType.STRING));
+            columns.add(new FakeColumnMetadata("val", ColumnType.STRING));
+        }
     }
 
     @Override
@@ -49,16 +69,15 @@ public class FakeCursor implements AsyncSqlCursor<InternalSqlRow> {
     public CompletableFuture<BatchedResult<InternalSqlRow>> requestNextAsync(int rows) {
         var batch = new ArrayList<InternalSqlRow>();
 
-        for (int i = 0; i < rows; i++) {
-            List<Object> row = new ArrayList<>();
-            row.add(random.nextInt());
-            row.add(random.nextLong());
-            row.add(random.nextFloat());
-            row.add(random.nextDouble());
-            row.add(UUID.randomUUID().toString());
-            row.add(null);
-
-            batch.add(new ListToInternalSqlRowAdapter(row));
+        if ("SELECT PROPS".equals(qry)) {
+            batch.add(getRow("schema", properties.get(DEFAULT_SCHEMA)));
+            batch.add(getRow("timeout", String.valueOf(properties.get(QUERY_TIMEOUT))));
+            batch.add(getRow("pageSize", String.valueOf(rows)));
+        } else {
+            for (int i = 0; i < rows; i++) {
+                batch.add(getRow(
+                        random.nextInt(), random.nextLong(), random.nextFloat(), random.nextDouble(), UUID.randomUUID().toString(), null));
+            }
         }
 
         return CompletableFuture.completedFuture(new BatchedResult<>(batch, true));
@@ -71,7 +90,17 @@ public class FakeCursor implements AsyncSqlCursor<InternalSqlRow> {
 
     @Override
     public ResultSetMetadata metadata() {
-        return null;
+        return new ResultSetMetadata() {
+            @Override
+            public List<ColumnMetadata> columns() {
+                return columns;
+            }
+
+            @Override
+            public int indexOf(String columnName) {
+                return 0;
+            }
+        };
     }
 
     @Override
@@ -92,5 +121,9 @@ public class FakeCursor implements AsyncSqlCursor<InternalSqlRow> {
     @Override
     public CompletableFuture<Void> onFirstPageReady() {
         throw new UnsupportedOperationException();
+    }
+
+    private static InternalSqlRow getRow(Object... vals) {
+        return new ListToInternalSqlRowAdapter(List.of(vals));
     }
 }
