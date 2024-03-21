@@ -41,8 +41,7 @@ import org.jetbrains.annotations.Nullable;
  * Asynchronous result set implementation.
  */
 public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
-    @Nullable
-    private final IdleExpirationTracker expirationTracker;
+    private final @Nullable IdleExpirationTracker expirationTracker;
 
     private final AsyncSqlCursor<InternalSqlRow> cursor;
 
@@ -62,10 +61,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
             BatchedResult<InternalSqlRow> page,
             int pageSize
     ) {
-        this.cursor = cursor;
-        this.curPage = page;
-        this.pageSize = pageSize;
-        this.expirationTracker = null;
+        this(cursor, page, pageSize, null);
     }
 
     /**
@@ -81,7 +77,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
             AsyncSqlCursor<InternalSqlRow> cursor,
             BatchedResult<InternalSqlRow> page,
             int pageSize,
-            IdleExpirationTracker expirationTracker
+            @Nullable IdleExpirationTracker expirationTracker
     ) {
         this.cursor = cursor;
         this.curPage = page;
