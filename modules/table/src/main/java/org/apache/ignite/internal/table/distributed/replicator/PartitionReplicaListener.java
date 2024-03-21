@@ -2237,6 +2237,10 @@ public class PartitionReplicaListener implements ReplicaListener {
                 Map<UUID, HybridTimestamp> lastCommitTimes = new HashMap<>();
                 BitSet deleted = request.deleted();
 
+                // When the same key is updated multiple times within the same batch, we need to maintain operation order and apply
+                // only the last update. This map stores the previous searchRows index for each key.
+                Map<ByteBuffer, Integer> newKeyMap = new HashMap<>();
+
                 for (int i = 0; i < searchRows.size(); i++) {
                     BinaryRow searchRow = searchRows.get(i);
 
@@ -2246,18 +2250,38 @@ public class PartitionReplicaListener implements ReplicaListener {
                             ? resolvePk(searchRow.tupleSlice())
                             : extractPk(searchRow);
 
+                    int rowIdx = i;
+
                     rowIdFuts[i] = resolveRowByPk(pk, txId, (rowId, row, lastCommitTime) -> {
                         if (isDelete && rowId == null) {
                             // Does not exist, nothing to delete.
                             return nullCompletedFuture();
                         }
 
-                        boolean insert = rowId == null;
-
-                        RowId rowId0 = insert ? new RowId(partId(), UUID.randomUUID()) : rowId;
-
                         if (lastCommitTime != null) {
+                            // noinspection DataFlowIssue (rowId is not null if lastCommitTime is not null)
                             lastCommitTimes.put(rowId.uuid(), lastCommitTime);
+                        }
+
+                        boolean insert = rowId == null;
+                        RowId rowId0;
+
+                        if (insert) {
+                            Integer prevRowIdx = newKeyMap.put(pk.byteBuffer(), rowIdx);
+
+                            if (prevRowIdx != null) {
+                                // Return existing lock.
+                                CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>> lockFut = rowIdFuts[prevRowIdx];
+
+                                // Skip previous update with the same key.
+                                rowIdFuts[prevRowIdx] = nullCompletedFuture();
+
+                                return lockFut;
+                            }
+
+                            rowId0 = new RowId(partId(), UUID.randomUUID());
+                        } else {
+                            rowId0 = rowId;
                         }
 
                         if (isDelete) {
