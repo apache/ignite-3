@@ -30,7 +30,7 @@ public interface Event {
     /** The unix timestamp of the event. */
     long timestamp();
 
-    /** The product version. The version is compatible with vemver. */
+    /** The product version. The version is compatible with semver. */
     String productVersion();
 
     /** The user that caused the event. If the user is not available, the method returns a system user. */

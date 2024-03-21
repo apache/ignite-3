@@ -21,7 +21,7 @@ import org.apache.ignite.internal.eventlog.event.EventUser;
 
 /**
  * The factory that is responsible for creating events. This interface should be used everywhere where events are created.
- * Only scpecial cases should use {@link org.apache.ignite.internal.eventlog.event.EventBuilder} directly, for example, in tests.
+ * Only special cases should use {@link org.apache.ignite.internal.eventlog.event.EventBuilder} directly, for example, in tests.
  */
 public interface EventFactory {
     /**

@@ -206,7 +206,7 @@ public class TestServer implements AutoCloseable {
             authenticationManager = new DummyAuthenticationManager();
         } else {
             // TODO: https://issues.apache.org/jira/browse/IGNITE-21665.
-            authenticationManager = new AuthenticationManagerImpl(securityConfiguration, (ign) -> {});
+            authenticationManager = new AuthenticationManagerImpl(securityConfiguration, ign -> {});
             authenticationManager.start();
         }
 
