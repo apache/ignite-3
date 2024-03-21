@@ -2229,7 +2229,10 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         var fireEventFuture = new CompletableFuture<Void>();
 
         manager.listen(CatalogEvent.INDEX_AVAILABLE, fromConsumer(fireEventFuture, (MakeIndexAvailableEventParameters parameters) -> {
-            assertEquals(indexId(pkIndexName(tableName)), parameters.indexId());
+            CatalogIndexDescriptor catalogIndexDescriptor = manager.index(parameters.indexId(), parameters.catalogVersion());
+
+            assertNotNull(catalogIndexDescriptor);
+            assertEquals(pkIndexName(tableName), catalogIndexDescriptor.name());
         }));
 
         createSomeTable(tableName);
