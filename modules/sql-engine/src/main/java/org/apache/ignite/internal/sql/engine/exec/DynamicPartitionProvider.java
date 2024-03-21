@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import java.util.List;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningColumns;
@@ -30,7 +31,7 @@ public class DynamicPartitionProvider<RowT> implements PartitionProvider<RowT> {
 
     private final String nodeName;
 
-    private final List<NodeWithConsistencyToken> assignments;
+    private final Int2ObjectMap<NodeWithConsistencyToken> assignments;
 
     private final PartitionPruningColumns columns;
 
@@ -39,7 +40,7 @@ public class DynamicPartitionProvider<RowT> implements PartitionProvider<RowT> {
     /** Constructor. */
     public DynamicPartitionProvider(
             String nodeName,
-            List<NodeWithConsistencyToken> assignments,
+            Int2ObjectMap<NodeWithConsistencyToken> assignments,
             PartitionPruningColumns columns,
             IgniteTable table
     ) {
