@@ -151,7 +151,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             int colsCountRow1 = hnd.columnCount(o1);
             int colsCountRow2 = hnd.columnCount(o2);
 
-            // The index range condition can only contain the prefix of the index columns (not all index columns).
+            // The index range condition can contain the prefix of the index columns (not all index columns).
             int maxCols = Math.min(Math.max(colsCountRow1, colsCountRow2), collations.size());
 
             for (int i = 0; i < maxCols; i++) {
