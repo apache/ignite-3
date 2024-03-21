@@ -256,10 +256,22 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
     /** Constant that represents the absence of value in {@link ScanCursor}. Not equivalent to {@code null} value. */
     private static final IndexRowKey NO_INDEX_ROW = () -> null;
 
+    /**
+     * Invoke a supplier that performs an operation that is not a data read.
+     *
+     * @param supplier Operation closure.
+     * @return Whatever the supplier returns.
+     */
     protected <T> T busyNonDataRead(Supplier<T> supplier) {
         return busy(supplier, false);
     }
 
+    /**
+     * Invoke a supplier that performs an operation that is a data read.
+     *
+     * @param supplier Operation closure.
+     * @return Whatever the supplier returns.
+     */
     protected <T> T busyDataRead(Supplier<T> supplier) {
         return busy(supplier, true);
     }

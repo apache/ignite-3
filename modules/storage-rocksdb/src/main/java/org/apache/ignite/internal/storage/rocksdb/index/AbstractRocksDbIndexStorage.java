@@ -201,10 +201,22 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
         }
     }
 
+    /**
+     * Invoke a supplier that performs an operation that is not a data read.
+     *
+     * @param supplier Operation closure.
+     * @return Whatever the supplier returns.
+     */
     <V> V busyNonDataRead(Supplier<V> supplier) {
         return busy(supplier, false);
     }
 
+    /**
+     * Invoke a supplier that performs an operation that is a data read.
+     *
+     * @param supplier Operation closure.
+     * @return Whatever the supplier returns.
+     */
     <V> V busyDataRead(Supplier<V> supplier) {
         return busy(supplier, true);
     }
