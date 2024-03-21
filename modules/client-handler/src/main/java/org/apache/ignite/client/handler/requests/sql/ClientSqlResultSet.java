@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
 
@@ -32,9 +31,6 @@ import org.apache.ignite.sql.async.AsyncResultSet;
 class ClientSqlResultSet {
     /** Result set. */
     private final AsyncResultSet<SqlRow> resultSet;
-
-    /** Session. */
-    private final Session session;
 
     /** Metrics. */
     private final ClientHandlerMetricSource metrics;
@@ -46,16 +42,13 @@ class ClientSqlResultSet {
      * Constructor.
      *
      * @param resultSet Result set.
-     * @param session Session.
      * @param metrics Metrics.
      */
-    ClientSqlResultSet(AsyncResultSet<SqlRow> resultSet, Session session, ClientHandlerMetricSource metrics) {
+    ClientSqlResultSet(AsyncResultSet<SqlRow> resultSet, ClientHandlerMetricSource metrics) {
         assert resultSet != null;
-        assert session != null;
         assert metrics != null;
 
         this.resultSet = resultSet;
-        this.session = session;
         this.metrics = metrics;
     }
 
@@ -77,7 +70,7 @@ class ClientSqlResultSet {
         if (closed.compareAndSet(false, true)) {
             metrics.cursorsActiveDecrement();
 
-            return resultSet.closeAsync().thenCompose(res -> session.closeAsync()).toCompletableFuture();
+            return resultSet.closeAsync();
         }
 
         return nullCompletedFuture();

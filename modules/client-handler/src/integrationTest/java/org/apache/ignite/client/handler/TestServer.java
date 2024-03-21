@@ -40,7 +40,6 @@ import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TestLowWatermark;
 import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
-import org.apache.ignite.sql.IgniteSql;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.TestInfo;
 import org.mockito.Mockito;
@@ -121,7 +120,6 @@ public class TestServer {
                 mock(IgniteComputeInternal.class),
                 clusterService,
                 bootstrapFactory,
-                mock(IgniteSql.class),
                 () -> CompletableFuture.completedFuture(ClusterTag.clusterTag(msgFactory, "Test Server")),
                 mock(MetricManager.class),
                 metrics,
