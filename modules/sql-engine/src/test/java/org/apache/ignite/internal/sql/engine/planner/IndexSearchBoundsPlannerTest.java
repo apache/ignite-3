@@ -441,6 +441,31 @@ public class IndexSearchBoundsPlannerTest extends AbstractPlannerTest {
 
         assertPlan("SELECT (SELECT C1 FROM TEST t2 WHERE t2.C1 < t1.C1 + t2.C1) FROM TEST t1", publicSchema,
                 nodeOrAnyChild(isIndexScan("TEST", "C1C2C3")).negate());
+
+        // Here we have two OR sets in CNF, second set can't be used, since it contains condition on C1 and C2 columns,
+        // so use only first OR set as bounds.
+        assertBounds("SELECT * FROM TEST WHERE C1 in (?, 1, 2) or (C1 = ? and C2 > 'asd')",
+                multi(exact("?0"), exact(1), exact(2), exact("?1"))
+        );
+
+        assertBounds("SELECT * FROM TEST WHERE C1 in (?, ? + 1, ? * 2)",
+                multi(exact("?0"), exact("+(?1, 1)"), exact("*(?2, 2)"))
+        );
+
+        // Don't support expanding OR with correlate to bounds.
+        assertPlan("SELECT (SELECT C1 FROM TEST t2 WHERE C1 in (t1.C1, 1, ?)) FROM TEST t1", publicSchema,
+                nodeOrAnyChild(isIndexScan("TEST", "C1C2C3")).negate());
+
+        // Here "BETWEEN" generates AND condition, and we have two OR sets in CNF, so we can't correctly use range
+        // with both upper and lower bounds. So, we use only first OR set as bounds.
+        assertBounds("SELECT * FROM TEST WHERE C1 in (?, 1, 2) or C1 between ? and ?",
+                multi(exact("?0"), exact(1), exact(2), range("?1", "null", true, false))
+        );
+
+        // Check equality condition priority over SEARCH/SARG.
+        assertBounds("SELECT * FROM TEST WHERE (C1 BETWEEN 1 AND 10 OR C1 IN (20, 30)) AND C1 = ?",
+                exact("?0")
+        );
     }
 
     /**

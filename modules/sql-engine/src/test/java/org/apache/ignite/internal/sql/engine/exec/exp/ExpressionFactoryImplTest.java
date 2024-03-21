@@ -32,6 +32,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
@@ -257,7 +258,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
             List<SearchBounds> boundsList = List.of(
                     new MultiBounds(condition, List.of(
                             new ExactBounds(condition, intValue1),
-                            new ExactBounds(condition, nullValue)
+                            new RangeBounds(condition, null, nullValue, true, true)
                     ))
             );
 
@@ -269,26 +270,26 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
 
             ranges.forEach(r -> list.add(new TestRange(r.lower(), r.upper())));
 
-            assertEquals(List.of(new TestRange(new Object[]{null}, new Object[]{null}), new TestRange(new Object[]{1})), list);
+            assertEquals(List.of(new TestRange(null, new Object[]{null}), new TestRange(new Object[]{1})), list);
         }
 
         { // range condition with null value as lower bound should respect collation (NULLS LAST)
             List<SearchBounds> boundsList = List.of(
                     new MultiBounds(condition, List.of(
-                            new ExactBounds(condition, intValue1),
-                            new ExactBounds(condition, nullValue)
+                            new RangeBounds(condition, nullValue, null, true, true),
+                            new ExactBounds(condition, intValue1)
                     ))
             );
 
             Comparator<Object[]> comparator = expFactory.comparator(RelCollations.of(
-                    new RelFieldCollation(0, Direction.DESCENDING, NullDirection.LAST)));
+                    new RelFieldCollation(0, Direction.ASCENDING, NullDirection.LAST)));
 
             RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator);
             List<TestRange> list = new ArrayList<>();
 
             ranges.forEach(r -> list.add(new TestRange(r.lower(), r.upper())));
 
-            assertEquals(List.of(new TestRange(new Object[]{1}), new TestRange(new Object[]{null}, new Object[]{null})), list);
+            assertEquals(List.of(new TestRange(new Object[]{1}), new TestRange(new Object[]{null}, null)), list);
         }
 
         { // range condition without lower bound should respect collation (NULLS FIRST)
@@ -308,6 +309,232 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
             ranges.forEach(r -> list.add(new TestRange(r.lower(), r.upper())));
 
             assertEquals(List.of(new TestRange(null, new Object[]{5}), new TestRange(new Object[]{1})), list);
+        }
+    }
+
+    @Test
+    void multiBoundConditionsAreMergedCorrectly() {
+        RexBuilder rexBuilder = Commons.rexBuilder();
+
+        // condition expression is not used
+        RexLiteral condition = rexBuilder.makeLiteral(true);
+
+        RelDataType rowType = new Builder(typeFactory)
+                .add("C1", SqlTypeName.INTEGER)
+                .build();
+
+        RexNode intValue1 = rexBuilder.makeExactLiteral(new BigDecimal("1"));
+        RexNode intValue2 = rexBuilder.makeExactLiteral(new BigDecimal("2"));
+        RexNode intValue3 = rexBuilder.makeExactLiteral(new BigDecimal("3"));
+        RexNode intValue5 = rexBuilder.makeExactLiteral(new BigDecimal("5"));
+
+        { // conditions 'val < 1 or val = 1 or val = 5' can be combined to 'val <= 1 or val = 5' (ASCENDING)
+            List<SearchBounds> boundsList = List.of(
+                    new MultiBounds(condition, List.of(
+                            new ExactBounds(condition, intValue5),
+                            new ExactBounds(condition, intValue1),
+                            new RangeBounds(condition, null, intValue1, true, false)
+                    ))
+            );
+
+            Comparator<Object[]> comparator = expFactory.comparator(RelCollations.of(
+                    new RelFieldCollation(0, Direction.ASCENDING)));
+
+            RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator);
+            List<TestRange> list = new ArrayList<>();
+
+            ranges.forEach(r -> list.add(new TestRange(r.lower(), r.lowerInclude(), r.upper(), r.upperInclude())));
+
+            assertEquals(List.of(new TestRange(null, new Object[]{1}), new TestRange(new Object[]{5})), list);
+        }
+
+        { // conditions 'val < 1 or val = 1 or val = 5' can be combined to 'val <= 1 or val = 5' (DESCENDING)
+            List<SearchBounds> boundsList = List.of(
+                    new MultiBounds(condition, List.of(
+                            new RangeBounds(condition, intValue1, null, false, true),
+                            new ExactBounds(condition, intValue1),
+                            new ExactBounds(condition, intValue5)
+                    ))
+            );
+
+            Comparator<Object[]> comparator = expFactory.comparator(RelCollations.of(
+                    new RelFieldCollation(0, Direction.DESCENDING)));
+
+            RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator);
+            List<TestRange> list = new ArrayList<>();
+
+            ranges.forEach(r -> list.add(new TestRange(r.lower(), r.lowerInclude(), r.upper(), r.upperInclude())));
+
+            assertEquals(List.of(new TestRange(new Object[]{5}), new TestRange(new Object[]{1}, null)), list);
+        }
+
+        { // conditions 'val >= 1 and val <= 5 or val > 1 and val < 5' must be combined to single 'val >= 1 and val <= 5' (ASCENDING)
+            List<SearchBounds> boundsList = List.of(
+                    new MultiBounds(condition, List.of(
+                            new RangeBounds(condition, intValue1, intValue5, true, true),
+                            new RangeBounds(condition, intValue1, intValue5, false, false)
+                    ))
+            );
+
+            Comparator<Object[]> comparator = expFactory.comparator(RelCollations.of(
+                    new RelFieldCollation(0, Direction.ASCENDING)));
+
+            RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator);
+            List<TestRange> list = new ArrayList<>();
+
+            ranges.forEach(r -> list.add(new TestRange(r.lower(), r.lowerInclude(), r.upper(), r.upperInclude())));
+
+            assertEquals(List.of(new TestRange(new Object[]{1}, new Object[]{5})), list);
+        }
+
+        { // conditions 'val >= 1 and val <= 5 or val > 1 and val < 5' must be combined to single 'val >= 1 and val <= 5' (DESCENDING)
+            List<SearchBounds> boundsList = List.of(
+                    new MultiBounds(condition, List.of(
+                            new RangeBounds(condition, intValue5, intValue1, true, true),
+                            new RangeBounds(condition, intValue5, intValue1, false, false)
+                    ))
+            );
+
+            Comparator<Object[]> comparator = expFactory.comparator(RelCollations.of(
+                    new RelFieldCollation(0, Direction.DESCENDING)));
+
+            RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator);
+            List<TestRange> list = new ArrayList<>();
+
+            ranges.forEach(r -> list.add(new TestRange(r.lower(), r.lowerInclude(), r.upper(), r.upperInclude())));
+
+            assertEquals(List.of(new TestRange(new Object[]{5}, new Object[]{1})), list);
+        }
+
+        { // conditions 'val >= 1 and val <= 2 or val >= 2 and val < 5' must be combined to single 'val >= 1 and val < 5' (ASCENDING)
+            List<SearchBounds> boundsList = List.of(
+                    new MultiBounds(condition, List.of(
+                            new RangeBounds(condition, intValue1, intValue2, true, true),
+                            new RangeBounds(condition, intValue2, intValue5, true, false)
+                    ))
+            );
+
+            Comparator<Object[]> comparator = expFactory.comparator(RelCollations.of(
+                    new RelFieldCollation(0, Direction.ASCENDING)));
+
+            RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator);
+            List<TestRange> list = new ArrayList<>();
+
+            ranges.forEach(r -> list.add(new TestRange(r.lower(), r.lowerInclude(), r.upper(), r.upperInclude())));
+
+            assertEquals(List.of(new TestRange(new Object[]{1}, true, new Object[]{5}, false)), list);
+        }
+
+        { // conditions 'val >= 1 and val <= 2 or val >= 2 and val < 5' must be combined to single 'val >= 1 and val < 5' (DESCENDING)
+            List<SearchBounds> boundsList = List.of(
+                    new MultiBounds(condition, List.of(
+                            new RangeBounds(condition, intValue2, intValue1, true, true),
+                            new RangeBounds(condition, intValue5, intValue2, false, true)
+                    ))
+            );
+
+            Comparator<Object[]> comparator = expFactory.comparator(RelCollations.of(
+                    new RelFieldCollation(0, Direction.DESCENDING)));
+
+            RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator);
+            List<TestRange> list = new ArrayList<>();
+
+            ranges.forEach(r -> list.add(new TestRange(r.lower(), r.lowerInclude(), r.upper(), r.upperInclude())));
+
+            assertEquals(List.of(new TestRange(new Object[]{5}, false, new Object[]{1}, true)), list);
+        }
+
+        { // conditions 'val >= 1 and val < 3 or val > 2 and val < 5' must be combined into single 'val >= 1 and val <= 5' (ASCENDING)
+            List<SearchBounds> boundsList = List.of(
+                    new MultiBounds(condition, List.of(
+                            new RangeBounds(condition, intValue1, intValue3, true, false),
+                            new RangeBounds(condition, intValue2, intValue5, false, false)
+                    ))
+            );
+
+            Comparator<Object[]> comparator = expFactory.comparator(RelCollations.of(
+                    new RelFieldCollation(0, Direction.ASCENDING)));
+
+            RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator);
+            List<TestRange> list = new ArrayList<>();
+
+            ranges.forEach(r -> list.add(new TestRange(r.lower(), r.lowerInclude(), r.upper(), r.upperInclude())));
+
+            assertEquals(List.of(new TestRange(new Object[]{1}, true, new Object[]{5}, false)), list);
+        }
+
+        { // conditions 'val >= 1 and val < 3 or val > 2 and val < 5' must be combined into single 'val >= 1 and val <= 5' (DESCENDING)
+            List<SearchBounds> boundsList = List.of(
+                    new MultiBounds(condition, List.of(
+                            new RangeBounds(condition, intValue3, intValue1, false, true),
+                            new RangeBounds(condition, intValue5, intValue2, false, false)
+                    ))
+            );
+
+            Comparator<Object[]> comparator = expFactory.comparator(RelCollations.of(
+                    new RelFieldCollation(0, Direction.DESCENDING)));
+
+            RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator);
+            List<TestRange> list = new ArrayList<>();
+
+            ranges.forEach(r -> list.add(new TestRange(r.lower(), r.lowerInclude(), r.upper(), r.upperInclude())));
+
+            assertEquals(List.of(new TestRange(new Object[]{5}, false, new Object[]{1}, true)), list);
+        }
+    }
+
+    @Test
+    public void testInvalidConditions() {
+        // At the moment, such conditions are impossible to obtain, but we should be aware of them,
+        // since they can break the merge procedure.
+        RexBuilder rexBuilder = Commons.rexBuilder();
+
+        // condition expression is not used
+        RexLiteral condition = rexBuilder.makeLiteral(true);
+
+        RelDataType rowType = new Builder(typeFactory)
+                .add("C1", SqlTypeName.INTEGER)
+                .build();
+
+        RexNode intValue1 = rexBuilder.makeExactLiteral(new BigDecimal("1"));
+        RexNode intValue2 = rexBuilder.makeExactLiteral(new BigDecimal("2"));
+
+        { // conditions 'val between 2 and 1 or val = 2' should lead to single 'val = 2' (ASCENDING)
+            List<SearchBounds> boundsList = List.of(
+                    new MultiBounds(condition, List.of(
+                            new RangeBounds(condition, intValue2, intValue1, true, true),
+                            new ExactBounds(condition, intValue2)
+                    ))
+            );
+
+            Comparator<Object[]> comparator = expFactory.comparator(RelCollations.of(
+                    new RelFieldCollation(0, Direction.ASCENDING)));
+
+            RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator);
+            List<TestRange> list = new ArrayList<>();
+
+            ranges.forEach(r -> list.add(new TestRange(r.lower(), r.lowerInclude(), r.upper(), r.upperInclude())));
+
+            assertEquals(List.of(new TestRange(new Object[]{2})), list);
+        }
+
+        { // conditions 'val between 2 and 1 or val = 2' should lead to single 'val = 2' (DESCENDING)
+            List<SearchBounds> boundsList = List.of(
+                    new MultiBounds(condition, List.of(
+                            new RangeBounds(condition, intValue1, intValue2, true, true),
+                            new ExactBounds(condition, intValue2)
+                    ))
+            );
+
+            Comparator<Object[]> comparator = expFactory.comparator(RelCollations.of(
+                    new RelFieldCollation(0, Direction.DESCENDING)));
+
+            RangeIterable<Object[]> ranges = expFactory.ranges(boundsList, rowType, comparator);
+            List<TestRange> list = new ArrayList<>();
+
+            ranges.forEach(r -> list.add(new TestRange(r.lower(), r.lowerInclude(), r.upper(), r.upperInclude())));
+
+            assertEquals(List.of(new TestRange(new Object[]{2})), list);
         }
     }
 
@@ -498,13 +725,23 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
 
         final Object[] upper;
 
+        final boolean lowerInclude;
+
+        final boolean upperInclude;
+
         TestRange(Object[] lower) {
             this(lower, lower);
         }
 
         TestRange(Object @Nullable [] lower, Object @Nullable [] upper) {
+            this(lower, true, upper, true);
+        }
+
+        TestRange(Object @Nullable [] lower, boolean lowerInclude, Object @Nullable [] upper, boolean upperInclude) {
             this.lower = lower;
             this.upper = upper;
+            this.lowerInclude = lowerInclude;
+            this.upperInclude = upperInclude;
         }
 
         @Override
@@ -516,12 +753,14 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
                 return false;
             }
             TestRange testRange = (TestRange) o;
-            return Arrays.equals(lower, testRange.lower) && Arrays.equals(upper, testRange.upper);
+            return lowerInclude == testRange.lowerInclude && upperInclude == testRange.upperInclude && Arrays.equals(lower,
+                    testRange.lower) && Arrays.equals(upper, testRange.upper);
         }
 
         @Override
         public int hashCode() {
-            int result = Arrays.hashCode(lower);
+            int result = Objects.hash(lowerInclude, upperInclude);
+            result = 31 * result + Arrays.hashCode(lower);
             result = 31 * result + Arrays.hashCode(upper);
             return result;
         }
@@ -530,6 +769,8 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
         public String toString() {
             return "{lower=" + Arrays.toString(lower)
                     + ", upper=" + Arrays.toString(upper)
+                    + ", lowerInclude=" + lowerInclude
+                    + ", upperInclude=" + upperInclude
                     + '}';
         }
     }

@@ -49,7 +49,7 @@ public class ItSecondaryIndexRandomConditionsTest extends BaseSqlIntegrationTest
     }
 
     @BeforeAll
-    static void initTestData() {
+    static void init() {
         sql("CREATE ZONE IN_MEM_ZONE ENGINE aimem");
 
         Random rnd = ThreadLocalRandom.current();

@@ -151,6 +151,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             int colsCountRow1 = hnd.columnCount(o1);
             int colsCountRow2 = hnd.columnCount(o2);
 
+            // The index range condition can only contain the prefix of the index columns (not all index columns).
             int maxCols = Math.min(Math.max(colsCountRow1, colsCountRow2), collations.size());
 
             for (int i = 0; i < maxCols; i++) {
@@ -884,8 +885,6 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
         private final @Nullable Comparator<RowT> comparator;
 
-        private final int direction;
-
         private boolean sorted;
 
         RangeIterableImpl(
@@ -894,9 +893,6 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         ) {
             this.ranges = ranges;
             this.comparator = comparator;
-
-            // TODO IGNITE-21672 Should be revised when NULLS FIRST/LAST policy can be set arbitrarily.
-            this.direction = 1;
         }
 
         /** {@inheritDoc} */
@@ -967,6 +963,8 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         }
 
         private int compareBounds(@Nullable RowT row1, @Nullable RowT row2, boolean lower) {
+            assert comparator != null;
+
             if (row1 == null || row2 == null) {
                 if (row1 == row2) {
                     return 0;
@@ -974,7 +972,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
                 RowT row = lower ? row2 : row1;
 
-                return row == null ? direction : -direction;
+                return row == null ? 1 : -1;
             }
 
             return comparator.compare(row1, row2);
