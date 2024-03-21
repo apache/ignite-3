@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.ROW
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.createKey;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.getRowIdUuid;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.putRowIdUuid;
+import static org.apache.ignite.internal.storage.util.StorageUtils.initialRowIdToBuild;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 
 import java.nio.ByteBuffer;
@@ -71,14 +72,13 @@ public class RocksDbMetaStorage {
      *
      * @param indexId Index ID.
      * @param partitionId Partition ID.
-     * @param ifAbsent Will be returned if next the row ID for which the index needs to be built has never been saved.
      */
-    public @Nullable RowId getNextRowIdToBuild(int indexId, int partitionId, RowId ifAbsent) {
+    public @Nullable RowId getNextRowIdToBuild(int indexId, int partitionId) {
         try {
             byte[] lastBuiltRowIdBytes = metaColumnFamily.get(createKey(INDEX_ROW_ID_PREFIX, indexId, partitionId));
 
             if (lastBuiltRowIdBytes == null) {
-                return ifAbsent;
+                return initialRowIdToBuild(partitionId);
             }
 
             if (lastBuiltRowIdBytes.length == 0) {

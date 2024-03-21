@@ -160,7 +160,7 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
             SortedIndexRowKey upper = createBound(upperBound, includeUpper);
 
             return new ScanCursor<IndexRow>(lower) {
-                private final BinaryTupleComparator comparator = indexTree.getBinaryTupleComparator();
+                private final BinaryTupleComparator comparator = localTree.getBinaryTupleComparator();
 
                 @Override
                 public IndexRow map(SortedIndexRow value) {

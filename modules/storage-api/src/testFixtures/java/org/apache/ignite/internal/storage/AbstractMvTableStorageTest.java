@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.
 import static org.apache.ignite.internal.schema.BinaryRowMatcher.equalToRow;
 import static org.apache.ignite.internal.storage.MvPartitionStorage.REBALANCE_IN_PROGRESS;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATER;
+import static org.apache.ignite.internal.storage.util.StorageUtils.initialRowIdToBuild;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
@@ -104,6 +105,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     private static final String HASH_INDEX_NAME = "HASH_IDX";
 
     protected static final int PARTITION_ID = 0;
+
+    private static final RowId INITIAL_ROW_ID_TO_BUILD = initialRowIdToBuild(PARTITION_ID);
 
     /** Partition id for 0 storage. */
     protected static final int PARTITION_ID_0 = 10;
@@ -797,14 +800,14 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     }
 
     @Test
-    void testNextRowIdToBuilt() {
+    void testNextRowIdToBuild() {
         MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
 
         IndexStorage hashIndexStorage = tableStorage.getOrCreateIndex(PARTITION_ID, hashIdx);
         IndexStorage sortedIndexStorage = tableStorage.getOrCreateIndex(PARTITION_ID, sortedIdx);
 
-        assertThat(hashIndexStorage.getNextRowIdToBuild(), equalTo(RowId.lowestRowId(PARTITION_ID)));
-        assertThat(sortedIndexStorage.getNextRowIdToBuild(), equalTo(RowId.lowestRowId(PARTITION_ID)));
+        assertThat(hashIndexStorage.getNextRowIdToBuild(), equalTo(INITIAL_ROW_ID_TO_BUILD));
+        assertThat(sortedIndexStorage.getNextRowIdToBuild(), equalTo(INITIAL_ROW_ID_TO_BUILD));
 
         RowId rowId0 = new RowId(PARTITION_ID);
         RowId rowId1 = new RowId(PARTITION_ID);
@@ -821,7 +824,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     }
 
     @Test
-    void testNextRowIdToBuiltAfterRestart() throws Exception {
+    void testNextRowIdToBuildAfterRestart() throws Exception {
         MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
 
         IndexStorage hashIndexStorage = tableStorage.getOrCreateIndex(PARTITION_ID, hashIdx);
@@ -850,8 +853,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         IndexStorage sortedIndexStorageRestarted = tableStorage.getOrCreateIndex(PARTITION_ID, sortedIdx);
 
         if (tableStorage.isVolatile()) {
-            assertThat(hashIndexStorageRestarted.getNextRowIdToBuild(), equalTo(RowId.lowestRowId(PARTITION_ID)));
-            assertThat(sortedIndexStorageRestarted.getNextRowIdToBuild(), equalTo(RowId.lowestRowId(PARTITION_ID)));
+            assertThat(hashIndexStorageRestarted.getNextRowIdToBuild(), equalTo(INITIAL_ROW_ID_TO_BUILD));
+            assertThat(sortedIndexStorageRestarted.getNextRowIdToBuild(), equalTo(INITIAL_ROW_ID_TO_BUILD));
         } else {
             assertThat(hashIndexStorageRestarted.getNextRowIdToBuild(), equalTo(rowId0));
             assertThat(sortedIndexStorageRestarted.getNextRowIdToBuild(), equalTo(rowId1));
@@ -859,7 +862,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     }
 
     @Test
-    void testNextRowIdToBuiltAfterRebalance() {
+    void testNextRowIdToBuildAfterRebalance() {
         MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
 
         IndexStorage hashIndexStorage = tableStorage.getOrCreateIndex(PARTITION_ID, hashIdx);
@@ -884,14 +887,14 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertThat(tableStorage.startRebalancePartition(PARTITION_ID), willCompleteSuccessfully());
         assertThat(tableStorage.finishRebalancePartition(PARTITION_ID, 100, 100, BYTE_EMPTY_ARRAY), willCompleteSuccessfully());
 
-        assertThat(hashIndexStorage.getNextRowIdToBuild(), is(equalTo(RowId.lowestRowId(PARTITION_ID))));
-        assertThat(sortedIndexStorage.getNextRowIdToBuild(), is(equalTo(RowId.lowestRowId(PARTITION_ID))));
+        assertThat(hashIndexStorage.getNextRowIdToBuild(), is(equalTo(INITIAL_ROW_ID_TO_BUILD)));
+        assertThat(sortedIndexStorage.getNextRowIdToBuild(), is(equalTo(INITIAL_ROW_ID_TO_BUILD)));
 
         IndexStorage recreatedHashIndexStorage = tableStorage.getOrCreateIndex(PARTITION_ID, hashIdx);
         IndexStorage recreatedSortedIndexStorage = tableStorage.getOrCreateIndex(PARTITION_ID, sortedIdx);
 
-        assertThat(recreatedHashIndexStorage.getNextRowIdToBuild(), is(equalTo(RowId.lowestRowId(PARTITION_ID))));
-        assertThat(recreatedSortedIndexStorage.getNextRowIdToBuild(), is(equalTo(RowId.lowestRowId(PARTITION_ID))));
+        assertThat(recreatedHashIndexStorage.getNextRowIdToBuild(), is(equalTo(INITIAL_ROW_ID_TO_BUILD)));
+        assertThat(recreatedSortedIndexStorage.getNextRowIdToBuild(), is(equalTo(INITIAL_ROW_ID_TO_BUILD)));
 
         // Check that rowId can be set successfully.
         mvPartitionStorage.runConsistently(locker -> {

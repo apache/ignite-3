@@ -324,7 +324,7 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
      * @param <R> Type of the returned value.
      */
     protected abstract class ScanCursor<R> implements PeekCursor<R> {
-        private final BplusTree<K, V> localTree;
+        protected final TreeT localTree = indexTree;
 
         private final @Nullable K lower;
 
@@ -344,7 +344,6 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
 
         protected ScanCursor(@Nullable K lower) {
             this.lower = lower;
-            this.localTree = indexTree;
         }
 
         /**

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.rocksdb.index;
 
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.KEY_BYTE_ORDER;
+import static org.apache.ignite.internal.storage.util.StorageUtils.initialRowIdToBuild;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
@@ -76,7 +77,7 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
 
         int partitionId = helper.partitionId();
 
-        nextRowIdToBuild = indexMetaStorage.getNextRowIdToBuild(indexId, partitionId, RowId.lowestRowId(partitionId));
+        nextRowIdToBuild = indexMetaStorage.getNextRowIdToBuild(indexId, partitionId);
     }
 
     @Override
@@ -222,15 +223,15 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
      * @throws RocksDBException If failed to delete data.
      */
     public final void destroyData(WriteBatch writeBatch) throws RocksDBException {
-        destroyData0(writeBatch);
+        clearIndex(writeBatch);
 
         indexMetaStorage.removeNextRowIdToBuild(writeBatch, indexId, helper.partitionId());
 
-        nextRowIdToBuild = RowId.lowestRowId(helper.partitionId());
+        nextRowIdToBuild = initialRowIdToBuild(helper.partitionId());
     }
 
-    /** Methods that needs to be overridden by the inheritors to destroy implementation specific data. */
-    abstract void destroyData0(WriteBatch writeBatch) throws RocksDBException;
+    /** Methods that needs to be overridden by the inheritors to remove all implementation specific data for this index. */
+    abstract void clearIndex(WriteBatch writeBatch) throws RocksDBException;
 
     /**
      * Cursor that always returns up-to-date next element.

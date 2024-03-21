@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.storage.index.impl;
 
+import static org.apache.ignite.internal.storage.util.StorageUtils.initialRowIdToBuild;
+
 import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -44,7 +46,7 @@ abstract class AbstractTestIndexStorage implements IndexStorage {
 
     AbstractTestIndexStorage(int partitionId) {
         this.partitionId = partitionId;
-        nextRowIdToBuild = RowId.lowestRowId(partitionId);
+        nextRowIdToBuild = initialRowIdToBuild(partitionId);
     }
 
     /**
@@ -112,7 +114,7 @@ abstract class AbstractTestIndexStorage implements IndexStorage {
     private void clearAndReset() {
         clear0();
 
-        nextRowIdToBuild = RowId.lowestRowId(partitionId);
+        nextRowIdToBuild = initialRowIdToBuild(partitionId);
     }
 
     public void destroy() {

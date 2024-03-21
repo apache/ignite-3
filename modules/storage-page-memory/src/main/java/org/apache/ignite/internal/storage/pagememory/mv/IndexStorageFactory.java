@@ -17,13 +17,14 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
+import static org.apache.ignite.internal.storage.util.StorageUtils.initialRowIdToBuild;
+
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.PageIdAllocator;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
-import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
@@ -283,7 +284,7 @@ class IndexStorageFactory {
 
             IndexType indexType = descriptor instanceof StorageHashIndexDescriptor ? IndexType.HASH : IndexType.SORTED;
 
-            var indexMeta = new IndexMeta(descriptor.id(), indexType, metaPageId, RowId.lowestRowId(partitionId).uuid());
+            var indexMeta = new IndexMeta(descriptor.id(), indexType, metaPageId, initialRowIdToBuild(partitionId).uuid());
 
             boolean replaced = indexMetaTree.putx(indexMeta);
 
