@@ -230,7 +230,7 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
         nextRowIdToBuild = initialRowIdToBuild(helper.partitionId());
     }
 
-    /** Methods that needs to be overridden by the inheritors to remove all implementation specific data for this index. */
+    /** Method that needs to be overridden by the inheritors to remove all implementation specific data for this index. */
     abstract void clearIndex(WriteBatch writeBatch) throws RocksDBException;
 
     /**
