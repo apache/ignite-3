@@ -126,6 +126,7 @@ import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
@@ -207,6 +208,9 @@ public class TableManagerTest extends IgniteAbstractTest {
     /** Garbage collector configuration. */
     @InjectConfiguration
     private GcConfiguration gcConfig;
+
+    @InjectConfiguration
+    private TransactionConfiguration txConfig;
 
     /** Storage update configuration. */
     @InjectConfiguration
@@ -753,6 +757,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 NODE_NAME,
                 revisionUpdater,
                 gcConfig,
+                txConfig,
                 storageUpdateConfiguration,
                 clusterService.messagingService(),
                 clusterService.topologyService(),

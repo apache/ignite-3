@@ -110,6 +110,7 @@ import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
@@ -148,6 +149,8 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
     private PersistentPageMemoryStorageEngineConfiguration storageEngineConfig;
     @InjectConfiguration
     private GcConfiguration gcConfig;
+    @InjectConfiguration
+    private TransactionConfiguration txConfig;
     @InjectConfiguration
     private StorageUpdateConfiguration storageUpdateConfiguration;
     @WorkDirectory
@@ -299,6 +302,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 NODE_NAME,
                 revisionUpdater,
                 gcConfig,
+                txConfig,
                 storageUpdateConfiguration,
                 clusterService.messagingService(),
                 clusterService.topologyService(),
