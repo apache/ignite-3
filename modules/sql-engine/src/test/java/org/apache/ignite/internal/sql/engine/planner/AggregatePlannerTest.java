@@ -566,8 +566,7 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
 
         );
 
-        Predicate<RelNode> predicate = hash.or(sort);
-
+        Predicate<RelNode> predicate = sort;
         assertPlan(TestCase.CASE_24_1C, predicate);
         assertPlan(TestCase.CASE_24_1E, predicate);
     }
@@ -600,7 +599,7 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
                         ))
                 ));
 
-        assertPlan(testCase, nodeOrAnyChild(hash).or(nodeOrAnyChild(sort)));
+        assertPlan(testCase, nodeOrAnyChild(sort));
     }
 
     private void checkSimpleAggWithGroupBySingle(TestCase testCase) throws Exception {
@@ -690,7 +689,7 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
                         ))
                 ));
 
-        assertPlan(testCase, nodeOrAnyChild(hash).or(nodeOrAnyChild(sort)));
+        assertPlan(testCase,nodeOrAnyChild(sort));
     }
 
     private void checkDistinctAggWithGroupBySingle(TestCase testCase) throws Exception {
@@ -844,7 +843,7 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
                         .and(input(isTableScan("TEST")))
                 ));
 
-        assertPlan(testCase, (Predicate<? extends RelNode>) sortColo.or((Predicate) coloSort));
+        assertPlan(testCase, coloSort);
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
@@ -867,7 +866,7 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
                         ))
                 ));
 
-        assertPlan(testCase, (Predicate<? extends RelNode>) sortColo.or((Predicate) coloSort));
+        assertPlan(testCase, coloSort);
     }
 
     private void checkCountDistinctHash(TestCase testCase) throws Exception {
