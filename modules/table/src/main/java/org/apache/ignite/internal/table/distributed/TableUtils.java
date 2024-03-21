@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.table.distributed;
 
-import static java.util.stream.Collectors.toSet;
+import static java.util.stream.Collectors.toCollection;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.BUILDING;
-import static org.apache.ignite.internal.util.CollectionUtils.difference;
 import static org.apache.ignite.internal.util.CollectionUtils.view;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -30,6 +30,7 @@ import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.jetbrains.annotations.Nullable;
@@ -103,49 +104,18 @@ public class TableUtils {
         int earliestCatalogVersion = catalogService.earliestCatalogVersion();
         int lwmCatalogVersion = catalogService.activeCatalogVersion(lowWatermark.longValue());
 
-        var tableIds = catalogService.tables(lwmCatalogVersion).stream()
+        Set<Integer> tableIds = catalogService.tables(lwmCatalogVersion).stream()
                 .map(CatalogObjectDescriptor::id)
-                .collect(toSet());
+                .collect(toCollection(HashSet::new));
 
         var res = new ArrayList<DroppedTableInfo>();
 
         for (int catalogVersion = lwmCatalogVersion - 1; catalogVersion >= earliestCatalogVersion; catalogVersion--) {
-            int finalCatalogVersion = catalogVersion;
-
-            catalogService.tables(catalogVersion).stream()
-                    .map(CatalogObjectDescriptor::id)
-                    .filter(tableIds::add)
-                    .map(tableId -> new DroppedTableInfo(tableId, finalCatalogVersion + 1))
-                    .forEach(res::add);
-        }
-
-        return res;
-    }
-
-    static List<DroppedTableInfo> droppedTables0(CatalogService catalogService, @Nullable HybridTimestamp lowWatermark) {
-        if (lowWatermark == null) {
-            return List.of();
-        }
-
-        int earliestCatalogVersion = catalogService.earliestCatalogVersion();
-        int lwmCatalogVersion = catalogService.activeCatalogVersion(lowWatermark.longValue());
-
-        Set<Integer> previousCatalogVersionTableIds = Set.of();
-
-        var res = new ArrayList<DroppedTableInfo>();
-
-        for (int catalogVersion = earliestCatalogVersion; catalogVersion <= lwmCatalogVersion; catalogVersion++) {
-            int finalCatalogVersion = catalogVersion;
-
-            Set<Integer> tableIds = catalogService.tables(catalogVersion).stream()
-                    .map(CatalogObjectDescriptor::id)
-                    .collect(toSet());
-
-            difference(previousCatalogVersionTableIds, tableIds).stream()
-                    .map(tableId -> new DroppedTableInfo(tableId, finalCatalogVersion))
-                    .forEach(res::add);
-
-            previousCatalogVersionTableIds = tableIds;
+            for (CatalogTableDescriptor table : catalogService.tables(catalogVersion)) {
+                if (tableIds.add(table.id())) {
+                    res.add(new DroppedTableInfo(table.id(), catalogVersion + 1));
+                }
+            }
         }
 
         return res;

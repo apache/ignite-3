@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.pagememory.persistence.store;
 
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager.DEL_PART_FILE_TEMPLATE;
@@ -568,8 +569,8 @@ public class FilePageStoreManagerTest extends BaseIgniteAbstractTest {
     }
 
     private static List<Path> collectAllSubFileAndDirs(Path start) throws Exception {
-        try (Stream<Path> fileStream = Files.find(start, Integer.MAX_VALUE, (path, basicFileAttributes) -> !start.equals(path))) {
-            return fileStream.collect(toList());
+        try (Stream<Path> fileStream = Files.walk(start)) {
+            return fileStream.filter(not(start::equals)).collect(toList());
         }
     }
 

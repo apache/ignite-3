@@ -342,7 +342,7 @@ public class TableTestUtils {
     }
 
     /**
-     * Adds a column to the table to catalog.
+     * Adds a column to the table in the catalog.
      *
      * @param catalogManager Catalog manager.
      * @param schemaName Schema name.
@@ -350,7 +350,7 @@ public class TableTestUtils {
      * @param columnName Column name.
      * @param columnType Column type.
      */
-    public static void addColumnForTable(
+    public static void addColumnToTable(
             CatalogManager catalogManager,
             String schemaName,
             String tableName,
@@ -367,14 +367,14 @@ public class TableTestUtils {
     }
 
     /**
-     * Adds a column to the table from {@link #createSimpleTable(CatalogManager, String)} to catalog.
+     * Adds a column to the table from {@link #createSimpleTable(CatalogManager, String)} in the catalog.
      *
      * @param catalogManager Catalog manager.
      * @param tableName Table name.
      * @param columnName Column name.
      * @param columnType Column type.
      */
-    public static void addColumnForSimpleTable(CatalogManager catalogManager, String tableName, String columnName, ColumnType columnType) {
-        addColumnForTable(catalogManager, DEFAULT_SCHEMA_NAME, tableName, columnName, columnType);
+    public static void addColumnToSimpleTable(CatalogManager catalogManager, String tableName, String columnName, ColumnType columnType) {
+        addColumnToTable(catalogManager, DEFAULT_SCHEMA_NAME, tableName, columnName, columnType);
     }
 }

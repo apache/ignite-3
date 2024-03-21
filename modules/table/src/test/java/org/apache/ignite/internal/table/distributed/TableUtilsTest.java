@@ -23,7 +23,7 @@ import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.table.TableTestUtils.COLUMN_NAME;
 import static org.apache.ignite.internal.table.TableTestUtils.INDEX_NAME;
 import static org.apache.ignite.internal.table.TableTestUtils.TABLE_NAME;
-import static org.apache.ignite.internal.table.TableTestUtils.addColumnForSimpleTable;
+import static org.apache.ignite.internal.table.TableTestUtils.addColumnToSimpleTable;
 import static org.apache.ignite.internal.table.TableTestUtils.createSimpleHashIndex;
 import static org.apache.ignite.internal.table.TableTestUtils.createSimpleTable;
 import static org.apache.ignite.internal.table.TableTestUtils.dropIndex;
@@ -139,16 +139,16 @@ public class TableUtilsTest extends IgniteAbstractTest {
         String tableName2 = TABLE_NAME + 2;
 
         createSimpleTable(catalogManager, tableName0);
-        addColumnForSimpleTable(catalogManager, tableName0, COLUMN_NAME + 0, INT32);
-        addColumnForSimpleTable(catalogManager, tableName0, COLUMN_NAME + 1, INT32);
+        addColumnToSimpleTable(catalogManager, tableName0, COLUMN_NAME + 0, INT32);
+        addColumnToSimpleTable(catalogManager, tableName0, COLUMN_NAME + 1, INT32);
 
         createSimpleTable(catalogManager, tableName1);
-        addColumnForSimpleTable(catalogManager, tableName1, COLUMN_NAME + 2, INT32);
+        addColumnToSimpleTable(catalogManager, tableName1, COLUMN_NAME + 2, INT32);
 
         createSimpleTable(catalogManager, tableName2);
-        addColumnForSimpleTable(catalogManager, tableName1, COLUMN_NAME + 3, INT32);
-        addColumnForSimpleTable(catalogManager, tableName1, COLUMN_NAME + 4, INT32);
-        addColumnForSimpleTable(catalogManager, tableName1, COLUMN_NAME + 5, INT32);
+        addColumnToSimpleTable(catalogManager, tableName1, COLUMN_NAME + 3, INT32);
+        addColumnToSimpleTable(catalogManager, tableName1, COLUMN_NAME + 4, INT32);
+        addColumnToSimpleTable(catalogManager, tableName1, COLUMN_NAME + 5, INT32);
 
         int tableId0 = tableId(tableName0);
         int tableId1 = tableId(tableName1);
