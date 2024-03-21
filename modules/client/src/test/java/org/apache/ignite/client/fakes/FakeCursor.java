@@ -31,6 +31,7 @@ import java.time.LocalTime;
 import java.time.Period;
 import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 import java.util.UUID;
@@ -130,7 +131,7 @@ public class FakeCursor implements AsyncSqlCursor<InternalSqlRow> {
 
         if ("SELECT PROPS".equals(qry)) {
             batch.add(getRow("pageSize", String.valueOf(rows)));
-        } else {
+        } else if ("TODO JDBC".equals(qry)) {
             for (int i = 0; i < rows; i++) {
                 batch.add(getRow(
                         random.nextInt(), random.nextLong(), random.nextFloat(), random.nextDouble(), UUID.randomUUID().toString(), null));
@@ -181,7 +182,10 @@ public class FakeCursor implements AsyncSqlCursor<InternalSqlRow> {
     }
 
     private static InternalSqlRow getRow(Object... vals) {
-        return new ListToInternalSqlRowAdapter(List.of(vals));
+        var list = new ArrayList<>(vals.length);
+        Collections.addAll(list, vals);
+
+        return new ListToInternalSqlRowAdapter(list);
     }
 
     private static class ColumnOrigin implements ColumnMetadata.ColumnOrigin {
