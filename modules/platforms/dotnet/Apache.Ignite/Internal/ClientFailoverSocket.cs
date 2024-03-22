@@ -40,6 +40,8 @@ namespace Apache.Ignite.Internal
     /// </summary>
     internal sealed class ClientFailoverSocket : IDisposable, IClientSocketEventListener
     {
+        private const string ExceptionDataEndpoint = "Endpoint";
+
         /** Current global endpoint index for Round-robin. */
         private static long _globalEndPointIndex;
 
@@ -437,6 +439,8 @@ namespace Apache.Ignite.Internal
                 catch (IgniteClientConnectionException e) when (e.GetBaseException() is SocketException or IOException)
                 {
                     errors ??= new List<Exception>();
+
+                    e.Data[ExceptionDataEndpoint] = endPoint;
 
                     errors.Add(e);
                 }
