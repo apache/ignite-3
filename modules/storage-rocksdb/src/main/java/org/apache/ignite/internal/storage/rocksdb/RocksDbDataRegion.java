@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.storage.rocksdb.configuration.schema.Ro
 import static org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataRegionConfigurationSchema.ROCKSDB_LRU_CACHE;
 
 import java.util.Locale;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataRegionConfiguration;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataRegionView;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.rocksdb.Cache;
@@ -34,7 +33,7 @@ import org.rocksdb.WriteBufferManager;
  */
 public class RocksDbDataRegion {
     /** Region configuration. */
-    private final RocksDbDataRegionConfiguration cfg;
+    private final RocksDbDataRegionView cfg;
 
     /** RocksDB cache instance. */
     private Cache cache;
@@ -47,7 +46,7 @@ public class RocksDbDataRegion {
      *
      * @param cfg Data region configuration.
      */
-    public RocksDbDataRegion(RocksDbDataRegionConfiguration cfg) {
+    public RocksDbDataRegion(RocksDbDataRegionView cfg) {
         this.cfg = cfg;
     }
 
@@ -55,25 +54,23 @@ public class RocksDbDataRegion {
      * Start the rocksDb data region.
      */
     public void start() {
-        RocksDbDataRegionView dataRegionView = cfg.value();
+        long writeBufferSize = cfg.writeBufferSize();
 
-        long writeBufferSize = dataRegionView.writeBufferSize();
+        long totalCacheSize = cfg.size() + writeBufferSize;
 
-        long totalCacheSize = dataRegionView.size() + writeBufferSize;
-
-        switch (dataRegionView.cache().toLowerCase(Locale.ROOT)) {
+        switch (cfg.cache().toLowerCase(Locale.ROOT)) {
             case ROCKSDB_CLOCK_CACHE:
-                cache = new ClockCache(totalCacheSize, dataRegionView.numShardBits(), false);
+                cache = new ClockCache(totalCacheSize, cfg.numShardBits(), false);
 
                 break;
 
             case ROCKSDB_LRU_CACHE:
-                cache = new LRUCache(totalCacheSize, dataRegionView.numShardBits(), false);
+                cache = new LRUCache(totalCacheSize, cfg.numShardBits(), false);
 
                 break;
 
             default:
-                assert false : dataRegionView.cache();
+                assert false : cfg.cache();
         }
 
         writeBufferManager = new WriteBufferManager(writeBufferSize, cache);

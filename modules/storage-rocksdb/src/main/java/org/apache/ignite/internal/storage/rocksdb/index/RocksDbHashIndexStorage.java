@@ -82,7 +82,7 @@ public class RocksDbHashIndexStorage extends AbstractRocksDbIndexStorage impleme
             ColumnFamily indexCf,
             RocksDbMetaStorage indexMetaStorage
     ) {
-        super(descriptor.id(), partitionId, indexMetaStorage);
+        super(tableId, descriptor.id(), partitionId, indexMetaStorage);
 
         this.descriptor = descriptor;
         this.indexCf = indexCf;

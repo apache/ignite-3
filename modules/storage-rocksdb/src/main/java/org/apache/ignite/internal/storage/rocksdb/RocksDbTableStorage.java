@@ -18,13 +18,8 @@
 package org.apache.ignite.internal.storage.rocksdb;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage.PARTITION_CONF_PREFIX;
-import static org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage.PARTITION_META_PREFIX;
-import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.createKey;
 import static org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstance.DFLT_WRITE_OPTS;
-import static org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstance.deleteByPrefix;
 import static org.apache.ignite.internal.storage.util.StorageUtils.createMissingMvPartitionErrorMessage;
-import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
@@ -179,7 +174,7 @@ public class RocksDbTableStorage implements MvTableStorage {
                     }
 
                     if (destroy) {
-                        destroyTableData();
+                        rocksDb.destroyTable(getTableId());
                     }
                 });
     }
@@ -197,28 +192,6 @@ public class RocksDbTableStorage implements MvTableStorage {
     @Override
     public CompletableFuture<Void> destroy() {
         return stop(true);
-    }
-
-    private void destroyTableData() {
-        try (WriteBatch writeBatch = new WriteBatch()) {
-            int tableId = getTableId();
-
-            byte[] tablePrefix = createKey(BYTE_EMPTY_ARRAY, tableId);
-
-            deleteByPrefix(writeBatch, rocksDb.partitionCf, tablePrefix);
-            deleteByPrefix(writeBatch, rocksDb.gcQueueCf, tablePrefix);
-
-            indexes.destroyAllIndexes(writeBatch);
-
-            deleteByPrefix(writeBatch, rocksDb.meta.columnFamily(), createKey(PARTITION_META_PREFIX, tableId));
-            deleteByPrefix(writeBatch, rocksDb.meta.columnFamily(), createKey(PARTITION_CONF_PREFIX, tableId));
-
-            rocksDb.db.write(DFLT_WRITE_OPTS, writeBatch);
-
-            indexes.scheduleAllIndexCfDestroy();
-        } catch (RocksDBException e) {
-            throw new StorageException("Failed to destroy table data. [tableId={}]", e, getTableId());
-        }
     }
 
     @Override
