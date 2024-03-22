@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Internal.Network
 {
+    using System;
     using System.Collections.Generic;
     using System.Net;
     using Ignite.Network;
@@ -54,6 +55,28 @@ namespace Apache.Ignite.Internal.Network
 
         /// <inheritdoc/>
         public IPEndPoint Address { get; }
+
+        /// <inheritdoc/>
+        public bool Equals(ClusterNode? other)
+        {
+            if (ReferenceEquals(null, other))
+            {
+                return false;
+            }
+
+            if (ReferenceEquals(this, other))
+            {
+                return true;
+            }
+
+            return Id == other.Id && Name == other.Name && Address.Equals(other.Address);
+        }
+
+        /// <inheritdoc/>
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(Id, Name, Address);
+        }
 
         /// <summary>
         /// Gets the metric tags.
