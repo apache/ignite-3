@@ -705,7 +705,15 @@ public class IgniteImpl implements Ignite {
 
         StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry.getConfiguration(StorageUpdateConfiguration.KEY);
 
-        lowWatermark = new LowWatermarkImpl(name, gcConfig.lowWatermark(), clock, txManager, vaultMgr, failureProcessor);
+        lowWatermark = new LowWatermarkImpl(
+                name,
+                gcConfig.lowWatermark(),
+                clock,
+                txManager,
+                vaultMgr,
+                failureProcessor,
+                clusterSvc.messagingService()
+        );
 
         distributedTblMgr = new TableManager(
                 name,

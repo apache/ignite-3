@@ -545,7 +545,15 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var sqlRef = new AtomicReference<IgniteSqlImpl>();
 
-        var lowWatermark = new LowWatermarkImpl(name, gcConfig.lowWatermark(), hybridClock, txManager, vault, failureProcessor);
+        var lowWatermark = new LowWatermarkImpl(
+                name,
+                gcConfig.lowWatermark(),
+                hybridClock,
+                txManager,
+                vault,
+                failureProcessor,
+                clusterSvc.messagingService()
+        );
 
         TableManager tableManager = new TableManager(
                 name,

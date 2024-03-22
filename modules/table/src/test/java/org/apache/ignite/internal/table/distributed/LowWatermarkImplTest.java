@@ -17,10 +17,14 @@
 
 package org.apache.ignite.internal.table.distributed;
 
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.table.distributed.LowWatermarkImpl.LOW_WATERMARK_VAULT_KEY;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -28,6 +32,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -36,6 +42,7 @@ import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -45,21 +52,25 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.schema.configuration.LowWatermarkConfiguration;
+import org.apache.ignite.internal.table.distributed.message.GetLowWatermarkRequest;
+import org.apache.ignite.internal.table.distributed.message.GetLowWatermarkResponse;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.network.ClusterNode;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 
-/**
- * For {@link LowWatermarkImpl} testing.
- */
+/** For {@link LowWatermarkImpl} testing. */
 @ExtendWith(ConfigurationExtension.class)
 public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
     @InjectConfiguration
@@ -75,12 +86,23 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
 
     private LowWatermarkImpl lowWatermark;
 
+    private final MessagingService messagingService = mock(MessagingService.class);
+
     @BeforeEach
     void setUp() {
         listener = mock(LowWatermarkChangedListener.class);
         when(listener.onLwmChanged(any(HybridTimestamp.class))).thenReturn(nullCompletedFuture());
 
-        lowWatermark = new LowWatermarkImpl("test", lowWatermarkConfig, clock, txManager, vaultManager, mock(FailureProcessor.class));
+        lowWatermark = new LowWatermarkImpl(
+                "test",
+                lowWatermarkConfig,
+                clock,
+                txManager,
+                vaultManager,
+                mock(FailureProcessor.class),
+                messagingService
+        );
+
         lowWatermark.addUpdateListener(listener);
     }
 
@@ -92,7 +114,7 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
     @Test
     void testStartWithEmptyVault() {
         // Let's check the start with no low watermark in vault.
-        lowWatermark.start();
+        assertThat(lowWatermark.start(), willCompleteSuccessfully());
         lowWatermark.scheduleUpdates();
 
         verify(listener, never()).onLwmChanged(any(HybridTimestamp.class));
@@ -108,7 +130,7 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
 
         when(txManager.updateLowWatermark(any(HybridTimestamp.class))).thenReturn(nullCompletedFuture());
 
-        this.lowWatermark.start();
+        assertThat(this.lowWatermark.start(), willCompleteSuccessfully());
 
         assertEquals(lowWatermark, this.lowWatermark.getLowWatermark());
 
@@ -174,8 +196,8 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
                 return finishGetAllReadOnlyTransactions;
             });
 
-            lowWatermark.start();
-            this.lowWatermark.scheduleUpdates();
+            assertThat(lowWatermark.start(), willCompleteSuccessfully());
+            lowWatermark.scheduleUpdates();
 
             // Let's check that it hasn't been called more than once.
             assertFalse(startGetAllReadOnlyTransactions.await(1, TimeUnit.SECONDS));
@@ -193,5 +215,42 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
         } finally {
             finishGetAllReadOnlyTransactions.complete(null);
         }
+    }
+
+    @Test
+    void testHandleGetLowWatermarkMessage() {
+        when(txManager.updateLowWatermark(any())).thenReturn(nullCompletedFuture());
+
+        verify(messagingService, never()).addMessageHandler(eq(TableMessageGroup.class), any());
+
+        assertThat(lowWatermark.start(), willCompleteSuccessfully());
+
+        verify(messagingService).addMessageHandler(eq(TableMessageGroup.class), any());
+
+        ClusterNode sender = mock(ClusterNode.class);
+        long correlationId = 0;
+
+        ArgumentCaptor<NetworkMessage> networkMessageArgumentCaptor = ArgumentCaptor.forClass(NetworkMessage.class);
+
+        when(messagingService.respond(any(ClusterNode.class), networkMessageArgumentCaptor.capture(), anyLong()))
+                .thenReturn(nullCompletedFuture());
+
+        // Let's check any message except GetLowWatermarkRequest.
+        lowWatermark.onReceiveNetworkMessage(mock(NetworkMessage.class), sender, correlationId);
+        assertThat(networkMessageArgumentCaptor.getAllValues(), empty());
+
+        lowWatermark.onReceiveNetworkMessage(mock(GetLowWatermarkRequest.class), sender, correlationId);
+
+        assertThat(lowWatermark.updateLowWatermark(), willCompleteSuccessfully());
+
+        lowWatermark.onReceiveNetworkMessage(mock(GetLowWatermarkRequest.class), sender, correlationId);
+
+        List<HybridTimestamp> respondedLowWatermarks = networkMessageArgumentCaptor.getAllValues().stream()
+                .map(GetLowWatermarkResponse.class::cast)
+                .map(GetLowWatermarkResponse::lowWatermark)
+                .map(HybridTimestamp::nullableHybridTimestamp)
+                .collect(toList());
+
+        assertThat(respondedLowWatermarks, contains(null, lowWatermark.getLowWatermark()));
     }
 }

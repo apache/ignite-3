@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed;
 
 import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
@@ -44,7 +45,10 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.schema.configuration.LowWatermarkConfiguration;
+import org.apache.ignite.internal.table.distributed.message.GetLowWatermarkRequest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.ByteUtils;
@@ -52,6 +56,7 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /** Class to manage the low watermark. */
@@ -59,6 +64,8 @@ public class LowWatermarkImpl implements LowWatermark, IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(LowWatermarkImpl.class);
 
     static final ByteArray LOW_WATERMARK_VAULT_KEY = new ByteArray("low-watermark");
+
+    private static final TableMessagesFactory MESSAGES_FACTORY = new TableMessagesFactory();
 
     private final LowWatermarkConfiguration lowWatermarkConfig;
 
@@ -85,6 +92,8 @@ public class LowWatermarkImpl implements LowWatermark, IgniteComponent {
 
     private final ReadWriteLock updateLowWatermarkLock = new ReentrantReadWriteLock();
 
+    private final MessagingService messagingService;
+
     /**
      * Constructor.
      *
@@ -101,13 +110,15 @@ public class LowWatermarkImpl implements LowWatermark, IgniteComponent {
             HybridClock clock,
             TxManager txManager,
             VaultManager vaultManager,
-            FailureProcessor failureProcessor
+            FailureProcessor failureProcessor,
+            MessagingService messagingService
     ) {
         this.lowWatermarkConfig = lowWatermarkConfig;
         this.clock = clock;
         this.txManager = txManager;
         this.vaultManager = vaultManager;
         this.failureProcessor = failureProcessor;
+        this.messagingService = messagingService;
 
         scheduledThreadPool = Executors.newSingleThreadScheduledExecutor(
                 NamedThreadFactory.create(nodeName, "low-watermark-updater", LOG)
@@ -118,6 +129,8 @@ public class LowWatermarkImpl implements LowWatermark, IgniteComponent {
     public CompletableFuture<Void> start() {
         return inBusyLockAsync(busyLock, () -> {
             setLowWatermark(readLowWatermarkFromVault());
+
+            messagingService.addMessageHandler(TableMessageGroup.class, this::onReceiveNetworkMessage);
 
             return nullCompletedFuture();
         });
@@ -296,5 +309,21 @@ public class LowWatermarkImpl implements LowWatermark, IgniteComponent {
         } finally {
             updateLowWatermarkLock.writeLock().unlock();
         }
+    }
+
+    void onReceiveNetworkMessage(NetworkMessage message, ClusterNode sender, @Nullable Long correlationId) {
+        inBusyLock(busyLock, () -> {
+            if (!(message instanceof GetLowWatermarkRequest)) {
+                return;
+            }
+
+            assert correlationId != null : sender;
+
+            messagingService.respond(
+                    sender,
+                    MESSAGES_FACTORY.getLowWatermarkResponse().lowWatermark(hybridTimestampToLong(lowWatermark)).build(),
+                    correlationId
+            );
+        });
     }
 }

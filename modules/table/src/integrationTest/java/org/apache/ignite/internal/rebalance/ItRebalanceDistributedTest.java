@@ -1187,7 +1187,16 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry.getConfiguration(StorageUpdateConfiguration.KEY);
 
             HybridClockImpl clock = new HybridClockImpl();
-            lowWatermark = new LowWatermarkImpl(name, gcConfig.lowWatermark(), clock, txManager, vaultManager, failureProcessor);
+
+            lowWatermark = new LowWatermarkImpl(
+                    name,
+                    gcConfig.lowWatermark(),
+                    clock,
+                    txManager,
+                    vaultManager,
+                    failureProcessor,
+                    clusterService.messagingService()
+            );
 
             tableManager = new TableManager(
                     name,
