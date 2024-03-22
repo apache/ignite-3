@@ -43,7 +43,7 @@ internal static class Metrics
     /// <summary>
     /// Currently active connections.
     /// </summary>
-    public static readonly ObservableCounter<int> ConnectionsActive = Meter.CreateObservableCounter(
+    public static readonly ObservableGauge<int> ConnectionsActive = Meter.CreateObservableGauge(
         name: MetricNames.ConnectionsActive,
         observeValue: () => Interlocked.CompareExchange(ref _connectionsActive, 0, 0),
         unit: "connections",
@@ -165,7 +165,7 @@ internal static class Metrics
     /// <summary>
     /// Data streamer batches active.
     /// </summary>
-    public static readonly ObservableCounter<int> StreamerBatchesActive = Meter.CreateObservableCounter(
+    public static readonly ObservableGauge<int> StreamerBatchesActive = Meter.CreateObservableGauge(
         name: MetricNames.StreamerBatchesActive,
         observeValue: () => Interlocked.CompareExchange(ref _streamerBatchesActive, 0, 0),
         unit: "batches",
@@ -174,7 +174,7 @@ internal static class Metrics
     /// <summary>
     /// Data streamer items (rows) queued.
     /// </summary>
-    public static readonly ObservableCounter<int> StreamerItemsQueued = Meter.CreateObservableCounter(
+    public static readonly ObservableGauge<int> StreamerItemsQueued = Meter.CreateObservableGauge(
         name: MetricNames.StreamerItemsQueued,
         observeValue: () => new Measurement<int>(Interlocked.CompareExchange(ref _streamerItemsQueued, 0, 0)),
         unit: "items",
