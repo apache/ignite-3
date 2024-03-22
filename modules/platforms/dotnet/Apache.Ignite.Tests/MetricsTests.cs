@@ -194,6 +194,8 @@ public class MetricsTests
         AssertMetric(MetricNames.RequestsSent, 1);
         AssertMetric(MetricNames.RequestsCompleted, 0);
         AssertMetric(MetricNames.RequestsFailed, 0);
+
+        AssertTaggedMetric(MetricNames.RequestsSent, 1, server);
     }
 
     [Test]
@@ -207,6 +209,8 @@ public class MetricsTests
 
         await client.Tables.GetTablesAsync();
         AssertMetric(MetricNames.RequestsRetried, 3);
+
+        AssertTaggedMetric(MetricNames.RequestsRetried, 3, server);
     }
 
     [Test]
