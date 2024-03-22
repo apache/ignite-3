@@ -36,7 +36,7 @@ public class RocksDbStorageUtils {
     public static final int PARTITION_ID_SIZE = Short.BYTES;
 
     /** Index ID size in bytes. */
-    public static final int INDEX_ID_SIZE = Integer.SIZE;
+    public static final int INDEX_ID_SIZE = Integer.BYTES;
 
     /** Table ID size in bytes. */
     public static final int TABLE_ID_SIZE = Integer.BYTES;
@@ -46,12 +46,6 @@ public class RocksDbStorageUtils {
 
         keyBuffer.putLong(normalize(rowIdUuid.getMostSignificantBits()));
         keyBuffer.putLong(normalize(rowIdUuid.getLeastSignificantBits()));
-    }
-
-    static void putIndexId(ByteBuffer keyBuffer, int indexId) {
-        assert keyBuffer.order() == KEY_BYTE_ORDER;
-
-        keyBuffer.putInt(indexId);
     }
 
     static UUID getRowIdUuid(ByteBuffer keyBuffer, int offset) {
