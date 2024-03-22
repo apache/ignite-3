@@ -15,19 +15,14 @@
  * limitations under the License.
  */
 
-apply from: "$rootDir/buildscripts/java-core.gradle"
-apply from: "$rootDir/buildscripts/publishing.gradle"
-apply from: "$rootDir/buildscripts/java-junit5.gradle"
+package org.apache.ignite.internal.eventlog.config;
 
-description = 'ignite-eventlog'
+import org.apache.ignite.configuration.annotation.ConfigurationRoot;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.annotation.NamedConfigValue;
 
-dependencies {
-    annotationProcessor project(':ignite-configuration-annotation-processor')
-
-    implementation project(':ignite-api')
-    implementation project(':ignite-core')
-    implementation project(':ignite-configuration')
-
-    testImplementation libs.hamcrest.core
-    testImplementation testFixtures(project(':ignite-core'))
+@ConfigurationRoot(rootName = "eventlog", type = ConfigurationType.DISTRIBUTED)
+public class EventLogConfigurationSchema {
+    @NamedConfigValue
+    public SinkConfigurationSchema sink;
 }

@@ -15,19 +15,7 @@
  * limitations under the License.
  */
 
-apply from: "$rootDir/buildscripts/java-core.gradle"
-apply from: "$rootDir/buildscripts/publishing.gradle"
-apply from: "$rootDir/buildscripts/java-junit5.gradle"
+package org.apache.ignite.internal.eventlog.sink;
 
-description = 'ignite-eventlog'
-
-dependencies {
-    annotationProcessor project(':ignite-configuration-annotation-processor')
-
-    implementation project(':ignite-api')
-    implementation project(':ignite-core')
-    implementation project(':ignite-configuration')
-
-    testImplementation libs.hamcrest.core
-    testImplementation testFixtures(project(':ignite-core'))
+public class LogSinkTest {
 }
