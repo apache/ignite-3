@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Network
 {
     using System;
+    using System.Collections.Generic;
     using System.Net;
     using Ignite.Network;
 
@@ -33,12 +34,15 @@ namespace Apache.Ignite.Internal.Network
         /// <param name="name">Name.</param>
         /// <param name="endpoint">Endpoint.</param>
         /// <param name="metricsContext">Metrics context.</param>
-        internal ClusterNode(string id, string name, IPEndPoint endpoint, MetricsContext metricsContext)
+        internal ClusterNode(string id, string name, IPEndPoint endpoint, MetricsContext? metricsContext = null)
         {
             Id = id;
             Name = name;
             Address = endpoint;
-            MetricsContext = metricsContext;
+            MetricsContext = metricsContext ?? new MetricsContext(new[]
+            {
+                new KeyValuePair<string, object?>(MetricTags.NodeAddress, endpoint.ToString())
+            });
         }
 
         /// <inheritdoc/>
