@@ -556,7 +556,7 @@ class FragmentMapper {
             ExecutionTarget finalised = target.finalise();
 
             List<String> nodes = context.targetFactory().resolveNodes(finalised);
-            List<NodeWithConsistencyToken> assignments = context.targetFactory().resolveAssignments(finalised);
+            Int2ObjectMap<NodeWithConsistencyToken> assignments = context.targetFactory().resolveAssignments(finalised);
 
             return List.of(
                     new ColocationGroup(

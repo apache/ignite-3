@@ -17,18 +17,17 @@
 
 package org.apache.ignite.internal.sql.engine.trait;
 
-import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.sql.engine.exec.RowPartitionExtractor;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
  * Partitioned.
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public final class Partitioned<RowT> implements Destination<RowT> {
-    private final List<List<String>> assignments;
+    private final Map<Integer, String> assignments;
 
     private final RowPartitionExtractor<RowT> calc;
 
@@ -36,23 +35,21 @@ public final class Partitioned<RowT> implements Destination<RowT> {
      * Constructor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
-    public Partitioned(List<String> assignments, RowPartitionExtractor<RowT> calc) {
+    public Partitioned(Map<Integer, String> assignments, RowPartitionExtractor<RowT> calc) {
         this.calc = calc;
-        this.assignments = Commons.transform(assignments, List::of);
+        this.assignments = assignments;
     }
 
     /** {@inheritDoc} */
     @Override
     public List<String> targets(RowT row) {
         int part = calc.partition(row);
-        return assignments.get(part);
+        return List.of(assignments.get(part));
     }
 
     /** {@inheritDoc} */
     @Override
     public List<String> targets() {
-        return assignments.stream()
-                .flatMap(Collection::stream)
-                .distinct().collect(Collectors.toList());
+        return assignments.values().stream().distinct().collect(Collectors.toUnmodifiableList());
     }
 }

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.storage.engine;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_DATA_REGION;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
 import static org.mockito.Mockito.mock;
@@ -68,7 +69,41 @@ public abstract class AbstractStorageEngineTest extends BaseMvStoragesTest {
     void testRestartAfterFlush() throws Exception {
         assumeFalse(storageEngine.isVolatile());
 
-        StorageTableDescriptor tableDescriptor = new StorageTableDescriptor(1, 1, DEFAULT_DATA_REGION);
+        int tableId = 1;
+        int lastAppliedIndex = 10;
+        int lastAppliedTerm = 20;
+
+        createMvTableWithPartitionAndFill(tableId, lastAppliedIndex, lastAppliedTerm);
+
+        // Restart.
+        stopEngineAfterTest();
+        createEngineBeforeTest();
+
+        checkMvTableStorageWithPartitionAfterRestart(tableId, lastAppliedIndex, lastAppliedTerm);
+    }
+
+    @Test
+    protected void testDropMvTableOnRecovery() throws Exception {
+        assumeFalse(storageEngine.isVolatile());
+
+        int tableId = 1;
+
+        // Table does not exist.
+        assertDoesNotThrow(() -> storageEngine.dropMvTable(tableId));
+
+        createMvTableWithPartitionAndFill(tableId, 10, 20);
+
+        // Restart.
+        stopEngineAfterTest();
+        createEngineBeforeTest();
+
+        assertDoesNotThrow(() -> storageEngine.dropMvTable(tableId));
+
+        checkMvTableStorageWithPartitionAfterRestart(tableId, 0, 0);
+    }
+
+    private void createMvTableWithPartitionAndFill(int tableId, int lastAppliedIndex, int lastAppliedTerm) throws Exception {
+        StorageTableDescriptor tableDescriptor = new StorageTableDescriptor(tableId, 1, DEFAULT_DATA_REGION);
         StorageIndexDescriptorSupplier indexSupplier = mock(StorageIndexDescriptorSupplier.class);
 
         MvTableStorage mvTableStorage = storageEngine.createMvTable(tableDescriptor, indexSupplier);
@@ -79,13 +114,13 @@ public abstract class AbstractStorageEngineTest extends BaseMvStoragesTest {
             assertThat(mvPartitionStorageFuture, willCompleteSuccessfully());
             MvPartitionStorage mvPartitionStorage = mvPartitionStorageFuture.join();
 
-            try (AutoCloseable ignored1 = mvTableStorage::close) {
+            try (AutoCloseable ignored1 = mvPartitionStorage::close) {
                 // Flush. Persist the table itself, not the update.
                 assertThat(mvPartitionStorage.flush(), willCompleteSuccessfully());
 
                 mvPartitionStorage.runConsistently(locker -> {
                     // Update of basic storage data.
-                    mvPartitionStorage.lastApplied(10, 20);
+                    mvPartitionStorage.lastApplied(lastAppliedIndex, lastAppliedTerm);
 
                     return null;
                 });
@@ -94,12 +129,17 @@ public abstract class AbstractStorageEngineTest extends BaseMvStoragesTest {
                 assertThat(mvPartitionStorage.flush(), willCompleteSuccessfully());
             }
         }
+    }
 
-        // Restart.
-        stopEngineAfterTest();
-        createEngineBeforeTest();
+    private void checkMvTableStorageWithPartitionAfterRestart(
+            int tableId,
+            int expLastAppliedIndex,
+            int expLastAppliedTerm
+    ) throws Exception {
+        StorageTableDescriptor tableDescriptor = new StorageTableDescriptor(tableId, 1, DEFAULT_DATA_REGION);
+        StorageIndexDescriptorSupplier indexSupplier = mock(StorageIndexDescriptorSupplier.class);
 
-        mvTableStorage = storageEngine.createMvTable(tableDescriptor, indexSupplier);
+        MvTableStorage mvTableStorage = storageEngine.createMvTable(tableDescriptor, indexSupplier);
 
         try (AutoCloseable ignored0 = mvTableStorage::close) {
             CompletableFuture<MvPartitionStorage> mvPartitionStorageFuture = mvTableStorage.createMvPartition(0);
@@ -107,10 +147,10 @@ public abstract class AbstractStorageEngineTest extends BaseMvStoragesTest {
             assertThat(mvPartitionStorageFuture, willCompleteSuccessfully());
             MvPartitionStorage mvPartitionStorage = mvPartitionStorageFuture.join();
 
-            try (AutoCloseable ignored1 = mvTableStorage::close) {
+            try (AutoCloseable ignored1 = mvPartitionStorage::close) {
                 // Check that data has been persisted.
-                assertEquals(10, mvPartitionStorage.lastAppliedIndex());
-                assertEquals(20, mvPartitionStorage.lastAppliedTerm());
+                assertEquals(expLastAppliedIndex, mvPartitionStorage.lastAppliedIndex());
+                assertEquals(expLastAppliedTerm, mvPartitionStorage.lastAppliedTerm());
             }
         }
     }

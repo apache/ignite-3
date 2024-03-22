@@ -13,21 +13,13 @@ Fragment#0 root
 Fragment#1
   targetNodes: [N0]
   executionNodes: [N1]
-  remoteFragments: [3]
-  exchangeSourceNodes: {3=[N0]}
   tables: [T1_N1]
   partitions: {N1=[0:1]}
   tree:
     Sender(targetFragment=0, exchange=1, distribution=single)
       TableModify(name=PUBLIC.T1_N1, source=2, distribution=affinity[table: T1_N1, columns: [ID]])
-        Receiver(sourceFragment=3, exchange=3, distribution=affinity[table: T1_N1, columns: [ID]])
-
-Fragment#3
-  targetNodes: [N1]
-  executionNodes: [N0]
-  tree:
-    Sender(targetFragment=1, exchange=3, distribution=affinity[table: T1_N1, columns: [ID]])
-      Values
+        TrimExchange
+          Values
 ---
 
 N1

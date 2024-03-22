@@ -41,13 +41,28 @@ import org.jetbrains.annotations.Nullable;
  * Asynchronous result set implementation.
  */
 public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
-    private final IdleExpirationTracker expirationTracker;
+    private final @Nullable IdleExpirationTracker expirationTracker;
 
     private final AsyncSqlCursor<InternalSqlRow> cursor;
 
     private volatile BatchedResult<InternalSqlRow> curPage;
 
     private final int pageSize;
+
+    /**
+     * Constructor.
+     *
+     * @param cursor Query cursor representing the result of execution.
+     * @param page Current page.
+     * @param pageSize Size of the page to fetch.
+     */
+    public AsyncResultSetImpl(
+            AsyncSqlCursor<InternalSqlRow> cursor,
+            BatchedResult<InternalSqlRow> page,
+            int pageSize
+    ) {
+        this(cursor, page, pageSize, null);
+    }
 
     /**
      * Constructor.
@@ -62,7 +77,7 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
             AsyncSqlCursor<InternalSqlRow> cursor,
             BatchedResult<InternalSqlRow> page,
             int pageSize,
-            IdleExpirationTracker expirationTracker
+            @Nullable IdleExpirationTracker expirationTracker
     ) {
         this.cursor = cursor;
         this.curPage = page;
@@ -111,7 +126,9 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
     public Iterable<T> currentPage() {
         requireResultSet();
 
-        expirationTracker.touch();
+        if (expirationTracker != null) {
+            expirationTracker.touch();
+        }
 
         Iterator<InternalSqlRow> it0 = curPage.items().iterator();
         ResultSetMetadata meta0 = cursor.metadata();
@@ -133,7 +150,9 @@ public class AsyncResultSetImpl<T> implements AsyncResultSet<T> {
     public CompletableFuture<? extends AsyncResultSet<T>> fetchNextPage() {
         requireResultSet();
 
-        expirationTracker.touch();
+        if (expirationTracker != null) {
+            expirationTracker.touch();
+        }
 
         return cursor.requestNextAsync(pageSize)
                 .thenApply(page -> {

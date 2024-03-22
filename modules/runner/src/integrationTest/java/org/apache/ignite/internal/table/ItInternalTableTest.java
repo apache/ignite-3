@@ -478,9 +478,7 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
     }
 
     @ParameterizedTest
-    @ValueSource(booleans = true)
-    // TODO IGNITE-21521 Wrong update order in DataStreamer for a new key
-    // @ValueSource(booleans = {true, false})
+    @ValueSource(booleans = {true, false})
     public void updateAllOrderTest(boolean existingKey) {
         RecordView<Tuple> view = table.recordView();
         InternalTable internalTable = ((TableViewInternal) table).internalTable();
