@@ -193,11 +193,11 @@ namespace Apache.Ignite.Internal
                     .WaitAsync(configuration.SocketTimeout, cts.Token)
                     .ConfigureAwait(false);
 
-                connected = true;
                 logger.LogConnectionEstablishedDebug(socket.RemoteEndPoint);
 
                 Metrics.ConnectionsEstablished.Add(1, endPoint.GetMetricTags());
                 Metrics.ConnectionsActiveIncrement();
+                connected = true;
 
                 stream = new NetworkStream(socket, ownsSocket: true);
 
