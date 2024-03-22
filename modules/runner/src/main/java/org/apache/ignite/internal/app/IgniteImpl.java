@@ -878,7 +878,8 @@ public class IgniteImpl implements Ignite {
     private AuthenticationManager createAuthenticationManager() {
         SecurityConfiguration securityConfiguration = clusterCfgMgr.configurationRegistry()
                 .getConfiguration(SecurityConfiguration.KEY);
-        return new AuthenticationManagerImpl(securityConfiguration);
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-21665
+        return new AuthenticationManagerImpl(securityConfiguration, (ign) -> {});
     }
 
     private RestComponent createRestComponent(String name) {

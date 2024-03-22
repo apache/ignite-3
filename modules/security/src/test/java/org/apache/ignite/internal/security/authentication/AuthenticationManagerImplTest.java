@@ -78,7 +78,7 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        manager = new AuthenticationManagerImpl(securityConfiguration);
+        manager = new AuthenticationManagerImpl(securityConfiguration, ign -> {});
 
         Arrays.stream(AuthenticationEvent.values()).forEach(event -> manager.listen(event, listener));
 

@@ -75,6 +75,6 @@ class NodeConfigurationControllerTest extends ConfigurationControllerBaseTest {
     @Bean
     @Factory
     AuthenticationManager authenticationManager() {
-        return new AuthenticationManagerImpl(securityConfiguration);
+        return new AuthenticationManagerImpl(securityConfiguration, ign -> {});
     }
 }
