@@ -536,8 +536,6 @@ public class IgniteSqlFunctions {
         return dec;
     }
 
-
-
     /** CAST(VARCHAR AS VARBINARY). */
     public static ByteString toByteString(String s) {
         return s == null ? null : new ByteString(s.getBytes(Commons.typeFactory().getDefaultCharset()));
