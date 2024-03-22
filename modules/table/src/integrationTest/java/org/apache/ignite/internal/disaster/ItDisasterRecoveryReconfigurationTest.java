@@ -49,7 +49,6 @@ import org.apache.ignite.internal.affinity.RendezvousAffinityFunction;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -146,7 +145,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         // Set time in the future to protect us from "getAsync" from the past.
         // Should be replaced with "sleep" when clock skew validation is implemented.
         node0.clock().update(node0.clock().now().addPhysicalTime(
-                SECONDS.toMillis(DEFAULT_IDLE_SAFE_TIME_PROP_DURATION) + HybridTimestamp.CLOCK_SKEW)
+                SECONDS.toMillis(DEFAULT_IDLE_SAFE_TIME_PROP_DURATION) + node0.clockService().maxClockSkewMillis())
         );
 
         // "forEach" makes "i" effectively final, which is convenient for internal lambda.

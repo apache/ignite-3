@@ -39,7 +39,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
-import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -89,7 +89,7 @@ public class LowWatermarkImpl implements LowWatermark, IgniteComponent {
 
     private final LowWatermarkConfiguration lowWatermarkConfig;
 
-    private final HybridClock clock;
+    private final ClockService clockService;
 
     private final TxManager txManager;
 
@@ -123,7 +123,7 @@ public class LowWatermarkImpl implements LowWatermark, IgniteComponent {
      *
      * @param nodeName Node name.
      * @param lowWatermarkConfig Low watermark configuration.
-     * @param clock A hybrid logical clock.
+     * @param clockService A hybrid logical clock.
      * @param txManager Transaction manager.
      * @param vaultManager Vault manager.
      * @param failureProcessor Failure processor tha is used to handle critical errors.
@@ -131,14 +131,14 @@ public class LowWatermarkImpl implements LowWatermark, IgniteComponent {
     public LowWatermarkImpl(
             String nodeName,
             LowWatermarkConfiguration lowWatermarkConfig,
-            HybridClock clock,
+            ClockService clockService,
             TxManager txManager,
             VaultManager vaultManager,
             FailureProcessor failureProcessor,
             MessagingService messagingService
     ) {
         this.lowWatermarkConfig = lowWatermarkConfig;
-        this.clock = clock;
+        this.clockService = clockService;
         this.txManager = txManager;
         this.vaultManager = vaultManager;
         this.failureProcessor = failureProcessor;
@@ -277,14 +277,9 @@ public class LowWatermarkImpl implements LowWatermark, IgniteComponent {
     }
 
     HybridTimestamp createNewLowWatermarkCandidate() {
-        HybridTimestamp now = clock.now();
+        HybridTimestamp now = clockService.now();
 
-        return now.addPhysicalTime(-lowWatermarkConfig.dataAvailabilityTime().value() - getMaxClockSkew());
-    }
-
-    private long getMaxClockSkew() {
-        // TODO: IGNITE-19287 Add Implementation
-        return HybridTimestamp.CLOCK_SKEW;
+        return now.subtractPhysicalTime(lowWatermarkConfig.dataAvailabilityTime().value() + clockService.maxClockSkewMillis());
     }
 
     private void setLowWatermark(HybridTimestamp newLowWatermark) {

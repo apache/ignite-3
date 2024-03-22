@@ -91,7 +91,6 @@ import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.app.ThreadPoolsManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
-import org.apache.ignite.internal.catalog.ClockWaiter;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
@@ -117,6 +116,9 @@ import org.apache.ignite.internal.configuration.validation.TestConfigurationVali
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.hlc.ClockServiceImpl;
+import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.index.IndexManager;
@@ -1072,17 +1074,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier = () -> 10L;
 
-            replicaManager = spy(new ReplicaManager(
-                    name,
-                    clusterService,
-                    cmgManager,
-                    hybridClock,
-                    Set.of(TableMessageGroup.class, TxMessageGroup.class),
-                    placementDriver,
-                    threadPoolsManager.partitionOperationsExecutor(),
-                    partitionIdleSafeTimePropagationPeriodMsSupplier
-            ));
-
             ReplicaService replicaSvc = new ReplicaService(
                     clusterService.messagingService(),
                     hybridClock,
@@ -1098,21 +1089,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     resourcesRegistry,
                     clusterService.topologyService(),
                     clusterService.messagingService(),
-                    transactionInflights
-            );
-
-            txManager = new TxManagerImpl(
-                    txConfiguration,
-                    clusterService,
-                    replicaSvc,
-                    lockManager,
-                    hybridClock,
-                    new TransactionIdGenerator(addr.port()),
-                    placementDriver,
-                    partitionIdleSafeTimePropagationPeriodMsSupplier,
-                    new TestLocalRwTxCounter(),
-                    resourcesRegistry,
-                    resourceCleanupManager,
                     transactionInflights
             );
 
@@ -1159,12 +1135,43 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             clockWaiter = new ClockWaiter(name, hybridClock);
 
+            ClockService clockService = new ClockServiceImpl(
+                    hybridClock,
+                    clockWaiter,
+                    () -> TestIgnitionManager.DEFAULT_MAX_CLOCK_SKEW_MS
+            );
+
+            txManager = new TxManagerImpl(
+                    txConfiguration,
+                    clusterService,
+                    replicaSvc,
+                    lockManager,
+                    clockService,
+                    new TransactionIdGenerator(addr.port()),
+                    placementDriver,
+                    partitionIdleSafeTimePropagationPeriodMsSupplier,
+                    new TestLocalRwTxCounter(),
+                    resourcesRegistry,
+                    resourceCleanupManager,
+                    transactionInflights
+            );
+
+            replicaManager = spy(new ReplicaManager(
+                    name,
+                    clusterService,
+                    cmgManager,
+                    clockService,
+                    Set.of(TableMessageGroup.class, TxMessageGroup.class),
+                    placementDriver,
+                    threadPoolsManager.partitionOperationsExecutor(),
+                    partitionIdleSafeTimePropagationPeriodMsSupplier
+            ));
+
             LongSupplier delayDurationMsSupplier = () -> 10L;
 
             catalogManager = new CatalogManagerImpl(
                     new UpdateLogImpl(metaStorageManager),
-                    clockWaiter,
-                    hybridClock,
+                    clockService,
                     delayDurationMsSupplier,
                     partitionIdleSafeTimePropagationPeriodMsSupplier
             );
@@ -1192,7 +1199,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             lowWatermark = new LowWatermarkImpl(
                     name,
                     gcConfig.lowWatermark(),
-                    clock,
+                    clockService,
                     txManager,
                     vaultManager,
                     failureProcessor,
@@ -1221,6 +1228,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     threadPoolsManager.tableIoExecutor(),
                     threadPoolsManager.partitionOperationsExecutor(),
                     clock,
+                    clockService,
                     new OutgoingSnapshotsManager(clusterService.messagingService()),
                     topologyAwareRaftGroupServiceFactory,
                     distributionZoneManager,

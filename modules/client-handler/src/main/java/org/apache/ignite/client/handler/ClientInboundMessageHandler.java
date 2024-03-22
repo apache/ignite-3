@@ -103,7 +103,7 @@ import org.apache.ignite.internal.client.proto.ResponseFlags;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.event.EventListener;
-import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
@@ -179,8 +179,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     /** Metrics. */
     private final ClientHandlerMetricSource metrics;
 
-    /** Hybrid clock. */
-    private final HybridClock clock;
+    private final ClockService clockService;
 
     /** Context. */
     private ClientContext clientContext;
@@ -215,7 +214,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
      * @param clusterTag Cluster tag.
      * @param metrics Metrics.
      * @param authenticationManager Authentication manager.
-     * @param clock Hybrid clock.
+     * @param clockService Clock service.
      */
     public ClientInboundMessageHandler(
             IgniteTablesInternal igniteTables,
@@ -227,7 +226,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             CompletableFuture<ClusterTag> clusterTag,
             ClientHandlerMetricSource metrics,
             AuthenticationManager authenticationManager,
-            HybridClock clock,
+            ClockService clockService,
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
             long connectionId,
@@ -242,7 +241,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         assert clusterTag != null;
         assert metrics != null;
         assert authenticationManager != null;
-        assert clock != null;
+        assert clockService != null;
         assert schemaSyncService != null;
         assert catalogService != null;
         assert primaryReplicaTracker != null;
@@ -256,18 +255,18 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         this.clusterTag = clusterTag;
         this.metrics = metrics;
         this.authenticationManager = authenticationManager;
-        this.clock = clock;
+        this.clockService = clockService;
         this.primaryReplicaTracker = primaryReplicaTracker;
 
         jdbcQueryCursorHandler = new JdbcQueryCursorHandlerImpl(resources);
         jdbcQueryEventHandler = new JdbcQueryEventHandlerImpl(
                 processor,
-                new JdbcMetadataCatalog(clock, schemaSyncService, catalogService),
+                new JdbcMetadataCatalog(clockService, schemaSyncService, catalogService),
                 resources,
                 igniteTransactions
         );
 
-        schemaVersions = new SchemaVersionsImpl(schemaSyncService, catalogService, clock);
+        schemaVersions = new SchemaVersionsImpl(schemaSyncService, catalogService, clockService);
         this.connectionId = connectionId;
 
         this.primaryReplicaMaxStartTime = new AtomicLong(HybridTimestamp.MIN_VALUE.longValue());
@@ -881,7 +880,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             }
         }
 
-        return clock.now().longValue();
+        return clockService.now().longValue();
     }
 
     private void sendNotification(long requestId, @Nullable Consumer<ClientMessagePacker> writer, @Nullable Throwable err) {

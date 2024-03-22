@@ -51,6 +51,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -142,7 +143,7 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
                 metaStorageManager,
                 topologyService,
                 leaseTracker,
-                new HybridClockImpl()
+                new TestClockService(new HybridClockImpl())
         );
 
         leaseUpdater.init();
