@@ -127,6 +127,7 @@ public class MetricsTests
         Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await server.ConnectClientAsync(GetConfig()));
         AssertMetric(MetricNames.HandshakesFailed, 1);
         AssertMetric(MetricNames.HandshakesFailedTimeout, 0);
+        AssertMetric(MetricNames.ConnectionsActive, 0);
     }
 
     [Test]
