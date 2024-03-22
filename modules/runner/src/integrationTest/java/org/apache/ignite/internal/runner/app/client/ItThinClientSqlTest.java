@@ -42,6 +42,7 @@ import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
@@ -505,6 +506,21 @@ public class ItThinClientSqlTest extends ItAbstractThinClientTest {
         assertEquals(ColumnType.UUID, meta.columns().get(12).type());
         assertEquals(ColumnType.BYTE_ARRAY, meta.columns().get(13).type());
         assertEquals(ColumnType.NULL, meta.columns().get(14).type());
+    }
+
+    @Test
+    public void testExecuteScriptFail() {
+        var script = "CREATE TABLE execute_script_fail (id INT PRIMARY KEY, step INTEGER); "
+                + "INSERT INTO execute_script_fail VALUES(1, 0); "
+                + "UPDATE execute_script_fail SET step = 1; "
+                + "UPDATE execute_script_fail SET step = 3 WHERE step > 1/0; "
+                + "UPDATE execute_script_fail SET step = 2; ";
+
+        SqlException e = assertThrows(
+                SqlException.class,
+                () -> client().sql().createSession().executeScript(script));
+
+        assertThat(e.getMessage(), Matchers.containsString("Division by zero"));
     }
 
     private static class Pojo {

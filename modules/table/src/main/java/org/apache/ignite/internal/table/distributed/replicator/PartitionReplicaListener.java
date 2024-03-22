@@ -1730,7 +1730,6 @@ public class PartitionReplicaListener implements ReplicaListener {
         List<CompletableFuture<?>> txUpdateFutures = new ArrayList<>();
         List<CompletableFuture<?>> txReadFutures = new ArrayList<>();
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-18617
         txCleanupReadyFutures.compute(txId, (id, txOps) -> {
             if (txOps == null) {
                 return null;
@@ -1746,7 +1745,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
             txOps.futures.clear();
 
-            return txOps;
+            return null;
         });
 
         return allOfFuturesExceptionIgnored(txUpdateFutures, commit, txId)
@@ -1894,17 +1893,22 @@ public class PartitionReplicaListener implements ReplicaListener {
         var cleanupReadyFut = new CompletableFuture<Void>();
 
         txCleanupReadyFutures.compute(txId, (id, txOps) -> {
-            if (txOps == null) {
-                txOps = new TxCleanupReadyFutureList();
-            }
-
+            // First check whether the transaction has already been finished.
+            // And complete cleanupReadyFut with exception if it is the case.
             TxStateMeta txStateMeta = txManager.stateMeta(txId);
 
             if (txStateMeta == null || isFinalState(txStateMeta.txState())) {
                 cleanupReadyFut.completeExceptionally(new Exception());
-            } else {
-                txOps.futures.computeIfAbsent(cmdType, type -> new ArrayList<>()).add(cleanupReadyFut);
+
+                return txOps;
             }
+
+            // Otherwise collect cleanupReadyFut in the transaction's futures.
+            if (txOps == null) {
+                txOps = new TxCleanupReadyFutureList();
+            }
+
+            txOps.futures.computeIfAbsent(cmdType, type -> new ArrayList<>()).add(cleanupReadyFut);
 
             return txOps;
         });
@@ -2233,6 +2237,10 @@ public class PartitionReplicaListener implements ReplicaListener {
                 Map<UUID, HybridTimestamp> lastCommitTimes = new HashMap<>();
                 BitSet deleted = request.deleted();
 
+                // When the same key is updated multiple times within the same batch, we need to maintain operation order and apply
+                // only the last update. This map stores the previous searchRows index for each key.
+                Map<ByteBuffer, Integer> newKeyMap = new HashMap<>();
+
                 for (int i = 0; i < searchRows.size(); i++) {
                     BinaryRow searchRow = searchRows.get(i);
 
@@ -2242,18 +2250,38 @@ public class PartitionReplicaListener implements ReplicaListener {
                             ? resolvePk(searchRow.tupleSlice())
                             : extractPk(searchRow);
 
+                    int rowIdx = i;
+
                     rowIdFuts[i] = resolveRowByPk(pk, txId, (rowId, row, lastCommitTime) -> {
                         if (isDelete && rowId == null) {
                             // Does not exist, nothing to delete.
                             return nullCompletedFuture();
                         }
 
-                        boolean insert = rowId == null;
-
-                        RowId rowId0 = insert ? new RowId(partId(), UUID.randomUUID()) : rowId;
-
                         if (lastCommitTime != null) {
+                            // noinspection DataFlowIssue (rowId is not null if lastCommitTime is not null)
                             lastCommitTimes.put(rowId.uuid(), lastCommitTime);
+                        }
+
+                        boolean insert = rowId == null;
+                        RowId rowId0;
+
+                        if (insert) {
+                            Integer prevRowIdx = newKeyMap.put(pk.byteBuffer(), rowIdx);
+
+                            if (prevRowIdx != null) {
+                                // Return existing lock.
+                                CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>> lockFut = rowIdFuts[prevRowIdx];
+
+                                // Skip previous update with the same key.
+                                rowIdFuts[prevRowIdx] = nullCompletedFuture();
+
+                                return lockFut;
+                            }
+
+                            rowId0 = new RowId(partId(), UUID.randomUUID());
+                        } else {
+                            rowId0 = rowId;
                         }
 
                         if (isDelete) {
