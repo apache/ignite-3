@@ -26,11 +26,7 @@ namespace Apache.Ignite.Internal
     /// </summary>
     internal sealed class SocketEndpoint
     {
-        /** */
         private volatile ClientSocket? _socket;
-
-        /** Cached metric tags. */
-        private KeyValuePair<string, object?>[]? _metricTags;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SocketEndpoint"/> class.
@@ -44,6 +40,11 @@ namespace Apache.Ignite.Internal
 
             // Cache endpoint string for metrics and logging.
             EndPointString = endPoint.ToString();
+
+            MetricsContext = new MetricsContext(new[]
+            {
+                new KeyValuePair<string, object?>(MetricTags.NodeAddress, EndPointString)
+            });
         }
 
         /// <summary>
@@ -80,13 +81,8 @@ namespace Apache.Ignite.Internal
         public string EndPointString { get; }
 
         /// <summary>
-        /// Gets the metric tags.
+        /// Gets the metrics context.
         /// </summary>
-        /// <returns>Metric tags for this node.</returns>
-        internal KeyValuePair<string, object?>[] GetMetricTags() =>
-            _metricTags ??= new[]
-            {
-                new KeyValuePair<string, object?>(MetricTags.NodeAddress, EndPointString)
-            };
+        public MetricsContext MetricsContext { get; }
     }
 }

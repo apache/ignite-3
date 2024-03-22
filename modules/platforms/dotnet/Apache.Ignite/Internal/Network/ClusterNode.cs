@@ -18,7 +18,6 @@
 namespace Apache.Ignite.Internal.Network
 {
     using System;
-    using System.Collections.Generic;
     using System.Net;
     using Ignite.Network;
 
@@ -27,24 +26,19 @@ namespace Apache.Ignite.Internal.Network
     /// </summary>
     internal sealed record ClusterNode : IClusterNode
     {
-        private readonly string _addressString;
-
-        /** Cached metric tags. */
-        private KeyValuePair<string, object?>[]? _metricTags;
-
         /// <summary>
         /// Initializes a new instance of the <see cref="ClusterNode"/> class.
         /// </summary>
         /// <param name="id">Id.</param>
         /// <param name="name">Name.</param>
         /// <param name="endpoint">Endpoint.</param>
-        /// <param name="endpointString">Endpoint string.</param>
-        internal ClusterNode(string id, string name, IPEndPoint endpoint, string? endpointString = null)
+        /// <param name="metricsContext">Metrics context.</param>
+        internal ClusterNode(string id, string name, IPEndPoint endpoint, MetricsContext metricsContext)
         {
             Id = id;
             Name = name;
             Address = endpoint;
-            _addressString = endpointString ?? endpoint.ToString();
+            MetricsContext = metricsContext;
         }
 
         /// <inheritdoc/>
@@ -55,6 +49,12 @@ namespace Apache.Ignite.Internal.Network
 
         /// <inheritdoc/>
         public IPEndPoint Address { get; }
+
+        /// <summary>
+        /// Gets the metric tags.
+        /// </summary>
+        /// <returns>Metric tags for this node.</returns>
+        internal MetricsContext MetricsContext { get; }
 
         /// <inheritdoc/>
         public bool Equals(ClusterNode? other)
@@ -73,19 +73,6 @@ namespace Apache.Ignite.Internal.Network
         }
 
         /// <inheritdoc/>
-        public override int GetHashCode()
-        {
-            return HashCode.Combine(Id, Name, Address);
-        }
-
-        /// <summary>
-        /// Gets the metric tags.
-        /// </summary>
-        /// <returns>Metric tags for this node.</returns>
-        internal KeyValuePair<string, object?>[] GetMetricTags() =>
-            _metricTags ??= new[]
-            {
-                new KeyValuePair<string, object?>(MetricTags.NodeAddress, _addressString)
-            };
+        public override int GetHashCode() => HashCode.Combine(Id, Name, Address);
     }
 }

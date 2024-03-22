@@ -17,24 +17,12 @@
 
 namespace Apache.Ignite.Internal;
 
+using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
+
 /// <summary>
-/// Metrics-related functionality.
+/// Metrics context.
 /// </summary>
-internal sealed partial class ClientSocket
-{
-    /// <summary>
-    /// Gets the metric tags.
-    /// </summary>
-    /// <returns>Metric tags for this socket.</returns>
-    public MetricsContext MetricsContext => ConnectionContext.ClusterNode.MetricsContext;
-
-    private static void AddBytesReceived(int bytes, MetricsContext metricsContext) =>
-        Metrics.BytesReceived.Add(bytes, metricsContext.Tags);
-
-    private static void AddBytesSent(int bytes, MetricsContext metricsContext) =>
-        Metrics.BytesSent.Add(bytes, metricsContext.Tags);
-
-    private void AddBytesSent(int bytes) => AddBytesSent(bytes, MetricsContext);
-
-    private void AddFailedRequest() => Metrics.RequestsFailed.Add(1, MetricsContext.Tags);
-}
+/// <param name="Tags">Metric tags.</param>
+[SuppressMessage("Performance", "CA1819:Properties should not return arrays", Justification = "Performance.")]
+internal sealed record MetricsContext(KeyValuePair<string, object?>[] Tags);

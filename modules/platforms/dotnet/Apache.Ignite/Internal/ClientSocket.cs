@@ -196,7 +196,7 @@ namespace Apache.Ignite.Internal
 
                 logger.LogConnectionEstablishedDebug(socket.RemoteEndPoint);
 
-                Metrics.ConnectionsEstablished.Add(1, endPoint.GetMetricTags());
+                Metrics.ConnectionsEstablished.Add(1, endPoint.MetricsContext.Tags);
                 Metrics.ConnectionsActiveIncrement();
                 connected = true;
 
@@ -240,11 +240,11 @@ namespace Apache.Ignite.Internal
 
                 if (ex.GetBaseException() is TimeoutException)
                 {
-                    Metrics.HandshakesFailedTimeout.Add(1, endPoint.GetMetricTags());
+                    Metrics.HandshakesFailedTimeout.Add(1, endPoint.MetricsContext.Tags);
                 }
                 else
                 {
-                    Metrics.HandshakesFailed.Add(1, endPoint.GetMetricTags());
+                    Metrics.HandshakesFailed.Add(1, endPoint.MetricsContext.Tags);
                 }
 
                 if (connected)
@@ -293,14 +293,14 @@ namespace Apache.Ignite.Internal
             CancellationToken cancellationToken)
         {
             await stream.WriteAsync(ProtoCommon.MagicBytes, cancellationToken).ConfigureAwait(false);
-            await WriteHandshakeAsync(stream, CurrentProtocolVersion, configuration, endPoint.GetMetricTags(), cancellationToken)
+            await WriteHandshakeAsync(stream, CurrentProtocolVersion, configuration, endPoint.MetricsContext.Tags, cancellationToken)
                 .ConfigureAwait(false);
 
             await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
 
-            await CheckMagicBytesAsync(stream, endPoint.GetMetricTags(), cancellationToken).ConfigureAwait(false);
+            await CheckMagicBytesAsync(stream, endPoint.MetricsContext.Tags, cancellationToken).ConfigureAwait(false);
 
-            using var response = await ReadResponseAsync(stream, new byte[4], endPoint.GetMetricTags(), CancellationToken.None)
+            using var response = await ReadResponseAsync(stream, new byte[4], endPoint.MetricsContext.Tags, CancellationToken.None)
                 .ConfigureAwait(false);
 
             return ReadHandshakeResponse(response.GetReader(), endPoint, GetSslInfo(stream));
@@ -460,7 +460,7 @@ namespace Apache.Ignite.Internal
             Stream stream,
             ClientProtocolVersion version,
             IgniteClientConfiguration configuration,
-            KeyValuePair<string, object?>[] metricTags,
+            MetricsContext metricsContext,
             CancellationToken token)
         {
             using var bufferWriter = new PooledArrayBuffer(prefixSize: ProtoCommon.MessagePrefixSize);
@@ -474,7 +474,7 @@ namespace Apache.Ignite.Internal
 
             await stream.WriteAsync(resBuf, token).ConfigureAwait(false);
 
-            AddBytesSent(resBuf.Length + ProtoCommon.MagicBytes.Length, metricTags);
+            AddBytesSent(resBuf.Length + ProtoCommon.MagicBytes.Length, metricsContext);
         }
 
         private static void WriteHandshake(MsgPackWriter w, ClientProtocolVersion version, IgniteClientConfiguration configuration)
