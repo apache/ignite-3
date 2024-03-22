@@ -17,10 +17,15 @@
 
 package org.apache.ignite.internal.sql.engine.planner;
 
+import java.util.Arrays;
+import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
+import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Union;
+import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
+import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.IgniteUnionAll;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteColocatedHashAggregate;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
@@ -32,6 +37,7 @@ import org.junit.jupiter.api.Test;
  * Union test.
  */
 public class UnionPlannerTest extends AbstractPlannerTest {
+
     @Test
     public void testUnion() throws Exception {
         IgniteSchema publicSchema = prepareSchema();
@@ -72,6 +78,74 @@ public class UnionPlannerTest extends AbstractPlannerTest {
                 .and(input(2, hasChildThat(isTableScan("TABLE3")))));
     }
 
+    @Test
+    public void testUnionAllResultsInLeastRestrictiveType() throws Exception {
+        IgniteSchema publicSchema = createSchema(
+                TestBuilders.table()
+                        .name("TABLE1")
+                        .addColumn("C1", NativeTypes.INT32)
+                        .addColumn("C2", NativeTypes.STRING)
+                        .distribution(someAffinity())
+                        .build(),
+
+                TestBuilders.table()
+                        .name("TABLE2")
+                        .addColumn("C1", NativeTypes.DOUBLE)
+                        .addColumn("C2", NativeTypes.STRING)
+                        .distribution(someAffinity())
+                        .build(),
+
+                TestBuilders.table()
+                        .name("TABLE3")
+                        .addColumn("C1", NativeTypes.INT64)
+                        .addColumn("C2", NativeTypes.STRING)
+                        .distribution(someAffinity())
+                        .build()
+        );
+
+        String sql = ""
+                + "SELECT * FROM table1 "
+                + "UNION ALL "
+                + "SELECT * FROM table2 "
+                + "UNION ALL "
+                + "SELECT * FROM table3 ";
+
+        assertPlan(sql, publicSchema, isInstanceOf(IgniteUnionAll.class)
+                .and(input(0, projectFromTable("TABLE1", "CAST($0):DOUBLE", "$1"))
+                .and(input(1, hasChildThat(isTableScan("TABLE2"))))
+                .and(input(2, projectFromTable("TABLE3", "CAST($0):DOUBLE", "$1"))))
+        );
+    }
+
+    @Test
+    public void testUnionAllDifferentNullability() throws Exception {
+        IgniteSchema publicSchema = createSchema(
+                TestBuilders.table()
+                        .name("TABLE1")
+                        .addColumn("C1", NativeTypes.INT32, false)
+                        .addColumn("C2", NativeTypes.STRING)
+                        .distribution(someAffinity())
+                        .build(),
+
+                TestBuilders.table()
+                        .name("TABLE2")
+                        .addColumn("C1", NativeTypes.INT32, true)
+                        .addColumn("C2", NativeTypes.STRING)
+                        .distribution(someAffinity())
+                        .build()
+        );
+
+        String sql = ""
+                + "SELECT * FROM table1 "
+                + "UNION ALL "
+                + "SELECT * FROM table2";
+
+        assertPlan(sql, publicSchema, isInstanceOf(IgniteUnionAll.class)
+                .and(input(0, projectFromTable("TABLE1", "CAST($0):INTEGER", "$1"))
+                        .and(input(1, isInstanceOf(IgniteExchange.class).and(input(isTableScan("TABLE2"))))))
+        );
+    }
+
     /**
      * Create schema for tests.
      *
@@ -92,5 +166,15 @@ public class UnionPlannerTest extends AbstractPlannerTest {
                 .addColumn("ID", NativeTypes.INT32)
                 .addColumn("NAME", NativeTypes.STRING)
                 .addColumn("SALARY", NativeTypes.DOUBLE);
+    }
+
+    private Predicate<? extends RelNode> projectFromTable(String tableName, String... exprs) {
+        return isInstanceOf(IgniteProject.class)
+                .and(projection -> {
+                    String actualProjStr = projection.getProjects().toString();
+                    String expectedProjStr = Arrays.asList(exprs).toString();
+                    return actualProjStr.equals(expectedProjStr);
+                })
+                .and(hasChildThat(input(isTableScan(tableName))));
     }
 }

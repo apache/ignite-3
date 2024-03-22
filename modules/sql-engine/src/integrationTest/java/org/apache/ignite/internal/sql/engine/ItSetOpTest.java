@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Predicate;
@@ -28,7 +29,9 @@ import java.util.stream.StreamSupport;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
 import org.apache.ignite.internal.sql.engine.util.HintUtils;
+import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
+import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -302,6 +305,54 @@ public class ItSetOpTest extends BaseSqlIntegrationTest {
 
     private static void createTable(String tableName) {
         sql("CREATE TABLE " + tableName + "(id INT PRIMARY KEY, name VARCHAR, salary DOUBLE)");
+    }
+
+    @Test
+    public void testUnionAllOfDifferentTypes() {
+        sql("CREATE TABLE t1(id INTEGER PRIMARY KEY, val INTEGER)");
+        sql("CREATE TABLE t2(id INTEGER PRIMARY KEY, val DECIMAL(4,2))");
+
+        sql("INSERT INTO t1 VALUES(1, 1)");
+        sql("INSERT INTO t2 VALUES(1, 2)");
+
+        String query = ""
+                + "SELECT id, val FROM t1 "
+                + "UNION "
+                + "SELECT id, val FROM t2";
+
+        assertQuery(query)
+                .returns(1, new BigDecimal("1.00"))
+                .returns(1, new BigDecimal("2.00"))
+                .columnMetadata(
+                        new MetadataMatcher().nullable(false).type(ColumnType.INT32),
+                        new MetadataMatcher().nullable(true).type(ColumnType.DECIMAL)
+                )
+                .check();
+    }
+
+    @Test
+    public void testUnionAllDifferentNullability() {
+        sql("CREATE TABLE t3(id INTEGER PRIMARY KEY, val INTEGER)");
+        sql("CREATE TABLE t4(id INTEGER PRIMARY KEY, val INTEGER NOT NULL)");
+
+        sql("INSERT INTO t3 VALUES(1, 1)");
+        sql("INSERT INTO t4 VALUES(1, 2)");
+        sql("INSERT INTO t3 VALUES(2, NULL)");
+
+        String query = ""
+                + "SELECT id, val FROM t3 "
+                + "UNION "
+                + "SELECT id, val FROM t4";
+
+        assertQuery(query)
+                .returns(1, 1)
+                .returns(1, 2)
+                .returns(2, null)
+                .columnMetadata(
+                        new MetadataMatcher().nullable(false).type(ColumnType.INT32),
+                        new MetadataMatcher().nullable(true).type(ColumnType.INT32)
+                )
+                .check();
     }
 
     private <T> long countIf(Iterable<T> it, Predicate<T> pred) {
