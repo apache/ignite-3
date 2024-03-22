@@ -650,6 +650,7 @@ namespace Apache.Ignite.Internal
                 _logger.LogRetryingOperationDebug("Retrying", (int)op, op, attempt, exception.Message);
             }
 
+            // TODO: Log tags from last exception or last endpoint
             Metrics.RequestsRetried.Add(1);
 
             if (errors == null)
