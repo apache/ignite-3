@@ -40,12 +40,10 @@ class EventTypeRegistryTest {
         EventTypeRegistry.register("register_twice_test");
         assertTrue(EventTypeRegistry.contains("register_twice_test"));
 
-
         assertThrows(
                 NotUniqueEventTypeException.class,
                 () -> EventTypeRegistry.register("register_twice_test"),
                 "Event type `register_twice_test` is already registered. Please, use another name."
-
         );
     }
 
