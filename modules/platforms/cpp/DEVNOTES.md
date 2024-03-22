@@ -178,6 +178,22 @@ cmake -Bbuild -DCMAKE_BUILD_TYPE=RelWithDebInfo
 cmake --build build && cmake --build build --target install
 ```
 
+Some people reported a problem with wrong standard library of LLVM being used by Conan.
+In case you ever face this problem you can fix this by editing your conan profile.
+Put ```compiler.libcxx=libc++11``` under ```[settings]``` section.
+The resulting profile file looks like:
+
+```
+[settings]
+arch=x86_64
+build_type=Debug
+compiler=apple-clang
+compiler.cppstd=gnu17
+compiler.libcxx=libc++11
+compiler.version=15
+os=Macos
+```
+
 ### Windows Build
 
 #### Building in the Debug Mode with Tests and ODBC Using a Single-config Generator
