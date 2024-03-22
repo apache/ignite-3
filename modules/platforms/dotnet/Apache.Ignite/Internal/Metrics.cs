@@ -220,4 +220,9 @@ internal static class Metrics
     /// </summary>
     /// <param name="count">The count.</param>
     public static void StreamerItemsQueuedDecrement(int count) => Interlocked.Add(ref _streamerItemsQueued, -count);
+
+    // TODO:
+    // - Active connections is negative when running tests
+    // - Count bytes sent/received during handshake
+    // - Write a program that performs various operations, closes and opens connections, and check the metrics
 }
