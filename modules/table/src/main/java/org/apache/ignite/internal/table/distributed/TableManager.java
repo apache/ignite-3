@@ -52,6 +52,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
+import static org.apache.ignite.internal.table.distributed.TableUtils.droppedTables;
 import static org.apache.ignite.internal.table.distributed.index.IndexUtils.registerIndexesToTable;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
@@ -577,6 +578,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             assert recoveryFinishFuture.isDone();
 
             long recoveryRevision = recoveryFinishFuture.join();
+
+            cleanUpResourcesForDroppedTablesOnRecoveryBusy();
 
             startTables(recoveryRevision, lowWatermark.getLowWatermark());
 
@@ -2441,9 +2444,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         int latestCatalogVersion = catalogService.latestCatalogVersion();
 
         var startedTables = new IntOpenHashSet();
-        List<CompletableFuture<?>> startTableFutures = new ArrayList<>();
+        var startTableFutures = new ArrayList<CompletableFuture<?>>();
 
-        // TODO: IGNITE-20384 Clean up abandoned resources for dropped zones from volt and metastore
         for (int ver = latestCatalogVersion; ver >= earliestCatalogVersion; ver--) {
             int ver0 = ver;
             catalogService.tables(ver).stream()
@@ -2494,5 +2496,30 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         public int tableId() {
             return tableId;
         }
+    }
+
+    private void cleanUpResourcesForDroppedTablesOnRecoveryBusy() {
+        // TODO: IGNITE-20384 Clean up abandoned resources for dropped zones from vault and metastore
+        for (DroppedTableInfo droppedTableInfo : droppedTables(catalogService, lowWatermark.getLowWatermark())) {
+            int catalogVersion = droppedTableInfo.tableRemovalCatalogVersion() - 1;
+
+            CatalogTableDescriptor tableDescriptor = catalogService.table(droppedTableInfo.tableId(), catalogVersion);
+
+            assert tableDescriptor != null : "tableId=" + droppedTableInfo.tableId() + ", catalogVersion=" + catalogVersion;
+
+            CatalogZoneDescriptor zoneDescriptor = catalogService.zone(tableDescriptor.zoneId(), catalogVersion);
+
+            assert zoneDescriptor != null : "zoneId=" + tableDescriptor.zoneId() + ", catalogVersion=" + catalogVersion;
+
+            destroyTableStorageOnRecoveryBusy(tableDescriptor, zoneDescriptor);
+        }
+    }
+
+    private void destroyTableStorageOnRecoveryBusy(CatalogTableDescriptor tableDescriptor, CatalogZoneDescriptor zoneDescriptor) {
+        StorageEngine engine = dataStorageMgr.engine(zoneDescriptor.dataStorage().engine());
+
+        assert engine != null : "tableId=" + tableDescriptor.id() + ", engineName=" + zoneDescriptor.dataStorage().engine();
+
+        engine.dropMvTable(tableDescriptor.id());
     }
 }

@@ -258,9 +258,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
     }
 
     @ParameterizedTest
-    @CsvSource("1000, true")
-    // TODO IGNITE-21521 Wrong update order in DataStreamer for a new key
-    // @CsvSource({"100, false", "100, true", "1000, false", "1000, true"})
+    @CsvSource({"100, false", "100, true", "1000, false", "1000, true"})
     public void testSameItemMultipleUpdatesOrder(int pageSize, boolean existingKey) {
         int id = pageSize + (existingKey ? 1 : 2);
         RecordView<Tuple> view = defaultTable().recordView();

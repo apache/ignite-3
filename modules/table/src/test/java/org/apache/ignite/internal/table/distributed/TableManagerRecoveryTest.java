@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
 import static org.apache.ignite.internal.table.TableTestUtils.createHashIndex;
+import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
@@ -34,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -58,6 +60,7 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -89,8 +92,11 @@ import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.storage.DataStorageManager;
+import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.DataStorageModules;
+import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataStorageModule;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.table.TableTestUtils;
@@ -112,6 +118,7 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.sql.IgniteSql;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -164,6 +171,8 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
 
     private volatile HybridTimestamp savedWatermark;
 
+    private final DataStorageModule dataStorageModule = createDataStorageModule();
+
     @AfterEach
     void after() throws Exception {
         stopComponents();
@@ -182,6 +191,8 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         clearInvocations(mvTableStorage);
         clearInvocations(txStateTableStorage);
 
+        int tableId = getTableIdStrict(catalogManager, TABLE_NAME, clock.nowLong());
+
         // Drop table and save watermark without triggering LWM events.
         dropTable(TABLE_NAME);
 
@@ -195,6 +206,9 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
 
         verify(mvTableStorage, never()).createMvPartition(anyInt());
         verify(txStateTableStorage, never()).getOrCreateTxStateStorage(anyInt());
+
+        // Let's check that the table was deleted.
+        verify(dsm.engine(dataStorageModule.name())).dropMvTable(eq(tableId));
     }
 
     @Test
@@ -294,7 +308,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 null,
                 null,
                 tm,
-                dsm = createDataStorageManager(mock(ConfigurationRegistry.class), workDir, storageEngineConfig),
+                dsm = createDataStorageManager(mock(ConfigurationRegistry.class), workDir, storageEngineConfig, dataStorageModule),
                 workDir,
                 metaStorageManager,
                 sm = new SchemaManager(revisionUpdater, catalogManager),
@@ -363,11 +377,12 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
     private static DataStorageManager createDataStorageManager(
             ConfigurationRegistry mockedRegistry,
             Path storagePath,
-            PersistentPageMemoryStorageEngineConfiguration config
+            PersistentPageMemoryStorageEngineConfiguration config,
+            DataStorageModule dataStorageModule
     ) {
         when(mockedRegistry.getConfiguration(PersistentPageMemoryStorageEngineConfiguration.KEY)).thenReturn(config);
 
-        DataStorageModules dataStorageModules = new DataStorageModules(List.of(new PersistentPageMemoryDataStorageModule()));
+        DataStorageModules dataStorageModules = new DataStorageModules(List.of(dataStorageModule));
 
         DataStorageManager manager = new DataStorageManager(
                 dataStorageModules.createStorageEngines(NODE_NAME, mockedRegistry, storagePath, null, mock(FailureProcessor.class))
@@ -408,4 +423,18 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         TableTestUtils.dropIndex(catalogManager, DEFAULT_SCHEMA_NAME, indexName);
     }
 
+    private static PersistentPageMemoryDataStorageModule createDataStorageModule() {
+        return new PersistentPageMemoryDataStorageModule() {
+            @Override
+            public StorageEngine createEngine(
+                    String igniteInstanceName,
+                    ConfigurationRegistry configRegistry,
+                    Path storagePath,
+                    @Nullable LongJvmPauseDetector longJvmPauseDetector,
+                    FailureProcessor failureProcessor
+            ) throws StorageException {
+                return spy(super.createEngine(igniteInstanceName, configRegistry, storagePath, longJvmPauseDetector, failureProcessor));
+            }
+        };
+    }
 }

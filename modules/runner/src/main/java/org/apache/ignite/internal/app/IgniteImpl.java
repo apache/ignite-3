@@ -833,7 +833,6 @@ public class IgniteImpl implements Ignite {
                 compute,
                 clusterSvc,
                 nettyBootstrapFactory,
-                sql,
                 () -> cmgMgr.clusterState().thenApply(s -> s.clusterTag()),
                 metricManager,
                 new ClientHandlerMetricSource(),
