@@ -26,6 +26,12 @@ using Network;
 /// </summary>
 internal sealed partial class ClientSocket
 {
+    /// <summary>
+    /// Gets the metric tags.
+    /// </summary>
+    /// <returns>Metric tags for this socket.</returns>
+    public KeyValuePair<string, object?>[] GetMetricTags() => ConnectionContext.ClusterNode.GetMetricTags();
+
     private static void AddBytesSent(int bytes, ClusterNode? node)
     {
         if (node != null)
@@ -45,6 +51,4 @@ internal sealed partial class ClientSocket
     private void AddBytesSent(int bytes) => Metrics.BytesSent.Add(bytes, GetMetricTags());
 
     private void AddFailedRequest() => Metrics.RequestsFailed.Add(1, GetMetricTags());
-
-    private ReadOnlySpan<KeyValuePair<string, object?>> GetMetricTags() => ConnectionContext.ClusterNode.GetMetricTags();
 }

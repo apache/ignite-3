@@ -62,8 +62,7 @@ namespace Apache.Ignite.Internal.Network
         internal KeyValuePair<string, object?>[] GetMetricTags() =>
             _metricTags ??= new[]
             {
-                new KeyValuePair<string, object?>(MetricTags.NodeAddress, _addressString),
-                new KeyValuePair<string, object?>(MetricTags.NodeName, Name)
+                new KeyValuePair<string, object?>(MetricTags.NodeAddress, _addressString)
             };
     }
 }

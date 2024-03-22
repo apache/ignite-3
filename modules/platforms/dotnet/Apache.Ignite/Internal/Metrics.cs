@@ -176,7 +176,7 @@ internal static class Metrics
     /// </summary>
     public static readonly ObservableCounter<int> StreamerItemsQueued = Meter.CreateObservableCounter(
         name: MetricNames.StreamerItemsQueued,
-        observeValue: () => Interlocked.CompareExchange(ref _streamerItemsQueued, 0, 0),
+        observeValue: () => new Measurement<int>(Interlocked.CompareExchange(ref _streamerItemsQueued, 0, 0)),
         unit: "items",
         description: "Total number of queued data streamer items (rows).");
 
