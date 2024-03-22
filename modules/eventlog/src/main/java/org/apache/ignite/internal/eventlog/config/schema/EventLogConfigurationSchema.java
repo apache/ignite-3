@@ -15,14 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.eventlog.config;
+package org.apache.ignite.internal.eventlog.config.schema;
 
+import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.annotation.NamedConfigValue;
 
-@ConfigurationRoot(rootName = "eventlog", type = ConfigurationType.DISTRIBUTED)
+@ConfigurationRoot(rootName = "eventlog", type = ConfigurationType.LOCAL)
 public class EventLogConfigurationSchema {
-    @NamedConfigValue
+    @ConfigValue
     public SinkConfigurationSchema sink;
 }

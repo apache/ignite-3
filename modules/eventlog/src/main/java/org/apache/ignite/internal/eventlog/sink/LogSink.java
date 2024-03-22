@@ -18,15 +18,21 @@
 package org.apache.ignite.internal.eventlog.sink;
 
 import org.apache.ignite.internal.eventlog.api.Event;
+import org.apache.ignite.internal.eventlog.config.schema.LogSinkView;
 
 public class LogSink implements Sink {
+    private final System.Logger logger;
+    private final String level;
+    private final String format;
 
-    public LogSink(LogSinkConfig cfg) {
-
+    public LogSink(LogSinkView cfg) {
+        this.level = cfg.level();
+        this.format = cfg.format();
+        this.logger = System.getLogger(cfg.criteria());
     }
 
     @Override
     public void write(Event event) {
-
+        logger.log(System.Logger.Level.INFO, event.toString());
     }
 }

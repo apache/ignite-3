@@ -17,5 +17,50 @@
 
 package org.apache.ignite.internal.eventlog.sink;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.stream.Collectors;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.eventlog.api.Event;
+import org.apache.ignite.internal.eventlog.config.schema.EventLogConfiguration;
+import org.apache.ignite.internal.eventlog.config.schema.LogSinkView;
+import org.apache.ignite.internal.eventlog.event.EventUser;
+import org.apache.ignite.internal.eventlog.event.IgniteEvents;
+import org.hamcrest.Matchers;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+
+@ExtendWith(ConfigurationExtension.class)
 public class LogSinkTest {
+
+    @InjectConfiguration
+    private EventLogConfiguration eventLogConfiguration;
+
+    static File eventlogFile;
+
+    @BeforeAll
+    static void beforeAll() {
+        String buildDirPath = System.getProperty("buildDirPath");
+        eventlogFile = Path.of(buildDirPath).resolve("event.log").toFile();
+        if (eventlogFile.exists()) {
+            eventlogFile.delete();
+        }
+    }
+
+    @Test
+    void logsToFile() throws IOException {
+        var logSinkConfiguration = (LogSinkView) eventLogConfiguration.sink().value();
+        LogSink logSink = new LogSink(logSinkConfiguration);
+        Event event = IgniteEvents.USER_AUTHENTICATED.create(EventUser.of("user1", "basicProvider"));
+
+        logSink.write(event);
+
+        assertThat(Files.lines(eventlogFile.toPath()).collect(Collectors.toList()), Matchers.hasItem(event.toString()));
+    }
 }

@@ -15,13 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.eventlog.config;
+package org.apache.ignite.internal.eventlog.config.schema;
 
-import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.configuration.annotation.Value;
 
 @PolymorphicConfigInstance("log")
 public class LogSinkConfigurationSchema extends SinkConfigurationSchema {
-    @ConfigValue
-    public String criteria = "ALL";
+
+    @Value(hasDefault = true)
+    public String criteria = "EventLog";
+
+    @Value(hasDefault = true)
+    public String level = "INFO";
+
+    @Value(hasDefault = true)
+    public String format = "json";
 }

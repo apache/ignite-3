@@ -23,11 +23,19 @@ description = 'ignite-eventlog'
 
 dependencies {
     annotationProcessor project(':ignite-configuration-annotation-processor')
+    annotationProcessor libs.auto.service
 
     implementation project(':ignite-api')
     implementation project(':ignite-core')
-    implementation project(':ignite-configuration')
+    implementation project(':ignite-configuration-api')
+    implementation libs.auto.service.annotations
 
     testImplementation libs.hamcrest.core
     testImplementation testFixtures(project(':ignite-core'))
+    testImplementation testFixtures(project(':ignite-configuration'))
+    testImplementation project(':ignite-configuration')
+}
+
+test {
+    systemProperty "buildDirPath", project.buildDir.path
 }

@@ -15,17 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.eventlog.config;
+package org.apache.ignite.internal.eventlog.config.schema;
 
-import org.apache.ignite.configuration.annotation.InjectedName;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicId;
 
 @PolymorphicConfig
 public class SinkConfigurationSchema {
-    @PolymorphicId
-    public String type;
-
-    @InjectedName
-    public String name;
+    @PolymorphicId(hasDefault = true)
+    public String id = "log";
 }
