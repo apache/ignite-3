@@ -91,6 +91,9 @@ public class MetricsTests
 
         AssertMetric(MetricNames.BytesSent, 21);
         AssertMetric(MetricNames.BytesReceived, 72);
+
+        AssertTaggedMetric(MetricNames.BytesSent, 21, client);
+        AssertTaggedMetric(MetricNames.BytesReceived, 72, client);
     }
 
     [Test]
@@ -312,6 +315,12 @@ public class MetricsTests
     private void AssertMetric(string name, int value, int timeoutMs = 1000) =>
         _listener.AssertMetric(name, value, timeoutMs);
 
+    private void AssertTaggedMetric(string name, int value, IIgniteClient client) =>
+        AssertTaggedMetric(name, value, client.GetConnections().Single().Node.Address.ToString());
+
+    private void AssertTaggedMetric(string name, int value, string nodeAddr) =>
+        _listener.AssertTaggedMetric(name, value, nodeAddr);
+
     private void AssertMetricGreaterOrEqual(string name, int value, int timeoutMs = 1000) =>
         _listener.AssertMetricGreaterOrEqual(name, value, timeoutMs);
 
@@ -320,6 +329,8 @@ public class MetricsTests
         private readonly MeterListener _listener = new();
 
         private readonly ConcurrentDictionary<string, long> _metrics = new();
+
+        private readonly ConcurrentDictionary<string, long> _metricsWithTags = new();
 
         public Listener()
         {
@@ -345,11 +356,19 @@ public class MetricsTests
             return _metrics.TryGetValue(name, out var val) ? (int)val : 0;
         }
 
-        public void AssertMetric(string name, int value, int timeoutMs = 1000) =>
+        public void AssertMetric(string name, int value, int timeoutMs = 1000)
+        {
             TestUtils.WaitForCondition(
                 condition: () => GetMetric(name) == value,
                 timeoutMs: timeoutMs,
                 messageFactory: () => $"{name}: expected '{value}', but was '{GetMetric(name)}'");
+        }
+
+        public void AssertTaggedMetric(string name, int value, string nodeAddr)
+        {
+            var taggedName = $"{name}_{MetricTags.NodeAddress}={nodeAddr}";
+            Assert.AreEqual(value, _metricsWithTags[taggedName]);
+        }
 
         public void AssertMetricGreaterOrEqual(string name, int value, int timeoutMs = 1000) =>
             TestUtils.WaitForCondition(
@@ -373,6 +392,9 @@ public class MetricsTests
             else
             {
                 _metrics.AddOrUpdate(instrument.Name, newVal, (_, val) => val + newVal);
+
+                var taggedName = $"{instrument.Name}_{string.Join(",", tags.ToArray().Select(x => $"{x.Key}={x.Value}"))}";
+                _metricsWithTags.AddOrUpdate(taggedName, newVal, (_, val) => val + newVal);
             }
         }
     }
