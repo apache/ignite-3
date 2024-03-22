@@ -28,7 +28,6 @@ import static org.apache.ignite.internal.table.distributed.replicator.action.Req
 import static org.apache.ignite.internal.table.distributed.storage.RowBatch.allResultFutures;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
@@ -37,7 +36,6 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_REPLICA_UNAVAILABLE_ERR;
-import static org.apache.ignite.raft.jraft.util.internal.ThrowUtil.hasCause;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -73,8 +71,8 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.replicator.exception.FullTransactionPrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
+import org.apache.ignite.internal.replicator.exception.TransactionRetryAllowingException;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -109,7 +107,6 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.lang.TraceableException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterNodeResolver;
 import org.apache.ignite.tx.TransactionException;
@@ -332,8 +329,6 @@ public class InternalTableImpl implements InternalTable {
         IgniteBiTuple<ClusterNode, Long> primaryReplicaAndConsistencyToken = actualTx.enlistedNodeAndConsistencyToken(partGroupId);
 
         CompletableFuture<R> fut;
-
-        boolean full = primaryReplicaAndConsistencyToken == null && implicit;
 
         if (primaryReplicaAndConsistencyToken != null) {
             assert !implicit;
@@ -2237,16 +2232,20 @@ public class InternalTableImpl implements InternalTable {
      * @param e Exception to check.
      * @return True if retrying is possible, false otherwise.
      */
-    private boolean isRestartTransactionPossible(Throwable e) {
-        if (e instanceof LockException) {
+    private static boolean isRestartTransactionPossible(Throwable e) {
+        if (e instanceof TransactionRetryAllowingException) {
             return true;
-        } else if (e instanceof TransactionException && e.getCause() instanceof LockException) {
+        } else if (e instanceof TransactionException && e.getCause() instanceof TransactionRetryAllowingException) {
             return true;
-        } else if (e instanceof CompletionException && e.getCause() instanceof LockException) {
+        } else if (e instanceof CompletionException && e.getCause() instanceof TransactionRetryAllowingException) {
             return true;
         } else if (e instanceof CompletionException
                 && e.getCause() instanceof TransactionException
-                && e.getCause().getCause() instanceof LockException) {
+                && e.getCause().getCause() instanceof TransactionRetryAllowingException) {
+            return true;
+        } else if (e instanceof CompletionException
+                && e.getCause() instanceof IgniteException
+                && e.getCause().getCause() instanceof TransactionRetryAllowingException) {
             return true;
         }
 

@@ -2667,7 +2667,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     UpdateCommandResult updateCommandResult = (UpdateCommandResult) res;
 
-                    if (!updateCommandResult.isPrimaryReplicaSuccess()) {
+                    if (full && !updateCommandResult.isPrimaryReplicaSuccess()) {
                         throw new FullTransactionPrimaryReplicaMissException();
                     }
 
@@ -2813,7 +2813,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                             UpdateCommandResult updateCommandResult = (UpdateCommandResult) res;
 
-                            if (!updateCommandResult.isPrimaryReplicaSuccess()) {
+                            if (full && !updateCommandResult.isPrimaryReplicaSuccess()) {
                                 throw new FullTransactionPrimaryReplicaMissException();
                             }
 

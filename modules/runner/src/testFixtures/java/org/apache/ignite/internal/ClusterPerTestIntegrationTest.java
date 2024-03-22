@@ -48,7 +48,6 @@ public abstract class ClusterPerTestIntegrationTest extends IgniteIntegrationTes
             + "  },\n"
             + "  clientConnector: { port:{} },\n"
             + "  rest.port: {},\n"
-            + "  raft: { responseTimeout: 30000 },"
             + "  compute.threadPoolSize: 1\n"
             + "}";
 

@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 import java.util.stream.IntStream;
+import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
@@ -50,6 +51,20 @@ public class ItTransactionPrimaryChangeTest extends ClusterPerTestIntegrationTes
     /** Table name. */
     private static final String TABLE_NAME = "test_table";
 
+    /** Nodes bootstrap configuration pattern. */
+    private static final String NODE_BOOTSTRAP_CFG_TEMPLATE = "{\n"
+            + "  network: {\n"
+            + "    port: {},\n"
+            + "    nodeFinder: {\n"
+            + "      netClusterNodes: [ {} ]\n"
+            + "    }\n"
+            + "  },\n"
+            + "  clientConnector: { port:{} },\n"
+            + "  rest.port: {},\n"
+            + "  raft: { responseTimeout: 30000 },"
+            + "  compute.threadPoolSize: 1\n"
+            + "}";
+
     @BeforeEach
     @Override
     public void setup(TestInfo testInfo) throws Exception {
@@ -62,6 +77,27 @@ public class ItTransactionPrimaryChangeTest extends ClusterPerTestIntegrationTes
             executeUpdate(zoneSql, session);
             executeUpdate(sql, session);
         });
+    }
+
+    @Override
+    protected void customizeInitParameters(InitParametersBuilder builder) {
+        super.customizeInitParameters(builder);
+
+        builder.clusterConfiguration("{"
+                + "  transaction: {"
+                + "      implicitTransactionTimeout: 30000"
+                + "  },"
+                + "}");
+    }
+
+    /**
+     * Returns node bootstrap config template.
+     *
+     * @return Node bootstrap config template.
+     */
+    @Override
+    protected String getNodeBootstrapConfigTemplate() {
+        return NODE_BOOTSTRAP_CFG_TEMPLATE;
     }
 
     @Test

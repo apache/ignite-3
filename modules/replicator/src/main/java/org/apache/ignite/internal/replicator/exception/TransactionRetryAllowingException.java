@@ -17,23 +17,8 @@
 
 package org.apache.ignite.internal.replicator.exception;
 
-import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_MISS_ERR;
-
-import org.apache.ignite.internal.lang.IgniteInternalException;
-
 /**
- * This exception is used when a full transaction misses primary replica.
+ *  Marker interface for exception that allow transaction retries.
  */
-public class FullTransactionPrimaryReplicaMissException extends IgniteInternalException implements TransactionRetryAllowingException {
-    private static final long serialVersionUID = -6260803345179861139L;
-
-    /**
-     * Constructor.
-     */
-    public FullTransactionPrimaryReplicaMissException() {
-        super(
-                REPLICA_MISS_ERR,
-                " The primary replica has changed during a full transaction."
-        );
-    }
+public interface TransactionRetryAllowingException {
 }
