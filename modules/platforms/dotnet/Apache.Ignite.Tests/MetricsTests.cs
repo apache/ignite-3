@@ -42,8 +42,8 @@ public class MetricsTests
     [TearDown]
     public void TearDown()
     {
-        AssertMetric("requests-active", 0);
-        AssertMetric("connections-active", 0);
+        AssertMetric(MetricNames.RequestsActive, 0);
+        AssertMetric(MetricNames.ConnectionsActive, 0);
 
         _listener.Dispose();
 
@@ -58,20 +58,20 @@ public class MetricsTests
     {
         using var server = new FakeServer();
 
-        AssertMetric("connections-established", 0);
-        AssertMetric("connections-active", 0);
+        AssertMetric(MetricNames.ConnectionsEstablished, 0);
+        AssertMetric(MetricNames.ConnectionsActive, 0);
 
         using (await server.ConnectClientAsync())
         {
-            AssertMetric("connections-established", 1);
-            AssertMetric("connections-active", 1);
+            AssertMetric(MetricNames.ConnectionsEstablished, 1);
+            AssertMetric(MetricNames.ConnectionsActive, 1);
         }
 
-        AssertMetric("connections-active", 0);
+        AssertMetric(MetricNames.ConnectionsActive, 0);
 
         (await server.ConnectClientAsync()).Dispose();
-        AssertMetric("connections-established", 2);
-        AssertMetric("connections-active", 0);
+        AssertMetric(MetricNames.ConnectionsEstablished, 2);
+        AssertMetric(MetricNames.ConnectionsActive, 0);
     }
 
     [Test]
@@ -79,18 +79,18 @@ public class MetricsTests
     {
         using var server = new FakeServer();
 
-        AssertMetric("bytes-sent", 0);
-        AssertMetric("bytes-received", 0);
+        AssertMetric(MetricNames.BytesSent, 0);
+        AssertMetric(MetricNames.BytesReceived, 0);
 
         using var client = await server.ConnectClientAsync();
 
-        AssertMetric("bytes-sent", 15);
-        AssertMetric("bytes-received", 63);
+        AssertMetric(MetricNames.BytesSent, 15);
+        AssertMetric(MetricNames.BytesReceived, 63);
 
         await client.Tables.GetTablesAsync();
 
-        AssertMetric("bytes-sent", 21);
-        AssertMetric("bytes-received", 72);
+        AssertMetric(MetricNames.BytesSent, 21);
+        AssertMetric(MetricNames.BytesReceived, 72);
     }
 
     [Test]
@@ -100,13 +100,13 @@ public class MetricsTests
         using var server = new FakeServer();
         using var client = await server.ConnectClientAsync(GetConfig());
 
-        AssertMetric("connections-lost", 0);
-        AssertMetric("connections-lost-timeout", 0);
+        AssertMetric(MetricNames.ConnectionsLost, 0);
+        AssertMetric(MetricNames.ConnectionsLostTimeout, 0);
 
         server.Dispose();
 
-        AssertMetric("connections-lost", 1);
-        AssertMetric("connections-lost-timeout", 0);
+        AssertMetric(MetricNames.ConnectionsLost, 1);
+        AssertMetric(MetricNames.ConnectionsLostTimeout, 0);
     }
 
     [Test]
@@ -115,8 +115,8 @@ public class MetricsTests
         using var server = new FakeServer { HeartbeatDelay = TimeSpan.FromSeconds(3) };
         using var client = await server.ConnectClientAsync(GetConfigWithDelay());
 
-        AssertMetric("connections-lost-timeout", 0);
-        AssertMetric("connections-lost-timeout", 1, timeoutMs: 10_000);
+        AssertMetric(MetricNames.ConnectionsLostTimeout, 0);
+        AssertMetric(MetricNames.ConnectionsLostTimeout, 1, timeoutMs: 10_000);
     }
 
     [Test]
@@ -125,8 +125,8 @@ public class MetricsTests
         using var server = new FakeServer { SendInvalidMagic = true };
 
         Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await server.ConnectClientAsync(GetConfig()));
-        AssertMetric("handshakes-failed", 1);
-        AssertMetric("handshakes-failed-timeout", 0);
+        AssertMetric(MetricNames.HandshakesFailed, 1);
+        AssertMetric(MetricNames.HandshakesFailedTimeout, 0);
     }
 
     [Test]
@@ -135,8 +135,8 @@ public class MetricsTests
         using var server = new FakeServer { HandshakeDelay = TimeSpan.FromSeconds(1) };
 
         Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await server.ConnectClientAsync(GetConfigWithDelay()));
-        AssertMetric("handshakes-failed", 0);
-        AssertMetric("handshakes-failed-timeout", 1);
+        AssertMetric(MetricNames.HandshakesFailed, 0);
+        AssertMetric(MetricNames.HandshakesFailedTimeout, 1);
     }
 
     [Test]
@@ -145,21 +145,21 @@ public class MetricsTests
         using var server = new FakeServer();
         using var client = await server.ConnectClientAsync();
 
-        AssertMetric("requests-sent", 0);
-        AssertMetric("requests-failed", 0);
-        AssertMetric("requests-completed", 0);
+        AssertMetric(MetricNames.RequestsSent, 0);
+        AssertMetric(MetricNames.RequestsFailed, 0);
+        AssertMetric(MetricNames.RequestsCompleted, 0);
 
         await client.Tables.GetTablesAsync();
 
-        AssertMetric("requests-sent", 1);
-        AssertMetric("requests-failed", 0);
-        AssertMetric("requests-completed", 1);
+        AssertMetric(MetricNames.RequestsSent, 1);
+        AssertMetric(MetricNames.RequestsFailed, 0);
+        AssertMetric(MetricNames.RequestsCompleted, 1);
 
         Assert.ThrowsAsync<IgniteException>(async () => await client.Tables.GetTableAsync("bad-table"));
 
-        AssertMetric("requests-sent", 2);
-        AssertMetric("requests-failed", 1);
-        AssertMetric("requests-completed", 1);
+        AssertMetric(MetricNames.RequestsSent, 2);
+        AssertMetric(MetricNames.RequestsFailed, 1);
+        AssertMetric(MetricNames.RequestsCompleted, 1);
     }
 
     [Test]
@@ -168,14 +168,14 @@ public class MetricsTests
         using var server = new FakeServer { OperationDelay = TimeSpan.FromSeconds(1) };
         using var client = await server.ConnectClientAsync();
 
-        AssertMetric("requests-active", 0);
+        AssertMetric(MetricNames.RequestsActive, 0);
 
         _ = client.Tables.GetTablesAsync();
 
-        AssertMetric("requests-active", 1);
-        AssertMetric("requests-sent", 1);
-        AssertMetric("requests-completed", 0);
-        AssertMetric("requests-failed", 0);
+        AssertMetric(MetricNames.RequestsActive, 1);
+        AssertMetric(MetricNames.RequestsSent, 1);
+        AssertMetric(MetricNames.RequestsCompleted, 0);
+        AssertMetric(MetricNames.RequestsFailed, 0);
     }
 
     [Test]
@@ -185,10 +185,10 @@ public class MetricsTests
         using var client = await server.ConnectClientAsync();
 
         await client.Tables.GetTablesAsync();
-        AssertMetric("requests-retried", 0);
+        AssertMetric(MetricNames.RequestsRetried, 0);
 
         await client.Tables.GetTablesAsync();
-        AssertMetric("requests-retried", 3);
+        AssertMetric(MetricNames.RequestsRetried, 3);
     }
 
     [Test]
@@ -197,40 +197,40 @@ public class MetricsTests
         using var server = new FakeServer();
         using var client = await server.ConnectClientAsync();
 
-        AssertMetric("streamer-batches-sent", 0);
-        AssertMetric("streamer-items-sent", 0);
-        AssertMetric("streamer-batches-active", 0);
-        AssertMetric("streamer-items-queued", 0);
+        AssertMetric(MetricNames.StreamerBatchesSent, 0);
+        AssertMetric(MetricNames.StreamerItemsSent, 0);
+        AssertMetric(MetricNames.StreamerBatchesActive, 0);
+        AssertMetric(MetricNames.StreamerItemsQueued, 0);
 
         var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
         var view = table!.RecordBinaryView;
 
         await view.StreamDataAsync(GetTuples().ToAsyncEnumerable(), DataStreamerOptions.Default with { PageSize = 2 });
 
-        AssertMetric("streamer-batches-sent", 1);
-        AssertMetric("streamer-items-sent", 2);
-        AssertMetric("streamer-batches-active", 0);
-        AssertMetric("streamer-items-queued", 0);
+        AssertMetric(MetricNames.StreamerBatchesSent, 1);
+        AssertMetric(MetricNames.StreamerItemsSent, 2);
+        AssertMetric(MetricNames.StreamerBatchesActive, 0);
+        AssertMetric(MetricNames.StreamerItemsQueued, 0);
 
         IEnumerable<IIgniteTuple> GetTuples()
         {
-            AssertMetric("streamer-batches-active", 0);
-            AssertMetric("streamer-items-queued", 0);
+            AssertMetric(MetricNames.StreamerBatchesActive, 0);
+            AssertMetric(MetricNames.StreamerItemsQueued, 0);
 
             yield return new IgniteTuple { ["ID"] = 1 };
 
-            AssertMetric("streamer-batches-active", 1);
-            AssertMetric("streamer-items-queued", 1);
+            AssertMetric(MetricNames.StreamerBatchesActive, 1);
+            AssertMetric(MetricNames.StreamerItemsQueued, 1);
 
             yield return new IgniteTuple { ["ID"] = 2 };
 
-            AssertMetric("streamer-batches-active", 2);
-            AssertMetric("streamer-items-queued", 2);
+            AssertMetric(MetricNames.StreamerBatchesActive, 2);
+            AssertMetric(MetricNames.StreamerItemsQueued, 2);
 
-            AssertMetric("streamer-batches-sent", 1);
-            AssertMetric("streamer-batches-active", 1);
-            AssertMetric("streamer-items-queued", 0);
-            AssertMetric("streamer-items-sent", 2);
+            AssertMetric(MetricNames.StreamerBatchesSent, 1);
+            AssertMetric(MetricNames.StreamerBatchesActive, 1);
+            AssertMetric(MetricNames.StreamerItemsQueued, 0);
+            AssertMetric(MetricNames.StreamerItemsSent, 2);
         }
     }
 
@@ -240,10 +240,10 @@ public class MetricsTests
         using var server = new FakeServer();
         using var client = await server.ConnectClientAsync();
 
-        AssertMetric("streamer-batches-sent", 0);
-        AssertMetric("streamer-items-sent", 0);
-        AssertMetric("streamer-batches-active", 0);
-        AssertMetric("streamer-items-queued", 0);
+        AssertMetric(MetricNames.StreamerBatchesSent, 0);
+        AssertMetric(MetricNames.StreamerItemsSent, 0);
+        AssertMetric(MetricNames.StreamerBatchesActive, 0);
+        AssertMetric(MetricNames.StreamerItemsQueued, 0);
 
         var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
         var view = table!.RecordBinaryView;
@@ -251,13 +251,13 @@ public class MetricsTests
 
         var task = view.StreamDataAsync(GetTuples(), DataStreamerOptions.Default with { PageSize = 10 }, cts.Token);
 
-        AssertMetricGreaterOrEqual("streamer-batches-sent", 1);
+        AssertMetricGreaterOrEqual(MetricNames.StreamerBatchesSent, 1);
         cts.Cancel();
         Assert.CatchAsync<OperationCanceledException>(async () => await task);
 
-        AssertMetricGreaterOrEqual("streamer-batches-sent", 1);
-        AssertMetric("streamer-batches-active", 0);
-        AssertMetric("streamer-items-queued", 0);
+        AssertMetricGreaterOrEqual(MetricNames.StreamerBatchesSent, 1);
+        AssertMetric(MetricNames.StreamerBatchesActive, 0);
+        AssertMetric(MetricNames.StreamerItemsQueued, 0);
 
         static async IAsyncEnumerable<IIgniteTuple> GetTuples([EnumeratorCancellation] CancellationToken ct = default)
         {
