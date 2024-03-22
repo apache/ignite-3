@@ -761,15 +761,15 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     }
 
     @Override
+    public CompletableFuture<Void> cleanup(String node, UUID txId) {
+        return txCleanupRequestSender.cleanup(node, txId);
+    }
+
+    @Override
     public void vacuum() {
         long vacuumObservationTimestamp = System.currentTimeMillis();
 
         txStateVolatileStorage.vacuum(vacuumObservationTimestamp, txConfig.txnResourceTtl().value());
-    }
-
-    @Override
-    public CompletableFuture<Void> cleanup(String node, UUID txId) {
-        return txCleanupRequestSender.cleanup(node, txId);
     }
 
     @Override
