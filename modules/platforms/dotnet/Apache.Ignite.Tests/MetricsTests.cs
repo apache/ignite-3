@@ -72,6 +72,8 @@ public class MetricsTests
         (await server.ConnectClientAsync()).Dispose();
         AssertMetric(MetricNames.ConnectionsEstablished, 2);
         AssertMetric(MetricNames.ConnectionsActive, 0);
+
+        AssertTaggedMetric(MetricNames.ConnectionsEstablished, 2, server);
     }
 
     [Test]
