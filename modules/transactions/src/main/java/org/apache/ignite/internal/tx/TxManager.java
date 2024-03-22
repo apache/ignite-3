@@ -156,6 +156,9 @@ public interface TxManager extends IgniteComponent {
             UUID txId
     );
 
+    /** Locally vacuums no longer needed transactional resources, like txnState both persistent and volatile. */
+    void vacuum();
+
     /**
      * Sends cleanup request to the nodes than initiated recovery.
      *

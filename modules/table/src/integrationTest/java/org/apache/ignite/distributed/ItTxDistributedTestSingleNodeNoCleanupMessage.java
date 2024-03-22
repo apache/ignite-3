@@ -58,7 +58,6 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
-import org.apache.ignite.internal.tx.impl.ResourceCleanupManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
@@ -117,7 +116,6 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                     ClusterNode node,
                     PlacementDriver placementDriver,
                     RemotelyTriggeredResourceRegistry resourcesRegistry,
-                    ResourceCleanupManager resourceCleanupManager,
                     TransactionInflights transactionInflights
             ) {
                 return new TxManagerImpl(
@@ -131,7 +129,6 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                         () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
                         new TestLocalRwTxCounter(),
                         resourcesRegistry,
-                        resourceCleanupManager,
                         transactionInflights
                 ) {
                     @Override

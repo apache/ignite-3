@@ -177,7 +177,7 @@ import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
-import org.apache.ignite.internal.tx.impl.ResourceCleanupManager;
+import org.apache.ignite.internal.tx.impl.ResourceVacuumManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
@@ -458,14 +458,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         TransactionInflights transactionInflights = new TransactionInflights(placementDriverManager.placementDriver());
 
-        ResourceCleanupManager resourceCleanupManager = new ResourceCleanupManager(
-                name,
-                resourcesRegistry,
-                clusterSvc.topologyService(),
-                clusterSvc.messagingService(),
-                transactionInflights
-        );
-
         var txManager = new TxManagerImpl(
                 name,
                 txConfiguration,
@@ -480,8 +472,16 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 new TestLocalRwTxCounter(),
                 threadPoolsManager.partitionOperationsExecutor(),
                 resourcesRegistry,
-                resourceCleanupManager,
                 transactionInflights
+        );
+
+        ResourceVacuumManager resourceVacuumManager = new ResourceVacuumManager(
+                name,
+                resourcesRegistry,
+                clusterSvc.topologyService(),
+                clusterSvc.messagingService(),
+                transactionInflights,
+                txManager
         );
 
         ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
@@ -646,6 +646,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 cmgManager,
                 replicaMgr,
                 txManager,
+                resourceVacuumManager,
                 lowWatermark,
                 metaStorageMgr,
                 clusterCfgMgr,

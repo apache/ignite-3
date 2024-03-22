@@ -99,7 +99,6 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
-import org.apache.ignite.internal.tx.impl.ResourceCleanupManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
@@ -172,14 +171,6 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
         TransactionInflights transactionInflights = new TransactionInflights(placementDriver);
 
-        ResourceCleanupManager resourceCleanupManager = new ResourceCleanupManager(
-                clusterNode.name(),
-                resourcesRegistry,
-                clusterService.topologyService(),
-                clusterService.messagingService(),
-                transactionInflights
-        );
-
         txManager = new TxManagerImpl(
                 txConfiguration,
                 clusterService,
@@ -191,7 +182,6 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
                 new TestLocalRwTxCounter(),
                 resourcesRegistry,
-                resourceCleanupManager,
                 transactionInflights
         ) {
             @Override

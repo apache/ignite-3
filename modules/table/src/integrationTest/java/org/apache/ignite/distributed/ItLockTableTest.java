@@ -45,7 +45,6 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager.LockState;
 import org.apache.ignite.internal.tx.impl.HeapUnboundedLockManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
-import org.apache.ignite.internal.tx.impl.ResourceCleanupManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
@@ -134,7 +133,6 @@ public class ItLockTableTest extends IgniteAbstractTest {
                     ClusterNode node,
                     PlacementDriver placementDriver,
                     RemotelyTriggeredResourceRegistry resourcesRegistry,
-                    ResourceCleanupManager resourceCleanupManager,
                     TransactionInflights transactionInflights
             ) {
                 return new TxManagerImpl(
@@ -152,7 +150,6 @@ public class ItLockTableTest extends IgniteAbstractTest {
                         () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
                         new TestLocalRwTxCounter(),
                         resourcesRegistry,
-                        resourceCleanupManager,
                         transactionInflights
                 );
             }

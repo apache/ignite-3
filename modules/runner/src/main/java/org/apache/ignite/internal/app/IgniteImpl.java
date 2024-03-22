@@ -199,7 +199,7 @@ import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
-import org.apache.ignite.internal.tx.impl.ResourceCleanupManager;
+import org.apache.ignite.internal.tx.impl.ResourceVacuumManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
@@ -374,7 +374,7 @@ public class IgniteImpl implements Ignite {
     private final IndexNodeFinishedRwTransactionsChecker indexNodeFinishedRwTransactionsChecker;
 
     /** Cleanup manager for tx resources. */
-    private final ResourceCleanupManager resourceCleanupManager;
+    private final ResourceVacuumManager resourceVacuumManager;
 
     /** Remote triggered resources registry. */
     private final RemotelyTriggeredResourceRegistry resourcesRegistry;
@@ -676,14 +676,6 @@ public class IgniteImpl implements Ignite {
 
         TransactionInflights transactionInflights = new TransactionInflights(placementDriverMgr.placementDriver());
 
-        resourceCleanupManager = new ResourceCleanupManager(
-                name,
-                resourcesRegistry,
-                clusterSvc.topologyService(),
-                messagingServiceReturningToStorageOperationsPool,
-                transactionInflights
-        );
-
         // TODO: IGNITE-19344 - use nodeId that is validated on join (and probably generated differently).
         txManager = new TxManagerImpl(
                 name,
@@ -699,8 +691,16 @@ public class IgniteImpl implements Ignite {
                 indexNodeFinishedRwTransactionsChecker,
                 threadPoolsManager.partitionOperationsExecutor(),
                 resourcesRegistry,
-                resourceCleanupManager,
                 transactionInflights
+        );
+
+        resourceVacuumManager = new ResourceVacuumManager(
+                name,
+                resourcesRegistry,
+                clusterSvc.topologyService(),
+                messagingServiceReturningToStorageOperationsPool,
+                transactionInflights,
+                txManager
         );
 
         StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry.getConfiguration(StorageUpdateConfiguration.KEY);
@@ -1042,7 +1042,7 @@ public class IgniteImpl implements Ignite {
                                     clientHandlerModule,
                                     deploymentManager,
                                     sql,
-                                    resourceCleanupManager
+                                    resourceVacuumManager
                             );
 
                             // The system view manager comes last because other components
