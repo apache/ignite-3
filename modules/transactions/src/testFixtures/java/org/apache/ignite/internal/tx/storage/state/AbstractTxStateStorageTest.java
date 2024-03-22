@@ -424,6 +424,8 @@ public abstract class AbstractTxStateStorageTest {
         storage0.updateLease(lst1);
 
         assertEquals(lst1, storage0.leaseStartTime());
+
+        assertThrows(AssertionError.class, () -> storage0.updateLease(100));
     }
 
     private static void checkStorageIsEmpty(TxStateStorage storage) {

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tx.storage.state.rocksdb;
 
 import static java.nio.ByteOrder.BIG_ENDIAN;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbTableStorage.TABLE_PREFIX_SIZE_BYTES;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
@@ -581,6 +582,9 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     @Override
     public void updateLease(long leaseStartTime) {
         busy(() -> {
+            assert leaseStartTime > this.leaseStartTime : format("Updated lease start time should be greater than current [current={}, "
+                    + "updated={}]", this.leaseStartTime, leaseStartTime);
+
             try (WriteBatch writeBatch = new WriteBatch()) {
                 byte[] leaseBytes = new byte[Long.BYTES];
 

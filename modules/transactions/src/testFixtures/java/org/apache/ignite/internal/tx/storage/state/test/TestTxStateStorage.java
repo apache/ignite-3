@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tx.storage.state.test;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_REBALANCE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_STOPPED_ERR;
@@ -248,6 +249,9 @@ public class TestTxStateStorage implements TxStateStorage {
 
     @Override
     public void updateLease(long leaseStartTime) {
+        assert leaseStartTime > this.leaseStartTime : format("Updated lease start time should be greater than current [current={}, "
+                + "updated={}]", this.leaseStartTime, leaseStartTime);
+
         this.leaseStartTime = leaseStartTime;
     }
 

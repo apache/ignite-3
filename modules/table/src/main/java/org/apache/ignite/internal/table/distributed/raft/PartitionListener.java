@@ -523,6 +523,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
             if (proposedSafeTime >= maxObservableSafeTime) {
                 maxObservableSafeTime = proposedSafeTime;
             } else {
+                System.out.println("qqq reordered safe time: " + proposedSafeTime);
                 throw new SafeTimeReorderException();
             }
         }
@@ -601,8 +602,6 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Proper storage/raft index handling is required.
         synchronized (safeTime) {
             if (cmd.safeTime().compareTo(safeTime.current()) > 0) {
-                LOG.info("qqq Handling primary replica change command=" + cmd);
-
                 txStateStorage.updateLease(cmd.leaseStartTime());
 
                 updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());

@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.table.distributed.replicator.action.Req
 import static org.apache.ignite.internal.table.distributed.storage.RowBatch.allResultFutures;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
@@ -35,6 +36,7 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_FAILED_READ_WRITE_OPERATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_REPLICA_UNAVAILABLE_ERR;
+import static org.apache.ignite.raft.jraft.util.internal.ThrowUtil.hasCause;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -70,6 +72,7 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.exception.FullTransactionPrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -105,6 +108,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.utils.PrimaryReplica;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.TraceableException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.ClusterNodeResolver;
 import org.apache.ignite.tx.TransactionException;
@@ -298,6 +302,8 @@ public class InternalTableImpl implements InternalTable {
 
         CompletableFuture<R> fut;
 
+        boolean full = primaryReplicaAndConsistencyToken == null && implicit;
+
         if (primaryReplicaAndConsistencyToken != null) {
             assert !implicit;
 
@@ -321,7 +327,19 @@ public class InternalTableImpl implements InternalTable {
             );
         }
 
-        return postEnlist(fut, false, actualTx, implicit);
+        return postEnlist(fut, false, actualTx, implicit).handle((r, e) -> {
+            if (e instanceof FullTransactionPrimaryReplicaMissException
+                || (e instanceof CompletionException && e.getCause() instanceof FullTransactionPrimaryReplicaMissException)
+                || (e instanceof TransactionException && e.getCause() instanceof FullTransactionPrimaryReplicaMissException)
+                || (e instanceof CompletionException && e.getCause() instanceof IgniteException
+                    && e.getCause().getCause() instanceof FullTransactionPrimaryReplicaMissException)) {
+                return enlistInTx(row, null, fac, noWriteChecker, retryOnLockConflict);
+            } else if (e != null) {
+                throw sneakyThrow(e);
+            } else {
+                return completedFuture(r);
+            }
+        }).thenCompose(x -> x);
     }
 
     /**

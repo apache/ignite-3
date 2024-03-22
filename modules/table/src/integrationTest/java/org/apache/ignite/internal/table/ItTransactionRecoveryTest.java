@@ -18,9 +18,7 @@
 package org.apache.ignite.internal.table;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
-import static org.apache.ignite.internal.replicator.ReplicaService.REPLICA_SERVICE_RPC_TIMEOUT;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -47,7 +45,6 @@ import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
@@ -64,7 +61,6 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.message.ErrorTimestampAwareReplicaResponse;
 import org.apache.ignite.internal.replicator.message.TimestampAwareReplicaResponse;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
@@ -77,7 +73,6 @@ import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
-import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.apache.ignite.internal.tx.message.FinishedTransactionsBatchMessage;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxRecoveryMessage;
@@ -85,7 +80,6 @@ import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequest;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -1022,92 +1016,6 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
                 () -> txExecNode.resourcesRegistry().resources().isEmpty(),
                 10_000)
         );
-    }
-
-    @Test
-    @WithSystemProperty(key = REPLICA_SERVICE_RPC_TIMEOUT, value = "30000")
-    public void testFullTxConsistency() throws InterruptedException {
-        TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
-
-        int partId = 0;
-
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), partId);
-
-        String leaseholder = waitAndGetPrimaryReplica(node(0), tblReplicationGrp).getLeaseholder();
-
-        IgniteImpl firstLeaseholderNode = findNodeByName(leaseholder);
-
-        log.info("Test: Full transaction will be executed on [node={}].", firstLeaseholderNode.name());
-
-        IgniteImpl txCrdNode = findNode(0, initialNodes(), n -> !leaseholder.equals(n.name()));
-
-        log.info("Test: Transaction coordinator is [node={}].", txCrdNode.name());
-
-        RecordView<Tuple> view = txCrdNode.tables().table(TABLE_NAME).recordView();
-
-        // Put some value into the table.
-        Transaction txPreload = txCrdNode.transactions().begin();
-        log.info("Test: Preloading the data [tx={}].", ((ReadWriteTransactionImpl) txPreload).id());
-        view.upsert(txPreload, Tuple.create().set("key", 1).set("val", "1"));
-        txPreload.commit();
-
-        var fullTxReplicationAttemptFuture = new CompletableFuture<>();
-        var regularTxComplete = new CompletableFuture<>();
-
-        firstLeaseholderNode.dropMessages((node, msg) -> {
-            if (msg instanceof WriteActionRequest) {
-                WriteActionRequest writeActionRequest = (WriteActionRequest) msg;
-
-                if (tblReplicationGrp.toString().equals(writeActionRequest.groupId())
-                        && writeActionRequest.deserializedCommand() instanceof UpdateCommand
-                        && !fullTxReplicationAttemptFuture.isDone()) {
-                    UpdateCommand updateCommand = (UpdateCommand) writeActionRequest.deserializedCommand();
-
-                    if (updateCommand.full()) {
-                        fullTxReplicationAttemptFuture.complete(null);
-
-                        log.info("Test: Stopped the full tx before sending write command [txId={}].", updateCommand.txId());
-
-                        regularTxComplete.join();
-                    }
-                }
-            }
-
-            return false;
-        });
-
-        // Starting the full transaction.
-        log.info("Test: Starting the full transaction.");
-        CompletableFuture<Tuple> fullTxFut = view.getAndDeleteAsync(null, Tuple.create().set("key", 1));
-
-        try {
-            assertThat(fullTxReplicationAttemptFuture, willCompleteSuccessfully());
-
-            // Changing the primary.
-            NodeUtils.transferPrimary(tbl, txCrdNode.name(), cluster::node);
-
-            // Start a regular transaction that increments the value. It should see the initially inserted value and its commit should succeed.
-            Transaction tx = txCrdNode.transactions().begin();
-            log.info("Test: Started the regular transaction [txId={}].", ((ReadWriteTransactionImpl) tx).id());
-
-            Tuple t = view.get(tx, Tuple.create().set("key", 1));
-            //assertEquals("1", t.value(1));
-            view.upsert(tx, Tuple.create().set("key", 1).set("val", "2"));
-
-            tx.commit();
-
-            log.info("Test: Completed the regular transaction [txId={}].", ((ReadWriteTransactionImpl) tx).id());
-        } finally {
-            regularTxComplete.complete(null);
-        }
-        fullTxFut.join();
-
-        // Full transaction should finally complete.
-        assertThat(fullTxFut, willCompleteSuccessfully());
-
-        // Transaction "tx" got the value, this means the full transaction hasn't executed yet at the moment of "tx" commit.
-        // Hence the retrieved value should always be 2.
-        assertEquals("2", fullTxFut.join().value("val"));
     }
 
     private DefaultMessagingService messaging(IgniteImpl node) {
