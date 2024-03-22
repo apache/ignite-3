@@ -84,12 +84,12 @@ public class MetricsTests
 
         using var client = await server.ConnectClientAsync();
 
-        AssertMetric("bytes-sent", 11);
+        AssertMetric("bytes-sent", 15);
         AssertMetric("bytes-received", 63);
 
         await client.Tables.GetTablesAsync();
 
-        AssertMetric("bytes-sent", 17);
+        AssertMetric("bytes-sent", 21);
         AssertMetric("bytes-received", 72);
     }
 

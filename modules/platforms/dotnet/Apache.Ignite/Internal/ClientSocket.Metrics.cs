@@ -18,7 +18,6 @@
 namespace Apache.Ignite.Internal;
 
 using System.Collections.Generic;
-using Network;
 
 /// <summary>
 /// Metrics-related functionality.
