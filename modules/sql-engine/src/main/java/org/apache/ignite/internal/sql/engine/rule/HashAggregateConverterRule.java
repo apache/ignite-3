@@ -108,6 +108,8 @@ public class HashAggregateConverterRule {
             RelTraitSet outTrait = cluster.traitSetOf(IgniteConvention.INSTANCE);
             Mapping fieldMappingOnReduce = Commons.trimmingMapping(agg.getGroupSet().length(), agg.getGroupSet());
 
+            RelTraitSet reducePhaseTraits = outTrait.replace(IgniteDistributions.single());
+
             AggregateRelBuilder relBuilder = new AggregateRelBuilder() {
 
                 @Override
@@ -129,7 +131,7 @@ public class HashAggregateConverterRule {
 
                     return new IgniteProject(
                             agg.getCluster(),
-                            outTrait.replace(IgniteDistributions.single()),
+                            reducePhaseTraits,
                             convert(input, inTrait.replace(IgniteDistributions.single())),
                             reduceInputExprs,
                             projectRowType
@@ -142,7 +144,7 @@ public class HashAggregateConverterRule {
 
                     return new IgniteReduceHashAggregate(
                             cluster,
-                            outTrait.replace(IgniteDistributions.single()),
+                            reducePhaseTraits,
                             convert(input, inTrait.replace(IgniteDistributions.single())),
                             groupSet,
                             groupSets,
