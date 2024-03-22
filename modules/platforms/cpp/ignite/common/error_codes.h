@@ -66,6 +66,7 @@ enum class code : underlying_t {
     NODE_LEFT = 0x10005,
     CURSOR_ALREADY_CLOSED = 0x10006,
     RESOURCE_CLOSING = 0x10007,
+    RETRY_NEEDED = 0x10008,
     INTERNAL = 0x1ffff,
 
     // Table group. Group code: 2
@@ -101,7 +102,6 @@ enum class code : underlying_t {
     SESSION_CLOSED = 0x4000b,
     MAPPING = 0x4000c,
     TX_CONTROL_INSIDE_EXTERNAL_TX = 0x4000d,
-    STALE_PLAN = 0x4000e,
 
     // MetaStorage group. Group code: 5
     STARTING_STORAGE = 0x50001,
@@ -149,6 +149,7 @@ enum class code : underlying_t {
     ALREADY_CLOSED = 0x90003,
     STORAGE_REBALANCE = 0x90004,
     ALREADY_DESTROYED = 0x90005,
+    READING_FROM_ALREADY_DESTROYED_INDEX = 0x90006,
 
     // DistributionZones group. Group code: 10
     ZONE_NOT_FOUND = 0xa0001,

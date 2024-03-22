@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.index;
 
-import static org.apache.ignite.lang.ErrorGroups.Sql.STALE_PLAN_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.RETRY_NEEDED_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
@@ -137,7 +137,7 @@ class ItIndexAndIndexStorageDestructionTest extends ClusterPerTestIntegrationTes
                 () -> cluster.query(0, "SELECT * FROM " + TABLE_NAME + " WHERE name = 'John'", rs -> null)
         );
 
-        assertThat(ex.code(), is(STALE_PLAN_ERR));
+        assertThat(ex.code(), is(RETRY_NEEDED_ERR));
         assertThat(ex.getMessage(), is("Query has been executed using an outdated plan. Retry the query."));
     }
 
@@ -151,7 +151,7 @@ class ItIndexAndIndexStorageDestructionTest extends ClusterPerTestIntegrationTes
             }
         });
 
-        assertThat(ex.code(), is(STALE_PLAN_ERR));
+        assertThat(ex.code(), is(RETRY_NEEDED_ERR));
         assertThat(ex.getMessage(), is("Query has been executed using an outdated plan. Retry the query."));
     }
 }

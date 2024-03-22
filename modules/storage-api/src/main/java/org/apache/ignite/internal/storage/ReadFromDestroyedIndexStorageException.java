@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.storage;
 
+import static org.apache.ignite.lang.ErrorGroups.Storage.READING_FROM_ALREADY_DESTROYED_INDEX_ERR;
+
 /**
  * Thrown if an attempt is made to read from an index storage that is under destruction or already destroyed.
  */
@@ -25,10 +27,11 @@ public class ReadFromDestroyedIndexStorageException extends StorageDestroyedExce
 
     /** Constructor. */
     public ReadFromDestroyedIndexStorageException() {
+        super(READING_FROM_ALREADY_DESTROYED_INDEX_ERR);
     }
 
     /** Constructor. */
     public ReadFromDestroyedIndexStorageException(String message) {
-        super(message);
+        super(READING_FROM_ALREADY_DESTROYED_INDEX_ERR, message);
     }
 }

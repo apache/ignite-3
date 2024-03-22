@@ -120,6 +120,7 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::ILLEGAL_ARGUMENT:
         case error::code::SSL_CONFIGURATION:
         case error::code::NODE_LEFT:
+        case error::code::RETRY_NEEDED:
         case error::code::INTERNAL:
             return sql_state::SHY000_GENERAL_ERROR;
 
@@ -160,7 +161,6 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::EXECUTION_CANCELLED:
             return sql_state::SHY008_OPERATION_CANCELED;
         case error::code::TX_CONTROL_INSIDE_EXTERNAL_TX:
-        case error::code::STALE_PLAN:
             return sql_state::S25000_INVALID_TRANSACTION_STATE;
         case error::code::CONSTRAINT_VIOLATION:
             return sql_state::S23000_INTEGRITY_CONSTRAINT_VIOLATION;
@@ -229,6 +229,7 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::ALREADY_CLOSED:
         case error::code::STORAGE_REBALANCE:
         case error::code::ALREADY_DESTROYED:
+        case error::code::READING_FROM_ALREADY_DESTROYED_INDEX:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // DistributionZones group. Group code: 10
