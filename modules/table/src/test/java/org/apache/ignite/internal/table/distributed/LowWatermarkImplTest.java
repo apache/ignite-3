@@ -19,6 +19,8 @@ package org.apache.ignite.internal.table.distributed;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.table.distributed.LowWatermarkImpl.LOW_WATERMARK_VAULT_KEY;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -153,7 +155,7 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testUpdateLowWatermark() {
+    void testUpdateAndNotify() {
         HybridTimestamp now = clock.now();
 
         when(clock.now()).thenReturn(now);
@@ -163,7 +165,7 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
         // Make a predictable candidate to make it easier to test.
         HybridTimestamp newLowWatermarkCandidate = lowWatermark.createNewLowWatermarkCandidate();
 
-        lowWatermark.updateLowWatermark();
+        assertThat(lowWatermark.updateAndNotify(newLowWatermarkCandidate), willCompleteSuccessfully());
 
         InOrder inOrder = inOrder(txManager, vaultManager, listener);
 
@@ -241,7 +243,7 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
 
         lowWatermark.onReceiveNetworkMessage(mock(GetLowWatermarkRequest.class), sender, correlationId);
 
-        assertThat(lowWatermark.updateLowWatermark(), willCompleteSuccessfully());
+        assertThat(lowWatermark.updateAndNotify(lowWatermark.createNewLowWatermarkCandidate()), willCompleteSuccessfully());
 
         lowWatermark.onReceiveNetworkMessage(mock(GetLowWatermarkRequest.class), sender, correlationId);
 
@@ -252,5 +254,48 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
                 .collect(toList());
 
         assertThat(respondedLowWatermarks, contains(null, lowWatermark.getLowWatermark()));
+    }
+
+    @Test
+    void testUpdateLowWatermark() {
+        when(txManager.updateLowWatermark(any())).thenReturn(nullCompletedFuture());
+
+        assertThat(lowWatermark.start(), willCompleteSuccessfully());
+
+        CompletableFuture<HybridTimestamp> updateLowWatermarkFuture0 = listenUpdateLowWatermark();
+
+        HybridTimestamp newLwm0 = clock.now();
+
+        lowWatermark.updateLowWatermark(newLwm0);
+
+        assertThat(updateLowWatermarkFuture0, willBe(newLwm0));
+
+        // Let's check it again.
+        CompletableFuture<HybridTimestamp> updateLowWatermarkFuture1 = listenUpdateLowWatermark();
+
+        HybridTimestamp newLwm1 = clock.now();
+
+        lowWatermark.updateLowWatermark(newLwm1);
+
+        assertThat(updateLowWatermarkFuture1, willBe(newLwm1));
+
+        // Let's check the unchanged value.
+        CompletableFuture<HybridTimestamp> updateLowWatermarkFuture2 = listenUpdateLowWatermark();
+
+        lowWatermark.updateLowWatermark(newLwm1);
+
+        assertThat(updateLowWatermarkFuture2, willTimeoutFast());
+    }
+
+    private CompletableFuture<HybridTimestamp> listenUpdateLowWatermark() {
+        var future = new CompletableFuture<HybridTimestamp>();
+
+        lowWatermark.addUpdateListener(ts -> {
+            future.complete(ts);
+
+            return nullCompletedFuture();
+        });
+
+        return future;
     }
 }

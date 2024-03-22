@@ -236,7 +236,7 @@ class CatalogStorageIndexDescriptorSupplierTest extends BaseIgniteAbstractTest {
             return candidate.compareTo(now) >= 0;
         }, 10_000));
 
-        assertThat(lowWatermark.updateLowWatermark(), willCompleteSuccessfully());
+        assertThat(lowWatermark.updateAndNotify(lowWatermark.createNewLowWatermarkCandidate()), willCompleteSuccessfully());
 
         HybridTimestamp lowWatermarkTimestamp = lowWatermark.getLowWatermark();
 

@@ -70,6 +70,13 @@ public class TestLowWatermark implements LowWatermark {
         }
     }
 
+    @Override
+    public void updateLowWatermark(HybridTimestamp newLowWatermark) {
+        if (ts == null || newLowWatermark.compareTo(ts) > 0) {
+            setLowWatermark(newLowWatermark);
+        }
+    }
+
     /**
      * Update low watermark and notify listeners.
      *
