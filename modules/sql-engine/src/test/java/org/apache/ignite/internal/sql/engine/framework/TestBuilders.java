@@ -37,14 +37,15 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.calcite.util.ImmutableIntList;
-import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
@@ -62,11 +63,16 @@ import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
 import org.apache.ignite.internal.catalog.commands.TablePrimaryKey;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
+import org.apache.ignite.internal.catalog.events.CatalogEvent;
+import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
+import org.apache.ignite.internal.catalog.events.MakeIndexAvailableEventParameters;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTable;
@@ -134,6 +140,8 @@ import org.jetbrains.annotations.Nullable;
 public class TestBuilders {
     private static final AtomicInteger TABLE_ID_GEN = new AtomicInteger();
 
+    private static final IgniteLogger LOG = Loggers.forClass(TestBuilders.class);
+
     /** Returns a builder of the test cluster object. */
     public static ClusterBuilder cluster() {
         return new ClusterBuilderImpl();
@@ -155,8 +163,8 @@ public class TestBuilders {
     }
 
     /**
-     * Factory method to create {@link ScannableTable table} instance from given data provider with
-     * only implemented {@link ScannableTable#scan table scan}.
+     * Factory method to create {@link ScannableTable table} instance from given data provider with only implemented
+     * {@link ScannableTable#scan table scan}.
      */
     public static ScannableTable tableScan(DataProvider<Object[]> dataProvider) {
         return new ScannableTable() {
@@ -201,8 +209,8 @@ public class TestBuilders {
     }
 
     /**
-     * Factory method to create {@link ScannableTable table} instance from given data provider with
-     * only implemented {@link ScannableTable#indexRangeScan index range scan}.
+     * Factory method to create {@link ScannableTable table} instance from given data provider with only implemented
+     * {@link ScannableTable#indexRangeScan index range scan}.
      */
     public static ScannableTable indexRangeScan(DataProvider<Object[]> dataProvider) {
         return new ScannableTable() {
@@ -246,8 +254,8 @@ public class TestBuilders {
     }
 
     /**
-     * Factory method to create {@link ScannableTable table} instance from given data provider with
-     * only implemented {@link ScannableTable#indexLookup index lookup}.
+     * Factory method to create {@link ScannableTable table} instance from given data provider with only implemented
+     * {@link ScannableTable#indexLookup index lookup}.
      */
     public static ScannableTable indexLookup(DataProvider<Object[]> dataProvider) {
         return new ScannableTable() {
@@ -328,8 +336,8 @@ public class TestBuilders {
          * Adds the given system view to the cluster.
          *
          * @param systemView System view.
-         * @return {@code this} for chaining.
          * @param <T> System view data type.
+         * @return {@code this} for chaining.
          */
         <T> ClusterBuilder addSystemView(SystemView<T> systemView);
 
@@ -631,10 +639,15 @@ public class TestBuilders {
                 }
             }
 
-            Runnable initClosure = () -> initAction(catalogManager);
-
-            var ddlHandler = new DdlCommandHandler(catalogManager, new ClockWaiter("test", clock), () -> 100);
+            var clockWaiter = new ClockWaiter("test", clock);
+            var ddlHandler = new DdlCommandHandler(catalogManager, clockWaiter, () -> 100);
             var schemaManager = new SqlSchemaManagerImpl(catalogManager, CaffeineCacheFactory.INSTANCE, 0);
+
+            Runnable initClosure = () -> {
+                clockWaiter.start();
+
+                initAction(catalogManager);
+            };
 
             List<LogicalNode> logicalNodes = nodeNames.stream()
                     .map(name -> {
@@ -728,35 +741,56 @@ public class TestBuilders {
                     .flatMap(builder -> builder.build().stream())
                     .collect(Collectors.toList());
 
-            // Init schema
-            await(catalogManager.execute(initialSchema));
+            CompletableFuture<Boolean> indicesReadyFut = new CompletableFuture<>();
+            CopyOnWriteArraySet<Integer> initialIndices = new CopyOnWriteArraySet<>();
 
-            // Make indexes available
-            List<CatalogCommand> makeIndexesAvailable = new ArrayList<>();
+            // Make indices registered via builder API available on startup.
+            if (!tableBuilders.isEmpty()) {
+                Consumer<MakeIndexAvailableEventParameters> indexAvailableHandler = params -> {
+                    initialIndices.remove(params.indexId());
 
-            Catalog catalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
+                    if (initialIndices.isEmpty()) {
+                        indicesReadyFut.complete(true);
+                    }
+                };
 
-            for (ClusterTableBuilderImpl tableBuilder : tableBuilders) {
-                String schemaName = tableBuilder.schemaName;
-                CatalogSchemaDescriptor schema = catalog.schema(schemaName);
-                assert schema != null : "SchemaDescriptor does not exist: " + schemaName;
+                EventListener<MakeIndexAvailableEventParameters> listener = EventListener.fromConsumer(indexAvailableHandler);
+                catalogManager.listen(CatalogEvent.INDEX_AVAILABLE, listener);
 
-                for (AbstractClusterTableIndexBuilderImpl<?> indexBuilder : tableBuilder.indexBuilders) {
-                    String indexName = indexBuilder.name;
-                    CatalogIndexDescriptor index = Arrays.stream(schema.indexes())
-                            .filter(idx -> idx.name().equals(indexName))
-                            .findAny()
-                            .orElseThrow(() -> new AssertionError("IndexDescriptor does not exist: " + indexName));
-
-                    CatalogCommand startBuildIndexCommand = StartBuildingIndexCommand.builder().indexId(index.id()).build();
-                    CatalogCommand makeIndexAvailableCommand = MakeIndexAvailableCommand.builder().indexId(index.id()).build();
-
-                    makeIndexesAvailable.add(startBuildIndexCommand);
-                    makeIndexesAvailable.add(makeIndexAvailableCommand);
-                }
+                // Remove listener, when all indices become available.
+                indicesReadyFut.whenComplete((r, t) -> {
+                    catalogManager.removeListener(CatalogEvent.INDEX_AVAILABLE, listener);
+                });
+            } else {
+                indicesReadyFut.complete(true);
             }
 
-            await(catalogManager.execute(makeIndexesAvailable));
+            // Every time an index is created add `start building `and `make available` commands
+            // to make that index accessible to the SQL engine.
+            Consumer<CreateIndexEventParameters> createIndexHandler = (params) -> {
+                CatalogIndexDescriptor index = params.indexDescriptor();
+                int indexId = index.id();
+
+                CatalogCommand startBuildIndexCommand = StartBuildingIndexCommand.builder().indexId(indexId).build();
+                CatalogCommand makeIndexAvailableCommand = MakeIndexAvailableCommand.builder().indexId(indexId).build();
+
+                // Collect initial indexes only if catalog init future has not completed.
+                if (!indicesReadyFut.isDone()) {
+                    initialIndices.add(indexId);
+                }
+
+                LOG.info("Index has been created. Sending commands to make index available. id: {}, name: {}, status: {}",
+                        indexId, index.name(), index.status());
+
+                catalogManager.execute(List.of(startBuildIndexCommand, makeIndexAvailableCommand));
+            };
+            catalogManager.listen(CatalogEvent.INDEX_CREATE, EventListener.fromConsumer(createIndexHandler));
+
+            // Init schema.
+            await(catalogManager.execute(initialSchema));
+
+            // Wait until all indices become available.
+            await(indicesReadyFut);
         }
     }
 
@@ -1446,8 +1480,8 @@ public class TestBuilders {
         }
 
         /**
-         * Sets a function that returns system views. Function accepts a view name and returns a list of nodes
-         * a system view is available at.
+         * Sets a function that returns system views. Function accepts a view name and returns a list of nodes a system view is available
+         * at.
          */
         public ExecutionTargetProviderBuilder setSystemViews(Function<String, List<String>> systemViews) {
             this.owningNodesBySystemViewName = systemViews;
