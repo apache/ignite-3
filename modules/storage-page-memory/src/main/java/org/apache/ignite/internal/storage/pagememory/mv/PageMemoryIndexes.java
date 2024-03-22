@@ -180,7 +180,9 @@ class PageMemoryIndexes {
         return nullCompletedFuture();
     }
 
-    private CompletableFuture<Void> destroyStorage(int indexId, AbstractPageMemoryIndexStorage<?, ?> storage, IndexMetaTree indexMetaTree) {
+    private CompletableFuture<Void> destroyStorage(
+            int indexId, AbstractPageMemoryIndexStorage<?, ?, ?> storage, IndexMetaTree indexMetaTree
+    ) {
         if (!storage.transitionToDestroyedState()) {
             return nullCompletedFuture();
         }
@@ -243,7 +245,7 @@ class PageMemoryIndexes {
         return resources;
     }
 
-    private void forEachIndex(Consumer<AbstractPageMemoryIndexStorage<?, ?>> consumer) {
+    private void forEachIndex(Consumer<AbstractPageMemoryIndexStorage<?, ?, ?>> consumer) {
         hashIndexes.values().forEach(consumer);
         sortedIndexes.values().forEach(consumer);
     }

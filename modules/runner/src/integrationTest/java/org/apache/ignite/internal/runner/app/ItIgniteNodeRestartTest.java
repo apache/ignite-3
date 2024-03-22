@@ -503,6 +503,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         );
 
         GcConfiguration gcConfig = clusterConfigRegistry.getConfiguration(GcConfiguration.KEY);
+        TransactionConfiguration txConfiguration = clusterConfigRegistry.getConfiguration(TransactionConfiguration.KEY);
 
         var clockWaiter = new ClockWaiter(name, hybridClock);
 
@@ -551,6 +552,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 name,
                 registry,
                 gcConfig,
+                txConfiguration,
                 storageUpdateConfiguration,
                 messagingServiceReturningToStorageOperationsPool,
                 clusterSvc.topologyService(),

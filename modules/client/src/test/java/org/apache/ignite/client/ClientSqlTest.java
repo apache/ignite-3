@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -97,8 +98,10 @@ public class ClientSqlTest extends AbstractClientTableTest {
         assertEquals("SCHEMA1", props.get("schema"));
         assertEquals("123000", props.get("timeout"));
         assertEquals("234", props.get("pageSize"));
-        assertEquals("1", props.get("prop1"));
-        assertEquals("2", props.get("prop2"));
+
+        // Properties are ignored by the SQL engine for now.
+        assertNull(props.get("prop1"));
+        assertNull(props.get("prop2"));
     }
 
     @Test
@@ -128,9 +131,11 @@ public class ClientSqlTest extends AbstractClientTableTest {
         assertEquals("SCHEMA2", props.get("schema"));
         assertEquals("124000", props.get("timeout"));
         assertEquals("235", props.get("pageSize"));
-        assertEquals("1", props.get("prop1"));
-        assertEquals("22", props.get("prop2"));
-        assertEquals("3", props.get("prop3"));
+
+        // Properties are ignored by the SQL engine for now.
+        assertNull(props.get("prop1"));
+        assertNull(props.get("prop2"));
+        assertNull(props.get("prop3"));
     }
 
     @Test
@@ -227,8 +232,7 @@ public class ClientSqlTest extends AbstractClientTableTest {
         SqlRow row = resultSet.next();
 
         assertEquals(
-                "foo, arguments: [], properties: [], defaultPageSize=null, defaultSchema=null, "
-                        + "defaultQueryTimeout=null, defaultSessionTimeout=null",
+                "foo, arguments: [], defaultSchema=PUBLIC, defaultQueryTimeout=0",
                 row.value(0));
     }
 
@@ -250,8 +254,7 @@ public class ClientSqlTest extends AbstractClientTableTest {
         SqlRow row = resultSet.next();
 
         assertEquals(
-                "do bar baz, arguments: [arg1, null, 2, ], properties: [prop2=-5, prop1=val1, prop3=null, ], "
-                        + "defaultPageSize=123, defaultSchema=script-schema, defaultQueryTimeout=456, defaultSessionTimeout=789000",
+                "do bar baz, arguments: [arg1, null, 2, ], defaultSchema=script-schema, defaultQueryTimeout=456",
                 row.value(0));
     }
 }

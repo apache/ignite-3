@@ -17,28 +17,21 @@
 
 package org.apache.ignite.client.handler.requests.sql;
 
-import static org.apache.ignite.client.handler.requests.sql.ClientSqlCommon.readSession;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTx;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
-import java.util.function.Function;
-import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.sql.api.SessionImpl;
+import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.sql.BatchedArguments;
-import org.apache.ignite.sql.IgniteSql;
-import org.apache.ignite.sql.ResultSetMetadata;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlBatchException;
-import org.apache.ignite.sql.Statement;
-import org.apache.ignite.sql.Statement.StatementBuilder;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Client SQL execute batch request.
@@ -51,21 +44,19 @@ public class ClientSqlExecuteBatchRequest {
      * @param out Packer.
      * @param sql SQL API.
      * @param resources Resources.
-     * @param metrics Metrics.
      * @param transactions Transactional facade. Used to acquire last observed time to propagate to client in response.
      * @return Future representing result of operation.
      */
     public static CompletableFuture<Void> process(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
-            IgniteSql sql,
+            QueryProcessor sql,
             ClientResourceRegistry resources,
-            ClientHandlerMetricSource metrics,
             IgniteTransactionsImpl transactions
     ) {
-        var tx = readTx(in, out, resources);
-        Session session = readSession(in, sql, transactions);
-        Statement statement = readStatement(in, sql);
+        InternalTransaction tx = readTx(in, out, resources);
+        ClientSqlProperties props = new ClientSqlProperties(in);
+        String statement = in.unpackString();
         BatchedArguments arguments = in.unpackObjectArrayFromBinaryTupleArray();
 
         if (arguments == null) {
@@ -73,38 +64,46 @@ public class ClientSqlExecuteBatchRequest {
             arguments = BatchedArguments.of(ArrayUtils.OBJECT_EMPTY_ARRAY);
         }
 
-        // TODO IGNITE-20232 Propagate observable timestamp to sql engine using internal API.
         HybridTimestamp clientTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
-
         transactions.updateObservableTimestamp(clientTs);
 
-        return session
-                .executeBatchAsync(tx, statement.query(), arguments)
+        return SessionImpl.executeBatchCore(
+                sql,
+                        transactions,
+                        tx,
+                        statement,
+                        arguments,
+                        props.toSqlProps(),
+                        () -> true,
+                        () -> {},
+                        cursor -> 0,
+                        cursorId -> {})
                 .handle((affectedRows, ex) -> {
                     out.meta(transactions.observableTimestamp());
+
                     if (ex != null) {
                         var cause = ExceptionUtils.unwrapCause(ex.getCause());
 
                         if (cause instanceof SqlBatchException) {
                             var exBatch = ((SqlBatchException) cause);
-                            return writeBatchResultAsync(out, resources, exBatch.updateCounters(),
-                                    exBatch.errorCode(), exBatch.getMessage(), session, metrics);
+
+                            writeBatchResult(out, exBatch.updateCounters(), exBatch.errorCode(), exBatch.getMessage());
+                            return null;
                         }
+
                         affectedRows = ArrayUtils.LONG_EMPTY_ARRAY;
                     }
 
-                    return writeBatchResultAsync(out, resources, affectedRows, session, metrics);
-                }).thenCompose(Function.identity());
+                    writeBatchResult(out, affectedRows);
+                    return null;
+                });
     }
 
-    private static CompletionStage<Void> writeBatchResultAsync(
+    private static void writeBatchResult(
             ClientMessagePacker out,
-            ClientResourceRegistry resources,
             long[] affectedRows,
             Short errorCode,
-            String errorMessage,
-            Session session,
-            ClientHandlerMetricSource metrics) {
+            String errorMessage) {
         out.packNil(); // resourceId
 
         out.packBoolean(false); // has row set
@@ -113,16 +112,11 @@ public class ClientSqlExecuteBatchRequest {
         out.packLongArray(affectedRows); // affected rows
         out.packShort(errorCode); // error code
         out.packString(errorMessage); // error message
-
-        return session.closeAsync();
     }
 
-    private static CompletionStage<Void> writeBatchResultAsync(
+    private static void writeBatchResult(
             ClientMessagePacker out,
-            ClientResourceRegistry resources,
-            long[] affectedRows,
-            Session session,
-            ClientHandlerMetricSource metrics) {
+            long[] affectedRows) {
         out.packNil(); // resourceId
 
         out.packBoolean(false); // has row set
@@ -131,25 +125,5 @@ public class ClientSqlExecuteBatchRequest {
         out.packLongArray(affectedRows); // affected rows
         out.packNil(); // error code
         out.packNil(); // error message
-
-        return session.closeAsync();
-    }
-
-    private static Statement readStatement(ClientMessageUnpacker in, IgniteSql sql) {
-        StatementBuilder statementBuilder = sql.statementBuilder();
-
-        statementBuilder.query(in.unpackString());
-
-        return statementBuilder.build();
-    }
-
-    private static void packMeta(ClientMessagePacker out, @Nullable ResultSetMetadata meta) {
-        // TODO IGNITE-17179 metadata caching - avoid sending same meta over and over.
-        if (meta == null || meta.columns() == null) {
-            out.packInt(0);
-            return;
-        }
-
-        ClientSqlCommon.packColumns(out, meta.columns());
     }
 }

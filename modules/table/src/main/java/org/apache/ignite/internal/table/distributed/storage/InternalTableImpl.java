@@ -30,6 +30,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.emptyListComple
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
+import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
@@ -179,6 +180,12 @@ public class InternalTableImpl implements InternalTable {
     /** Table raft service. */
     private final TableRaftServiceImpl tableRaftService;
 
+    /** Implicit transaction timeout. */
+    private final long implicitTransactionTimeout;
+
+    /** Attempts to take lock. */
+    private final int attemptsObtainLock;
+
     /**
      * Constructor.
      *
@@ -194,6 +201,8 @@ public class InternalTableImpl implements InternalTable {
      * @param placementDriver Placement driver.
      * @param tableRaftService Table raft service.
      * @param transactionInflights Transaction inflights.
+     * @param implicitTransactionTimeout Implicit transaction timeout.
+     * @param attemptsObtainLock Attempts to take lock.
      */
     public InternalTableImpl(
             String tableName,
@@ -208,7 +217,9 @@ public class InternalTableImpl implements InternalTable {
             HybridTimestampTracker observableTimestampTracker,
             PlacementDriver placementDriver,
             TableRaftServiceImpl tableRaftService,
-            TransactionInflights transactionInflights
+            TransactionInflights transactionInflights,
+            long implicitTransactionTimeout,
+            int attemptsObtainLock
     ) {
         this.tableName = tableName;
         this.tableId = tableId;
@@ -224,6 +235,8 @@ public class InternalTableImpl implements InternalTable {
         this.placementDriver = placementDriver;
         this.tableRaftService = tableRaftService;
         this.transactionInflights = transactionInflights;
+        this.implicitTransactionTimeout = implicitTransactionTimeout;
+        this.attemptsObtainLock = attemptsObtainLock;
     }
 
     /** {@inheritDoc} */
@@ -269,7 +282,25 @@ public class InternalTableImpl implements InternalTable {
      * @param tx The transaction, not null if explicit.
      * @param fac Replica requests factory.
      * @param noWriteChecker Used to handle operations producing no updates.
-     * @param retryOnLockConflict {@code True} to retry on lock conflict.
+     * @return The future.
+     */
+    private <R> CompletableFuture<R> enlistInTx(
+            BinaryRowEx row,
+            @Nullable InternalTransaction tx,
+            IgniteTriFunction<InternalTransaction, ReplicationGroupId, Long, ReplicaRequest> fac,
+            BiPredicate<R, ReplicaRequest> noWriteChecker
+    ) {
+        return enlistInTx(row, tx, fac, noWriteChecker, null);
+    }
+
+    /**
+     * Enlists a single row into a transaction.
+     *
+     * @param row The row.
+     * @param tx The transaction, not null if explicit.
+     * @param fac Replica requests factory.
+     * @param noWriteChecker Used to handle operations producing no updates.
+     * @param txStartTs Transaction start time or {@code null}. This parameter is used only for retry.
      * @return The future.
      */
     private <R> CompletableFuture<R> enlistInTx(
@@ -277,7 +308,7 @@ public class InternalTableImpl implements InternalTable {
             @Nullable InternalTransaction tx,
             IgniteTriFunction<InternalTransaction, ReplicationGroupId, Long, ReplicaRequest> fac,
             BiPredicate<R, ReplicaRequest> noWriteChecker,
-            boolean retryOnLockConflict
+            @Nullable Long txStartTs
     ) {
         // Check whether proposed tx is read-only. Complete future exceptionally if true.
         // Attempting to enlist a read-only in a read-write transaction does not corrupt the transaction itself, thus read-write transaction
@@ -314,31 +345,32 @@ public class InternalTableImpl implements InternalTable {
                     false,
                     primaryReplicaAndConsistencyToken,
                     noWriteChecker,
-                    retryOnLockConflict
+                    attemptsObtainLock
             );
         } else {
-            fut = enlistWithRetry(
+            fut = enlistAndInvoke(
                     actualTx,
                     partId,
                     enlistmentConsistencyToken -> fac.apply(actualTx, partGroupId, enlistmentConsistencyToken),
                     implicit,
-                    noWriteChecker,
-                    retryOnLockConflict
+                    noWriteChecker
             );
         }
 
         return postEnlist(fut, false, actualTx, implicit).handle((r, e) -> {
-            if (e instanceof FullTransactionPrimaryReplicaMissException
-                || (e instanceof CompletionException && e.getCause() instanceof FullTransactionPrimaryReplicaMissException)
-                || (e instanceof TransactionException && e.getCause() instanceof FullTransactionPrimaryReplicaMissException)
-                || (e instanceof CompletionException && e.getCause() instanceof IgniteException
-                    && e.getCause().getCause() instanceof FullTransactionPrimaryReplicaMissException)) {
-                return enlistInTx(row, null, fac, noWriteChecker, retryOnLockConflict);
-            } else if (e != null) {
-                throw sneakyThrow(e);
-            } else {
-                return completedFuture(r);
+            if (e != null) {
+                if (implicit) {
+                    long ts = (txStartTs == null) ? actualTx.startTimestamp().getPhysical() : txStartTs;
+
+                    if (isRestartTransactionPossible(e) && coarseCurrentTimeMillis() - ts < implicitTransactionTimeout) {
+                        return enlistInTx(row, null, fac, noWriteChecker, ts);
+                    }
+                }
+
+                throw wrapReplicationException(e);
             }
+
+            return completedFuture(r);
         }).thenCompose(x -> x);
     }
 
@@ -350,7 +382,29 @@ public class InternalTableImpl implements InternalTable {
      * @param fac Replica requests factory.
      * @param reducer Transform reducer.
      * @param noOpChecker Used to handle no-op operations (producing no updates).
-     * @param retryOnLockConflict {@code True} to retry on lock conflict.
+     * @return The future.
+     */
+    private <T> CompletableFuture<T> enlistInTx(
+            Collection<BinaryRowEx> keyRows,
+            @Nullable InternalTransaction tx,
+            IgnitePentaFunction<
+                    Collection<? extends BinaryRow>, InternalTransaction, ReplicationGroupId, Long, Boolean, ReplicaRequest
+                    > fac,
+            Function<Collection<RowBatch>, CompletableFuture<T>> reducer,
+            BiPredicate<T, ReplicaRequest> noOpChecker
+    ) {
+        return enlistInTx(keyRows, tx, fac, reducer, noOpChecker, null);
+    }
+
+    /**
+     * Enlists a single row into a transaction.
+     *
+     * @param keyRows Rows.
+     * @param tx The transaction.
+     * @param fac Replica requests factory.
+     * @param reducer Transform reducer.
+     * @param noOpChecker Used to handle no-op operations (producing no updates).
+     * @param txStartTs Transaction start time or {@code null}. This parameter is used only for retry.
      * @return The future.
      */
     private <T> CompletableFuture<T> enlistInTx(
@@ -361,7 +415,7 @@ public class InternalTableImpl implements InternalTable {
                     > fac,
             Function<Collection<RowBatch>, CompletableFuture<T>> reducer,
             BiPredicate<T, ReplicaRequest> noOpChecker,
-            boolean retryOnLockConflict
+            @Nullable Long txStartTs
     ) {
         // Check whether proposed tx is read-only. Complete future exceptionally if true.
         // Attempting to enlist a read-only in a read-write transaction does not corrupt the transaction itself, thus read-write transaction
@@ -404,17 +458,16 @@ public class InternalTableImpl implements InternalTable {
                         false,
                         primaryReplicaAndConsistencyToken,
                         noOpChecker,
-                        retryOnLockConflict
+                        attemptsObtainLock
                 );
             } else {
-                fut = enlistWithRetry(
+                fut = enlistAndInvoke(
                         actualTx,
                         partitionId,
                         enlistmentConsistencyToken ->
                                 fac.apply(rowBatch.requestedRows, actualTx, partGroupId, enlistmentConsistencyToken, full),
                         full,
-                        noOpChecker,
-                        retryOnLockConflict
+                        noOpChecker
                 );
             }
 
@@ -423,7 +476,21 @@ public class InternalTableImpl implements InternalTable {
 
         CompletableFuture<T> fut = reducer.apply(rowBatchByPartitionId.values());
 
-        return postEnlist(fut, implicit && !singlePart, actualTx, full);
+        return postEnlist(fut, implicit && !singlePart, actualTx, full).handle((r, e) -> {
+            if (e != null) {
+                if (implicit) {
+                    long ts = (txStartTs == null) ? actualTx.startTimestamp().getPhysical() : txStartTs;
+
+                    if (isRestartTransactionPossible(e) && coarseCurrentTimeMillis() - ts < implicitTransactionTimeout) {
+                        return enlistInTx(keyRows, null, fac, reducer, noOpChecker, ts);
+                    }
+                }
+
+                throw wrapReplicationException(e);
+            }
+
+            return completedFuture(r);
+        }).thenCompose(x -> x);
     }
 
     private InternalTransaction startImplicitRwTxIfNeeded(@Nullable InternalTransaction tx) {
@@ -486,7 +553,7 @@ public class InternalTableImpl implements InternalTable {
         if (primaryReplicaAndConsistencyToken != null) {
             fut = replicaSvc.invoke(primaryReplicaAndConsistencyToken.get1(), mapFunc.apply(primaryReplicaAndConsistencyToken.get2()));
         } else {
-            fut = enlistWithRetry(tx, partId, mapFunc, false, null, false);
+            fut = enlistAndInvoke(tx, partId, mapFunc, false, null);
         }
 
         return postEnlist(fut, false, tx, false);
@@ -504,39 +571,25 @@ public class InternalTableImpl implements InternalTable {
     }
 
     /**
-     * Partition enlisting with retrying.
+     * Enlists a partition and invokes the replica.
      *
      * @param tx Internal transaction.
      * @param partId Partition number.
      * @param mapFunc Function to create replica request with new enlistment consistency token.
      * @param full {@code True} if is a full transaction.
      * @param noWriteChecker Used to handle operations producing no updates.
-     * @param retryOnLockConflict {@code True} to retry on lock conflict.
      * @return The future.
      */
-    private <R> CompletableFuture<R> enlistWithRetry(
+    private <R> CompletableFuture<R> enlistAndInvoke(
             InternalTransaction tx,
             int partId,
             Function<Long, ReplicaRequest> mapFunc,
             boolean full,
-            @Nullable BiPredicate<R, ReplicaRequest> noWriteChecker,
-            boolean retryOnLockConflict
+            @Nullable BiPredicate<R, ReplicaRequest> noWriteChecker
     ) {
-        return (CompletableFuture<R>) enlist(partId, tx)
+        return enlist(partId, tx)
                 .thenCompose(primaryReplicaAndConsistencyToken ->
-                        trackingInvoke(tx, partId, mapFunc, full, primaryReplicaAndConsistencyToken, noWriteChecker, retryOnLockConflict))
-                .handle((res0, e) -> {
-                    if (e != null) {
-                        // We can safely retry indefinitely on deadlock prevention.
-                        if (retryOnLockConflict && e.getCause() instanceof LockException) {
-                            return enlistWithRetry(tx, partId, mapFunc, full, noWriteChecker, true);
-                        }
-
-                        return failedFuture(e);
-                    }
-
-                    return completedFuture(res0);
-                }).thenCompose(x -> x);
+                        trackingInvoke(tx, partId, mapFunc, full, primaryReplicaAndConsistencyToken, noWriteChecker, attemptsObtainLock));
     }
 
     /**
@@ -558,7 +611,7 @@ public class InternalTableImpl implements InternalTable {
             boolean full,
             IgniteBiTuple<ClusterNode, Long> primaryReplicaAndConsistencyToken,
             @Nullable BiPredicate<R, ReplicaRequest> noWriteChecker,
-            boolean retryOnLockConflict
+            int retryOnLockConflict
     ) {
         assert !tx.isReadOnly() : format("Tracking invoke is available only for read-write transactions [tx={}].", tx);
 
@@ -591,14 +644,27 @@ public class InternalTableImpl implements InternalTable {
                 }
 
                 return res;
-            }).exceptionally(e -> {
-                if (retryOnLockConflict && e.getCause() instanceof LockException) {
-                    transactionInflights.removeInflight(tx.id()); // Will be retried.
+            }).handle((r, e) -> {
+                if (e != null) {
+                    if (retryOnLockConflict > 0 && e.getCause() instanceof LockException) {
+                        transactionInflights.removeInflight(tx.id()); // Will be retried.
+
+                        return trackingInvoke(
+                                tx,
+                                partId,
+                                ignored -> request,
+                                full,
+                                primaryReplicaAndConsistencyToken,
+                                noWriteChecker,
+                                retryOnLockConflict - 1
+                        );
+                    }
+
+                    ExceptionUtils.sneakyThrow(e);
                 }
 
-                ExceptionUtils.sneakyThrow(e);
-                return null; // Unreachable.
-            });
+                return completedFuture(r);
+            }).thenCompose(x -> x);
         } else {
             return replicaSvc.invoke(primaryReplicaAndConsistencyToken.get1(), request);
         }
@@ -816,8 +882,7 @@ public class InternalTableImpl implements InternalTable {
                         .full(tx == null)
                         .coordinatorId(txo.coordinatorId())
                         .build(),
-                (res, req) -> false,
-                false
+                (res, req) -> false
         );
     }
 
@@ -895,8 +960,7 @@ public class InternalTableImpl implements InternalTable {
                 (keyRows0, txo, groupId, enlistmentConsistencyToken, full) ->
                         readWriteMultiRowPkReplicaRequest(RW_GET_ALL, keyRows0, txo, groupId, enlistmentConsistencyToken, full),
                 InternalTableImpl::collectMultiRowsResponsesWithRestoreOrder,
-                (res, req) -> false,
-                false
+                (res, req) -> false
         );
     }
 
@@ -1015,8 +1079,7 @@ public class InternalTableImpl implements InternalTable {
                         .full(tx == null)
                         .coordinatorId(txo.coordinatorId())
                         .build(),
-                (res, req) -> false,
-                false
+                (res, req) -> false
         );
     }
 
@@ -1028,8 +1091,7 @@ public class InternalTableImpl implements InternalTable {
                 tx,
                 this::upsertAllInternal,
                 RowBatch::allResultFutures,
-                (res, req) -> false,
-                false
+                (res, req) -> false
         );
     }
 
@@ -1039,13 +1101,12 @@ public class InternalTableImpl implements InternalTable {
         InternalTransaction tx = txManager.begin(observableTimestampTracker);
         TablePartitionId partGroupId = new TablePartitionId(tableId, partition);
 
-        CompletableFuture<Void> fut = enlistWithRetry(
+        CompletableFuture<Void> fut = enlistAndInvoke(
                 tx,
                 partition,
                 enlistmentConsistencyToken -> upsertAllInternal(rows, deleted, tx, partGroupId, enlistmentConsistencyToken, true),
                 true,
-                null,
-                true // Allow auto retries for data streamer.
+                null
         );
 
         return postEnlist(fut, false, tx, true); // Will be committed in one RTT.
@@ -1069,8 +1130,7 @@ public class InternalTableImpl implements InternalTable {
                         .full(tx == null)
                         .coordinatorId(txo.coordinatorId())
                         .build(),
-                (res, req) -> false,
-                false
+                (res, req) -> false
         );
     }
 
@@ -1092,8 +1152,7 @@ public class InternalTableImpl implements InternalTable {
                         .full(tx == null)
                         .coordinatorId(txo.coordinatorId())
                         .build(),
-                (res, req) -> !res,
-                false
+                (res, req) -> !res
         );
     }
 
@@ -1122,8 +1181,7 @@ public class InternalTableImpl implements InternalTable {
 
                     // All values are null, this means nothing was deleted.
                     return true;
-                },
-                false
+                }
         );
     }
 
@@ -1171,8 +1229,7 @@ public class InternalTableImpl implements InternalTable {
                         .full(tx == null)
                         .coordinatorId(txo.coordinatorId())
                         .build(),
-                (res, req) -> !res,
-                false
+                (res, req) -> !res
         );
     }
 
@@ -1198,8 +1255,7 @@ public class InternalTableImpl implements InternalTable {
                         .full(tx == null)
                         .coordinatorId(txo.coordinatorId())
                         .build(),
-                (res, req) -> !res,
-                false
+                (res, req) -> !res
         );
     }
 
@@ -1221,8 +1277,7 @@ public class InternalTableImpl implements InternalTable {
                         .full(tx == null)
                         .coordinatorId(txo.coordinatorId())
                         .build(),
-                (res, req) -> res == null,
-                false
+                (res, req) -> res == null
         );
     }
 
@@ -1244,8 +1299,7 @@ public class InternalTableImpl implements InternalTable {
                         .full(tx == null)
                         .coordinatorId(txo.coordinatorId())
                         .build(),
-                (res, req) -> !res,
-                false
+                (res, req) -> !res
         );
     }
 
@@ -1267,8 +1321,7 @@ public class InternalTableImpl implements InternalTable {
                         .full(tx == null)
                         .coordinatorId(txo.coordinatorId())
                         .build(),
-                (res, req) -> !res,
-                false
+                (res, req) -> !res
         );
     }
 
@@ -1290,8 +1343,7 @@ public class InternalTableImpl implements InternalTable {
                         .full(tx == null)
                         .coordinatorId(txo.coordinatorId())
                         .build(),
-                (res, req) -> res == null,
-                false
+                (res, req) -> res == null
         );
     }
 
@@ -1313,8 +1365,7 @@ public class InternalTableImpl implements InternalTable {
 
                     // All values are null, this means nothing was deleted.
                     return true;
-                },
-                false
+                }
         );
     }
 
@@ -1347,8 +1398,7 @@ public class InternalTableImpl implements InternalTable {
 
                     // All values are null, this means nothing was deleted.
                     return true;
-                },
-                false
+                }
         );
     }
 
@@ -2179,5 +2229,27 @@ public class InternalTableImpl implements InternalTable {
 
         return readWriteMultiRowReplicaRequest(
                 RequestType.RW_UPSERT_ALL, keyRows0, deleted, txo, groupId, enlistmentConsistencyToken, full);
+    }
+
+    /**
+     * Ensure that the exception allows you to restart a transaction.
+     *
+     * @param e Exception to check.
+     * @return True if retrying is possible, false otherwise.
+     */
+    private boolean isRestartTransactionPossible(Throwable e) {
+        if (e instanceof LockException) {
+            return true;
+        } else if (e instanceof TransactionException && e.getCause() instanceof LockException) {
+            return true;
+        } else if (e instanceof CompletionException && e.getCause() instanceof LockException) {
+            return true;
+        } else if (e instanceof CompletionException
+                && e.getCause() instanceof TransactionException
+                && e.getCause().getCause() instanceof LockException) {
+            return true;
+        }
+
+        return false;
     }
 }

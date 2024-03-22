@@ -118,7 +118,10 @@
   <Match>
     <!-- this method has side effects -->
     <Bug pattern="RV_RETURN_VALUE_IGNORED_NO_SIDE_EFFECT"/>
-    <Class name="org.apache.ignite.internal.client.table.AbstractClientView"/>
+    <Or>
+      <Class name="org.apache.ignite.internal.client.table.AbstractClientView"/>
+      <Class name="org.apache.ignite.client.handler.requests.sql.ClientSqlCommon"/>
+    </Or>
   </Match>
   <Match>
     <Bug pattern="MS_PKGPROTECT"/>
