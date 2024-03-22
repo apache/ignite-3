@@ -17,7 +17,6 @@
 
 namespace Apache.Ignite.Internal;
 
-using System;
 using System.Collections.Generic;
 using Network;
 
