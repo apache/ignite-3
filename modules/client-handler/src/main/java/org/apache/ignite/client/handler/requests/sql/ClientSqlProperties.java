@@ -17,14 +17,15 @@
 
 package org.apache.ignite.client.handler.requests.sql;
 
+import javax.annotation.Nullable;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
-import org.apache.ignite.internal.sql.AbstractSession;
+import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
 import org.apache.ignite.internal.sql.engine.QueryProperty;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 
 class ClientSqlProperties {
-    private final String schema;
+    private final @Nullable String schema;
 
     private final int pageSize;
 
@@ -33,8 +34,8 @@ class ClientSqlProperties {
     private final long idleTimeout;
 
     ClientSqlProperties(ClientMessageUnpacker in) {
-        schema = in.tryUnpackNil() ? AbstractSession.DEFAULT_SCHEMA : in.unpackString();
-        pageSize = in.tryUnpackNil() ? AbstractSession.DEFAULT_PAGE_SIZE : in.unpackInt();
+        schema = in.tryUnpackNil() ? null : in.unpackString();
+        pageSize = in.tryUnpackNil() ? IgniteSqlImpl.DEFAULT_PAGE_SIZE : in.unpackInt();
         queryTimeout = in.tryUnpackNil() ? 0 : in.unpackLong();
         idleTimeout = in.tryUnpackNil() ? 0 : in.unpackLong();
 
@@ -43,7 +44,7 @@ class ClientSqlProperties {
         in.readBinaryUnsafe(); // Binary tuple with properties
     }
 
-    public String schema() {
+    public @Nullable String schema() {
         return schema;
     }
 
@@ -60,9 +61,13 @@ class ClientSqlProperties {
     }
 
     SqlProperties toSqlProps() {
-        return  SqlPropertiesHelper.newBuilder()
-                .set(QueryProperty.QUERY_TIMEOUT, queryTimeout)
-                .set(QueryProperty.DEFAULT_SCHEMA, schema)
-                .build();
+        SqlProperties.Builder builder = SqlPropertiesHelper.newBuilder()
+                .set(QueryProperty.QUERY_TIMEOUT, queryTimeout);
+
+        if (schema != null) {
+            builder.set(QueryProperty.DEFAULT_SCHEMA, schema);
+        }
+
+        return builder.build();
     }
 }

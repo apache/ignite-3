@@ -27,7 +27,6 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.TupleMatcher.tupleValue;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
 import static org.apache.ignite.lang.util.IgniteNameUtils.quote;
 import static org.apache.ignite.table.criteria.Criteria.columnValue;
 import static org.apache.ignite.table.criteria.Criteria.equalTo;
@@ -62,7 +61,6 @@ import java.util.stream.StreamSupport;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
-import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.lang.Cursor;
@@ -529,25 +527,6 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
                 Arguments.of(table.keyValueView(), tx),
                 Arguments.of(table.keyValueView(TestObjectKey.class, TestObject.class), tx)
         );
-    }
-
-    @ParameterizedTest
-    @MethodSource
-    public void testSessionClosing(CriteriaQuerySource<?> view, Transaction tx) {
-        int baseSessionsCount = activeSessionsCount();
-
-        assertThrowsWithCode(
-                CriteriaException.class,
-                TX_ALREADY_FINISHED_ERR,
-                () -> view.query(tx, columnValue("id", equalTo(2))),
-                "Transaction is already finished"
-        );
-
-        assertEquals(baseSessionsCount, activeSessionsCount());
-    }
-
-    private static int activeSessionsCount() {
-        return ((IgniteSqlImpl) CLUSTER.aliveNode().sql()).sessions().size();
     }
 
     private static <T> List<Tuple> mapToTupleList(Cursor<T> cur, Function<T, Tuple> mapper) {
