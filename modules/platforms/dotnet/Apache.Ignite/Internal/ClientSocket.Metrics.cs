@@ -31,23 +31,13 @@ internal sealed partial class ClientSocket
     /// <returns>Metric tags for this socket.</returns>
     public KeyValuePair<string, object?>[] GetMetricTags() => ConnectionContext.ClusterNode.GetMetricTags();
 
-    private static void AddBytesSent(int bytes, ClusterNode? node)
-    {
-        if (node != null)
-        {
-            Metrics.BytesSent.Add(bytes, node.GetMetricTags());
-        }
-    }
+    private static void AddBytesReceived(int bytes, KeyValuePair<string, object?>[] metricTags) =>
+        Metrics.BytesReceived.Add(bytes, metricTags);
 
-    private static void AddBytesReceived(int bytes, ClusterNode? node)
-    {
-        if (node != null)
-        {
-            Metrics.BytesReceived.Add(bytes, node.GetMetricTags());
-        }
-    }
+    private static void AddBytesSent(int bytes, KeyValuePair<string, object?>[] metricTags) =>
+        Metrics.BytesSent.Add(bytes, metricTags);
 
-    private void AddBytesSent(int bytes) => Metrics.BytesSent.Add(bytes, GetMetricTags());
+    private void AddBytesSent(int bytes) => AddBytesSent(bytes, GetMetricTags());
 
     private void AddFailedRequest() => Metrics.RequestsFailed.Add(1, GetMetricTags());
 }
