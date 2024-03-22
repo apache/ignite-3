@@ -343,6 +343,7 @@ public class ItTxTestCluster {
         replicaManagers = new HashMap<>(nodes);
         replicaServices = new HashMap<>(nodes);
         txManagers = new HashMap<>(nodes);
+        resourceCleanupManagers = new HashMap<>(nodes);
         txInflights = new HashMap<>(nodes);
         cursorRegistries = new HashMap<>(nodes);
         txStateStorages = new HashMap<>(nodes);
