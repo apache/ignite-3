@@ -92,7 +92,7 @@ internal static class Metrics
     /// <summary>
     /// Currently active requests (request sent, waiting for response).
     /// </summary>
-    public static readonly ObservableCounter<int> RequestsActive = Meter.CreateObservableCounter(
+    public static readonly ObservableGauge<int> RequestsActive = Meter.CreateObservableGauge(
         name: MetricNames.RequestsActive,
         observeValue: () => Interlocked.CompareExchange(ref _requestsActive, 0, 0),
         unit: "requests",
