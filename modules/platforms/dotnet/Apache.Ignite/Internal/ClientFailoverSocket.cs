@@ -199,9 +199,11 @@ namespace Apache.Ignite.Internal
 
             while (true)
             {
+                ClientSocket? socket = null;
+
                 try
                 {
-                    var socket = await GetSocketAsync(preferredNode).ConfigureAwait(false);
+                    socket = await GetSocketAsync(preferredNode).ConfigureAwait(false);
 
                     var buffer = await socket.DoOutInOpAsync(clientOp, request, expectNotifications).ConfigureAwait(false);
 
@@ -212,7 +214,10 @@ namespace Apache.Ignite.Internal
                     // Preferred node connection may not be available, do not use it after first failure.
                     preferredNode = default;
 
-                    if (!HandleOpError(e, clientOp, ref attempt, ref errors, retryPolicyOverride ?? Configuration.RetryPolicy))
+                    KeyValuePair<string, object?>[]? tags = socket?.ConnectionContext.ClusterNode.GetMetricTags() ??
+                                                            (e.Data[ExceptionDataEndpoint] as SocketEndpoint)?.GetMetricTags();
+
+                    if (!HandleOpError(e, clientOp, ref attempt, ref errors, retryPolicyOverride ?? Configuration.RetryPolicy, tags))
                     {
                         throw;
                     }
@@ -615,6 +620,7 @@ namespace Apache.Ignite.Internal
         /// <param name="attempt">Current attempt.</param>
         /// <param name="errors">Previous errors.</param>
         /// <param name="retryPolicy">Retry policy.</param>
+        /// <param name="tags">Metric tags.</param>
         /// <returns>True if the error was handled, false otherwise.</returns>
         [SuppressMessage("Microsoft.Design", "CA1002:DoNotExposeGenericLists", Justification = "Private.")]
         private bool HandleOpError(
@@ -622,7 +628,8 @@ namespace Apache.Ignite.Internal
             ClientOp op,
             ref int attempt,
             ref List<Exception>? errors,
-            IRetryPolicy? retryPolicy)
+            IRetryPolicy? retryPolicy,
+            KeyValuePair<string, object?>[]? tags)
         {
             if (!ShouldRetry(exception, op, attempt, retryPolicy))
             {
@@ -650,8 +657,8 @@ namespace Apache.Ignite.Internal
                 _logger.LogRetryingOperationDebug("Retrying", (int)op, op, attempt, exception.Message);
             }
 
-            // TODO: Log tags from last exception or last endpoint
-            Metrics.RequestsRetried.Add(1);
+            Metrics.RequestsRetried.Add(1, tags ?? Array.Empty<KeyValuePair<string, object?>>());
+            Debug.Assert(tags != null, "tags != null");
 
             if (errors == null)
             {

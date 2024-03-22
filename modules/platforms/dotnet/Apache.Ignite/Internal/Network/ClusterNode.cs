@@ -17,7 +17,6 @@
 
 namespace Apache.Ignite.Internal.Network
 {
-    using System;
     using System.Collections.Generic;
     using System.Net;
     using Ignite.Network;
@@ -60,7 +59,7 @@ namespace Apache.Ignite.Internal.Network
         /// Gets the metric tags.
         /// </summary>
         /// <returns>Metric tags for this node.</returns>
-        internal ReadOnlySpan<KeyValuePair<string, object?>> GetMetricTags() =>
+        internal KeyValuePair<string, object?>[] GetMetricTags() =>
             _metricTags ??= new[]
             {
                 new KeyValuePair<string, object?>(MetricTags.NodeAddress, _addressString),
