@@ -234,6 +234,9 @@ public class MetricsTests
         AssertMetric(MetricNames.StreamerBatchesActive, 0);
         AssertMetric(MetricNames.StreamerItemsQueued, 0);
 
+        AssertTaggedMetric(MetricNames.StreamerBatchesSent, 1, server);
+        AssertTaggedMetric(MetricNames.StreamerItemsSent, 2, server);
+
         IEnumerable<IIgniteTuple> GetTuples()
         {
             AssertMetric(MetricNames.StreamerBatchesActive, 0);
