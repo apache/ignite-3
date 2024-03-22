@@ -202,8 +202,9 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
         // If we are here it means that we acquired the descriptor, we already handled a HandshakeStartresponseMessage and now we are
         // getting unacked messages from another side and acks for our unacked messages that we sent there (if any).
 
-        assert recoveryDescriptor != null : "Wrong server handshake flow";
-        assert recoveryDescriptor.holderChannel() == channel;
+        assert recoveryDescriptor != null : "Wrong server handshake flow, message is " + message;
+        assert recoveryDescriptor.holderChannel() == channel : "Expected " + channel + " but was " + recoveryDescriptor.holderChannel()
+                + ", message is " + message;
 
         if (recoveryDescriptor.unacknowledgedCount() == 0) {
             finishHandshake();
