@@ -301,7 +301,7 @@ public final class IgniteTestUtils {
             }
 
             IgniteException igniteException = (IgniteException) throwable;
-            assertEquals(expectedErrorCode, igniteException.code());
+            assertEquals(expectedErrorCode, igniteException.code(), "Invalid error code: " + igniteException.codeAsString());
 
             if (errorMessageFragment != null) {
                 assertThat(throwable.getMessage(), containsString(errorMessageFragment));
