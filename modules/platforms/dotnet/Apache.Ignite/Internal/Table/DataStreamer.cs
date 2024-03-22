@@ -50,6 +50,8 @@ internal static class DataStreamer
 {
     private static readonly TimeSpan PartitionAssignmentUpdateFrequency = TimeSpan.FromSeconds(15);
 
+    private static long _streamerId;
+
     /// <summary>
     /// Streams the data.
     /// </summary>
@@ -97,6 +99,8 @@ internal static class DataStreamer
         var partitionAssignment = await partitionAssignmentProvider().ConfigureAwait(false);
         var lastPartitionsAssignmentCheck = Stopwatch.StartNew();
         using var flushCts = new CancellationTokenSource();
+
+        var metricTags = new KeyValuePair<string, object?>(MetricTags.DataStreamerId, Interlocked.Increment(ref _streamerId));
 
         try
         {
@@ -310,8 +314,8 @@ internal static class DataStreamer
                         await oldTask.ConfigureAwait(false);
                         await sender(buf, partition, retryPolicy).ConfigureAwait(false);
 
-                        Metrics.StreamerBatchesSent.Add(1);
-                        Metrics.StreamerItemsSent.Add(count);
+                        Metrics.StreamerBatchesSent.Add(1, metricTags);
+                        Metrics.StreamerItemsSent.Add(count, metricTags);
 
                         return;
                     }
