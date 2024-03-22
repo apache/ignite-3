@@ -92,8 +92,8 @@ public class MetricsTests
         AssertMetric(MetricNames.BytesSent, 21);
         AssertMetric(MetricNames.BytesReceived, 72);
 
-        AssertTaggedMetric(MetricNames.BytesSent, 21, client);
-        AssertTaggedMetric(MetricNames.BytesReceived, 72, client);
+        AssertTaggedMetric(MetricNames.BytesSent, 21, server);
+        AssertTaggedMetric(MetricNames.BytesReceived, 72, server);
     }
 
     [Test]
@@ -110,6 +110,8 @@ public class MetricsTests
 
         AssertMetric(MetricNames.ConnectionsLost, 1);
         AssertMetric(MetricNames.ConnectionsLostTimeout, 0);
+
+        AssertTaggedMetric(MetricNames.ConnectionsLost, 1, server);
     }
 
     [Test]
@@ -120,6 +122,8 @@ public class MetricsTests
 
         AssertMetric(MetricNames.ConnectionsLostTimeout, 0);
         AssertMetric(MetricNames.ConnectionsLostTimeout, 1, timeoutMs: 10_000);
+
+        AssertTaggedMetric(MetricNames.ConnectionsLostTimeout, 1, server);
     }
 
     [Test]
@@ -315,8 +319,8 @@ public class MetricsTests
     private void AssertMetric(string name, int value, int timeoutMs = 1000) =>
         _listener.AssertMetric(name, value, timeoutMs);
 
-    private void AssertTaggedMetric(string name, int value, IIgniteClient client) =>
-        AssertTaggedMetric(name, value, client.GetConnections().Single().Node.Address.ToString());
+    private void AssertTaggedMetric(string name, int value, FakeServer server) =>
+        AssertTaggedMetric(name, value, server.Node.Address.ToString());
 
     private void AssertTaggedMetric(string name, int value, string nodeAddr) =>
         _listener.AssertTaggedMetric(name, value, nodeAddr);
