@@ -137,6 +137,8 @@ public class MetricsTests
         AssertMetric(MetricNames.HandshakesFailed, 1);
         AssertMetric(MetricNames.HandshakesFailedTimeout, 0);
         AssertMetric(MetricNames.ConnectionsActive, 0);
+
+        AssertTaggedMetric(MetricNames.HandshakesFailed, 1, server);
     }
 
     [Test]
@@ -147,6 +149,8 @@ public class MetricsTests
         Assert.ThrowsAsync<IgniteClientConnectionException>(async () => await server.ConnectClientAsync(GetConfigWithDelay()));
         AssertMetric(MetricNames.HandshakesFailed, 0);
         AssertMetric(MetricNames.HandshakesFailedTimeout, 1);
+
+        AssertTaggedMetric(MetricNames.HandshakesFailedTimeout, 1, server);
     }
 
     [Test]
@@ -170,6 +174,10 @@ public class MetricsTests
         AssertMetric(MetricNames.RequestsSent, 2);
         AssertMetric(MetricNames.RequestsFailed, 1);
         AssertMetric(MetricNames.RequestsCompleted, 1);
+
+        AssertTaggedMetric(MetricNames.RequestsSent, 2, server);
+        AssertTaggedMetric(MetricNames.RequestsFailed, 1, server);
+        AssertTaggedMetric(MetricNames.RequestsCompleted, 1, server);
     }
 
     [Test]
