@@ -214,8 +214,10 @@ namespace Apache.Ignite.Internal
                     // Preferred node connection may not be available, do not use it after first failure.
                     preferredNode = default;
 
-                    KeyValuePair<string, object?>[]? tags = socket?.GetMetricTags() ??
-                                                            (e.Data[ExceptionDataEndpoint] as SocketEndpoint)?.GetMetricTags();
+                    KeyValuePair<string, object?>[]? tags =
+                        socket?.GetMetricTags()
+                        ?? (e.Data[ExceptionDataEndpoint] as SocketEndpoint)?.GetMetricTags()
+                        ?? (e.InnerException?.Data[ExceptionDataEndpoint] as SocketEndpoint)?.GetMetricTags();
 
                     if (!HandleOpError(e, clientOp, ref attempt, ref errors, retryPolicyOverride ?? Configuration.RetryPolicy, tags))
                     {
