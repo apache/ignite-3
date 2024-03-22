@@ -37,10 +37,11 @@ public class ReflectionMarshallersProviderSelfTest {
     @EnumSource(MarshallerType.class)
     public void testMarshallerCache(MarshallerType marshallerType) {
         Mapper<TestPoJo> mapper = Mapper.of(TestPoJo.class);
+        List<String> fieldOrder = List.of("col1", "col2", "col3");
 
         // This test assumes that Mappers are cached.
 
-        TestMarshallerSchema schema1 = new MarshallerSchemaBuilder()
+        TestMarshallerSchema schema1 = new MarshallerSchemaBuilder(fieldOrder)
                 .version(1)
                 .addKey("col1", BinaryMode.INT)
                 .addValue("col2", BinaryMode.INT)
@@ -58,7 +59,7 @@ public class ReflectionMarshallersProviderSelfTest {
             assertNotSame(m2, m3);
         }
 
-        TestMarshallerSchema schema2 = new MarshallerSchemaBuilder()
+        TestMarshallerSchema schema2 = new MarshallerSchemaBuilder(fieldOrder)
                 .version(schema1.version + 1)
                 .addKey("col1", BinaryMode.INT)
                 .addValue("col2", BinaryMode.INT)
@@ -75,7 +76,7 @@ public class ReflectionMarshallersProviderSelfTest {
             assertNotSame(m1, m3);
         }
 
-        TestMarshallerSchema schema3 = new MarshallerSchemaBuilder()
+        TestMarshallerSchema schema3 = new MarshallerSchemaBuilder(fieldOrder)
                 .version(schema2.version + 1)
                 .addKey("col1", BinaryMode.INT)
                 .addValue("col2", BinaryMode.INT)
@@ -165,18 +166,26 @@ public class ReflectionMarshallersProviderSelfTest {
 
         private final List<MarshallerColumn> values = new ArrayList<>();
 
+        private final List<String> fieldOrder;
+
+        private MarshallerSchemaBuilder(List<String> fieldOrder) {
+            this.fieldOrder = fieldOrder;
+        }
+
         MarshallerSchemaBuilder version(int version) {
             this.version = version;
             return this;
         }
 
         MarshallerSchemaBuilder addKey(String name, BinaryMode binaryMode) {
-            keys.add(new MarshallerColumn(name.toUpperCase(Locale.US), binaryMode));
+            int schemaIndex = fieldOrder.indexOf(name);
+            keys.add(new MarshallerColumn(schemaIndex, name.toUpperCase(Locale.US), binaryMode, null, 0));
             return this;
         }
 
         MarshallerSchemaBuilder addValue(String name, BinaryMode binaryMode) {
-            values.add(new MarshallerColumn(name.toUpperCase(Locale.US), binaryMode));
+            int schemaIndex = fieldOrder.indexOf(name);
+            values.add(new MarshallerColumn(schemaIndex, name.toUpperCase(Locale.US), binaryMode, null, 0));
             return this;
         }
 

@@ -23,7 +23,6 @@ import java.util.Collection;
 import java.util.Objects;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.stream.IntStream;
 import org.apache.ignite.internal.marshaller.FieldAccessor.IdentityAccessor;
 import org.apache.ignite.internal.util.Factory;
 import org.apache.ignite.internal.util.ObjectFactory;
@@ -76,12 +75,12 @@ public abstract class Marshaller {
      * @return Marshaller.
      */
     private static SimpleMarshaller simpleMarshaller(MarshallerColumn[] cols, OneColumnMapper<?> mapper) {
-        int colIdx = findColumnIndex(cols, mapper.mappedColumn());
+        MarshallerColumn colIdx = findColumnIndex(cols, mapper.mappedColumn());
 
-        return new SimpleMarshaller(createIdentityAccessor(cols[colIdx], colIdx, mapper.converter()));
+        return new SimpleMarshaller(createIdentityAccessor(colIdx, colIdx.schemaIndex(), mapper.converter()));
     }
 
-    private static int findColumnIndex(MarshallerColumn[] cols, @Nullable String name) {
+    private static MarshallerColumn findColumnIndex(MarshallerColumn[] cols, @Nullable String name) {
         if (name == null) {
             if (cols.length != 1) {
                 throw new IllegalArgumentException(String.format(
@@ -90,16 +89,19 @@ public abstract class Marshaller {
                 ));
             }
 
-            return 0;
+            return cols[0];
         }
 
-        return IntStream.range(0, cols.length)
-                .filter(i -> cols[i].name().equals(name))
-                .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException(String.format(
-                        "Failed to map object to a single column: mappedColumn '%s' is not present in the schema",
-                        name
-                )));
+        for (MarshallerColumn column : cols) {
+            if (column.name().equals(name)) {
+                return column;
+            }
+        }
+
+        throw new IllegalArgumentException(String.format(
+                "Failed to map object to a single column: mappedColumn '%s' is not present in the schema",
+                name
+        ));
     }
 
     /**
@@ -122,6 +124,7 @@ public abstract class Marshaller {
         // Build handlers.
         for (int i = 0; i < cols.length; i++) {
             MarshallerColumn col = cols[i];
+            int schemaIdx = col.schemaIndex();
 
             String columnName = col.name();
 
@@ -138,7 +141,7 @@ public abstract class Marshaller {
 
                 TypeConverter<Object, Object> converter = mapper.converterForColumn(columnName);
 
-                fieldAccessors[i] = FieldAccessor.create(mapper.targetType(), fieldName, col, i, converter);
+                fieldAccessors[i] = FieldAccessor.create(mapper.targetType(), fieldName, col, schemaIdx, converter);
             }
         }
 
@@ -182,6 +185,26 @@ public abstract class Marshaller {
     public abstract Object readObject(MarshallerReader reader, @Nullable Object target) throws MarshallerException;
 
     /**
+     * Reads object that used as a key from a row.
+     *
+     * @param reader Row reader.
+     * @param target Optional target object. When not specified, a new object will be created.
+     * @return Object.
+     * @throws MarshallerException If failed.
+     */
+    public abstract Object readKey(MarshallerReader reader, @Nullable Object target) throws MarshallerException;
+
+    /**
+     * Reads object that used as a value from a row.
+     *
+     * @param reader Row reader.
+     * @param target Optional target object. When not specified, a new object will be created.
+     * @return Object.
+     * @throws MarshallerException If failed.
+     */
+    public abstract Object readValue(MarshallerReader reader, @Nullable Object target) throws MarshallerException;
+
+    /**
      * Write an object to a row.
      *
      * @param obj    Object.
@@ -189,6 +212,16 @@ public abstract class Marshaller {
      * @throws MarshallerException If failed.
      */
     public abstract void writeObject(@Nullable Object obj, MarshallerWriter writer) throws MarshallerException;
+
+    /**
+     * Write the specified column of an object to a row.
+     *
+     * @param obj    Object.
+     * @param writer Row writer.
+     * @param colIdx Column index.
+     * @throws MarshallerException If failed.
+     */
+    public abstract void writeColumn(MarshallerWriter writer, Object obj, int colIdx) throws MarshallerException;
 
     /**
      * Marshaller for objects of natively supported types.
@@ -223,7 +256,31 @@ public abstract class Marshaller {
 
         /** {@inheritDoc} */
         @Override
+        public Object readKey(MarshallerReader reader, @Nullable Object target) throws MarshallerException {
+            reader.setIndex(fieldAccessor.colIdx());
+
+            return fieldAccessor.read(reader);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public Object readValue(MarshallerReader reader, Object target) throws MarshallerException {
+            reader.setIndex(fieldAccessor.colIdx());
+
+            return fieldAccessor.read(reader);
+        }
+
+        /** {@inheritDoc} */
+        @Override
         public void writeObject(@Nullable Object obj, MarshallerWriter writer) throws MarshallerException {
+            fieldAccessor.write(writer, obj);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public void writeColumn(MarshallerWriter writer, Object obj, int colIdx) throws MarshallerException {
+            assert colIdx == 0;
+
             fieldAccessor.write(writer, obj);
         }
     }
@@ -269,10 +326,45 @@ public abstract class Marshaller {
 
         /** {@inheritDoc} */
         @Override
+        public Object readKey(MarshallerReader reader, @Nullable Object target) throws MarshallerException {
+            Object obj = target == null ? factory.create() : target;
+
+            for (int fldIdx = 0; fldIdx < fieldAccessors.length; fldIdx++) {
+                fieldAccessors[fldIdx].read(reader, obj);
+            }
+
+            return obj;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public Object readValue(MarshallerReader reader, Object target) throws MarshallerException {
+            Object obj = target == null ? factory.create() : target;
+
+            for (FieldAccessor f : fieldAccessors) {
+                if (f.unmapped()) {
+                    continue;
+                }
+
+                reader.setIndex(f.colIdx());
+                f.read(reader, obj);
+            }
+
+            return obj;
+        }
+
+        /** {@inheritDoc} */
+        @Override
         public void writeObject(@Nullable Object obj, MarshallerWriter writer) throws MarshallerException {
             for (int fldIdx = 0; fldIdx < fieldAccessors.length; fldIdx++) {
                 fieldAccessors[fldIdx].write(writer, obj);
             }
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public void writeColumn(MarshallerWriter writer, Object obj, int colIdx) throws MarshallerException {
+            fieldAccessors[colIdx].write(writer, obj);
         }
     }
 
@@ -282,13 +374,29 @@ public abstract class Marshaller {
             return null;
         }
 
+
         @Override
         public Object readObject(MarshallerReader reader, @Nullable Object target) {
             return null;
         }
 
         @Override
+        public Object readKey(MarshallerReader reader, @Nullable Object target) throws MarshallerException {
+            return null;
+        }
+
+        @Override
+        public Object readValue(MarshallerReader reader, Object target) throws MarshallerException {
+            return null;
+        }
+
+        @Override
         public void writeObject(Object obj, MarshallerWriter writer) {
+        }
+
+        @Override
+        public void writeColumn(MarshallerWriter writer, Object obj, int colIdx) throws MarshallerException {
+
         }
     }
 }

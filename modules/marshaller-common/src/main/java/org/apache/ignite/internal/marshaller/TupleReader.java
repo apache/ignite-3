@@ -45,6 +45,18 @@ public class TupleReader implements MarshallerReader {
     }
 
     @Override
+    public void setIndex(int index) {
+        assert index < tuple.columnCount();
+
+        this.index = index;
+    }
+
+    @Override
+    public int currentIndex() {
+        return index;
+    }
+
+    @Override
     public void skipValue() {
         index++;
     }

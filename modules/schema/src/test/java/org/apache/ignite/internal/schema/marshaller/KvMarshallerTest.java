@@ -55,11 +55,16 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
+import java.nio.ByteBuffer;
+import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Collections;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Random;
 import java.util.Set;
@@ -67,18 +72,22 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.processing.Generated;
+import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.marshaller.SerializingConverter;
 import org.apache.ignite.internal.marshaller.testobjects.TestObjectWithAllTypes;
 import org.apache.ignite.internal.marshaller.testobjects.TestObjectWithNoDefaultConstructor;
 import org.apache.ignite.internal.marshaller.testobjects.TestObjectWithPrivateConstructor;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryRowImpl;
+import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.schema.marshaller.asm.AsmMarshallerGenerator;
 import org.apache.ignite.internal.schema.marshaller.reflection.ReflectionMarshallerFactory;
 import org.apache.ignite.internal.schema.row.Row;
+import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.schema.testobjects.TestSimpleObjectKey;
 import org.apache.ignite.internal.schema.testobjects.TestSimpleObjectVal;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -535,6 +544,137 @@ public class KvMarshallerTest {
         return baos.toByteArray();
     }
 
+    @ParameterizedTest
+    @MethodSource("marshallerFactoryProvider")
+    public void testKeyColumnPlacement(MarshallerFactory marshallerFactory) throws MarshallerException {
+        Assumptions.assumeFalse(marshallerFactory instanceof AsmMarshallerGenerator);
+
+        Mapper<TestObjectKeyPart> keyMapper = Mapper.of(TestObjectKeyPart.class);
+        Mapper<TestObjectValPart> valueMapper = Mapper.of(TestObjectValPart.class);
+
+        // Types match TestObjectKeyPart, TestObjectValuePart
+        List<Column> columns = new ArrayList<>(List.of(
+                new Column("COL1", INT32, false),
+                new Column("COL2", STRING, false),
+                new Column("COL3", BOOLEAN, false),
+                new Column("COL4", DATE, false)
+        ));
+
+        Collections.shuffle(columns, rnd);
+
+        List<String> keyColumns = columns.stream()
+                .map(Column::name)
+                .filter(c -> "COL1".equals(c) || "COL3".equals(c))
+                .collect(Collectors.toList());
+
+        SchemaDescriptor descriptor = new SchemaDescriptor(1, columns, keyColumns, null);
+
+        KvMarshaller<TestObjectKeyPart, TestObjectValPart> kvMarshaller = marshallerFactory.create(
+                descriptor,
+                keyMapper,
+                valueMapper
+        );
+
+        TestObjectKeyPart key = new TestObjectKeyPart();
+        key.col1 = rnd.nextInt();
+        key.col3 = rnd.nextBoolean();
+
+        TestObjectValPart val = new TestObjectValPart();
+        val.col2 = String.valueOf(rnd.nextInt());
+        val.col4 = LocalDate.ofEpochDay(rnd.nextInt(0, 10_000));
+
+        Map<String, Object> columnNameToValue = new HashMap<>();
+        columnNameToValue.put("COL1", key.col1);
+        columnNameToValue.put("COL2", val.col2);
+        columnNameToValue.put("COL3", key.col3);
+        columnNameToValue.put("COL4", val.col4);
+
+        Map<String, Integer> columnNameToIdx = new HashMap<>();
+        for (int i = 0; i < columns.size(); i++) {
+            columnNameToIdx.put(columns.get(i).name(), i);
+        }
+
+        Map<Integer, Object> columnIdxToValue = new HashMap<>();
+        Map<Integer, Object> keyColumnIdxToValue = new HashMap<>();
+
+        for (int i = 0, j = 0; i < columns.size(); i++) {
+            String name = columns.get(i).name();
+            int idx = columnNameToIdx.get(name);
+            Object colValue = columnNameToValue.get(name);
+
+            columnIdxToValue.put(idx, colValue);
+
+            if (keyColumns.contains(name)) {
+                keyColumnIdxToValue.put(j, colValue);
+                j++;
+            }
+        }
+
+        // Check key only row
+
+        Row keyRow = kvMarshaller.marshal(key);
+        assertEquals(2, keyRow.elementCount());
+        assertEquals(keyColumnIdxToValue.get(0), keyRow.value(0));
+        assertEquals(keyColumnIdxToValue.get(1), keyRow.value(1));
+
+        // Check full row
+
+        Row fullRow = kvMarshaller.marshal(key, val);
+        assertEquals(fullRow.elementCount(), descriptor.length());
+        assertEquals(columnIdxToValue.get(0), fullRow.value(0));
+        assertEquals(columnIdxToValue.get(1), fullRow.value(1));
+        assertEquals(columnIdxToValue.get(2), fullRow.value(2));
+        assertEquals(columnIdxToValue.get(3), fullRow.value(3));
+    }
+
+    static class TestObjectKeyPart {
+        int col1;
+        boolean col3;
+    }
+
+    static class TestObjectValPart {
+        String col2;
+        LocalDate col4;
+    }
+
+    @ParameterizedTest
+    @MethodSource("marshallerFactoryProvider")
+    public void unmarshallKey(MarshallerFactory marshallerFactory) throws MarshallerException {
+        Mapper<TestObjectKeyPart> keyMapper = Mapper.of(TestObjectKeyPart.class);
+        Mapper<TestObjectValPart> valueMapper = Mapper.of(TestObjectValPart.class);
+
+        // Types match TestObjectKeyPart, TestObjectValuePart
+        List<Column> columns = new ArrayList<>(List.of(
+                new Column("COL1", INT32, false),
+                new Column("COL2", STRING, false),
+                new Column("COL3", BOOLEAN, false),
+                new Column("COL4", DATE, false)
+        ));
+
+        SchemaDescriptor descriptor = new SchemaDescriptor(1, columns, List.of("COL1", "COL3"), null);
+
+        KvMarshaller<TestObjectKeyPart, TestObjectValPart> marshaller = marshallerFactory.create(
+                descriptor,
+                keyMapper,
+                valueMapper
+        );
+
+        TestObjectKeyPart key = new TestObjectKeyPart();
+        key.col1 = rnd.nextInt();
+        key.col3 = rnd.nextBoolean();
+
+        ByteBuffer tupleBuf = new BinaryTupleBuilder(2, 128)
+                .appendInt(key.col1)
+                .appendBoolean(key.col3)
+                .build();
+
+        BinaryRow row = new BinaryRowImpl(descriptor.version(), tupleBuf);
+
+        TestObjectKeyPart keyPart = marshaller.unmarshalKey(Row.wrapKeyOnlyBinaryRow(descriptor, row));
+        assertEquals(key.col1, keyPart.col1);
+        assertEquals(key.col3, keyPart.col3);
+    }
+
     /**
      * Generate random key-value pair of given types and check serialization and deserialization works fine.
      *
@@ -556,8 +696,8 @@ public class KvMarshallerTest {
         KvMarshaller<Object, Object> marshaller = factory.create(schema,
                 Mapper.of((Class<Object>) key.getClass(), "\"key\""),
                 Mapper.of((Class<Object>) val.getClass(), "\"val\""));
-        Row row = Row.wrapBinaryRow(schema, marshaller.marshal(key, val));
 
+        Row row = Row.wrapBinaryRow(schema, marshaller.marshal(key, val));
         Object key1 = marshaller.unmarshalKey(row);
         Object val1 = marshaller.unmarshalValue(row);
 

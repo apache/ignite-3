@@ -31,6 +31,18 @@ import java.util.UUID;
  */
 public interface MarshallerReader {
     /**
+     * Set reader's position to the given value.
+     */
+    void setIndex(int index);
+
+    /**
+     * Returns an index of a current field.
+     *
+     * @return Current field index.
+     */
+    int currentIndex();
+
+    /**
      * Skips a value.
      */
     void skipValue();

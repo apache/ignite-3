@@ -175,9 +175,9 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
         IndexLocker hashIndexLocker = new HashIndexLocker(HASH_INDEX_ID, false, LOCK_MANAGER, row2HashKeyConverter);
 
         BinaryTupleSchema rowSchema = BinaryTupleSchema.createRowSchema(schemaDescriptor);
-        BinaryTupleSchema valueSchema = BinaryTupleSchema.createValueSchema(schemaDescriptor);
+        BinaryTupleSchema keySchema = BinaryTupleSchema.createKeySchema(schemaDescriptor);
 
-        row2SortKeyConverter = new BinaryRowConverter(rowSchema, valueSchema);
+        row2SortKeyConverter = new BinaryRowConverter(rowSchema, keySchema);
 
         TableSchemaAwareIndexStorage sortedIndexStorage = new TableSchemaAwareIndexStorage(
                 SORTED_INDEX_ID,

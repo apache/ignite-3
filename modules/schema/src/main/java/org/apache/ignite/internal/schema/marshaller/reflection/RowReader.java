@@ -46,6 +46,18 @@ class RowReader implements MarshallerReader {
     }
 
     @Override
+    public void setIndex(int index) {
+        assert index < row.elementCount();
+
+        this.index = index;
+    }
+
+    @Override
+    public int currentIndex() {
+        return index;
+    }
+
+    @Override
     public void skipValue() {
         index++;
     }

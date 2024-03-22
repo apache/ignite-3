@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.schema.marshaller.reflection;
 
+import java.util.List;
 import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.marshaller.MarshallerSchema;
@@ -94,12 +95,28 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
         assert keyClass.isInstance(key);
         assert val == null || valClass.isInstance(val);
 
+        List<Column> columns = schema.columns();
         RowAssembler asm = createAssembler(key, val);
 
         var writer = new RowWriter(asm);
 
-        keyMarsh.writeObject(key, writer);
-        valMarsh.writeObject(val, writer);
+        for (Column column : columns) {
+            if (column.positionInKey() >= 0) {
+                keyMarsh.writeColumn(writer, key, column.positionInKey());
+            } else {
+                if (val == null) {
+                    // Rethrow an error during null writing as a MarshallerException,
+                    // Otherwise some unexpected error is returned.
+                    try {
+                        writer.writeNull();
+                    } catch (Exception e) {
+                        throw new MarshallerException(e);
+                    }
+                } else {
+                    valMarsh.writeColumn(writer, val, column.positionInValue());
+                }
+            }
+        }
 
         return Row.wrapBinaryRow(schema, asm.build());
     }
@@ -107,7 +124,7 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
     /** {@inheritDoc} */
     @Override
     public K unmarshalKey(Row row) throws MarshallerException {
-        Object o = keyMarsh.readObject(new RowReader(row), null);
+        Object o = keyMarsh.readKey(new RowReader(row), null);
 
         assert keyClass.isInstance(o);
 
@@ -118,7 +135,7 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
     @Nullable
     @Override
     public V unmarshalValue(Row row) throws MarshallerException {
-        Object o = valMarsh.readObject(new RowReader(row, schema.keyColumns().size()), null);
+        Object o = valMarsh.readValue(new RowReader(row), null);
 
         assert o == null || valClass.isInstance(o);
 
