@@ -711,6 +711,7 @@ public class IgniteImpl implements Ignite {
                 name,
                 registry,
                 gcConfig,
+                txConfig,
                 storageUpdateConfiguration,
                 messagingServiceReturningToStorageOperationsPool,
                 clusterSvc.topologyService(),
