@@ -200,6 +200,8 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
         ObjectsArrayRowWrapper(RowSchema rowSchema, Object[] row) {
             this.rowSchema = rowSchema;
             this.row = row;
+
+            toBinaryTuple();
         }
 
         @Override
