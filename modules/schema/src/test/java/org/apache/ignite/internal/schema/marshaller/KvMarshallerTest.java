@@ -80,14 +80,12 @@ import org.apache.ignite.internal.marshaller.testobjects.TestObjectWithNoDefault
 import org.apache.ignite.internal.marshaller.testobjects.TestObjectWithPrivateConstructor;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowImpl;
-import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.schema.marshaller.asm.AsmMarshallerGenerator;
 import org.apache.ignite.internal.schema.marshaller.reflection.ReflectionMarshallerFactory;
 import org.apache.ignite.internal.schema.row.Row;
-import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.schema.testobjects.TestSimpleObjectKey;
 import org.apache.ignite.internal.schema.testobjects.TestSimpleObjectVal;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -581,7 +579,7 @@ public class KvMarshallerTest {
 
         TestObjectValPart val = new TestObjectValPart();
         val.col2 = String.valueOf(rnd.nextInt());
-        val.col4 = LocalDate.ofEpochDay(rnd.nextInt(0, 10_000));
+        val.col4 = LocalDate.ofEpochDay(rnd.nextInt(10_000));
 
         Map<String, Object> columnNameToValue = new HashMap<>();
         columnNameToValue.put("COL1", key.col1);

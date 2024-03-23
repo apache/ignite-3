@@ -185,17 +185,7 @@ public abstract class Marshaller {
     public abstract Object readObject(MarshallerReader reader, @Nullable Object target) throws MarshallerException;
 
     /**
-     * Reads object that used as a key from a row.
-     *
-     * @param reader Row reader.
-     * @param target Optional target object. When not specified, a new object will be created.
-     * @return Object.
-     * @throws MarshallerException If failed.
-     */
-    public abstract Object readKey(MarshallerReader reader, @Nullable Object target) throws MarshallerException;
-
-    /**
-     * Reads object that used as a value from a row.
+     * Reads value object from a row.
      *
      * @param reader Row reader.
      * @param target Optional target object. When not specified, a new object will be created.
@@ -214,14 +204,14 @@ public abstract class Marshaller {
     public abstract void writeObject(@Nullable Object obj, MarshallerWriter writer) throws MarshallerException;
 
     /**
-     * Write the specified column of an object to a row.
+     * Write the specified field of an object to a row.
      *
-     * @param obj    Object.
+     * @param obj Object.
      * @param writer Row writer.
-     * @param colIdx Column index.
+     * @param fldIdx Field index.
      * @throws MarshallerException If failed.
      */
-    public abstract void writeColumn(MarshallerWriter writer, Object obj, int colIdx) throws MarshallerException;
+    public abstract void writeField(@Nullable Object obj, MarshallerWriter writer, int fldIdx) throws MarshallerException;
 
     /**
      * Marshaller for objects of natively supported types.
@@ -256,14 +246,6 @@ public abstract class Marshaller {
 
         /** {@inheritDoc} */
         @Override
-        public Object readKey(MarshallerReader reader, @Nullable Object target) throws MarshallerException {
-            reader.setIndex(fieldAccessor.colIdx());
-
-            return fieldAccessor.read(reader);
-        }
-
-        /** {@inheritDoc} */
-        @Override
         public Object readValue(MarshallerReader reader, Object target) throws MarshallerException {
             reader.setIndex(fieldAccessor.colIdx());
 
@@ -278,8 +260,8 @@ public abstract class Marshaller {
 
         /** {@inheritDoc} */
         @Override
-        public void writeColumn(MarshallerWriter writer, Object obj, int colIdx) throws MarshallerException {
-            assert colIdx == 0;
+        public void writeField(Object obj, MarshallerWriter writer, int fldIdx) throws MarshallerException {
+            assert fldIdx == 0;
 
             fieldAccessor.write(writer, obj);
         }
@@ -326,18 +308,6 @@ public abstract class Marshaller {
 
         /** {@inheritDoc} */
         @Override
-        public Object readKey(MarshallerReader reader, @Nullable Object target) throws MarshallerException {
-            Object obj = target == null ? factory.create() : target;
-
-            for (int fldIdx = 0; fldIdx < fieldAccessors.length; fldIdx++) {
-                fieldAccessors[fldIdx].read(reader, obj);
-            }
-
-            return obj;
-        }
-
-        /** {@inheritDoc} */
-        @Override
         public Object readValue(MarshallerReader reader, Object target) throws MarshallerException {
             Object obj = target == null ? factory.create() : target;
 
@@ -363,8 +333,8 @@ public abstract class Marshaller {
 
         /** {@inheritDoc} */
         @Override
-        public void writeColumn(MarshallerWriter writer, Object obj, int colIdx) throws MarshallerException {
-            fieldAccessors[colIdx].write(writer, obj);
+        public void writeField(@Nullable Object obj, MarshallerWriter writer, int fldIdx) throws MarshallerException {
+            fieldAccessors[fldIdx].write(writer, obj);
         }
     }
 
@@ -381,11 +351,6 @@ public abstract class Marshaller {
         }
 
         @Override
-        public Object readKey(MarshallerReader reader, @Nullable Object target) throws MarshallerException {
-            return null;
-        }
-
-        @Override
         public Object readValue(MarshallerReader reader, Object target) throws MarshallerException {
             return null;
         }
@@ -395,7 +360,7 @@ public abstract class Marshaller {
         }
 
         @Override
-        public void writeColumn(MarshallerWriter writer, Object obj, int colIdx) throws MarshallerException {
+        public void writeField(Object obj, MarshallerWriter writer, int fldIdx) throws MarshallerException {
 
         }
     }

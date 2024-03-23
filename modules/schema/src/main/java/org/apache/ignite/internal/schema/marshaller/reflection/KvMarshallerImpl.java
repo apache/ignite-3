@@ -102,19 +102,9 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
 
         for (Column column : columns) {
             if (column.positionInKey() >= 0) {
-                keyMarsh.writeColumn(writer, key, column.positionInKey());
+                keyMarsh.writeField(key, writer, column.positionInKey());
             } else {
-                if (val == null) {
-                    // Rethrow an error during null writing as a MarshallerException,
-                    // Otherwise some unexpected error is returned.
-                    try {
-                        writer.writeNull();
-                    } catch (Exception e) {
-                        throw new MarshallerException(e);
-                    }
-                } else {
-                    valMarsh.writeColumn(writer, val, column.positionInValue());
-                }
+                valMarsh.writeField(val, writer, column.positionInValue());
             }
         }
 
@@ -124,7 +114,7 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
     /** {@inheritDoc} */
     @Override
     public K unmarshalKey(Row row) throws MarshallerException {
-        Object o = keyMarsh.readKey(new RowReader(row), null);
+        Object o = keyMarsh.readObject(new RowReader(row), null);
 
         assert keyClass.isInstance(o);
 
