@@ -15,19 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.command;
+package org.apache.ignite.internal.replicator.message;
 
-import static org.apache.ignite.internal.table.distributed.TableMessageGroup.Commands.PRIMARY_REPLICA_CHANGE_COMMAND;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageGroup.PRIMARY_REPLICA_CHANGE_COMMAND;
 
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
+import org.apache.ignite.internal.raft.WriteCommand;
 
 /**
  * Command to write the primary replica change to the replication group.
  */
 @Transferable(PRIMARY_REPLICA_CHANGE_COMMAND)
-public interface PrimaryReplicaChangeCommand extends SafeTimePropagatingCommand {
+public interface PrimaryReplicaChangeCommand extends WriteCommand {
     /** Lease start time, hybrid timestamp as long, see {@link HybridTimestamp#longValue()}. */
     long leaseStartTime();
 }

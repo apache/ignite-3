@@ -132,7 +132,6 @@ import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage
 import org.apache.ignite.internal.table.distributed.TableUtils;
 import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommandBuilder;
-import org.apache.ignite.internal.table.distributed.command.PrimaryReplicaChangeCommand;
 import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
 import org.apache.ignite.internal.table.distributed.command.TimedBinaryRowMessage;
 import org.apache.ignite.internal.table.distributed.command.TimedBinaryRowMessageBuilder;
@@ -320,7 +319,9 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private final SchemaRegistry schemaRegistry;
 
-    private final PrimaryReplicaChangeCommandWaiter primaryReplicaChangeCommandWaiter = new PrimaryReplicaChangeCommandWaiter();
+    //private final PrimaryReplicaChangeCommandWaiter primaryReplicaChangeCommandWaiter = new PrimaryReplicaChangeCommandWaiter();
+
+    private volatile long leaseStartTime = 0;
 
     /**
      * The constructor.
@@ -1046,8 +1047,6 @@ public class PartitionReplicaListener implements ReplicaListener {
         CompletableFuture<Object> resultFuture = new CompletableFuture<>();
 
         SafeTimeSyncCommand cmd = REPLICA_MESSAGES_FACTORY.safeTimeSyncCommand().safeTimeLong(hybridClock.nowLong()).build();
-
-        System.out.println("qqq created safe time cmd ts=" + cmd.safeTimeLong());
 
         applyCmdWithRetryOnSafeTimeReorderException(
                 cmd,
@@ -2546,10 +2545,6 @@ public class PartitionReplicaListener implements ReplicaListener {
                     new ReplicationMaxRetriesExceededException(replicationGroupId, MAX_RETIES_ON_SAFE_TIME_REORDERING));
         }
 
-        if (cmd instanceof SafeTimePropagatingCommand) {
-            new Exception("qqq Safe time cmd, ts=" + ((SafeTimePropagatingCommand) cmd).safeTime().longValue()).printStackTrace();
-        }
-
         raftClient.run(cmd).whenComplete((res, ex) -> {
             if (ex != null) {
                 if (ex instanceof SafeTimeReorderException || ex.getCause() instanceof SafeTimeReorderException) {
@@ -2624,8 +2619,6 @@ public class PartitionReplicaListener implements ReplicaListener {
                     hybridClock.now(),
                     catalogVersion
             );
-
-            System.out.println("qqq created safe time cmd ts=" + cmd.safeTimeLong());
 
             if (!cmd.full()) {
                 // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Temporary code below
@@ -3474,9 +3467,13 @@ public class PartitionReplicaListener implements ReplicaListener {
                             );
                         }
 
-                        return primaryReplicaChangeCommandWaiter
-                                .changePrimaryReplicaFuture(primaryReplicaMeta.getStartTime().longValue())
-                                .thenApply(unused -> null);
+                        synchronized (this) {
+                            if (leaseStartTime < primaryReplicaMeta.getStartTime().longValue()) {
+                                leaseStartTime = primaryReplicaMeta.getStartTime().longValue();
+                            }
+                        }
+
+                        return nullCompletedFuture();
                     });
         } else if (request instanceof ReadOnlyReplicaRequest || request instanceof ReplicaSafeTimeSyncRequest) {
             return placementDriver.getPrimaryReplica(replicationGroupId, now)
@@ -3698,9 +3695,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             HybridTimestamp safeTimeTimestamp,
             int catalogVersion
     ) {
-        IgniteBiTuple<Long, CompletableFuture<Void>> f = primaryReplicaChangeCommandWaiter.futureTuple;
-
-        Long leaseStartTime = full ? f.get1() : null;
+        Long leaseStartTime = full ? this.leaseStartTime : null;
 
         UpdateCommandBuilder bldr = MSG_FACTORY.updateCommand()
                 .tablePartitionId(tablePartitionId(tablePartId))
@@ -3745,9 +3740,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             String txCoordinatorId,
             int catalogVersion
     ) {
-        IgniteBiTuple<Long, CompletableFuture<Void>> f = primaryReplicaChangeCommandWaiter.futureTuple;
-
-        Long leaseStartTime = full ? f.get1() : null;
+        Long leaseStartTime = full ? this.leaseStartTime : null;
 
         return MSG_FACTORY.updateAllCommand()
                 .tablePartitionId(commitPartitionId)
@@ -3984,19 +3977,19 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     /**
-     * Allows to wait for the execution of {@link PrimaryReplicaChangeCommand} in order to linearize it with the processing
+     * Allows to wait for the execution of {@link PrimaryReplicaChangeCommand0} in order to linearize it with the processing
      * of primary replica requests.
      */
-    private class PrimaryReplicaChangeCommandWaiter {
+    /*private class PrimaryReplicaChangeCommandWaiter {
         private volatile IgniteBiTuple<Long, CompletableFuture<Void>> futureTuple = new IgniteBiTuple<>(-1L, nullCompletedFuture());
 
-        /**
+        *//**
          * Checks the fact of primary replica change; if it is changed, sends a {@link PrimaryReplicaChangeCommand} to write that into
          * replication group state machine.
          *
          * @param leaseStartTime Lease start time.
          * @return Future of execution of {@link PrimaryReplicaChangeCommand}.
-         */
+         *//*
         CompletableFuture<Void> changePrimaryReplicaFuture(long leaseStartTime) {
             IgniteBiTuple<Long, CompletableFuture<Void>> f = futureTuple;
 
@@ -4022,7 +4015,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 }
             }
         }
-    }
+    }*/
 
     /**
      * Operation unique identifier.

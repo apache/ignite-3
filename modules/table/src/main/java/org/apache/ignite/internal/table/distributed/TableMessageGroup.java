@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.table.distributed.TableMessageGroup.GRO
 import org.apache.ignite.internal.network.annotations.MessageGroup;
 import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
-import org.apache.ignite.internal.table.distributed.command.PrimaryReplicaChangeCommand;
 import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
 import org.apache.ignite.internal.table.distributed.command.TimedBinaryRowMessage;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
@@ -208,7 +207,7 @@ public interface TableMessageGroup {
         /** Message type for {@link TablePartitionIdMessage}. */
         short TABLE_PARTITION_ID = 61;
 
-        /** Message type for {@link PrimaryReplicaChangeCommand}. */
+        /** Message type for {@link PrimaryReplicaChangeCommand0}. */
         short PRIMARY_REPLICA_CHANGE_COMMAND = 62;
     }
 }

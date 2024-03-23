@@ -40,6 +40,8 @@ import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplica
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
+import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
@@ -53,6 +55,8 @@ public class Replica {
 
     /** Message factory. */
     private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
+
+    private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
     /** Replica group identity, this id is the same as the considered partition's id. */
     private final ReplicationGroupId replicaGrpId;
@@ -196,7 +200,8 @@ public class Replica {
                 // Replica must wait till storage index reaches the current leader's index to make sure that all updates made on the
                 // group leader are received.
 
-                return waitForActualState(msg.leaseExpirationTime().getPhysical())
+                return sendPrimaryReplicaChangeToReplicationGroup(msg.leaseStartTime().longValue())
+                        .thenCompose(v -> waitForActualState(msg.leaseExpirationTime().getPhysical()))
                         .thenCompose(v -> {
                             CompletableFuture<LeaseGrantedMessageResponse> respFut =
                                     acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime());
@@ -210,13 +215,22 @@ public class Replica {
                         });
             } else {
                 if (leader.equals(localNode)) {
-                    return waitForActualState(msg.leaseExpirationTime().getPhysical())
+                    return sendPrimaryReplicaChangeToReplicationGroup(msg.leaseStartTime().longValue())
+                            .thenCompose(v -> waitForActualState(msg.leaseExpirationTime().getPhysical()))
                             .thenCompose(v -> acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime()));
                 } else {
                     return proposeLeaseRedirect(leader);
                 }
             }
         }));
+    }
+
+    private CompletableFuture<Void> sendPrimaryReplicaChangeToReplicationGroup(long leaseStartTime) {
+        PrimaryReplicaChangeCommand cmd = REPLICA_MESSAGES_FACTORY.primaryReplicaChangeCommand()
+                .leaseStartTime(leaseStartTime)
+                .build();
+
+        return raftClient.run(cmd);
     }
 
     private CompletableFuture<LeaseGrantedMessageResponse> acceptLease(
