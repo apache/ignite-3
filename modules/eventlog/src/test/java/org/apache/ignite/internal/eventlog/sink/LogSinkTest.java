@@ -18,31 +18,33 @@
 package org.apache.ignite.internal.eventlog.sink;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasSize;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.eventlog.api.Event;
 import org.apache.ignite.internal.eventlog.config.schema.EventLogConfiguration;
-import org.apache.ignite.internal.eventlog.config.schema.LogSinkView;
+import org.apache.ignite.internal.eventlog.config.schema.LogSinkChange;
 import org.apache.ignite.internal.eventlog.event.EventUser;
 import org.apache.ignite.internal.eventlog.event.IgniteEvents;
-import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 @ExtendWith(ConfigurationExtension.class)
-public class LogSinkTest {
+class LogSinkTest {
 
     @InjectConfiguration
-    private EventLogConfiguration eventLogConfiguration;
+    private EventLogConfiguration cfg;
 
-    static File eventlogFile;
+    private static File eventlogFile;
 
     @BeforeAll
     static void beforeAll() {
@@ -54,13 +56,55 @@ public class LogSinkTest {
     }
 
     @Test
-    void logsToFile() throws IOException {
-        var logSinkConfiguration = (LogSinkView) eventLogConfiguration.sink().value();
-        LogSink logSink = new LogSink(logSinkConfiguration);
-        Event event = IgniteEvents.USER_AUTHENTICATED.create(EventUser.of("user1", "basicProvider"));
+    void logsToFile() throws Exception {
+        // Given log sink configured.
+        cfg.change(c -> c.changeSinks().create("logSink", s -> {
+            LogSinkChange logSinkChange = (LogSinkChange) s.convert("log");
+            logSinkChange.changeCriteria("EventLog");
+            logSinkChange.changeLevel("INFO");
+            logSinkChange.changeFormat("json");
+        })).get();
+        // And log sink.
+        Sink logSink = new SinkFactory().createSink(cfg.sinks().get("logSink").value());
+        // And event.
+        Event event = IgniteEvents.USER_AUTHENTICATED.create(
+                EventUser.of("user1", "basicProvider")
+        );
 
+        // When write event into log sink.
         logSink.write(event);
 
-        assertThat(Files.lines(eventlogFile.toPath()).collect(Collectors.toList()), Matchers.hasItem(event.toString()));
+        Thread.sleep(100);
+
+        // Then event is written to file.
+        var lines = readLines(eventlogFile);
+        assertThat(lines, hasSize(1));
+        // And event is written in JSON format.
+        var expectedEventJson = "{"
+                + "\"type\":\"USER_AUTHENTICATED\","
+                + "\"timestamp\":" + event.timestamp() + ","
+                + "\"productVersion\":\"" + event.productVersion() + "\","
+                + "\"user\":{\"username\":\"user1\",\"authenticationProvider\":\"basicProvider\"},"
+                + "\"fields\":{}"
+                + "}";
+        assertThat(readLines(eventlogFile), hasItem(expectedEventJson));
+
+        // When write one more event.
+        Event event2 = IgniteEvents.CONNECTION_CLOSED.create(
+                EventUser.of("user2", "basicProvider")
+        );
+
+        logSink.write(event2);
+
+        // Then both events are written to file.
+        Thread.sleep(100);
+        lines = readLines(eventlogFile);
+        assertThat(lines, hasSize(2));
+    }
+
+    private static List<String> readLines(File file) throws IOException {
+        try (var lines = Files.lines(file.toPath())) {
+            return lines.collect(Collectors.toList());
+        }
     }
 }

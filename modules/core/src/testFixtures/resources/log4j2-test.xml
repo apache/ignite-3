@@ -47,6 +47,7 @@
       </Policies>
       <DefaultRolloverStrategy max="10"/>
     </RollingFile>
+
     <RollingFile name="EVENTLOG_FILE"
       append="true"
       fileName="build/event.log"

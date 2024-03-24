@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.eventlog.api;
 
+import org.apache.ignite.internal.eventlog.event.EventBuilder;
 import org.apache.ignite.internal.eventlog.event.EventUser;
 
 /**
@@ -31,4 +32,6 @@ public interface EventFactory {
      * @return The event object.
      */
     Event create(EventUser user);
+
+    EventBuilder builder();
 }

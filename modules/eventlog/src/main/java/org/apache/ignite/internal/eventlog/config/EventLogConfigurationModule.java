@@ -27,14 +27,14 @@ import org.apache.ignite.internal.eventlog.config.schema.EventLogConfiguration;
 import org.apache.ignite.internal.eventlog.config.schema.LogSinkConfigurationSchema;
 
 /**
- * {@link ConfigurationModule} for cluster-wide configuration provided by ignite-page-memory.
+ * {@link ConfigurationModule} for cluster-wide configuration provided by eventlog.
  */
 @AutoService(ConfigurationModule.class)
 public class EventLogConfigurationModule implements ConfigurationModule {
     /** {@inheritDoc} */
     @Override
     public ConfigurationType type() {
-        return ConfigurationType.LOCAL;
+        return ConfigurationType.DISTRIBUTED;
     }
 
     /** {@inheritDoc} */
@@ -46,7 +46,6 @@ public class EventLogConfigurationModule implements ConfigurationModule {
     /** {@inheritDoc} */
     @Override
     public Collection<RootKey<?, ?>> rootKeys() {
-        List<RootKey<?, ?>> rootKeys = List.of(EventLogConfiguration.KEY);
-        return rootKeys;
+        return List.of(EventLogConfiguration.KEY);
     }
 }

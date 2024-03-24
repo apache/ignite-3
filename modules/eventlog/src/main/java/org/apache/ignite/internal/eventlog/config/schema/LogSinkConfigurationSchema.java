@@ -19,16 +19,27 @@ package org.apache.ignite.internal.eventlog.config.schema;
 
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.validation.OneOf;
 
-@PolymorphicConfigInstance("log")
+/** Configuration schema for java logger sink. */
+@PolymorphicConfigInstance(LogSinkConfigurationSchema.POLYMORPHIC_ID)
 public class LogSinkConfigurationSchema extends SinkConfigurationSchema {
+    public static final String POLYMORPHIC_ID = "log";
 
+    /**
+     * The criteria for the logger. In other words, the name of the logger.
+     * This name should be used to configure the logger in the logging framework.
+     */
     @Value(hasDefault = true)
     public String criteria = "EventLog";
 
+    /** The logging level. */
+    @OneOf({"ALL", "TRACE", "DEBUG", "INFO", "WARNING", "ERROR", "OFF"})
     @Value(hasDefault = true)
     public String level = "INFO";
 
+    /** The format of the log message. */
+    @OneOf("JSON")
     @Value(hasDefault = true)
-    public String format = "json";
+    public String format = "JSON";
 }
