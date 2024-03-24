@@ -458,7 +458,7 @@ public class MapReduceAggregates {
         // so we should convert it to back to BIGINT.
         MakeReduceExpr exprBuilder = (rexBuilder, input, args, typeFactory) -> {
             RexInputRef ref = rexBuilder.makeInputRef(input, args.get(0));
-            return rexBuilder.makeCast(typeFactory.createSqlType(SqlTypeName.BIGINT), ref);
+            return rexBuilder.makeCast(typeFactory.createSqlType(SqlTypeName.BIGINT), ref, true, false);
         };
 
         return new MapReduceAgg(argList, call, sum0, exprBuilder);
@@ -615,12 +615,12 @@ public class MapReduceAggregates {
             if (args.get(0) == reduceArgumentOffset) {
                 // Accumulator functions handle NULL, so it is safe to ignore it.
                 if (!SqlTypeUtil.equalSansNullability(finalReduceSumType, argExpr.getType())) {
-                    return rexBuilder.makeCast(finalReduceSumType, argExpr);
+                    return rexBuilder.makeCast(finalReduceSumType, argExpr, true, false);
                 } else {
                     return argExpr;
                 }
             } else {
-                return rexBuilder.makeCast(reduceSumCount.type, argExpr);
+                return rexBuilder.makeCast(reduceSumCount.type, argExpr, true, false);
             }
 
         };
@@ -646,7 +646,7 @@ public class MapReduceAggregates {
                 sumDivCnt = rexBuilder.makeCall(IgniteSqlOperatorTable.DECIMAL_DIVIDE, numeratorRef, denominatorRef, p, s);
             } else {
                 RexNode divideRef = rexBuilder.makeCall(SqlStdOperatorTable.DIVIDE, numeratorRef, denominatorRef);
-                sumDivCnt = rexBuilder.makeCast(call.getType(), divideRef);
+                sumDivCnt = rexBuilder.makeCast(call.getType(), divideRef, true, false);
             }
 
             if (canBeNull) {
