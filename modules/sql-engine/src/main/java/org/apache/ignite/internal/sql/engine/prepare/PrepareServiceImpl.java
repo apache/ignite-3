@@ -36,10 +36,13 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import org.apache.calcite.plan.RelOptPlanner;
+import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.sql.SqlDdl;
 import org.apache.calcite.sql.SqlExplain;
+import org.apache.calcite.sql.SqlExplainFormat;
+import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
@@ -325,7 +328,7 @@ public class PrepareServiceImpl implements PrepareService {
             // Use parameter metadata to compute a cache key.
             CacheKey key = createCacheKeyFromParameterMetadata(stmt.parsedResult, ctx, stmt.parameterMetadata);
 
-            CompletableFuture<QueryPlan> planFut = cache.get(key, k -> CompletableFuture.supplyAsync(() -> {
+            CompletableFuture<QueryPlan> planFut = cacheGet(key, k -> CompletableFuture.supplyAsync(() -> {
                 IgnitePlanner planner = ctx.planner();
 
                 ValidationResult validated = stmt.value;
@@ -334,6 +337,8 @@ public class PrepareServiceImpl implements PrepareService {
                 SqlNode validatedNode = validated.sqlNode();
 
                 IgniteRel igniteRel = optimize(validatedNode, planner);
+
+                System.err.println(RelOptUtil.dumpPlan("TEXT", igniteRel, SqlExplainFormat.TEXT, SqlExplainLevel.ALL_ATTRIBUTES));
 
                 // cluster keeps a lot of cached stuff that won't be used anymore.
                 // In order let GC collect that, let's reattach tree to an empty cluster
@@ -391,7 +396,7 @@ public class PrepareServiceImpl implements PrepareService {
             // Use parameter metadata to compute a cache key.
             CacheKey key = createCacheKeyFromParameterMetadata(stmt.parsedResult, ctx, stmt.parameterMetadata);
 
-            CompletableFuture<QueryPlan> planFut = cache.get(key, k -> CompletableFuture.supplyAsync(() -> {
+            CompletableFuture<QueryPlan> planFut = cacheGet(key, k -> CompletableFuture.supplyAsync(() -> {
                 IgnitePlanner planner = ctx.planner();
 
                 SqlNode validatedNode = stmt.value;
@@ -418,6 +423,11 @@ public class PrepareServiceImpl implements PrepareService {
 
             return planFut.thenApply(Function.identity());
         });
+    }
+
+    private CompletableFuture<QueryPlan> cacheGet(CacheKey key, Function<CacheKey, CompletableFuture<QueryPlan>> mappingFunction) {
+//        return cache.get(key, mappingFunction);
+        return mappingFunction.apply(key);
     }
 
     /**
