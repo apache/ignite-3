@@ -582,8 +582,12 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     @Override
     public void updateLease(long leaseStartTime) {
         busy(() -> {
-            assert leaseStartTime > this.leaseStartTime : format("Updated lease start time should be greater than current [current={}, "
-                    + "updated={}]", this.leaseStartTime, leaseStartTime);
+            if (leaseStartTime == this.leaseStartTime) {
+                return null;
+            }
+
+            /*assert leaseStartTime > this.leaseStartTime : format("Updated lease start time should be greater than current [current={}, "
+                    + "updated={}]", this.leaseStartTime, leaseStartTime);*/
 
             try (WriteBatch writeBatch = new WriteBatch()) {
                 byte[] leaseBytes = new byte[Long.BYTES];
