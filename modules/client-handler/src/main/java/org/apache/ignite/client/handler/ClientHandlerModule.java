@@ -62,7 +62,6 @@ import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.sql.IgniteSql;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -82,9 +81,6 @@ public class ClientHandlerModule implements IgniteComponent {
 
     /** Ignite transactions API. */
     private final IgniteTransactionsImpl igniteTransactions;
-
-    /** Ignite SQL API. */
-    private final IgniteSql sql;
 
     /** Cluster ID supplier. */
     private final Supplier<CompletableFuture<ClusterTag>> clusterTagSupplier;
@@ -140,7 +136,6 @@ public class ClientHandlerModule implements IgniteComponent {
      * @param igniteCompute Compute.
      * @param clusterService Cluster.
      * @param bootstrapFactory Bootstrap factory.
-     * @param sql SQL.
      * @param clusterTagSupplier ClusterTag supplier.
      * @param metricManager Metric manager.
      * @param authenticationManager Authentication manager.
@@ -155,7 +150,6 @@ public class ClientHandlerModule implements IgniteComponent {
             IgniteComputeInternal igniteCompute,
             ClusterService clusterService,
             NettyBootstrapFactory bootstrapFactory,
-            IgniteSql sql,
             Supplier<CompletableFuture<ClusterTag>> clusterTagSupplier,
             MetricManager metricManager,
             ClientHandlerMetricSource metrics,
@@ -172,7 +166,6 @@ public class ClientHandlerModule implements IgniteComponent {
         assert igniteCompute != null;
         assert clusterService != null;
         assert bootstrapFactory != null;
-        assert sql != null;
         assert clusterTagSupplier != null;
         assert metricManager != null;
         assert metrics != null;
@@ -190,7 +183,6 @@ public class ClientHandlerModule implements IgniteComponent {
         this.igniteCompute = igniteCompute;
         this.clusterService = clusterService;
         this.bootstrapFactory = bootstrapFactory;
-        this.sql = sql;
         this.clusterTagSupplier = clusterTagSupplier;
         this.metricManager = metricManager;
         this.metrics = metrics;
@@ -371,7 +363,6 @@ public class ClientHandlerModule implements IgniteComponent {
                 configuration,
                 igniteCompute,
                 clusterService,
-                sql,
                 clusterTag,
                 metrics,
                 authenticationManager,

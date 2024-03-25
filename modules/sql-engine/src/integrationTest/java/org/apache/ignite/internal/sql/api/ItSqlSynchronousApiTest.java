@@ -23,10 +23,13 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.sql.BatchedArguments;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.sql.Statement;
 import org.apache.ignite.tx.Transaction;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 /**
  * Tests for synchronous SQL API.
@@ -34,38 +37,52 @@ import org.apache.ignite.tx.Transaction;
 @SuppressWarnings("ThrowableNotThrown")
 public class ItSqlSynchronousApiTest extends ItSqlApiBaseTest {
     @Override
-    protected ResultSet<SqlRow> executeForRead(Session ses, Transaction tx, String query, Object... args) {
-        return ses.execute(tx, query, args);
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18647")
+    public void resultSetCloseShouldFinishImplicitTransaction() {
+        super.resultSetCloseShouldFinishImplicitTransaction();
     }
 
     @Override
-    protected long[] executeBatch(Session ses, String sql, BatchedArguments args) {
-        return ses.executeBatch(null, sql, args);
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18647")
+    public void errors() throws InterruptedException {
+        super.errors();
+    }
+
+    @Override
+    protected ResultSet<SqlRow> executeForRead(IgniteSql sql, Transaction tx, Statement statement, Object... args) {
+        return sql.execute(tx, statement, args);
+    }
+
+    @Override
+    protected long[] executeBatch(IgniteSql sql, String query, BatchedArguments args) {
+        return sql.executeBatch(null, query, args);
     }
 
 
     @Override
-    protected ResultProcessor execute(Integer expectedPages, Transaction tx, Session ses, String sql, Object... args) {
+    protected ResultProcessor execute(Integer expectedPages, Transaction tx, IgniteSql sql, Statement statement, Object... args) {
         SyncPageProcessor syncProcessor = new SyncPageProcessor();
 
-        ResultSet<SqlRow> rs = ses.execute(tx, sql, args);
+        ResultSet<SqlRow> rs = sql.execute(tx, statement, args);
         syncProcessor.process(rs);
 
         return syncProcessor;
     }
 
-    protected ResultProcessor execute(int expectedPages, Transaction tx, Session ses, String sql, Object... args) {
+    protected ResultProcessor execute(int expectedPages, Transaction tx, IgniteSql sql, String query, Object... args) {
         SyncPageProcessor syncProcessor = new SyncPageProcessor();
 
-        ResultSet<SqlRow> rs = ses.execute(tx, sql, args);
+        ResultSet<SqlRow> rs = sql.execute(tx, query, args);
         syncProcessor.process(rs);
 
         return syncProcessor;
     }
 
     @Override
-    protected void executeScript(Session ses, String sql, Object... args) {
-        ses.executeScript(sql, args);
+    protected void executeScript(IgniteSql sql, String query, Object... args) {
+        sql.executeScript(query, args);
     }
 
     @Override
@@ -79,10 +96,10 @@ public class ItSqlSynchronousApiTest extends ItSqlApiBaseTest {
     }
 
     @Override
-    protected void checkDml(int expectedAffectedRows, Transaction tx, Session ses, String sql, Object... args) {
-        ResultSet res = ses.execute(
+    protected void checkDml(int expectedAffectedRows, Transaction tx, IgniteSql sql, String query, Object... args) {
+        ResultSet res = sql.execute(
                 tx,
-                sql,
+                query,
                 args
         );
 
@@ -94,10 +111,10 @@ public class ItSqlSynchronousApiTest extends ItSqlApiBaseTest {
     }
 
     @Override
-    protected void checkDdl(boolean expectedApplied, Session ses, String sql, Transaction tx) {
-        ResultSet res = ses.execute(
+    protected void checkDdl(boolean expectedApplied, IgniteSql sql, String query, Transaction tx) {
+        ResultSet res = sql.execute(
                 tx,
-                sql
+                query
         );
 
         assertEquals(expectedApplied, res.wasApplied());

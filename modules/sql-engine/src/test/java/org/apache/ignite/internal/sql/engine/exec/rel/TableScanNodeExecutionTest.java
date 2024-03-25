@@ -253,7 +253,9 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                             Int2ObjectMaps.singleton(0, mock(RaftGroupService.class)),
                             new SingleClusterNodeResolver(mock(ClusterNode.class))
                     ),
-                    mock(TransactionInflights.class)
+                    mock(TransactionInflights.class),
+                    3_000,
+                    0
             );
             this.dataAmount = dataAmount;
 

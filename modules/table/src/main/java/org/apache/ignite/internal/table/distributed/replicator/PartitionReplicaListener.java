@@ -433,7 +433,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         return validateTableExistence(request, opTsIfDirectRo)
                 .thenCompose(unused -> validateSchemaMatch(request, opTsIfDirectRo))
                 .thenCompose(unused -> waitForSchemasBeforeReading(request, opTsIfDirectRo))
-                .thenCompose(unused -> processOperationRequestWithTxRwCounter(request, isPrimary, opTsIfDirectRo));
+                .thenCompose(unused -> processOperationRequestWithTxRwCounter(senderId, request, isPrimary, opTsIfDirectRo));
     }
 
     /**
@@ -603,6 +603,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private CompletableFuture<?> processOperationRequest(
+            String senderId,
             ReplicaRequest request,
             @Nullable Boolean isPrimary,
             @Nullable HybridTimestamp opStartTsIfDirectRo
@@ -610,23 +611,33 @@ public class PartitionReplicaListener implements ReplicaListener {
         if (request instanceof ReadWriteSingleRowReplicaRequest) {
             var req = (ReadWriteSingleRowReplicaRequest) request;
 
-            return appendTxCommand(req.transactionId(), req.requestType(), req.full(), () -> processSingleEntryAction(req));
+            var opId = new OperationId(senderId, req.timestampLong());
+
+            return appendTxCommand(req.transactionId(), opId, req.requestType(), req.full(), () -> processSingleEntryAction(req));
         } else if (request instanceof ReadWriteSingleRowPkReplicaRequest) {
             var req = (ReadWriteSingleRowPkReplicaRequest) request;
 
-            return appendTxCommand(req.transactionId(), req.requestType(), req.full(), () -> processSingleEntryAction(req));
+            var opId = new OperationId(senderId, req.timestampLong());
+
+            return appendTxCommand(req.transactionId(), opId, req.requestType(), req.full(), () -> processSingleEntryAction(req));
         } else if (request instanceof ReadWriteMultiRowReplicaRequest) {
             var req = (ReadWriteMultiRowReplicaRequest) request;
 
-            return appendTxCommand(req.transactionId(), req.requestType(), req.full(), () -> processMultiEntryAction(req));
+            var opId = new OperationId(senderId, req.timestampLong());
+
+            return appendTxCommand(req.transactionId(), opId, req.requestType(), req.full(), () -> processMultiEntryAction(req));
         } else if (request instanceof ReadWriteMultiRowPkReplicaRequest) {
             var req = (ReadWriteMultiRowPkReplicaRequest) request;
 
-            return appendTxCommand(req.transactionId(), req.requestType(), req.full(), () -> processMultiEntryAction(req));
+            var opId = new OperationId(senderId, req.timestampLong());
+
+            return appendTxCommand(req.transactionId(), opId, req.requestType(), req.full(), () -> processMultiEntryAction(req));
         } else if (request instanceof ReadWriteSwapRowReplicaRequest) {
             var req = (ReadWriteSwapRowReplicaRequest) request;
 
-            return appendTxCommand(req.transactionId(), req.requestType(), req.full(), () -> processTwoEntriesAction(req));
+            var opId = new OperationId(senderId, req.timestampLong());
+
+            return appendTxCommand(req.transactionId(), opId, req.requestType(), req.full(), () -> processTwoEntriesAction(req));
         } else if (request instanceof ReadWriteScanRetrieveBatchReplicaRequest) {
             var req = (ReadWriteScanRetrieveBatchReplicaRequest) request;
 
@@ -642,8 +653,10 @@ public class PartitionReplicaListener implements ReplicaListener {
                     null
             ));
 
+            var opId = new OperationId(senderId, req.timestampLong());
+
             // Implicit RW scan can be committed locally on a last batch or error.
-            return appendTxCommand(req.transactionId(), RequestType.RW_SCAN, false, () -> processScanRetrieveBatchAction(req))
+            return appendTxCommand(req.transactionId(), opId, RequestType.RW_SCAN, false, () -> processScanRetrieveBatchAction(req))
                     .thenCompose(rows -> {
                         if (allElementsAreNull(rows)) {
                             return completedFuture(rows);
@@ -1730,7 +1743,6 @@ public class PartitionReplicaListener implements ReplicaListener {
         List<CompletableFuture<?>> txUpdateFutures = new ArrayList<>();
         List<CompletableFuture<?>> txReadFutures = new ArrayList<>();
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-18617
         txCleanupReadyFutures.compute(txId, (id, txOps) -> {
             if (txOps == null) {
                 return null;
@@ -1738,15 +1750,15 @@ public class PartitionReplicaListener implements ReplicaListener {
 
             txOps.futures.forEach((opType, futures) -> {
                 if (opType.isRwRead()) {
-                    txReadFutures.addAll(futures);
+                    txReadFutures.addAll(futures.values());
                 } else {
-                    txUpdateFutures.addAll(futures);
+                    txUpdateFutures.addAll(futures.values());
                 }
             });
 
             txOps.futures.clear();
 
-            return txOps;
+            return null;
         });
 
         return allOfFuturesExceptionIgnored(txUpdateFutures, commit, txId)
@@ -1878,12 +1890,19 @@ public class PartitionReplicaListener implements ReplicaListener {
      * Appends an operation to prevent the race between commit/rollback and the operation execution.
      *
      * @param txId Transaction id.
+     * @param opId Operation id.
      * @param cmdType Command type.
      * @param full {@code True} if a full transaction and can be immediately committed.
      * @param op Operation closure.
      * @return A future object representing the result of the given operation.
      */
-    private <T> CompletableFuture<T> appendTxCommand(UUID txId, RequestType cmdType, boolean full, Supplier<CompletableFuture<T>> op) {
+    private <T> CompletableFuture<T> appendTxCommand(
+            UUID txId,
+            OperationId opId,
+            RequestType cmdType,
+            boolean full,
+            Supplier<CompletableFuture<T>> op
+    ) {
         if (full) {
             return op.get().whenComplete((v, th) -> {
                 // Fast unlock.
@@ -1894,17 +1913,22 @@ public class PartitionReplicaListener implements ReplicaListener {
         var cleanupReadyFut = new CompletableFuture<Void>();
 
         txCleanupReadyFutures.compute(txId, (id, txOps) -> {
-            if (txOps == null) {
-                txOps = new TxCleanupReadyFutureList();
-            }
-
+            // First check whether the transaction has already been finished.
+            // And complete cleanupReadyFut with exception if it is the case.
             TxStateMeta txStateMeta = txManager.stateMeta(txId);
 
             if (txStateMeta == null || isFinalState(txStateMeta.txState())) {
                 cleanupReadyFut.completeExceptionally(new Exception());
-            } else {
-                txOps.futures.computeIfAbsent(cmdType, type -> new ArrayList<>()).add(cleanupReadyFut);
+
+                return txOps;
             }
+
+            // Otherwise collect cleanupReadyFut in the transaction's futures.
+            if (txOps == null) {
+                txOps = new TxCleanupReadyFutureList();
+            }
+
+            txOps.futures.computeIfAbsent(cmdType, type -> new HashMap<>()).put(opId, cleanupReadyFut);
 
             return txOps;
         });
@@ -2233,6 +2257,10 @@ public class PartitionReplicaListener implements ReplicaListener {
                 Map<UUID, HybridTimestamp> lastCommitTimes = new HashMap<>();
                 BitSet deleted = request.deleted();
 
+                // When the same key is updated multiple times within the same batch, we need to maintain operation order and apply
+                // only the last update. This map stores the previous searchRows index for each key.
+                Map<ByteBuffer, Integer> newKeyMap = new HashMap<>();
+
                 for (int i = 0; i < searchRows.size(); i++) {
                     BinaryRow searchRow = searchRows.get(i);
 
@@ -2242,18 +2270,38 @@ public class PartitionReplicaListener implements ReplicaListener {
                             ? resolvePk(searchRow.tupleSlice())
                             : extractPk(searchRow);
 
+                    int rowIdx = i;
+
                     rowIdFuts[i] = resolveRowByPk(pk, txId, (rowId, row, lastCommitTime) -> {
                         if (isDelete && rowId == null) {
                             // Does not exist, nothing to delete.
                             return nullCompletedFuture();
                         }
 
-                        boolean insert = rowId == null;
-
-                        RowId rowId0 = insert ? new RowId(partId(), UUID.randomUUID()) : rowId;
-
                         if (lastCommitTime != null) {
+                            // noinspection DataFlowIssue (rowId is not null if lastCommitTime is not null)
                             lastCommitTimes.put(rowId.uuid(), lastCommitTime);
+                        }
+
+                        boolean insert = rowId == null;
+                        RowId rowId0;
+
+                        if (insert) {
+                            Integer prevRowIdx = newKeyMap.put(pk.byteBuffer(), rowIdx);
+
+                            if (prevRowIdx != null) {
+                                // Return existing lock.
+                                CompletableFuture<IgniteBiTuple<RowId, Collection<Lock>>> lockFut = rowIdFuts[prevRowIdx];
+
+                                // Skip previous update with the same key.
+                                rowIdFuts[prevRowIdx] = nullCompletedFuture();
+
+                                return lockFut;
+                            }
+
+                            rowId0 = new RowId(partId(), UUID.randomUUID());
+                        } else {
+                            rowId0 = rowId;
                         }
 
                         if (isDelete) {
@@ -3704,7 +3752,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         /**
          * Operation type is mapped operation futures.
          */
-        final Map<RequestType, List<CompletableFuture<?>>> futures = new EnumMap<>(RequestType.class);
+        final Map<RequestType, Map<OperationId, CompletableFuture<?>>> futures = new EnumMap<>(RequestType.class);
     }
 
     @Override
@@ -3794,6 +3842,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private CompletableFuture<?> processOperationRequestWithTxRwCounter(
+            String senderId,
             ReplicaRequest request,
             @Nullable Boolean isPrimary,
             @Nullable HybridTimestamp opStartTsIfDirectRo
@@ -3808,7 +3857,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             }
         }
 
-        return processOperationRequest(request, isPrimary, opStartTsIfDirectRo)
+        return processOperationRequest(senderId, request, isPrimary, opStartTsIfDirectRo)
                 .whenComplete((unused, throwable) -> {
                     if (request instanceof ReadWriteReplicaRequest) {
                         txRwOperationTracker.decrementOperationCount(
@@ -3893,5 +3942,51 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private @Nullable BinaryRow upgrage(@Nullable BinaryRow source, int targetSchemaVersion) {
         return source == null ? null : new BinaryRowUpgrader(schemaRegistry, targetSchemaVersion).upgrade(source);
+    }
+
+    /**
+     * Operation unique identifier.
+     */
+    private static class OperationId {
+        /** Operation node initiator id. */
+        private String initiatorId;
+
+        /** Timestamp. */
+        private long ts;
+
+        /**
+         * The constructor.
+         *
+         * @param initiatorId Sender node id.
+         * @param ts Timestamp.
+         */
+        public OperationId(String initiatorId, long ts) {
+            this.initiatorId = initiatorId;
+            this.ts = ts;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+
+            OperationId that = (OperationId) o;
+
+            if (ts != that.ts) {
+                return false;
+            }
+            return initiatorId.equals(that.initiatorId);
+        }
+
+        @Override
+        public int hashCode() {
+            int result = initiatorId.hashCode();
+            result = 31 * result + (int) (ts ^ (ts >>> 32));
+            return result;
+        }
     }
 }

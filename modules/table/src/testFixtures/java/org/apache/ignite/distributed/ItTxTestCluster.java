@@ -718,7 +718,9 @@ public class ItTxTestCluster {
                         timestampTracker,
                         placementDriver,
                         new TableRaftServiceImpl(tableName, 1, clients, nodeResolver),
-                        clientTransactionInflights
+                        clientTransactionInflights,
+                        500,
+                        0
                 ),
                 new DummySchemaManagerImpl(schemaDescriptor),
                 clientTxManager.lockManager(),

@@ -15,50 +15,51 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.api;
+package org.apache.ignite.internal.table.distributed;
 
-import java.util.Objects;
-import java.util.UUID;
 import org.apache.ignite.internal.tostring.S;
 
-/**
- * Class-wrapper representing a session's identifier.
- */
-class SessionId {
-    private final UUID id;
+/** Information about the dropped table. */
+final class DroppedTableInfo {
+    private final int tableId;
 
-    /**
-     * Constructor.
-     *
-     * @param id Internal value of an identifier.
-     */
-    SessionId(UUID id) {
-        this.id = Objects.requireNonNull(id, "id");
+    /** Catalog version in which the table was removed from the catalog. */
+    private final int tableRemovalCatalogVersion;
+
+    DroppedTableInfo(int tableId, int tableRemovalCatalogVersion) {
+        this.tableId = tableId;
+        this.tableRemovalCatalogVersion = tableRemovalCatalogVersion;
     }
 
-    /** {@inheritDoc} */
+    public int tableId() {
+        return tableId;
+    }
+
+    public int tableRemovalCatalogVersion() {
+        return tableRemovalCatalogVersion;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {
             return true;
         }
-
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
 
-        SessionId sessionId = (SessionId) o;
+        DroppedTableInfo other = (DroppedTableInfo) o;
 
-        return id.equals(sessionId.id);
+        return tableId == other.tableId && tableRemovalCatalogVersion == other.tableRemovalCatalogVersion;
     }
 
-    /** {@inheritDoc} */
     @Override
     public int hashCode() {
-        return id.hashCode();
+        int result = tableId;
+        result = 31 * result + tableRemovalCatalogVersion;
+        return result;
     }
 
-    /** {@inheritDoc} */
     @Override
     public String toString() {
         return S.toString(this);
