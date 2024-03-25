@@ -51,6 +51,7 @@ import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointMa
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
@@ -233,7 +234,7 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
     }
 
     @Override
-    public PersistentPageMemoryTableStorage createMvTable(
+    public MvTableStorage createMvTable(
             StorageTableDescriptor tableDescriptor,
             StorageIndexDescriptorSupplier indexDescriptorSupplier
     ) throws StorageException {
