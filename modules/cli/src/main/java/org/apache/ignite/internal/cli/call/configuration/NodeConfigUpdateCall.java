@@ -55,7 +55,7 @@ public class NodeConfigUpdateCall implements Call<NodeConfigUpdateCallInput, Str
             throws ApiException {
         api.updateNodeConfiguration(input.getConfig());
         return DefaultCallOutput.success("Node configuration updated. "
-                + fg(Color.RED).mark("Restart the node to apply changes."));
+                + fg(Color.YELLOW).mark("Restart the node to apply changes."));
     }
 
     private NodeConfigurationApi createApiClient(NodeConfigUpdateCallInput input) {

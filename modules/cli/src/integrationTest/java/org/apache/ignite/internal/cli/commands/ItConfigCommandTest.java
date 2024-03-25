@@ -91,7 +91,7 @@ public class ItConfigCommandTest extends AbstractCliTest {
         assertThat(
                 out.toString(UTF_8),
                 containsString("Node configuration updated. "
-                        + fg(Color.RED).mark("Restart the node to apply changes."))
+                        + fg(Color.YELLOW).mark("Restart the node to apply changes."))
 
         );
 
