@@ -49,7 +49,7 @@ import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
@@ -332,17 +332,17 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
      * @param partitions Partitions count.
      */
     private static void createTableWithData(Ignite ignite, String name, int replicas, int partitions) throws InterruptedException {
-        try (Session session = ignite.sql().createSession()) {
-            session.execute(null, String.format("CREATE ZONE IF NOT EXISTS ZONE_%s ENGINE aimem WITH REPLICAS=%d, PARTITIONS=%d",
-                    name, replicas, partitions));
-            session.execute(null, "CREATE TABLE " + name
-                    + " (id INT PRIMARY KEY, name VARCHAR)"
-                    + " WITH PRIMARY_ZONE='ZONE_" + name.toUpperCase() + "';");
+        IgniteSql sql = ignite.sql();
 
-            for (int i = 0; i < 100; i++) {
-                session.execute(null, "INSERT INTO " + name + "(id, name) VALUES (?, ?)",
-                        i, VALUE_PRODUCER.apply(i));
-            }
+        sql.execute(null, String.format("CREATE ZONE IF NOT EXISTS ZONE_%s ENGINE aimem WITH REPLICAS=%d, PARTITIONS=%d",
+                name, replicas, partitions));
+        sql.execute(null, "CREATE TABLE " + name
+                + " (id INT PRIMARY KEY, name VARCHAR)"
+                + " WITH PRIMARY_ZONE='ZONE_" + name.toUpperCase() + "';");
+
+        for (int i = 0; i < 100; i++) {
+            sql.execute(null, "INSERT INTO " + name + "(id, name) VALUES (?, ?)",
+                    i, VALUE_PRODUCER.apply(i));
         }
 
         var table = (TableViewInternal) ignite.tables().table(name);

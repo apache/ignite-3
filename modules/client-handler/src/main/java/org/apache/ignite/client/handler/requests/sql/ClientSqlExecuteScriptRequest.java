@@ -20,7 +20,7 @@ package org.apache.ignite.client.handler.requests.sql;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.sql.api.SessionImpl;
+import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.util.ArrayUtils;
@@ -53,6 +53,6 @@ public class ClientSqlExecuteScriptRequest {
         HybridTimestamp clientTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
         transactions.updateObservableTimestamp(clientTs);
 
-        return SessionImpl.executeScriptCore(sql, transactions, () -> true, () -> {}, script, arguments, props.toSqlProps());
+        return IgniteSqlImpl.executeScriptCore(sql, transactions, () -> true, () -> {}, script, arguments, props.toSqlProps());
     }
 }

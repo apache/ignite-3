@@ -301,7 +301,9 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 observableTimestampTracker,
                 new TestPlacementDriver(clusterNode),
                 new TableRaftServiceImpl("PUBLIC.TEST", PARTS, partRafts, new SingleClusterNodeResolver(clusterNode)),
-                transactionInflights
+                transactionInflights,
+                3_000,
+                0
         );
     }
 

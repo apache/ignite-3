@@ -1135,6 +1135,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     metaStorageManager.registerRevisionUpdateListener(function::apply);
 
             GcConfiguration gcConfig = clusterConfigRegistry.getConfiguration(GcConfiguration.KEY);
+            TransactionConfiguration txConfig = clusterConfigRegistry.getConfiguration(TransactionConfiguration.KEY);
 
             DataStorageModules dataStorageModules = new DataStorageModules(List.of(
                     new PersistentPageMemoryDataStorageModule(),
@@ -1202,6 +1203,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     name,
                     registry,
                     gcConfig,
+                    txConfig,
                     storageUpdateConfiguration,
                     clusterService.messagingService(),
                     clusterService.topologyService(),

@@ -128,6 +128,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         builder.clusterConfiguration("{\n"
                 + "  \"transaction\": {\n"
                 + "  \"abandonedCheckTs\": 600000\n"
+                + "  \"attemptsObtainLock\": 0\n"
                 + "  }\n"
                 + "}\n");
     }
@@ -745,7 +746,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     public void testPrimaryFailureWhileInflightInProgressAfterFirstResponse() throws Exception {
         TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
 
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), 0);
+        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
 
         String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
 
@@ -961,9 +962,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     public void testCursorsClosedAfterTxClose() throws Exception {
         TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
 
-        int partId = 0;
-
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), partId);
+        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
 
         String leaseholder = waitAndGetPrimaryReplica(node(0), tblReplicationGrp).getLeaseholder();
 

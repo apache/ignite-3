@@ -66,8 +66,8 @@ import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.TestInfo;
@@ -469,20 +469,6 @@ public class Cluster {
     }
 
     /**
-     * Opens a {@link Session} (that can be used to execute SQL queries) through a node with the given index.
-     *
-     * @param nodeIndex Index of the node on which to open a session.
-     * @return A session.
-     */
-    public Session openSession(int nodeIndex) {
-        return node(nodeIndex).sql()
-                .sessionBuilder()
-                .defaultSchema("PUBLIC")
-                .defaultQueryTimeout(QUERY_TIMEOUT_MS, TimeUnit.MILLISECONDS)
-                .build();
-    }
-
-    /**
      * Shuts down the  cluster by stopping all its nodes.
      */
     public void shutdown() {
@@ -498,28 +484,24 @@ public class Cluster {
     }
 
     /**
-     * Executes an action with a {@link Session} opened via a node with the given index.
+     * Executes an action with a {@link IgniteSql} of a node with the given index.
      *
      * @param nodeIndex Index of node on which to execute the action.
      * @param action Action to execute.
      */
-    public void doInSession(int nodeIndex, Consumer<Session> action) {
-        try (Session session = openSession(nodeIndex)) {
-            action.accept(session);
-        }
+    public void doInSession(int nodeIndex, Consumer<IgniteSql> action) {
+        action.accept(node(nodeIndex).sql());
     }
 
     /**
-     * Returns result of executing an action with a {@link Session} opened via a node with the given index.
+     * Returns result of executing an action with a {@link IgniteSql} of a node with the given index.
      *
      * @param nodeIndex Index of node on which to execute the action.
      * @param action Action to execute.
      * @return Action result.
      */
-    public <T> T doInSession(int nodeIndex, Function<Session, T> action) {
-        try (Session session = openSession(nodeIndex)) {
-            return action.apply(session);
-        }
+    public <T> T doInSession(int nodeIndex, Function<IgniteSql, T> action) {
+        return action.apply(node(nodeIndex).sql());
     }
 
     /**

@@ -719,6 +719,7 @@ public class IgniteImpl implements Ignite {
                 name,
                 registry,
                 gcConfig,
+                txConfig,
                 storageUpdateConfiguration,
                 messagingServiceReturningToStorageOperationsPool,
                 clusterSvc.topologyService(),
@@ -796,7 +797,7 @@ public class IgniteImpl implements Ignite {
                 transactionInflights
         );
 
-        sql = new IgniteSqlImpl(name, qryEngine, new IgniteTransactionsImpl(txManager, observableTimestampTracker));
+        sql = new IgniteSqlImpl(qryEngine, new IgniteTransactionsImpl(txManager, observableTimestampTracker));
 
         var deploymentManagerImpl = new DeploymentManagerImpl(
                 clusterSvc,
@@ -885,7 +886,8 @@ public class IgniteImpl implements Ignite {
     private AuthenticationManager createAuthenticationManager() {
         SecurityConfiguration securityConfiguration = clusterCfgMgr.configurationRegistry()
                 .getConfiguration(SecurityConfiguration.KEY);
-        return new AuthenticationManagerImpl(securityConfiguration);
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-21665
+        return new AuthenticationManagerImpl(securityConfiguration, (ign) -> {});
     }
 
     private RestComponent createRestComponent(String name) {

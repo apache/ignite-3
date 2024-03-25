@@ -198,6 +198,7 @@ import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
@@ -402,12 +403,18 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private final TransactionInflights transactionInflights;
 
+    private final TransactionConfiguration txCfg;
+
+    private long implicitTransactionTimeout;
+    private int attemptsObtainLock;
+
     /**
      * Creates a new table manager.
      *
      * @param nodeName Node name.
      * @param registry Registry for versioned values.
      * @param gcConfig Garbage collector configuration.
+     * @param txCfg Transaction configuration.
      * @param storageUpdateConfig Storage update handler configuration.
      * @param raftMgr Raft manager.
      * @param replicaMgr Replica manager.
@@ -435,6 +442,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             String nodeName,
             Consumer<LongFunction<CompletableFuture<?>>> registry,
             GcConfiguration gcConfig,
+            TransactionConfiguration txCfg,
             StorageUpdateConfiguration storageUpdateConfig,
             MessagingService messagingService,
             TopologyService topologyService,
@@ -491,6 +499,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.lowWatermark = lowWatermark;
         this.asyncContinuationExecutor = asyncContinuationExecutor;
         this.transactionInflights = transactionInflights;
+        this.txCfg = txCfg;
 
         this.executorInclinedSchemaSyncService = new ExecutorInclinedSchemaSyncService(schemaSyncService, partitionOperationsExecutor);
         this.executorInclinedPlacementDriver = new ExecutorInclinedPlacementDriver(placementDriver, partitionOperationsExecutor);
@@ -602,6 +611,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             lowWatermark.addUpdateListener(this::onLwmChanged);
 
             partitionReplicatorNodeRecovery.start();
+
+            implicitTransactionTimeout = txCfg.implicitTransactionTimeout().value();
+            attemptsObtainLock = txCfg.attemptsObtainLock().value();
 
             return nullCompletedFuture();
         });
@@ -1300,7 +1312,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 observableTimestampTracker,
                 executorInclinedPlacementDriver,
                 tableRaftService,
-                transactionInflights
+                transactionInflights,
+                implicitTransactionTimeout,
+                attemptsObtainLock
         );
 
         var table = new TableImpl(
