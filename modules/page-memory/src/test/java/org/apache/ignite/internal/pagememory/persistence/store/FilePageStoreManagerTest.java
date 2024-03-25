@@ -549,11 +549,12 @@ public class FilePageStoreManagerTest extends BaseIgniteAbstractTest {
     }
 
     private FilePageStoreManager createManager() throws Exception {
+        var filePageStoreFactory = new FilePageStoreFactory(new RandomAccessFileIoFactory(), PAGE_SIZE);
+
         FilePageStoreManager manager = new FilePageStoreManager(
                 "test",
                 workDir,
-                new RandomAccessFileIoFactory(),
-                PAGE_SIZE,
+                filePageStoreFactory,
                 mock(FailureProcessor.class)
         );
 
