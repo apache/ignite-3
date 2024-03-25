@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.cluster.management.raft;
 
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.rocksdb.snapshot.ColumnFamilyRange.fullRange;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
@@ -86,6 +87,13 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
 
     @Override
     public CompletableFuture<Void> start() {
+        // delete existing data, relying on log playback
+        try {
+            RocksDB.destroyDB(dbPath.toString(), options);
+        } catch (RocksDBException e) {
+            return failedFuture(new CmgStorageException("Unable to drop RocksDb storage", e));
+        }
+
         init();
 
         return nullCompletedFuture();
