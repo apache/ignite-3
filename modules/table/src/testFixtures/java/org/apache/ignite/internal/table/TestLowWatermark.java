@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -28,7 +29,10 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.table.distributed.LowWatermark;
 import org.apache.ignite.internal.table.distributed.LowWatermarkChangedListener;
 import org.jetbrains.annotations.Nullable;
@@ -38,6 +42,8 @@ import org.jetbrains.annotations.Nullable;
  * This implementation has no persistent state and notifies listeners instantly in same thread.
  */
 public class TestLowWatermark implements LowWatermark {
+    private static final IgniteLogger LOG = Loggers.forClass(TestLowWatermark.class);
+
     private final List<LowWatermarkChangedListener> listeners = new CopyOnWriteArrayList<>();
 
     private volatile @Nullable HybridTimestamp ts;
@@ -74,6 +80,14 @@ public class TestLowWatermark implements LowWatermark {
     public void updateLowWatermark(HybridTimestamp newLowWatermark) {
         if (ts == null || newLowWatermark.compareTo(ts) > 0) {
             setLowWatermark(newLowWatermark);
+
+            supplyAsync(() -> notifyListeners(newLowWatermark))
+                    .thenCompose(Function.identity())
+                    .whenComplete((unused, throwable) -> {
+                        if (throwable != null) {
+                            LOG.error("Error when notifying update low watermark: {}", throwable, newLowWatermark);
+                        }
+                    });
         }
     }
 
@@ -91,7 +105,7 @@ public class TestLowWatermark implements LowWatermark {
 
             setLowWatermark(newTs);
 
-            return allOf(listeners.stream().map(l -> l.onLwmChanged(newTs)).toArray(CompletableFuture[]::new));
+            return notifyListeners(newTs);
         } catch (Throwable t) {
             return failedFuture(t);
         }
@@ -110,5 +124,9 @@ public class TestLowWatermark implements LowWatermark {
         } finally {
             updateLowWatermarkLock.writeLock().unlock();
         }
+    }
+
+    private CompletableFuture<Void> notifyListeners(HybridTimestamp newTs) {
+        return allOf(listeners.stream().map(l -> l.onLwmChanged(newTs)).toArray(CompletableFuture[]::new));
     }
 }

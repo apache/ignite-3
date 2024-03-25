@@ -214,4 +214,11 @@ public interface PartitionAccess {
      * @throws StorageException If failed to set the row ID.
      */
     void setNextRowIdToBuildIndex(Map<Integer, RowId> nextRowIdToBuildByIndexId);
+
+    /**
+     * Updates the low watermark if it is larger than the current one.
+     *
+     * @param newLowWatermark Candidate for update.
+     */
+    void updateLowWatermark(HybridTimestamp newLowWatermark);
 }

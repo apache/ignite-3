@@ -556,7 +556,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                 HybridTimestamp senderLowWatermark = nullableHybridTimestamp(getLowWatermarkResponse.lowWatermark());
 
                 if (senderLowWatermark != null) {
-                    // TODO: IGNITE-21612 выставить новый lwm
+                    partitionSnapshotStorage.partition().updateLowWatermark(senderLowWatermark);
                 }
             }, executor);
         } finally {
