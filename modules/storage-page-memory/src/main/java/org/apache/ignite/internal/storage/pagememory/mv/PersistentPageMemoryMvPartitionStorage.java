@@ -357,9 +357,15 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         RenewablePartitionStorageState localState = renewableState;
 
         if (executor == null) {
-            saveFreeListsMetadata(localState);
+            busySafe(() -> {
+                saveRowVersionFreeListMetadataBusy(localState);
+
+                saveIndexFreeListMetadataBusy(localState);
+            });
         } else {
-            executor.execute(() -> saveFreeListsMetadata(localState));
+            executor.execute(() -> busySafe(() -> saveRowVersionFreeListMetadataBusy(localState)));
+
+            executor.execute(() -> busySafe(() -> saveIndexFreeListMetadataBusy(localState)));
         }
     }
 
@@ -431,19 +437,19 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         committedGroupConfigurationBusy(config);
     }
 
-    private void saveFreeListsMetadata(RenewablePartitionStorageState localState) {
-        busySafe(() -> {
-            try {
-                localState.rowVersionFreeList().saveMetadata();
-            } catch (IgniteInternalCheckedException e) {
-                throw new StorageException("Failed to save RowVersionFreeList metadata: [{}]", e, createStorageInfo());
-            }
+    private void saveRowVersionFreeListMetadataBusy(RenewablePartitionStorageState localState) {
+        try {
+            localState.rowVersionFreeList().saveMetadata();
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException("Failed to save RowVersionFreeList metadata: [{}]", e, createStorageInfo());
+        }
+    }
 
-            try {
-                localState.indexFreeList().saveMetadata();
-            } catch (IgniteInternalCheckedException e) {
-                throw new StorageException("Failed to save IndexColumnsFreeList metadata: [{}]", e, createStorageInfo());
-            }
-        });
+    private void saveIndexFreeListMetadataBusy(RenewablePartitionStorageState localState) {
+        try {
+            localState.indexFreeList().saveMetadata();
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException("Failed to save IndexColumnsFreeList metadata: [{}]", e, createStorageInfo());
+        }
     }
 }
