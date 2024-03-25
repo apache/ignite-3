@@ -64,7 +64,7 @@ class CreateFromDefinitionTest {
                 is("CREATE ZONE IF NOT EXISTS zone_test WITH STORAGE_PROFILES='default', PARTITIONS=3, REPLICAS=3,"
                         + " AFFINITY_FUNCTION='affinity',"
                         + " DATA_NODES_AUTO_ADJUST=1, DATA_NODES_AUTO_ADJUST_SCALE_UP=3, DATA_NODES_AUTO_ADJUST_SCALE_DOWN=2,"
-                        + " DATA_NODES_FILTER='filter', DATAREGION='dataRegion';")
+                        + " DATA_NODES_FILTER='filter';")
         );
     }
 

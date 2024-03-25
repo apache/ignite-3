@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_PROFILE_NAME;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -198,7 +199,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      * @param partitions Partitions count.
      */
     protected static Table createZoneAndTable(String zoneName, String tableName, int replicas, int partitions) {
-        createZoneOnlyIfNotExists(zoneName, replicas, partitions, "default");
+        createZoneOnlyIfNotExists(zoneName, replicas, partitions, DEFAULT_STORAGE_PROFILE);
 
         return createTableOnly(tableName, zoneName);
     }
