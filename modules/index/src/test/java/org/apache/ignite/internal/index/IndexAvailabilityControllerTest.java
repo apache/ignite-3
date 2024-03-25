@@ -29,7 +29,6 @@ import static org.apache.ignite.internal.index.TestIndexManagementUtils.INDEX_NA
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.NODE_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.TABLE_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.createTable;
-import static org.apache.ignite.internal.table.TableTestUtils.getIndexStrict;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
@@ -434,6 +433,6 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
     }
 
     private int indexCreationCatalogVersion(String indexName) {
-        return getIndexStrict(catalogManager, indexName, clock.nowLong()).txWaitCatalogVersion();
+        return TableTestUtils.getIndexStrict(catalogManager, indexName, clock.nowLong()).txWaitCatalogVersion();
     }
 }

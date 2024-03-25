@@ -41,7 +41,7 @@ import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.IgniteSql;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInfo;
@@ -118,12 +118,12 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
             startedNodes.add(future.join());
         }
 
-        try (Session session = startedNodes.get(0).sql().createSession()) {
-            session.execute(null, "CREATE ZONE TEST_ZONE WITH REPLICAS=1, PARTITIONS=10, STORAGE_PROFILES='"
-                    + DEFAULT_STORAGE_PROFILE + "'");
-            session.execute(null, "CREATE TABLE " + TABLE_NAME + "("
-                    + COLUMN_KEY + " INT PRIMARY KEY, " + COLUMN_VAL + " VARCHAR) WITH PRIMARY_ZONE='TEST_ZONE'");
-        }
+        IgniteSql sql = startedNodes.get(0).sql();
+
+        sql.execute(null,  "CREATE ZONE TEST_ZONE WITH REPLICAS=1, PARTITIONS=10, STORAGE_PROFILES='"
+                + DEFAULT_STORAGE_PROFILE + "'");
+        sql.execute(null, "CREATE TABLE " + TABLE_NAME + "("
+                + COLUMN_KEY + " INT PRIMARY KEY, " + COLUMN_VAL + " VARCHAR) WITH PRIMARY_ZONE='TEST_ZONE'");
 
         client = IgniteClient.builder().addresses(getClientAddresses().toArray(new String[0])).build();
 

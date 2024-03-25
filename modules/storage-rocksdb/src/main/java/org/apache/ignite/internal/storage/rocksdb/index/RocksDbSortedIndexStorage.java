@@ -53,6 +53,7 @@ import org.rocksdb.WriteBatchWithIndex;
  *
  * <p>This storage uses the following format for keys:
  * <pre>
+ * Index ID - 4 bytes
  * Partition ID - 2 bytes
  * Tuple value - variable length
  * Row ID (UUID) - 16 bytes
@@ -248,7 +249,7 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
     }
 
     @Override
-    public void destroyData(WriteBatch writeBatch) throws RocksDBException {
+    public void clearIndex(WriteBatch writeBatch) throws RocksDBException {
         byte[] constantPrefix = ByteBuffer.allocate(BINARY_TUPLE_OFFSET)
                 .order(KEY_BYTE_ORDER)
                 .putInt(indexId)

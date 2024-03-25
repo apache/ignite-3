@@ -20,6 +20,7 @@ package org.apache.ignite.internal.storage.pagememory.index;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
+import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInCleanupOrRebalancedState;
 
 import java.util.NoSuchElementException;
 import java.util.UUID;
@@ -45,19 +46,18 @@ import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMeta;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaKey;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
-import org.apache.ignite.internal.storage.pagememory.index.meta.UpdateLastRowIdUuidToBuiltInvokeClosure;
+import org.apache.ignite.internal.storage.pagememory.index.meta.UpdateLastRowIdUuidToBuildInvokeClosure;
 import org.apache.ignite.internal.storage.util.StorageState;
+import org.apache.ignite.internal.storage.util.StorageUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Abstract index storage based on Page Memory.
  */
-public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V extends K> implements IndexStorage {
+public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V extends K, TreeT extends BplusTree<K, V>>
+        implements IndexStorage {
     private static final IgniteLogger LOG = Loggers.forClass(AbstractPageMemoryIndexStorage.class);
-
-    /** Index ID. */
-    private final int indexId;
 
     /** Partition id. */
     protected final int partitionId;
@@ -68,32 +68,40 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
     /** Highest possible RowId according to signed long ordering. */
     protected final RowId highestRowId;
 
-    /** Free list to store index columns. */
-    protected volatile IndexColumnsFreeList freeList;
-
-    /** Busy lock. */
-    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
-
     /** Current state of the storage. */
     protected final AtomicReference<StorageState> state = new AtomicReference<>(StorageState.RUNNABLE);
 
     /** Index meta tree instance. */
-    private final IndexMetaTree indexMetaTree;
+    private volatile IndexMetaTree indexMetaTree;
+
+    /** Free list to store index columns. */
+    protected volatile IndexColumnsFreeList freeList;
+
+    /** Index tree instance. */
+    protected volatile TreeT indexTree;
 
     /** Row ID for which the index needs to be built, {@code null} means that the index building has completed. */
-    private volatile @Nullable RowId nextRowIdToBuilt;
+    private volatile @Nullable RowId nextRowIdToBuild;
+
+    /** Busy lock. */
+    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
+
+    /** Index ID. */
+    private final int indexId;
 
     private final boolean isVolatile;
 
     protected AbstractPageMemoryIndexStorage(
             IndexMeta indexMeta,
             int partitionId,
+            TreeT indexTree,
             IndexColumnsFreeList freeList,
             IndexMetaTree indexMetaTree,
             boolean isVolatile
     ) {
         this.indexId = indexMeta.indexId();
         this.partitionId = partitionId;
+        this.indexTree = indexTree;
         this.freeList = freeList;
         this.indexMetaTree = indexMetaTree;
         this.isVolatile = isVolatile;
@@ -102,7 +110,13 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
 
         highestRowId = RowId.highestRowId(partitionId);
 
-        nextRowIdToBuilt = indexMeta.nextRowIdUuidToBuild() == null ? null : new RowId(partitionId, indexMeta.nextRowIdUuidToBuild());
+        nextRowIdToBuild = getNextRowIdToBuild(indexMeta);
+    }
+
+    private @Nullable RowId getNextRowIdToBuild(IndexMeta indexMeta) {
+        UUID uuid = indexMeta.nextRowIdUuidToBuild();
+
+        return uuid == null ? null : new RowId(partitionId, uuid);
     }
 
     @Override
@@ -110,7 +124,7 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
         return busy(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
-            return nextRowIdToBuilt;
+            return nextRowIdToBuild;
         });
     }
 
@@ -122,12 +136,12 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
             UUID rowIdUuid = rowId == null ? null : rowId.uuid();
 
             try {
-                indexMetaTree.invoke(new IndexMetaKey(indexId), null, new UpdateLastRowIdUuidToBuiltInvokeClosure(rowIdUuid));
+                indexMetaTree.invoke(new IndexMetaKey(indexId), null, new UpdateLastRowIdUuidToBuildInvokeClosure(rowIdUuid));
             } catch (IgniteInternalCheckedException e) {
-                throw new StorageException("Error updating last row ID uuid to built: [{}, rowId={}]", e, createStorageInfo(), rowId);
+                throw new StorageException("Error updating last row ID uuid to build: [{}, rowId={}]", e, createStorageInfo(), rowId);
             }
 
-            nextRowIdToBuilt = rowId;
+            nextRowIdToBuild = rowId;
 
             return null;
         });
@@ -135,15 +149,20 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
 
     /** Closes the index storage. */
     public void close() {
-        StorageState prevState = state.getAndSet(StorageState.CLOSED);
-
-        if (prevState == StorageState.CLOSED) {
+        if (!transitionToTerminalState(StorageState.CLOSED)) {
             return;
         }
 
         busyLock.block();
 
         closeStructures();
+    }
+
+    /**
+     * If not already in a terminal state, transitions to the supplied state and returns {@code true}, otherwise just returns {@code false}.
+     */
+    private boolean transitionToTerminalState(StorageState targetState) {
+        return StorageUtils.transitionToTerminalState(targetState, state);
     }
 
     /**
@@ -212,40 +231,89 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
      * @throws StorageException If something goes wrong.
      */
     public final CompletableFuture<Void> startDestructionOn(GradualTaskExecutor executor) throws StorageException {
-        return busy(() -> {
-            try {
-                int maxWorkUnits = isVolatile
-                        ? VolatilePageMemoryStorageEngine.MAX_DESTRUCTION_WORK_UNITS
-                        : PersistentPageMemoryStorageEngine.MAX_DESTRUCTION_WORK_UNITS;
+        try {
+            int maxWorkUnits = isVolatile
+                    ? VolatilePageMemoryStorageEngine.MAX_DESTRUCTION_WORK_UNITS
+                    : PersistentPageMemoryStorageEngine.MAX_DESTRUCTION_WORK_UNITS;
 
-                return executor.execute(createDestructionTask(maxWorkUnits))
-                        .whenComplete((res, e) -> {
-                            if (e != null) {
-                                LOG.error("Unable to destroy index {}", e, indexId);
-                            }
-                        });
-            } catch (IgniteInternalCheckedException e) {
-                throw new StorageException("Unable to destroy index " + indexId, e);
-            }
-        });
-    }
-
-    /**
-     * Transitions this storage to the {@link StorageState#DESTROYING} state.
-     */
-    public void transitionToDestroyingState() {
-        while (true) {
-            StorageState curState = state.get();
-
-            if (curState == StorageState.CLOSED || curState == StorageState.DESTROYING) {
-                throwExceptionDependingOnStorageState(curState, createStorageInfo());
-            } else if (state.compareAndSet(curState, StorageState.DESTROYING)) {
-                return;
-            }
+            return executor.execute(createDestructionTask(maxWorkUnits))
+                    .whenComplete((res, e) -> {
+                        if (e != null) {
+                            LOG.error("Unable to destroy index {}", e, indexId);
+                        }
+                    });
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException("Unable to destroy index " + indexId, e);
         }
     }
 
+    /**
+     * Transitions this storage to the {@link StorageState#DESTROYED} state. Blocks the busy lock, but does not
+     * close the structures (they will have to be closed by calling {@link #closeStructures()}).
+     *
+     * @return {@code true} if this call actually made the transition and, hence, the caller must call {@link #closeStructures()}.
+     */
+    public boolean transitionToDestroyedState() {
+        if (!transitionToTerminalState(StorageState.DESTROYED)) {
+            return false;
+        }
+
+        busyLock.block();
+
+        return true;
+    }
+
     protected abstract GradualTask createDestructionTask(int maxWorkUnits) throws IgniteInternalCheckedException;
+
+    protected <T> T busy(Supplier<T> supplier) {
+        if (!busyLock.enterBusy()) {
+            throwExceptionDependingOnStorageState(state.get(), createStorageInfo());
+        }
+
+        try {
+            return supplier.get();
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    protected String createStorageInfo() {
+        return IgniteStringFormatter.format("indexId={}, partitionId={}", indexId, partitionId);
+    }
+
+    /**
+     * Closes internal structures.
+     */
+    public void closeStructures() {
+        indexTree.close();
+
+        nextRowIdToBuild = null;
+    }
+
+    /**
+     * Updates the internal data structures of the storage on rebalance or cleanup.
+     *
+     * @param freeList Free list to store index columns.
+     * @param indexTree Hash index tree instance.
+     * @throws StorageException If failed.
+     */
+    public void updateDataStructures(IndexMetaTree indexMetaTree, IndexColumnsFreeList freeList, TreeT indexTree) {
+        throwExceptionIfStorageNotInCleanupOrRebalancedState(state.get(), this::createStorageInfo);
+
+        this.indexMetaTree = indexMetaTree;
+        this.freeList = freeList;
+        this.indexTree = indexTree;
+
+        try {
+            IndexMeta indexMeta = indexMetaTree.findOne(new IndexMetaKey(indexId), null);
+
+            assert indexMeta != null : indexId;
+
+            this.nextRowIdToBuild = getNextRowIdToBuild(indexMeta);
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException("Error reading next row ID uuid to build: [{}]", e, createStorageInfo());
+        }
+    }
 
     /** Constant that represents the absence of value in {@link ScanCursor}. Not equivalent to {@code null} value. */
     private static final IndexRowKey NO_INDEX_ROW = () -> null;
@@ -256,7 +324,7 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
      * @param <R> Type of the returned value.
      */
     protected abstract class ScanCursor<R> implements PeekCursor<R> {
-        private final BplusTree<K, V> indexTree;
+        protected final TreeT localTree = indexTree;
 
         private final @Nullable K lower;
 
@@ -274,9 +342,8 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
          */
         private @Nullable V peekedRow = (V) NO_INDEX_ROW;
 
-        protected ScanCursor(@Nullable K lower, BplusTree<K, V> indexTree) {
+        protected ScanCursor(@Nullable K lower) {
             this.lower = lower;
-            this.indexTree = indexTree;
         }
 
         /**
@@ -341,9 +408,9 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
             }
 
             if (treeRow == null) {
-                peekedRow = lower == null ? indexTree.findFirst() : indexTree.findNext(lower, true);
+                peekedRow = lower == null ? localTree.findFirst() : localTree.findNext(lower, true);
             } else {
-                peekedRow = indexTree.findNext(treeRow, false);
+                peekedRow = localTree.findNext(treeRow, false);
             }
 
             if (peekedRow != null && exceedsUpperBound(peekedRow)) {
@@ -367,25 +434,4 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
             return hasNext;
         }
     }
-
-    protected <V> V busy(Supplier<V> supplier) {
-        if (!busyLock.enterBusy()) {
-            throwExceptionDependingOnStorageState(state.get(), createStorageInfo());
-        }
-
-        try {
-            return supplier.get();
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
-    protected String createStorageInfo() {
-        return IgniteStringFormatter.format("indexId={}, partitionId={}", indexId, partitionId);
-    }
-
-    /**
-     * Closes internal structures.
-     */
-    protected abstract void closeStructures();
 }

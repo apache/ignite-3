@@ -75,27 +75,29 @@ Run code style checks only:
 Code style check results are generated at:
 * `<mudule-dir>/build/reports/checkstyle/`
 
-### Legacy API
-The project is checked for legacy APIs with [Modernizer Gradle Plugin](https://plugins.gradle.org/plugin/com.github.andygoossens.gradle-modernizer-plugin).
-* [Modernizer rules](check-rules/modernizer-rules.xml)
+### Spotbugs
+The project is checked for bugs with [Spotbugs Gradle Plugin](https://github.com/spotbugs/spotbugs-gradle-plugin).
+* [Spotbugs exclusion rules](check-rules/spotbugs-excludes.xml)
 
 Plugin is enabled by default and is bound to `build` task.
 
-Build project without legacy API check:
+Note that currently only main sources are validated with Spotbugs.
+
+Build project without spotbugs checks:
 ```shell
-./gradlew clean build -x modernizer
+./gradlew clean build -x spotbugsMain
 ```
 
-Run legacy API checks only:
+Run spotbugs checks only:
 ```shell
-./gradlew modernizer
+./gradlew spotbugsMain
 ```
 
 ### PMD
 Static code analyzer is run with [Apache Gradle PMD Plugin](https://docs.gradle.org/current/userguide/pmd_plugin.html).
 * [PMD rules](check-rules/pmd-rules.xml)
 ```shell
-./gradlew pmdMain
+./gradlew pmdMain pmdTest
 ```
 PMD check result (only if there are any violations) is generated at `<module-name>/build/reports/pmd/`.
 ***

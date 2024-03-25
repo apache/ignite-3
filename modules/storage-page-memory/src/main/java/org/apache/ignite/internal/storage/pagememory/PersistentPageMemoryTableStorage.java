@@ -364,7 +364,10 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
     CompletableFuture<Void> destroyMvPartitionStorage(AbstractPageMemoryMvPartitionStorage mvPartitionStorage) {
         // It is enough for us to close the partition storage and its indexes (do not destroy). Prepare the data region, checkpointer, and
         // compactor to remove the partition, and then simply delete the partition file and its delta files.
-        mvPartitionStorage.close();
+        boolean transitioned = mvPartitionStorage.transitionToDestroyedState();
+        if (transitioned) {
+            mvPartitionStorage.closeResources();
+        }
 
         return destroyPartitionPhysically(createGroupPartitionId(mvPartitionStorage.partitionId()));
     }

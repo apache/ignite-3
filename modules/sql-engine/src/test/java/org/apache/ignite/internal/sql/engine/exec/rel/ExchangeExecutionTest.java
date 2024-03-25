@@ -41,6 +41,8 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.handlers.StopNodeFailureHandler;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
@@ -499,7 +501,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
         ExecutionContext<Object[]> targetCtx = TestBuilders.executionContext()
                 .queryId(queryId)
                 .executor(taskExecutor)
-                .fragment(new FragmentDescription(TARGET_FRAGMENT_ID, true, Long2ObjectMaps.emptyMap(), null, null))
+                .fragment(new FragmentDescription(TARGET_FRAGMENT_ID, true, Long2ObjectMaps.emptyMap(), null, null, null))
                 .localNode(localNode)
                 .build();
 
@@ -543,7 +545,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
         ExecutionContext<Object[]> sourceCtx = TestBuilders.executionContext()
                 .queryId(queryId)
                 .executor(taskExecutor)
-                .fragment(new FragmentDescription(SOURCE_FRAGMENT_ID, true, Long2ObjectMaps.emptyMap(), null, null))
+                .fragment(new FragmentDescription(SOURCE_FRAGMENT_ID, true, Long2ObjectMaps.emptyMap(), null, null, null))
                 .localNode(localNode)
                 .build();
 
@@ -575,7 +577,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
         ExecutionContext<Object[]> sourceCtx = TestBuilders.executionContext()
                 .queryId(queryId)
                 .executor(taskExecutor)
-                .fragment(new FragmentDescription(SOURCE_FRAGMENT_ID, true, Long2ObjectMaps.emptyMap(), null, null))
+                .fragment(new FragmentDescription(SOURCE_FRAGMENT_ID, true, Long2ObjectMaps.emptyMap(), null, null, null))
                 .localNode(localNode)
                 .build();
 
@@ -640,7 +642,8 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
 
     private static QueryTaskExecutor getOrCreateTaskExecutor(String name) {
         return executors.computeIfAbsent(name, name0 -> {
-            var executor = new QueryTaskExecutorImpl(name0, 4);
+            var failureProcessor = new FailureProcessor(name0, new StopNodeFailureHandler());
+            var executor = new QueryTaskExecutorImpl(name0, 4, failureProcessor);
 
             executor.start();
 

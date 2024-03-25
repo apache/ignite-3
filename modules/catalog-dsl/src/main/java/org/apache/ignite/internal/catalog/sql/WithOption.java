@@ -39,6 +39,30 @@ class WithOption extends QueryPart {
         return new WithOption("REPLICAS", replicas);
     }
 
+    public static WithOption affinity(String affinity) {
+        return new WithOption("AFFINITY_FUNCTION", affinity);
+    }
+
+    public static WithOption dataNodesAutoAdjust(Integer adjust) {
+        return new WithOption("DATA_NODES_AUTO_ADJUST", adjust);
+    }
+
+    public static WithOption dataNodesAutoAdjustScaleUp(Integer adjust) {
+        return new WithOption("DATA_NODES_AUTO_ADJUST_SCALE_UP", adjust);
+    }
+
+    public static WithOption dataNodesAutoAdjustScaleDown(Integer adjust) {
+        return new WithOption("DATA_NODES_AUTO_ADJUST_SCALE_DOWN", adjust);
+    }
+
+    public static WithOption filter(String filter) {
+        return new WithOption("DATA_NODES_FILTER", filter);
+    }
+
+    public static WithOption dataRegion(String dataRegion) {
+        return new WithOption("DATAREGION", dataRegion);
+    }
+
     public static WithOption storageProfiles(String storageProfiles) {
         return new WithOption("STORAGE_PROFILES", storageProfiles);
     }

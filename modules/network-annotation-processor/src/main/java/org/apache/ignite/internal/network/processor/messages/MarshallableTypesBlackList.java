@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.network.processor.messages;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -102,7 +104,7 @@ public class MarshallableTypesBlackList {
         private List<TypeMirror> readBlacklistFromResources() {
             try (
                     InputStream is = getClass().getClassLoader().getResourceAsStream(BLACKLIST_FILE_NAME);
-                    BufferedReader reader = new BufferedReader(new InputStreamReader(is))
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(is, UTF_8))
             ) {
                 return reader.lines()
                         .map(typeUtils.elements()::getTypeElement)

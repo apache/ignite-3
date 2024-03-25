@@ -20,12 +20,10 @@ package org.apache.ignite.internal.catalog;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.List;
 import java.util.Set;
@@ -352,31 +350,6 @@ public class CatalogTestUtils {
 
     public static AlterZoneCommandBuilder alterZoneBuilder(String zoneName) {
         return AlterZoneCommand.builder().zoneName(zoneName);
-    }
-
-    /**
-     * Starts catalog compaction and waits it finished locally.
-     *
-     * @param catalogManager Catalog manager.
-     * @param timestamp Timestamp catalog should be compacted up to.
-     * @return {@code True} if a new snapshot has been successfully written, {@code false} otherwise.
-     */
-    public static boolean waitCatalogCompaction(CatalogManager catalogManager, long timestamp) {
-        int version = catalogManager.activeCatalogVersion(timestamp);
-
-        CompletableFuture<Boolean> operationFuture = ((CatalogManagerImpl) catalogManager).compactCatalog(timestamp);
-
-        try {
-            boolean result = operationFuture.get();
-
-            if (result) {
-                waitForCondition(() -> catalogManager.earliestCatalogVersion() == version, 3_000);
-            }
-        } catch (Exception e) {
-            fail(e);
-        }
-
-        return operationFuture.join();
     }
 
     private static class TestUpdateLog implements UpdateLog {

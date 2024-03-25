@@ -19,10 +19,10 @@ package org.apache.ignite.internal.table.distributed.gc;
 
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.storage.pagememory.configuration.PageMemoryStorageEngineLocalConfigurationModule.DEFAULT_PROFILE_NAME;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
-import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
@@ -35,6 +35,7 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 @ExtendWith(WorkDirectoryExtension.class)
@@ -48,17 +49,18 @@ class RocksDbGcUpdateHandlerTest extends AbstractGcUpdateHandlerTest {
 
     @BeforeEach
     void setUp(
+            TestInfo testInfo,
             @InjectConfiguration RocksDbStorageEngineConfiguration engineConfig,
             @InjectConfiguration("mock.profiles.default = {engine = \"rocksDb\"}")
             StorageConfiguration storageConfiguration
     ) {
-        engine = new RocksDbStorageEngine("test", engineConfig, storageConfiguration, workDir);
+        engine = new RocksDbStorageEngine(testNodeName(testInfo, 0), engineConfig, storageConfiguration, workDir);
 
         engine.start();
 
         table = engine.createMvTable(
                 new StorageTableDescriptor(TABLE_ID, DEFAULT_PARTITION_COUNT, DEFAULT_PROFILE_NAME),
-                new StorageIndexDescriptorSupplier(mock(CatalogService.class))
+                mock(StorageIndexDescriptorSupplier.class)
         );
 
         initialize(table);

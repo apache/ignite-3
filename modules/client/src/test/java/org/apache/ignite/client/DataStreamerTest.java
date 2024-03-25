@@ -176,7 +176,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
         try (var publisher = new SubmissionPublisher<DataStreamerItem<Tuple>>(ForkJoinPool.commonPool(), bufferSize)) {
             var options = DataStreamerOptions.builder()
                     .pageSize(bufferSize)
-                    .perNodeParallelOperations(1)
+                    .perPartitionParallelOperations(1)
                     .build();
 
             var streamerFut = view.streamData(publisher, options);
@@ -212,7 +212,11 @@ public class DataStreamerTest extends AbstractClientTableTest {
         CompletableFuture<Void> streamFut;
 
         try (var publisher = new SimplePublisher<Tuple>()) {
-            var options = DataStreamerOptions.builder().pageSize(2).build();
+            var options = DataStreamerOptions.builder()
+                    .pageSize(2)
+                    .perPartitionParallelOperations(4)
+                    .build();
+
             streamFut = view.streamData(publisher, options);
 
             for (long i = 0; i < 1000; i++) {

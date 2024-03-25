@@ -19,9 +19,9 @@ package org.apache.ignite.internal.table.distributed.gc;
 
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.storage.pagememory.configuration.PageMemoryStorageEngineLocalConfigurationModule.DEFAULT_PROFILE_NAME;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.mockito.Mockito.mock;
 
-import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
@@ -34,6 +34,7 @@ import org.apache.ignite.internal.storage.pagememory.configuration.schema.Volati
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.TestInfo;
 
 class VolatilePageMemoryGcUpdateHandlerTest extends AbstractGcUpdateHandlerTest {
     private VolatilePageMemoryStorageEngine engine;
@@ -42,6 +43,7 @@ class VolatilePageMemoryGcUpdateHandlerTest extends AbstractGcUpdateHandlerTest 
 
     @BeforeEach
     void setUp(
+            TestInfo testInfo,
             @InjectConfiguration VolatilePageMemoryStorageEngineConfiguration engineConfig,
             @InjectConfiguration("mock.profiles.default = {engine = \"aimem\"}")
             StorageConfiguration storageConfig
@@ -50,14 +52,14 @@ class VolatilePageMemoryGcUpdateHandlerTest extends AbstractGcUpdateHandlerTest 
 
         ioRegistry.loadFromServiceLoader();
 
-        engine = new VolatilePageMemoryStorageEngine("test", engineConfig,
+        engine = new VolatilePageMemoryStorageEngine(testNodeName(testInfo, 0), engineConfig,
                 storageConfig, ioRegistry, PageEvictionTrackerNoOp.INSTANCE);
 
         engine.start();
 
         table = engine.createMvTable(
                 new StorageTableDescriptor(TABLE_ID, DEFAULT_PARTITION_COUNT, DEFAULT_PROFILE_NAME),
-                new StorageIndexDescriptorSupplier(mock(CatalogService.class))
+                mock(StorageIndexDescriptorSupplier.class)
         );
 
         initialize(table);

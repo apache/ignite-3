@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInCleanupOrRebalancedState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInProgressOfRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInRunnableOrRebalanceState;
@@ -46,7 +45,6 @@ import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryTableStor
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
 import org.apache.ignite.internal.storage.util.LocalLocker;
-import org.apache.ignite.internal.storage.util.StorageState;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -196,23 +194,6 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
 
         this.lastAppliedIndex = lastAppliedIndex;
         this.lastAppliedTerm = lastAppliedTerm;
-    }
-
-    /**
-     * Transitions this storage to the {@link StorageState#DESTROYING} state.
-     */
-    public void transitionToDestroyingState() {
-        while (true) {
-            StorageState curState = state.get();
-
-            if (curState == StorageState.CLOSED || curState == StorageState.DESTROYING) {
-                throwExceptionDependingOnStorageState(curState, createStorageInfo());
-            } else if (state.compareAndSet(curState, StorageState.DESTROYING)) {
-                break;
-            }
-        }
-
-        indexes.transitionToDestroyingState();
     }
 
     /**

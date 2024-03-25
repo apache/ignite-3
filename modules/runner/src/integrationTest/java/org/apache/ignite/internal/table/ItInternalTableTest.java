@@ -62,7 +62,7 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
@@ -479,9 +479,7 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
     }
 
     @ParameterizedTest
-    @ValueSource(booleans = true)
-    // TODO IGNITE-21521 Wrong update order in DataStreamer for a new key
-    // @ValueSource(booleans = {true, false})
+    @ValueSource(booleans = {true, false})
     public void updateAllOrderTest(boolean existingKey) {
         RecordView<Tuple> view = table.recordView();
         InternalTable internalTable = ((TableViewInternal) table).internalTable();
@@ -684,19 +682,18 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
 
     private static Table startTable(Ignite node, String tableName) {
         String zoneName = zoneNameForTable(tableName);
+        IgniteSql sql = node.sql();
 
-        try (Session session = node.sql().createSession()) {
-            session.execute(null, String.format("create zone \"%s\" with partitions=3, replicas=%d, storage_profiles='%s'", zoneName,
-                    DEFAULT_REPLICA_COUNT, DEFAULT_STORAGE_PROFILE));
+        sql.execute(null, String.format("create zone \"%s\" with partitions=3, replicas=%d, storage_profiles='%s'",
+                zoneName, DEFAULT_REPLICA_COUNT, DEFAULT_STORAGE_PROFILE));
 
-            session.execute(null,
-                    String.format(
-                            "create table \"%s\" (key bigint primary key, valInt int, valStr varchar default 'default') "
-                                    + "with primary_zone='%s'",
-                            tableName, zoneName
-                    )
-            );
-        }
+        sql.execute(null,
+                String.format(
+                        "create table \"%s\" (key bigint primary key, valInt int, valStr varchar default 'default') "
+                                + "with primary_zone='%s'",
+                        tableName, zoneName
+                )
+        );
 
         Table table = node.tables().table(tableName);
 
@@ -710,10 +707,10 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
     }
 
     private static void stopTable(Ignite node, String tableName) {
-        try (Session session = node.sql().createSession()) {
-            session.execute(null, "drop table " + tableName);
-            session.execute(null, "drop zone " + zoneNameForTable(tableName));
-        }
+        IgniteSql sql = node.sql();
+
+        sql.execute(null, "drop table " + tableName);
+        sql.execute(null, "drop zone " + zoneNameForTable(tableName));
     }
 
     protected static int nodes() {

@@ -64,6 +64,11 @@ class CreateFromAnnotationsTest {
                 .ifNotExists()
                 .partitions(1)
                 .replicas(3)
+                .affinity("affinity")
+                .dataNodesAutoAdjust(1)
+                .dataNodesAutoAdjustScaleDown(2)
+                .dataNodesAutoAdjustScaleUp(3)
+                .filter("filter")
                 .storageProfiles("default")
                 .build();
         String sqlZoneFromDefinition = new CreateFromDefinitionImpl(null, Options.DEFAULT).from(zoneDefinition).toSqlString();
@@ -87,7 +92,10 @@ class CreateFromAnnotationsTest {
         // primitive/boxed key class is a primary key with default name 'id'
         assertThat(
                 createTable().processKeyValueClasses(Integer.class, PojoValue.class).toSqlString(),
-                is("CREATE ZONE IF NOT EXISTS zone_test WITH STORAGE_PROFILES='default', PARTITIONS=1, REPLICAS=3;"
+                is("CREATE ZONE IF NOT EXISTS zone_test WITH STORAGE_PROFILES='default', PARTITIONS=1, REPLICAS=3,"
+                        + " AFFINITY_FUNCTION='affinity',"
+                        + " DATA_NODES_AUTO_ADJUST=1, DATA_NODES_AUTO_ADJUST_SCALE_UP=3, DATA_NODES_AUTO_ADJUST_SCALE_DOWN=2,"
+                        + " DATA_NODES_FILTER='filter';"
                         + "CREATE TABLE IF NOT EXISTS pojo_value_test (id int, f_name varchar, l_name varchar, str varchar,"
                         + " PRIMARY KEY (id)) COLOCATE BY (id, id_str) WITH PRIMARY_ZONE='ZONE_TEST';"
                         + "CREATE INDEX IF NOT EXISTS ix_pojo ON pojo_value_test (f_name, l_name desc);")
@@ -99,7 +107,10 @@ class CreateFromAnnotationsTest {
         // primitive/boxed key class is a primary key with default name 'id'
         assertThat(
                 createTableQuoted().processKeyValueClasses(Integer.class, PojoValue.class).toSqlString(),
-                is("CREATE ZONE IF NOT EXISTS \"zone_test\" WITH STORAGE_PROFILES='default', PARTITIONS=1, REPLICAS=3;"
+                is("CREATE ZONE IF NOT EXISTS \"zone_test\" WITH STORAGE_PROFILES='default', PARTITIONS=1, REPLICAS=3,"
+                        + " AFFINITY_FUNCTION='affinity',"
+                        + " DATA_NODES_AUTO_ADJUST=1, DATA_NODES_AUTO_ADJUST_SCALE_UP=3, DATA_NODES_AUTO_ADJUST_SCALE_DOWN=2,"
+                        + " DATA_NODES_FILTER='filter', DATAREGION='dataRegion';"
                         + "CREATE TABLE IF NOT EXISTS \"pojo_value_test\" (\"id\" int, \"f_name\" varchar, \"l_name\" varchar,"
                         + " \"str\" varchar, PRIMARY KEY (\"id\")) COLOCATE BY (\"id\", \"id_str\") WITH PRIMARY_ZONE='ZONE_TEST';"
                         + "CREATE INDEX IF NOT EXISTS \"ix_pojo\" ON \"pojo_value_test\" (\"f_name\", \"l_name\" desc);")
@@ -111,7 +122,10 @@ class CreateFromAnnotationsTest {
         // key class fields (annotated only) is a composite primary keys
         assertThat(
                 createTable().processKeyValueClasses(PojoKey.class, PojoValue.class).toSqlString(),
-                is("CREATE ZONE IF NOT EXISTS zone_test WITH STORAGE_PROFILES='default', PARTITIONS=1, REPLICAS=3;"
+                is("CREATE ZONE IF NOT EXISTS zone_test WITH STORAGE_PROFILES='default', PARTITIONS=1, REPLICAS=3,"
+                        + " AFFINITY_FUNCTION='affinity',"
+                        + " DATA_NODES_AUTO_ADJUST=1, DATA_NODES_AUTO_ADJUST_SCALE_UP=3, DATA_NODES_AUTO_ADJUST_SCALE_DOWN=2,"
+                        + " DATA_NODES_FILTER='filter', DATAREGION='dataRegion';"
                         + "CREATE TABLE IF NOT EXISTS pojo_value_test (id int, id_str varchar(20), f_name varchar, l_name varchar,"
                         + " str varchar, PRIMARY KEY (id, id_str)) COLOCATE BY (id, id_str) WITH PRIMARY_ZONE='ZONE_TEST';"
                         + "CREATE INDEX IF NOT EXISTS ix_pojo ON pojo_value_test (f_name, l_name desc);")
@@ -123,7 +137,10 @@ class CreateFromAnnotationsTest {
         // key class fields (annotated only) is a composite primary keys
         assertThat(
                 createTableQuoted().processKeyValueClasses(PojoKey.class, PojoValue.class).toSqlString(),
-                is("CREATE ZONE IF NOT EXISTS \"zone_test\" WITH STORAGE_PROFILES='default', PARTITIONS=1, REPLICAS=3;"
+                is("CREATE ZONE IF NOT EXISTS \"zone_test\" WITH STORAGE_PROFILES='default', PARTITIONS=1, REPLICAS=3,"
+                        + " AFFINITY_FUNCTION='affinity',"
+                        + " DATA_NODES_AUTO_ADJUST=1, DATA_NODES_AUTO_ADJUST_SCALE_UP=3, DATA_NODES_AUTO_ADJUST_SCALE_DOWN=2,"
+                        + " DATA_NODES_FILTER='filter', DATAREGION='dataRegion';"
                         + "CREATE TABLE IF NOT EXISTS \"pojo_value_test\" (\"id\" int, \"id_str\" varchar(20), \"f_name\" varchar,"
                         + " \"l_name\" varchar, \"str\" varchar, PRIMARY KEY (\"id\", \"id_str\")) COLOCATE BY (\"id\", \"id_str\")"
                         + " WITH PRIMARY_ZONE='ZONE_TEST';"
@@ -135,7 +152,10 @@ class CreateFromAnnotationsTest {
     void createFromRecordClass() {
         assertThat(
                 createTable().processRecordClass(Pojo.class).toSqlString(),
-                is("CREATE ZONE IF NOT EXISTS zone_test WITH STORAGE_PROFILES='default', PARTITIONS=1, REPLICAS=3;"
+                is("CREATE ZONE IF NOT EXISTS zone_test WITH STORAGE_PROFILES='default', PARTITIONS=1, REPLICAS=3,"
+                        + " AFFINITY_FUNCTION='affinity',"
+                        + " DATA_NODES_AUTO_ADJUST=1, DATA_NODES_AUTO_ADJUST_SCALE_UP=3, DATA_NODES_AUTO_ADJUST_SCALE_DOWN=2,"
+                        + " DATA_NODES_FILTER='filter', DATAREGION='dataRegion';"
                         + "CREATE TABLE IF NOT EXISTS pojo_test (id int, id_str varchar(20), f_name varchar(20) not null default 'a',"
                         + " l_name varchar, str varchar, PRIMARY KEY (id, id_str))"
                         + " COLOCATE BY (id, id_str) WITH PRIMARY_ZONE='ZONE_TEST';"
@@ -147,7 +167,10 @@ class CreateFromAnnotationsTest {
     void createFromRecordClassQuoted() {
         assertThat(
                 createTableQuoted().processRecordClass(Pojo.class).toSqlString(),
-                is("CREATE ZONE IF NOT EXISTS \"zone_test\" WITH STORAGE_PROFILES='default', PARTITIONS=1, REPLICAS=3;"
+                is("CREATE ZONE IF NOT EXISTS \"zone_test\" WITH STORAGE_PROFILES='default', PARTITIONS=1, REPLICAS=3,"
+                        + " AFFINITY_FUNCTION='affinity',"
+                        + " DATA_NODES_AUTO_ADJUST=1, DATA_NODES_AUTO_ADJUST_SCALE_UP=3, DATA_NODES_AUTO_ADJUST_SCALE_DOWN=2,"
+                        + " DATA_NODES_FILTER='filter', DATAREGION='dataRegion';"
                         + "CREATE TABLE IF NOT EXISTS \"pojo_test\" (\"id\" int, \"id_str\" varchar(20),"
                         + " \"f_name\" varchar(20) not null default 'a', \"l_name\" varchar, \"str\" varchar,"
                         + " PRIMARY KEY (\"id\", \"id_str\")) COLOCATE BY (\"id\", \"id_str\") WITH PRIMARY_ZONE='ZONE_TEST';"
@@ -202,8 +225,13 @@ class CreateFromAnnotationsTest {
 
     @Zone(
             value = "zone_test",
-            replicas = 3,
             partitions = 1,
+            replicas = 3,
+            affinityFunction = "affinity",
+            dataNodesAutoAdjust = 1,
+            dataNodesAutoAdjustScaleDown = 2,
+            dataNodesAutoAdjustScaleUp = 3,
+            filter = "filter",
             storageProfiles = "default"
     )
     private static class ZoneTest {}

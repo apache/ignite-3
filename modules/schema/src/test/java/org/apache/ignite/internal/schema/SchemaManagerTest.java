@@ -47,7 +47,6 @@ import org.apache.ignite.internal.catalog.events.AddColumnEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
-import org.apache.ignite.internal.catalog.events.DestroyTableEventParameters;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
@@ -104,7 +103,6 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
 
         doNothing().when(catalogService).listen(eq(CatalogEvent.TABLE_CREATE), tableCreatedListener.capture());
         doNothing().when(catalogService).listen(eq(CatalogEvent.TABLE_ALTER), tableAlteredListener.capture());
-        doNothing().when(catalogService).listen(eq(CatalogEvent.TABLE_DESTROY), tableDestroyedListener.capture());
 
         schemaManager = new SchemaManager(registry, catalogService);
         schemaManager.start();
@@ -258,14 +256,7 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
     void destroyTableMakesRegistryUnavailable() {
         createSomeTable();
 
-        DestroyTableEventParameters event = new DestroyTableEventParameters(
-                CAUSALITY_TOKEN_2,
-                CATALOG_VERSION_2,
-                TABLE_ID,
-                1
-        );
-
-        assertThat(tableDestroyedListener().notify(event), willBe(false));
+        assertThat(schemaManager.dropRegistryAsync(TABLE_ID), willCompleteSuccessfully());
 
         completeCausalityToken(CAUSALITY_TOKEN_2);
 

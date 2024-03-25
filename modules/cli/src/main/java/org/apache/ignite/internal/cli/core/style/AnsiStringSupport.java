@@ -85,7 +85,14 @@ public final class AnsiStringSupport {
      * Represents ansi colors that are used in CLI.
      */
     public enum Color {
-        RED(1), GREEN(2), YELLOW(3), GRAY(246);
+        RED(1),
+        GREEN(2),
+        YELLOW(3),
+        BLUE(31),
+        YELLOW_DARK(215),
+        GREEN_DARK(22),
+        GRAY(246),
+        WHITE(252);
 
         Color(int code) {
             this.code = code;

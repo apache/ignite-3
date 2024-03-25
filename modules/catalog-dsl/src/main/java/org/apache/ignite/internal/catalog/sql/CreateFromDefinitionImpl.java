@@ -57,7 +57,24 @@ class CreateFromDefinitionImpl extends AbstractCatalogQuery {
             createZone.replicas(def.replicas());
         }
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-21428
+        if (!StringUtils.nullOrBlank(def.affinityFunction())) {
+            createZone.affinity(def.affinityFunction());
+        }
+
+        if (isGreaterThanZero(def.dataNodesAutoAdjust())) {
+            createZone.dataNodesAutoAdjust(def.dataNodesAutoAdjust());
+        }
+        if (isGreaterThanZero(def.dataNodesAutoAdjustScaleUp())) {
+            createZone.dataNodesAutoAdjustScaleUp(def.dataNodesAutoAdjustScaleUp());
+        }
+        if (isGreaterThanZero(def.dataNodesAutoAdjustScaleDown())) {
+            createZone.dataNodesAutoAdjustScaleDown(def.dataNodesAutoAdjustScaleDown());
+        }
+
+        if (!StringUtils.nullOrBlank(def.filter())) {
+            createZone.filter(def.filter());
+        }
+
         return this;
     }
 

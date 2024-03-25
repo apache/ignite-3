@@ -31,20 +31,39 @@ public class ZoneDefinition {
 
     private final Integer replicas;
 
-    private final String storageProfiles;
+    private final String affinity;
 
+    private final Integer dataNodesAutoAdjust;
+
+    private final Integer dataNodesAutoAdjustScaleUp;
+
+    private final Integer dataNodesAutoAdjustScaleDown;
+
+    private final String filter;
+
+    private final String storageProfiles;
 
     private ZoneDefinition(
             String zoneName,
             boolean ifNotExists,
             Integer partitions,
             Integer replicas,
+            String affinity,
+            Integer dataNodesAutoAdjust,
+            Integer dataNodesAutoAdjustScaleUp,
+            Integer dataNodesAutoAdjustScaleDown,
+            String filter,
             String storageProfiles
     ) {
         this.zoneName = zoneName;
         this.ifNotExists = ifNotExists;
         this.partitions = partitions;
         this.replicas = replicas;
+        this.affinity = affinity;
+        this.dataNodesAutoAdjust = dataNodesAutoAdjust;
+        this.dataNodesAutoAdjustScaleUp = dataNodesAutoAdjustScaleUp;
+        this.dataNodesAutoAdjustScaleDown = dataNodesAutoAdjustScaleDown;
+        this.filter = filter;
         this.storageProfiles = storageProfiles;
     }
 
@@ -95,6 +114,51 @@ public class ZoneDefinition {
     }
 
     /**
+     * Returns affinity function.
+     *
+     * @return Affinity function.
+     */
+    public String affinityFunction() {
+        return affinity;
+    }
+
+    /**
+     * Returns timeout in seconds between node added or node left topology event itself and data nodes switch.
+     *
+     * @return Timeout.
+     */
+    public Integer dataNodesAutoAdjust() {
+        return dataNodesAutoAdjust;
+    }
+
+    /**
+     * Returns timeout in seconds between node added topology event itself and data nodes switch.
+     *
+     * @return Timeout.
+     */
+    public Integer dataNodesAutoAdjustScaleUp() {
+        return dataNodesAutoAdjustScaleUp;
+    }
+
+    /**
+     * Returns timeout in seconds between node left topology event itself and data nodes switch.
+     *
+     * @return Timeout.
+     */
+    public Integer dataNodesAutoAdjustScaleDown() {
+        return dataNodesAutoAdjustScaleDown;
+    }
+
+    /**
+     * Returns nodes filter.
+     *
+     * @return Nodes filter.
+     */
+    public String filter() {
+        return filter;
+    }
+
+    /**
      * Returns storage profiles.
      *
      * @return Storage profiles.
@@ -124,6 +188,16 @@ public class ZoneDefinition {
 
         private Integer replicas;
 
+        private String affinity;
+
+        private Integer dataNodesAutoAdjust;
+
+        private Integer dataNodesAutoAdjustScaleUp;
+
+        private Integer dataNodesAutoAdjustScaleDown;
+
+        private String filter;
+
         private String storageProfiles;
 
         private Builder() {}
@@ -133,6 +207,11 @@ public class ZoneDefinition {
             ifNotExists = definition.ifNotExists;
             partitions = definition.partitions;
             replicas = definition.replicas;
+            affinity = definition.affinity;
+            dataNodesAutoAdjust = definition.dataNodesAutoAdjust;
+            dataNodesAutoAdjustScaleUp = definition.dataNodesAutoAdjustScaleUp;
+            dataNodesAutoAdjustScaleDown = definition.dataNodesAutoAdjustScaleDown;
+            filter = definition.filter;
             storageProfiles = definition.storageProfiles;
         }
 
@@ -143,6 +222,11 @@ public class ZoneDefinition {
          * @return This builder instance.
          */
         Builder zoneName(String zoneName) {
+            Objects.requireNonNull(zoneName, "Zone name must not be null.");
+            if (zoneName.isBlank()) {
+                throw new IllegalArgumentException("Zone name must not be blank.");
+            }
+
             this.zoneName = zoneName;
             return this;
         }
@@ -184,6 +268,80 @@ public class ZoneDefinition {
         }
 
         /**
+         * Sets the affinity function.
+         *
+         * @param affinity Affinity function.
+         * @return This builder instance.
+         */
+        public Builder affinity(String affinity) {
+            Objects.requireNonNull(affinity, "Affinity function must not be null.");
+            if (affinity.isBlank()) {
+                throw new IllegalArgumentException("Affinity function must not be blank.");
+            }
+
+            this.affinity = affinity;
+            return this;
+        }
+
+        /**
+         * Sets timeout in seconds between node added or node left topology event itself and data nodes switch.
+         *
+         * @param adjust Timeout.
+         * @return This builder instance.
+         */
+        public Builder dataNodesAutoAdjust(Integer adjust) {
+            Objects.requireNonNull(
+                    adjust,
+                    "Timeout between node added or node left topology event itself and data nodes switch must not be null."
+            );
+
+            this.dataNodesAutoAdjust = adjust;
+            return this;
+        }
+
+        /**
+         * Sets timeout in seconds between node added topology event itself and data nodes switch.
+         *
+         * @param adjust Timeout.
+         * @return This builder instance.
+         */
+        public Builder dataNodesAutoAdjustScaleUp(Integer adjust) {
+            Objects.requireNonNull(adjust, "Timeout between node added topology event itself and data nodes switch must not be null.");
+
+            this.dataNodesAutoAdjustScaleUp = adjust;
+            return this;
+        }
+
+        /**
+         * Sets timeout in seconds between node left topology event itself and data nodes switch.
+         *
+         * @param adjust Timeout.
+         * @return This builder instance.
+         */
+        public Builder dataNodesAutoAdjustScaleDown(Integer adjust) {
+            Objects.requireNonNull(adjust, "Timeout between node left topology event itself and data nodes switch must not be null.");
+
+            this.dataNodesAutoAdjustScaleDown = adjust;
+            return this;
+        }
+
+        /**
+         * Sets nodes filter.
+         *
+         * @param filter Nodes filter.
+         * @return This builder instance.
+         */
+        public Builder filter(String filter) {
+            Objects.requireNonNull(filter, "Filter must not be null.");
+            if (filter.isBlank()) {
+                throw new IllegalArgumentException("Filter must not be blank.");
+            }
+
+            this.filter = filter;
+            return this;
+        }
+
+        /**
          * Sets the storage profiles.
          *
          * @param storageProfiles Storage profiles.
@@ -202,16 +360,16 @@ public class ZoneDefinition {
          * @return Zone definition.
          */
         public ZoneDefinition build() {
-            Objects.requireNonNull(zoneName, "Zone name must not be null.");
-            if (zoneName.isBlank()) {
-                throw new IllegalArgumentException("Zone name must not be blank.");
-            }
-
             return new ZoneDefinition(
                     zoneName,
                     ifNotExists,
                     partitions,
                     replicas,
+                    affinity,
+                    dataNodesAutoAdjust,
+                    dataNodesAutoAdjustScaleUp,
+                    dataNodesAutoAdjustScaleDown,
+                    filter,
                     storageProfiles
             );
         }

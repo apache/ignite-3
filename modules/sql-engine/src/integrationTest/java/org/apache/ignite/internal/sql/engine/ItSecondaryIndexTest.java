@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsAnyProject;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsAnyScan;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
@@ -28,12 +29,15 @@ import static org.hamcrest.Matchers.not;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueGet;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 /**
  * Basic index tests.
@@ -47,17 +51,19 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
 
     private static final String NAME_DATE_IDX = "NAME_DATE_IDX";
 
+    private static final AtomicInteger TABLE_IDX = new AtomicInteger();
+
     /**
      * Before all.
      */
     @BeforeAll
     static void initTestData() {
-        sql("CREATE TABLE developer (id INT PRIMARY KEY, name VARCHAR, depid INT, city VARCHAR, age INT)");
+        sql("CREATE TABLE developer (id INT, name VARCHAR, depid INT, city VARCHAR, age INT, PRIMARY KEY USING SORTED (id))");
         sql("CREATE INDEX " + DEPID_IDX + " ON developer (depid)");
         sql("CREATE INDEX " + NAME_CITY_IDX + " ON developer (name DESC, city DESC)");
         sql("CREATE INDEX " + NAME_DEPID_CITY_IDX + " ON developer (name DESC, depid DESC, city DESC)");
 
-        sql("CREATE TABLE birthday (id INT PRIMARY KEY, name VARCHAR, birthday DATE)");
+        sql("CREATE TABLE birthday (id INT, name VARCHAR, birthday DATE, PRIMARY KEY USING SORTED (id))");
         sql("CREATE INDEX " + NAME_DATE_IDX + " ON birthday (name, birthday)");
 
         insertData("BIRTHDAY", List.of("ID", "NAME", "BIRTHDAY"), new Object[][]{
@@ -195,7 +201,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     public void testKeyGreaterThanFilter() {
         assertQuery("SELECT * FROM Developer WHERE id>? and id<?")
                 .withParams(3, 12)
-                .matches(containsTableScan("PUBLIC", "DEVELOPER"))
+                .matches(containsIndexScan("PUBLIC", "DEVELOPER", "DEVELOPER_PK"))
                 .returns(4, "Strauss", 2, "Munich", 66)
                 .returns(5, "Vagner", 4, "Leipzig", 70)
                 .returns(6, "Chaikovsky", 5, "Votkinsk", 53)
@@ -210,7 +216,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     @Test
     public void testKeyGreaterThanOrEqualsFilter() {
         assertQuery("SELECT * FROM Developer WHERE id>=3 and id<12")
-                .matches(containsTableScan("PUBLIC", "DEVELOPER"))
+                .matches(containsIndexScan("PUBLIC", "DEVELOPER", "DEVELOPER_PK"))
                 .returns(3, "Bach", 1, "Leipzig", 55)
                 .returns(4, "Strauss", 2, "Munich", 66)
                 .returns(5, "Vagner", 4, "Leipzig", 70)
@@ -226,7 +232,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     @Test
     public void testKeyLessThanFilter() {
         assertQuery("SELECT * FROM Developer WHERE id<3")
-                .matches(containsTableScan("PUBLIC", "DEVELOPER"))
+                .matches(containsIndexScan("PUBLIC", "DEVELOPER", "DEVELOPER_PK"))
                 .returns(1, "Mozart", 3, "Vienna", 33)
                 .returns(2, "Beethoven", 2, "Vienna", 44)
                 .check();
@@ -235,7 +241,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     @Test
     public void testKeyLessThanOrEqualsFilter() {
         assertQuery("SELECT * FROM Developer WHERE id<=2")
-                .matches(containsTableScan("PUBLIC", "DEVELOPER"))
+                .matches(containsIndexScan("PUBLIC", "DEVELOPER", "DEVELOPER_PK"))
                 .returns(1, "Mozart", 3, "Vienna", 33)
                 .returns(2, "Beethoven", 2, "Vienna", 44)
                 .check();
@@ -580,8 +586,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     @Test
     public void testOrderByKey() {
         assertQuery("SELECT * FROM Developer WHERE id<=4 ORDER BY id")
-                .matches(containsTableScan("PUBLIC", "DEVELOPER"))
-                .matches(containsSubPlan("Sort"))
+                .matches(containsIndexScan("PUBLIC", "DEVELOPER", "DEVELOPER_PK"))
                 .returns(1, "Mozart", 3, "Vienna", 33)
                 .returns(2, "Beethoven", 2, "Vienna", 44)
                 .returns(3, "Bach", 1, "Leipzig", 55)
@@ -1112,5 +1117,40 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
                 .returns(1)
                 .returns(1)
                 .check();
+    }
+
+    @ParameterizedTest
+    @CsvSource(value = {
+            // type, literal
+            "TINYINT;50",
+            "TINYINT;50::BIGINT",
+            "TINYINT;50::DECIMAL(10)",
+            "TINYINT;50::REAL",
+
+            "REAL;50.00",
+            "REAL;50.00::REAL",
+            "REAL;50.00::DOUBLE",
+            "REAL;50",
+
+            "DOUBLE;50.00",
+            "DOUBLE;50.00::REAL",
+            "DOUBLE;50.00::DECIMAL(10,2)",
+            "DOUBLE;50",
+
+            "DECIMAL(10, 2);50.00", // DECIMAL(10,2)
+            "DECIMAL(10, 2);50.00::REAL",
+            "DECIMAL(10, 2);50.00::DOUBLE",
+            "DECIMAL(10, 2);50",
+    }, delimiter = ';')
+    public void testTypeCastsIndexBounds(String type, String val) {
+        int id = TABLE_IDX.getAndIncrement();
+
+        sql(format("create table tt_{}(id INTEGER PRIMARY KEY, field_1 {})", id, type, val));
+
+        sql(format("SELECT * FROM tt_{} WHERE field_1 = {}", id, val));
+
+        sql(format("CREATE INDEX tt_idx_{} ON tt_{} (field_1)", id, id));
+
+        sql(format("SELECT * FROM tt_{} WHERE field_1 = {}", id, val));
     }
 }

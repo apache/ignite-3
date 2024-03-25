@@ -44,7 +44,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ThreadPoolExecutor;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfileDescriptor;
@@ -524,7 +523,7 @@ public class DistributionZonesUtil {
 
         List<String> zoneStorageProfilesNames = zoneStorageProfiles.stream()
                 .map(CatalogStorageProfileDescriptor::storageProfile)
-                .collect(Collectors.toList());
+                .collect(toList());
 
         return new HashSet<>(node.storageProfiles()).containsAll(zoneStorageProfilesNames);
     }
@@ -562,7 +561,7 @@ public class DistributionZonesUtil {
 
         return items.stream()
                 .map(p -> StorageProfileParams.builder().storageProfile(p).build())
-                .collect(Collectors.toList());
+                .collect(toList());
     }
 
     /**

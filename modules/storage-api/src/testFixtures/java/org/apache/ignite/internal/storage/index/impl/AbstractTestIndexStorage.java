@@ -17,11 +17,13 @@
 
 package org.apache.ignite.internal.storage.index.impl;
 
+import static org.apache.ignite.internal.storage.util.StorageUtils.initialRowIdToBuild;
+
 import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.StorageClosedException;
+import org.apache.ignite.internal.storage.StorageDestroyedException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.util.Cursor;
@@ -31,17 +33,20 @@ import org.jetbrains.annotations.Nullable;
  * Test-only abstract index storage class.
  */
 abstract class AbstractTestIndexStorage implements IndexStorage {
-    private volatile boolean closed;
+    private volatile boolean destroyed;
 
     private volatile boolean rebalance;
 
     private volatile @Nullable RowId nextRowIdToBuild;
 
+    private final int partitionId;
+
     /** Amount of cursors that opened and still do not close. */
     protected final AtomicInteger pendingCursors = new AtomicInteger();
 
     AbstractTestIndexStorage(int partitionId) {
-        nextRowIdToBuild = RowId.lowestRowId(partitionId);
+        this.partitionId = partitionId;
+        nextRowIdToBuild = initialRowIdToBuild(partitionId);
     }
 
     /**
@@ -103,13 +108,19 @@ abstract class AbstractTestIndexStorage implements IndexStorage {
     public void clear() {
         checkStorageClosedOrInProcessOfRebalance();
 
+        clearAndReset();
+    }
+
+    private void clearAndReset() {
         clear0();
+
+        nextRowIdToBuild = initialRowIdToBuild(partitionId);
     }
 
     public void destroy() {
-        closed = true;
+        destroyed = true;
 
-        clear0();
+        clearAndReset();
     }
 
     abstract Iterator<RowId> getRowIdIteratorForGetByBinaryTuple(BinaryTuple key);
@@ -124,7 +135,7 @@ abstract class AbstractTestIndexStorage implements IndexStorage {
 
         rebalance = true;
 
-        clear0();
+        clearAndReset();
     }
 
     /**
@@ -139,7 +150,7 @@ abstract class AbstractTestIndexStorage implements IndexStorage {
 
         rebalance = false;
 
-        clear0();
+        clearAndReset();
     }
 
     /**
@@ -154,8 +165,8 @@ abstract class AbstractTestIndexStorage implements IndexStorage {
     }
 
     void checkStorageClosed() {
-        if (closed) {
-            throw new StorageClosedException();
+        if (destroyed) {
+            throw new StorageDestroyedException();
         }
     }
 

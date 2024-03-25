@@ -36,9 +36,6 @@ class ReadOnlyTransactionImplTest extends BaseIgniteAbstractTest {
     @Mock
     private TxManagerImpl txManager;
 
-    @Mock
-    private ResourceCleanupManager resourceCleanupManager;
-
     @Test
     void effectiveSchemaTimestampIsReadTimestamp() {
         HybridTimestamp readTimestamp = new HybridClockImpl().now();
@@ -49,8 +46,7 @@ class ReadOnlyTransactionImplTest extends BaseIgniteAbstractTest {
                 new HybridTimestampTracker(),
                 txId,
                 "localId",
-                readTimestamp,
-                resourceCleanupManager
+                readTimestamp
         );
 
         assertThat(tx.startTimestamp(), is(readTimestamp));

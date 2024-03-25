@@ -28,7 +28,6 @@ import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSet;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -275,8 +274,7 @@ public class ItMetadataTest extends BaseSqlIntegrationTest {
 
         sql("INSERT INTO sens VALUES (1, 1, 1, 1)");
 
-        Session ses = igniteSql().createSession();
-        ResultSet<SqlRow> res = ses.execute(null, "select * from sens");
+        ResultSet<SqlRow> res = igniteSql().execute(null, "select * from sens");
         SqlRow row = res.next();
         assertNotNull(row.intValue("\"Col1\""));
         assertThrows(IllegalArgumentException.class, () -> row.intValue("col1"));

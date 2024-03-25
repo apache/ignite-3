@@ -18,14 +18,25 @@
 package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
 import java.util.List;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * CREATE TABLE statement.
  */
 public class CreateTableCommand extends AbstractTableDdlCommand {
+
+    /** Primary key index type. */
+    public enum PrimaryKeyIndexType {
+        SORTED, HASH
+    }
+
+    private PrimaryKeyIndexType pkIndexType;
+
     /** Primary key columns. */
     private List<String> pkCols;
+
+    private List<Collation> pkColsCollations;
 
     /** Colocation columns. */
     private List<String> colocationCols;
@@ -36,6 +47,20 @@ public class CreateTableCommand extends AbstractTableDdlCommand {
     private String zone;
 
     private String storageProfile;
+
+    /**
+     * Get primary key index type.
+     */
+    public PrimaryKeyIndexType primaryIndexType() {
+        return pkIndexType;
+    }
+
+    /**
+     * Set primary key index type.
+     */
+    public void primaryIndexType(PrimaryKeyIndexType pkIndexType) {
+        this.pkIndexType = pkIndexType;
+    }
 
     /**
      * Get primary key columns.
@@ -49,6 +74,20 @@ public class CreateTableCommand extends AbstractTableDdlCommand {
      */
     public void primaryKeyColumns(List<String> pkCols) {
         this.pkCols = pkCols;
+    }
+
+    /**
+     * Get primary key column collations.
+     */
+    public List<Collation> primaryKeyCollations() {
+        return pkColsCollations;
+    }
+
+    /**
+     * Set primary key columns collations.
+     */
+    public void primaryKeyCollations(List<Collation> pkColsCollations) {
+        this.pkColsCollations = pkColsCollations;
     }
 
     /**

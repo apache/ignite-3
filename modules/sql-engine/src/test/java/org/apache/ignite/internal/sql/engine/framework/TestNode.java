@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import org.apache.calcite.tools.Frameworks;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -60,11 +61,13 @@ import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserService;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.systemview.api.SystemViewManager;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.network.TopologyService;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * An object representing a node in test cluster.
@@ -112,8 +115,9 @@ public class TestNode implements LifecycleAware {
         RowHandler<Object[]> rowHandler = ArrayRowHandler.INSTANCE;
 
         MailboxRegistry mailboxRegistry = registerService(new MailboxRegistryImpl());
-        QueryTaskExecutorImpl queryExec = new QueryTaskExecutorImpl(nodeName, 4);
-        queryExec.exceptionHandler((t, e) -> exceptionRaised = true);
+
+        FailureProcessor failureProcessor = new FailureProcessor(nodeName, (a, b) -> exceptionRaised = true);
+        QueryTaskExecutorImpl queryExec = new QueryTaskExecutorImpl(nodeName, 4, failureProcessor);
 
         QueryTaskExecutor taskExecutor = registerService(queryExec);
 
@@ -189,10 +193,22 @@ public class TestNode implements LifecycleAware {
      * and returns an async cursor representing the result.
      *
      * @param plan A plan to execute.
+     * @param transaction External transaction.
+     * @return A cursor representing the result.
+     */
+    public AsyncCursor<InternalSqlRow> executePlan(QueryPlan plan, @Nullable InternalTransaction transaction) {
+        return executionService.executePlan(transaction == null ? new NoOpTransaction(nodeName) : transaction, plan, createContext());
+    }
+
+    /**
+     * Executes given plan on a cluster this node belongs to
+     * and returns an async cursor representing the result.
+     *
+     * @param plan A plan to execute.
      * @return A cursor representing the result.
      */
     public AsyncCursor<InternalSqlRow> executePlan(QueryPlan plan) {
-        return executionService.executePlan(new NoOpTransaction(nodeName), plan, createContext());
+        return executePlan(plan, null);
     }
 
     /**

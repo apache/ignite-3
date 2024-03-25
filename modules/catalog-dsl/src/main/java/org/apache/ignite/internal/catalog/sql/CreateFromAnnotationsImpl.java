@@ -119,7 +119,23 @@ class CreateFromAnnotationsImpl extends AbstractCatalogQuery {
                 createZone.replicas(zone.replicas());
             }
 
-            // TODO https://issues.apache.org/jira/browse/IGNITE-21428
+            if (!zone.affinityFunction().isEmpty()) {
+                createZone.affinity(zone.affinityFunction());
+            }
+
+            if (zone.dataNodesAutoAdjust() > 0) {
+                createZone.dataNodesAutoAdjust(zone.dataNodesAutoAdjust());
+            }
+            if (zone.dataNodesAutoAdjustScaleUp() > 0) {
+                createZone.dataNodesAutoAdjustScaleUp(zone.dataNodesAutoAdjustScaleUp());
+            }
+            if (zone.dataNodesAutoAdjustScaleDown() > 0) {
+                createZone.dataNodesAutoAdjustScaleDown(zone.dataNodesAutoAdjustScaleDown());
+            }
+
+            if (!zone.filter().isEmpty()) {
+                createZone.filter(zone.filter());
+            }
         }
     }
 

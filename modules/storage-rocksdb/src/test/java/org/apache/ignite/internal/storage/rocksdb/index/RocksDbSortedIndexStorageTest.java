@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.rocksdb.index;
 
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
+import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -57,7 +58,7 @@ public class RocksDbSortedIndexStorageTest extends AbstractSortedIndexStorageTes
 
         tableStorage = engine.createMvTable(
                 new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, "default"),
-                new StorageIndexDescriptorSupplier(catalogService)
+                mock(StorageIndexDescriptorSupplier.class)
         );
 
         initialize(tableStorage);

@@ -17,13 +17,14 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
+import static org.apache.ignite.internal.storage.util.StorageUtils.initialRowIdToBuild;
+
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.PageIdAllocator;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
-import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
@@ -33,6 +34,7 @@ import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns
 import org.apache.ignite.internal.storage.pagememory.index.hash.HashIndexTree;
 import org.apache.ignite.internal.storage.pagememory.index.hash.PageMemoryHashIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMeta;
+import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMeta.IndexType;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.SortedIndexTree;
@@ -111,6 +113,20 @@ class IndexStorageFactory {
         );
     }
 
+    /**
+     * Restores an existing Page Memory-based Hash Index storage that will be immediately be destroyed during recovery.
+     */
+    PageMemoryHashIndexStorage restoreHashIndexStorageForDestroy(IndexMeta indexMeta) {
+        return new PageMemoryHashIndexStorage(
+                indexMeta,
+                null,
+                indexFreeList,
+                restoreHashIndexTree(indexMeta),
+                indexMetaTree,
+                tableStorage.isVolatile()
+        );
+    }
+
     private IndexTreeAndMeta<HashIndexTree> createHashIndexTreeAndMeta(StorageHashIndexDescriptor indexDescriptor) {
         return createIndexTree(
                 indexDescriptor,
@@ -174,6 +190,20 @@ class IndexStorageFactory {
         );
     }
 
+    /**
+     * Restores an existing Page Memory-based Sorted Index storage that will be immediately be destroyed during recovery.
+     */
+    PageMemorySortedIndexStorage restoreSortedIndexStorageForDestroy(IndexMeta indexMeta) {
+        return new PageMemorySortedIndexStorage(
+                indexMeta,
+                null,
+                indexFreeList,
+                restoreSortedIndexTreeForDestroy(indexMeta),
+                indexMetaTree,
+                tableStorage.isVolatile()
+        );
+    }
+
     private IndexTreeAndMeta<SortedIndexTree> createSortedIndexTreeAndMeta(StorageSortedIndexDescriptor indexDescriptor) {
         return createIndexTree(
                 indexDescriptor,
@@ -209,13 +239,30 @@ class IndexStorageFactory {
         }
     }
 
+    private SortedIndexTree restoreSortedIndexTreeForDestroy(IndexMeta indexMeta) {
+        try {
+            return SortedIndexTree.restoreForDestroy(
+                    tableStorage.getTableId(),
+                    Integer.toString(tableStorage.getTableId()),
+                    partitionId,
+                    tableStorage.dataRegion().pageMemory(),
+                    PageLockListenerNoOp.INSTANCE,
+                    new AtomicLong(),
+                    indexMeta.metaPageId(),
+                    indexReuseList
+            );
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException(e);
+        }
+    }
+
     /**
      * Creates a new B-Tree for the given {@code indexStorage}.
      */
     void updateDataStructuresIn(PageMemoryHashIndexStorage indexStorage) {
         HashIndexTree indexTree = createHashIndexTreeAndMeta(indexStorage.indexDescriptor()).indexTree;
 
-        indexStorage.updateDataStructures(indexFreeList, indexTree);
+        indexStorage.updateDataStructures(indexMetaTree, indexFreeList, indexTree);
     }
 
     /**
@@ -224,7 +271,7 @@ class IndexStorageFactory {
     void updateDataStructuresIn(PageMemorySortedIndexStorage indexStorage) {
         SortedIndexTree indexTree = createSortedIndexTreeAndMeta(indexStorage.indexDescriptor()).indexTree;
 
-        indexStorage.updateDataStructures(indexFreeList, indexTree);
+        indexStorage.updateDataStructures(indexMetaTree, indexFreeList, indexTree);
     }
 
     private <T> IndexTreeAndMeta<T> createIndexTree(StorageIndexDescriptor descriptor, IndexTreeConstructor<T> treeConstructor) {
@@ -235,7 +282,9 @@ class IndexStorageFactory {
 
             T tree = treeConstructor.createTree(metaPageId);
 
-            var indexMeta = new IndexMeta(descriptor.id(), metaPageId, RowId.lowestRowId(partitionId).uuid());
+            IndexType indexType = descriptor instanceof StorageHashIndexDescriptor ? IndexType.HASH : IndexType.SORTED;
+
+            var indexMeta = new IndexMeta(descriptor.id(), indexType, metaPageId, initialRowIdToBuild(partitionId).uuid());
 
             boolean replaced = indexMetaTree.putx(indexMeta);
 

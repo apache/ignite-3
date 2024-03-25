@@ -29,6 +29,7 @@ import java.util.List;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.commands.AlterTableAddColumnCommand;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
@@ -37,6 +38,7 @@ import org.apache.ignite.internal.catalog.commands.DropTableCommand;
 import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
 import org.apache.ignite.internal.catalog.commands.RemoveIndexCommand;
 import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
+import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -80,7 +82,11 @@ public class TableTestUtils {
                 .zone(zoneName)
                 .tableName(tableName)
                 .columns(columns)
-                .primaryKeyColumns(pkColumns)
+                // Hash index for primary key is being used here,
+                // because such index only requests a list of column names.
+                .primaryKey(TableHashPrimaryKey.builder()
+                        .columns(pkColumns)
+                        .build())
                 .build();
 
         assertThat(catalogManager.execute(command), willCompleteSuccessfully());
@@ -98,6 +104,16 @@ public class TableTestUtils {
                 catalogManager.execute(DropTableCommand.builder().schemaName(schemaName).tableName(tableName).build()),
                 willCompleteSuccessfully()
         );
+    }
+
+    /**
+     * Drops table from {@link #createSimpleTable(CatalogManager, String)} in the catalog.
+     *
+     * @param catalogManager Catalog manager.
+     * @param tableName Table name.
+     */
+    public static void dropSimpleTable(CatalogManager catalogManager, String tableName) {
+        dropTable(catalogManager, DEFAULT_SCHEMA_NAME, tableName);
     }
 
     /**
@@ -323,5 +339,42 @@ public class TableTestUtils {
      */
     public static void makeIndexAvailable(CatalogManager catalogManager, int indexId) {
         assertThat(catalogManager.execute(MakeIndexAvailableCommand.builder().indexId(indexId).build()), willCompleteSuccessfully());
+    }
+
+    /**
+     * Adds a column to the table in the catalog.
+     *
+     * @param catalogManager Catalog manager.
+     * @param schemaName Schema name.
+     * @param tableName Table name.
+     * @param columnName Column name.
+     * @param columnType Column type.
+     */
+    public static void addColumnToTable(
+            CatalogManager catalogManager,
+            String schemaName,
+            String tableName,
+            String columnName,
+            ColumnType columnType
+    ) {
+        CatalogCommand command = AlterTableAddColumnCommand.builder()
+                .schemaName(schemaName)
+                .tableName(tableName)
+                .columns(List.of(ColumnParams.builder().name(columnName).type(columnType).build()))
+                .build();
+
+        assertThat(catalogManager.execute(command), willCompleteSuccessfully());
+    }
+
+    /**
+     * Adds a column to the table from {@link #createSimpleTable(CatalogManager, String)} in the catalog.
+     *
+     * @param catalogManager Catalog manager.
+     * @param tableName Table name.
+     * @param columnName Column name.
+     * @param columnType Column type.
+     */
+    public static void addColumnToSimpleTable(CatalogManager catalogManager, String tableName, String columnName, ColumnType columnType) {
+        addColumnToTable(catalogManager, DEFAULT_SCHEMA_NAME, tableName, columnName, columnType);
     }
 }

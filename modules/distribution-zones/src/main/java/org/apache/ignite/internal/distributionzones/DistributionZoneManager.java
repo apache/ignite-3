@@ -81,7 +81,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
@@ -300,7 +299,7 @@ public class DistributionZoneManager implements IgniteComponent {
         metaStorageManager.unregisterWatch(topologyWatchListener);
 
         shutdownAndAwaitTermination(executor, 10, SECONDS);
-        shutdownAndAwaitTermination(rebalanceScheduler, 10, TimeUnit.SECONDS);
+        shutdownAndAwaitTermination(rebalanceScheduler, 10, SECONDS);
     }
 
     /**
@@ -1426,7 +1425,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
         List<CompletableFuture<Void>> futures = new ArrayList<>();
 
-        // TODO: IGNITE-20287 Clean up abandoned resources for dropped zones from volt and metastore
+        // TODO: IGNITE-20287 Clean up abandoned resources for dropped tables from vault and metastore
         for (CatalogZoneDescriptor zone : catalogManager.zones(catalogVersion)) {
             futures.add(restoreZoneStateBusy(zone, recoveryRevision));
         }

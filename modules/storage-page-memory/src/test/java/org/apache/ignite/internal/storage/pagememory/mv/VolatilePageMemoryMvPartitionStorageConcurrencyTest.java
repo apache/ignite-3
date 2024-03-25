@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.mockito.Mockito.mock;
 
-import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
@@ -57,7 +56,7 @@ class VolatilePageMemoryMvPartitionStorageConcurrencyTest extends AbstractMvPart
 
         table = engine.createMvTable(
                 new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, DEFAULT_STORAGE_PROFILE),
-                new StorageIndexDescriptorSupplier(mock(CatalogService.class))
+                mock(StorageIndexDescriptorSupplier.class)
         );
 
         initialize(table);

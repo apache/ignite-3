@@ -66,7 +66,6 @@ import org.apache.ignite.table.Table;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -79,12 +78,6 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
     private static final String TABLE_NAME = "TEST_TABLE";
 
     private static final String INDEX_NAME = "TEST_INDEX";
-
-    @BeforeEach
-    void setup() {
-        // Do not wait for indexes to become available.
-        setAwaitIndexAvailability(false);
-    }
 
     @AfterEach
     void tearDown() {

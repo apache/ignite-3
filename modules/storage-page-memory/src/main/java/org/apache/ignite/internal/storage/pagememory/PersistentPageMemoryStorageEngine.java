@@ -20,6 +20,7 @@ package org.apache.ignite.internal.storage.pagememory;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
+import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -236,6 +237,19 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
         assert dataRegion != null : "tableId=" + tableDescriptor.getId() + ", dataRegion=" + tableDescriptor.getStorageProfile();
 
         return new PersistentPageMemoryTableStorage(tableDescriptor, indexDescriptorSupplier, this, dataRegion, destructionExecutor);
+    }
+
+    @Override
+    public void dropMvTable(int tableId) {
+        FilePageStoreManager filePageStoreManager = this.filePageStoreManager;
+
+        assert filePageStoreManager != null : "Component has not started";
+
+        try {
+            filePageStoreManager.destroyGroupIfExists(tableId);
+        } catch (IOException e) {
+            throw new StorageException("Failed to destroy table directory: {}", e, tableId);
+        }
     }
 
     /**

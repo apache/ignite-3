@@ -394,9 +394,9 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
      */
     private void parseUrl0(String url, Properties props) throws SQLException {
         // Determine mode - semicolon or ampersand.
-        int semicolonPos = url.indexOf(";");
-        int slashPos = url.indexOf("/");
-        int queryPos = url.indexOf("?");
+        int semicolonPos = url.indexOf(';');
+        int slashPos = url.indexOf('/');
+        int queryPos = url.indexOf('?');
 
         boolean semicolonMode;
 
@@ -553,7 +553,7 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
                     insideBrace = true;
                 }
             } else {
-                val += delimChar + token;
+                val += delimChar + token; // NOPMD
             }
 
             if (val.endsWith("}")) {

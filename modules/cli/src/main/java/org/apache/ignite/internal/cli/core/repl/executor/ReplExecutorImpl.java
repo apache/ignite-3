@@ -40,11 +40,13 @@ import org.apache.ignite.internal.cli.core.repl.context.CommandLineContextProvid
 import org.apache.ignite.internal.cli.core.repl.expander.NoopExpander;
 import org.jline.console.impl.SystemRegistryImpl;
 import org.jline.reader.Completer;
+import org.jline.reader.Highlighter;
 import org.jline.reader.LineReader;
 import org.jline.reader.LineReader.SuggestionType;
 import org.jline.reader.LineReaderBuilder;
 import org.jline.reader.MaskingCallback;
 import org.jline.reader.Parser;
+import org.jline.reader.impl.DefaultHighlighter;
 import org.jline.reader.impl.DefaultParser;
 import org.jline.terminal.Terminal;
 import org.jline.widget.AutosuggestionWidgets;
@@ -58,7 +60,7 @@ import picocli.shell.jline3.PicocliCommands.PicocliCommandsFactory;
  */
 public class ReplExecutorImpl implements ReplExecutor {
 
-    private final Parser parser = new DefaultParser().escapeChars(null);
+    private Parser parser = new DefaultParser().escapeChars(null);
 
     private final Supplier<Path> workDirProvider = () -> Paths.get(System.getProperty("user.dir"));
 
@@ -107,13 +109,27 @@ public class ReplExecutorImpl implements ReplExecutor {
             repl.customizeTerminal(terminal);
 
             IgnitePicocliCommands picocliCommands = createPicocliCommands(repl);
-            SystemRegistryImpl registry = new SystemRegistryImpl(parser, terminal, workDirProvider, null);
+            SystemRegistryImpl registry = new SystemRegistryImpl(
+                    repl.getParser() == null
+                            ? parser
+                            : repl.getParser(),
+                    terminal,
+                    workDirProvider,
+                    null
+            );
+
             registry.setCommandRegistries(picocliCommands);
 
             LineReader reader = createReader(
                     repl.getCompleter() != null
                             ? repl.getCompleter()
-                            : registry.completer()
+                            : registry.completer(),
+                    repl.getHighlighter() != null
+                            ? repl.getHighlighter()
+                            : new DefaultHighlighter(),
+                    repl.getParser() != null
+                            ? repl.getParser()
+                            : parser
             );
             if (repl.getHistoryFileName() != null) {
                 reader.variable(LineReader.HISTORY_FILE, StateFolderProvider.getStateFile(repl.getHistoryFileName()));
@@ -158,10 +174,11 @@ public class ReplExecutorImpl implements ReplExecutor {
         QuestionAskerFactory.setWriterReaderFactory(new JlineQuestionWriterReaderFactory(terminal));
     }
 
-    private LineReader createReader(Completer completer) {
+    private LineReader createReader(Completer completer, Highlighter highlighter, Parser parser) {
         LineReader result = LineReaderBuilder.builder()
                 .terminal(terminal)
                 .completer(completer)
+                .highlighter(highlighter)
                 .parser(parser)
                 .expander(new NoopExpander())
                 .variable(LineReader.LIST_MAX, 50)   // max tab completion candidates

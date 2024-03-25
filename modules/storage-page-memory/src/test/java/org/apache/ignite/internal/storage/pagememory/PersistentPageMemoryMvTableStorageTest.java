@@ -32,15 +32,15 @@ import org.apache.ignite.internal.storage.AbstractMvTableStorageTest;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
-import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Tests for {@link PersistentPageMemoryTableStorage} class.
@@ -80,14 +80,15 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
     protected MvTableStorage createMvTableStorage() {
         return engine.createMvTable(
                 new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, DEFAULT_STORAGE_PROFILE),
-                new StorageIndexDescriptorSupplier(catalogService)
+                indexDescriptorSupplier
         );
     }
 
-    @Test
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
     @Override
-    public void testDestroyPartition() throws Exception {
-        super.testDestroyPartition();
+    public void testDestroyPartition(boolean waitForDestroyFuture) {
+        super.testDestroyPartition(waitForDestroyFuture);
 
         // Let's make sure that the checkpoint doesn't fail.
         assertThat(

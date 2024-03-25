@@ -35,7 +35,7 @@ import org.apache.ignite.internal.storage.pagememory.configuration.schema.Volati
  */
 @AutoService(ConfigurationModule.class)
 public class PageMemoryStorageEngineLocalConfigurationModule implements ConfigurationModule {
-    public static String DEFAULT_PROFILE_NAME = "default";
+    public static final String DEFAULT_PROFILE_NAME = "default";
 
     /** {@inheritDoc} */
     @Override

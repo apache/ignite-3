@@ -18,9 +18,11 @@
 package org.apache.ignite.internal.storage.rocksdb.index;
 
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.KEY_BYTE_ORDER;
+import static org.apache.ignite.internal.storage.util.StorageUtils.initialRowIdToBuild;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
+import static org.apache.ignite.internal.storage.util.StorageUtils.transitionToTerminalState;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
@@ -52,7 +54,7 @@ import org.rocksdb.WriteBatchWithIndex;
 /**
  * Abstract index storage base on RocksDB.
  */
-abstract class AbstractRocksDbIndexStorage implements IndexStorage {
+public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
     protected final int indexId;
 
     protected final PartitionDataHelper helper;
@@ -66,7 +68,7 @@ abstract class AbstractRocksDbIndexStorage implements IndexStorage {
     protected final AtomicReference<StorageState> state = new AtomicReference<>(StorageState.RUNNABLE);
 
     /** Row ID for which the index needs to be built, {@code null} means that the index building has completed. */
-    private volatile @Nullable RowId nextRowIdToBuilt;
+    private volatile @Nullable RowId nextRowIdToBuild;
 
     AbstractRocksDbIndexStorage(int indexId, PartitionDataHelper helper, RocksDbMetaStorage indexMetaStorage) {
         this.indexId = indexId;
@@ -75,7 +77,7 @@ abstract class AbstractRocksDbIndexStorage implements IndexStorage {
 
         int partitionId = helper.partitionId();
 
-        nextRowIdToBuilt = indexMetaStorage.getNextRowIdToBuilt(indexId, partitionId, RowId.lowestRowId(partitionId));
+        nextRowIdToBuild = indexMetaStorage.getNextRowIdToBuild(indexId, partitionId);
     }
 
     @Override
@@ -83,7 +85,7 @@ abstract class AbstractRocksDbIndexStorage implements IndexStorage {
         return busy(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
-            return nextRowIdToBuilt;
+            return nextRowIdToBuild;
         });
     }
 
@@ -94,9 +96,9 @@ abstract class AbstractRocksDbIndexStorage implements IndexStorage {
 
             WriteBatchWithIndex writeBatch = PartitionDataHelper.requireWriteBatch();
 
-            indexMetaStorage.putNextRowIdToBuilt(writeBatch, indexId, helper.partitionId(), rowId);
+            indexMetaStorage.putNextRowIdToBuild(writeBatch, indexId, helper.partitionId(), rowId);
 
-            nextRowIdToBuilt = rowId;
+            nextRowIdToBuild = rowId;
 
             return null;
         });
@@ -106,11 +108,18 @@ abstract class AbstractRocksDbIndexStorage implements IndexStorage {
      * Closes the hash index storage.
      */
     public void close() {
-        if (!state.compareAndSet(StorageState.RUNNABLE, StorageState.CLOSED)) {
-            StorageState state = this.state.get();
+        if (!transitionToTerminalState(StorageState.CLOSED, state)) {
+            return;
+        }
 
-            assert state == StorageState.CLOSED : state;
+        busyLock.block();
+    }
 
+    /**
+     * Transitions the storage to the {@link StorageState#DESTROYED} state and blocks the busy lock.
+     */
+    public void transitionToDestroyedState() {
+        if (!transitionToTerminalState(StorageState.DESTROYED, state)) {
             return;
         }
 
@@ -213,7 +222,16 @@ abstract class AbstractRocksDbIndexStorage implements IndexStorage {
      *
      * @throws RocksDBException If failed to delete data.
      */
-    abstract void destroyData(WriteBatch writeBatch) throws RocksDBException;
+    public final void destroyData(WriteBatch writeBatch) throws RocksDBException {
+        clearIndex(writeBatch);
+
+        indexMetaStorage.removeNextRowIdToBuild(writeBatch, indexId, helper.partitionId());
+
+        nextRowIdToBuild = initialRowIdToBuild(helper.partitionId());
+    }
+
+    /** Method that needs to be overridden by the inheritors to remove all implementation specific data for this index. */
+    abstract void clearIndex(WriteBatch writeBatch) throws RocksDBException;
 
     /**
      * Cursor that always returns up-to-date next element.

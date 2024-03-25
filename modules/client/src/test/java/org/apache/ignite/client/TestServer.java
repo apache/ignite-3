@@ -62,6 +62,7 @@ import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
+import org.apache.ignite.internal.table.TestLowWatermark;
 import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.network.ClusterNode;
@@ -205,7 +206,8 @@ public class TestServer implements AutoCloseable {
         if (securityConfiguration == null) {
             authenticationManager = new DummyAuthenticationManager();
         } else {
-            authenticationManager = new AuthenticationManagerImpl(securityConfiguration);
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-21665.
+            authenticationManager = new AuthenticationManagerImpl(securityConfiguration, ign -> {});
             authenticationManager.start();
         }
 
@@ -237,7 +239,6 @@ public class TestServer implements AutoCloseable {
                         compute,
                         clusterService,
                         bootstrapFactory,
-                        ignite.sql(),
                         () -> CompletableFuture.completedFuture(tag),
                         mock(MetricManager.class),
                         metrics,
@@ -246,7 +247,8 @@ public class TestServer implements AutoCloseable {
                         new AlwaysSyncedSchemaSyncService(),
                         new FakeCatalogService(FakeInternalTable.PARTITIONS),
                         placementDriver,
-                        clientConnectorConfiguration
+                        clientConnectorConfiguration,
+                        new TestLowWatermark()
                 );
 
         module.start().join();

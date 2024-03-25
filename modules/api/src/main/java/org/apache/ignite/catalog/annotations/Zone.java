@@ -51,6 +51,41 @@ public @interface Zone {
     int replicas() default -1;
 
     /**
+     * Affinity function.
+     *
+     * @return Affinity function.
+     */
+    String affinityFunction() default "";
+
+    /**
+     * Timeout in seconds between node added or node left topology event itself and data nodes switch.
+     *
+     * @return Timeout.
+     */
+    int dataNodesAutoAdjust() default -1;
+
+    /**
+     * Timeout in seconds between node added topology event itself and data nodes switch.
+     *
+     * @return Timeout.
+     */
+    int dataNodesAutoAdjustScaleUp() default -1;
+
+    /**
+     * Timeout in seconds between node left topology event itself and data nodes switch.
+     *
+     * @return Timeout.
+     */
+    int dataNodesAutoAdjustScaleDown() default -1;
+
+    /**
+     * Nodes filter.
+     *
+     * @return Nodes filter.
+     */
+    String filter() default "";
+
+    /**
      * Storage profiles.
      *
      * @return Storage profiles.

@@ -184,6 +184,8 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                             + ", mvAppliedIndex=" + storage.lastAppliedIndex()
                             + ", txStateAppliedIndex=" + txStateStorage.lastAppliedIndex() + "]";
 
+            Serializable result = null;
+
             // NB: Make sure that ANY command we accept here updates lastAppliedIndex+term info in one of the underlying
             // storages!
             // Otherwise, a gap between lastAppliedIndex from the point of view of JRaft and our storage might appear.
@@ -194,8 +196,6 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
             // repeat same thing over and over again.
 
             storage.acquirePartitionSnapshotsReadLock();
-
-            Serializable result = null;
 
             try {
                 if (command instanceof UpdateCommand) {
@@ -213,12 +213,10 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                 } else {
                     assert false : "Command was not found [cmd=" + command + ']';
                 }
-
-                clo.result(result);
             } catch (IgniteInternalException e) {
-                clo.result(e);
+                result = e;
             } catch (CompletionException e) {
-                clo.result(e.getCause());
+                result = e.getCause();
             } catch (Throwable t) {
                 LOG.error(
                         "Unknown error while processing command [commandIndex={}, commandTerm={}, command={}]",
@@ -230,6 +228,10 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
             } finally {
                 storage.releasePartitionSnapshotsReadLock();
             }
+
+            // Completing the closure out of the partition snapshots lock to reduce possibility of deadlocks as it might
+            // trigger other actions taking same locks.
+            clo.result(result);
 
             if (command instanceof SafeTimePropagatingCommand) {
                 SafeTimePropagatingCommand safeTimePropagatingCommand = (SafeTimePropagatingCommand) command;
@@ -274,9 +276,13 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                         cmd.lastCommitTimestamp(),
                         indexIdsAtRwTxBeginTs(catalogService, txId, storage.tableId())
                 );
-            }
 
-            updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
+                updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
+            } else {
+                // We MUST bump information about last updated index+term.
+                // See a comment in #onWrite() for explanation.
+                advanceLastAppliedIndexConsistently(commandIndex, commandTerm);
+            }
         }
 
         replicaTouch(txId, cmd.txCoordinatorId(), cmd.full() ? cmd.safeTime() : null, cmd.full());
@@ -311,6 +317,10 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                 );
 
                 updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
+            } else {
+                // We MUST bump information about last updated index+term.
+                // See a comment in #onWrite() for explanation.
+                advanceLastAppliedIndexConsistently(commandIndex, commandTerm);
             }
         }
 
@@ -326,7 +336,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
      * @return The actually stored transaction state {@link TransactionResult}.
      * @throws IgniteInternalException if an exception occurred during a transaction state change.
      */
-    private TransactionResult handleFinishTxCommand(FinishTxCommand cmd, long commandIndex, long commandTerm)
+    private @Nullable TransactionResult handleFinishTxCommand(FinishTxCommand cmd, long commandIndex, long commandTerm)
             throws IgniteInternalException {
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= txStateStorage.lastAppliedIndex()) {
@@ -405,6 +415,10 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
         // We MUST bump information about last updated index+term.
         // See a comment in #onWrite() for explanation.
+        advanceLastAppliedIndexConsistently(commandIndex, commandTerm);
+    }
+
+    private void advanceLastAppliedIndexConsistently(long commandIndex, long commandTerm) {
         storage.runConsistently(locker -> {
             storage.lastApplied(commandIndex, commandTerm);
 

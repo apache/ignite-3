@@ -51,12 +51,20 @@ class CreateFromDefinitionTest {
                 .ifNotExists()
                 .partitions(3)
                 .replicas(3)
+                .affinity("affinity")
+                .dataNodesAutoAdjust(1)
+                .dataNodesAutoAdjustScaleDown(2)
+                .dataNodesAutoAdjustScaleUp(3)
+                .filter("filter")
                 .storageProfiles("default")
                 .build();
 
         assertThat(
                 createZone(zone),
-                is("CREATE ZONE IF NOT EXISTS zone_test WITH STORAGE_PROFILES='default', PARTITIONS=3, REPLICAS=3;")
+                is("CREATE ZONE IF NOT EXISTS zone_test WITH STORAGE_PROFILES='default', PARTITIONS=3, REPLICAS=3,"
+                        + " AFFINITY_FUNCTION='affinity',"
+                        + " DATA_NODES_AUTO_ADJUST=1, DATA_NODES_AUTO_ADJUST_SCALE_UP=3, DATA_NODES_AUTO_ADJUST_SCALE_DOWN=2,"
+                        + " DATA_NODES_FILTER='filter', DATAREGION='dataRegion';")
         );
     }
 

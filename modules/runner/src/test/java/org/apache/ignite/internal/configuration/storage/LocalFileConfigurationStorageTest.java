@@ -27,7 +27,11 @@ import static org.hamcrest.Matchers.equalToCompressingWhiteSpace;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.hasValue;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
+import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.ConfigParseOptions;
+import com.typesafe.config.ConfigSyntax;
 import java.io.IOException;
 import java.io.Serializable;
 import java.nio.charset.StandardCharsets;
@@ -505,6 +509,36 @@ public class LocalFileConfigurationStorageTest {
 
         // Expect
         assertThat(storage.readDataOnRecovery().get().values(), aMapWithSize(1));
+    }
+
+    /** File content is parsed using HOCON format regardless of the file extension. */
+    @Test
+    void hoconContentInJsonFile() throws IOException {
+        // Given config in JSON format
+        String fileContent
+                = "{\n"
+                + "    \"top\" : {\n"
+                + "        \"namedList\" : [\n"
+                + "            {\n"
+                + "                \"intVal\" : -1,\n"
+                + "                \"name\" : \"name1\"\n"
+                + "            }\n"
+                + "        ]\n"
+                + "    }\n"
+                + "}\n";
+
+        Path configFile = tmpDir.resolve("ignite-config.json");
+
+        Files.write(configFile, fileContent.getBytes(StandardCharsets.UTF_8));
+
+        // Then check that the JSON is valid
+        ConfigParseOptions parseOptions = ConfigParseOptions.defaults().setSyntax(ConfigSyntax.JSON).setAllowMissing(false);
+        assertDoesNotThrow(() -> ConfigFactory.parseFile(configFile.toFile(), parseOptions));
+
+        LocalFileConfigurationStorage storage = new LocalFileConfigurationStorage(configFile, treeGenerator, null);
+
+        // And storage reads the file successfully
+        assertDoesNotThrow(storage::readDataOnRecovery);
     }
 
     private String configFileContent() throws IOException {

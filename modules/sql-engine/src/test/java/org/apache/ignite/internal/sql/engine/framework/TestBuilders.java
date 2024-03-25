@@ -48,6 +48,7 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
+import org.apache.ignite.internal.catalog.ClockWaiter;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams.Builder;
@@ -57,11 +58,14 @@ import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
 import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
+import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
+import org.apache.ignite.internal.catalog.commands.TablePrimaryKey;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
@@ -101,6 +105,7 @@ import org.apache.ignite.internal.sql.engine.schema.TableDescriptorImpl;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
@@ -113,6 +118,7 @@ import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NumberNativeType;
 import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.internal.type.VarlenNativeType;
+import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.SubscriptionUtils;
 import org.apache.ignite.internal.util.TransformingIterator;
 import org.apache.ignite.internal.util.subscription.TransformingPublisher;
@@ -301,6 +307,17 @@ public class TestBuilders {
         ClusterBuilder nodes(String firstNodeName, String... otherNodeNames);
 
         /**
+         * Sets desired names for the cluster nodes.
+         *
+         * @param firstNodeName A name of the first node. There is no difference in what node should be first. This parameter was
+         *         introduced to force user to provide at least one node name.
+         * @param useTablePartitions If {@code true} map table partitions to whole defined nodes.
+         * @param otherNodeNames An array of rest of the names to create cluster from.
+         * @return {@code this} for chaining.
+         */
+        public ClusterBuilder nodes(String firstNodeName, boolean useTablePartitions, String... otherNodeNames);
+
+        /**
          * Creates a table builder to add to the cluster.
          *
          * @return An instance of table builder.
@@ -450,6 +467,9 @@ public class TestBuilders {
         /** Sets the node this fragment will be executed on. */
         ExecutionContextBuilder localNode(ClusterNode node);
 
+        /** Sets the dynamic parameters this fragment will be executed with. */
+        ExecutionContextBuilder dynamicParameters(Object... params);
+
         /**
          * Builds the context object.
          *
@@ -459,11 +479,12 @@ public class TestBuilders {
     }
 
     private static class ExecutionContextBuilderImpl implements ExecutionContextBuilder {
-        private FragmentDescription description = new FragmentDescription(0, true, null, null, null);
+        private FragmentDescription description = new FragmentDescription(0, true, null, null, null, null);
 
         private UUID queryId = null;
         private QueryTaskExecutor executor = null;
         private ClusterNode node = null;
+        private Object[] dynamicParams = ArrayUtils.OBJECT_EMPTY_ARRAY;
 
         /** {@inheritDoc} */
         @Override
@@ -497,6 +518,12 @@ public class TestBuilders {
             return this;
         }
 
+        @Override
+        public ExecutionContextBuilder dynamicParameters(Object... params) {
+            this.dynamicParams = params;
+            return this;
+        }
+
         /** {@inheritDoc} */
         @Override
         public ExecutionContext<Object[]> build() {
@@ -507,7 +534,7 @@ public class TestBuilders {
                     node.name(),
                     description,
                     ArrayRowHandler.INSTANCE,
-                    Map.of(),
+                    Commons.parametersMap(dynamicParams),
                     TxAttributes.fromTx(new NoOpTransaction(node.name())),
                     SqlQueryProcessor.DEFAULT_TIME_ZONE_ID
             );
@@ -517,6 +544,7 @@ public class TestBuilders {
     private static class ClusterBuilderImpl implements ClusterBuilder {
         private final List<ClusterTableBuilderImpl> tableBuilders = new ArrayList<>();
         private List<String> nodeNames;
+        private boolean useTablePartitions;
         private final Map<String, Map<String, ScannableTable>> nodeName2tableName2table = new HashMap<>();
         private final List<SystemView<?>> systemViews = new ArrayList<>();
         private final Map<String, Set<String>> nodeName2SystemView = new HashMap<>();
@@ -525,6 +553,18 @@ public class TestBuilders {
         @Override
         public ClusterBuilder nodes(String firstNodeName, String... otherNodeNames) {
             this.nodeNames = new ArrayList<>();
+
+            nodeNames.add(firstNodeName);
+            nodeNames.addAll(Arrays.asList(otherNodeNames));
+
+            return this;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public ClusterBuilder nodes(String firstNodeName, boolean useTablePartitions, String... otherNodeNames) {
+            this.nodeNames = new ArrayList<>();
+            this.useTablePartitions = useTablePartitions;
 
             nodeNames.add(firstNodeName);
             nodeNames.addAll(Arrays.asList(otherNodeNames));
@@ -567,7 +607,8 @@ public class TestBuilders {
 
             var clusterName = "test_cluster";
 
-            CatalogManager catalogManager = CatalogTestUtils.createCatalogManagerWithTestUpdateLog(clusterName, new HybridClockImpl());
+            HybridClock clock = new HybridClockImpl();
+            CatalogManager catalogManager = CatalogTestUtils.createCatalogManagerWithTestUpdateLog(clusterName, clock);
 
             var parserService = new ParserServiceImpl(0, EmptyCacheFactory.INSTANCE);
             var prepareService = new PrepareServiceImpl(clusterName, 0, CaffeineCacheFactory.INSTANCE,
@@ -592,7 +633,7 @@ public class TestBuilders {
 
             Runnable initClosure = () -> initAction(catalogManager);
 
-            var ddlHandler = new DdlCommandHandler(catalogManager);
+            var ddlHandler = new DdlCommandHandler(catalogManager, new ClockWaiter("test", clock), () -> 100);
             var schemaManager = new SqlSchemaManagerImpl(catalogManager, CaffeineCacheFactory.INSTANCE, 0);
 
             List<LogicalNode> logicalNodes = nodeNames.stream()
@@ -619,7 +660,7 @@ public class TestBuilders {
                         var targetProvider = new TestNodeExecutionTargetProvider(
                                 systemViewManager::owningNodes,
                                 owningNodesByTableName,
-                                false
+                                useTablePartitions
                         );
                         var partitionPruner = new PartitionPrunerImpl();
                         var mappingService = new MappingServiceImpl(
@@ -949,12 +990,19 @@ public class TestBuilders {
         private List<CatalogCommand> build() {
             List<CatalogCommand> commands = new ArrayList<>(1 + indexBuilders.size());
 
+            // TODO https://issues.apache.org/jira/browse/IGNITE-21715 Update after TestFramework provides API
+            //  to specify type of a primary key index.
+            // Use sorted index by default.
+            TablePrimaryKey primaryKey = TableHashPrimaryKey.builder()
+                    .columns(keyColumns)
+                    .build();
+
             commands.add(
                     CreateTableCommand.builder()
                             .schemaName(schemaName)
                             .tableName(name)
                             .columns(columns)
-                            .primaryKeyColumns(keyColumns)
+                            .primaryKey(primaryKey)
                             .build()
             );
 
@@ -1296,7 +1344,7 @@ public class TestBuilders {
 
                 @Override
                 public Supplier<PartitionCalculator> partitionCalculator() {
-                    throw new UnsupportedOperationException();
+                    return table.partitionCalculator();
                 }
             });
         }
