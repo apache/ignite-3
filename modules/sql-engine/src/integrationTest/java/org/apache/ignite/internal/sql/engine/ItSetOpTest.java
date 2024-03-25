@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Predicate;
@@ -28,7 +29,9 @@ import java.util.stream.StreamSupport;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
 import org.apache.ignite.internal.sql.engine.util.HintUtils;
+import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
+import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -237,6 +240,37 @@ public class ItSetOpTest extends BaseSqlIntegrationTest {
                 .matches(QueryChecker.matches(".*IgniteExchange.*IgniteColocatedIntersect.*"))
                 .returns(0)
                 .returns(1)
+                .check();
+    }
+
+    @Test
+    public void testExceptDifferentTypes() {
+        sql("CREATE TABLE t1(id INTEGER PRIMARY KEY, val INTEGER)");
+        sql("CREATE TABLE t2(id INTEGER PRIMARY KEY, val DECIMAL(4,2))");
+        sql("CREATE TABLE t3(id INTEGER PRIMARY KEY, val NUMERIC(4,2))");
+
+        sql("INSERT INTO t1 VALUES(1, 1)");
+        sql("INSERT INTO t1 VALUES(2, 2)");
+        sql("INSERT INTO t1 VALUES(3, 3)");
+
+        sql("INSERT INTO t2 VALUES(2, 2)");
+
+        sql("INSERT INTO t3 VALUES(3, 3)");
+
+        String query = ""
+                + "SELECT id, val FROM t1 "
+                + "EXCEPT "
+                + "SELECT id, val FROM t2 "
+                + "EXCEPT "
+                + "SELECT id, val FROM t3 ";
+
+        assertQuery(query)
+                .returns(1, new BigDecimal("1.00"))
+                .columnMetadata(
+                        new MetadataMatcher().nullable(false).type(ColumnType.INT32),
+                        new MetadataMatcher().nullable(true).type(ColumnType.DECIMAL)
+                )
+                .ordered()
                 .check();
     }
 

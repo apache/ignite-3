@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.rule;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelOptRule;
@@ -29,8 +31,11 @@ import org.apache.calcite.rel.logical.LogicalIntersect;
 import org.apache.calcite.rel.logical.LogicalMinus;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rex.RexBuilder;
+import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
+import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.set.IgniteColocatedIntersect;
 import org.apache.ignite.internal.sql.engine.rel.set.IgniteColocatedMinus;
 import org.apache.ignite.internal.sql.engine.rel.set.IgniteMapIntersect;
@@ -71,7 +76,7 @@ public class SetOpConverterRule {
             RelTraitSet outTrait = cluster.traitSetOf(IgniteConvention.INSTANCE).replace(IgniteDistributions.single());
             List<RelNode> inputs = Util.transform(setOp.getInputs(), rel -> convert(rel, inTrait));
 
-            return createNode(cluster, outTrait, inputs, setOp.all);
+            return createNode(cluster, outTrait, convertInputs(cluster, inputs, inTrait), setOp.all);
         }
     }
 
@@ -122,7 +127,7 @@ public class SetOpConverterRule {
             RelTraitSet outTrait = cluster.traitSetOf(IgniteConvention.INSTANCE);
             List<RelNode> inputs = Util.transform(setOp.getInputs(), rel -> convert(rel, inTrait));
 
-            RelNode map = createMapNode(cluster, outTrait, inputs, setOp.all);
+            RelNode map = createMapNode(cluster, outTrait, convertInputs(cluster, inputs, inTrait), setOp.all);
 
             return createReduceNode(
                     cluster,
@@ -171,5 +176,51 @@ public class SetOpConverterRule {
         PhysicalNode createReduceNode(RelOptCluster cluster, RelTraitSet traits, RelNode input, boolean all, RelDataType rowType) {
             return new IgniteReduceIntersect(cluster, traits, input, all, rowType);
         }
+    }
+
+    private static List<RelNode> convertInputs(RelOptCluster cluster, List<RelNode> inputs, RelTraitSet traits) {
+        List<RelDataType> inputRowTypes = inputs.stream()
+                .map(RelNode::getRowType)
+                .collect(Collectors.toList());
+
+        // Output type of a set operator is equal to leastRestrictive(inputTypes) (see SetOp::deriveRowType)
+
+        RelDataType resultType = cluster.getTypeFactory().leastRestrictive(inputRowTypes);
+        if (resultType == null) {
+            throw new IllegalArgumentException("Cannot compute compatible row type for arguments to set op: " + inputRowTypes);
+        }
+
+        // Check output type of each input, if input's type does not match the result type,
+        // then add a projection with casts for non-matching fields.
+
+        RexBuilder rexBuilder = cluster.getRexBuilder();
+        List<RelNode> actualInputs = new ArrayList<>(inputs.size());
+
+        for (RelNode input : inputs) {
+            RelDataType inputRowType = input.getRowType();
+
+            if (!resultType.equalsSansFieldNames(inputRowType)) {
+                List<RexNode> exprs = new ArrayList<>(inputRowType.getFieldCount());
+
+                for (int i = 0; i < resultType.getFieldCount(); i++) {
+                    RelDataType fieldType = inputRowType.getFieldList().get(i).getType();
+                    RelDataType outFieldType = resultType.getFieldList().get(i).getType();
+                    RexNode ref = rexBuilder.makeInputRef(input, i);
+
+                    if (fieldType.equals(outFieldType)) {
+                        exprs.add(ref);
+                    } else {
+                        RexNode expr = rexBuilder.makeCast(outFieldType, ref, true, false);
+                        exprs.add(expr);
+                    }
+                }
+
+                actualInputs.add(new IgniteProject(cluster, traits, input, exprs, resultType));
+            } else {
+                actualInputs.add(input);
+            }
+        }
+
+        return actualInputs;
     }
 }
