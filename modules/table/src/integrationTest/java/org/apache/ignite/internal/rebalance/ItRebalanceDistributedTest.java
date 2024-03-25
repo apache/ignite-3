@@ -1135,7 +1135,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     metaStorageManager.registerRevisionUpdateListener(function::apply);
 
             GcConfiguration gcConfig = clusterConfigRegistry.getConfiguration(GcConfiguration.KEY);
-            TransactionConfiguration txConfig = clusterConfigRegistry.getConfiguration(TransactionConfiguration.KEY);
 
             DataStorageModules dataStorageModules = new DataStorageModules(List.of(
                     new PersistentPageMemoryDataStorageModule(),
@@ -1194,7 +1193,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     name,
                     registry,
                     gcConfig,
-                    txConfig,
+                    txConfiguration,
                     storageUpdateConfiguration,
                     clusterService.messagingService(),
                     clusterService.topologyService(),
@@ -1289,7 +1288,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     cmgManager
             );
 
-            firstComponents.forEach(IgniteComponent::start);
+            firstComponents.forEach(igniteComponent -> assertThat(igniteComponent.start(), willCompleteSuccessfully()));
 
             nodeComponents.addAll(firstComponents);
 
@@ -1309,7 +1308,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                         indexManager
                 );
 
-                secondComponents.forEach(IgniteComponent::start);
+                secondComponents.forEach(igniteComponent -> assertThat(igniteComponent.start(), willCompleteSuccessfully()));
 
                 nodeComponents.addAll(secondComponents);
 
