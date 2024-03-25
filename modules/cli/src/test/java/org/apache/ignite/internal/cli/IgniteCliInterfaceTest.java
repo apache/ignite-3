@@ -152,7 +152,7 @@ public class IgniteCliInterfaceTest extends AbstractCliTest {
                 assertThatExitCodeMeansSuccess(exitCode);
 
                 assertOutputEqual("Node configuration updated. "
-                        + fg(Color.RED).mark("Restart the node to apply changes."));
+                        + fg(Color.YELLOW).mark("Restart the node to apply changes."));
                 assertThatStderrIsEmpty();
             }
         }
