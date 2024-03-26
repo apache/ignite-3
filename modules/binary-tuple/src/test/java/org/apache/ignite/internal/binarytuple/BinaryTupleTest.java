@@ -314,7 +314,7 @@ public class BinaryTupleTest {
      */
     @Test
     public void decimalTest() {
-        BigDecimal value = new BigDecimal(BigInteger.valueOf(12345), 100);
+        BigDecimal value = new BigDecimal("1.1");
 
         BinaryTupleBuilder builder = new BinaryTupleBuilder(1);
         ByteBuffer bytes = builder.appendDecimal(value, 100).build();
