@@ -107,7 +107,7 @@ public class VolatileTxStateMetaStorage {
 
     /**
      * Locally vacuums no longer needed transactional resource.
-     * For each finished (COMMITED or ABORTED) transactions:
+     * For each finished (COMMITTED or ABORTED) transactions:
      * <ol>
      *     <li> Removes it from the volatile storage if txnResourcesTTL == 0 or if
      *     txnState.initialVacuumObservationTimestamp + txnResourcesTTL < vacuumObservationTimestamp.</li>
@@ -119,7 +119,7 @@ public class VolatileTxStateMetaStorage {
      * @param txnResourceTtl Transactional resource time to live in milliseconds.
      */
     public void vacuum(long vacuumObservationTimestamp, long txnResourceTtl) {
-        LOG.info("Vacuum started vacuumObservationTimestamp={} txnResourceTtl={}", vacuumObservationTimestamp, txnResourceTtl);
+        LOG.info("Vacuum started [vacuumObservationTimestamp={}, txnResourceTtl={}]", vacuumObservationTimestamp, txnResourceTtl);
 
         AtomicInteger vacuumizedTxnsCount = new AtomicInteger(0);
         AtomicInteger markedAsInitiallyDetectedTxnsCount = new AtomicInteger(0);
@@ -155,8 +155,8 @@ public class VolatileTxStateMetaStorage {
             });
         });
 
-        LOG.info("Vacuum finished vacuumObservationTimestamp={} txnResourceTtl={} vacuumizedTxnsCount={}"
-                + " markedAsInitiallyDetectedTxnsCount={} alreadyMarkedTxnsCount={} skippedFotFurtherProcessingUnfinishedTxnsCount={}",
+        LOG.info("Vacuum finished [vacuumObservationTimestamp={}, txnResourceTtl={}, vacuumizedTxnsCount={},"
+                + " markedAsInitiallyDetectedTxnsCount={}, alreadyMarkedTxnsCount={}, skippedFotFurtherProcessingUnfinishedTxnsCount={}]",
                 vacuumObservationTimestamp,
                 txnResourceTtl,
                 vacuumizedTxnsCount,
