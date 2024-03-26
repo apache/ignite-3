@@ -45,13 +45,13 @@ public class BinaryTupleBuilder {
     /** The buffer size allocated for values when we do not know anything better. */
     private static final int DEFAULT_BUFFER_SIZE = 4000;
 
-    private static final int DECIMAL_SCALE_NONE = 0;
+    private static final byte DECIMAL_SCALE_NONE = 0;
 
-    private static final int DECIMAL_SCALE_ONE_BYTE = 1;
+    private static final byte DECIMAL_SCALE_ONE_BYTE = 1 << 6;
 
-    private static final int DECIMAL_SCALE_TWO_BYTES = 2;
+    private static final byte DECIMAL_SCALE_TWO_BYTES = (byte) (2 << 6);
 
-    private static final int DECIMAL_SCALE_THREE_BYTES = 3;
+    private static final byte DECIMAL_SCALE_THREE_BYTES = (byte) (3 << 6);
 
     /** Current element. */
     private int elementIndex = 0;
@@ -323,20 +323,26 @@ public class BinaryTupleBuilder {
      * @return {@code this} for chaining.
      */
     public BinaryTupleBuilder appendDecimalNotNull(BigDecimal value, int scale) {
-        // TODO IGNITE-21745: Inefficient serialization, many bytes wasted to store small values when scale is big.
-
-        // Possible modes, encoded as 2 bits:
-        // - Actual scale is the same as schema: don't store scale, 00
-        // - Actual scale is greater than schema: round to schema scale, 00
-        // - Actual scale is less than schema: store scale as varint: 10 (1 byte), 01 (2 bytes), 11 (3 bytes)
-
-
         if (value.scale() > scale) {
-            // Only do rounding if necessary.
-            value = value.setScale(scale, RoundingMode.HALF_UP);
+            value = value.setScale(scale, RoundingMode.HALF_UP); // Only do rounding if necessary.
+            putByte(DECIMAL_SCALE_NONE); // Same scale as schema.
+        } else if (value.scale() == scale) {
+            putByte(DECIMAL_SCALE_NONE); // Same scale as schema.
+        } else {
+            // Actual scale is less than schema - encode scale as varint.
+            if (value.scale() < 64) {
+                putByte((byte)(DECIMAL_SCALE_ONE_BYTE | value.scale()));
+            } else if (value.scale() < 16384) {
+                putByte((byte)(DECIMAL_SCALE_TWO_BYTES | value.scale() >> 8));
+                putByte((byte)(value.scale() & 0xFF));
+            } else {
+                putByte(DECIMAL_SCALE_THREE_BYTES);
+                putShort((short) value.scale());
+            }
         }
 
-        putBytes(value.setScale(scale, RoundingMode.HALF_UP).unscaledValue().toByteArray());
+        putBytes(value.unscaledValue().toByteArray());
+
         return proceed();
     }
 
