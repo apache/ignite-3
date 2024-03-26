@@ -87,19 +87,17 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
 
     @Override
     public CompletableFuture<Void> start() {
-        // delete existing data, relying on log playback
+        // Delete existing data, relying on log playback.
         try {
             RocksDB.destroyDB(dbPath.toString(), options);
         } catch (RocksDBException e) {
             return failedFuture(new CmgStorageException("Unable to drop RocksDb storage", e));
         }
 
-        init();
-
-        return nullCompletedFuture();
+        return init();
     }
 
-    private void init() {
+    private CompletableFuture<Void> init() {
         try {
             RocksDB db = RocksDB.open(options, dbPath.toString());
 
@@ -109,8 +107,10 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
 
             this.db = db;
         } catch (RocksDBException e) {
-            throw new CmgStorageException("Failed to start the storage", e);
+            return failedFuture(new CmgStorageException("Failed to start the storage", e));
         }
+
+        return nullCompletedFuture();
     }
 
     @Override
