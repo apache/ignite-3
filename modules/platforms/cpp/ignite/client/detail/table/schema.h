@@ -134,7 +134,7 @@ struct schema {
         std::vector<const column*> key_columns(key_columns_cnt, nullptr);
 
         std::vector<const column*> val_columns;
-        key_columns.reserve(val_columns_cnt);
+        val_columns.reserve(val_columns_cnt);
 
         for (const auto& column : cols) {
             if (column.is_key()) {
@@ -143,7 +143,7 @@ struct schema {
 
                 key_columns[column.key_index] = &column;
             } else {
-                key_columns.push_back(&column);
+                val_columns.push_back(&column);
             }
         }
 
