@@ -188,14 +188,16 @@ void append_column(binary_tuple_builder &builder, ignite_type typ, const primiti
  */
 std::vector<std::byte> pack_tuple(
     const schema &sch, const ignite_tuple &tuple, bool key_only, protocol::bitset_span &no_value) {
-    auto count = std::int32_t(key_only ? sch.key_column_count : sch.columns.size());
+    auto count = std::int32_t(key_only ? sch.key_columns.size() : sch.columns.size());
     binary_tuple_builder builder{count};
 
     builder.start();
 
+    auto col_indices = reinterpret_cast<std::int32_t *>(alloca(count * sizeof(std::int32_t)));
     for (std::int32_t i = 0; i < count; ++i) {
-        const auto &col = sch.columns[i];
+        const auto &col = sch.get_column(key_only, i);
         auto col_idx = tuple.column_ordinal(col.name);
+        col_indices[i] = col_idx;
 
         if (col_idx >= 0)
             claim_column(builder, col.type, tuple.get(col_idx), col.scale);
@@ -206,8 +208,8 @@ std::vector<std::byte> pack_tuple(
     std::int32_t written = 0;
     builder.layout();
     for (std::int32_t i = 0; i < count; ++i) {
-        const auto &col = sch.columns[i];
-        auto col_idx = tuple.column_ordinal(col.name);
+        const auto &col = sch.get_column(key_only, i);
+        auto col_idx = col_indices[i];
 
         if (col_idx >= 0) {
             append_column(builder, col.type, tuple.get(col_idx), col.scale);
@@ -221,8 +223,7 @@ std::vector<std::byte> pack_tuple(
     if (!key_only && written < tuple.column_count()) {
         std::vector<bool> written_ind(tuple.column_count(), false);
         for (std::int32_t i = 0; i < count; ++i) {
-            const auto &col = sch.columns[i];
-            auto col_idx = tuple.column_ordinal(col.name);
+            auto col_idx = col_indices[i];
 
             if (col_idx >= 0)
                 written_ind[col_idx] = true;
@@ -232,6 +233,7 @@ std::vector<std::byte> pack_tuple(
         for (std::int32_t i = 0; i < tuple.column_count(); ++i) {
             if (written_ind[i])
                 continue;
+
             auto &name = tuple.column_name(i);
             unmapped_columns << name << ",";
         }
@@ -265,7 +267,7 @@ ignite_tuple concat(const ignite_tuple &left, const ignite_tuple &right) {
 }
 
 void write_tuple(protocol::writer &writer, const schema &sch, const ignite_tuple &tuple, bool key_only) {
-    const std::size_t count = key_only ? sch.key_column_count : sch.columns.size();
+    const std::size_t count = key_only ? sch.key_columns.size() : sch.columns.size();
     const std::size_t bytes_num = bytes_for_bits(count);
 
     auto no_value_bytes = reinterpret_cast<std::byte *>(alloca(bytes_num));

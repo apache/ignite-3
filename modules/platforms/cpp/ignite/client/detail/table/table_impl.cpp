@@ -53,39 +53,18 @@ void write_table_operation_header(protocol::writer &writer, std::int32_t id, tra
  *
  * @param reader Reader.
  * @param sch Schema.
- * @return Tuple.
- */
-ignite_tuple read_tuple(protocol::reader &reader, const schema *sch) {
-    auto tuple_data = reader.read_binary();
-
-    auto columns_cnt = std::int32_t(sch->columns.size());
-    ignite_tuple res(columns_cnt);
-    binary_tuple_parser parser(columns_cnt, tuple_data);
-
-    for (std::int32_t i = 0; i < columns_cnt; ++i) {
-        auto &column = sch->columns[i];
-        res.set(column.name, protocol::read_next_column(parser, column.type, column.scale));
-    }
-    return res;
-}
-
-/**
- * Read tuple.
- *
- * @param reader Reader.
- * @param sch Schema.
  * @param key_only Should only key fields be read or not.
  * @return Tuple.
  */
 ignite_tuple read_tuple(protocol::reader &reader, const schema *sch, bool key_only) {
     auto tuple_data = reader.read_binary();
 
-    auto columns_cnt = std::int32_t(key_only ? sch->key_column_count : sch->columns.size());
+    auto columns_cnt = std::int32_t(key_only ? sch->key_columns.size() : sch->columns.size());
     ignite_tuple res(columns_cnt);
     binary_tuple_parser parser(columns_cnt, tuple_data);
 
     for (std::int32_t i = 0; i < columns_cnt; ++i) {
-        auto &column = sch->columns[i];
+        auto &column = sch->get_column(key_only, i);
         res.set(column.name, protocol::read_next_column(parser, column.type, column.scale));
     }
     return res;
@@ -102,7 +81,7 @@ std::optional<ignite_tuple> read_tuple_opt(protocol::reader &reader, const schem
     if (reader.try_read_nil())
         return std::nullopt;
 
-    return read_tuple(reader, sch);
+    return read_tuple(reader, sch, false);
 }
 
 /**
