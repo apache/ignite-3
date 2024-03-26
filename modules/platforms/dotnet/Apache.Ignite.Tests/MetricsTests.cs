@@ -27,6 +27,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Ignite.Table;
+using Internal;
 using NUnit.Framework;
 
 /// <summary>
@@ -61,7 +62,8 @@ public class MetricsTests
         AssertMetric(MetricNames.ConnectionsEstablished, 0);
         AssertMetric(MetricNames.ConnectionsActive, 0);
 
-        using (await server.ConnectClientAsync())
+        var client1 = await server.ConnectClientAsync();
+        using (client1)
         {
             AssertMetric(MetricNames.ConnectionsEstablished, 1);
             AssertMetric(MetricNames.ConnectionsActive, 1);
@@ -69,11 +71,14 @@ public class MetricsTests
 
         AssertMetric(MetricNames.ConnectionsActive, 0);
 
-        (await server.ConnectClientAsync()).Dispose();
+        var client2 = await server.ConnectClientAsync();
+        client2.Dispose();
+
         AssertMetric(MetricNames.ConnectionsEstablished, 2);
         AssertMetric(MetricNames.ConnectionsActive, 0);
 
-        AssertTaggedMetric(MetricNames.ConnectionsEstablished, 2, server);
+        AssertTaggedMetric(MetricNames.ConnectionsEstablished, 1, server, client1);
+        AssertTaggedMetric(MetricNames.ConnectionsEstablished, 1, server, client2);
     }
 
     [Test]
@@ -94,8 +99,8 @@ public class MetricsTests
         AssertMetric(MetricNames.BytesSent, 21);
         AssertMetric(MetricNames.BytesReceived, 72);
 
-        AssertTaggedMetric(MetricNames.BytesSent, 21, server);
-        AssertTaggedMetric(MetricNames.BytesReceived, 72, server);
+        AssertTaggedMetric(MetricNames.BytesSent, 21, server, client);
+        AssertTaggedMetric(MetricNames.BytesReceived, 72, server, client);
     }
 
     [Test]
@@ -113,7 +118,7 @@ public class MetricsTests
         AssertMetric(MetricNames.ConnectionsLost, 1);
         AssertMetric(MetricNames.ConnectionsLostTimeout, 0);
 
-        AssertTaggedMetric(MetricNames.ConnectionsLost, 1, server);
+        AssertTaggedMetric(MetricNames.ConnectionsLost, 1, server, client);
     }
 
     [Test]
@@ -125,7 +130,7 @@ public class MetricsTests
         AssertMetric(MetricNames.ConnectionsLostTimeout, 0);
         AssertMetric(MetricNames.ConnectionsLostTimeout, 1, timeoutMs: 10_000);
 
-        AssertTaggedMetric(MetricNames.ConnectionsLostTimeout, 1, server);
+        AssertTaggedMetric(MetricNames.ConnectionsLostTimeout, 1, server, client);
     }
 
     [Test]
@@ -138,7 +143,7 @@ public class MetricsTests
         AssertMetric(MetricNames.HandshakesFailedTimeout, 0);
         AssertMetric(MetricNames.ConnectionsActive, 0);
 
-        AssertTaggedMetric(MetricNames.HandshakesFailed, 1, server);
+        AssertTaggedMetric(MetricNames.HandshakesFailed, 1, server, null);
     }
 
     [Test]
@@ -150,7 +155,7 @@ public class MetricsTests
         AssertMetric(MetricNames.HandshakesFailed, 0);
         AssertMetric(MetricNames.HandshakesFailedTimeout, 1);
 
-        AssertTaggedMetric(MetricNames.HandshakesFailedTimeout, 1, server);
+        AssertTaggedMetric(MetricNames.HandshakesFailedTimeout, 1, server, null);
     }
 
     [Test]
@@ -175,9 +180,9 @@ public class MetricsTests
         AssertMetric(MetricNames.RequestsFailed, 1);
         AssertMetric(MetricNames.RequestsCompleted, 1);
 
-        AssertTaggedMetric(MetricNames.RequestsSent, 2, server);
-        AssertTaggedMetric(MetricNames.RequestsFailed, 1, server);
-        AssertTaggedMetric(MetricNames.RequestsCompleted, 1, server);
+        AssertTaggedMetric(MetricNames.RequestsSent, 2, server, client);
+        AssertTaggedMetric(MetricNames.RequestsFailed, 1, server, client);
+        AssertTaggedMetric(MetricNames.RequestsCompleted, 1, server, client);
     }
 
     [Test]
@@ -195,7 +200,7 @@ public class MetricsTests
         AssertMetric(MetricNames.RequestsCompleted, 0);
         AssertMetric(MetricNames.RequestsFailed, 0);
 
-        AssertTaggedMetric(MetricNames.RequestsSent, 1, server);
+        AssertTaggedMetric(MetricNames.RequestsSent, 1, server, client);
     }
 
     [Test]
@@ -210,7 +215,7 @@ public class MetricsTests
         await client.Tables.GetTablesAsync();
         AssertMetric(MetricNames.RequestsRetried, 3);
 
-        AssertTaggedMetric(MetricNames.RequestsRetried, 3, server);
+        AssertTaggedMetric(MetricNames.RequestsRetried, 3, server, client);
     }
 
     [Test]
@@ -234,8 +239,8 @@ public class MetricsTests
         AssertMetric(MetricNames.StreamerBatchesActive, 0);
         AssertMetric(MetricNames.StreamerItemsQueued, 0);
 
-        AssertTaggedMetric(MetricNames.StreamerBatchesSent, 1, server);
-        AssertTaggedMetric(MetricNames.StreamerItemsSent, 2, server);
+        AssertTaggedMetric(MetricNames.StreamerBatchesSent, 1, server, client);
+        AssertTaggedMetric(MetricNames.StreamerItemsSent, 2, server, client);
 
         IEnumerable<IIgniteTuple> GetTuples()
         {
@@ -333,14 +338,16 @@ public class MetricsTests
             RetryPolicy = new RetryNonePolicy()
         };
 
+    private static Guid? GetClientId(IIgniteClient? client) => client?.GetFieldValue<ClientFailoverSocket>("_socket").ClientId;
+
     private void AssertMetric(string name, int value, int timeoutMs = 1000) =>
         _listener.AssertMetric(name, value, timeoutMs);
 
-    private void AssertTaggedMetric(string name, int value, FakeServer server) =>
-        AssertTaggedMetric(name, value, server.Node.Address.ToString());
+    private void AssertTaggedMetric(string name, int value, FakeServer server, IIgniteClient? client) =>
+        AssertTaggedMetric(name, value, server.Node.Address.ToString(), GetClientId(client));
 
-    private void AssertTaggedMetric(string name, int value, string nodeAddr) =>
-        _listener.AssertTaggedMetric(name, value, nodeAddr);
+    private void AssertTaggedMetric(string name, int value, string nodeAddr, Guid? clientId) =>
+        _listener.AssertTaggedMetric(name, value, nodeAddr, clientId);
 
     private void AssertMetricGreaterOrEqual(string name, int value, int timeoutMs = 1000) =>
         _listener.AssertMetricGreaterOrEqual(name, value, timeoutMs);
@@ -385,9 +392,9 @@ public class MetricsTests
                 messageFactory: () => $"{name}: expected '{value}', but was '{GetMetric(name)}'");
         }
 
-        public void AssertTaggedMetric(string name, int value, string nodeAddr)
+        public void AssertTaggedMetric(string name, int value, string nodeAddr, Guid? clientId)
         {
-            var taggedName = $"{name}_{MetricTags.NodeAddress}={nodeAddr}";
+            var taggedName = $"{name}_{MetricTags.ClientId}={clientId},{MetricTags.NodeAddress}={nodeAddr}";
             Assert.AreEqual(value, _metricsWithTags[taggedName]);
         }
 
