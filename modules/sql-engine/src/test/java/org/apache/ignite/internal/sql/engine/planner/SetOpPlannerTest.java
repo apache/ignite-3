@@ -725,17 +725,46 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
                         .build()
         );
 
-        String sql =
-                "SELECT * FROM table1 "
+        String sql = "SELECT * FROM table1 "
                 + setOp
                 + " SELECT * FROM table2 "
                 + setOp
                 + " SELECT * FROM table3 ";
 
         assertPlan(sql, publicSchema, nodeOrAnyChild(isInstanceOf(setOp.map)
-                        .and(input(0, projectFromTable("TABLE1", "CAST($0):DOUBLE", "$1"))
-                                .and(input(1, isTableScan("TABLE2")))
-                                .and(input(2, projectFromTable("TABLE3", "CAST($0):DOUBLE", "$1"))))
+                        .and(input(0, projectFromTable("TABLE1", "CAST($0):DOUBLE", "$1")))
+                        .and(input(1, isTableScan("TABLE2")))
+                        .and(input(2, projectFromTable("TABLE3", "CAST($0):DOUBLE", "$1")))
+                )
+        );
+    }
+
+    @ParameterizedTest
+    @EnumSource
+    public void testSetOpDifferentNullability(SetOp setOp) throws Exception {
+        IgniteSchema publicSchema = createSchema(
+                TestBuilders.table()
+                        .name("TABLE1")
+                        .addColumn("C1", NativeTypes.INT32, false)
+                        .addColumn("C2", NativeTypes.STRING)
+                        .distribution(someAffinity())
+                        .build(),
+
+                TestBuilders.table()
+                        .name("TABLE2")
+                        .addColumn("C1", NativeTypes.INT32, true)
+                        .addColumn("C2", NativeTypes.STRING)
+                        .distribution(someAffinity())
+                        .build()
+        );
+
+        String sql = "SELECT * FROM table1 "
+                + setOp
+                + " SELECT * FROM table2";
+
+        assertPlan(sql, publicSchema, nodeOrAnyChild(isInstanceOf(setOp.map)
+                        .and(input(0, projectFromTable("TABLE1", "CAST($0):INTEGER", "$1")))
+                        .and(input(1, isTableScan("TABLE2")))
                 )
         );
     }
