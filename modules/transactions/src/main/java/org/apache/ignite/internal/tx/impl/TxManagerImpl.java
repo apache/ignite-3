@@ -98,6 +98,7 @@ import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.TxStateMetaFinishing;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.TransactionInflights.ReadWriteTxContext;
+import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicatedInfo;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -318,7 +319,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 resourcesRegistry
         );
 
-        txCleanupRequestSender = new TxCleanupRequestSender(txMessageSender, placementDriverHelper, writeIntentSwitchProcessor);
+        txCleanupRequestSender =
+                new TxCleanupRequestSender(txMessageSender, placementDriverHelper, writeIntentSwitchProcessor, txStateVolatileStorage);
     }
 
     private CompletableFuture<Boolean> primaryReplicaEventListener(PrimaryReplicaEventParameters eventParameters) {
@@ -830,6 +832,10 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         if (result instanceof UUID) {
             transactionInflights.removeInflight((UUID) result);
+        }
+
+        if (result instanceof WriteIntentSwitchReplicatedInfo) {
+            txCleanupRequestHandler.writeIntentSwitchReplicated((WriteIntentSwitchReplicatedInfo) result);
         }
     }
 

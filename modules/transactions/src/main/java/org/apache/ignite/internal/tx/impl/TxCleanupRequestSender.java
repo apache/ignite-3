@@ -29,10 +29,17 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl.TransactionFailureHandler;
+import org.apache.ignite.internal.tx.message.CleanupReplicatedInfo;
+import org.apache.ignite.internal.tx.message.TxCleanupMessageResponse;
+import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.jetbrains.annotations.Nullable;
 
@@ -48,6 +55,10 @@ public class TxCleanupRequestSender {
 
     private final TxMessageSender txMessageSender;
 
+    private final ConcurrentMap<UUID, CleanupContext> writeIntentsReplicated = new ConcurrentHashMap<>();
+
+    private final VolatileTxStateMetaStorage txStateVolatileStorage;
+
     /**
      * The constructor.
      *
@@ -58,11 +69,55 @@ public class TxCleanupRequestSender {
     public TxCleanupRequestSender(
             TxMessageSender txMessageSender,
             PlacementDriverHelper placementDriverHelper,
-            WriteIntentSwitchProcessor writeIntentSwitchProcessor
+            WriteIntentSwitchProcessor writeIntentSwitchProcessor,
+            VolatileTxStateMetaStorage txStateVolatileStorage
     ) {
         this.txMessageSender = txMessageSender;
         this.placementDriverHelper = placementDriverHelper;
         this.writeIntentSwitchProcessor = writeIntentSwitchProcessor;
+        this.txStateVolatileStorage = txStateVolatileStorage;
+    }
+
+    /**
+     * Starts the processor.
+     */
+    public void start() {
+        txMessageSender.messagingService().addMessageHandler(TxMessageGroup.class, (msg, sender, correlationId) -> {
+            if (msg instanceof TxCleanupMessageResponse && correlationId == null) {
+                Object result = ((TxCleanupMessageResponse) msg).result();
+
+                if (result instanceof CleanupReplicatedInfo) {
+                    onCleanupReplicated((CleanupReplicatedInfo) result);
+                }
+            }
+        });
+    }
+
+    private void onCleanupReplicated(CleanupReplicatedInfo info) {
+        CleanupContext ctx = writeIntentsReplicated.computeIfPresent(info.txId(), (uuid, cleanupContext) -> {
+            cleanupContext.partitions.removeAll(info.partitions());
+
+            return cleanupContext;
+        });
+
+        if (ctx != null && ctx.partitions.isEmpty()) {
+            markTxnCleanupReplicated(info.txId(), ctx.txState);
+
+            writeIntentsReplicated.remove(info.txId());
+        }
+    }
+
+    private void markTxnCleanupReplicated(UUID txId, TxState state) {
+        long cleanupCompletionTimestamp = System.currentTimeMillis();
+
+        txStateVolatileStorage.updateMeta(txId, oldMeta ->
+                new TxStateMeta(state,
+                        oldMeta == null ? null : oldMeta.txCoordinatorId(),
+                        oldMeta == null ? null : oldMeta.commitPartitionId(),
+                        oldMeta == null ? null : oldMeta.commitTimestamp(),
+                        oldMeta == null ? null : oldMeta.initialVacuumObservationTimestamp(),
+                        cleanupCompletionTimestamp)
+        );
     }
 
     /**
@@ -91,6 +146,8 @@ public class TxCleanupRequestSender {
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
     ) {
+        writeIntentsReplicated.put(txId, new CleanupContext(enlistedPartitions.keySet(), commit ? TxState.COMMITTED : TxState.ABORTED));
+        // Main entry point.
         Map<String, Set<TablePartitionId>> partitions = new HashMap<>();
         enlistedPartitions.forEach((partitionId, nodeId) ->
                 partitions.computeIfAbsent(nodeId, node -> new HashSet<>()).add(partitionId));
@@ -170,6 +227,8 @@ public class TxCleanupRequestSender {
                                 return sendCleanupMessageWithRetries(commit, commitTimestamp, txId, node, partitions);
                             }
 
+                            // Run a cleanup that finds new primaries for the given partitions.
+                            // This covers the case when a partition primary died and we still want to switch write intents.
                             return cleanup(partitions, commit, commitTimestamp, txId);
                         }
 
@@ -180,4 +239,18 @@ public class TxCleanupRequestSender {
                 })
                 .thenCompose(v -> v);
     }
+
+    private static class CleanupContext {
+
+        private final Set<TablePartitionId> partitions;
+
+        private final TxState txState;
+
+        public CleanupContext(Set<TablePartitionId> partitions, TxState txState) {
+            this.partitions = partitions;
+
+            this.txState = txState;
+        }
+    }
+
 }

@@ -18,21 +18,30 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.stream.Collectors.toSet;
 
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.network.ChannelType;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.tx.LockManager;
+import org.apache.ignite.internal.tx.message.CleanupReplicatedInfo;
 import org.apache.ignite.internal.tx.message.TxCleanupMessage;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
+import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicatedInfo;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
@@ -56,6 +65,8 @@ public class TxCleanupRequestHandler {
 
     /** Cursor registry. */
     private final RemotelyTriggeredResourceRegistry remotelyTriggeredResourceRegistry;
+
+    private final ConcurrentMap<UUID, CleanupContext> writeIntentsReplicated = new ConcurrentHashMap<>();
 
     /**
      * The constructor.
@@ -103,6 +114,8 @@ public class TxCleanupRequestHandler {
         Collection<ReplicationGroupId> groups = txCleanupMessage.groups();
 
         if (groups != null) {
+            trackPartitions(txCleanupMessage.txId(), groups, sender);
+
             for (ReplicationGroupId group : groups) {
                 writeIntentSwitches.put((TablePartitionId) group,
                         writeIntentSwitchProcessor.switchLocalWriteIntents(
@@ -110,7 +123,7 @@ public class TxCleanupRequestHandler {
                                 txCleanupMessage.txId(),
                                 txCleanupMessage.commit(),
                                 txCleanupMessage.commitTimestamp()
-                        ));
+                        ).thenAccept(this::processWriteIntentSwitchResponse));
             }
         }
         // First trigger the cleanup to properly release the locks if we know all affected partitions on this node.
@@ -136,7 +149,7 @@ public class TxCleanupRequestHandler {
                                         txCleanupMessage.commitTimestamp(),
                                         txCleanupMessage.txId(),
                                         groupId
-                                );
+                                ).thenAccept(this::processWriteIntentSwitchResponse);
                             }
                         });
                     }
@@ -156,11 +169,70 @@ public class TxCleanupRequestHandler {
                 .build();
     }
 
+    private NetworkMessage prepareResponse(Object result) {
+        return FACTORY
+                .txCleanupMessageResponse()
+                .result(result)
+                .timestampLong(clockService.nowLong())
+                .build();
+    }
+
     private NetworkMessage prepareErrorResponse(Throwable th) {
         return FACTORY
                 .txCleanupMessageErrorResponse()
                 .throwable(th)
                 .timestampLong(clockService.nowLong())
                 .build();
+    }
+
+    private void trackPartitions(UUID txId, Collection<ReplicationGroupId> groups, ClusterNode sender) {
+        Set<TablePartitionId> partitions =
+                groups.stream()
+                        .map(TablePartitionId.class::cast)
+                        .collect(toSet());
+
+        writeIntentsReplicated.put(txId, new CleanupContext(sender, partitions, partitions));
+    }
+
+    private void processWriteIntentSwitchResponse(ReplicaResponse response) {
+        Object result = response.result();
+
+        if (result instanceof WriteIntentSwitchReplicatedInfo) {
+            writeIntentSwitchReplicated((WriteIntentSwitchReplicatedInfo) result);
+        }
+    }
+
+    void writeIntentSwitchReplicated(WriteIntentSwitchReplicatedInfo info) {
+        CleanupContext cleanupContext = writeIntentsReplicated.computeIfPresent(info.txId(), (uuid, context) -> {
+            Set<TablePartitionId> partitions = new HashSet<>(context.partitions);
+            partitions.remove(info.partitionId());
+
+            return new CleanupContext(context.sender, partitions, context.initialPartitions);
+        });
+
+        if (cleanupContext != null && cleanupContext.partitions.isEmpty()) {
+            // Means all write intents have been replicated.
+            sendCleanupReplicatedResponse(info.txId(), cleanupContext.sender, cleanupContext.initialPartitions);
+
+            writeIntentsReplicated.remove(info.txId());
+        }
+    }
+
+    private void sendCleanupReplicatedResponse(UUID uuid, ClusterNode sender, Collection<TablePartitionId> partitions) {
+        messagingService.send(sender, ChannelType.DEFAULT, prepareResponse(new CleanupReplicatedInfo(uuid, partitions)));
+    }
+
+    private static class CleanupContext {
+        private final ClusterNode sender;
+
+        private final Set<TablePartitionId> partitions;
+
+        private final Set<TablePartitionId> initialPartitions;
+
+        public CleanupContext(ClusterNode sender, Set<TablePartitionId> partitions, Set<TablePartitionId> initialPartitions) {
+            this.sender = sender;
+            this.partitions = partitions;
+            this.initialPartitions = initialPartitions;
+        }
     }
 }
