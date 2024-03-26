@@ -33,5 +33,9 @@ public interface EventFactory {
      */
     Event create(EventUser user);
 
+    /**
+     * Creates an event builder with type defined.
+     *
+     */
     EventBuilder builder();
 }

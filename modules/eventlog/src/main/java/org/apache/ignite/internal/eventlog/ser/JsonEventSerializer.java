@@ -26,6 +26,8 @@ import java.io.IOException;
 import org.apache.ignite.internal.eventlog.api.Event;
 import org.apache.ignite.internal.eventlog.event.EventImpl;
 import org.apache.ignite.internal.eventlog.event.EventUser;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.lang.ErrorGroups.Common;
 
 /** Serializes events to JSON. */
 public class JsonEventSerializer implements EventSerializer {
@@ -46,7 +48,7 @@ public class JsonEventSerializer implements EventSerializer {
         try {
             return mapper.writeValueAsString(event);
         } catch (Exception e) {
-            throw new RuntimeException("Failed to serialize event", e);
+            throw new IgniteInternalException(Common.INTERNAL_ERR, "Failed to serialize event", e);
         }
     }
 
@@ -85,11 +87,11 @@ public class JsonEventSerializer implements EventSerializer {
         private JsonGenerator jgen;
         private SerializerProvider provider;
 
-        public EventUserJacksonSerializer() {
+        EventUserJacksonSerializer() {
             this(null);
         }
 
-        public EventUserJacksonSerializer(Class<EventUser> e) {
+        EventUserJacksonSerializer(Class<EventUser> e) {
             super(e);
         }
 
