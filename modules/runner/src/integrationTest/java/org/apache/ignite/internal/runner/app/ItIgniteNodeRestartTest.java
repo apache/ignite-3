@@ -80,12 +80,12 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.app.ThreadPoolsManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
-import org.apache.ignite.internal.catalog.ClockWaiter;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
+import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationConfiguration;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.MakeIndexAvailableEventParameters;
@@ -113,6 +113,9 @@ import org.apache.ignite.internal.configuration.validation.ConfigurationValidato
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.hlc.ClockServiceImpl;
+import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -431,6 +434,19 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 ConfigurationValidatorImpl.withDefaultValidators(distributedConfigurationGenerator, modules.distributed().validators())
         );
 
+        ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
+
+        var clockWaiter = new ClockWaiter(name, hybridClock);
+
+        SchemaSynchronizationConfiguration schemaSyncConfiguration = clusterConfigRegistry.getConfiguration(
+                SchemaSynchronizationConfiguration.KEY
+        );
+        ClockService clockService = new ClockServiceImpl(
+                hybridClock,
+                clockWaiter,
+                () -> schemaSyncConfiguration.maxClockSkew().value()
+        );
+
         var placementDriverManager = new PlacementDriverManager(
                 name,
                 metaStorageMgr,
@@ -440,14 +456,14 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 logicalTopologyService,
                 raftMgr,
                 topologyAwareRaftGroupServiceFactory,
-                hybridClock
+                clockService
         );
 
         ReplicaManager replicaMgr = new ReplicaManager(
                 name,
                 clusterSvc,
                 cmgManager,
-                hybridClock,
+                clockService,
                 Set.of(TableMessageGroup.class, TxMessageGroup.class),
                 placementDriverManager.placementDriver(),
                 threadPoolsManager.partitionOperationsExecutor(),
@@ -473,7 +489,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 clusterSvc.topologyService(),
                 replicaService,
                 lockManager,
-                hybridClock,
+                clockService,
                 new TransactionIdGenerator(idx),
                 placementDriverManager.placementDriver(),
                 partitionIdleSafeTimePropagationPeriodMsSupplier,
@@ -483,8 +499,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 resourceCleanupManager,
                 transactionInflights
         );
-
-        ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
 
         Consumer<LongFunction<CompletableFuture<?>>> registry = (c) -> metaStorageMgr.registerRevisionUpdateListener(c::apply);
 
@@ -505,14 +519,11 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         GcConfiguration gcConfig = clusterConfigRegistry.getConfiguration(GcConfiguration.KEY);
         TransactionConfiguration txConfiguration = clusterConfigRegistry.getConfiguration(TransactionConfiguration.KEY);
 
-        var clockWaiter = new ClockWaiter(name, hybridClock);
-
         LongSupplier delayDurationMsSupplier = () -> TestIgnitionManager.DEFAULT_DELAY_DURATION_MS;
 
         var catalogManager = new CatalogManagerImpl(
                 new UpdateLogImpl(metaStorageMgr),
-                clockWaiter,
-                hybridClock,
+                clockService,
                 delayDurationMsSupplier,
                 partitionIdleSafeTimePropagationPeriodMsSupplier
         );
@@ -546,7 +557,15 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var sqlRef = new AtomicReference<IgniteSqlImpl>();
 
-        var lowWatermark = new LowWatermarkImpl(name, gcConfig.lowWatermark(), hybridClock, txManager, vault, failureProcessor);
+        var lowWatermark = new LowWatermarkImpl(
+                name,
+                gcConfig.lowWatermark(),
+                clockService,
+                txManager,
+                vault,
+                failureProcessor,
+                clusterSvc.messagingService()
+        );
 
         TableManager tableManager = new TableManager(
                 name,
@@ -570,6 +589,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 threadPoolsManager.tableIoExecutor(),
                 threadPoolsManager.partitionOperationsExecutor(),
                 hybridClock,
+                clockService,
                 new OutgoingSnapshotsManager(clusterSvc.messagingService()),
                 topologyAwareRaftGroupServiceFactory,
                 distributionZoneManager,
@@ -605,8 +625,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 dataStorageManager,
                 () -> dataStorageModules.collectSchemasFields(modules.local().polymorphicSchemaExtensions()),
                 replicaService,
-                hybridClock,
-                clockWaiter,
+                clockService,
                 schemaSyncService,
                 catalogManager,
                 metricManager,
@@ -961,6 +980,27 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
             assertEquals(1, value.length);
             assertEquals((byte) i, value[0]);
         }
+    }
+
+    /**
+     * Checks that logical topology version is maintained after nodes restart.
+     */
+    @Test
+    public void logicalTopologyVersionMaintainedTest() {
+        IgniteImpl main = startNodes(3).get(0);
+
+        stopNode(1);
+        IgniteImpl restarted = startNode(1);
+
+        stopNode(2);
+        IgniteImpl secondRestarted = startNode(2);
+
+        long mainVersion = main.logicalTopologyService().localLogicalTopology().version();
+        long restartedVersion = restarted.logicalTopologyService().localLogicalTopology().version();
+        long secondRestartedVersion = secondRestarted.logicalTopologyService().localLogicalTopology().version();
+
+        assertEquals(mainVersion, restartedVersion);
+        assertEquals(mainVersion, secondRestartedVersion);
     }
 
     private static void forceSnapshotUsageOnRestart(IgniteImpl main) throws InterruptedException {

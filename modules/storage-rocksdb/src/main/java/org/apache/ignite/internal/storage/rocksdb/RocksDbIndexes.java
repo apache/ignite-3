@@ -18,17 +18,18 @@
 package org.apache.ignite.internal.storage.rocksdb;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.createKey;
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.INDEX_ID_SIZE;
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.KEY_BYTE_ORDER;
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.TABLE_ID_SIZE;
 import static org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstance.DFLT_WRITE_OPTS;
 import static org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstance.deleteByPrefix;
-import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.function.IntFunction;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
@@ -53,29 +54,28 @@ class RocksDbIndexes {
 
     private final SharedRocksDbInstance rocksDb;
 
-    /** Callback for getting partition storages using partition IDs. */
-    private final IntFunction<RocksDbMvPartitionStorage> partitionStorageProvider;
+    private final int tableId;
 
-    RocksDbIndexes(SharedRocksDbInstance rocksDb, IntFunction<RocksDbMvPartitionStorage> partitionStorageProvider) {
+    RocksDbIndexes(SharedRocksDbInstance rocksDb, int tableId) {
         this.rocksDb = rocksDb;
-        this.partitionStorageProvider = partitionStorageProvider;
+        this.tableId = tableId;
     }
 
     void recoverIndexes(StorageIndexDescriptorSupplier indexDescriptorSupplier) throws RocksDBException {
         try (WriteBatch writeBatch = new WriteBatch()) {
-            for (int indexId : rocksDb.hashIndexIds()) {
+            for (int indexId : rocksDb.hashIndexIds(tableId)) {
                 var descriptor = (StorageHashIndexDescriptor) indexDescriptorSupplier.get(indexId);
 
                 if (descriptor == null) {
-                    deleteByPrefix(writeBatch, rocksDb.hashIndexCf(), createKey(BYTE_EMPTY_ARRAY, indexId));
+                    deleteByPrefix(writeBatch, rocksDb.hashIndexCf(), indexPrefix(tableId, indexId));
                 } else {
-                    hashIndices.put(indexId, new HashIndex(rocksDb, descriptor, rocksDb.meta));
+                    hashIndices.put(indexId, new HashIndex(rocksDb, tableId, descriptor, rocksDb.meta));
                 }
             }
 
             var indexCfsToDestroy = new ArrayList<Map.Entry<Integer, ColumnFamily>>();
 
-            for (Map.Entry<Integer, ColumnFamily> e : rocksDb.sortedIndexes().entrySet()) {
+            for (Map.Entry<Integer, ColumnFamily> e : rocksDb.sortedIndexes(tableId).entrySet()) {
                 int indexId = e.getKey();
 
                 ColumnFamily indexCf = e.getValue();
@@ -83,11 +83,11 @@ class RocksDbIndexes {
                 var descriptor = (StorageSortedIndexDescriptor) indexDescriptorSupplier.get(indexId);
 
                 if (descriptor == null) {
-                    deleteByPrefix(writeBatch, indexCf, createKey(BYTE_EMPTY_ARRAY, indexId));
+                    deleteByPrefix(writeBatch, indexCf, indexPrefix(tableId, indexId));
 
                     indexCfsToDestroy.add(e);
                 } else {
-                    sortedIndices.put(indexId, SortedIndex.restoreExisting(rocksDb, indexCf, descriptor, rocksDb.meta));
+                    sortedIndices.put(indexId, SortedIndex.restoreExisting(rocksDb, tableId, indexCf, descriptor, rocksDb.meta));
                 }
             }
 
@@ -111,19 +111,19 @@ class RocksDbIndexes {
     SortedIndexStorage getOrCreateSortedIndex(int partitionId, StorageSortedIndexDescriptor indexDescriptor) {
         SortedIndex sortedIndex = sortedIndices.computeIfAbsent(
                 indexDescriptor.id(),
-                id -> SortedIndex.createNew(rocksDb, indexDescriptor, rocksDb.meta)
+                id -> SortedIndex.createNew(rocksDb, tableId, indexDescriptor, rocksDb.meta)
         );
 
-        return sortedIndex.getOrCreateStorage(partitionStorageProvider.apply(partitionId));
+        return sortedIndex.getOrCreateStorage(partitionId);
     }
 
     HashIndexStorage getOrCreateHashIndex(int partitionId, StorageHashIndexDescriptor indexDescriptor) {
         HashIndex hashIndex = hashIndices.computeIfAbsent(
                 indexDescriptor.id(),
-                id -> new HashIndex(rocksDb, indexDescriptor, rocksDb.meta)
+                id -> new HashIndex(rocksDb, tableId, indexDescriptor, rocksDb.meta)
         );
 
-        return hashIndex.getOrCreateStorage(partitionStorageProvider.apply(partitionId));
+        return hashIndex.getOrCreateStorage(partitionId);
     }
 
     @Nullable IndexStorage getIndex(int partitionId, int indexId) {
@@ -132,13 +132,13 @@ class RocksDbIndexes {
         if (hashIndex != null) {
             assert !sortedIndices.containsKey(indexId) : indexId;
 
-            return hashIndex.getStorage(partitionId);
+            return hashIndex.getOrCreateStorage(partitionId);
         }
 
         SortedIndex sortedIndex = sortedIndices.get(indexId);
 
         if (sortedIndex != null) {
-            return sortedIndex.getStorage(partitionId);
+            return sortedIndex.getOrCreateStorage(partitionId);
         }
 
         return null;
@@ -225,5 +225,16 @@ class RocksDbIndexes {
                 hashIndices.values().stream().map(index -> index.getStorage(partitionId)),
                 sortedIndices.values().stream().map(index -> index.getStorage(partitionId))
         );
+    }
+
+    /**
+     * Creates a byte array for the given table ID and index ID that can be used as a key prefix for the index storages.
+     */
+    static byte[] indexPrefix(int tableId, int indexId) {
+        return ByteBuffer.allocate(TABLE_ID_SIZE + INDEX_ID_SIZE)
+                .order(KEY_BYTE_ORDER)
+                .putInt(tableId)
+                .putInt(indexId)
+                .array();
     }
 }

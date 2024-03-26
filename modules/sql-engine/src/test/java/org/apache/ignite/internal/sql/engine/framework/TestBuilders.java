@@ -49,7 +49,6 @@ import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
-import org.apache.ignite.internal.catalog.ClockWaiter;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams.Builder;
@@ -68,9 +67,11 @@ import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.MakeIndexAvailableEventParameters;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.MetricManager;
@@ -639,8 +640,8 @@ public class TestBuilders {
                 }
             }
 
-            var clockWaiter = new ClockWaiter("test", clock);
-            var ddlHandler = new DdlCommandHandler(catalogManager, clockWaiter, () -> 100);
+            ClockWaiter clockWaiter = new ClockWaiter("test", clock);
+            var ddlHandler = new DdlCommandHandler(catalogManager, new TestClockService(clock, clockWaiter), () -> 100);
             var schemaManager = new SqlSchemaManagerImpl(catalogManager, CaffeineCacheFactory.INSTANCE, 0);
 
             Runnable initClosure = () -> {
@@ -709,6 +710,7 @@ public class TestBuilders {
                     nodes,
                     catalogManager,
                     prepareService,
+                    clockWaiter,
                     initClosure
             );
         }
@@ -1480,8 +1482,8 @@ public class TestBuilders {
         }
 
         /**
-         * Sets a function that returns system views. Function accepts a view name and returns a list of nodes a system view is available
-         * at.
+         * Sets a function that returns system views. Function accepts a view name and returns a list of nodes
+         * a system view is available at.
          */
         public ExecutionTargetProviderBuilder setSystemViews(Function<String, List<String>> systemViews) {
             this.owningNodesBySystemViewName = systemViews;

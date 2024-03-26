@@ -43,13 +43,12 @@ import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.ClockWaiter;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.message.IndexMessagesFactory;
 import org.apache.ignite.internal.index.message.IsNodeFinishedRwTransactionsStartedBeforeRequest;
@@ -114,9 +113,7 @@ abstract class ChangeIndexStatusTask {
 
     private final LogicalTopologyService logicalTopologyService;
 
-    private final HybridClock clock;
-
-    private final ClockWaiter clockWaiter;
+    private final ClockService clockService;
 
     private final Executor executor;
 
@@ -132,8 +129,7 @@ abstract class ChangeIndexStatusTask {
             PlacementDriver placementDriver,
             ClusterService clusterService,
             LogicalTopologyService logicalTopologyService,
-            HybridClock clock,
-            ClockWaiter clockWaiter,
+            ClockService clockService,
             Executor executor,
             IgniteSpinBusyLock busyLock
     ) {
@@ -142,8 +138,7 @@ abstract class ChangeIndexStatusTask {
         this.placementDriver = placementDriver;
         this.clusterService = clusterService;
         this.logicalTopologyService = logicalTopologyService;
-        this.clockWaiter = clockWaiter;
-        this.clock = clock;
+        this.clockService = clockService;
         this.executor = executor;
         this.busyLock = busyLock;
     }
@@ -212,13 +207,13 @@ abstract class ChangeIndexStatusTask {
                 assert catalog != null : IgniteStringFormatter.format("Missing catalog version: [indexId={}, catalogVersion={}]",
                         indexDescriptor.id(), indexDescriptor.txWaitCatalogVersion());
 
-                return clusterWideEnsuredActivationTimestamp(catalog);
+                return clusterWideEnsuredActivationTimestamp(catalog, clockService.maxClockSkewMillis());
             } finally {
                 leaveBusy();
             }
         }, executor);
 
-        return activationTimestampFuture.thenCompose(clockWaiter::waitFor);
+        return activationTimestampFuture.thenCompose(clockService::waitFor);
     }
 
     private CompletableFuture<Void> ensureThatLocalNodeStillPrimaryReplica() {
@@ -228,7 +223,7 @@ abstract class ChangeIndexStatusTask {
             }
 
             try {
-                if (!isPrimaryReplica(replicaMeta, localNode(clusterService), clock.now())) {
+                if (!isPrimaryReplica(replicaMeta, localNode(clusterService), clockService.now())) {
                     // Lease has expired, we stop the task.
                     throw new IndexTaskStoppingException();
                 }
@@ -242,7 +237,7 @@ abstract class ChangeIndexStatusTask {
         return inBusyLocks(() -> {
             TablePartitionId groupId = new TablePartitionId(indexDescriptor.tableId(), 0);
 
-            return placementDriver.awaitPrimaryReplica(groupId, clock.now(), AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC, SECONDS)
+            return placementDriver.awaitPrimaryReplica(groupId, clockService.now(), AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC, SECONDS)
                     .handle((replicaMeta, throwable) -> {
                         if (throwable != null) {
                             Throwable cause = unwrapCause(throwable);

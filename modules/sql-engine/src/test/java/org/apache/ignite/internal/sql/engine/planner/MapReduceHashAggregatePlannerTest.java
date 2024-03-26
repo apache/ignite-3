@@ -18,9 +18,6 @@
 package org.apache.ignite.internal.sql.engine.planner;
 
 import static java.util.function.Predicate.not;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsString;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
 import java.util.Objects;
@@ -34,7 +31,6 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteLimit;
 import org.apache.ignite.internal.sql.engine.rel.IgniteMergeJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
-import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSort;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapHashAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceHashAggregate;
@@ -476,42 +472,42 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
 
         assertPlan(TestCase.CASE_22, nonColocated, disableRules);
         assertPlan(TestCase.CASE_22A, nonColocated, disableRules);
-
-        Predicate<RelNode> colocated = hasChildThat(isInstanceOf(IgniteReduceHashAggregate.class)
-                .and(in -> hasAggregates(countReduce).test(in.getAggregateCalls()))
-                .and(input(isInstanceOf(IgniteExchange.class)
-                        .and(input(isInstanceOf(IgniteMapHashAggregate.class)
-                                        .and(in -> hasAggregates(countMap).test(in.getAggCallList()))
-                                        .and(input(isTableScan("TEST")))
-                                )
-                        ))
-                ));
-
-        assertPlan(TestCase.CASE_22B, colocated, disableRules);
-        assertPlan(TestCase.CASE_22C, colocated, disableRules);
+        assertPlan(TestCase.CASE_22B, nonColocated, disableRules);
+        assertPlan(TestCase.CASE_22C, nonColocated, disableRules);
     }
 
     /**
-     * Validates that AVG can not be used as two phase mode.
-     * Should be fixed with TODO https://issues.apache.org/jira/browse/IGNITE-20009
+     * Validates that AVG aggregate is split into multiple expressions.
      */
     @Test
-    public void testAvgAgg() {
-        RuntimeException e = assertThrows(RuntimeException.class,
-                () -> assertPlan(TestCase.CASE_23, isInstanceOf(IgniteRel.class), disableRules));
-        assertThat(e.getMessage(), containsString("There are not enough rules to produce a node with desired properties"));
+    public void twoPhaseAvgAgg() throws Exception {
+        Predicate<AggregateCall> sumMap = (a) ->
+                Objects.equals(a.getAggregation().getName(), "SUM") && a.getArgList().equals(List.of(1));
 
-        e = assertThrows(RuntimeException.class,
-                () -> assertPlan(TestCase.CASE_23A, isInstanceOf(IgniteRel.class), disableRules));
-        assertThat(e.getMessage(), containsString("There are not enough rules to produce a node with desired properties"));
+        Predicate<AggregateCall> countMap = (a) ->
+                Objects.equals(a.getAggregation().getName(), "COUNT") && a.getArgList().equals(List.of(1));
 
-        e = assertThrows(RuntimeException.class,
-                () -> assertPlan(TestCase.CASE_23B, isInstanceOf(IgniteRel.class), disableRules));
-        assertThat(e.getMessage(), containsString("There are not enough rules to produce a node with desired properties"));
+        Predicate<AggregateCall> sumReduce = (a) ->
+                Objects.equals(a.getAggregation().getName(), "SUM") && a.getArgList().equals(List.of(1));
 
-        e = assertThrows(RuntimeException.class,
-                () -> assertPlan(TestCase.CASE_23C, isInstanceOf(IgniteRel.class), disableRules));
-        assertThat(e.getMessage(), containsString("There are not enough rules to produce a node with desired properties"));
+        Predicate<AggregateCall> sum0Reduce = (a) ->
+                Objects.equals(a.getAggregation().getName(), "$SUM0") && a.getArgList().equals(List.of(2));
+
+        Predicate<RelNode> nonColocated = hasChildThat(isInstanceOf(IgniteReduceHashAggregate.class)
+                .and(in -> hasAggregates(sumReduce, sum0Reduce).test(in.getAggregateCalls()))
+                .and(input(isInstanceOf(IgniteProject.class)
+                        .and(input(isInstanceOf(IgniteExchange.class)
+                                .and(hasDistribution(IgniteDistributions.single()))
+                                .and(input(isInstanceOf(IgniteMapHashAggregate.class)
+                                                .and(in -> hasAggregates(sumMap, countMap).test(in.getAggCallList()))
+                                        )
+                                ))
+                        ))));
+
+        assertPlan(TestCase.CASE_23, nonColocated, disableRules);
+        assertPlan(TestCase.CASE_23A, nonColocated, disableRules);
+        assertPlan(TestCase.CASE_23B, nonColocated, disableRules);
+        assertPlan(TestCase.CASE_23C, nonColocated, disableRules);
     }
 
     /**

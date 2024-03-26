@@ -23,7 +23,7 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
@@ -52,20 +52,19 @@ public class TxMessageSender {
     /** Replica service. */
     private final ReplicaService replicaService;
 
-    /** A hybrid logical clock. */
-    private final HybridClock clock;
+    private final ClockService clockService;
 
     /**
      * Constructor.
      *
      * @param messagingService Messaging service.
      * @param replicaService Replica service.
-     * @param clock A hybrid logical clock.
+     * @param clockService Clock service.
      */
-    public TxMessageSender(MessagingService messagingService, ReplicaService replicaService, HybridClock clock) {
+    public TxMessageSender(MessagingService messagingService, ReplicaService replicaService, ClockService clockService) {
         this.messagingService = messagingService;
         this.replicaService = replicaService;
-        this.clock = clock;
+        this.clockService = clockService;
     }
 
     /**
@@ -89,7 +88,7 @@ public class TxMessageSender {
                 primaryConsistentId,
                 FACTORY.writeIntentSwitchReplicaRequest()
                         .groupId(tablePartitionId)
-                        .timestampLong(clock.nowLong())
+                        .timestampLong(clockService.nowLong())
                         .txId(txId)
                         .commit(commit)
                         .commitTimestampLong(hybridTimestampToLong(commitTimestamp))
@@ -120,7 +119,7 @@ public class TxMessageSender {
                         .txId(txId)
                         .commit(commit)
                         .commitTimestampLong(hybridTimestampToLong(commitTimestamp))
-                        .timestampLong(clock.nowLong())
+                        .timestampLong(clockService.nowLong())
                         .groups(replicationGroupIds)
                         .build(),
                 RPC_TIMEOUT);
@@ -151,7 +150,7 @@ public class TxMessageSender {
                 primaryConsistentId,
                 FACTORY.txFinishReplicaRequest()
                         .txId(txId)
-                        .timestampLong(clock.nowLong())
+                        .timestampLong(clockService.nowLong())
                         .groupId(commitPartition)
                         .groups(replicationGroupIds)
                         .commit(commit)
