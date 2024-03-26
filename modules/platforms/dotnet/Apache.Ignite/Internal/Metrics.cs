@@ -220,6 +220,4 @@ internal static class Metrics
     /// </summary>
     /// <param name="count">The count.</param>
     public static void StreamerItemsQueuedDecrement(int count) => Interlocked.Add(ref _streamerItemsQueued, -count);
-
-    // TODO: Add ClientId to all metrics as a tag. Guid?
 }

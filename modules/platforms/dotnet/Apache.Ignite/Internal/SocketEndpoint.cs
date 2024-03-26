@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Internal
 {
+    using System;
     using System.Collections.Generic;
     using System.Diagnostics;
     using System.Net;
@@ -33,7 +34,8 @@ namespace Apache.Ignite.Internal
         /// </summary>
         /// <param name="endPoint">Endpoint.</param>
         /// <param name="host">Host name.</param>
-        public SocketEndpoint(IPEndPoint endPoint, string host)
+        /// <param name="clientId">Client id.</param>
+        public SocketEndpoint(IPEndPoint endPoint, string host, object clientId)
         {
             EndPoint = endPoint;
             Host = host;
@@ -43,6 +45,7 @@ namespace Apache.Ignite.Internal
 
             MetricsContext = new MetricsContext(new[]
             {
+                new KeyValuePair<string, object?>(MetricTags.ClientId, clientId),
                 new KeyValuePair<string, object?>(MetricTags.NodeAddress, EndPointString)
             });
         }

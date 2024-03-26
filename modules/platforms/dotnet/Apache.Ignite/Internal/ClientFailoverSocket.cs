@@ -45,6 +45,9 @@ namespace Apache.Ignite.Internal
         /** Current global endpoint index for Round-robin. */
         private static long _globalEndPointIndex;
 
+        /** Unique client ID for logging and metrics. */
+        private readonly Guid _clientId = Guid.NewGuid();
+
         /** Logger. */
         private readonly ILogger _logger;
 
@@ -531,6 +534,9 @@ namespace Apache.Ignite.Internal
         /// </summary>
         private IEnumerable<SocketEndpoint> GetIpEndPoints(IgniteClientConfiguration cfg)
         {
+            // Box once.
+            object clientId = _clientId;
+
             foreach (var e in Endpoint.GetEndpoints(cfg))
             {
                 var host = e.Host;
@@ -538,7 +544,7 @@ namespace Apache.Ignite.Internal
 
                 foreach (var ip in GetIps(host))
                 {
-                    yield return new SocketEndpoint(new IPEndPoint(ip, e.Port), host);
+                    yield return new SocketEndpoint(new IPEndPoint(ip, e.Port), host, clientId);
                 }
             }
         }

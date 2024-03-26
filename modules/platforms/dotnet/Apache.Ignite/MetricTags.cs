@@ -26,6 +26,11 @@ public static class MetricTags
     // https://learn.microsoft.com/en-us/dotnet/core/diagnostics/metrics-instrumentation#best-practices-4
 
     /// <summary>
+    /// Client id.
+    /// </summary>
+    public const string ClientId = "client.id";
+
+    /// <summary>
     /// Node address.
     /// </summary>
     public const string NodeAddress = "node.addr";

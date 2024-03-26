@@ -100,6 +100,7 @@ internal static class DataStreamer
         var lastPartitionsAssignmentCheck = Stopwatch.StartNew();
         using var flushCts = new CancellationTokenSource();
 
+        // TODO: ClientId tag
         var metricTags = new KeyValuePair<string, object?>(MetricTags.DataStreamerId, Interlocked.Increment(ref _streamerId));
 
         try
