@@ -185,17 +185,6 @@ public abstract class Marshaller {
     public abstract Object readObject(MarshallerReader reader, @Nullable Object target) throws MarshallerException;
 
     /**
-     * Reads value object from a row.
-     *
-     * @param reader Row reader.
-     * @param target Optional target object. When not specified, a new object will be created.
-     * @return Object.
-     * @throws MarshallerException If failed.
-     */
-    @Deprecated
-    public abstract Object readValue(MarshallerReader reader, @Nullable Object target) throws MarshallerException;
-
-    /**
      * Write an object to a row.
      *
      * @param obj    Object.
@@ -242,14 +231,6 @@ public abstract class Marshaller {
         /** {@inheritDoc} */
         @Override
         public Object readObject(MarshallerReader reader, Object target) {
-            return fieldAccessor.read(reader);
-        }
-
-        /** {@inheritDoc} */
-        @Override
-        public Object readValue(MarshallerReader reader, Object target) throws MarshallerException {
-            reader.setIndex(fieldAccessor.colIdx());
-
             return fieldAccessor.read(reader);
         }
 
@@ -309,23 +290,6 @@ public abstract class Marshaller {
 
         /** {@inheritDoc} */
         @Override
-        public Object readValue(MarshallerReader reader, Object target) throws MarshallerException {
-            Object obj = target == null ? factory.create() : target;
-
-            for (FieldAccessor f : fieldAccessors) {
-                if (f.unmapped()) {
-                    continue;
-                }
-
-                reader.setIndex(f.colIdx());
-                f.read(reader, obj);
-            }
-
-            return obj;
-        }
-
-        /** {@inheritDoc} */
-        @Override
         public void writeObject(@Nullable Object obj, MarshallerWriter writer) throws MarshallerException {
             for (int fldIdx = 0; fldIdx < fieldAccessors.length; fldIdx++) {
                 fieldAccessors[fldIdx].write(writer, obj);
@@ -348,11 +312,6 @@ public abstract class Marshaller {
 
         @Override
         public Object readObject(MarshallerReader reader, @Nullable Object target) {
-            return null;
-        }
-
-        @Override
-        public Object readValue(MarshallerReader reader, Object target) throws MarshallerException {
             return null;
         }
 

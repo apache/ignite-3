@@ -27,6 +27,7 @@ import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.marshaller.MarshallerReader;
 import org.apache.ignite.internal.schema.row.Row;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Adapter from a {@link Row} to a {@link MarshallerReader}.
@@ -36,45 +37,32 @@ class RowReader implements MarshallerReader {
 
     private int index;
 
-    private final int[] mapping;
+    private final int @Nullable[] positions;
 
+    /**
+     * Constructor for a reader that reads row fields in consecutive order.
+     *
+     * @param row Row.
+     */
     RowReader(Row row) {
-        this(row, 0);
+        this(row, null);
     }
 
-    RowReader(Row row, int index) {
+    /**
+     * Constructor for a reader that can read row fields in an order specified by positions array. If positions array is not specified
+     * then this reader reads fields in consecutive order.
+     *
+     * @param row Row.
+     * @param positions Position array that defines reader order.
+     */
+    RowReader(Row row, int @Nullable[] positions) {
         this.row = row;
-        this.index = index;
-        this.mapping = null;
-    }
-
-    RowReader(Row row, int index, int[] mapping) {
-        this.row = row;
-        this.index = index;
-        this.mapping = mapping;
-    }
-
-
-    @Override
-    public void setIndex(int index) {
-//        assert index < row.elementCount();
-//
-//        this.index = index;
-    }
-
-    @Override
-    public int currentIndex() {
-        return index;
+        this.positions = positions;
     }
 
     @Override
     public void skipValue() {
         index++;
-    }
-
-    private int nextSchemaIndex() {
-        int i = index++;
-        return mapping == null ? i : mapping[i];
     }
 
     @Override
@@ -219,5 +207,10 @@ class RowReader implements MarshallerReader {
     public LocalDateTime readDateTime() {
         int idx = nextSchemaIndex();
         return row.dateTimeValue(idx);
+    }
+
+    private int nextSchemaIndex() {
+        int i = index++;
+        return positions == null ? i : positions[i];
     }
 }

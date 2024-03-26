@@ -55,18 +55,6 @@ public class ClientMarshallerReader implements MarshallerReader {
 
     /** {@inheritDoc} */
     @Override
-    public void setIndex(int index) {
-        this.index = index;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public int currentIndex() {
-        return index;
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public void skipValue() {
         index++;
     }
