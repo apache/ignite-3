@@ -21,6 +21,7 @@ import java.util.Objects;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Marshaller column.
@@ -58,28 +59,19 @@ public class MarshallerColumn {
      * @param name      Column name.
      * @param type      An instance of column data type.
      */
+    @TestOnly
     public MarshallerColumn(String name, BinaryMode type) {
-        this(name, type, null, 0);
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param name      Column name.
-     * @param type      An instance of column data type.
-     * @param defValSup Default value supplier.
-     */
-    public MarshallerColumn(String name, BinaryMode type, @Nullable Supplier<Object> defValSup, int scale) {
         this.schemaIndex = -1;
         this.name = name;
         this.type = type;
-        this.defValSup = defValSup == null ? NULL_SUPPLIER : defValSup;
-        this.scale = scale;
+        this.defValSup = NULL_SUPPLIER;
+        this.scale = 0;
     }
 
     /**
      * Constructor.
      *
+     * @param schemaIndex Field's position in a schema, or -1,
      * @param name      Column name.
      * @param type      An instance of column data type.
      * @param defValSup Default value supplier.
