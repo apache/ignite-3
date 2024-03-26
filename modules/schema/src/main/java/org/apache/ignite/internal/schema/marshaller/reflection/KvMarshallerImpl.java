@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.schema.marshaller.reflection;
 
+import java.util.Arrays;
 import java.util.List;
 import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallerException;
@@ -52,6 +53,8 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
     /** Value type. */
     private final Class<V> valClass;
 
+    private final int[] valueFields;
+
     /**
      * Creates KV marshaller.
      *
@@ -69,6 +72,7 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
         MarshallerSchema marshallerSchema = schema.marshallerSchema();
         keyMarsh = marshallers.getKeysMarshaller(marshallerSchema, keyMapper, true, false);
         valMarsh = marshallers.getValuesMarshaller(marshallerSchema, valueMapper, true, false);
+        valueFields = schema.valueColumns().stream().mapToInt(col -> col.positionInRow()).toArray();
     }
 
     /** {@inheritDoc} */
@@ -125,7 +129,8 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
     @Nullable
     @Override
     public V unmarshalValue(Row row) throws MarshallerException {
-        Object o = valMarsh.readValue(new RowReader(row), null);
+
+        Object o = valMarsh.readObject(new RowReader(row, 0, valueFields), null);
 
         assert o == null || valClass.isInstance(o);
 

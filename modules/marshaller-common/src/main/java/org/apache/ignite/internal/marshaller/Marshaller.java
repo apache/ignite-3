@@ -192,6 +192,7 @@ public abstract class Marshaller {
      * @return Object.
      * @throws MarshallerException If failed.
      */
+    @Deprecated
     public abstract Object readValue(MarshallerReader reader, @Nullable Object target) throws MarshallerException;
 
     /**
