@@ -109,7 +109,8 @@ public class Replica {
             ClusterNode localNode,
             ExecutorService executor,
             PlacementDriver placementDriver,
-            ClockService clockService) {
+            ClockService clockService
+    ) {
         this.replicaGrpId = replicaGrpId;
         this.listener = listener;
         this.storageIndexTracker = storageIndexTracker;
