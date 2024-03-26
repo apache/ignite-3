@@ -974,7 +974,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             .updateInternalTableRaftGroupService(partId, updatedRaftGroupService);
 
                     boolean startedRaftNode = startGroupFut.join();
-                    if (localMemberAssignment == null || !startedRaftNode || replicaMgr.isReplicaStarted(replicaGrpId)) {
+                    if (localMemberAssignment == null || !startedRaftNode) {
                         return;
                     }
 

@@ -777,17 +777,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     }
 
     /**
-     * Check if replica is started.
-     *
-     * @param replicaGrpId Replication group id.
-     * @return True if the replica is started.
-     */
-    public boolean isReplicaStarted(ReplicationGroupId replicaGrpId) {
-        CompletableFuture<Replica> replicaFuture = replicas.get(replicaGrpId);
-        return replicaFuture != null && isCompletedSuccessfully(replicaFuture);
-    }
-
-    /**
      * Check if replica was touched by an any actor.
      *
      * @param replicaGrpId Replication group id.
