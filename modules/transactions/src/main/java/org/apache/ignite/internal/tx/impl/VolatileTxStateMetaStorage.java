@@ -119,7 +119,7 @@ public class VolatileTxStateMetaStorage {
      * @param txnResourceTtl Transactional resource time to live in milliseconds.
      */
     public void vacuum(long vacuumObservationTimestamp, long txnResourceTtl) {
-        LOG.info("Vacuum started [vacuumObservationTimestamp={}, txnResourceTtl={}]", vacuumObservationTimestamp, txnResourceTtl);
+        LOG.info("Vacuum started [vacuumObservationTimestamp={}, txnResourceTtl={}].", vacuumObservationTimestamp, txnResourceTtl);
 
         AtomicInteger vacuumizedTxnsCount = new AtomicInteger(0);
         AtomicInteger markedAsInitiallyDetectedTxnsCount = new AtomicInteger(0);
