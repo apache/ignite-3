@@ -500,8 +500,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 txManager
         );
 
-        ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
-
         Consumer<LongFunction<CompletableFuture<?>>> registry = (c) -> metaStorageMgr.registerRevisionUpdateListener(c::apply);
 
         DataStorageModules dataStorageModules = new DataStorageModules(ServiceLoader.load(DataStorageModule.class));
