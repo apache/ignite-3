@@ -75,9 +75,9 @@ public abstract class Marshaller {
      * @return Marshaller.
      */
     private static SimpleMarshaller simpleMarshaller(MarshallerColumn[] cols, OneColumnMapper<?> mapper) {
-        MarshallerColumn colIdx = findColumnIndex(cols, mapper.mappedColumn());
+        MarshallerColumn column = findColumnIndex(cols, mapper.mappedColumn());
 
-        return new SimpleMarshaller(createIdentityAccessor(colIdx, colIdx.schemaIndex(), mapper.converter()));
+        return new SimpleMarshaller(createIdentityAccessor(column, column.schemaIndex(), mapper.converter()));
     }
 
     private static MarshallerColumn findColumnIndex(MarshallerColumn[] cols, @Nullable String name) {
