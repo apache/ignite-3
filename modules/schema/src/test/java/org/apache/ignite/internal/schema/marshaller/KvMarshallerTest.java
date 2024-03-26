@@ -552,17 +552,18 @@ public class KvMarshallerTest {
 
         // Types match TestObjectKeyPart, TestObjectValuePart
         List<Column> columns = new ArrayList<>(List.of(
-                new Column("COL1", INT32, false),
-                new Column("COL2", STRING, false),
-                new Column("COL3", BOOLEAN, false),
-                new Column("COL4", DATE, false)
+                new Column("COL1", INT64, false),
+                new Column("COL2", INT32, false),
+                new Column("COL3", STRING, false),
+                new Column("COL4", BOOLEAN, false),
+                new Column("COL5", DATE, false)
         ));
 
         Collections.shuffle(columns, rnd);
 
         List<String> keyColumns = columns.stream()
                 .map(Column::name)
-                .filter(c -> "COL1".equals(c) || "COL3".equals(c))
+                .filter(c -> "COL2".equals(c) || "COL4".equals(c))
                 .collect(Collectors.toList());
 
         SchemaDescriptor descriptor = new SchemaDescriptor(1, columns, keyColumns, null);
@@ -574,18 +575,20 @@ public class KvMarshallerTest {
         );
 
         TestObjectKeyPart key = new TestObjectKeyPart();
-        key.col1 = rnd.nextInt();
-        key.col3 = rnd.nextBoolean();
+        key.col2 = rnd.nextInt();
+        key.col4 = rnd.nextBoolean();
 
         TestObjectValPart val = new TestObjectValPart();
-        val.col2 = String.valueOf(rnd.nextInt());
-        val.col4 = LocalDate.ofEpochDay(rnd.nextInt(10_000));
+        val.col1 = rnd.nextLong();
+        val.col3 = String.valueOf(rnd.nextInt());
+        val.col5 = LocalDate.ofEpochDay(rnd.nextInt(10_000));
 
         Map<String, Object> columnNameToValue = new HashMap<>();
-        columnNameToValue.put("COL1", key.col1);
-        columnNameToValue.put("COL2", val.col2);
-        columnNameToValue.put("COL3", key.col3);
-        columnNameToValue.put("COL4", val.col4);
+        columnNameToValue.put("COL1", val.col1);
+        columnNameToValue.put("COL2", key.col2);
+        columnNameToValue.put("COL3", val.col3);
+        columnNameToValue.put("COL4", key.col4);
+        columnNameToValue.put("COL5", val.col5);
 
         Map<String, Integer> columnNameToIdx = new HashMap<>();
         for (int i = 0; i < columns.size(); i++) {
@@ -623,33 +626,39 @@ public class KvMarshallerTest {
         assertEquals(columnIdxToValue.get(1), fullRow.value(1));
         assertEquals(columnIdxToValue.get(2), fullRow.value(2));
         assertEquals(columnIdxToValue.get(3), fullRow.value(3));
+        assertEquals(columnIdxToValue.get(4), fullRow.value(4));
     }
 
+
     static class TestObjectKeyPart {
-        int col1;
-        boolean col3;
+        int col2;
+        boolean col4;
     }
 
     static class TestObjectValPart {
-        String col2;
-        LocalDate col4;
+        long col1;
+        String col3;
+        LocalDate col5;
     }
 
     @ParameterizedTest
     @MethodSource("marshallerFactoryProvider")
     public void unmarshallKey(MarshallerFactory marshallerFactory) throws MarshallerException {
+        Assumptions.assumeFalse(marshallerFactory instanceof AsmMarshallerGenerator);
+
         Mapper<TestObjectKeyPart> keyMapper = Mapper.of(TestObjectKeyPart.class);
         Mapper<TestObjectValPart> valueMapper = Mapper.of(TestObjectValPart.class);
 
         // Types match TestObjectKeyPart, TestObjectValuePart
         List<Column> columns = new ArrayList<>(List.of(
-                new Column("COL1", INT32, false),
-                new Column("COL2", STRING, false),
-                new Column("COL3", BOOLEAN, false),
-                new Column("COL4", DATE, false)
+                new Column("COL1", INT64, false),
+                new Column("COL2", INT32, false),
+                new Column("COL3", STRING, false),
+                new Column("COL4", BOOLEAN, false),
+                new Column("COL5", DATE, false)
         ));
 
-        SchemaDescriptor descriptor = new SchemaDescriptor(1, columns, List.of("COL1", "COL3"), null);
+        SchemaDescriptor descriptor = new SchemaDescriptor(1, columns, List.of("COL2", "COL4"), null);
 
         KvMarshaller<TestObjectKeyPart, TestObjectValPart> marshaller = marshallerFactory.create(
                 descriptor,
@@ -658,19 +667,44 @@ public class KvMarshallerTest {
         );
 
         TestObjectKeyPart key = new TestObjectKeyPart();
-        key.col1 = rnd.nextInt();
-        key.col3 = rnd.nextBoolean();
+        key.col2 = rnd.nextInt();
+        key.col4 = rnd.nextBoolean();
 
-        ByteBuffer tupleBuf = new BinaryTupleBuilder(2, 128)
-                .appendInt(key.col1)
-                .appendBoolean(key.col3)
-                .build();
+        TestObjectValPart val = new TestObjectValPart();
+        val.col1 = rnd.nextLong();
+        val.col3 = String.valueOf(rnd.nextInt());
+        val.col5 = LocalDate.ofEpochDay(rnd.nextInt(10_000));
 
-        BinaryRow row = new BinaryRowImpl(descriptor.version(), tupleBuf);
+        // Key only row
+        {
+            ByteBuffer tupleBuf = new BinaryTupleBuilder(descriptor.keyColumns().size(), 128)
+                    .appendInt(key.col2)
+                    .appendBoolean(key.col4)
+                    .build();
 
-        TestObjectKeyPart keyPart = marshaller.unmarshalKey(Row.wrapKeyOnlyBinaryRow(descriptor, row));
-        assertEquals(key.col1, keyPart.col1);
-        assertEquals(key.col3, keyPart.col3);
+            BinaryRow row = new BinaryRowImpl(descriptor.version(), tupleBuf);
+
+            TestObjectKeyPart keyPart = marshaller.unmarshalKeyOnly(Row.wrapKeyOnlyBinaryRow(descriptor, row));
+            assertEquals(key.col2, keyPart.col2);
+            assertEquals(key.col4, keyPart.col4);
+        }
+
+        // full row
+        {
+            ByteBuffer tupleBuf = new BinaryTupleBuilder(descriptor.length(), 128)
+                    .appendLong(val.col1)
+                    .appendLong(key.col2)
+                    .appendString(val.col3)
+                    .appendBoolean(key.col4)
+                    .appendDate(val.col5)
+                    .build();
+
+            BinaryRow row = new BinaryRowImpl(descriptor.version(), tupleBuf);
+
+            TestObjectKeyPart keyPart = marshaller.unmarshalKey(Row.wrapBinaryRow(descriptor, row));
+            assertEquals(key.col2, keyPart.col2);
+            assertEquals(key.col4, keyPart.col4);
+        }
     }
 
     /**

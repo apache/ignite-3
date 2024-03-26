@@ -32,6 +32,8 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
+import org.apache.ignite.internal.tostring.IgniteToStringInclude;
+import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.manager.IgniteTables;
@@ -259,21 +261,39 @@ public class ItKvKeyColumnPositionTest extends BaseSqlIntegrationTest {
     @ParameterizedTest
     @MethodSource("complexKeyKvs")
     public void testPutAll(KeyValueView<IntString, BoolInt> kvView) {
-        IntString k1 = newKey();
+        IntString key1 = newKey();
         BoolInt val1 = new BoolInt();
         val1.dateCol = LocalDate.now().plusDays(ThreadLocalRandom.current().nextInt(100));
 
-        IntString k2 = newKey();
+        IntString key2 = newKey();
         BoolInt val2 = new BoolInt();
         val2.dateCol = LocalDate.now().plusDays(ThreadLocalRandom.current().nextInt(100));
 
-        kvView.putAll(null, Map.of(k1, val1, k2, val2));
+        kvView.putAll(null, Map.of(key1, val1, key2, val2));
 
-        BoolInt retrieved1 = kvView.get(null, k1);
+        BoolInt retrieved1 = kvView.get(null, key1);
         assertEquals(val1, retrieved1);
 
-        BoolInt retrieved2 = kvView.get(null, k2);
+        BoolInt retrieved2 = kvView.get(null, key2);
         assertEquals(val2, retrieved2);
+    }
+
+    @ParameterizedTest
+    @MethodSource("complexKeyKvs")
+    public void testGetAll(KeyValueView<IntString, BoolInt> kvView) {
+        IntString key1 = newKey();
+        BoolInt val1 = new BoolInt();
+        val1.dateCol = LocalDate.now().plusDays(ThreadLocalRandom.current().nextInt(100));
+        kvView.put(null, key1, val1);
+
+        IntString key2 = newKey();
+        BoolInt val2 = new BoolInt();
+        val2.dateCol = LocalDate.now().plusDays(ThreadLocalRandom.current().nextInt(100));
+
+        kvView.put(null, key2, val2);
+
+        Map<IntString, BoolInt> all = kvView.getAll(null, List.of(key1, key2));
+        assertEquals(Map.of(key1, val1, key2, val2), all);
     }
 
     private static IntString newKey() {
@@ -286,12 +306,38 @@ public class ItKvKeyColumnPositionTest extends BaseSqlIntegrationTest {
     }
 
     static class IntString {
+        @IgniteToStringInclude
         int intCol;
+        @IgniteToStringInclude
         String strCol;
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            IntString intString = (IntString) o;
+            return intCol == intString.intCol && Objects.equals(strCol, intString.strCol);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(intCol, strCol);
+        }
+
+        @Override
+        public String toString() {
+            return S.toString(this);
+        }
     }
 
     static class BoolInt {
+        @IgniteToStringInclude
         boolean boolCol;
+        @IgniteToStringInclude
         LocalDate dateCol;
 
         @Override
@@ -310,11 +356,19 @@ public class ItKvKeyColumnPositionTest extends BaseSqlIntegrationTest {
         public int hashCode() {
             return Objects.hash(boolCol, dateCol);
         }
+
+        @Override
+        public String toString() {
+            return S.toString(this);
+        }
     }
 
     static class IntBoolDate {
+        @IgniteToStringInclude
         int intCol;
+        @IgniteToStringInclude
         boolean boolCol;
+        @IgniteToStringInclude
         LocalDate dateCol;
 
         @Override
@@ -332,6 +386,11 @@ public class ItKvKeyColumnPositionTest extends BaseSqlIntegrationTest {
         @Override
         public int hashCode() {
             return Objects.hash(intCol, boolCol, dateCol);
+        }
+
+        @Override
+        public String toString() {
+            return S.toString(this);
         }
     }
 }

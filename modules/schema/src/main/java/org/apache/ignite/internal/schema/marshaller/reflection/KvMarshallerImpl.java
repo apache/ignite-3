@@ -120,6 +120,16 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
 
     /** {@inheritDoc} */
     @Override
+    public K unmarshalKeyOnly(Row row) throws MarshallerException {
+        Object o = keyMarsh.readObject(new RowReader(row), null);
+
+        assert keyClass.isInstance(o);
+
+        return (K) o;
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public K unmarshalKey(Row row) throws MarshallerException {
         Object o = keyMarsh.readObject(new RowReader(row, keyPositions), null);
 
