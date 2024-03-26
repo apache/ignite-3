@@ -244,12 +244,12 @@ public class DefaultUserObjectMarshaller implements UserObjectMarshaller, Schema
         } else if (isBuiltInMap(descriptor)) {
             builtInContainerMarshallers.writeBuiltInMap((Map<?, ?>) object, descriptor, output, context);
         } else if (descriptor.isArray()) {
-            // noinspection ConstantConditions
+            //noinspection ConstantConditions
             builtInContainerMarshallers.writeGenericRefArray((Object[]) object, descriptor, output, context);
         } else if (descriptor.isExternalizable()) {
             externalizableMarshaller.writeExternalizable((Externalizable) object, descriptor, output, context);
         } else if (descriptor.isProxy()) {
-            // noinspection ConstantConditions
+            //noinspection ConstantConditions
             proxyMarshaller.writeProxy(object, output, context);
         } else {
             structuredObjectMarshaller.writeStructuredObject(object, descriptor, output, context);

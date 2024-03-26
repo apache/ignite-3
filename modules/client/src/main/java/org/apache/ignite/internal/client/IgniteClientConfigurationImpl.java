@@ -106,7 +106,7 @@ public final class IgniteClientConfigurationImpl implements IgniteClientConfigur
             long operationTimeout) {
         this.addressFinder = addressFinder;
 
-        // noinspection AssignmentOrReturnOfFieldWithMutableType (cloned in Builder).
+        //noinspection AssignmentOrReturnOfFieldWithMutableType (cloned in Builder).
         this.addresses = addresses;
 
         this.connectTimeout = connectTimeout;

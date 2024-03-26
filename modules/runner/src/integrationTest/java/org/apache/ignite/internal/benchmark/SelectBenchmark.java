@@ -293,7 +293,7 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
         @Setup
         public void setUp() {
             try {
-                // noinspection CallToDriverManagerGetConnection
+                //noinspection CallToDriverManagerGetConnection
                 conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
 
                 stmt = conn.prepareStatement(SELECT_ALL_FROM_USERTABLE);

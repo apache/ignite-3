@@ -202,7 +202,7 @@ public class DmlPlannerTest extends AbstractPlannerTest {
     @ParameterizedTest
     @MethodSource("basicStatements")
     public void testDmlQueriesOnNonExistingTable(String query) {
-        // noinspection ThrowableNotThrown
+        //noinspection ThrowableNotThrown
         IgniteTestUtils.assertThrowsWithCause(
                 () -> physicalPlan(query, createSchema(newTestTable("TEST", IgniteDistributions.single()))),
                 SqlValidatorException.class,

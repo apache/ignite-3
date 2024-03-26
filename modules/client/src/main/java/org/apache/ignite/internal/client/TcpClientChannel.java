@@ -184,7 +184,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             ClientChannelConfiguration cfg,
             ClientConnectionMultiplexer connMgr,
             ClientMetricSource metrics) {
-        // noinspection resource - returned from method.
+        //noinspection resource - returned from method.
         return new TcpClientChannel(cfg, metrics).initAsync(connMgr);
     }
 
