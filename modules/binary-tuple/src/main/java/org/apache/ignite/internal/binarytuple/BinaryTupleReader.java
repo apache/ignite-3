@@ -277,19 +277,20 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
                 return new BigDecimal(numberValue(begin + 1, end), scale);
 
             case DECIMAL_SCALE_ONE_BYTE: {
-                var valScale = firstByte & 0b00111111;
+                int valScale = firstByte & 0b00111111;
                 assert valScale < scale : "Invalid scale, expected less than " + scale + ", but was " + valScale;
 
                 return new BigDecimal(numberValue(begin + 1, end), valScale).setScale(scale, RoundingMode.UNNECESSARY);
             }
 
             case DECIMAL_SCALE_TWO_BYTES: {
-                // TODO
-                return null;
+                int valScale = firstByte & 0b00111111 + byteValue(begin + 1, begin + 2) << 8;
+                assert valScale < scale : "Invalid scale, expected less than " + scale + ", but was " + valScale;
+
+                return new BigDecimal(numberValue(begin + 2, end), valScale).setScale(scale, RoundingMode.UNNECESSARY);
             }
 
             case DECIMAL_SCALE_THREE_BYTES: {
-                // TODO
                 var valScale = shortValue(begin + 1, begin + 2);
                 assert valScale < scale : "Invalid scale, expected less than " + scale + ", but was " + valScale;
 
