@@ -37,7 +37,6 @@ import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.sql.Session;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
@@ -151,10 +150,8 @@ abstract class AbstractSchemaChangeTest extends IgniteIntegrationTest {
      * @param nodes Cluster nodes.
      */
     protected static void createTable(List<Ignite> nodes) {
-        try (Session session = nodes.get(0).sql().createSession()) {
-            session.execute(null, "CREATE TABLE tbl1(key BIGINT PRIMARY KEY, valint INT, valblob BINARY,"
-                    + "valdecimal DECIMAL, valbigint BIGINT, valstr VARCHAR NOT NULL DEFAULT 'default')");
-        }
+        nodes.get(0).sql().execute(null, "CREATE TABLE tbl1(key BIGINT PRIMARY KEY, valint INT, valblob BINARY,"
+                + "valdecimal DECIMAL, valbigint BIGINT, valstr VARCHAR NOT NULL DEFAULT 'default')");
     }
 
     /**
@@ -164,9 +161,7 @@ abstract class AbstractSchemaChangeTest extends IgniteIntegrationTest {
      * @param columnToAdd Column to add.
      */
     protected static void addColumn(List<Ignite> nodes, String columnToAdd) {
-        try (Session session = nodes.get(0).sql().createSession()) {
-            session.execute(null, "ALTER TABLE " + TABLE + " ADD COLUMN " + columnToAdd);
-        }
+        nodes.get(0).sql().execute(null, "ALTER TABLE " + TABLE + " ADD COLUMN " + columnToAdd);
     }
 
     /**
@@ -176,9 +171,7 @@ abstract class AbstractSchemaChangeTest extends IgniteIntegrationTest {
      * @param colName Name of column to drop.
      */
     protected static void dropColumn(List<Ignite> nodes, String colName) {
-        try (Session session = nodes.get(0).sql().createSession()) {
-            session.execute(null, "ALTER TABLE " + TABLE + " DROP COLUMN " + colName + "");
-        }
+        nodes.get(0).sql().execute(null, "ALTER TABLE " + TABLE + " DROP COLUMN " + colName + "");
     }
 
     /**
@@ -190,9 +183,7 @@ abstract class AbstractSchemaChangeTest extends IgniteIntegrationTest {
      */
     // TODO: IGNITE-20315 syntax may change
     protected static void renameColumn(List<Ignite> nodes, String oldName, String newName) {
-        try (Session session = nodes.get(0).sql().createSession()) {
-            session.execute(null, String.format("ALTER TABLE %s RENAME COLUMN %s TO %s", TABLE, oldName, newName));
-        }
+        nodes.get(0).sql().execute(null, String.format("ALTER TABLE %s RENAME COLUMN %s TO %s", TABLE, oldName, newName));
     }
 
     /**
@@ -203,9 +194,7 @@ abstract class AbstractSchemaChangeTest extends IgniteIntegrationTest {
      * @param def Default value.
      */
     protected static void changeDefault(List<Ignite> nodes, String colName, String def) {
-        try (Session session = nodes.get(0).sql().createSession()) {
-            session.execute(null, String.format("ALTER TABLE %s ALTER COLUMN %s SET DEFAULT '%s'", TABLE, colName, def));
-        }
+        nodes.get(0).sql().execute(null, String.format("ALTER TABLE %s ALTER COLUMN %s SET DEFAULT '%s'", TABLE, colName, def));
     }
 
     protected static <T extends Throwable> void assertThrowsWithCause(Class<T> expectedType, Executable executable) {

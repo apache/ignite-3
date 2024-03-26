@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.client.sql;
 
+import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -116,6 +117,18 @@ public class ClientStatementBuilder implements Statement.StatementBuilder {
         properties.put(name, value);
 
         return this;
+    }
+
+    @Override
+    public ZoneId timeZoneId() {
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-21568
+        throw new UnsupportedOperationException("Not implemented yet");
+    }
+
+    @Override
+    public StatementBuilder timeZoneId(ZoneId timeZoneId) {
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-21568
+        throw new UnsupportedOperationException("Not implemented yet");
     }
 
     /** {@inheritDoc} */

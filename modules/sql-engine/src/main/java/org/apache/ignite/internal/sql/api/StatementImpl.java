@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.api;
 
+import java.time.ZoneId;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.sql.Statement;
 import org.jetbrains.annotations.Nullable;
@@ -58,6 +59,13 @@ class StatementImpl implements Statement {
     /** {@inheritDoc} */
     @Override
     public int pageSize() {
+        // TODO https://issues.apache.org/jira/browse/IGNITE-18647
+        return 0;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public ZoneId timeZoneId() {
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
