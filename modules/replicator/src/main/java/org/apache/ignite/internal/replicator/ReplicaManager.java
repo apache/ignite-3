@@ -788,12 +788,26 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     }
 
     /**
+     * Check if replica was touched by an any actor.
+     *
+     * @param replicaGrpId Replication group id.
+     * @return True if the replica was touched.
+     */
+    @TestOnly
+    public boolean isReplicaTouched(ReplicationGroupId replicaGrpId) {
+        return replicas.containsKey(replicaGrpId);
+    }
+
+    /**
      * Returns started replication groups.
      *
      * @return Set of started replication groups.
      */
     @TestOnly
     public Set<ReplicationGroupId> startedGroups() {
-        return replicas.keySet();
+        return replicas.entrySet().stream()
+                .filter(entry -> isCompletedSuccessfully(entry.getValue()))
+                .map(Entry::getKey)
+                .collect(toSet());
     }
 }
