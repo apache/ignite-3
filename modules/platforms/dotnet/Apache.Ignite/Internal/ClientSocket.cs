@@ -131,6 +131,9 @@ namespace Apache.Ignite.Internal
             _socketTimeout = configuration.SocketTimeout;
             _operationTimeout = configuration.OperationTimeout;
 
+            MetricsContext = connectionContext.ClusterNode.MetricsContext ??
+                             throw new InvalidOperationException("Metrics context is missing.");
+
             _heartbeatInterval = GetHeartbeatInterval(configuration.HeartbeatInterval, connectionContext.IdleTimeout, _logger);
 
             // ReSharper disable once AsyncVoidLambda (timer callback)

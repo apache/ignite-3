@@ -23,10 +23,9 @@ namespace Apache.Ignite.Internal;
 internal sealed partial class ClientSocket
 {
     /// <summary>
-    /// Gets the metric tags.
+    /// Gets the metrics context.
     /// </summary>
-    /// <returns>Metric tags for this socket.</returns>
-    public MetricsContext MetricsContext => ConnectionContext.ClusterNode.MetricsContext;
+    public MetricsContext MetricsContext { get; }
 
     private static void AddBytesReceived(int bytes, MetricsContext metricsContext) =>
         Metrics.BytesReceived.Add(bytes, metricsContext.Tags);

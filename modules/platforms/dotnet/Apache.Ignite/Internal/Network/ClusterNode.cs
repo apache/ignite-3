@@ -18,7 +18,6 @@
 namespace Apache.Ignite.Internal.Network
 {
     using System;
-    using System.Collections.Generic;
     using System.Net;
     using Ignite.Network;
 
@@ -39,10 +38,7 @@ namespace Apache.Ignite.Internal.Network
             Id = id;
             Name = name;
             Address = endpoint;
-            MetricsContext = metricsContext ?? new MetricsContext(new[]
-            {
-                new KeyValuePair<string, object?>(MetricTags.NodeAddress, endpoint.ToString())
-            });
+            MetricsContext = metricsContext;
         }
 
         /// <inheritdoc/>
@@ -58,7 +54,7 @@ namespace Apache.Ignite.Internal.Network
         /// Gets the metric tags.
         /// </summary>
         /// <returns>Metric tags for this node.</returns>
-        internal MetricsContext MetricsContext { get; }
+        internal MetricsContext? MetricsContext { get; }
 
         /// <inheritdoc/>
         public bool Equals(ClusterNode? other)
