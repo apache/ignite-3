@@ -339,14 +339,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
                 clusterNetSvc.messagingService().respond(senderConsistentId, msg, correlationId);
 
-                if (request instanceof PrimaryReplicaRequest) {
-                    ClusterNode localNode = clusterNetSvc.topologyService().localMember();
-
-                    if (!localNode.name().equals(replica.proposedPrimary())) {
-                        stopLeaseProlongation(request.groupId(), replica.proposedPrimary());
-                    } else if (isConnectivityRelatedException(ex)) {
-                        stopLeaseProlongation(request.groupId(), null);
-                    }
+                if (request instanceof PrimaryReplicaRequest && isConnectivityRelatedException(ex)) {
+                    stopLeaseProlongation(request.groupId(), null);
                 }
 
                 if (ex == null && res.replicationFuture() != null) {

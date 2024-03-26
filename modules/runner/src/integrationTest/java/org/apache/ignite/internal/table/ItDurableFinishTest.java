@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
@@ -174,7 +175,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
 
                 logger().info("Start transferring primary.");
 
-                NodeUtils.transferPrimary(tbl, null, this::node);
+                NodeUtils.transferPrimary(cluster.runningNodes().collect(toSet()), defaultTablePartitionId(node(0)), null);
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             } finally {
@@ -270,7 +271,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
 
                 logger().info("Start transferring primary.");
 
-                NodeUtils.transferPrimary(tbl, null, this::node);
+                NodeUtils.transferPrimary(cluster.runningNodes().collect(toSet()), defaultTablePartitionId(node(0)), null);
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             } finally {

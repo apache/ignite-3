@@ -32,6 +32,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
@@ -116,6 +117,9 @@ public class LeaseUpdater {
 
     /** Node name. */
     private final String nodeName;
+
+    /** Mapping of group ids to proposed leaseholders. */
+    private final Map<ReplicationGroupId, String> proposedLeaseholders = new ConcurrentHashMap<>();
 
     /**
      * Constructor.
@@ -212,9 +216,14 @@ public class LeaseUpdater {
      *
      * @param grpId Replication group id.
      * @param lease Lease to deny.
+     * @param redirectProposal Consistent id of the cluster node proposed for redirection.
      * @return Future completes true when the lease will not prolong in the future, false otherwise.
      */
-    private CompletableFuture<Boolean> denyLease(ReplicationGroupId grpId, Lease lease) {
+    private CompletableFuture<Boolean> denyLease(ReplicationGroupId grpId, Lease lease, String redirectProposal) {
+        if (redirectProposal != null) {
+            proposedLeaseholders.put(grpId, redirectProposal);
+        }
+
         Lease deniedLease = lease.denyLease();
 
         leaseNegotiator.onLeaseRemoved(grpId);
@@ -376,7 +385,11 @@ public class LeaseUpdater {
 
                 // The lease is expired or close to this.
                 if (lease.getExpirationTime().getPhysical() < outdatedLeaseThreshold) {
-                    ClusterNode candidate = nextLeaseHolder(assignments, lease.isProlongable() ? lease.getLeaseholder() : null);
+                    String proposedLeaseholder = lease.isProlongable()
+                            ? lease.getLeaseholder()
+                            : proposedLeaseholders.get(grpId);
+
+                    ClusterNode candidate = nextLeaseHolder(assignments, proposedLeaseholder);
 
                     if (candidate == null) {
                         leaseUpdateStatistics.onLeaseWithoutCandidate();
@@ -431,9 +444,7 @@ public class LeaseUpdater {
 
                 for (Map.Entry<ReplicationGroupId, Boolean> entry : toBeNegotiated.entrySet()) {
                     Lease lease = renewedLeases.get(entry.getKey());
-                    boolean force = entry.getValue();
-
-                    leaseNegotiator.negotiate(lease, force);
+                    leaseNegotiator.negotiate(lease, true);
                 }
             });
         }
@@ -460,6 +471,8 @@ public class LeaseUpdater {
             toBeNegotiated.put(grpId, !lease.isAccepted() && Objects.equals(lease.getLeaseholder(), candidate.name()));
 
             leaseUpdateStatistics.onLeaseCreate();
+
+            proposedLeaseholders.remove(grpId);
         }
 
         /**
@@ -592,7 +605,9 @@ public class LeaseUpdater {
 
             if (msg instanceof StopLeaseProlongationMessage) {
                 if (lease.isProlongable() && sender.equals(lease.getLeaseholder())) {
-                    denyLease(grpId, lease).whenComplete((res, th) -> {
+                    StopLeaseProlongationMessage stopLeaseProlongationMessage = (StopLeaseProlongationMessage) msg;
+
+                    denyLease(grpId, lease, stopLeaseProlongationMessage.redirectProposal()).whenComplete((res, th) -> {
                         if (th != null) {
                             LOG.warn("Prolongation denial failed due to exception [groupId={}]", th, grpId);
                         } else {
