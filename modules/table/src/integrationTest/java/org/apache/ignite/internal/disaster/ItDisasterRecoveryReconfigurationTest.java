@@ -149,6 +149,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         waitForScale(node0, 3);
 
+        //TODO flaky, I need to wait for this condition to pass.
         assertEquals(List.of(0, 2, 3), getRealAssignments(node0, partId));
 
         // Set time in the future to protect us from "getAsync" from the past.

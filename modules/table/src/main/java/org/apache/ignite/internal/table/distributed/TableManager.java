@@ -1786,7 +1786,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                 ? emptySet()
                                 : Assignments.fromBytes(stableAssignmentsEntry.value()).nodes();
 
-                        return setTablesPartitionCountersForRebalance(replicaGrpId, revision)
+                        return setTablesPartitionCountersForRebalance(replicaGrpId, revision, pendingAssignments.force())
                                 .thenCompose(r ->
                                         handleChangePendingAssignmentEvent(
                                                 replicaGrpId,
@@ -1900,7 +1900,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }, ioExecutor);
     }
 
-    private CompletableFuture<Void> setTablesPartitionCountersForRebalance(TablePartitionId replicaGrpId, long revision) {
+    private CompletableFuture<Void> setTablesPartitionCountersForRebalance(TablePartitionId replicaGrpId, long revision, boolean force) {
         int catalogVersion = catalogService.latestCatalogVersion();
 
         int tableId = replicaGrpId.tableId();
@@ -1913,7 +1913,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         Condition condition = or(
                 notExists(tablesCounterKey(zoneId, partId)),
-                and(
+                force ? revision(tablesCounterKey(zoneId, partId)).lt(revision) : and(
                         revision(tablesCounterKey(zoneId, partId)).lt(revision),
                         value(tablesCounterKey(zoneId, partId)).eq(toBytes(Set.of()))
                 )

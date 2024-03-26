@@ -449,7 +449,7 @@ public class RebalanceUtil {
      *
      * @param partId Unique identifier of a partition.
      * @return Key for a partition.
-     * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalnce documentation</a>
+     * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalance documentation</a>
      */
     public static ByteArray pendingChangeTriggerKey(TablePartitionId partId) {
         return new ByteArray(partId + "pending.change.trigger");
@@ -460,7 +460,7 @@ public class RebalanceUtil {
      *
      * @param partId Unique identifier of a partition.
      * @return Key for a partition.
-     * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalnce documentation</a>
+     * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalance documentation</a>
      */
     public static ByteArray stableChangeTriggerKey(TablePartitionId partId) {
         return new ByteArray(partId + "stable.change.trigger");
@@ -471,7 +471,7 @@ public class RebalanceUtil {
      *
      * @param partId Unique identifier of a partition.
      * @return Key for a partition.
-     * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalnce documentation</a>
+     * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalance documentation</a>
      */
     public static ByteArray pendingPartAssignmentsKey(TablePartitionId partId) {
         return new ByteArray(PENDING_ASSIGNMENTS_PREFIX + partId);
@@ -482,7 +482,7 @@ public class RebalanceUtil {
      *
      * @param partId Unique identifier of a partition.
      * @return Key for a partition.
-     * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalnce documentation</a>
+     * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalance documentation</a>
      */
     public static ByteArray plannedPartAssignmentsKey(TablePartitionId partId) {
         return new ByteArray("assignments.planned." + partId);
@@ -493,7 +493,7 @@ public class RebalanceUtil {
      *
      * @param partId Unique identifier of a partition.
      * @return Key for a partition.
-     * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalnce documentation</a>
+     * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalance documentation</a>
      */
     public static ByteArray stablePartAssignmentsKey(TablePartitionId partId) {
         return new ByteArray(STABLE_ASSIGNMENTS_PREFIX + partId);
@@ -504,7 +504,7 @@ public class RebalanceUtil {
      *
      * @param partId Unique identifier of a partition.
      * @return Key for a partition.
-     * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalnce documentation</a>
+     * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalance documentation</a>
      */
     public static ByteArray switchReduceKey(TablePartitionId partId) {
         return new ByteArray(ASSIGNMENTS_SWITCH_REDUCE_PREFIX + partId);
@@ -515,7 +515,7 @@ public class RebalanceUtil {
      *
      * @param partId Unique identifier of a partition.
      * @return Key for a partition.
-     * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalnce documentation</a>
+     * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalance documentation</a>
      */
     public static ByteArray switchAppendKey(TablePartitionId partId) {
         return new ByteArray(ASSIGNMENTS_SWITCH_APPEND_PREFIX + partId);
