@@ -982,6 +982,27 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         }
     }
 
+    /**
+     * Checks that logical topology version is maintained after nodes restart.
+     */
+    @Test
+    public void logicalTopologyVersionMaintainedTest() {
+        IgniteImpl main = startNodes(3).get(0);
+
+        stopNode(1);
+        IgniteImpl restarted = startNode(1);
+
+        stopNode(2);
+        IgniteImpl secondRestarted = startNode(2);
+
+        long mainVersion = main.logicalTopologyService().localLogicalTopology().version();
+        long restartedVersion = restarted.logicalTopologyService().localLogicalTopology().version();
+        long secondRestartedVersion = secondRestarted.logicalTopologyService().localLogicalTopology().version();
+
+        assertEquals(mainVersion, restartedVersion);
+        assertEquals(mainVersion, secondRestartedVersion);
+    }
+
     private static void forceSnapshotUsageOnRestart(IgniteImpl main) throws InterruptedException {
         // Force log truncation, so that restarting node would request a snapshot.
         JraftServerImpl server = (JraftServerImpl) main.raftManager().server();
