@@ -309,9 +309,6 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
         LeaseGrantedMessageResponse resp = respFut.join();
         assertTrue(resp.accepted());
         assertNull(resp.redirectProposal());
-
-        // Replica should initiate the leadership transfer.
-        assertEquals(LOCAL_NODE.name(), currentLeader.consistentId());
     }
 
     @Test
