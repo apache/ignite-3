@@ -124,7 +124,7 @@ public abstract class Marshaller {
         // Build handlers.
         for (int i = 0; i < cols.length; i++) {
             MarshallerColumn col = cols[i];
-            int schemaIdx = col.schemaIndex();
+//            int schemaIdx = col.schemaIndex();
 
             String columnName = col.name();
 
@@ -141,7 +141,7 @@ public abstract class Marshaller {
 
                 TypeConverter<Object, Object> converter = mapper.converterForColumn(columnName);
 
-                fieldAccessors[i] = FieldAccessor.create(mapper.targetType(), fieldName, col, schemaIdx, converter);
+                fieldAccessors[i] = FieldAccessor.create(mapper.targetType(), fieldName, col, i, converter);
             }
         }
 

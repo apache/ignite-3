@@ -75,6 +75,7 @@ public class MarshallerColumn {
      * @param name      Column name.
      * @param type      An instance of column data type.
      * @param defValSup Default value supplier.
+     * @param scale     Scale of a decimal type if binary mode is decimal, or zero otherwise.
      */
     public MarshallerColumn(int schemaIndex, String name, BinaryMode type, @Nullable Supplier<Object> defValSup, int scale) {
         this.schemaIndex = schemaIndex;

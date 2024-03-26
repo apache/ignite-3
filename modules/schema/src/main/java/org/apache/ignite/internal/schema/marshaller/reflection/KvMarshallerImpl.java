@@ -52,6 +52,8 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
     /** Value type. */
     private final Class<V> valClass;
 
+    private final int[] keyPositions;
+
     /** Positions of value fields in the schema. */
     private final int[] valPositions;
 
@@ -72,6 +74,7 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
         MarshallerSchema marshallerSchema = schema.marshallerSchema();
         keyMarsh = marshallers.getKeysMarshaller(marshallerSchema, keyMapper, true, false);
         valMarsh = marshallers.getValuesMarshaller(marshallerSchema, valueMapper, true, false);
+        keyPositions = schema.keyColumns().stream().mapToInt(Column::positionInRow).toArray();
         valPositions = schema.valueColumns().stream().mapToInt(Column::positionInRow).toArray();
     }
 
@@ -118,7 +121,7 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
     /** {@inheritDoc} */
     @Override
     public K unmarshalKey(Row row) throws MarshallerException {
-        Object o = keyMarsh.readObject(new RowReader(row), null);
+        Object o = keyMarsh.readObject(new RowReader(row, keyPositions), null);
 
         assert keyClass.isInstance(o);
 
