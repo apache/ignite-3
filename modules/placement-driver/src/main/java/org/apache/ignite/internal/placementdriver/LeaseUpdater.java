@@ -118,9 +118,6 @@ public class LeaseUpdater {
     /** Node name. */
     private final String nodeName;
 
-    /** Mapping of group ids to proposed leaseholders. */
-    private final Map<ReplicationGroupId, String> proposedLeaseholders = new ConcurrentHashMap<>();
-
     /**
      * Constructor.
      *
@@ -220,11 +217,7 @@ public class LeaseUpdater {
      * @return Future completes true when the lease will not prolong in the future, false otherwise.
      */
     private CompletableFuture<Boolean> denyLease(ReplicationGroupId grpId, Lease lease, String redirectProposal) {
-        if (redirectProposal != null) {
-            proposedLeaseholders.put(grpId, redirectProposal);
-        }
-
-        Lease deniedLease = lease.denyLease();
+        Lease deniedLease = lease.denyLease(redirectProposal);
 
         leaseNegotiator.onLeaseRemoved(grpId);
 
@@ -387,7 +380,7 @@ public class LeaseUpdater {
                 if (lease.getExpirationTime().getPhysical() < outdatedLeaseThreshold) {
                     String proposedLeaseholder = lease.isProlongable()
                             ? lease.getLeaseholder()
-                            : proposedLeaseholders.get(grpId);
+                            : lease.proposedCandidate();
 
                     ClusterNode candidate = nextLeaseHolder(assignments, proposedLeaseholder);
 
@@ -471,8 +464,6 @@ public class LeaseUpdater {
             toBeNegotiated.put(grpId, !lease.isAccepted() && Objects.equals(lease.getLeaseholder(), candidate.name()));
 
             leaseUpdateStatistics.onLeaseCreate();
-
-            proposedLeaseholders.remove(grpId);
         }
 
         /**
