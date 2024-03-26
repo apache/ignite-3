@@ -65,7 +65,7 @@ public class NettyClientConnection implements ClientConnection {
         this.stateHnd = stateHnd;
         this.metrics = metrics;
 
-        // noinspection ThisEscapedInObjectConstruction
+        //noinspection ThisEscapedInObjectConstruction
         channel.attr(ATTR_CONN).set(this);
     }
 

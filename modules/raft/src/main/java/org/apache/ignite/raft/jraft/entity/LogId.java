@@ -78,7 +78,7 @@ public class LogId implements Comparable<LogId>, Copiable<LogId>, Serializable, 
         if (this.index != other.index) {
             return false;
         }
-        // noinspection RedundantIfStatement
+        //noinspection RedundantIfStatement
         if (this.term != other.term) {
             return false;
         }

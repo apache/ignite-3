@@ -379,7 +379,7 @@
     <!-- Comments should start with space -->
     <module name="TodoComment">
       <property name="id" value="CommentStartWithSpace"/>
-      <property name="format" value="^(?!CHECKSTYLE:ON)(?!---)(?!===)([^\s\/*])"/>
+      <property name="format" value="^(?!CHECKSTYLE:ON)(?!noinspection)(?!---)(?!===)([^\s\/*])"/>
       <message key="todo.match" value="Comment text should start with space."/>
     </module>
     <!-- https://checkstyle.org/config_filters.html#SuppressionXpathFilter -->
