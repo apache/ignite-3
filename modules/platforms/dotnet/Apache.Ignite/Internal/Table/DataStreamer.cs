@@ -61,6 +61,7 @@ internal static class DataStreamer
     /// <param name="schemaProvider">Schema provider.</param>
     /// <param name="partitionAssignmentProvider">Partitioner.</param>
     /// <param name="options">Options.</param>
+    /// <param name="clientId">Client id for metrics.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <typeparam name="T">Element type.</typeparam>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
@@ -71,6 +72,7 @@ internal static class DataStreamer
         Func<int?, Task<Schema>> schemaProvider, // Not a ValueTask because Tasks are cached.
         Func<ValueTask<string?[]?>> partitionAssignmentProvider,
         DataStreamerOptions options,
+        Guid clientId,
         CancellationToken cancellationToken)
     {
         IgniteArgumentCheck.NotNull(data);
@@ -100,8 +102,11 @@ internal static class DataStreamer
         var lastPartitionsAssignmentCheck = Stopwatch.StartNew();
         using var flushCts = new CancellationTokenSource();
 
-        // TODO: ClientId tag
-        var metricTags = new KeyValuePair<string, object?>(MetricTags.DataStreamerId, Interlocked.Increment(ref _streamerId));
+        var metricTags = new KeyValuePair<string, object?>[]
+        {
+            new(MetricTags.ClientId, clientId),
+            new(MetricTags.DataStreamerId, Interlocked.Increment(ref _streamerId)),
+        };
 
         try
         {
