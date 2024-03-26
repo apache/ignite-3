@@ -156,7 +156,7 @@ public class VolatileTxStateMetaStorage {
         });
 
         LOG.info("Vacuum finished [vacuumObservationTimestamp={}, txnResourceTtl={}, vacuumizedTxnsCount={},"
-                + " markedAsInitiallyDetectedTxnsCount={}, alreadyMarkedTxnsCount={}, skippedFotFurtherProcessingUnfinishedTxnsCount={}]",
+                + " markedAsInitiallyDetectedTxnsCount={}, alreadyMarkedTxnsCount={}, skippedFotFurtherProcessingUnfinishedTxnsCount={}].",
                 vacuumObservationTimestamp,
                 txnResourceTtl,
                 vacuumizedTxnsCount,
