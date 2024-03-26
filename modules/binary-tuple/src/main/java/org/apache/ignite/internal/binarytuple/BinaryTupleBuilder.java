@@ -327,6 +327,7 @@ public class BinaryTupleBuilder {
             putByte(DECIMAL_SCALE_NONE); // Same scale as schema.
         } else {
             // Actual scale is less than schema - encode scale as varint.
+            // TODO: Scale can be negative
             if (value.scale() < 64) {
                 putByte((byte) (DECIMAL_SCALE_ONE_BYTE | value.scale()));
             } else if (value.scale() < 16384) {
