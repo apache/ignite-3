@@ -56,6 +56,7 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
@@ -93,31 +94,46 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         return INITIAL_NODES;
     }
 
-    @BeforeEach
-    void setUp(TestInfo testInfo) throws Exception {
-        Method testMethod = testInfo.getTestMethod().orElseThrow();
+    /**
+     * Inserts {@value ENTRIES} values into a table, expecting either a success or specific set of exceptions that would indicate
+     * replication issues. Collects such exceptions into a list and returns. Fails if unexpected exception happened.
+     */
+    private static List<Throwable> insertValues(Table table, int partitionId, int offset) {
+        KeyValueView<Tuple, Tuple> keyValueView = table.keyValueView();
 
-        IgniteImpl node0 = cluster.node(0);
+        List<Throwable> errors = new ArrayList<>();
 
-        zoneName = "ZONE_" + testMethod.getName().toUpperCase();
+        for (int i = 0, created = 0; created < ENTRIES; i++) {
+            Tuple key = Tuple.create(of("id", i));
+            if ((Wrappers.unwrap(table, TableImpl.class)).partition(key) != partitionId) {
+                continue;
+            }
 
-        ZoneParams zoneParams = testMethod.getAnnotation(ZoneParams.class);
+            //noinspection AssignmentToForLoopParameter
+            created++;
 
-        startNodesInParallel(IntStream.range(INITIAL_NODES, zoneParams.nodes()).toArray());
+            CompletableFuture<Void> insertFuture = keyValueView.putAsync(null, key, Tuple.create(of("val", i + offset)));
 
-        executeSql(format("CREATE ZONE %s with replicas=%d, partitions=%d,"
-                        + " data_nodes_auto_adjust_scale_down=%d, data_nodes_auto_adjust_scale_up=%d",
-                zoneName, zoneParams.replicas(), zoneParams.partitions(), SCALE_DOWN_TIMEOUT_SECONDS, 1
-        ));
+            try {
+                insertFuture.get(1000, MILLISECONDS);
 
-        CatalogZoneDescriptor zone = node0.catalogManager().zone(zoneName, node0.clock().nowLong());
-        zoneId = requireNonNull(zone).id();
-        waitForScale(node0, zoneParams.nodes());
+                Tuple value = keyValueView.get(null, key);
+                assertNotNull(value);
+            } catch (Throwable e) {
+                Throwable cause = unwrapCause(e);
 
-        executeSql(format("CREATE TABLE %s (id INT PRIMARY KEY, val INT) WITH PRIMARY_ZONE='%s'", TABLE_NAME, zoneName));
+                if (cause instanceof IgniteException && isPrimaryReplicaHasChangedException((IgniteException) cause)
+                        || cause instanceof TransactionException
+                        || cause instanceof TimeoutException
+                ) {
+                    errors.add(cause);
+                } else {
+                    fail("Unexpected exception", e);
+                }
+            }
+        }
 
-        TableManager tableManager = (TableManager) node0.tables();
-        tableId = ((TableViewInternal) tableManager.table(TABLE_NAME)).tableId();
+        return errors;
     }
 
     /**
@@ -225,46 +241,31 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         assertThat(awaitPrimaryReplicaFuture, willCompleteSuccessfully());
     }
 
-    /**
-     * Inserts {@value ENTRIES} values into a table, expecting either a success or specific set of exceptions that would indicate
-     * replication issues. Collects such exceptions into a list and returns. Fails if unexpected exception happened.
-     */
-    private static List<Throwable> insertValues(Table table, int partitionId, int offset) {
-        KeyValueView<Tuple, Tuple> keyValueView = table.keyValueView();
+    @BeforeEach
+    void setUp(TestInfo testInfo) throws Exception {
+        Method testMethod = testInfo.getTestMethod().orElseThrow();
 
-        List<Throwable> errors = new ArrayList<>();
+        IgniteImpl node0 = cluster.node(0);
 
-        for (int i = 0, created = 0; created < ENTRIES; i++) {
-            Tuple key = Tuple.create(of("id", i));
-            if (((TableImpl) table).partition(key) != partitionId) {
-                continue;
-            }
+        zoneName = "ZONE_" + testMethod.getName().toUpperCase();
 
-            //noinspection AssignmentToForLoopParameter
-            created++;
+        ZoneParams zoneParams = testMethod.getAnnotation(ZoneParams.class);
 
-            CompletableFuture<Void> insertFuture = keyValueView.putAsync(null, key, Tuple.create(of("val", i + offset)));
+        startNodesInParallel(IntStream.range(INITIAL_NODES, zoneParams.nodes()).toArray());
 
-            try {
-                insertFuture.get(1000, MILLISECONDS);
+        executeSql(format("CREATE ZONE %s with replicas=%d, partitions=%d,"
+                        + " data_nodes_auto_adjust_scale_down=%d, data_nodes_auto_adjust_scale_up=%d",
+                zoneName, zoneParams.replicas(), zoneParams.partitions(), SCALE_DOWN_TIMEOUT_SECONDS, 1
+        ));
 
-                Tuple value = keyValueView.get(null, key);
-                assertNotNull(value);
-            } catch (Throwable e) {
-                Throwable cause = unwrapCause(e);
+        CatalogZoneDescriptor zone = node0.catalogManager().zone(zoneName, node0.clock().nowLong());
+        zoneId = requireNonNull(zone).id();
+        waitForScale(node0, zoneParams.nodes());
 
-                if (cause instanceof IgniteException && isPrimaryReplicaHasChangedException((IgniteException) cause)
-                        || cause instanceof TransactionException
-                        || cause instanceof TimeoutException
-                ) {
-                    errors.add(cause);
-                } else {
-                    fail("Unexpected exception", e);
-                }
-            }
-        }
+        executeSql(format("CREATE TABLE %s (id INT PRIMARY KEY, val INT) WITH PRIMARY_ZONE='%s'", TABLE_NAME, zoneName));
 
-        return errors;
+        TableManager tableManager = Wrappers.unwrap(node0.tables(), TableManager.class);
+        tableId = ((TableViewInternal) tableManager.table(TABLE_NAME)).tableId();
     }
 
     private static boolean isPrimaryReplicaHasChangedException(IgniteException cause) {

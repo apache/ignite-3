@@ -44,6 +44,7 @@ import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
@@ -365,6 +366,6 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
 
         assertThat(tableFuture, willCompleteSuccessfully());
 
-        return (TableViewInternal) tableFuture.join();
+        return Wrappers.unwrap(tableFuture.join(), TableViewInternal.class);
     }
 }

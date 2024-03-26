@@ -34,6 +34,7 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
+import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
@@ -66,7 +67,7 @@ public class ItOperationRetryTest extends ClusterPerTestIntegrationTest {
 
     @Test
     public void testLockExceptionRetry() {
-        TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
+        TableImpl tbl = Wrappers.unwrap(node(0).tables().table(TABLE_NAME), TableImpl.class);
 
         var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
 

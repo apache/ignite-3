@@ -41,9 +41,11 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.compute.utils.InteractiveJobs;
 import org.apache.ignite.internal.compute.utils.InteractiveJobs.AllInteractiveJobsApi;
 import org.apache.ignite.internal.compute.utils.TestingJobExecution;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.BeforeEach;
@@ -321,8 +323,8 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
 
     private ClusterNode getPrimaryReplica(IgniteImpl node) {
         try {
-            var clock = node.clock();
-            TableImpl table = (TableImpl) node.tables().table(TABLE_NAME);
+            HybridClock clock = node.clock();
+            TableImpl table = Wrappers.unwrap(node.tables().table(TABLE_NAME), TableImpl.class);
             TablePartitionId tablePartitionId = new TablePartitionId(table.tableId(), table.partition(Tuple.create(1).set("K", 1)));
 
             ReplicaMeta replicaMeta = node.placementDriver().getPrimaryReplica(tablePartitionId, clock.now()).get();

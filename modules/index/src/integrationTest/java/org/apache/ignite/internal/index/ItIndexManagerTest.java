@@ -32,6 +32,7 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -99,7 +100,7 @@ public class ItIndexManagerTest extends ClusterPerClassIntegrationTest {
 
         assertThat(tableFuture, willCompleteSuccessfully());
 
-        return (TableImpl) tableFuture.join();
+        return Wrappers.unwrap(tableFuture.join(), TableImpl.class);
     }
 
     private static List<Integer> collectIndexIdsFromTable(TableImpl table, int partitionId) {

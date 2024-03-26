@@ -48,6 +48,7 @@ import org.apache.ignite.internal.tx.message.TxCleanupMessage;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
@@ -100,7 +101,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
         Tuple keyTpl = Tuple.create().set("key", 42);
         Tuple tpl = Tuple.create().set("key", 42).set("val", "val 42");
 
-        TableImpl tbl = (TableImpl) coordinatorNode.tables().table(TABLE_NAME);
+        TableImpl tbl = Wrappers.unwrap(coordinatorNode.tables().table(TABLE_NAME), TableImpl.class);
 
         tbl.recordView().upsert(rwTx, tpl);
 
@@ -108,7 +109,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
     }
 
     private TablePartitionId defaultTablePartitionId(IgniteImpl node) {
-        TableImpl table = (TableImpl) node.tables().table(TABLE_NAME);
+        TableViewInternal table = Wrappers.unwrap(node.tables().table(TABLE_NAME), TableViewInternal.class);
 
         return new TablePartitionId(table.tableId(), 0);
     }
@@ -297,7 +298,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
     }
 
     private void markTxAbortedInTxStateStorage(IgniteImpl primaryNode, InternalTransaction tx) {
-        TableImpl primaryTbl = (TableImpl) primaryNode.tables().table(TABLE_NAME);
+        TableViewInternal primaryTbl = Wrappers.unwrap(primaryNode.tables().table(TABLE_NAME), TableViewInternal.class);
 
         TxStateStorage storage = primaryTbl.internalTable().txStateStorage().getTxStateStorage(0);
 

@@ -37,6 +37,7 @@ import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.distributed.replication.request.BuildIndexReplicaRequest;
+import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -78,7 +79,7 @@ public class ItRwTransactionAndIndexesTest extends ClusterPerClassIntegrationTes
 
     @Test
     void testDropIndexInsideRwTransaction() {
-        TableImpl table = (TableImpl) createZoneAndTable(ZONE_NAME, TABLE_NAME, 1, 1, ENGINE_NAME);
+        TableImpl table = Wrappers.unwrap(createZoneAndTable(ZONE_NAME, TABLE_NAME, 1, 1, ENGINE_NAME), TableImpl.class);
 
         createIndex(TABLE_NAME, INDEX_NAME, COLUMN_NAME);
 
@@ -126,7 +127,7 @@ public class ItRwTransactionAndIndexesTest extends ClusterPerClassIntegrationTes
 
     @Test
     void testCreateIndexInsideRwTransaction() throws Exception {
-        TableImpl table = (TableImpl) createZoneAndTable(ZONE_NAME, TABLE_NAME, 1, 1, ENGINE_NAME);
+        TableImpl table = Wrappers.unwrap(createZoneAndTable(ZONE_NAME, TABLE_NAME, 1, 1, ENGINE_NAME), TableImpl.class);
 
         dropAnyBuildIndexMessages();
 

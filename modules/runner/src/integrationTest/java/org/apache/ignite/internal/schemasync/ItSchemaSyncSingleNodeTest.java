@@ -31,6 +31,7 @@ import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.replicator.IncompatibleSchemaException;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.Table;
@@ -92,7 +93,7 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
 
         IgniteException ex;
 
-        int tableId = ((TableViewInternal) table).tableId();
+        int tableId = Wrappers.unwrap(table, TableViewInternal.class).tableId();
 
         if (operation.sql()) {
             ex = assertThrows(IgniteException.class, () -> operation.execute(table, tx, cluster));
@@ -240,7 +241,7 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
 
         IgniteException ex;
 
-        int tableId = ((TableViewInternal) table).tableId();
+        int tableId = Wrappers.unwrap(table, TableViewInternal.class).tableId();
 
         if (operation.sql()) {
             ex = assertThrows(IgniteException.class, () -> operation.execute(table, tx, cluster));

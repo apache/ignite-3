@@ -38,6 +38,7 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnAppendEntries;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
+import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -150,7 +151,7 @@ class ItSchemaSyncAndReplicationTest extends ClusterPerTestIntegrationTest {
 
     private static MvPartitionStorage solePartitionStorage(IgniteImpl node) {
         // We use this api because there is no waiting for schemas to sync.
-        TableViewInternal table = ((TableManager) node.tables()).cachedTable(TABLE_NAME);
+        TableViewInternal table = Wrappers.unwrap(node.tables(), TableManager.class).cachedTable(TABLE_NAME);
 
         assertNotNull(table);
 

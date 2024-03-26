@@ -60,6 +60,7 @@ import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
 import org.apache.ignite.internal.table.distributed.schema.PartitionCommandsMarshallerImpl;
+import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
 import org.apache.ignite.table.Table;
 import org.jetbrains.annotations.Nullable;
@@ -368,7 +369,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
 
         assertThat(tableFuture, willSucceedFast());
 
-        return (TableViewInternal) tableFuture.join();
+        return Wrappers.unwrap(tableFuture.join(), TableViewInternal.class);
     }
 
     /**

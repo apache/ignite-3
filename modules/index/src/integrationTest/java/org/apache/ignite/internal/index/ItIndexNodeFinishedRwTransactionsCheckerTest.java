@@ -43,6 +43,7 @@ import org.apache.ignite.internal.storage.impl.TestStorageEngine;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
+import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
@@ -219,7 +220,7 @@ public class ItIndexNodeFinishedRwTransactionsCheckerTest extends ClusterPerClas
 
         assertThat(tableFuture, willBe(notNullValue()));
 
-        return (TableImpl) tableFuture.join();
+        return Wrappers.unwrap(tableFuture.join(), TableImpl.class);
     }
 
     private static long[] partitionSizes() {

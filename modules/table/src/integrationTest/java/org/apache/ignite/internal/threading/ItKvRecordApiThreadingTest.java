@@ -42,11 +42,12 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.streamer.SimplePublisher;
+import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.thread.IgniteThread;
-import org.apache.ignite.internal.thread.PublicApiThreading;
+import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
@@ -105,6 +106,19 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
         return CLUSTER.aliveNode().tables().table(TABLE_NAME);
     }
 
+    private static Table testTableForInternalUse() {
+        TableManager internalIgniteTables = Wrappers.unwrap(CLUSTER.aliveNode().tables(), TableManager.class);
+        return internalIgniteTables.table(TABLE_NAME);
+    }
+
+    private static KeyValueView<Integer, String> plainKeyValueViewForInternalUse() {
+        return testTableForInternalUse().keyValueView(Integer.class, String.class);
+    }
+
+    private static KeyValueView<Tuple, Tuple> binaryKeyValueViewForInternalUse() {
+        return testTableForInternalUse().keyValueView();
+    }
+
     @BeforeEach
     void upsertRecord() {
         KeyValueView<Integer, String> view = plainKeyValueView();
@@ -159,23 +173,8 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
         return new KeyValueContext<>(Tuple.create().set("id", KEY), Tuple.create().set("val", "one"), Tuple.create().set("val", "two"));
     }
 
-    @CartesianTest
-    void keyValueViewFuturesFromInternalCallsAreNotResubmittedToContinuationsPool(
-            @Enum KeyValueViewAsyncOperation operation,
-            @Enum KeyValueViewKind kind
-    ) {
-        assumeTrue(kind.supportsGetNullable() || !operation.isGetNullable());
-
-        KeyValueView<?, ?> tableView = kind.view();
-
-        CompletableFuture<Thread> completerFuture = forcingSwitchFromUserThread(
-                () -> PublicApiThreading.doInternalCall(
-                        () -> operation.executeOn(tableView, kind.context())
-                                .thenApply(unused -> Thread.currentThread())
-                )
-        );
-
-        assertThat(completerFuture, willBe(anIgniteThread()));
+    private static RecordView<Record> plainRecordViewForInternalUse() {
+        return testTableForInternalUse().recordView(Record.class);
     }
 
     private static Matcher<Object> anIgniteThread() {
@@ -197,21 +196,8 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
         assertThat(completerFuture, willBe(asyncContinuationPool()));
     }
 
-    @CartesianTest
-    void recordViewFuturesFromInternalCallsAreNotResubmittedToContinuationsPool(
-            @Enum RecordViewAsyncOperation operation,
-            @Enum RecordViewKind kind
-    ) {
-        RecordView<?> tableView = kind.view();
-
-        CompletableFuture<Thread> completerFuture = forcingSwitchFromUserThread(
-                () -> PublicApiThreading.doInternalCall(
-                        () -> operation.executeOn(tableView, kind.context())
-                                .thenApply(unused -> Thread.currentThread())
-                )
-        );
-
-        assertThat(completerFuture, willBe(anIgniteThread()));
+    private static RecordView<Tuple> binaryRecordViewForInternalUse() {
+        return testTableForInternalUse().recordView();
     }
 
     private static RecordView<Record> plainRecordView() {
@@ -220,6 +206,38 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
 
     private static RecordView<Tuple> binaryRecordView() {
         return testTable().recordView();
+    }
+
+    @CartesianTest
+    void keyValueViewFuturesFromInternalCallsAreNotResubmittedToContinuationsPool(
+            @Enum KeyValueViewAsyncOperation operation,
+            @Enum KeyValueViewKind kind
+    ) {
+        assumeTrue(kind.supportsGetNullable() || !operation.isGetNullable());
+
+        KeyValueView<?, ?> tableView = kind.viewForInternalUse();
+
+        CompletableFuture<Thread> completerFuture = forcingSwitchFromUserThread(
+                () -> operation.executeOn(tableView, kind.context())
+                        .thenApply(unused -> Thread.currentThread())
+        );
+
+        assertThat(completerFuture, willBe(anIgniteThread()));
+    }
+
+    @CartesianTest
+    void recordViewFuturesFromInternalCallsAreNotResubmittedToContinuationsPool(
+            @Enum RecordViewAsyncOperation operation,
+            @Enum RecordViewKind kind
+    ) {
+        RecordView<?> tableView = kind.viewForInternalUse();
+
+        CompletableFuture<Thread> completerFuture = forcingSwitchFromUserThread(
+                () -> operation.executeOn(tableView, kind.context())
+                        .thenApply(unused -> Thread.currentThread())
+        );
+
+        assertThat(completerFuture, willBe(anIgniteThread()));
     }
 
     private static RecordContext<Record> plainRecordContext() {
@@ -247,13 +265,11 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
             @Enum CommonViewAsyncOperation operation,
             @Enum ViewKind kind
     ) {
-        CriteriaQuerySource<?> tableView = kind.criteriaQuerySource();
+        CriteriaQuerySource<?> tableView = kind.criteriaQuerySourceForInternalUse();
 
         CompletableFuture<Thread> completerFuture = forcingSwitchFromUserThread(
-                () -> PublicApiThreading.doInternalCall(
-                        () -> operation.executeOn(tableView)
-                                .thenApply(unused -> Thread.currentThread())
-                )
+                () -> operation.executeOn(tableView)
+                        .thenApply(unused -> Thread.currentThread())
         );
 
         assertThat(completerFuture, willBe(anIgniteThread()));
@@ -278,12 +294,10 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
             @Enum AsyncCursorAsyncOperation operation,
             @Enum ViewKind kind
     ) throws Exception {
-        AsyncCursor<?> firstPage = kind.criteriaQuerySource().queryAsync(null, null).get(10, SECONDS);
+        AsyncCursor<?> firstPage = kind.criteriaQuerySourceForInternalUse().queryAsync(null, null).get(10, SECONDS);
 
-        CompletableFuture<Thread> completerFuture = PublicApiThreading.doInternalCall(
-                () -> operation.executeOn(firstPage)
-                        .thenApply(unused -> Thread.currentThread())
-        );
+        CompletableFuture<Thread> completerFuture = operation.executeOn(firstPage)
+                .thenApply(unused -> Thread.currentThread());
 
         // The future might get completed in the calling thread as we don't force a wait inside Ignite
         // (because we cannot do this with fetching next page or closing).
@@ -322,13 +336,11 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
             @Enum AsyncCursorAsyncOperation operation,
             @Enum ViewKind kind
     ) throws Exception {
-        AsyncCursor<?> firstPage = kind.criteriaQuerySource().queryAsync(null, null).get(10, SECONDS);
+        AsyncCursor<?> firstPage = kind.criteriaQuerySourceForInternalUse().queryAsync(null, null).get(10, SECONDS);
         AsyncCursor<?> secondPage = firstPage.fetchNextPage().get(10, SECONDS);
 
-        CompletableFuture<Thread> completerFuture = PublicApiThreading.doInternalCall(
-                () -> operation.executeOn(secondPage)
-                        .thenApply(unused -> Thread.currentThread())
-        );
+        CompletableFuture<Thread> completerFuture = operation.executeOn(secondPage)
+                .thenApply(unused -> Thread.currentThread());
 
         // The future might get completed in the calling thread as we don't force a wait inside Ignite
         // (because we cannot do this with fetching next page or closing).
@@ -406,6 +418,10 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
 
         KeyValueView<?, ?> view() {
             return this == PLAIN ? plainKeyValueView() : binaryKeyValueView();
+        }
+
+        KeyValueView<?, ?> viewForInternalUse() {
+            return this == PLAIN ? plainKeyValueViewForInternalUse() : binaryKeyValueViewForInternalUse();
         }
 
         KeyValueContext<?, ?> context() {
@@ -495,6 +511,10 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
             return this == PLAIN ? plainRecordView() : binaryRecordView();
         }
 
+        RecordView<?> viewForInternalUse() {
+            return this == PLAIN ? plainRecordViewForInternalUse() : binaryRecordViewForInternalUse();
+        }
+
         RecordContext<?> context() {
             return this == PLAIN ? plainRecordContext() : binaryRecordContext();
         }
@@ -517,19 +537,25 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
     }
 
     private enum ViewKind {
-        PLAIN_KEY_VALUE(() -> plainKeyValueView()),
-        BINARY_KEY_VALUE(() -> binaryKeyValueView()),
-        PLAIN_RECORD(() -> plainRecordView()),
-        BINARY_RECORD(() -> binaryRecordView());
+        PLAIN_KEY_VALUE(() -> plainKeyValueView(), () -> plainKeyValueViewForInternalUse()),
+        BINARY_KEY_VALUE(() -> binaryKeyValueView(), () -> binaryKeyValueViewForInternalUse()),
+        PLAIN_RECORD(() -> plainRecordView(), () -> plainRecordViewForInternalUse()),
+        BINARY_RECORD(() -> binaryRecordView(), () -> binaryRecordViewForInternalUse());
 
         private final Supplier<CriteriaQuerySource<?>> viewSupplier;
+        private final Supplier<CriteriaQuerySource<?>> viewForInternalUseSupplier;
 
-        ViewKind(Supplier<CriteriaQuerySource<?>> viewSupplier) {
+        ViewKind(Supplier<CriteriaQuerySource<?>> viewSupplier, Supplier<CriteriaQuerySource<?>> viewForInternalUseSupplier) {
             this.viewSupplier = viewSupplier;
+            this.viewForInternalUseSupplier = viewForInternalUseSupplier;
         }
 
         CriteriaQuerySource<?> criteriaQuerySource() {
             return viewSupplier.get();
+        }
+
+        CriteriaQuerySource<?> criteriaQuerySourceForInternalUse() {
+            return viewForInternalUseSupplier.get();
         }
     }
 

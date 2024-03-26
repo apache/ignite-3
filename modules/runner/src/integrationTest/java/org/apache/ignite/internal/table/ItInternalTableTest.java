@@ -61,6 +61,7 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
@@ -156,430 +157,9 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
         table = null;
     }
 
-    @Test
-    public void testRoGet() throws Exception {
-        IgniteImpl node = node();
-
-        InternalTable internalTable = ((TableViewInternal) table).internalTable();
-
-        Row keyValueRow = createKeyValueRow(1, 1, "some string row" + 1);
-        Row keyRow = createKeyRow(1);
-
-        BinaryRow res = internalTable.get(keyRow, node.clock().now(), node.node()).get();
-
-        assertNull(res);
-
-        KeyValueView<Tuple, Tuple> keyValueView = table.keyValueView();
-
-        populateData(node, keyValueView, false);
-
-        res = internalTable.get(keyRow, node.clock().now(), node.node()).get();
-
-        assertThat(res, is(equalToRow(keyValueRow)));
+    private static TableViewInternal unwrapTableViewInternal(Table tableToUnwrap) {
+        return Wrappers.unwrap(tableToUnwrap, TableViewInternal.class);
     }
-
-    @Test
-    public void testRoGetWithSeveralInserts() throws Exception {
-        IgniteImpl node = node();
-
-        InternalTable internalTable = ((TableViewInternal) table).internalTable();
-
-        Row keyValueRow = createKeyValueRow(1, 1, "some string row" + 1);
-
-        Row keyValueRow2 = createKeyValueRow(1, 2, "some string row" + 2);
-
-        Row keyRow = createKeyRow(1);
-
-        assertNull(internalTable.get(keyRow, node.clock().now(), node.node()).get());
-        assertNull(internalTable.get(keyRow, node.clock().now(), node.node()).get());
-
-        Transaction tx1 = node.transactions().begin();
-
-        internalTable.upsert(keyValueRow, (InternalTransaction) tx1).get();
-
-        tx1.commit();
-
-        Transaction tx2 = node.transactions().begin();
-
-        internalTable.upsert(keyValueRow2, (InternalTransaction) tx2).get();
-
-        tx2.commit();
-
-        BinaryRow res = internalTable.get(keyRow, node.clock().now(), node.node()).get();
-
-        assertThat(res, is(equalToRow(keyValueRow2)));
-    }
-
-    @Test
-    public void testRoScanWithSeveralInserts() throws Exception {
-        IgniteImpl node = node();
-
-        InternalTable internalTable = ((TableViewInternal) table).internalTable();
-
-        Row keyValueRow = createKeyValueRow(1, 1, "some string row" + 1);
-
-        Row keyValueRow2 = createKeyValueRow(1, 2, "some string row" + 2);
-
-        Row keyRow = createKeyRow(1);
-
-        assertNull(internalTable.get(keyRow, node.clock().now(), node.node()).get());
-        assertNull(internalTable.get(keyRow, node.clock().now(), node.node()).get());
-
-        Transaction tx1 = node.transactions().begin();
-
-        internalTable.insert(keyValueRow, (InternalTransaction) tx1).get();
-
-        tx1.commit();
-
-        Transaction tx2 = node.transactions().begin();
-
-        internalTable.upsert(keyValueRow2, (InternalTransaction) tx2).get();
-
-        tx2.commit();
-
-        List<BinaryRow> list = scanAllPartitions(node);
-
-        assertThat(list, contains(equalToRow(keyValueRow2)));
-    }
-
-    @Test
-    public void testRoGetOngoingCommitIsNotVisible() throws Exception {
-        IgniteImpl node = node();
-
-        InternalTable internalTable = ((TableViewInternal) table).internalTable();
-
-        Row keyRow = createKeyRow(1);
-
-        Row keyValueRow = createKeyValueRow(1, 1, "some string row" + 1);
-
-        Row keyValueRow2 = createKeyValueRow(1, 2, "some string row" + 2);
-
-        assertNull(internalTable.get(keyRow, node.clock().now(), node.node()).get());
-
-        Transaction tx1 = node.transactions().begin();
-
-        internalTable.insert(keyValueRow, (InternalTransaction) tx1).get();
-
-        tx1.commit();
-
-        Transaction tx2 = node.transactions().begin();
-
-        internalTable.upsert(keyValueRow2, (InternalTransaction) tx2);
-
-        BinaryRow res = internalTable.get(keyRow, node.clock().now(), node.node()).get();
-
-        assertThat(res, is(equalToRow(keyValueRow)));
-
-        tx2.commit();
-
-        res = internalTable.get(keyRow, node.clock().now(), node.node()).get();
-
-        assertThat(res, is(equalToRow(keyValueRow2)));
-    }
-
-    @Test
-    public void testRoGetAll() throws Exception {
-        IgniteImpl node = node();
-
-        InternalTable internalTable = ((TableViewInternal) table).internalTable();
-
-        var keyRows = new ArrayList<BinaryRowEx>();
-        var keyValueRows = new ArrayList<BinaryRowEx>();
-
-        for (int i = 1; i <= 3; i++) {
-            keyRows.add(createKeyRow(i));
-            keyValueRows.add(createKeyValueRow(i, i, "some string row" + i));
-        }
-
-        KeyValueView<Tuple, Tuple> keyValueView = table.keyValueView();
-
-        List<BinaryRow> res = internalTable.getAll(keyRows, node.clock().now(), node.node()).get();
-
-        assertEquals(3, res.size());
-
-        node.transactions().runInTransaction(txs -> {
-            for (int i = 0; i < 15; i++) {
-                putValue(keyValueView, i, txs);
-            }
-        });
-
-        res = internalTable.getAll(keyRows, node.clock().now(), node.node()).get();
-
-        assertThat(res, contains(equalToRow(keyValueRows.get(0)), equalToRow(keyValueRows.get(1)), equalToRow(keyValueRows.get(2))));
-    }
-
-    @Test
-    public void testRoGetAllWithSeveralInserts() throws Exception {
-        IgniteImpl node = node();
-
-        InternalTable internalTable = ((TableViewInternal) table).internalTable();
-
-        var keyRows = new ArrayList<BinaryRowEx>();
-        var keyValueRows = new ArrayList<BinaryRowEx>();
-
-        for (int i = 1; i <= 3; i++) {
-            keyRows.add(createKeyRow(i));
-            keyValueRows.add(createKeyValueRow(i, i, "some string row" + i));
-        }
-
-        KeyValueView<Tuple, Tuple> keyValueView = table.keyValueView();
-
-        List<BinaryRow> res = internalTable.getAll(keyRows, node.clock().now(), node.node()).get();
-
-        assertEquals(3, res.size());
-
-        populateData(node(), keyValueView, false);
-
-        res = internalTable.getAll(keyRows, node.clock().now(), node.node()).get();
-
-        assertThat(res, contains(equalToRow(keyValueRows.get(0)), equalToRow(keyValueRows.get(1)), equalToRow(keyValueRows.get(2))));
-
-        node.transactions().runInTransaction(txs -> {
-            for (int i = 0; i < 15; i++) {
-                putValue(keyValueView, i + 100, txs);
-            }
-        });
-
-        Row newKeyValueRow1 = createKeyValueRow(1, 101, "some string row" + 101);
-        Row newKeyValueRow2 = createKeyValueRow(2, 102, "some string row" + 102);
-        Row newKeyValueRow3 = createKeyValueRow(3, 103, "some string row" + 103);
-
-        res = internalTable.getAll(keyRows, node.clock().now(), node.node()).get();
-
-        assertThat(res, contains(equalToRow(newKeyValueRow1), equalToRow(newKeyValueRow2), equalToRow(newKeyValueRow3)));
-    }
-
-    @Test
-    public void testRoScanAllImplicitPopulatingData() throws InterruptedException {
-        roScanAll(true);
-    }
-
-    @Test
-    public void testRoScanAllExplicitPopulatingData() throws InterruptedException {
-        roScanAll(false);
-    }
-
-    @Test
-    public void getAllOrderTest() {
-        List<BinaryRowEx> keyRows = populateEvenKeysAndPrepareEntriesToLookup(true);
-
-        InternalTable internalTable = ((TableViewInternal) table).internalTable();
-        SchemaDescriptor schemaDescriptor = ((TableViewInternal) table).schemaView().lastKnownSchema();
-
-        CompletableFuture<List<BinaryRow>> getAllFut = internalTable.getAll(keyRows, null);
-
-        assertThat(getAllFut, willCompleteSuccessfully());
-
-        List<BinaryRow> res = getAllFut.join();
-
-        assertEquals(keyRows.size(), res.size());
-
-        Iterator<BinaryRow> resIter = res.iterator();
-
-        for (BinaryRowEx key : keyRows) {
-            int i = TableRow.keyTuple(Row.wrapKeyOnlyBinaryRow(schemaDescriptor, key)).<Long>value("key").intValue();
-
-            BinaryRow resRow = resIter.next();
-
-            if (i % 2 == 1) {
-                assertNull(resRow);
-            } else {
-                assertNotNull(resRow);
-
-                Tuple rowTuple = TableRow.tuple(Row.wrapBinaryRow(schemaDescriptor, resRow));
-
-                assertEquals(i % 100L, rowTuple.<Long>value("key"));
-                assertEquals(i, rowTuple.<Integer>value("valInt"));
-                assertEquals("some string row" + i, rowTuple.<Integer>value("valStr"));
-            }
-        }
-    }
-
-    @Test
-    public void deleteAllOrderTest() {
-        List<BinaryRowEx> keyRows = populateEvenKeysAndPrepareEntriesToLookup(true);
-
-        InternalTable internalTable = ((TableViewInternal) table).internalTable();
-        SchemaDescriptor schemaDescriptor = ((TableViewInternal) table).schemaView().lastKnownSchema();
-
-        CompletableFuture<List<BinaryRow>> deleteAllFut = internalTable.deleteAll(keyRows, null);
-
-        assertThat(deleteAllFut, willCompleteSuccessfully());
-
-        List<BinaryRow> res = deleteAllFut.join();
-
-        Iterator<BinaryRow> resIter = res.iterator();
-
-        for (BinaryRowEx key : keyRows) {
-            int i = TableRow.keyTuple(Row.wrapKeyOnlyBinaryRow(schemaDescriptor, key)).<Long>value("key").intValue();
-
-            if (i % 2 == 1) {
-                Tuple rowTuple = TableRow.keyTuple(Row.wrapKeyOnlyBinaryRow(schemaDescriptor, resIter.next()));
-
-                assertEquals(i % 100L, rowTuple.<Long>value("key"));
-            }
-        }
-    }
-
-    @Test
-    public void deleteAllExactOrderTest() {
-        List<BinaryRowEx> rowsToLookup = populateEvenKeysAndPrepareEntriesToLookup(false);
-
-        InternalTable internalTable = ((TableViewInternal) table).internalTable();
-        SchemaDescriptor schemaDescriptor = ((TableViewInternal) table).schemaView().lastKnownSchema();
-
-        CompletableFuture<List<BinaryRow>> deleteAllExactFut = internalTable.deleteAllExact(rowsToLookup, null);
-
-        assertThat(deleteAllExactFut, willCompleteSuccessfully());
-
-        List<BinaryRow> res = deleteAllExactFut.join();
-
-        Iterator<BinaryRow> resIter = res.iterator();
-
-        for (BinaryRowEx key : rowsToLookup) {
-            int i = TableRow.tuple(Row.wrapBinaryRow(schemaDescriptor, key)).<Long>value("key").intValue();
-
-            if (i % 2 == 1) {
-                Tuple rowTuple = TableRow.tuple(Row.wrapBinaryRow(schemaDescriptor, resIter.next()));
-
-                assertEquals(i % 100L, rowTuple.<Long>value("key"));
-                assertEquals(i, rowTuple.<Integer>value("valInt"));
-                assertEquals("some string row" + i, rowTuple.<Integer>value("valStr"));
-            }
-        }
-    }
-
-    @Test
-    public void insertAllOrderTest() {
-        List<BinaryRowEx> rowsToLookup = populateEvenKeysAndPrepareEntriesToLookup(false);
-
-        InternalTable internalTable = ((TableViewInternal) table).internalTable();
-        SchemaDescriptor schemaDescriptor = ((TableViewInternal) table).schemaView().lastKnownSchema();
-
-        CompletableFuture<List<BinaryRow>> insertAllFut = internalTable.insertAll(rowsToLookup, null);
-
-        assertThat(insertAllFut, willCompleteSuccessfully());
-
-        List<BinaryRow> res = insertAllFut.join();
-
-        Iterator<BinaryRow> resIter = res.iterator();
-
-        for (BinaryRowEx key : rowsToLookup) {
-            int i = TableRow.tuple(Row.wrapBinaryRow(schemaDescriptor, key)).<Long>value("key").intValue();
-
-            if (i % 2 == 0) {
-                Tuple rowTuple = TableRow.tuple(Row.wrapBinaryRow(schemaDescriptor, resIter.next()));
-
-                assertEquals(i % 100L, rowTuple.<Long>value("key"));
-                assertEquals(i, rowTuple.<Integer>value("valInt"));
-                assertEquals("some string row" + i, rowTuple.<Integer>value("valStr"));
-            }
-        }
-    }
-
-    @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    public void updateAllOrderTest(boolean existingKey) {
-        RecordView<Tuple> view = table.recordView();
-        InternalTable internalTable = ((TableViewInternal) table).internalTable();
-        List<BinaryRowEx> rows = new ArrayList<>();
-
-        int count = 100;
-        int lastId = count - 1;
-        long id = existingKey ? 1 : 12345;
-        BitSet deleted = new BitSet(count);
-
-        if (existingKey) {
-            view.upsert(null, Tuple.create().set("key", id).set("valInt", 1).set("valStr", "val1"));
-        }
-
-        for (int i = 0; i < count; i++) {
-            if (i % 2 == 0) {
-                rows.add(createKeyRow(id));
-                deleted.set(i);
-            } else {
-                rows.add(createKeyValueRow(id, i, "row-" + i));
-            }
-        }
-
-        int partitionId = internalTable.partitionId(rows.get(0));
-
-        internalTable.updateAll(rows, deleted, partitionId).join();
-
-        Tuple res = view.get(null, Tuple.create().set("key", id));
-        assertEquals(lastId, res.intValue("valInt"));
-        assertEquals("row-" + lastId, res.stringValue("valStr"));
-    }
-
-    @Test
-    public void updateAllWithDeleteTest() {
-        InternalTable internalTable = ((TableViewInternal) table).internalTable();
-
-        RecordView<Tuple> view = table.recordView();
-        view.upsert(null, Tuple.create().set("key", 1L).set("valInt", 1).set("valStr", "val1"));
-        view.upsert(null, Tuple.create().set("key", 3L).set("valInt", 3).set("valStr", "val3"));
-
-        // Update, insert, delete.
-        List<BinaryRowEx> rows = List.of(
-                createKeyValueRow(1, 11, "val11"),
-                createKeyValueRow(3, 2, "val2"),
-                createKeyRow(5)
-        );
-
-        int partitionId = internalTable.partitionId(rows.get(0));
-
-        for (int i = 0; i < rows.size(); i++) {
-            assertEquals(partitionId, internalTable.partitionId(rows.get(i)), "Unexpected partition for row " + i);
-        }
-
-        BitSet deleted = new BitSet(3);
-        deleted.set(2);
-        internalTable.updateAll(rows, deleted, partitionId).join();
-
-        var row1 = view.get(null, Tuple.create().set("key", 1L));
-        assertEquals(11, row1.intValue("valInt"));
-
-        var row2 = view.get(null, Tuple.create().set("key", 3L));
-        assertEquals(2, row2.intValue("valInt"));
-
-        var row3 = view.get(null, Tuple.create().set("key", 5L));
-        assertNull(row3);
-    }
-
-    private ArrayList<BinaryRowEx> populateEvenKeysAndPrepareEntriesToLookup(boolean keyOnly) {
-        KeyValueView<Tuple, Tuple> keyValueView = table.keyValueView();
-
-        var keyRows = new ArrayList<BinaryRowEx>();
-
-        for (int i = 0; i < 15; i++) {
-            keyRows.add(keyOnly ? createKeyRow(i) : createKeyValueRow(i, i, "some string row" + i));
-
-            if (i % 2 == 0) {
-                putValue(keyValueView, i);
-            }
-        }
-
-        Collections.shuffle(keyRows);
-
-        return keyRows;
-    }
-
-    private void roScanAll(boolean implicit) throws InterruptedException {
-        IgniteImpl node = node();
-
-        KeyValueView<Tuple, Tuple> keyValueView = table.keyValueView();
-
-        List<BinaryRow> retrievedItems = scanAllPartitions(node);
-
-        assertEquals(0, retrievedItems.size());
-
-        populateData(node, keyValueView, implicit);
-
-        retrievedItems = scanAllPartitions(node);
-
-        assertEquals(15, retrievedItems.size());
-    }
-
 
     /**
      * Scans all table entries.
@@ -589,7 +169,7 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
      * @throws InterruptedException If fail.
      */
     private static List<BinaryRow> scanAllPartitions(IgniteImpl node) throws InterruptedException {
-        InternalTable internalTable = ((TableViewInternal) node.tables().table(TABLE_NAME)).internalTable();
+        InternalTable internalTable = (unwrapTableViewInternal(node.tables().table(TABLE_NAME))).internalTable();
 
         List<BinaryRow> retrievedItems = new CopyOnWriteArrayList<>();
 
@@ -631,6 +211,430 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
         roTx.commit();
 
         return retrievedItems;
+    }
+
+    @Test
+    public void testRoGet() throws Exception {
+        IgniteImpl node = node();
+
+        InternalTable internalTable = unwrapTableViewInternal(table).internalTable();
+
+        Row keyValueRow = createKeyValueRow(1, 1, "some string row" + 1);
+        Row keyRow = createKeyRow(1);
+
+        BinaryRow res = internalTable.get(keyRow, node.clock().now(), node.node()).get();
+
+        assertNull(res);
+
+        KeyValueView<Tuple, Tuple> keyValueView = table.keyValueView();
+
+        populateData(node, keyValueView, false);
+
+        res = internalTable.get(keyRow, node.clock().now(), node.node()).get();
+
+        assertThat(res, is(equalToRow(keyValueRow)));
+    }
+
+    @Test
+    public void testRoGetWithSeveralInserts() throws Exception {
+        IgniteImpl node = node();
+
+        InternalTable internalTable = unwrapTableViewInternal(table).internalTable();
+
+        Row keyValueRow = createKeyValueRow(1, 1, "some string row" + 1);
+
+        Row keyValueRow2 = createKeyValueRow(1, 2, "some string row" + 2);
+
+        Row keyRow = createKeyRow(1);
+
+        assertNull(internalTable.get(keyRow, node.clock().now(), node.node()).get());
+        assertNull(internalTable.get(keyRow, node.clock().now(), node.node()).get());
+
+        Transaction tx1 = node.transactions().begin();
+
+        internalTable.upsert(keyValueRow, (InternalTransaction) tx1).get();
+
+        tx1.commit();
+
+        Transaction tx2 = node.transactions().begin();
+
+        internalTable.upsert(keyValueRow2, (InternalTransaction) tx2).get();
+
+        tx2.commit();
+
+        BinaryRow res = internalTable.get(keyRow, node.clock().now(), node.node()).get();
+
+        assertThat(res, is(equalToRow(keyValueRow2)));
+    }
+
+    @Test
+    public void testRoScanWithSeveralInserts() throws Exception {
+        IgniteImpl node = node();
+
+        InternalTable internalTable = unwrapTableViewInternal(table).internalTable();
+
+        Row keyValueRow = createKeyValueRow(1, 1, "some string row" + 1);
+
+        Row keyValueRow2 = createKeyValueRow(1, 2, "some string row" + 2);
+
+        Row keyRow = createKeyRow(1);
+
+        assertNull(internalTable.get(keyRow, node.clock().now(), node.node()).get());
+        assertNull(internalTable.get(keyRow, node.clock().now(), node.node()).get());
+
+        Transaction tx1 = node.transactions().begin();
+
+        internalTable.insert(keyValueRow, (InternalTransaction) tx1).get();
+
+        tx1.commit();
+
+        Transaction tx2 = node.transactions().begin();
+
+        internalTable.upsert(keyValueRow2, (InternalTransaction) tx2).get();
+
+        tx2.commit();
+
+        List<BinaryRow> list = scanAllPartitions(node);
+
+        assertThat(list, contains(equalToRow(keyValueRow2)));
+    }
+
+    @Test
+    public void testRoGetOngoingCommitIsNotVisible() throws Exception {
+        IgniteImpl node = node();
+
+        InternalTable internalTable = unwrapTableViewInternal(table).internalTable();
+
+        Row keyRow = createKeyRow(1);
+
+        Row keyValueRow = createKeyValueRow(1, 1, "some string row" + 1);
+
+        Row keyValueRow2 = createKeyValueRow(1, 2, "some string row" + 2);
+
+        assertNull(internalTable.get(keyRow, node.clock().now(), node.node()).get());
+
+        Transaction tx1 = node.transactions().begin();
+
+        internalTable.insert(keyValueRow, (InternalTransaction) tx1).get();
+
+        tx1.commit();
+
+        Transaction tx2 = node.transactions().begin();
+
+        internalTable.upsert(keyValueRow2, (InternalTransaction) tx2);
+
+        BinaryRow res = internalTable.get(keyRow, node.clock().now(), node.node()).get();
+
+        assertThat(res, is(equalToRow(keyValueRow)));
+
+        tx2.commit();
+
+        res = internalTable.get(keyRow, node.clock().now(), node.node()).get();
+
+        assertThat(res, is(equalToRow(keyValueRow2)));
+    }
+
+    @Test
+    public void testRoGetAll() throws Exception {
+        IgniteImpl node = node();
+
+        InternalTable internalTable = unwrapTableViewInternal(table).internalTable();
+
+        var keyRows = new ArrayList<BinaryRowEx>();
+        var keyValueRows = new ArrayList<BinaryRowEx>();
+
+        for (int i = 1; i <= 3; i++) {
+            keyRows.add(createKeyRow(i));
+            keyValueRows.add(createKeyValueRow(i, i, "some string row" + i));
+        }
+
+        KeyValueView<Tuple, Tuple> keyValueView = table.keyValueView();
+
+        List<BinaryRow> res = internalTable.getAll(keyRows, node.clock().now(), node.node()).get();
+
+        assertEquals(3, res.size());
+
+        node.transactions().runInTransaction(txs -> {
+            for (int i = 0; i < 15; i++) {
+                putValue(keyValueView, i, txs);
+            }
+        });
+
+        res = internalTable.getAll(keyRows, node.clock().now(), node.node()).get();
+
+        assertThat(res, contains(equalToRow(keyValueRows.get(0)), equalToRow(keyValueRows.get(1)), equalToRow(keyValueRows.get(2))));
+    }
+
+    @Test
+    public void testRoScanAllImplicitPopulatingData() throws InterruptedException {
+        roScanAll(true);
+    }
+
+    @Test
+    public void testRoScanAllExplicitPopulatingData() throws InterruptedException {
+        roScanAll(false);
+    }
+
+    @Test
+    public void testRoGetAllWithSeveralInserts() throws Exception {
+        IgniteImpl node = node();
+
+        InternalTable internalTable = unwrapTableViewInternal(table).internalTable();
+
+        var keyRows = new ArrayList<BinaryRowEx>();
+        var keyValueRows = new ArrayList<BinaryRowEx>();
+
+        for (int i = 1; i <= 3; i++) {
+            keyRows.add(createKeyRow(i));
+            keyValueRows.add(createKeyValueRow(i, i, "some string row" + i));
+        }
+
+        KeyValueView<Tuple, Tuple> keyValueView = table.keyValueView();
+
+        List<BinaryRow> res = internalTable.getAll(keyRows, node.clock().now(), node.node()).get();
+
+        assertEquals(3, res.size());
+
+        populateData(node(), keyValueView, false);
+
+        res = internalTable.getAll(keyRows, node.clock().now(), node.node()).get();
+
+        assertThat(res, contains(equalToRow(keyValueRows.get(0)), equalToRow(keyValueRows.get(1)), equalToRow(keyValueRows.get(2))));
+
+        node.transactions().runInTransaction(txs -> {
+            for (int i = 0; i < 15; i++) {
+                putValue(keyValueView, i + 100, txs);
+            }
+        });
+
+        Row newKeyValueRow1 = createKeyValueRow(1, 101, "some string row" + 101);
+        Row newKeyValueRow2 = createKeyValueRow(2, 102, "some string row" + 102);
+        Row newKeyValueRow3 = createKeyValueRow(3, 103, "some string row" + 103);
+
+        res = internalTable.getAll(keyRows, node.clock().now(), node.node()).get();
+
+        assertThat(res, contains(equalToRow(newKeyValueRow1), equalToRow(newKeyValueRow2), equalToRow(newKeyValueRow3)));
+    }
+
+    @Test
+    public void getAllOrderTest() {
+        List<BinaryRowEx> keyRows = populateEvenKeysAndPrepareEntriesToLookup(true);
+
+        InternalTable internalTable = unwrapTableViewInternal(table).internalTable();
+        SchemaDescriptor schemaDescriptor = unwrapTableViewInternal(table).schemaView().lastKnownSchema();
+
+        CompletableFuture<List<BinaryRow>> getAllFut = internalTable.getAll(keyRows, null);
+
+        assertThat(getAllFut, willCompleteSuccessfully());
+
+        List<BinaryRow> res = getAllFut.join();
+
+        assertEquals(keyRows.size(), res.size());
+
+        Iterator<BinaryRow> resIter = res.iterator();
+
+        for (BinaryRowEx key : keyRows) {
+            int i = TableRow.keyTuple(Row.wrapKeyOnlyBinaryRow(schemaDescriptor, key)).<Long>value("key").intValue();
+
+            BinaryRow resRow = resIter.next();
+
+            if (i % 2 == 1) {
+                assertNull(resRow);
+            } else {
+                assertNotNull(resRow);
+
+                Tuple rowTuple = TableRow.tuple(Row.wrapBinaryRow(schemaDescriptor, resRow));
+
+                assertEquals(i % 100L, rowTuple.<Long>value("key"));
+                assertEquals(i, rowTuple.<Integer>value("valInt"));
+                assertEquals("some string row" + i, rowTuple.<Integer>value("valStr"));
+            }
+        }
+    }
+
+    @Test
+    public void deleteAllOrderTest() {
+        List<BinaryRowEx> keyRows = populateEvenKeysAndPrepareEntriesToLookup(true);
+
+        InternalTable internalTable = unwrapTableViewInternal(table).internalTable();
+        SchemaDescriptor schemaDescriptor = unwrapTableViewInternal(table).schemaView().lastKnownSchema();
+
+        CompletableFuture<List<BinaryRow>> deleteAllFut = internalTable.deleteAll(keyRows, null);
+
+        assertThat(deleteAllFut, willCompleteSuccessfully());
+
+        List<BinaryRow> res = deleteAllFut.join();
+
+        Iterator<BinaryRow> resIter = res.iterator();
+
+        for (BinaryRowEx key : keyRows) {
+            int i = TableRow.keyTuple(Row.wrapKeyOnlyBinaryRow(schemaDescriptor, key)).<Long>value("key").intValue();
+
+            if (i % 2 == 1) {
+                Tuple rowTuple = TableRow.keyTuple(Row.wrapKeyOnlyBinaryRow(schemaDescriptor, resIter.next()));
+
+                assertEquals(i % 100L, rowTuple.<Long>value("key"));
+            }
+        }
+    }
+
+    @Test
+    public void deleteAllExactOrderTest() {
+        List<BinaryRowEx> rowsToLookup = populateEvenKeysAndPrepareEntriesToLookup(false);
+
+        InternalTable internalTable = unwrapTableViewInternal(table).internalTable();
+        SchemaDescriptor schemaDescriptor = unwrapTableViewInternal(table).schemaView().lastKnownSchema();
+
+        CompletableFuture<List<BinaryRow>> deleteAllExactFut = internalTable.deleteAllExact(rowsToLookup, null);
+
+        assertThat(deleteAllExactFut, willCompleteSuccessfully());
+
+        List<BinaryRow> res = deleteAllExactFut.join();
+
+        Iterator<BinaryRow> resIter = res.iterator();
+
+        for (BinaryRowEx key : rowsToLookup) {
+            int i = TableRow.tuple(Row.wrapBinaryRow(schemaDescriptor, key)).<Long>value("key").intValue();
+
+            if (i % 2 == 1) {
+                Tuple rowTuple = TableRow.tuple(Row.wrapBinaryRow(schemaDescriptor, resIter.next()));
+
+                assertEquals(i % 100L, rowTuple.<Long>value("key"));
+                assertEquals(i, rowTuple.<Integer>value("valInt"));
+                assertEquals("some string row" + i, rowTuple.<Integer>value("valStr"));
+            }
+        }
+    }
+
+    @Test
+    public void insertAllOrderTest() {
+        List<BinaryRowEx> rowsToLookup = populateEvenKeysAndPrepareEntriesToLookup(false);
+
+        InternalTable internalTable = unwrapTableViewInternal(table).internalTable();
+        SchemaDescriptor schemaDescriptor = unwrapTableViewInternal(table).schemaView().lastKnownSchema();
+
+        CompletableFuture<List<BinaryRow>> insertAllFut = internalTable.insertAll(rowsToLookup, null);
+
+        assertThat(insertAllFut, willCompleteSuccessfully());
+
+        List<BinaryRow> res = insertAllFut.join();
+
+        Iterator<BinaryRow> resIter = res.iterator();
+
+        for (BinaryRowEx key : rowsToLookup) {
+            int i = TableRow.tuple(Row.wrapBinaryRow(schemaDescriptor, key)).<Long>value("key").intValue();
+
+            if (i % 2 == 0) {
+                Tuple rowTuple = TableRow.tuple(Row.wrapBinaryRow(schemaDescriptor, resIter.next()));
+
+                assertEquals(i % 100L, rowTuple.<Long>value("key"));
+                assertEquals(i, rowTuple.<Integer>value("valInt"));
+                assertEquals("some string row" + i, rowTuple.<Integer>value("valStr"));
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void updateAllOrderTest(boolean existingKey) {
+        RecordView<Tuple> view = table.recordView();
+        InternalTable internalTable = unwrapTableViewInternal(table).internalTable();
+        List<BinaryRowEx> rows = new ArrayList<>();
+
+        int count = 100;
+        int lastId = count - 1;
+        long id = existingKey ? 1 : 12345;
+        BitSet deleted = new BitSet(count);
+
+        if (existingKey) {
+            view.upsert(null, Tuple.create().set("key", id).set("valInt", 1).set("valStr", "val1"));
+        }
+
+        for (int i = 0; i < count; i++) {
+            if (i % 2 == 0) {
+                rows.add(createKeyRow(id));
+                deleted.set(i);
+            } else {
+                rows.add(createKeyValueRow(id, i, "row-" + i));
+            }
+        }
+
+        int partitionId = internalTable.partitionId(rows.get(0));
+
+        internalTable.updateAll(rows, deleted, partitionId).join();
+
+        Tuple res = view.get(null, Tuple.create().set("key", id));
+        assertEquals(lastId, res.intValue("valInt"));
+        assertEquals("row-" + lastId, res.stringValue("valStr"));
+    }
+
+    private ArrayList<BinaryRowEx> populateEvenKeysAndPrepareEntriesToLookup(boolean keyOnly) {
+        KeyValueView<Tuple, Tuple> keyValueView = table.keyValueView();
+
+        var keyRows = new ArrayList<BinaryRowEx>();
+
+        for (int i = 0; i < 15; i++) {
+            keyRows.add(keyOnly ? createKeyRow(i) : createKeyValueRow(i, i, "some string row" + i));
+
+            if (i % 2 == 0) {
+                putValue(keyValueView, i);
+            }
+        }
+
+        Collections.shuffle(keyRows);
+
+        return keyRows;
+    }
+
+    private void roScanAll(boolean implicit) throws InterruptedException {
+        IgniteImpl node = node();
+
+        KeyValueView<Tuple, Tuple> keyValueView = table.keyValueView();
+
+        List<BinaryRow> retrievedItems = scanAllPartitions(node);
+
+        assertEquals(0, retrievedItems.size());
+
+        populateData(node, keyValueView, implicit);
+
+        retrievedItems = scanAllPartitions(node);
+
+        assertEquals(15, retrievedItems.size());
+    }
+
+    @Test
+    public void updateAllWithDeleteTest() {
+        InternalTable internalTable = unwrapTableViewInternal(table).internalTable();
+
+        RecordView<Tuple> view = table.recordView();
+        view.upsert(null, Tuple.create().set("key", 1L).set("valInt", 1).set("valStr", "val1"));
+        view.upsert(null, Tuple.create().set("key", 3L).set("valInt", 3).set("valStr", "val3"));
+
+        // Update, insert, delete.
+        List<BinaryRowEx> rows = List.of(
+                createKeyValueRow(1, 11, "val11"),
+                createKeyValueRow(3, 2, "val2"),
+                createKeyRow(5)
+        );
+
+        int partitionId = internalTable.partitionId(rows.get(0));
+
+        for (int i = 0; i < rows.size(); i++) {
+            assertEquals(partitionId, internalTable.partitionId(rows.get(i)), "Unexpected partition for row " + i);
+        }
+
+        BitSet deleted = new BitSet(3);
+        deleted.set(2);
+        internalTable.updateAll(rows, deleted, partitionId).join();
+
+        var row1 = view.get(null, Tuple.create().set("key", 1L));
+        assertEquals(11, row1.intValue("valInt"));
+
+        var row2 = view.get(null, Tuple.create().set("key", 3L));
+        assertEquals(2, row2.intValue("valInt"));
+
+        var row3 = view.get(null, Tuple.create().set("key", 5L));
+        assertNull(row3);
     }
 
     private static Row createKeyValueRow(long id, int value, String str) {

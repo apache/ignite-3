@@ -44,6 +44,7 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.type.NativeTypeSpec;
+import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
@@ -92,9 +93,10 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
             sql("insert into test1 values(?, ?, ?)", i, generateValueByType(i, type), 0);
         }
 
-        int parts = ((TableViewInternal) CLUSTER.aliveNode().tables().table("test0")).internalTable().partitions();
-        TableViewInternal tbl0 = (TableViewInternal) CLUSTER.aliveNode().tables().table("test0");
-        TableViewInternal tbl1 = (TableViewInternal) CLUSTER.aliveNode().tables().table("test1");
+        TableViewInternal tableViewInternal = unwrapTableViewInternal(CLUSTER.aliveNode().tables().table("test0"));
+        int parts = tableViewInternal.internalTable().partitions();
+        TableViewInternal tbl0 = unwrapTableViewInternal(CLUSTER.aliveNode().tables().table("test0"));
+        TableViewInternal tbl1 = unwrapTableViewInternal(CLUSTER.aliveNode().tables().table("test1"));
 
         for (int i = 0; i < parts; ++i) {
             List<Tuple> r0 = getAll(tbl0, i);
@@ -114,6 +116,10 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
 
             assertTrue(ids0.isEmpty());
         }
+    }
+
+    private static TableViewInternal unwrapTableViewInternal(Table table) {
+        return Wrappers.unwrap(table, TableViewInternal.class);
     }
 
     /**

@@ -26,6 +26,7 @@ import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
+import org.apache.ignite.internal.wrapper.Wrappers;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -63,7 +64,7 @@ public class ItRebalanceRecoveryTest extends ClusterPerTestIntegrationTest {
     }
 
     private static boolean containsPartition(Ignite node) {
-        var tableManager = ((TableManager) node.tables());
+        TableManager tableManager = Wrappers.unwrap(node.tables(), TableManager.class);
 
         MvPartitionStorage storage = tableManager.tableView("TEST")
                 .internalTable()

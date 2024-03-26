@@ -43,6 +43,7 @@ import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
+import org.apache.ignite.internal.wrapper.Wrappers;
 import org.junit.jupiter.api.Test;
 import org.rocksdb.ColumnFamilyDescriptor;
 import org.rocksdb.ColumnFamilyHandle;
@@ -107,7 +108,7 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
     }
 
     private int testTableId(IgniteImpl ignite) {
-        TableManager tables = (TableManager) ignite.tables();
+        TableManager tables = Wrappers.unwrap(ignite.tables(), TableManager.class);
         return tables.tableView(TABLE_NAME).tableId();
     }
 

@@ -58,7 +58,9 @@ import org.apache.ignite.internal.testframework.flow.TestFlowUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.apache.ignite.internal.utils.PrimaryReplica;
+import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
@@ -112,36 +114,8 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
         });
     }
 
-    @Test
-    public void testPrimaryChangeSubscription() throws Exception {
-        TableViewInternal tbl = (TableViewInternal) node(0).tables().table(TABLE_NAME);
-
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
-
-        CompletableFuture<ReplicaMeta> primaryReplicaFut = node(0).placementDriver().awaitPrimaryReplica(
-                tblReplicationGrp,
-                node(0).clock().now(),
-                AWAIT_PRIMARY_REPLICA_TIMEOUT,
-                SECONDS
-        );
-
-        assertThat(primaryReplicaFut, willCompleteSuccessfully());
-
-        String primary = primaryReplicaFut.get().getLeaseholder();
-
-        IgniteImpl ignite = node(primary);
-
-        AtomicBoolean primaryChanged = new AtomicBoolean();
-
-        ignite.placementDriver().listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, evt -> {
-            primaryChanged.set(true);
-
-            return falseCompletedFuture();
-        });
-
-        NodeUtils.transferPrimary(tbl, null, this::node);
-
-        assertTrue(primaryChanged.get());
+    private static TableViewInternal unwrapTableViewInternal(Table table) {
+        return Wrappers.unwrap(table, TableViewInternal.class);
     }
 
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-21382")
@@ -185,6 +159,38 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
         assertEquals(primary, primaryChangeTask.get());
     }
 
+    @Test
+    public void testPrimaryChangeSubscription() throws Exception {
+        TableViewInternal tbl = unwrapTableViewInternal(node(0).tables().table(TABLE_NAME));
+
+        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
+
+        CompletableFuture<ReplicaMeta> primaryReplicaFut = node(0).placementDriver().awaitPrimaryReplica(
+                tblReplicationGrp,
+                node(0).clock().now(),
+                AWAIT_PRIMARY_REPLICA_TIMEOUT,
+                SECONDS
+        );
+
+        assertThat(primaryReplicaFut, willCompleteSuccessfully());
+
+        String primary = primaryReplicaFut.get().getLeaseholder();
+
+        IgniteImpl ignite = node(primary);
+
+        AtomicBoolean primaryChanged = new AtomicBoolean();
+
+        ignite.placementDriver().listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, evt -> {
+            primaryChanged.set(true);
+
+            return falseCompletedFuture();
+        });
+
+        NodeUtils.transferPrimary(tbl, null, this::node);
+
+        assertTrue(primaryChanged.get());
+    }
+
     /**
      * The test checks cleanup two types of resources: locks (which are used to support transaction logic) and cursors (which are used to
      * hold a context of scan operations on the server side).
@@ -194,7 +200,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
     @Test
     @WithSystemProperty(key = IgniteSystemProperties.THREAD_ASSERTIONS_ENABLED, value = "false")
     public void testClearingTransactionResourcesWhenPrimaryChange() throws Exception {
-        TableViewInternal tbl = (TableViewInternal) node(0).tables().table(TABLE_NAME);
+        TableViewInternal tbl = unwrapTableViewInternal(node(0).tables().table(TABLE_NAME));
 
         for (int i = 0; i < 10; i++) {
             assertTrue(tbl.recordView().insert(null, Tuple.create().set("key", i).set("val", "preload val")));
@@ -235,13 +241,14 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
         scanSingleEntryAndLeaveCursorOpen(tbl, roTx, hashIdxId, idxKey);
         scanSingleEntryAndLeaveCursorOpen(tbl, roTx, sortedIdxId, null);
 
-        var partitionStorage = (TestMvPartitionStorage) ((TableViewInternal) ignite.tables().table(TABLE_NAME))
+        TableViewInternal tableViewInternal = Wrappers.unwrap(ignite.tables().table(TABLE_NAME), TableViewInternal.class);
+        var partitionStorage = (TestMvPartitionStorage) tableViewInternal
                 .internalTable().storage().getMvPartition(PART_ID);
 
-        var hashIdxStorage = (TestHashIndexStorage) ((TableViewInternal) ignite.tables().table(TABLE_NAME))
+        var hashIdxStorage = (TestHashIndexStorage) tableViewInternal
                 .internalTable().storage().getIndex(PART_ID, hashIdxId);
 
-        var sortedIdxStorage = (TestSortedIndexStorage) ((TableViewInternal) ignite.tables().table(TABLE_NAME))
+        var sortedIdxStorage = (TestSortedIndexStorage) tableViewInternal
                 .internalTable().storage().getIndex(PART_ID, sortedIdxId);
 
         assertTrue(ignite.txManager().lockManager().locks(rwTx.id()).hasNext());
