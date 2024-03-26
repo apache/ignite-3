@@ -252,8 +252,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             ThreadAttributes thread = (ThreadAttributes) Thread.currentThread();
             return !thread.allows(STORAGE_READ) || !thread.allows(STORAGE_WRITE);
         } else {
-            // We don't know for sure.
-            return false;
+            // We don't know for sure, but false negative will cause thread assertions (see ThreadAssertions#assertThreadAllowsTo).
+            return true;
         }
     }
 
