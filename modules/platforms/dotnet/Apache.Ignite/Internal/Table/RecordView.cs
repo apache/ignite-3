@@ -313,6 +313,7 @@ namespace Apache.Ignite.Internal.Table
                 schemaProvider: _table.GetSchemaAsync,
                 partitionAssignmentProvider: () => _table.GetPartitionAssignmentAsync(),
                 options ?? DataStreamerOptions.Default,
+                _table.Socket.ClientId,
                 cancellationToken).ConfigureAwait(false);
 
         /// <inheritdoc/>

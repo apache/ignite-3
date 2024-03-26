@@ -45,9 +45,6 @@ namespace Apache.Ignite.Internal
         /** Current global endpoint index for Round-robin. */
         private static long _globalEndPointIndex;
 
-        /** Unique client ID for logging and metrics. */
-        private readonly Guid _clientId = Guid.NewGuid();
-
         /** Logger. */
         private readonly ILogger _logger;
 
@@ -114,6 +111,11 @@ namespace Apache.Ignite.Internal
         /// Gets the observable timestamp.
         /// </summary>
         public long ObservableTimestamp => Interlocked.Read(ref _observableTimestamp);
+
+        /// <summary>
+        /// Gets the client ID.
+        /// </summary>
+        public Guid ClientId { get; } = Guid.NewGuid();
 
         /// <summary>
         /// Connects the socket.
@@ -535,7 +537,7 @@ namespace Apache.Ignite.Internal
         private IEnumerable<SocketEndpoint> GetIpEndPoints(IgniteClientConfiguration cfg)
         {
             // Box once.
-            object clientId = _clientId;
+            object clientId = ClientId;
 
             foreach (var e in Endpoint.GetEndpoints(cfg))
             {
