@@ -36,6 +36,7 @@ import org.apache.ignite.internal.eventlog.config.schema.LogSinkChange;
 import org.apache.ignite.internal.eventlog.event.EventUser;
 import org.apache.ignite.internal.eventlog.event.IgniteEvents;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -52,6 +53,10 @@ class LogSinkTest extends BaseIgniteAbstractTest {
     static void beforeAll() {
         String buildDirPath = System.getProperty("buildDirPath");
         eventlogFile = Path.of(buildDirPath).resolve("event.log").toFile();
+    }
+
+    @AfterAll
+    static void afterAll() {
         if (eventlogFile.exists()) {
             eventlogFile.delete();
         }
