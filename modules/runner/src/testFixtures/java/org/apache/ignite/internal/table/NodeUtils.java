@@ -76,7 +76,7 @@ public class NodeUtils {
                     .orElseThrow();
         }
 
-        String fPreferablePrimary = preferablePrimary;
+        String finalPreferablePrimary = preferablePrimary;
 
         StopLeaseProlongationMessage msg = PLACEMENT_DRIVER_MESSAGES_FACTORY.stopLeaseProlongationMessage()
                 .groupId(groupId)
@@ -90,12 +90,12 @@ public class NodeUtils {
         assertTrue(waitForCondition(() -> {
             ReplicaMeta newPrimaryReplica = leaseholder(node, groupId);
 
-            return newPrimaryReplica.getLeaseholder().equals(fPreferablePrimary);
+            return newPrimaryReplica.getLeaseholder().equals(finalPreferablePrimary);
         }, 10_000));
 
         LOG.info("Primary replica moved successfully.");
 
-        return fPreferablePrimary;
+        return finalPreferablePrimary;
     }
 
     private static ReplicaMeta leaseholder(IgniteImpl node, ReplicationGroupId groupId) {
