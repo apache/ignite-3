@@ -27,11 +27,12 @@ import org.apache.ignite.internal.eventlog.config.schema.EventLogConfiguration;
 import org.apache.ignite.internal.eventlog.config.schema.LogSinkChange;
 import org.apache.ignite.internal.eventlog.config.schema.LogSinkView;
 import org.apache.ignite.internal.eventlog.config.schema.SinkView;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 @ExtendWith(ConfigurationExtension.class)
-class EventLogConfigurationValidationTest {
+class EventLogConfigurationValidationTest extends BaseIgniteAbstractTest {
 
     @InjectConfiguration
     private EventLogConfiguration cfg;
