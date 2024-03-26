@@ -76,7 +76,6 @@ import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.PrimaryReplicaExpiredException;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
-import org.apache.ignite.internal.tx.impl.ResourceCleanupManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
@@ -146,14 +145,6 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         TransactionInflights transactionInflights = new TransactionInflights(placementDriver);
 
-        ResourceCleanupManager cleanupManager = new ResourceCleanupManager(
-                LOCAL_NODE.name(),
-                resourceRegistry,
-                clusterService.topologyService(),
-                clusterService.messagingService(),
-                transactionInflights
-        );
-
         txManager = new TxManagerImpl(
                 txConfiguration,
                 clusterService,
@@ -165,7 +156,6 @@ public class TxManagerTest extends IgniteAbstractTest {
                 idleSafeTimePropagationPeriodMsSupplier,
                 localRwTxCounter,
                 resourceRegistry,
-                cleanupManager,
                 transactionInflights
         );
 
