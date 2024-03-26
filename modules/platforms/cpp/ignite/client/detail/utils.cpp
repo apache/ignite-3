@@ -285,4 +285,58 @@ void write_tuples(protocol::writer &writer, const schema &sch, const std::vector
         write_tuple(writer, sch, tuple, key_only);
 }
 
+ignite_tuple read_tuple(protocol::reader &reader, const schema *sch, bool key_only) {
+    auto tuple_data = reader.read_binary();
+
+    auto columns_cnt = std::int32_t(key_only ? sch->key_columns.size() : sch->columns.size());
+    ignite_tuple res(columns_cnt);
+    binary_tuple_parser parser(columns_cnt, tuple_data);
+
+    for (std::int32_t i = 0; i < columns_cnt; ++i) {
+        auto &column = sch->get_column(key_only, i);
+        res.set(column.name, protocol::read_next_column(parser, column.type, column.scale));
+    }
+    return res;
+}
+
+std::optional<ignite_tuple> read_tuple_opt(protocol::reader &reader, const schema *sch) {
+    if (reader.try_read_nil())
+        return std::nullopt;
+
+    return read_tuple(reader, sch, false);
+}
+
+std::vector<ignite_tuple> read_tuples(protocol::reader &reader, const schema *sch, bool key_only) {
+    if (reader.try_read_nil())
+        return {};
+
+    auto count = reader.read_int32();
+    std::vector<ignite_tuple> res;
+    res.reserve(std::size_t(count));
+
+    for (std::int32_t i = 0; i < count; ++i)
+        res.emplace_back(read_tuple(reader, sch, key_only));
+
+    return res;
+}
+
+std::vector<std::optional<ignite_tuple>> read_tuples_opt(protocol::reader &reader, const schema *sch, bool key_only) {
+    if (reader.try_read_nil())
+        return {};
+
+    auto count = reader.read_int32();
+    std::vector<std::optional<ignite_tuple>> res;
+    res.reserve(std::size_t(count));
+
+    for (std::int32_t i = 0; i < count; ++i) {
+        auto exists = reader.read_bool();
+        if (!exists)
+            res.emplace_back(std::nullopt);
+        else
+            res.emplace_back(read_tuple(reader, sch, key_only));
+    }
+
+    return res;
+}
+
 } // namespace ignite::detail
