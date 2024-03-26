@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -38,6 +39,7 @@ import java.util.UUID;
 import org.apache.ignite.internal.logger.Loggers;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
@@ -312,15 +314,18 @@ public class BinaryTupleTest {
     /**
      * Test big decimal value encoding.
      */
-    @Test
-    public void decimalTest() {
-        BigDecimal value = new BigDecimal("1.1");
+    @ParameterizedTest
+    @CsvSource({"0, 0", "1, 0", "0, 1", "1, 1", "10, 5", "5, 10"})
+    public void decimalTest(int schemaScale, int valueScale) {
+        BigDecimal value = new BigDecimal(BigInteger.valueOf(12345), valueScale);
+        BigDecimal expectedValue = value.setScale(schemaScale, RoundingMode.HALF_UP);
 
         BinaryTupleBuilder builder = new BinaryTupleBuilder(1);
-        ByteBuffer bytes = builder.appendDecimal(value, 100).build();
+        ByteBuffer bytes = builder.appendDecimal(value, schemaScale).build();
 
         BinaryTupleReader reader = new BinaryTupleReader(1, bytes);
-        assertEquals(value, reader.decimalValue(0, 100));
+        BigDecimal actual = reader.decimalValue(0, schemaScale);
+        assertEquals(expectedValue, actual);
     }
 
     /**
