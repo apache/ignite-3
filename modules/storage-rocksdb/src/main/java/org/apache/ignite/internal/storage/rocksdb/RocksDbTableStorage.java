@@ -94,7 +94,7 @@ public class RocksDbTableStorage implements MvTableStorage {
         this.rocksDb = rocksDb;
         this.tableDescriptor = tableDescriptor;
         this.mvPartitionStorages = new MvPartitionStorages<>(tableDescriptor.getId(), tableDescriptor.getPartitions());
-        this.indexes = new RocksDbIndexes(rocksDb, this::getMvPartitionChecked);
+        this.indexes = new RocksDbIndexes(rocksDb, tableDescriptor.getId());
         this.indexDescriptorSupplier = indexDescriptorSupplier;
     }
 
@@ -244,16 +244,6 @@ public class RocksDbTableStorage implements MvTableStorage {
         return inBusyLock(busyLock, () -> mvPartitionStorages.get(partitionId));
     }
 
-    private RocksDbMvPartitionStorage getMvPartitionChecked(int partitionId) {
-        RocksDbMvPartitionStorage partitionStorage = mvPartitionStorages.get(partitionId);
-
-        if (partitionStorage == null) {
-            throw new StorageException(createMissingMvPartitionErrorMessage(partitionId));
-        }
-
-        return partitionStorage;
-    }
-
     @Override
     public CompletableFuture<Void> destroyPartition(int partitionId) {
         return inBusyLock(busyLock, () -> mvPartitionStorages.destroy(partitionId, mvPartitionStorage -> {
@@ -277,12 +267,20 @@ public class RocksDbTableStorage implements MvTableStorage {
 
     @Override
     public SortedIndexStorage getOrCreateSortedIndex(int partitionId, StorageSortedIndexDescriptor indexDescriptor) {
-        return inBusyLock(busyLock, () -> indexes.getOrCreateSortedIndex(partitionId, indexDescriptor));
+        return inBusyLock(busyLock, () -> {
+            checkPartitionExists(partitionId);
+
+            return indexes.getOrCreateSortedIndex(partitionId, indexDescriptor);
+        });
     }
 
     @Override
     public HashIndexStorage getOrCreateHashIndex(int partitionId, StorageHashIndexDescriptor indexDescriptor) {
-        return inBusyLock(busyLock, () -> indexes.getOrCreateHashIndex(partitionId, indexDescriptor));
+        return inBusyLock(busyLock, () -> {
+            checkPartitionExists(partitionId);
+
+            return indexes.getOrCreateHashIndex(partitionId, indexDescriptor);
+        });
     }
 
     @Override
@@ -401,11 +399,16 @@ public class RocksDbTableStorage implements MvTableStorage {
         return tableDescriptor.getId();
     }
 
+    private void checkPartitionExists(int partitionId) {
+        if (mvPartitionStorages.get(partitionId) == null) {
+            throw new StorageException(createMissingMvPartitionErrorMessage(partitionId));
+        }
+    }
+
     @Override
     public @Nullable IndexStorage getIndex(int partitionId, int indexId) {
         return inBusyLock(busyLock, () -> {
-            // Check for partition existence.
-            getMvPartitionChecked(partitionId);
+            checkPartitionExists(partitionId);
 
             return indexes.getIndex(partitionId, indexId);
         });
