@@ -59,18 +59,16 @@ internal static class DataStreamer
     /// <param name="schemaProvider">Schema provider.</param>
     /// <param name="partitionAssignmentProvider">Partitioner.</param>
     /// <param name="options">Options.</param>
-    /// <param name="clientId">Client id for metrics.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <typeparam name="T">Element type.</typeparam>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
     internal static async Task StreamDataAsync<T>(
         IAsyncEnumerable<T> data,
-        Func<PooledArrayBuffer, string, IRetryPolicy, Task> sender,
+        Func<PooledArrayBuffer, int, string, IRetryPolicy, Task> sender,
         RecordSerializer<T> writer,
         Func<int?, Task<Schema>> schemaProvider, // Not a ValueTask because Tasks are cached.
         Func<ValueTask<string?[]?>> partitionAssignmentProvider,
         DataStreamerOptions options,
-        Guid clientId,
         CancellationToken cancellationToken)
     {
         IgniteArgumentCheck.NotNull(data);
@@ -99,8 +97,6 @@ internal static class DataStreamer
         var partitionAssignment = await partitionAssignmentProvider().ConfigureAwait(false);
         var lastPartitionsAssignmentCheck = Stopwatch.StartNew();
         using var flushCts = new CancellationTokenSource();
-
-        var metricTags = new KeyValuePair<string, object?>[] { new(MetricTags.ClientId, clientId) };
 
         try
         {
@@ -312,10 +308,7 @@ internal static class DataStreamer
 
                         // Wait for the previous batch for this node to preserve item order.
                         await oldTask.ConfigureAwait(false);
-                        await sender(buf, partition, retryPolicy).ConfigureAwait(false);
-
-                        Metrics.StreamerBatchesSent.Add(1, metricTags);
-                        Metrics.StreamerItemsSent.Add(count, metricTags);
+                        await sender(buf, count, partition, retryPolicy).ConfigureAwait(false);
 
                         return;
                     }
