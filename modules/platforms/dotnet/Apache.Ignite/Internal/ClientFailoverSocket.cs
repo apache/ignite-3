@@ -536,8 +536,8 @@ namespace Apache.Ignite.Internal
         /// </summary>
         private IEnumerable<SocketEndpoint> GetIpEndPoints(IgniteClientConfiguration cfg)
         {
-            // Box once.
-            object clientId = ClientId;
+            // Metric collection tools expect numbers and strings, don't pass Guid.
+            var clientId = ClientId.ToString();
 
             foreach (var e in Endpoint.GetEndpoints(cfg))
             {

@@ -84,7 +84,7 @@ namespace Apache.Ignite.Tests
         }
 
         private static SocketEndpoint GetEndPoint(int? serverPort = null) =>
-            new(new(IPAddress.Loopback, serverPort ?? ServerPort), string.Empty, new object());
+            new(new(IPAddress.Loopback, serverPort ?? ServerPort), string.Empty, string.Empty);
 
         private class NoOpListener : IClientSocketEventListener
         {

@@ -34,7 +34,7 @@ namespace Apache.Ignite.Internal
         /// <param name="endPoint">Endpoint.</param>
         /// <param name="host">Host name.</param>
         /// <param name="clientId">Client id.</param>
-        public SocketEndpoint(IPEndPoint endPoint, string host, object clientId)
+        public SocketEndpoint(IPEndPoint endPoint, string host, string clientId)
         {
             EndPoint = endPoint;
             Host = host;
