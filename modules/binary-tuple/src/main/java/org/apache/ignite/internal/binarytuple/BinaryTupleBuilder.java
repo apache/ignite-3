@@ -17,6 +17,11 @@
 
 package org.apache.ignite.internal.binarytuple;
 
+import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.DECIMAL_SCALE_NONE;
+import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.DECIMAL_SCALE_ONE_BYTE;
+import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.DECIMAL_SCALE_THREE_BYTES;
+import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.DECIMAL_SCALE_TWO_BYTES;
+
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
@@ -44,14 +49,6 @@ import org.jetbrains.annotations.Nullable;
 public class BinaryTupleBuilder {
     /** The buffer size allocated for values when we do not know anything better. */
     private static final int DEFAULT_BUFFER_SIZE = 4000;
-
-    private static final byte DECIMAL_SCALE_NONE = 0;
-
-    private static final byte DECIMAL_SCALE_ONE_BYTE = 1 << 6;
-
-    private static final byte DECIMAL_SCALE_TWO_BYTES = (byte) (2 << 6);
-
-    private static final byte DECIMAL_SCALE_THREE_BYTES = (byte) (3 << 6);
 
     /** Current element. */
     private int elementIndex = 0;
