@@ -1017,6 +1017,7 @@ public class RexImpTable {
       defineMethod(ROUND, IgniteMethod.ROUND.method(), NullPolicy.STRICT);
       defineMethod(TRUNCATE, IgniteMethod.TRUNCATE.method(), NullPolicy.STRICT);
       defineMethod(IgniteSqlOperatorTable.SUBSTRING, IgniteMethod.SUBSTRING.method(), NullPolicy.STRICT);
+      defineMethod(IgniteSqlOperatorTable.DECIMAL_DIVIDE, IgniteMethod.DECIMAL_DIVIDE.method(), NullPolicy.ARG0);
 
       map.put(TYPEOF, systemFunctionImplementor);
       map.put(SYSTEM_RANGE, systemFunctionImplementor);

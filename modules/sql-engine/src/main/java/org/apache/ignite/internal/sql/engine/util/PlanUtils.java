@@ -127,9 +127,17 @@ public class PlanUtils {
 
         for (int i = 0; i < aggregateCalls.size(); i++) {
             AggregateCall call = aggregateCalls.get(i);
-
             Accumulator acc = accumulators.accumulatorFactory(call).get();
-            RelDataType fieldType = acc.returnType(typeFactory);
+            RelDataType fieldType;
+            // For a decimal type Accumulator::returnType returns a type with default precision and scale,
+            // that can cause precision loss when a tuple is sent over the wire by an exchanger/outbox.
+            // Outbox uses its input type as wire format, so if a scale is 0, then the scale is lost
+            // (see Outbox::sendBatch -> RowHandler::toBinaryTuple -> BinaryTupleBuilder::appendDecimalNotNull).
+            if (call.getType().getSqlTypeName().allowsScale()) {
+                fieldType = call.type;
+            } else {
+                fieldType = acc.returnType(typeFactory);
+            }
             String fieldName = "_ACC" + i;
 
             builder.add(fieldName, fieldType);

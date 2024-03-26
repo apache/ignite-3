@@ -29,6 +29,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
@@ -48,9 +49,10 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
      * Constructor.
      *
      * @param tbl Table.
+     * @param sql Sql.
      */
-    public ClientRecordBinaryView(ClientTable tbl) {
-        super(tbl);
+    public ClientRecordBinaryView(ClientTable tbl, ClientSql sql) {
+        super(tbl, sql);
 
         ser = new ClientTupleSerializer(tbl.tableId());
     }

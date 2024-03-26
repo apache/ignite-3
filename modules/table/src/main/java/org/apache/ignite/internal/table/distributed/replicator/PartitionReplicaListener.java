@@ -81,7 +81,7 @@ import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.StartBuildingIndexEventParameters;
 import org.apache.ignite.internal.event.EventListener;
-import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -218,7 +218,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      *     But write intent resolution procedure will close the gap.</li>
      *     <li>2 items above solve the inconsistency for RW transactions</li>
      *     <li>For RO reading from such a 'slightly inconsistent' partition, write intent resolution closes the gap as well.</li>
-     * </ul>*
+     * </ul>
      */
     @SuppressWarnings("unused") // We use it as a placeholder of a documentation which can be linked using # and @see.
     private static final Object INTERNAL_DOC_PLACEHOLDER = null;
@@ -265,8 +265,8 @@ public class PartitionReplicaListener implements ReplicaListener {
     /** Tx state storage. */
     private final TxStateStorage txStateStorage;
 
-    /** Hybrid clock. */
-    private final HybridClock hybridClock;
+    /** Clock service. */
+    private final ClockService clockService;
 
     /** Safe time. */
     private final PendingComparableValuesTracker<HybridTimestamp, Void> safeTime;
@@ -333,7 +333,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @param indexesLockers Index lock helper objects.
      * @param pkIndexStorage Pk index storage.
      * @param secondaryIndexStorages Secondary index storages.
-     * @param hybridClock Hybrid clock.
+     * @param clockService Clock service.
      * @param safeTime Safe time clock.
      * @param txStateStorage Transaction state storage.
      * @param transactionStateResolver Transaction state resolver.
@@ -355,7 +355,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             Supplier<Map<Integer, IndexLocker>> indexesLockers,
             Lazy<TableSchemaAwareIndexStorage> pkIndexStorage,
             Supplier<Map<Integer, TableSchemaAwareIndexStorage>> secondaryIndexStorages,
-            HybridClock hybridClock,
+            ClockService clockService,
             PendingComparableValuesTracker<HybridTimestamp, Void> safeTime,
             TxStateStorage txStateStorage,
             TransactionStateResolver transactionStateResolver,
@@ -377,7 +377,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         this.indexesLockers = indexesLockers;
         this.pkIndexStorage = pkIndexStorage;
         this.secondaryIndexStorages = secondaryIndexStorages;
-        this.hybridClock = hybridClock;
+        this.clockService = clockService;
         this.safeTime = safeTime;
         this.txStateStorage = txStateStorage;
         this.transactionStateResolver = transactionStateResolver;
@@ -433,7 +433,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             return processTxRecoveryMessage((TxRecoveryMessage) request, senderId);
         }
 
-        HybridTimestamp opTsIfDirectRo = (request instanceof ReadOnlyDirectReplicaRequest) ? hybridClock.now() : null;
+        HybridTimestamp opTsIfDirectRo = (request instanceof ReadOnlyDirectReplicaRequest) ? clockService.now() : null;
 
         return validateTableExistence(request, opTsIfDirectRo)
                 .thenCompose(unused -> validateSchemaMatch(request, opTsIfDirectRo))
@@ -518,7 +518,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             // We don't need to validate close request for table existence.
             opStartTs = null;
         } else if (request instanceof ReadWriteReplicaRequest) {
-            opStartTs = hybridClock.now();
+            opStartTs = clockService.now();
         } else if (request instanceof ReadOnlyReplicaRequest) {
             opStartTs = ((ReadOnlyReplicaRequest) request).readTimestamp();
         } else if (request instanceof ReadOnlyDirectReplicaRequest) {
@@ -717,7 +717,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Result future.
      */
     private CompletableFuture<TransactionMeta> processTxStateCommitPartitionRequest(TxStateCommitPartitionRequest request) {
-        return placementDriver.getPrimaryReplica(replicationGroupId, hybridClock.now())
+        return placementDriver.getPrimaryReplica(replicationGroupId, clockService.now())
                 .thenCompose(replicaMeta -> {
                     if (replicaMeta == null || replicaMeta.getLeaseholder() == null) {
                         return failedFuture(
@@ -992,7 +992,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return True if the timestamp is already passed in the reference system of the current node and node is primary, false otherwise.
      */
     private boolean isPrimaryInTimestamp(Boolean isPrimary, HybridTimestamp timestamp) {
-        return isPrimary && hybridClock.now().compareTo(timestamp) > 0;
+        return isPrimary && clockService.now().compareTo(timestamp) > 0;
     }
 
     /**
@@ -1044,10 +1044,8 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         CompletableFuture<Object> resultFuture = new CompletableFuture<>();
 
-        SafeTimeSyncCommand cmd = REPLICA_MESSAGES_FACTORY.safeTimeSyncCommand().safeTimeLong(hybridClock.nowLong()).build();
-
         applyCmdWithRetryOnSafeTimeReorderException(
-                cmd,
+                REPLICA_MESSAGES_FACTORY.safeTimeSyncCommand().safeTimeLong(clockService.nowLong()).build(),
                 resultFuture
         );
 
@@ -1649,7 +1647,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     ) {
         assert !(commit && commitTimestamp == null) : "Cannot commit without the timestamp.";
 
-        HybridTimestamp tsForCatalogVersion = commit ? commitTimestamp : hybridClock.now();
+        HybridTimestamp tsForCatalogVersion = commit ? commitTimestamp : clockService.now();
 
         return reliableCatalogVersionFor(tsForCatalogVersion)
                 .thenCompose(catalogVersion -> applyFinishCommand(
@@ -1693,7 +1691,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             FinishTxCommandBuilder finishTxCmdBldr = MSG_FACTORY.finishTxCommand()
                     .txId(transactionId)
                     .commit(commit)
-                    .safeTimeLong(hybridClock.nowLong())
+                    .safeTimeLong(clockService.nowLong())
                     .requiredCatalogVersion(catalogVersion);
 
             if (commit) {
@@ -1726,7 +1724,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         return awaitCleanupReadyFutures(request.txId(), request.commit())
                 .thenCompose(res -> {
                     if (res.hadUpdateFutures()) {
-                        HybridTimestamp commandTimestamp = hybridClock.now();
+                        HybridTimestamp commandTimestamp = clockService.now();
 
                         return reliableCatalogVersionFor(commandTimestamp)
                                 .thenCompose(catalogVersion -> {
@@ -1784,7 +1782,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .txId(transactionId)
                 .commit(commit)
                 .commitTimestampLong(commitTimestampLong)
-                .safeTimeLong(hybridClock.nowLong())
+                .safeTimeLong(clockService.nowLong())
                 .requiredCatalogVersion(catalogVersion)
                 .build();
 
@@ -2550,7 +2548,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     SafeTimePropagatingCommand safeTimePropagatingCommand = (SafeTimePropagatingCommand) cmd;
 
-                    HybridTimestamp safeTimeForRetry = hybridClock.now();
+                    HybridTimestamp safeTimeForRetry = clockService.now();
 
                     // Within primary replica it's required to update safe time in order to prevent double storage updates in case of !1PC.
                     // Otherwise, it may be possible that a newer entry will be overwritten by an older one that came as part of the raft
@@ -2614,7 +2612,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     txId,
                     full,
                     txCoordinatorId,
-                    hybridClock.now(),
+                    clockService.now(),
                     catalogVersion
             );
 
@@ -2744,7 +2742,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     rowsToUpdate,
                     commitPartitionId,
                     transactionId,
-                    hybridClock.now(),
+                    clockService.now(),
                     full,
                     txCoordinatorId,
                     catalogVersion
@@ -3426,7 +3424,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Future. The result is not {@code null} only for {@link ReadOnlyReplicaRequest}. If {@code true}, then replica is primary.
      */
     private CompletableFuture<Boolean> ensureReplicaIsPrimary(ReplicaRequest request) {
-        HybridTimestamp now = hybridClock.now();
+        HybridTimestamp now = clockService.now();
 
         if (request instanceof PrimaryReplicaRequest) {
             Long enlistmentConsistencyToken = ((PrimaryReplicaRequest) request).enlistmentConsistencyToken();
@@ -3450,7 +3448,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         long currentEnlistmentConsistencyToken = primaryReplicaMeta.getStartTime().longValue();
 
                         if (enlistmentConsistencyToken != currentEnlistmentConsistencyToken
-                                || primaryReplicaMeta.getExpirationTime().before(now)
+                                || clockService.before(primaryReplicaMeta.getExpirationTime(), now)
                                 || !isLocalPeer(primaryReplicaMeta.getLeaseholderId())
                         ) {
                             return failedFuture(
@@ -3659,7 +3657,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Future that will complete when validation completes.
      */
     private CompletableFuture<Void> validateRwReadAgainstSchemaAfterTakingLocks(UUID txId) {
-        HybridTimestamp operationTimestamp = hybridClock.now();
+        HybridTimestamp operationTimestamp = clockService.now();
 
         return schemaSyncService.waitForMetadataCompleteness(operationTimestamp)
                 .thenRun(() -> failIfSchemaChangedSinceTxStart(txId, operationTimestamp));
@@ -3672,7 +3670,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Future that will complete with catalog version associated with given operation though the operation timestamp.
      */
     private CompletableFuture<Integer> validateWriteAgainstSchemaAfterTakingLocks(UUID txId) {
-        HybridTimestamp operationTimestamp = hybridClock.now();
+        HybridTimestamp operationTimestamp = clockService.now();
 
         return reliableCatalogVersionFor(operationTimestamp)
                 .thenApply(catalogVersion -> {

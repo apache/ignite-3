@@ -42,6 +42,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
@@ -99,7 +100,15 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
                 NamedThreadFactory.create(nodeName, "partition-operations", log)
         );
 
-        replicaManager = new ReplicaManager(nodeName, clusterService, cmgManager, clock, Set.of(), placementDriver, requestsExecutor);
+        replicaManager = new ReplicaManager(
+                nodeName,
+                clusterService,
+                cmgManager,
+                new TestClockService(clock),
+                Set.of(),
+                placementDriver,
+                requestsExecutor
+        );
 
         replicaManager.start();
     }

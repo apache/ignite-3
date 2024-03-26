@@ -65,9 +65,11 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.WriteCommand;
@@ -203,6 +205,8 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
     private CatalogIndexDescriptor indexDescriptor;
 
+    private final ClockService clockService = new TestClockService(new HybridClockImpl());
+
     /**
      * Initializes a table listener before tests.
      */
@@ -255,7 +259,8 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 safeTimeTracker,
                 new PendingComparableValuesTracker<>(0L),
                 catalogService,
-                SCHEMA_REGISTRY
+                SCHEMA_REGISTRY,
+                clockService
         );
     }
 
@@ -441,7 +446,8 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 safeTimeTracker,
                 new PendingComparableValuesTracker<>(0L),
                 catalogService,
-                SCHEMA_REGISTRY
+                SCHEMA_REGISTRY,
+                clockService
         );
 
         txStateStorage.lastApplied(3L, 1L);

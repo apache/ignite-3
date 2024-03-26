@@ -38,12 +38,13 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.sql.Statement;
+import org.apache.ignite.sql.Statement.StatementBuilder;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -331,15 +332,21 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      * @param node Ignite instance to run a query.
      * @param tx Transaction to run a given query. Can be {@code null} to run within implicit transaction.
      * @param zoneId Client time zone.
-     * @param sql Query to be run.
+     * @param query Query to be run.
      * @param args Dynamic parameters for a given query.
      * @return List of lists, where outer list represents a rows, internal lists represents a columns.
      */
-    public static List<List<Object>> sql(Ignite node, @Nullable Transaction tx, @Nullable ZoneId zoneId, String sql, Object... args) {
-        try (
-                Session session = node.sql().sessionBuilder().timeZoneId(zoneId).build();
-                ResultSet<SqlRow> rs = session.execute(tx, sql, args)
-        ) {
+    public static List<List<Object>> sql(Ignite node, @Nullable Transaction tx, @Nullable ZoneId zoneId, String query, Object... args) {
+        IgniteSql sql = node.sql();
+        StatementBuilder builder = sql.statementBuilder()
+                .query(query);
+
+        if (zoneId != null) {
+            builder.timeZoneId(zoneId);
+        }
+
+        Statement statement = builder.build();
+        try (ResultSet<SqlRow> rs = sql.execute(tx, statement, args)) {
             return getAllResultSet(rs);
         }
     }
@@ -414,7 +421,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      */
     protected static void waitForReadTimestampThatObservesMostRecentCatalog()  {
         // See TxManagerImpl::currentReadTimestamp.
-        long delay = HybridTimestamp.CLOCK_SKEW + TestIgnitionManager.DEFAULT_PARTITION_IDLE_SYNC_TIME_INTERVAL_MS;
+        long delay = TestIgnitionManager.DEFAULT_MAX_CLOCK_SKEW_MS + TestIgnitionManager.DEFAULT_PARTITION_IDLE_SYNC_TIME_INTERVAL_MS;
 
         try {
             TimeUnit.MILLISECONDS.sleep(delay);

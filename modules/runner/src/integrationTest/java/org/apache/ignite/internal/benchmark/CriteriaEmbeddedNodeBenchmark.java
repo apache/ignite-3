@@ -23,10 +23,9 @@ import static org.apache.ignite.table.criteria.Criteria.equalTo;
 import java.io.IOException;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.Cursor;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -42,7 +41,6 @@ import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
-import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Threads;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.Runner;
@@ -126,7 +124,7 @@ public class CriteriaEmbeddedNodeBenchmark extends AbstractMultiNodeBenchmark {
     public static class IgniteState {
         private RecordView<Tuple> view;
 
-        private Session session;
+        private IgniteSql sql;
 
         /**
          * Initializes session and statement.
@@ -135,15 +133,7 @@ public class CriteriaEmbeddedNodeBenchmark extends AbstractMultiNodeBenchmark {
         public void setUp() {
             view = clusterNode.tables().table(TABLE_NAME).recordView();
 
-            session = clusterNode.sql().createSession();
-        }
-
-        /**
-         * Closes resources.
-         */
-        @TearDown
-        public void tearDown() throws Exception {
-            IgniteUtils.closeAll(session);
+            sql = clusterNode.sql();
         }
 
         @Nullable Tuple get(Tuple key) {
@@ -151,7 +141,7 @@ public class CriteriaEmbeddedNodeBenchmark extends AbstractMultiNodeBenchmark {
         }
 
         ResultSet<SqlRow> sql(String query, Object... args) {
-            return session.execute(null, query, args);
+            return sql.execute(null, query, args);
         }
 
         Cursor<Tuple> query(@Nullable Criteria criteria) {

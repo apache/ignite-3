@@ -102,7 +102,7 @@ public class ObservableTimestampPropagationTest extends BaseIgniteAbstractTest {
         // Execution of a SQL query should propagate observable time, not the current time of the clock.
         currentServerTimestamp.set(20);
         updateObservableTimestamp(14);
-        AsyncResultSet<?> rs = await(client.sql().createSession().executeAsync(null, statement));
+        AsyncResultSet<?> rs = await(client.sql().executeAsync(null, statement));
         assertEquals(14, lastObservableTimestamp());
 
         assertNotNull(rs);

@@ -27,8 +27,8 @@ import java.util.stream.IntStream;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.Cursor;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -191,7 +191,7 @@ public class CriteriaThinClientBenchmark extends AbstractMultiNodeBenchmark {
         protected final Random random = new Random();
 
         protected IgniteClient client;
-        protected Session  session;
+        protected IgniteSql sql;
         protected RecordView<Tuple> view;
 
         @Nullable
@@ -203,7 +203,7 @@ public class CriteriaThinClientBenchmark extends AbstractMultiNodeBenchmark {
         @Setup
         public void setUp() {
             client = IgniteClient.builder().addresses(getClientAddresses()).build();
-            session = client.sql().createSession();
+            sql = client.sql();
             view = client.tables().table(TABLE_NAME).recordView();
         }
 
@@ -223,7 +223,7 @@ public class CriteriaThinClientBenchmark extends AbstractMultiNodeBenchmark {
          */
         @TearDown
         public void tearDown() throws Exception {
-            IgniteUtils.closeAll(session, client);
+            IgniteUtils.closeAll(client);
         }
 
         @Nullable Tuple get(Tuple key) {
@@ -231,7 +231,7 @@ public class CriteriaThinClientBenchmark extends AbstractMultiNodeBenchmark {
         }
 
         ResultSet<SqlRow> sql(String query, Object... args) {
-            return session.execute(tx, query, args);
+            return sql.execute(tx, query, args);
         }
 
         Cursor<Tuple> query(@Nullable Criteria criteria) {

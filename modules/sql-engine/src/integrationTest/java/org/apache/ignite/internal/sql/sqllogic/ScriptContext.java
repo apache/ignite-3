@@ -29,7 +29,6 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.sql.sqllogic.SqlScriptRunner.RunnerRuntime;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
 
 /**
@@ -83,27 +82,25 @@ final class ScriptContext {
 
         log.info("Execute: " + sql);
 
-        try (Session s = ignSql.createSession()) {
-            try (ResultSet<SqlRow> rs = s.execute(null, sql)) {
-                if (rs.hasRowSet()) {
-                    List<List<?>> out = new ArrayList<>();
+        try (ResultSet<SqlRow> rs = ignSql.execute(null, sql)) {
+            if (rs.hasRowSet()) {
+                List<List<?>> out = new ArrayList<>();
 
-                    rs.forEachRemaining(r -> {
-                        List<?> row = new ArrayList<>();
+                rs.forEachRemaining(r -> {
+                    List<?> row = new ArrayList<>();
 
-                        for (int i = 0; i < rs.metadata().columns().size(); ++i) {
-                            row.add(r.value(i));
-                        }
+                    for (int i = 0; i < rs.metadata().columns().size(); ++i) {
+                        row.add(r.value(i));
+                    }
 
-                        out.add(row);
-                    });
+                    out.add(row);
+                });
 
-                    return out;
-                } else if (rs.affectedRows() != -1) {
-                    return Collections.singletonList(Collections.singletonList(rs.affectedRows()));
-                } else {
-                    return Collections.singletonList(Collections.singletonList(rs.wasApplied()));
-                }
+                return out;
+            } else if (rs.affectedRows() != -1) {
+                return Collections.singletonList(Collections.singletonList(rs.affectedRows()));
+            } else {
+                return Collections.singletonList(Collections.singletonList(rs.wasApplied()));
             }
         }
     }

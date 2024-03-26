@@ -86,7 +86,7 @@ public class QueryCriteriaAsyncCursor<T, R> implements AsyncCursor<T> {
                         closeAsync();
                     }
 
-                    return new QueryCriteriaAsyncCursor<>(rs, mapper, closeRun);
+                    return this;
                 });
     }
 

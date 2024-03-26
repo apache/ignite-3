@@ -29,6 +29,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -93,6 +94,8 @@ public class Replica {
 
     private final PlacementDriver placementDriver;
 
+    private final ClockService clockService;
+
     /**
      * The constructor of a replica server.
      *
@@ -103,6 +106,7 @@ public class Replica {
      * @param localNode Instance of the local node.
      * @param executor External executor.
      * @param placementDriver Placement driver.
+     * @param clockService Clock service.
      */
     public Replica(
             ReplicationGroupId replicaGrpId,
@@ -111,7 +115,8 @@ public class Replica {
             TopologyAwareRaftGroupService raftClient,
             ClusterNode localNode,
             ExecutorService executor,
-            PlacementDriver placementDriver
+            PlacementDriver placementDriver,
+            ClockService clockService
     ) {
         this.replicaGrpId = replicaGrpId;
         this.listener = listener;
@@ -120,6 +125,7 @@ public class Replica {
         this.localNode = localNode;
         this.executor = executor;
         this.placementDriver = placementDriver;
+        this.clockService = clockService;
 
         raftClient.subscribeLeader(this::onLeaderElected);
     }
@@ -207,7 +213,8 @@ public class Replica {
             HybridTimestamp leaseExpirationTime = this.leaseExpirationTime;
 
             if (leaseExpirationTime != null) {
-                assert msg.leaseExpirationTime().after(leaseExpirationTime) : "Invalid lease expiration time in message, msg=" + msg;
+                assert clockService.after(msg.leaseExpirationTime(), leaseExpirationTime)
+                        : "Invalid lease expiration time in message, msg=" + msg;
             }
 
             if (msg.force()) {

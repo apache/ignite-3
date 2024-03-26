@@ -28,8 +28,10 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
@@ -86,6 +88,7 @@ public class TestNode implements LifecycleAware {
     volatile boolean exceptionRaised;
     private final IgniteSpinBusyLock holdLock;
     private final HybridClock clock = new HybridClockImpl();
+    private final ClockService clockService = new TestClockService(clock);
 
     /**
      * Constructs the object.
@@ -124,10 +127,10 @@ public class TestNode implements LifecycleAware {
         holdLock = new IgniteSpinBusyLock();
 
         messageService = registerService(new MessageServiceImpl(
-                nodeName, messagingService, taskExecutor, holdLock, clock
+                nodeName, messagingService, taskExecutor, holdLock, clockService
         ));
         ExchangeService exchangeService = registerService(new ExchangeServiceImpl(
-                mailboxRegistry, messageService, clock
+                mailboxRegistry, messageService, clockService
         ));
         ExecutionDependencyResolver dependencyResolver = new ExecutionDependencyResolverImpl(
                 tableRegistry, view -> () -> systemViewManager.scanView(view.name())
@@ -145,7 +148,7 @@ public class TestNode implements LifecycleAware {
                 mappingService,
                 tableRegistry,
                 dependencyResolver,
-                clock,
+                clockService,
                 5_000
         ));
 
@@ -186,6 +189,10 @@ public class TestNode implements LifecycleAware {
 
     HybridClock clock() {
         return clock;
+    }
+
+    ClockService clockService() {
+        return clockService;
     }
 
     /**
