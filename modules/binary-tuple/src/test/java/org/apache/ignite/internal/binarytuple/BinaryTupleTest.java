@@ -314,18 +314,23 @@ public class BinaryTupleTest {
     /**
      * Test big decimal value encoding.
      */
-    @ParameterizedTest
-    @CsvSource({"0, 0", "1, 0", "0, 1", "1, 1", "10, 5", "5, 10"})
-    public void decimalTest(int schemaScale, int valueScale) {
-        BigDecimal value = new BigDecimal(BigInteger.valueOf(12345), valueScale);
-        BigDecimal expectedValue = value.setScale(schemaScale, RoundingMode.HALF_UP);
+    @Test
+    public void decimalTest() {
+        int[] scales = {0, 1, 2, 3, 63, 64, 255, 256, 16383, 16384, Short.MAX_VALUE - 1, Short.MAX_VALUE};
 
-        BinaryTupleBuilder builder = new BinaryTupleBuilder(1);
-        ByteBuffer bytes = builder.appendDecimal(value, schemaScale).build();
+        for (int schemaScale : scales) {
+            for (int valueScale : scales) {
+                BigDecimal value = new BigDecimal(BigInteger.valueOf(12345), valueScale);
+                BigDecimal expectedValue = value.setScale(schemaScale, RoundingMode.HALF_UP);
 
-        BinaryTupleReader reader = new BinaryTupleReader(1, bytes);
-        BigDecimal actual = reader.decimalValue(0, schemaScale);
-        assertEquals(expectedValue, actual);
+                BinaryTupleBuilder builder = new BinaryTupleBuilder(1);
+                ByteBuffer bytes = builder.appendDecimal(value, schemaScale).build();
+
+                BinaryTupleReader reader = new BinaryTupleReader(1, bytes);
+                BigDecimal actual = reader.decimalValue(0, schemaScale);
+                assertEquals(expectedValue, actual);
+            }
+        }
     }
 
     /**
