@@ -511,12 +511,12 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         );
 
         CompletableFuture<Replica> replicaFuture = replicas.compute(replicaGrpId, (k, existingReplicaFuture) -> {
-            if (existingReplicaFuture == null || existingReplicaFuture.isDone()) {
-                assert existingReplicaFuture == null || isCompletedSuccessfully(existingReplicaFuture);
+            if (existingReplicaFuture == null ) {
                 LOG.info("Replica is started [replicationGroupId={}].", replicaGrpId);
 
                 return completedFuture(newReplica);
             } else {
+                assert !existingReplicaFuture.isDone();
                 existingReplicaFuture.complete(newReplica);
                 LOG.info("Replica is started, existing waiter was completed [replicationGroupId={}].", replicaGrpId);
 
