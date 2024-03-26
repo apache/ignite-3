@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.sql.fun;
 
 import com.google.common.collect.ImmutableList;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.sql.SqlBasicFunction;
 import org.apache.calcite.sql.SqlFunction;
 import org.apache.calcite.sql.SqlFunctionCategory;
@@ -190,6 +191,31 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
             OperandTypes.CHARACTER.or(OperandTypes.BINARY),
             SqlFunctionCategory.NUMERIC);
 
+    /**
+     * Division operator used by REDUCE phase of AVG aggregate.
+     * Uses provided values of {@code scale} and {@code precision} to return inferred type.
+     */
+    public static final SqlFunction DECIMAL_DIVIDE = SqlBasicFunction.create("DECIMAL_DIVIDE",
+            new SqlReturnTypeInference() {
+                @Override
+                public @Nullable RelDataType inferReturnType(SqlOperatorBinding opBinding) {
+                    RelDataType arg0 = opBinding.getOperandType(0);
+                    Integer precision = opBinding.getOperandLiteralValue(2, Integer.class);
+                    Integer scale = opBinding.getOperandLiteralValue(3, Integer.class);
+
+                    assert precision != null : "precision is not specified: " + opBinding.getOperator();
+                    assert scale != null : "scale is not specified: " + opBinding.getOperator();
+
+                    boolean nullable = arg0.isNullable();
+                    RelDataTypeFactory typeFactory = opBinding.getTypeFactory();
+
+                    RelDataType returnType = typeFactory.createSqlType(SqlTypeName.DECIMAL, precision, scale);
+                    return typeFactory.createTypeWithNullability(returnType, nullable);
+                }
+            },
+            OperandTypes.DIVISION_OPERATOR,
+            SqlFunctionCategory.NUMERIC);
+
     /** Singleton instance. */
     public static final IgniteSqlOperatorTable INSTANCE = new IgniteSqlOperatorTable();
 
@@ -235,6 +261,7 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         register(SqlStdOperatorTable.SUM);
         register(SqlStdOperatorTable.SUM0);
         register(SqlStdOperatorTable.AVG);
+        register(DECIMAL_DIVIDE);
         register(SqlStdOperatorTable.MIN);
         register(SqlStdOperatorTable.MAX);
         register(SqlStdOperatorTable.ANY_VALUE);
