@@ -52,6 +52,7 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
     /** Value type. */
     private final Class<V> valClass;
 
+    /** Positions of key fields in the schema. */
     private final int[] keyPositions;
 
     /** Positions of value fields in the schema. */
@@ -121,6 +122,8 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
     /** {@inheritDoc} */
     @Override
     public K unmarshalKeyOnly(Row row) throws MarshallerException {
+        assert row.elementCount() == keyPositions.length : "Number of key columns does not match";
+
         Object o = keyMarsh.readObject(new RowReader(row), null);
 
         assert keyClass.isInstance(o);

@@ -124,8 +124,6 @@ public abstract class Marshaller {
         // Build handlers.
         for (int i = 0; i < cols.length; i++) {
             MarshallerColumn col = cols[i];
-//            int schemaIdx = col.schemaIndex();
-
             String columnName = col.name();
 
             String fieldName = mapper.fieldForColumn(columnName);

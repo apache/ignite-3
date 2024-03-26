@@ -629,7 +629,6 @@ public class KvMarshallerTest {
         assertEquals(columnIdxToValue.get(4), fullRow.value(4));
     }
 
-
     static class TestObjectKeyPart {
         int col2;
         boolean col4;
