@@ -47,7 +47,6 @@ import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageRes
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
 import org.apache.ignite.internal.raft.LeaderElectionListener;
-import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -79,8 +78,6 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
 
     private final AtomicLong indexOnLeader = new AtomicLong(0);
 
-    private Peer currentLeader = null;
-
     private int countOfTimeoutExceptionsOnReadIndexToThrow = 0;
 
     private final ExecutorService executor = Executors.newSingleThreadExecutor(
@@ -93,13 +90,6 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
         when(raftClient.subscribeLeader(any())).thenAnswer(invocationOnMock -> {
             LeaderElectionListener callback = invocationOnMock.getArgument(0);
             callbackHolder.set(callback);
-
-            return nullCompletedFuture();
-        });
-
-        when(raftClient.transferLeadership(any())).thenAnswer(invocationOnMock -> {
-            Peer peer = invocationOnMock.getArgument(0);
-            currentLeader = peer;
 
             return nullCompletedFuture();
         });
@@ -129,7 +119,6 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
     public void beforeEach() {
         storageIndexTracker = new PendingComparableValuesTracker<>(0L);
         indexOnLeader.set(1L);
-        currentLeader = null;
         countOfTimeoutExceptionsOnReadIndexToThrow = 0;
         replica = startReplica();
     }
