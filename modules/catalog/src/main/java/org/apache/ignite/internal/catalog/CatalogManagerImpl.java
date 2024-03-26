@@ -374,7 +374,42 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
     private CompletableFuture<Integer> saveUpdateAndWaitForActivation(UpdateProducer updateProducer) {
         return saveUpdate(updateProducer, 0)
-                .thenCompose(newVersion -> {
+                .handle((newVersion, err) -> {
+                    if (err != null) {
+                        Throwable error;
+                        Catalog catalog;
+
+                        if (err instanceof CatalogVersionAwareValidationException) {
+                            CatalogVersionAwareValidationException err0 = (CatalogVersionAwareValidationException) err;
+                            catalog = catalogByVer.get(err0.version());
+                            error = err0.initial();
+                        } else {
+                            catalog = catalogByVer.lastEntry().getValue();
+                            error = err;
+                        }
+
+                        if (catalog.version() == 0) {
+                            return failedFuture(error).thenApply(unused -> newVersion);
+                        }
+
+                        HybridTimestamp tsSafeForRoReadingInPastOptimization =
+                                clusterWideEnsuredActivationTsSafeForRoReads(
+                                        catalog,
+                                        partitionIdleSafeTimePropagationPeriodMsSupplier,
+                                        clockService.maxClockSkewMillis()
+                        );
+
+                        return clockService.waitFor(tsSafeForRoReadingInPastOptimization)
+                                .handle((res, ex) -> {
+                                    if (ex != null) {
+                                        error.addSuppressed(ex);
+                                    }
+                                    return failedFuture(error);
+                                })
+                                .thenCompose(unused -> failedFuture(error))
+                                .thenApply(unused -> newVersion);
+                    }
+
                     Catalog catalog = catalogByVer.get(newVersion);
 
                     HybridTimestamp tsSafeForRoReadingInPastOptimization = clusterWideEnsuredActivationTsSafeForRoReads(
@@ -384,7 +419,8 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                     );
 
                     return clockService.waitFor(tsSafeForRoReadingInPastOptimization).thenApply(unused -> newVersion);
-                });
+                })
+                .thenCompose(Function.identity());
     }
 
     /**
@@ -410,6 +446,8 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
             List<UpdateEntry> updates;
             try {
                 updates = updateProducer.get(catalog);
+            } catch (CatalogValidationException ex) {
+                return failedFuture(new CatalogVersionAwareValidationException(ex, catalog.version()));
             } catch (Exception ex) {
                 return failedFuture(ex);
             }
