@@ -34,6 +34,7 @@ dependencies {
     implementation libs.auto.service.annotations
 
     testImplementation libs.hamcrest.core
+    testImplementation libs.hamcrest.json
     testImplementation libs.awaitility
     testImplementation testFixtures(project(':ignite-core'))
     testImplementation testFixtures(project(':ignite-configuration'))

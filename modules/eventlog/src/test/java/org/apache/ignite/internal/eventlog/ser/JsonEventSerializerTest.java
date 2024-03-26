@@ -17,7 +17,8 @@
 
 package org.apache.ignite.internal.eventlog.ser;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static uk.co.datumedge.hamcrest.json.SameJSONAs.sameJSONAs;
 
 import java.util.Map;
 import java.util.stream.Stream;
@@ -58,19 +59,19 @@ class JsonEventSerializerTest {
                                 + "\"fields\":{}"
                                 + "}"
                 ),
-                        Arguments.of(
-                                IgniteEvents.USER_AUTHENTICATED.builder()
-                                        .productVersion("3.0.0")
-                                        .timestamp(1234567890)
-                                        .user(EventUser.of("test_user", "test_provider"))
-                                        .fields(Map.of("ip", "127.0.0.1", "id", "123"))
-                                        .build(),
-                                "{\"type\":\"USER_AUTHENTICATED\","
-                                        + "\"timestamp\":1234567890,"
-                                        + "\"productVersion\":\"3.0.0\","
-                                        + "\"user\":{\"username\":\"test_user\",\"authenticationProvider\":\"test_provider\"},"
-                                        + "\"fields\":{\"id\":\"123\",\"ip\":\"127.0.0.1\"}"
-                                        + "}"
+                Arguments.of(
+                        IgniteEvents.USER_AUTHENTICATED.builder()
+                                .productVersion("3.0.0")
+                                .timestamp(1234567890)
+                                .user(EventUser.of("test_user", "test_provider"))
+                                .fields(Map.of("ip", "127.0.0.1", "id", "123"))
+                                .build(),
+                        "{\"type\":\"USER_AUTHENTICATED\","
+                                + "\"timestamp\":1234567890,"
+                                + "\"productVersion\":\"3.0.0\","
+                                + "\"user\":{\"username\":\"test_user\",\"authenticationProvider\":\"test_provider\"},"
+                                + "\"fields\":{\"id\":\"123\",\"ip\":\"127.0.0.1\"}"
+                                + "}"
                 )
         );
     }
@@ -86,8 +87,6 @@ class JsonEventSerializerTest {
     @MethodSource("events")
     void serialize(Event givenEvent, String expectedString) {
         String serialized = serializer.serialize(givenEvent);
-        // todo: same json matcher
-
-        assertEquals(expectedString, serialized);
+        assertThat(serialized, sameJSONAs(expectedString));
     }
 }
