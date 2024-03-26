@@ -332,6 +332,16 @@ public class BinaryTupleTest {
         }
     }
 
+    @Test
+    public void decimalSizeTest() {
+        BigDecimal value = new BigDecimal(1);
+
+        BinaryTupleBuilder builder = new BinaryTupleBuilder(1);
+        ByteBuffer bytes = builder.appendDecimal(value, Short.MAX_VALUE).build();
+
+        assertEquals(4, bytes.limit());
+    }
+
     /**
      * Test big decimal value encoding with different scale in value and schema.
      */
