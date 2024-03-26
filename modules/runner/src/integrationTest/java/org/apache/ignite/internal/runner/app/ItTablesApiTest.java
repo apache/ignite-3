@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static org.apache.ignite.internal.IndexTestUtils.waitForIndexToAppearInAnyState;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.test.WatchListenerInhibitor.metastorageEventsInhibitor;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
@@ -54,6 +55,8 @@ import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.apache.ignite.lang.TableNotFoundException;
+import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
@@ -428,6 +431,21 @@ public class ItTablesApiTest extends IgniteAbstractTest {
         }
 
         ignite1Inhibitor.stopInhibit();
+    }
+
+    @Test
+    public void usingTableAfterDrop() {
+        Ignite ignite0 = clusterNodes.get(0);
+        Table tbl = createTable(ignite0, TABLE_NAME);
+        RecordView<Tuple> view = tbl.recordView();
+
+        sql(ignite0, "DROP TABLE " + TABLE_NAME);
+
+        assertThrows(
+                TableNotFoundException.class,
+                () -> view.insert(null, Tuple.create().set("key", 1L).set("valInt", 1).set("valStr", "1")),
+                "Table does not exist or was dropped concurrently"
+        );
     }
 
     /**
