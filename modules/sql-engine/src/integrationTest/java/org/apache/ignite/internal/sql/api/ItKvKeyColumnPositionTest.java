@@ -23,6 +23,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.client.IgniteClient;
@@ -172,10 +174,7 @@ public class ItKvKeyColumnPositionTest extends BaseSqlIntegrationTest {
             kvView.put(null, key, val);
 
             BoolInt retrieved = kvView.get(null, key);
-
-            assertNotNull(retrieved);
-            assertEquals(val.boolCol, retrieved.boolCol);
-            assertEquals(val.dateCol, retrieved.dateCol);
+            assertEquals(val, retrieved);
         }
 
         {
@@ -187,9 +186,7 @@ public class ItKvKeyColumnPositionTest extends BaseSqlIntegrationTest {
             kvView.put(null, key, val);
 
             BoolInt retrieved = kvView.get(null, key);
-            assertNotNull(retrieved);
-            assertEquals(val.boolCol, retrieved.boolCol);
-            assertEquals(val.dateCol, retrieved.dateCol);
+            assertEquals(val, retrieved);
         }
     }
 
@@ -235,11 +232,7 @@ public class ItKvKeyColumnPositionTest extends BaseSqlIntegrationTest {
         kvView.put(null, "1", val);
 
         IntBoolDate retrieved = kvView.get(null, "1");
-
-        assertNotNull(retrieved);
-        assertEquals(val.boolCol, retrieved.boolCol);
-        assertEquals(val.intCol, retrieved.intCol);
-        assertEquals(val.dateCol, retrieved.dateCol);
+        assertEquals(val, retrieved);
     }
 
     /**
@@ -260,6 +253,29 @@ public class ItKvKeyColumnPositionTest extends BaseSqlIntegrationTest {
         assertNull(kvView.get(null, k2));
     }
 
+    /**
+     * Checks remove all since this API calls {@link KvMarshaller#marshal(Object, Object)}}.
+     */
+    @ParameterizedTest
+    @MethodSource("complexKeyKvs")
+    public void testPutAll(KeyValueView<IntString, BoolInt> kvView) {
+        IntString k1 = newKey();
+        BoolInt val1 = new BoolInt();
+        val1.dateCol = LocalDate.now().plusDays(ThreadLocalRandom.current().nextInt(100));
+
+        IntString k2 = newKey();
+        BoolInt val2 = new BoolInt();
+        val2.dateCol = LocalDate.now().plusDays(ThreadLocalRandom.current().nextInt(100));
+
+        kvView.putAll(null, Map.of(k1, val1, k2, val2));
+
+        BoolInt retrieved1 = kvView.get(null, k1);
+        assertEquals(val1, retrieved1);
+
+        BoolInt retrieved2 = kvView.get(null, k2);
+        assertEquals(val2, retrieved2);
+    }
+
     private static IntString newKey() {
         int val = ID_NUM.incrementAndGet();
 
@@ -277,11 +293,45 @@ public class ItKvKeyColumnPositionTest extends BaseSqlIntegrationTest {
     static class BoolInt {
         boolean boolCol;
         LocalDate dateCol;
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            BoolInt boolInt = (BoolInt) o;
+            return boolCol == boolInt.boolCol && Objects.equals(dateCol, boolInt.dateCol);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(boolCol, dateCol);
+        }
     }
 
     static class IntBoolDate {
         int intCol;
         boolean boolCol;
         LocalDate dateCol;
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            IntBoolDate that = (IntBoolDate) o;
+            return intCol == that.intCol && boolCol == that.boolCol && Objects.equals(dateCol, that.dateCol);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(intCol, boolCol, dateCol);
+        }
     }
 }
