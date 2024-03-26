@@ -100,12 +100,12 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
 
     @Test
     void testParallelDestroyPartitionAndCheckpoint() {
-        for (int partitionId = 0; partitionId < DEFAULT_PARTITION_COUNT; partitionId++) {
-            int finalPartitionId = partitionId;
+        for (int partitionId = 0; partitionId < 100; partitionId++) {
+            int finalPartitionId = partitionId % DEFAULT_PARTITION_COUNT;
 
-            MvPartitionStorage partition = getOrCreateMvPartition(partitionId);
+            MvPartitionStorage partition = getOrCreateMvPartition(finalPartitionId);
 
-            RowId rowId = new RowId(partitionId);
+            RowId rowId = new RowId(finalPartitionId);
             BinaryRow binaryRow = binaryRow(new TestKey(1, "1"), new TestValue(2, "2"));
 
             partition.runConsistently(locker -> {
