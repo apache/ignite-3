@@ -34,9 +34,4 @@ public static class MetricTags
     /// Node address.
     /// </summary>
     public const string NodeAddress = "node.addr";
-
-    /// <summary>
-    /// Data streamer id.
-    /// </summary>
-    public const string DataStreamerId = "streamer.id";
 }
