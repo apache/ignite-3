@@ -53,8 +53,6 @@ public class TestTxStateStorage implements TxStateStorage {
 
     private volatile boolean closed;
 
-    private volatile String leaseholderId;
-
     private volatile long leaseStartTime;
 
     public TestTxStateStorage() {
