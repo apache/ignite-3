@@ -495,6 +495,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             TopologyAwareRaftGroupService raftClient,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker
     ) {
+        LOG.info("Replica is about to start [replicationGroupId={}].", replicaGrpId);
+
         ClusterNode localNode = clusterNetSvc.topologyService().localMember();
 
         Replica newReplica = new Replica(
@@ -511,10 +513,12 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         CompletableFuture<Replica> replicaFuture = replicas.compute(replicaGrpId, (k, existingReplicaFuture) -> {
             if (existingReplicaFuture == null || existingReplicaFuture.isDone()) {
                 assert existingReplicaFuture == null || isCompletedSuccessfully(existingReplicaFuture);
+                LOG.info("Replica is started [replicationGroupId={}].", replicaGrpId);
 
                 return completedFuture(newReplica);
             } else {
                 existingReplicaFuture.complete(newReplica);
+                LOG.info("Replica is started, existing waiter was completed [replicationGroupId={}].", replicaGrpId);
 
                 return existingReplicaFuture;
             }
@@ -779,7 +783,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @return True if the replica is started.
      */
     public boolean isReplicaStarted(ReplicationGroupId replicaGrpId) {
-        return replicas.containsKey(replicaGrpId);
+        CompletableFuture<Replica> replicaFuture = replicas.get(replicaGrpId);
+        return replicaFuture != null && isCompletedSuccessfully(replicaFuture);
     }
 
     /**
