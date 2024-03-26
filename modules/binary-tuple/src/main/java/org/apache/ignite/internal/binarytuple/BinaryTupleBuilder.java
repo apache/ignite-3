@@ -328,10 +328,10 @@ public class BinaryTupleBuilder {
         } else {
             // Actual scale is less than schema - encode scale as varint.
             if (value.scale() < 64) {
-                putByte((byte)(DECIMAL_SCALE_ONE_BYTE | value.scale()));
+                putByte((byte) (DECIMAL_SCALE_ONE_BYTE | value.scale()));
             } else if (value.scale() < 16384) {
-                putByte((byte)(DECIMAL_SCALE_TWO_BYTES | (value.scale() & 0b00111111)));
-                putByte((byte)(value.scale() >> 6));
+                putByte((byte) (DECIMAL_SCALE_TWO_BYTES | (value.scale() & 0b00111111)));
+                putByte((byte) (value.scale() >> 6));
             } else {
                 putByte(DECIMAL_SCALE_THREE_BYTES);
                 putShort((short) value.scale());
