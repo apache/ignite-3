@@ -70,33 +70,4 @@ public class ClientTablesTest extends AbstractClientTest {
 
         assertNull(table);
     }
-
-    @Test
-    @Disabled("IGNITE-15179")
-    public void testCreateTable() {
-        var clientTable = ((FakeIgniteTables) server.tables()).createTable("t1");
-        assertEquals("t1", clientTable.name());
-
-        var serverTables = server.tables().tables();
-        assertEquals(1, serverTables.size());
-
-        var serverTable = serverTables.get(0);
-        assertEquals("t1", serverTable.name());
-        assertEquals(((TableViewInternal) serverTable).tableId(), ((ClientTable) clientTable).tableId());
-    }
-
-    @Test
-    @Disabled("IGNITE-15179")
-    public void testCreateTableWhenExists() {
-        ((FakeIgniteTables) server.tables()).createTable(DEFAULT_TABLE);
-
-        var ex = assertThrows(CompletionException.class,
-                () -> ((FakeIgniteTables) server.tables()).createTable(DEFAULT_TABLE));
-
-        assertTrue(ex.getMessage().endsWith(FakeIgniteTables.TABLE_EXISTS));
-        assertEquals(TableAlreadyExistsException.class, ex.getCause().getClass());
-
-        var serverTables = server.tables().tables();
-        assertEquals(1, serverTables.size());
-    }
 }
