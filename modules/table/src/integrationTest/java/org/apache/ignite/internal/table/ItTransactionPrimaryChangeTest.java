@@ -162,7 +162,8 @@ public class ItTransactionPrimaryChangeTest extends ClusterPerTestIntegrationTes
             // Changing the primary.
             NodeUtils.transferPrimary(tbl, txCrdNode.name(), cluster::node);
 
-            // Start a regular transaction that increments the value. It should see the initially inserted value and its commit should succeed.
+            // Start a regular transaction that increments the value. It should see the initially inserted value and its commit should
+            // succeed.
             Transaction tx = txCrdNode.transactions().begin();
             log.info("Test: Started the regular transaction [txId={}].", ((ReadWriteTransactionImpl) tx).id());
 
