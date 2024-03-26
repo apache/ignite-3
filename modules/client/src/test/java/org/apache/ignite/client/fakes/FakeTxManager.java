@@ -219,9 +219,4 @@ public class FakeTxManager implements TxManager {
     public CompletableFuture<Void> updateLowWatermark(HybridTimestamp newLowWatermark) {
         return null;
     }
-
-    @Override
-    public HybridClock clock() {
-        return clock;
-    }
 }

@@ -118,7 +118,13 @@ public class HashAggregateExecutionTest extends BaseAggregateTest {
 
         ImmutableBitSet grpSet = grpSets.get(0);
         Mapping reduceMapping = Commons.trimmingMapping(grpSet.length(), grpSet);
-        MapReduceAgg mapReduceAgg = MapReduceAggregates.createMapReduceAggCall(call, reduceMapping.getTargetCount());
+        MapReduceAgg mapReduceAgg = MapReduceAggregates.createMapReduceAggCall(
+                Commons.cluster(),
+                call,
+                reduceMapping.getTargetCount(),
+                inRowType,
+                true
+        );
 
         HashAggregateNode<Object[]> aggRdc = new HashAggregateNode<>(
                 ctx,

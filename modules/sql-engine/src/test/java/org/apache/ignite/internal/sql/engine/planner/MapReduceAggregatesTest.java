@@ -30,6 +30,7 @@ import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.logical.LogicalAggregate;
 import org.apache.calcite.rel.logical.LogicalValues;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.ImmutableBitSet;
@@ -37,6 +38,7 @@ import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.mapping.Mapping;
 import org.apache.calcite.util.mapping.MappingType;
 import org.apache.calcite.util.mapping.Mappings;
+import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteValues;
 import org.apache.ignite.internal.sql.engine.rel.agg.MapReduceAggregates;
@@ -118,8 +120,13 @@ public class MapReduceAggregatesTest {
         }
 
         @Override
+        public IgniteRel makeProject(RelOptCluster cluster, RelNode input, List<RexNode> reduceInputExprs, RelDataType projectRowType) {
+            return new IgniteProject(cluster, input.getTraitSet(), input, reduceInputExprs, projectRowType);
+        }
+
+        @Override
         public IgniteRel makeReduceAgg(RelOptCluster cluster,
-                RelNode map,
+                RelNode input,
                 ImmutableBitSet groupSet,
                 List<ImmutableBitSet> groupSets,
                 List<AggregateCall> aggregateCalls,
@@ -127,7 +134,7 @@ public class MapReduceAggregatesTest {
 
             collectedGroupSets.add(Pair.of(groupSet, groupSets));
 
-            return createOutExpr(cluster, map);
+            return createOutExpr(cluster, input);
         }
 
         private IgniteValues createOutExpr(RelOptCluster cluster, RelNode input) {

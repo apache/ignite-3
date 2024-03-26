@@ -15,13 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage.rocksdb.instance;
+package org.apache.ignite.internal.storage.rocksdb;
 
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.KEY_BYTE_ORDER;
 
 import java.nio.ByteBuffer;
 import java.util.NoSuchElementException;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
+import org.apache.ignite.internal.storage.rocksdb.IndexIdCursor.TableAndIndexId;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 import org.rocksdb.RocksIterator;
@@ -30,17 +31,52 @@ import org.rocksdb.RocksIterator;
  * Cursor that iterates over distinct index IDs in a Sorted Index column family.
  *
  * <p>Sorted index column family can contain multiple indexes that have the same order and type of indexed columns. Index ID is stored
- * as the first 4 bytes of a RocksDB key.
+ * as the second 4 bytes of a RocksDB key.
  */
-class IndexIdCursor implements Cursor<Integer> {
+public class IndexIdCursor implements Cursor<TableAndIndexId> {
+    /**
+     * Container for a table ID and an index ID.
+     */
+    public static class TableAndIndexId {
+        static final int BYTES = Integer.BYTES * 2;
+
+        private final int tableId;
+
+        private final int indexId;
+
+        TableAndIndexId(int tableId, int indexId) {
+            this.tableId = tableId;
+            this.indexId = indexId;
+        }
+
+        public int tableId() {
+            return tableId;
+        }
+
+        public int indexId() {
+            return indexId;
+        }
+    }
+
     private final RocksIterator it;
+
+    @Nullable
+    private final Integer tableId;
 
     private @Nullable ByteBuffer curIndexId = null;
 
     private boolean hasNext = true;
 
-    IndexIdCursor(RocksIterator it) {
+    /**
+     * Creates a new cursor.
+     *
+     * @param it RocksDB iterator over a Sorted Index Column Family.
+     * @param tableId Table ID filter. If set, the cursor will only return index IDs that belong to the given table. If {@code null}
+     *         - all index IDs will be returned.
+     */
+    public IndexIdCursor(RocksIterator it, @Nullable Integer tableId) {
         this.it = it;
+        this.tableId = tableId;
     }
 
     @Override
@@ -50,13 +86,9 @@ class IndexIdCursor implements Cursor<Integer> {
         }
 
         if (curIndexId == null) {
-            curIndexId = ByteBuffer.allocate(Integer.BYTES).order(KEY_BYTE_ORDER);
-
-            it.seekToFirst();
+            positionToFirst();
         } else if (setNextIndexId()) {
-            it.seek(curIndexId);
-
-            curIndexId.rewind();
+            positionToNext();
         } else {
             hasNext = false;
 
@@ -72,8 +104,30 @@ class IndexIdCursor implements Cursor<Integer> {
         return hasNext;
     }
 
+    private void positionToFirst() {
+        curIndexId = ByteBuffer.allocate(TableAndIndexId.BYTES).order(KEY_BYTE_ORDER);
+
+        if (tableId != null) {
+            curIndexId.putInt(0, tableId);
+
+            it.seek(curIndexId);
+
+            curIndexId.rewind();
+        } else {
+            it.seekToFirst();
+        }
+    }
+
+    private void positionToNext() {
+        assert curIndexId != null;
+
+        it.seek(curIndexId);
+
+        curIndexId.rewind();
+    }
+
     @Override
-    public Integer next() {
+    public TableAndIndexId next() {
         if (!hasNext) {
             throw new NoSuchElementException();
         }
@@ -84,7 +138,10 @@ class IndexIdCursor implements Cursor<Integer> {
 
         curIndexId.rewind();
 
-        return curIndexId.getInt(0);
+        return new TableAndIndexId(
+                curIndexId.getInt(0),
+                curIndexId.getInt(Integer.BYTES)
+        );
     }
 
     @Override

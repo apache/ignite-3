@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.storage.rocksdb.index;
 
 import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
 import java.util.List;
+import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.index.BinaryTupleComparator;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
 import org.rocksdb.AbstractComparator;
@@ -57,30 +57,39 @@ public class RocksDbBinaryTupleComparator extends AbstractComparator {
 
     @Override
     public int compare(ByteBuffer a, ByteBuffer b) {
-        int compareIndexId = Integer.compare(a.getInt(), b.getInt());
+        // Compare table ID, index ID and partition ID.
+        int compareTableIds = Integer.compareUnsigned(a.getInt(), b.getInt());
 
-        if (compareIndexId != 0) {
-            return compareIndexId;
+        if (compareTableIds != 0) {
+            return compareTableIds;
         }
 
-        // Handle index ID-only buffers, probably coming from the range tombstones.
         if (!bothHasRemaining(a, b)) {
-            return Integer.compare(a.remaining(), b.remaining());
+            return Boolean.compare(a.hasRemaining(), b.hasRemaining());
         }
 
-        int comparePartitionId = Short.compareUnsigned(a.getShort(), b.getShort());
+        int compareIndexIds = Integer.compareUnsigned(a.getInt(), b.getInt());
 
-        if (comparePartitionId != 0) {
-            return comparePartitionId;
+        if (compareIndexIds != 0) {
+            return compareIndexIds;
         }
 
-        // Handle partition bounds.
         if (!bothHasRemaining(a, b)) {
-            return Integer.compare(a.remaining(), b.remaining());
+            return Boolean.compare(a.hasRemaining(), b.hasRemaining());
         }
 
-        ByteBuffer firstBinaryTupleBuffer = a.slice().order(ByteOrder.LITTLE_ENDIAN);
-        ByteBuffer secondBinaryTupleBuffer = b.slice().order(ByteOrder.LITTLE_ENDIAN);
+        int comparePartitionIds = Short.compareUnsigned(a.getShort(), b.getShort());
+
+        if (comparePartitionIds != 0) {
+            return comparePartitionIds;
+        }
+
+        if (!bothHasRemaining(a, b)) {
+            return Boolean.compare(a.hasRemaining(), b.hasRemaining());
+        }
+
+        ByteBuffer firstBinaryTupleBuffer = a.slice().order(BinaryTuple.ORDER);
+        ByteBuffer secondBinaryTupleBuffer = b.slice().order(BinaryTuple.ORDER);
 
         int compareTuples = comparator.compare(firstBinaryTupleBuffer, secondBinaryTupleBuffer);
 

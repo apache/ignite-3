@@ -27,7 +27,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
-import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -99,7 +99,7 @@ public class PlacementDriverManager implements IgniteComponent {
      * @param logicalTopologyService Logical topology service.
      * @param raftManager Raft manager.
      * @param topologyAwareRaftGroupServiceFactory Raft client factory.
-     * @param clock Hybrid clock.
+     * @param clockService Clock service.
      */
     public PlacementDriverManager(
             String nodeName,
@@ -110,7 +110,7 @@ public class PlacementDriverManager implements IgniteComponent {
             LogicalTopologyService logicalTopologyService,
             RaftManager raftManager,
             TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory,
-            HybridClock clock
+            ClockService clockService
     ) {
         this.replicationGroupId = replicationGroupId;
         this.clusterService = clusterService;
@@ -121,7 +121,7 @@ public class PlacementDriverManager implements IgniteComponent {
 
         this.raftClientFuture = new CompletableFuture<>();
 
-        this.leaseTracker = new LeaseTracker(metastore, clusterService.topologyService());
+        this.leaseTracker = new LeaseTracker(metastore, clusterService.topologyService(), clockService);
 
         this.leaseUpdater = new LeaseUpdater(
                 nodeName,
@@ -129,7 +129,7 @@ public class PlacementDriverManager implements IgniteComponent {
                 metastore,
                 logicalTopologyService,
                 leaseTracker,
-                clock
+                clockService
         );
     }
 

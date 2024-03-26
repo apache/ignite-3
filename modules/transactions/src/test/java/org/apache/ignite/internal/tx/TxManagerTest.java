@@ -20,7 +20,6 @@ package org.apache.ignite.internal.tx;
 import static java.lang.Math.abs;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.hlc.HybridTimestamp.CLOCK_SKEW;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.replicator.ReplicaManager.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
@@ -58,9 +57,10 @@ import java.util.function.LongSupplier;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
@@ -123,7 +123,7 @@ public class TxManagerTest extends IgniteAbstractTest {
     @Mock(answer = RETURNS_DEEP_STUBS)
     private ReplicaService replicaService;
 
-    private final HybridClock clock = spy(new HybridClockImpl());
+    private final ClockService clockService = spy(new TestClockService(new HybridClockImpl()));
 
     @Mock(strictness = Strictness.LENIENT)
     private PlacementDriver placementDriver;
@@ -150,7 +150,7 @@ public class TxManagerTest extends IgniteAbstractTest {
                 clusterService,
                 replicaService,
                 new HeapLockManager(),
-                clock,
+                clockService,
                 new TransactionIdGenerator(0xdeadbeef),
                 placementDriver,
                 idleSafeTimePropagationPeriodMsSupplier,
@@ -220,7 +220,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
     @Test
     void testCreateNewRoTxAfterUpdateLowerWatermark() {
-        when(clock.now()).thenReturn(new HybridTimestamp(10_000, 10));
+        when(clockService.now()).thenReturn(new HybridTimestamp(10_000, 10));
 
         assertThat(txManager.updateLowWatermark(new HybridTimestamp(10_000, 11)), willSucceedFast());
 
@@ -233,11 +233,11 @@ public class TxManagerTest extends IgniteAbstractTest {
     @Test
     void testUpdateLowerWatermark() {
         // Let's check the absence of transactions.
-        assertThat(txManager.updateLowWatermark(clock.now()), willSucceedFast());
+        assertThat(txManager.updateLowWatermark(clockService.now()), willSucceedFast());
 
         InternalTransaction rwTx0 = txManager.begin(hybridTimestampTracker);
 
-        hybridTimestampTracker.update(clock.now());
+        hybridTimestampTracker.update(clockService.now());
 
         InternalTransaction roTx0 = txManager.begin(hybridTimestampTracker, true);
         InternalTransaction roTx1 = txManager.begin(hybridTimestampTracker, true);
@@ -258,7 +258,7 @@ public class TxManagerTest extends IgniteAbstractTest {
         txManager.begin(hybridTimestampTracker);
         txManager.begin(hybridTimestampTracker);
 
-        assertThat(txManager.updateLowWatermark(clock.now()), willSucceedFast());
+        assertThat(txManager.updateLowWatermark(clockService.now()), willSucceedFast());
     }
 
     @Test
@@ -272,7 +272,7 @@ public class TxManagerTest extends IgniteAbstractTest {
         when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any())).thenReturn(completedFuture(
                 new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), HybridTimestamp.MAX_VALUE)));
 
-        HybridTimestamp commitTimestamp = clock.now();
+        HybridTimestamp commitTimestamp = clockService.now();
         when(replicaService.invoke(anyString(), any(TxFinishReplicaRequest.class)))
                 .thenReturn(completedFuture(new TransactionResult(TxState.COMMITTED, commitTimestamp)));
 
@@ -425,9 +425,9 @@ public class TxManagerTest extends IgniteAbstractTest {
     public void testObservableTimestamp() {
         long compareThreshold = 50;
         // Check that idle safe time propagation period is significantly greater than compareThreshold.
-        assertTrue(idleSafeTimePropagationPeriodMsSupplier.getAsLong() + CLOCK_SKEW > compareThreshold * 5);
+        assertTrue(idleSafeTimePropagationPeriodMsSupplier.getAsLong() + clockService.maxClockSkewMillis() > compareThreshold * 5);
 
-        HybridTimestamp now = clock.now();
+        HybridTimestamp now = clockService.now();
 
         InternalTransaction tx = txManager.begin(hybridTimestampTracker, true);
 
@@ -452,7 +452,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         tx = txManager.begin(hybridTimestampTracker, true);
 
-        long readTime = now.getPhysical() - idleSafeTimePropagationPeriodMsSupplier.getAsLong() - CLOCK_SKEW;
+        long readTime = now.getPhysical() - idleSafeTimePropagationPeriodMsSupplier.getAsLong() - clockService.maxClockSkewMillis();
 
         assertThat(abs(readTime - tx.readTimestamp().getPhysical()), Matchers.lessThan(compareThreshold));
 
@@ -463,9 +463,9 @@ public class TxManagerTest extends IgniteAbstractTest {
     public void testObservableTimestampLocally() {
         long compareThreshold = 50;
         // Check that idle safe time propagation period is significantly greater than compareThreshold.
-        assertTrue(idleSafeTimePropagationPeriodMsSupplier.getAsLong() + CLOCK_SKEW > compareThreshold * 5);
+        assertTrue(idleSafeTimePropagationPeriodMsSupplier.getAsLong() + clockService.maxClockSkewMillis() > compareThreshold * 5);
 
-        HybridTimestamp now = clock.now();
+        HybridTimestamp now = clockService.now();
 
         InternalTransaction tx = txManager.begin(hybridTimestampTracker, true);
 
@@ -474,7 +474,7 @@ public class TxManagerTest extends IgniteAbstractTest {
         assertTrue(firstReadTs.compareTo(now) < 0);
 
         assertTrue(now.getPhysical() - firstReadTs.getPhysical() < compareThreshold
-                + idleSafeTimePropagationPeriodMsSupplier.getAsLong() + CLOCK_SKEW);
+                + idleSafeTimePropagationPeriodMsSupplier.getAsLong() + clockService.maxClockSkewMillis());
         tx.commit();
 
         tx = txManager.begin(hybridTimestampTracker, true);
@@ -482,7 +482,7 @@ public class TxManagerTest extends IgniteAbstractTest {
         assertTrue(firstReadTs.compareTo(tx.readTimestamp()) <= 0);
 
         assertTrue(abs(now.getPhysical() - tx.readTimestamp().getPhysical()) < compareThreshold
-                + idleSafeTimePropagationPeriodMsSupplier.getAsLong() + CLOCK_SKEW);
+                + idleSafeTimePropagationPeriodMsSupplier.getAsLong() + clockService.maxClockSkewMillis());
         tx.commit();
     }
 
@@ -496,7 +496,7 @@ public class TxManagerTest extends IgniteAbstractTest {
         when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any())).thenReturn(completedFuture(
                 new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), HybridTimestamp.MAX_VALUE)));
 
-        HybridTimestamp commitTimestamp = clock.now();
+        HybridTimestamp commitTimestamp = clockService.now();
         when(replicaService.invoke(anyString(), any(TxFinishReplicaRequest.class)))
                 .thenReturn(completedFuture(new TransactionResult(TxState.COMMITTED, commitTimestamp)));
         // Ensure that commit doesn't throw exceptions.
@@ -540,11 +540,11 @@ public class TxManagerTest extends IgniteAbstractTest {
                         completedFuture(new TransactionResult(TxState.COMMITTED, commitTimestamp))
                 );
 
-        when(clock.now()).thenReturn(hybridTimestamp(5));
+        when(clockService.now()).thenReturn(hybridTimestamp(5));
         // Ensure that commit doesn't throw exceptions.
         InternalTransaction committedTransaction = prepareTransaction();
 
-        when(clock.now()).thenReturn(commitTimestamp, hybridTimestamp(13));
+        when(clockService.now()).thenReturn(commitTimestamp, hybridTimestamp(13));
 
         committedTransaction.commit();
         assertEquals(TxState.COMMITTED, txManager.stateMeta(committedTransaction.id()).txState());
@@ -618,7 +618,7 @@ public class TxManagerTest extends IgniteAbstractTest {
                 .thenReturn(completedFuture(
                         new TestReplicaMetaImpl(LOCAL_NODE, hybridTimestamp(1), hybridTimestamp(10))));
 
-        HybridTimestamp commitTimestamp = clock.now();
+        HybridTimestamp commitTimestamp = clockService.now();
         when(replicaService.invoke(anyString(), any(TxFinishReplicaRequest.class)))
                 .thenReturn(completedFuture(new TransactionResult(TxState.COMMITTED, commitTimestamp)));
 
@@ -712,7 +712,7 @@ public class TxManagerTest extends IgniteAbstractTest {
         when(placementDriver.getPrimaryReplica(any(), any())).thenReturn(primaryReplicaMetaFuture);
         when(placementDriver.awaitPrimaryReplica(any(), any(), anyLong(), any())).thenReturn(primaryReplicaMetaFuture);
 
-        var txResult = new TransactionResult(commit ? TxState.COMMITTED : TxState.ABORTED, clock.now());
+        var txResult = new TransactionResult(commit ? TxState.COMMITTED : TxState.ABORTED, clockService.now());
 
         when(replicaService.invoke(anyString(), any(TxFinishReplicaRequest.class))).thenReturn(completedFuture(txResult));
 
@@ -725,11 +725,11 @@ public class TxManagerTest extends IgniteAbstractTest {
     @Test
     void testCreateBeginTsInsideInUpdateRwTxCount() {
         doAnswer(invocation -> {
-            clearInvocations(clock);
+            clearInvocations(clockService);
 
             Object result = invocation.callRealMethod();
 
-            verify(clock).now();
+            verify(clockService).now();
 
             return result;
         }).when(localRwTxCounter).inUpdateRwTxCountLock(any());

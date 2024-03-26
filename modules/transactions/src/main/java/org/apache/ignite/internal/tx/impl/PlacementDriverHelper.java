@@ -32,7 +32,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -53,18 +53,17 @@ public class PlacementDriverHelper {
     /** Placement driver. */
     private final PlacementDriver placementDriver;
 
-    /** A hybrid logical clock. */
-    private final HybridClock clock;
+    private final ClockService clockService;
 
     /**
      * Constructor.
      *
      * @param placementDriver Placement driver.
-     * @param clock A hybrid logical clock.
+     * @param clockService Clock service.
      */
-    public PlacementDriverHelper(PlacementDriver placementDriver, HybridClock clock) {
+    public PlacementDriverHelper(PlacementDriver placementDriver, ClockService clockService) {
         this.placementDriver = placementDriver;
-        this.clock = clock;
+        this.clockService = clockService;
     }
 
     /**
@@ -75,7 +74,7 @@ public class PlacementDriverHelper {
      *         appeared during the await timeout.
      */
     public CompletableFuture<ReplicaMeta> awaitPrimaryReplicaWithExceptionHandling(TablePartitionId partitionId) {
-        HybridTimestamp timestamp = clock.now();
+        HybridTimestamp timestamp = clockService.now();
 
         return placementDriver.awaitPrimaryReplica(partitionId, timestamp, AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS)
                 .handle((primaryReplica, e) -> {
@@ -103,7 +102,7 @@ public class PlacementDriverHelper {
             return completedFuture(new PartitionData(emptyMap(), emptySet()));
         }
 
-        HybridTimestamp timestamp = clock.now();
+        HybridTimestamp timestamp = clockService.now();
 
         Map<TablePartitionId, CompletableFuture<ReplicaMeta>> primaryReplicaFutures = new HashMap<>();
 
