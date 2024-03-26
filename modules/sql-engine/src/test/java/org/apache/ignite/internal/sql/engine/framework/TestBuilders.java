@@ -163,8 +163,8 @@ public class TestBuilders {
     }
 
     /**
-     * Factory method to create {@link ScannableTable table} instance from given data provider with only implemented
-     * {@link ScannableTable#scan table scan}.
+     * Factory method to create {@link ScannableTable table} instance from given data provider with
+     * only implemented {@link ScannableTable#scan table scan}.
      */
     public static ScannableTable tableScan(DataProvider<Object[]> dataProvider) {
         return new ScannableTable() {
@@ -209,8 +209,8 @@ public class TestBuilders {
     }
 
     /**
-     * Factory method to create {@link ScannableTable table} instance from given data provider with only implemented
-     * {@link ScannableTable#indexRangeScan index range scan}.
+     * Factory method to create {@link ScannableTable table} instance from given data provider with
+     * only implemented {@link ScannableTable#indexRangeScan index range scan}.
      */
     public static ScannableTable indexRangeScan(DataProvider<Object[]> dataProvider) {
         return new ScannableTable() {
@@ -254,8 +254,8 @@ public class TestBuilders {
     }
 
     /**
-     * Factory method to create {@link ScannableTable table} instance from given data provider with only implemented
-     * {@link ScannableTable#indexLookup index lookup}.
+     * Factory method to create {@link ScannableTable table} instance from given data provider with
+     * only implemented {@link ScannableTable#indexLookup index lookup}.
      */
     public static ScannableTable indexLookup(DataProvider<Object[]> dataProvider) {
         return new ScannableTable() {
@@ -336,8 +336,8 @@ public class TestBuilders {
          * Adds the given system view to the cluster.
          *
          * @param systemView System view.
-         * @param <T> System view data type.
          * @return {@code this} for chaining.
+         * @param <T> System view data type.
          */
         <T> ClusterBuilder addSystemView(SystemView<T> systemView);
 
