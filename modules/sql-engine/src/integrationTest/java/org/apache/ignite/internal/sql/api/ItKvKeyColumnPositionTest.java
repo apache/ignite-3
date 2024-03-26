@@ -238,7 +238,7 @@ public class ItKvKeyColumnPositionTest extends BaseSqlIntegrationTest {
     }
 
     /**
-     * Checks remove all since this API calls {@link KvMarshaller#unmarshalKey(Row)}.
+     * Checks remove all since this API calls {@link KvMarshaller#unmarshalKeyOnly(Row)}.
      */
     @ParameterizedTest
     @MethodSource("complexKeyKvs")
