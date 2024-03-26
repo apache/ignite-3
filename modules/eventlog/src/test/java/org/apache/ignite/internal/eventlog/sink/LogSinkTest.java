@@ -34,13 +34,14 @@ import org.apache.ignite.internal.eventlog.config.schema.EventLogConfiguration;
 import org.apache.ignite.internal.eventlog.config.schema.LogSinkChange;
 import org.apache.ignite.internal.eventlog.event.EventUser;
 import org.apache.ignite.internal.eventlog.event.IgniteEvents;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 @ExtendWith(ConfigurationExtension.class)
-class LogSinkTest {
+class LogSinkTest extends BaseIgniteAbstractTest {
 
     @InjectConfiguration
     private EventLogConfiguration cfg;
