@@ -40,7 +40,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.tx.TxMeta;
@@ -663,7 +662,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
             case CLOSED:
                 throw new IgniteInternalException(
                         TX_STATE_STORAGE_STOPPED_ERR,
-                        IgniteStringFormatter.format("Transaction state storage is stopped: [{}]", createStorageInfo())
+                        format("Transaction state storage is stopped: [{}]", createStorageInfo())
                 );
             case REBALANCE:
                 throw createStorageInProgressOfRebalanceException();

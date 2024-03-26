@@ -319,9 +319,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private final SchemaRegistry schemaRegistry;
 
-    //private final PrimaryReplicaChangeCommandWaiter primaryReplicaChangeCommandWaiter = new PrimaryReplicaChangeCommandWaiter();
-
-    private volatile long leaseStartTime = 0;
+    private volatile long leaseStartTime = HybridTimestamp.MIN_VALUE.longValue();
 
     /**
      * The constructor.
@@ -3975,47 +3973,6 @@ public class PartitionReplicaListener implements ReplicaListener {
     private @Nullable BinaryRow upgrade(@Nullable BinaryRow source, int targetSchemaVersion) {
         return source == null ? null : new BinaryRowUpgrader(schemaRegistry, targetSchemaVersion).upgrade(source);
     }
-
-    /**
-     * Allows to wait for the execution of {@link PrimaryReplicaChangeCommand0} in order to linearize it with the processing
-     * of primary replica requests.
-     */
-    /*private class PrimaryReplicaChangeCommandWaiter {
-        private volatile IgniteBiTuple<Long, CompletableFuture<Void>> futureTuple = new IgniteBiTuple<>(-1L, nullCompletedFuture());
-
-        *//**
-         * Checks the fact of primary replica change; if it is changed, sends a {@link PrimaryReplicaChangeCommand} to write that into
-         * replication group state machine.
-         *
-         * @param leaseStartTime Lease start time.
-         * @return Future of execution of {@link PrimaryReplicaChangeCommand}.
-         *//*
-        CompletableFuture<Void> changePrimaryReplicaFuture(long leaseStartTime) {
-            IgniteBiTuple<Long, CompletableFuture<Void>> f = futureTuple;
-
-            if (leaseStartTime == f.get1()) {
-                return f.get2();
-            } else {
-                synchronized (this) {
-                    if (leaseStartTime == futureTuple.get1()) {
-                        return futureTuple.get2();
-                    }
-
-                    PrimaryReplicaChangeCommand cmd = MSG_FACTORY.primaryReplicaChangeCommand()
-                            .leaseStartTime(leaseStartTime)
-                            .safeTimeLong(hybridClock.nowLong())
-                            .build();
-
-                    futureTuple = new IgniteBiTuple<>(
-                            leaseStartTime,
-                            futureTuple.get2().thenCompose(unused -> raftClient.run(cmd))
-                    );
-
-                    return futureTuple.get2();
-                }
-            }
-        }
-    }*/
 
     /**
      * Operation unique identifier.

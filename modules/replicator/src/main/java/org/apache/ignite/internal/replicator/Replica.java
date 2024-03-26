@@ -20,6 +20,8 @@ package org.apache.ignite.internal.replicator;
 import static java.lang.System.currentTimeMillis;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.retryOperationUntilSuccess;
 
 import java.util.concurrent.CompletableFuture;
@@ -29,6 +31,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessage;
@@ -122,13 +125,6 @@ public class Replica {
     }
 
     /**
-     * Returns an instance of replica listener, associated with current replica.
-     */
-    ReplicaListener replicaListener() {
-        return listener;
-    }
-
-    /**
      * Processes a replication request on the replica.
      *
      * @param request Request to replication.
@@ -173,7 +169,25 @@ public class Replica {
      */
     public CompletableFuture<? extends NetworkMessage> processPlacementDriverMessage(PlacementDriverReplicaMessage msg) {
         if (msg instanceof LeaseGrantedMessage) {
-            return processLeaseGrantedMessage((LeaseGrantedMessage) msg);
+            return processLeaseGrantedMessage((LeaseGrantedMessage) msg)
+                    .handle((v, e) -> {
+                        if (e != null) {
+                            Throwable ex = unwrapCause(e);
+
+                            if (!(unwrapCause(ex) instanceof NodeStoppingException)) {
+                                LOG.warn("Failed to process the lease granted message [msg={}].", ex, msg);
+
+                                // Just restart the negotiation in case of exception.
+                                return PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse()
+                                        .accepted(false)
+                                        .build();
+                            } else {
+                                throw sneakyThrow(ex);
+                            }
+                        } else {
+                            return v;
+                        }
+                    });
         }
 
         return failedFuture(new AssertionError("Unknown message type, msg=" + msg));
