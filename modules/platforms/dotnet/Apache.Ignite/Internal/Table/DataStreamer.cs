@@ -50,8 +50,6 @@ internal static class DataStreamer
 {
     private static readonly TimeSpan PartitionAssignmentUpdateFrequency = TimeSpan.FromSeconds(15);
 
-    private static long _streamerId;
-
     /// <summary>
     /// Streams the data.
     /// </summary>
@@ -102,11 +100,7 @@ internal static class DataStreamer
         var lastPartitionsAssignmentCheck = Stopwatch.StartNew();
         using var flushCts = new CancellationTokenSource();
 
-        var metricTags = new KeyValuePair<string, object?>[]
-        {
-            new(MetricTags.ClientId, clientId),
-            new(MetricTags.DataStreamerId, Interlocked.Increment(ref _streamerId)),
-        };
+        var metricTags = new KeyValuePair<string, object?>[] { new(MetricTags.ClientId, clientId) };
 
         try
         {
