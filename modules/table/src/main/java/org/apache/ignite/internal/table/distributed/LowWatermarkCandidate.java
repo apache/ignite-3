@@ -24,6 +24,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 final class LowWatermarkCandidate {
     private final HybridTimestamp lowWatermark;
 
+    /** Future of low watermark update operation, see {@link LowWatermarkImpl}. */
     private final CompletableFuture<Void> updateFuture;
 
     LowWatermarkCandidate(HybridTimestamp lowWatermark, CompletableFuture<Void> updateFuture) {

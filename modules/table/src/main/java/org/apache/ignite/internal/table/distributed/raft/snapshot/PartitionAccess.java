@@ -216,7 +216,7 @@ public interface PartitionAccess {
     void setNextRowIdToBuildIndex(Map<Integer, RowId> nextRowIdToBuildByIndexId);
 
     /**
-     * Updates the low watermark if it is larger than the current one.
+     * Updates the low watermark if it is higher than the current one.
      *
      * @param newLowWatermark Candidate for update.
      */

@@ -49,6 +49,7 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.schema.configuration.LowWatermarkConfiguration;
+import org.apache.ignite.internal.schema.configuration.LowWatermarkConfigurationSchema;
 import org.apache.ignite.internal.table.distributed.message.GetLowWatermarkRequest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.TxManager;
@@ -60,7 +61,25 @@ import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
-/** Class to manage the low watermark. */
+/**
+ * Class to manage the low watermark.
+ *
+ * <p>Low watermark updating occurs in the following cases (will only be updated if the new value is greater than the existing one):</p>
+ * <ul>
+ *     <li>By calling {@link #updateAndNotify(HybridTimestamp)}.</li>
+ *     <li>In the background every {@link LowWatermarkConfigurationSchema#updateFrequency} milliseconds, a new value will be created in
+ *     {@link #createNewLowWatermarkCandidate()}.</li>
+ * </ul>
+ *
+ * <p>Algorithm for updating a new low watermark:</p>
+ * <ul>
+ *     <li>Wait for all RO transactions up to the new value to complete locally, while new RO transactions with read timestamp below
+ *     the new low watermark will be rejected.</li>
+ *     <li>Write the new value in vault by {@link #LOW_WATERMARK_VAULT_KEY}.</li>
+ *     <li>Notify all {@link LowWatermarkChangedListener}s that the new watermark has changed and wait until they complete processing the
+ *     event.</li>
+ * </ul>
+ */
 public class LowWatermarkImpl implements LowWatermark, IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(LowWatermarkImpl.class);
 
@@ -133,7 +152,7 @@ public class LowWatermarkImpl implements LowWatermark, IgniteComponent {
     @Override
     public CompletableFuture<Void> start() {
         return inBusyLockAsync(busyLock, () -> {
-            setLowWatermark(readLowWatermarkFromVault());
+            setLowWatermarkOnRecovery(readLowWatermarkFromVault());
 
             messagingService.addMessageHandler(TableMessageGroup.class, this::onReceiveNetworkMessage);
 
@@ -268,13 +287,23 @@ public class LowWatermarkImpl implements LowWatermark, IgniteComponent {
         return HybridTimestamp.CLOCK_SKEW;
     }
 
-    private void setLowWatermark(@Nullable HybridTimestamp newLowWatermark) {
+    private void setLowWatermark(HybridTimestamp newLowWatermark) {
         updateLowWatermarkLock.writeLock().lock();
 
         try {
-            assert newLowWatermark == null || lowWatermark == null || newLowWatermark.compareTo(lowWatermark) > 0 :
+            assert lowWatermark == null || newLowWatermark.compareTo(lowWatermark) > 0 :
                     "Low watermark should only grow: [cur=" + lowWatermark + ", new=" + newLowWatermark + "]";
 
+            lowWatermark = newLowWatermark;
+        } finally {
+            updateLowWatermarkLock.writeLock().unlock();
+        }
+    }
+
+    private void setLowWatermarkOnRecovery(@Nullable HybridTimestamp newLowWatermark) {
+        updateLowWatermarkLock.writeLock().lock();
+
+        try {
             lowWatermark = newLowWatermark;
         } finally {
             updateLowWatermarkLock.writeLock().unlock();
@@ -306,7 +335,7 @@ public class LowWatermarkImpl implements LowWatermark, IgniteComponent {
             do {
                 oldLowWatermarkCandidate = lowWatermarkCandidate.get();
 
-                // If another candidate contains a larger low watermark, then there is no need to update.
+                // If another candidate contains a higher low watermark, then there is no need to update.
                 if (oldLowWatermarkCandidate.lowWatermark().compareTo(newLowWatermark) >= 0) {
                     return;
                 }

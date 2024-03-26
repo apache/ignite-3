@@ -45,7 +45,7 @@ public interface LowWatermark {
     void getLowWatermarkSafe(Consumer<@Nullable HybridTimestamp> consumer);
 
     /**
-     * Updates the low watermark if it is larger than the current one.
+     * Updates the low watermark if it is higher than the current one.
      *
      * @param newLowWatermark Candidate for update.
      */
