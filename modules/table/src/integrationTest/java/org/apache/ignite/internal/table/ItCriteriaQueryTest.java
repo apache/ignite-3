@@ -66,7 +66,6 @@ import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.lang.Cursor;
 import org.apache.ignite.lang.CursorClosedException;
 import org.apache.ignite.lang.ErrorGroups.Common;
-import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.criteria.CriteriaException;
@@ -77,7 +76,6 @@ import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -407,14 +405,32 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
         }
     }
 
-    @Test
-    public void testOptions() {
-        RecordView<TestObject> view = CLIENT.tables().table(TABLE_NAME).recordView(TestObject.class);
+    private static Stream<Arguments> clientViews() {
+        Table clientTable = CLIENT.tables().table(TABLE_NAME);
 
-        AsyncCursor<TestObject> ars = await(view.queryAsync(null, null, null, builder().pageSize(2).build()));
+        return Stream.of(
+                Arguments.of(clientTable.recordView()),
+                Arguments.of(clientTable.recordView(TestObject.class)),
+                Arguments.of(clientTable.keyValueView()),
+                Arguments.of(clientTable.keyValueView(TestObjectKey.class, TestObject.class))
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("clientViews")
+    public <T> void testPageOption(CriteriaQuerySource<T> view) {
+        AsyncCursor<T> ars = await(view.queryAsync(null, null, null, builder().pageSize(2).build()));
 
         assertNotNull(ars);
         assertEquals(2, ars.currentPageSize());
+
+        AsyncCursor<T> ars1 = await(ars.fetchNextPage());
+
+        assertNotNull(ars1);
+        assertEquals(1, ars1.currentPageSize());
+
+        assertEquals(ars, ars1);
+
         await(ars.closeAsync());
     }
 
