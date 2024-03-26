@@ -115,8 +115,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
      * @param igniteInstanceName Name of the Ignite instance.
      * @param storagePath Storage path.
      * @param filePageStoreFactory {@link FilePageStore} factory.
-     * @param failureProcessor Failure processor that is used to handler critical errors
-     * @throws IgniteInternalCheckedException If failed.
+     * @param failureProcessor Failure processor that is used to handler critical errors.
      */
     public FilePageStoreManager(
             String igniteInstanceName,
@@ -124,7 +123,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
             FilePageStoreFactory filePageStoreFactory,
             // TODO: IGNITE-17017 Move to common config
             FailureProcessor failureProcessor
-    ) throws IgniteInternalCheckedException {
+    ) {
         this.dbDir = storagePath.resolve("db");
         this.filePageStoreFactory = filePageStoreFactory;
         this.failureProcessor = failureProcessor;
