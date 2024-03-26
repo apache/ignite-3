@@ -58,12 +58,8 @@ ignite_tuple write_read_tuple(const ignite_tuple &tuple, const std::shared_ptr<s
 TEST(client_utils, tuple_write_read_random_order_all_columns) {
     auto sch = make_test_schema();
 
-    ignite_tuple tuple {
-        {"VAL_COL1", std::int32_t(42)},
-        {"VAL_COL2", std::string("Lorem ipsum")},
-        {"KEY_COL2", std::int32_t(1337)},
-        {"KEY_COL1", std::string("Test value")}
-    };
+    ignite_tuple tuple{{"VAL_COL1", std::int32_t(42)}, {"VAL_COL2", std::string("Lorem ipsum")},
+        {"KEY_COL2", std::int32_t(1337)}, {"KEY_COL1", std::string("Test value")}};
 
     auto res_tuple = write_read_tuple(tuple, sch, false);
 
@@ -82,12 +78,8 @@ TEST(client_utils, tuple_write_read_random_order_all_columns) {
 TEST(client_utils, tuple_write_read_random_order_key_only) {
     auto sch = make_test_schema();
 
-    ignite_tuple tuple {
-        {"VAL_COL1", std::int32_t(42)},
-        {"VAL_COL2", std::string("Lorem ipsum")},
-        {"KEY_COL2", std::int32_t(1337)},
-        {"KEY_COL1", std::string("Test value")}
-    };
+    ignite_tuple tuple{{"VAL_COL1", std::int32_t(42)}, {"VAL_COL2", std::string("Lorem ipsum")},
+        {"KEY_COL2", std::int32_t(1337)}, {"KEY_COL1", std::string("Test value")}};
 
     auto res_tuple = write_read_tuple(tuple, sch, true);
 
