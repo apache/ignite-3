@@ -138,7 +138,7 @@ struct schema {
 
         for (const auto& column : cols) {
             if (column.is_key()) {
-                assert(column.key_index < key_columns.size() && column.key_index >= 0);
+                assert(column.key_index >= 0 && std::size_t(column.key_index) < key_columns.size());
                 assert(key_columns[column.key_index] == nullptr);
 
                 key_columns[column.key_index] = &column;
