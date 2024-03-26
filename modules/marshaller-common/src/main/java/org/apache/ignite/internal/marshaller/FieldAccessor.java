@@ -54,20 +54,6 @@ abstract class FieldAccessor {
     }
 
     /**
-     * Column index in schema. Can be used to access fields in non consecutive fashion.
-     */
-    public int colIdx() {
-        return colIdx;
-    }
-
-    /**
-     * Whether this field is not mapped. {@code true} for {@link UnmappedFieldAccessor}, otherwise {@code false}.
-     */
-    public boolean unmapped() {
-        return false;
-    }
-
-    /**
      * Create accessor for the field.
      *
      * @param type Object class.
@@ -472,11 +458,6 @@ abstract class FieldAccessor {
         UnmappedFieldAccessor(MarshallerColumn col) {
             super(0, null);
             this.col = col;
-        }
-
-        @Override
-        public boolean unmapped() {
-            return true;
         }
 
         @Override

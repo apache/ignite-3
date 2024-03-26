@@ -53,7 +53,7 @@ class RowReader implements MarshallerReader {
      * then this reader reads fields in consecutive order.
      *
      * @param row Row.
-     * @param positions Position array that defines reader order.
+     * @param positions Positions array that defines row field read order.
      */
     RowReader(Row row, int @Nullable[] positions) {
         this.row = row;
