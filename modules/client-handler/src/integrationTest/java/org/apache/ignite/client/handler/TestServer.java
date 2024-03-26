@@ -27,6 +27,7 @@ import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
@@ -75,7 +76,7 @@ public class TestServer {
         this.testSslConfig = testSslConfig;
         this.authenticationManager = securityConfiguration == null
                 ? new DummyAuthenticationManager()
-                : new AuthenticationManagerImpl(securityConfiguration);
+                : new AuthenticationManagerImpl(securityConfiguration, ign -> {});
         this.clientConnectorConfiguration = clientConnectorConfiguration;
         this.networkConfiguration = networkConfiguration;
 
@@ -124,7 +125,7 @@ public class TestServer {
                 mock(MetricManager.class),
                 metrics,
                 authenticationManager,
-                new HybridClockImpl(),
+                new TestClockService(new HybridClockImpl()),
                 new AlwaysSyncedSchemaSyncService(),
                 mock(CatalogService.class),
                 mock(PlacementDriver.class),

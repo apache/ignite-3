@@ -42,6 +42,7 @@ import org.apache.ignite.internal.client.PayloadInputChannel;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.TuplePart;
+import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.marshaller.ClientMarshallerReader;
 import org.apache.ignite.internal.marshaller.ClientMarshallerWriter;
@@ -76,11 +77,12 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
      * Constructor.
      *
      * @param tbl Underlying table.
+     * @param sql Sql.
      * @param keyMapper Key mapper.
      * @param valMapper value mapper.
      */
-    ClientKeyValueView(ClientTable tbl, Mapper<K> keyMapper, Mapper<V> valMapper) {
-        super(tbl);
+    ClientKeyValueView(ClientTable tbl, ClientSql sql, Mapper<K> keyMapper, Mapper<V> valMapper) {
+        super(tbl, sql);
 
         assert keyMapper != null;
         assert valMapper != null;

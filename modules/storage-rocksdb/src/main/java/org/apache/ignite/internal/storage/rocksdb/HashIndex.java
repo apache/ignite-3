@@ -17,63 +17,27 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
-import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.createKey;
-import static org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstance.deleteByPrefix;
-import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
-
-import org.apache.ignite.internal.rocksdb.ColumnFamily;
-import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.rocksdb.index.RocksDbHashIndexStorage;
 import org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstance;
-import org.jetbrains.annotations.Nullable;
-import org.rocksdb.RocksDBException;
-import org.rocksdb.WriteBatch;
 
 /**
  * Class that represents a Hash Index defined for all partitions of a Table.
  */
 class HashIndex extends Index<RocksDbHashIndexStorage> {
-    private final ColumnFamily indexCf;
-
     private final StorageHashIndexDescriptor descriptor;
 
     private final RocksDbMetaStorage indexMetaStorage;
 
-    HashIndex(SharedRocksDbInstance rocksDb, StorageHashIndexDescriptor descriptor, RocksDbMetaStorage indexMetaStorage) {
-        super(descriptor.id());
+    HashIndex(SharedRocksDbInstance rocksDb, int tableId, StorageHashIndexDescriptor descriptor, RocksDbMetaStorage indexMetaStorage) {
+        super(tableId, descriptor.id(), rocksDb.hashIndexCf());
 
-        this.indexCf = rocksDb.hashIndexCf();
         this.descriptor = descriptor;
         this.indexMetaStorage = indexMetaStorage;
     }
 
-    /**
-     * Returns hash index storage for partition.
-     *
-     * @param partitionId Partition ID.
-     */
-    @Nullable RocksDbHashIndexStorage getStorage(int partitionId) {
-        return storageByPartitionId.get(partitionId);
-    }
-
-    /**
-     * Creates a new Hash Index storage or returns an existing one.
-     */
-    HashIndexStorage getOrCreateStorage(RocksDbMvPartitionStorage partitionStorage) {
-        return storageByPartitionId.computeIfAbsent(
-                partitionStorage.partitionId(),
-                partId -> new RocksDbHashIndexStorage(descriptor, indexCf, partitionStorage.helper(), indexMetaStorage)
-        );
-    }
-
-    /**
-     * Removes all data associated with the index.
-     */
-    void destroy(WriteBatch writeBatch) throws RocksDBException {
-        transitionToDestroyedState();
-
-        // Every index storage uses an "index ID" + "partition ID" prefix. We can remove everything by just using the index ID prefix.
-        deleteByPrefix(writeBatch, indexCf, createKey(BYTE_EMPTY_ARRAY, descriptor.id()));
+    @Override
+    RocksDbHashIndexStorage createStorage(int partitionId) {
+        return new RocksDbHashIndexStorage(descriptor, tableId, partitionId, indexCf, indexMetaStorage);
     }
 }

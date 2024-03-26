@@ -81,7 +81,6 @@ import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteCheckedException;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 
@@ -547,9 +546,7 @@ public class PlatformTestNodeRunner {
         public String execute(JobExecutionContext context, Object... args) {
             String tableName = (String) args[0];
 
-            try (Session session = context.ignite().sql().createSession()) {
-                session.execute(null, "CREATE TABLE " + tableName + "(key BIGINT PRIMARY KEY, val INT)");
-            }
+            context.ignite().sql().execute(null, "CREATE TABLE " + tableName + "(key BIGINT PRIMARY KEY, val INT)");
 
             return tableName;
         }
@@ -563,9 +560,7 @@ public class PlatformTestNodeRunner {
         @Override
         public String execute(JobExecutionContext context, Object... args) {
             String tableName = (String) args[0];
-            try (Session session = context.ignite().sql().createSession()) {
-                session.execute(null, "DROP TABLE " + tableName + "");
-            }
+            context.ignite().sql().execute(null, "DROP TABLE " + tableName + "");
 
             return tableName;
         }

@@ -169,7 +169,6 @@ sql_state error_code_to_sql_state(error::code code) {
             return sql_state::S42000_SYNTAX_ERROR_OR_ACCESS_VIOLATION;
         case error::code::QUERY_NO_RESULT_SET:
         case error::code::RUNTIME:
-        case error::code::SESSION_CLOSED:
         case error::code::MAPPING:
             return sql_state::SHY000_GENERAL_ERROR;
 

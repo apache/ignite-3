@@ -45,8 +45,8 @@ import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -255,29 +255,29 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
 
         ignite1 = ignite1Fut.join();
 
-        try (Session ses = ignite1.sql().createSession()) {
-            ResultSet<SqlRow> res = ses.execute(null, "SELECT valint2 FROM tbl1");
+        IgniteSql sql = ignite1.sql();
 
-            for (int i = 0; i < 10; ++i) {
-                assertNotNull(res.next().iterator().next());
-            }
+        ResultSet<SqlRow> res = sql.execute(null, "SELECT valint2 FROM tbl1");
 
-            for (int i = 10; i < 20; ++i) {
-                sql(ignite1, String.format("INSERT INTO " + TABLE_NAME + " VALUES(%d, %d, %d, %d)", i, i, i, i));
-            }
-
-            sql(ignite1, "ALTER TABLE " + TABLE_NAME + " DROP COLUMN valint3");
-
-            sql(ignite1, "ALTER TABLE " + TABLE_NAME + " ADD COLUMN valint5 INT");
-
-            res.close();
-
-            res = ses.execute(null, "SELECT sum(valint4) FROM tbl1");
-
-            assertEquals(10L * (10 + 19) / 2, res.next().iterator().next());
-
-            res.close();
+        for (int i = 0; i < 10; ++i) {
+            assertNotNull(res.next().iterator().next());
         }
+
+        for (int i = 10; i < 20; ++i) {
+            sql(ignite1, String.format("INSERT INTO " + TABLE_NAME + " VALUES(%d, %d, %d, %d)", i, i, i, i));
+        }
+
+        sql(ignite1, "ALTER TABLE " + TABLE_NAME + " DROP COLUMN valint3");
+
+        sql(ignite1, "ALTER TABLE " + TABLE_NAME + " ADD COLUMN valint5 INT");
+
+        res.close();
+
+        res = sql.execute(null, "SELECT sum(valint4) FROM tbl1");
+
+        assertEquals(10L * (10 + 19) / 2, res.next().iterator().next());
+
+        res.close();
     }
 
     /**
@@ -356,10 +356,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
     }
 
     protected ResultSet<SqlRow> sql(Ignite node, String query, Object... args) {
-        ResultSet<SqlRow> rs = null;
-        try (Session session = node.sql().createSession()) {
-            rs = session.execute(null, query, args);
-        }
+        ResultSet<SqlRow> rs = node.sql().execute(null, query, args);
         return rs;
     }
 

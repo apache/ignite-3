@@ -210,8 +210,9 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
             return;
         }
 
-        assert recoveryDescriptor != null : "Wrong client handshake flow";
-        assert recoveryDescriptor.holderChannel() == channel : "Expected " + channel + " but was " + recoveryDescriptor.holderChannel();
+        assert recoveryDescriptor != null : "Wrong client handshake flow, message is " + message;
+        assert recoveryDescriptor.holderChannel() == channel : "Expected " + channel + " but was " + recoveryDescriptor.holderChannel()
+                + ", message is " + message;
 
         if (message instanceof HandshakeFinishMessage) {
             HandshakeFinishMessage msg = (HandshakeFinishMessage) message;
@@ -242,7 +243,8 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
         // If we are here it means that we acquired the descriptor, we already handled a HandshakeFinishMessage and now we are
         // getting unacked messages from another side and acks for our unacked messages that we sent there (if any).
 
-        assert recoveryDescriptor.holderChannel() == channel;
+        assert recoveryDescriptor.holderChannel() == channel : "Expected " + channel + " but was " + recoveryDescriptor.holderChannel()
+                + ", message is " + message;
 
         if (recoveryDescriptor.unacknowledgedCount() == 0) {
             finishHandshake();

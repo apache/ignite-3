@@ -42,9 +42,9 @@ import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.ResultSetMetadata;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
@@ -57,8 +57,7 @@ import org.junit.jupiter.api.Test;
 public class ClientSqlTest extends AbstractClientTableTest {
     @Test
     public void testExecuteAsync() {
-        Session session = client.sql().createSession();
-        AsyncResultSet<SqlRow> resultSet = session.executeAsync(null, "SELECT 1").join();
+        AsyncResultSet<SqlRow> resultSet =  client.sql().executeAsync(null, "SELECT 1").join();
 
         assertTrue(resultSet.hasRowSet());
         assertFalse(resultSet.wasApplied());
@@ -70,8 +69,7 @@ public class ClientSqlTest extends AbstractClientTableTest {
 
     @Test
     public void testExecute() {
-        Session session = client.sql().createSession();
-        ResultSet<SqlRow> resultSet = session.execute(null, "SELECT 1");
+        ResultSet<SqlRow> resultSet =  client.sql().execute(null, "SELECT 1");
 
         assertTrue(resultSet.hasRowSet());
         assertFalse(resultSet.wasApplied());
@@ -81,39 +79,7 @@ public class ClientSqlTest extends AbstractClientTableTest {
     }
 
     @Test
-    public void testSessionPropertiesPropagation() {
-        Session session = client.sql().sessionBuilder()
-                .defaultSchema("SCHEMA1")
-                .defaultQueryTimeout(123, TimeUnit.SECONDS)
-                .defaultPageSize(234)
-                .property("prop1", "1")
-                .property("prop2", "2")
-                .build();
-
-        AsyncResultSet<SqlRow> resultSet = session.executeAsync(null, "SELECT PROPS").join();
-
-        Map<String, Object> props = StreamSupport.stream(resultSet.currentPage().spliterator(), false)
-                .collect(Collectors.toMap(x -> x.stringValue(0), x -> x.value(1)));
-
-        assertEquals("SCHEMA1", props.get("schema"));
-        assertEquals("123000", props.get("timeout"));
-        assertEquals("234", props.get("pageSize"));
-
-        // Properties are ignored by the SQL engine for now.
-        assertNull(props.get("prop1"));
-        assertNull(props.get("prop2"));
-    }
-
-    @Test
-    public void testStatementPropertiesOverrideSessionProperties() {
-        Session session = client.sql().sessionBuilder()
-                .defaultSchema("SCHEMA1")
-                .defaultQueryTimeout(123, TimeUnit.SECONDS)
-                .defaultPageSize(234)
-                .property("prop1", "1")
-                .property("prop2", "2")
-                .build();
-
+    public void testStatementPropertiesPropagation() {
         Statement statement = client.sql().statementBuilder()
                 .query("SELECT PROPS")
                 .defaultSchema("SCHEMA2")
@@ -123,7 +89,7 @@ public class ClientSqlTest extends AbstractClientTableTest {
                 .property("prop3", "3")
                 .build();
 
-        AsyncResultSet<SqlRow> resultSet = session.executeAsync(null, statement).join();
+        AsyncResultSet<SqlRow> resultSet = client.sql().executeAsync(null, statement).join();
 
         Map<String, Object> props = StreamSupport.stream(resultSet.currentPage().spliterator(), false)
                 .collect(Collectors.toMap(x -> x.stringValue(0), x -> x.value(1)));
@@ -140,8 +106,7 @@ public class ClientSqlTest extends AbstractClientTableTest {
 
     @Test
     public void testMetadata() {
-        Session session = client.sql().createSession();
-        ResultSet<SqlRow> resultSet = session.execute(null, "SELECT META");
+        ResultSet<SqlRow> resultSet =  client.sql().execute(null, "SELECT META");
         ResultSetMetadata meta = resultSet.metadata();
         SqlRow row = resultSet.next();
 
@@ -224,37 +189,29 @@ public class ClientSqlTest extends AbstractClientTableTest {
 
     @Test
     public void testExecuteScript() {
-        Session session = client.sql().createSession();
+        IgniteSql sql = client.sql();
 
-        session.executeScript("foo");
+        sql.executeScript("foo");
 
-        ResultSet<SqlRow> resultSet = session.execute(null, "SELECT LAST SCRIPT");
+        ResultSet<SqlRow> resultSet = sql.execute(null, "SELECT LAST SCRIPT");
         SqlRow row = resultSet.next();
 
         assertEquals(
-                "foo, arguments: [], defaultSchema=PUBLIC, defaultQueryTimeout=0",
+                "foo, arguments: [], defaultSchema=<not set>, defaultQueryTimeout=0",
                 row.value(0));
     }
 
     @Test
     public void testExecuteScriptWithPropertiesAndArguments() {
-        Session session = client.sql().sessionBuilder()
-                .property("prop1", "val1")
-                .property("prop2", -5)
-                .property("prop3", null)
-                .defaultPageSize(123) // Should be ignored - not applicable to scripts.
-                .defaultQueryTimeout(456, TimeUnit.MILLISECONDS)
-                .defaultSchema("script-schema")
-                .idleTimeout(789, TimeUnit.SECONDS)
-                .build();
+        IgniteSql sql = client.sql();
 
-        session.executeScript("do bar baz", "arg1", null, 2);
+        sql.executeScript("do bar baz", "arg1", null, 2);
 
-        ResultSet<SqlRow> resultSet = session.execute(null, "SELECT LAST SCRIPT");
+        ResultSet<SqlRow> resultSet = sql.execute(null, "SELECT LAST SCRIPT");
         SqlRow row = resultSet.next();
 
         assertEquals(
-                "do bar baz, arguments: [arg1, null, 2, ], defaultSchema=script-schema, defaultQueryTimeout=456",
+                "do bar baz, arguments: [arg1, null, 2, ], defaultSchema=<not set>, defaultQueryTimeout=0",
                 row.value(0));
     }
 }

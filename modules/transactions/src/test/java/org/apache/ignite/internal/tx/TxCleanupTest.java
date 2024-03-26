@@ -40,9 +40,11 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -90,6 +92,8 @@ public class TxCleanupTest extends IgniteAbstractTest {
 
     private final HybridClock clock = new HybridClockImpl();
 
+    private final ClockService clockService = new TestClockService(clock);
+
     private TxCleanupRequestSender cleanupRequestSender;
 
     private TransactionIdGenerator idGenerator;
@@ -107,9 +111,9 @@ public class TxCleanupTest extends IgniteAbstractTest {
 
         idGenerator = new TransactionIdGenerator(LOCAL_NODE.name().hashCode());
 
-        txMessageSender = spy(new TxMessageSender(messagingService, replicaService, clock));
+        txMessageSender = spy(new TxMessageSender(messagingService, replicaService, clockService));
 
-        PlacementDriverHelper placementDriverHelper = new PlacementDriverHelper(placementDriver, clock);
+        PlacementDriverHelper placementDriverHelper = new PlacementDriverHelper(placementDriver, clockService);
 
         writeIntentSwitchProcessor = spy(new WriteIntentSwitchProcessor(placementDriverHelper, txMessageSender, topologyService));
 

@@ -54,7 +54,6 @@ import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ErrorGroups.Sql;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
@@ -509,8 +508,6 @@ public class ItTablesApiTest extends IgniteAbstractTest {
     }
 
     private static void sql(Ignite node, String sql) {
-        try (Session ses = node.sql().createSession()) {
-            ses.execute(null, sql);
-        }
+        node.sql().execute(null, sql);
     }
 }

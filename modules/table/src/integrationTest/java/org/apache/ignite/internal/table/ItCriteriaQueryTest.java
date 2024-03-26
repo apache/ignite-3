@@ -27,7 +27,6 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.matchers.TupleMatcher.tupleValue;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
 import static org.apache.ignite.lang.util.IgniteNameUtils.quote;
 import static org.apache.ignite.table.criteria.Criteria.columnValue;
 import static org.apache.ignite.table.criteria.Criteria.equalTo;
@@ -62,13 +61,11 @@ import java.util.stream.StreamSupport;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
-import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.lang.Cursor;
 import org.apache.ignite.lang.CursorClosedException;
 import org.apache.ignite.lang.ErrorGroups.Common;
-import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.criteria.CriteriaException;
@@ -79,7 +76,6 @@ import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -409,14 +405,32 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
         }
     }
 
-    @Test
-    public void testOptions() {
-        RecordView<TestObject> view = CLIENT.tables().table(TABLE_NAME).recordView(TestObject.class);
+    private static Stream<Arguments> clientViews() {
+        Table clientTable = CLIENT.tables().table(TABLE_NAME);
 
-        AsyncCursor<TestObject> ars = await(view.queryAsync(null, null, null, builder().pageSize(2).build()));
+        return Stream.of(
+                Arguments.of(clientTable.recordView()),
+                Arguments.of(clientTable.recordView(TestObject.class)),
+                Arguments.of(clientTable.keyValueView()),
+                Arguments.of(clientTable.keyValueView(TestObjectKey.class, TestObject.class))
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("clientViews")
+    public <T> void testPageOption(CriteriaQuerySource<T> view) {
+        AsyncCursor<T> ars = await(view.queryAsync(null, null, null, builder().pageSize(2).build()));
 
         assertNotNull(ars);
         assertEquals(2, ars.currentPageSize());
+
+        AsyncCursor<T> ars1 = await(ars.fetchNextPage());
+
+        assertNotNull(ars1);
+        assertEquals(1, ars1.currentPageSize());
+
+        assertEquals(ars, ars1);
+
         await(ars.closeAsync());
     }
 
@@ -529,25 +543,6 @@ public class ItCriteriaQueryTest extends ClusterPerClassIntegrationTest {
                 Arguments.of(table.keyValueView(), tx),
                 Arguments.of(table.keyValueView(TestObjectKey.class, TestObject.class), tx)
         );
-    }
-
-    @ParameterizedTest
-    @MethodSource
-    public void testSessionClosing(CriteriaQuerySource<?> view, Transaction tx) {
-        int baseSessionsCount = activeSessionsCount();
-
-        assertThrowsWithCode(
-                CriteriaException.class,
-                TX_ALREADY_FINISHED_ERR,
-                () -> view.query(tx, columnValue("id", equalTo(2))),
-                "Transaction is already finished"
-        );
-
-        assertEquals(baseSessionsCount, activeSessionsCount());
-    }
-
-    private static int activeSessionsCount() {
-        return ((IgniteSqlImpl) CLUSTER.aliveNode().sql()).sessions().size();
     }
 
     private static <T> List<Tuple> mapToTupleList(Cursor<T> cur, Function<T, Tuple> mapper) {

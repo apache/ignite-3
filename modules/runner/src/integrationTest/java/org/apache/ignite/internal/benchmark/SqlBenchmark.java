@@ -19,7 +19,7 @@ package org.apache.ignite.internal.benchmark;
 
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.IgniteSql;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -52,7 +52,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 public class SqlBenchmark extends AbstractMultiNodeBenchmark {
     private static final int TABLE_SIZE = 30_000;
 
-    private Session session;
+    private IgniteSql sql;
 
     @Param({"1", "2", "3"})
     private int clusterSize;
@@ -62,13 +62,13 @@ public class SqlBenchmark extends AbstractMultiNodeBenchmark {
     public void setUp() throws IOException {
         populateTable(TABLE_NAME, TABLE_SIZE, 1_000);
 
-        session = clusterNode.sql().createSession();
+        sql = clusterNode.sql();
     }
 
     /** Benchmark that measures performance of `SELECT count(*)` query over entire table. */
     @Benchmark
     public void countAll(Blackhole bh) {
-        try (var rs = session.execute(null, "SELECT count(*) FROM usertable")) {
+        try (var rs = sql.execute(null, "SELECT count(*) FROM usertable")) {
             bh.consume(rs.next());
         }
     }
@@ -76,7 +76,7 @@ public class SqlBenchmark extends AbstractMultiNodeBenchmark {
     /** Benchmark that measures performance of `SELECT count(1)` query over entire table. */
     @Benchmark
     public void count1(Blackhole bh) {
-        try (var rs = session.execute(null, "SELECT count(1) FROM usertable")) {
+        try (var rs = sql.execute(null, "SELECT count(1) FROM usertable")) {
             bh.consume(rs.next());
         }
     }
@@ -84,7 +84,7 @@ public class SqlBenchmark extends AbstractMultiNodeBenchmark {
     /** Benchmark that measures performance of `SELECT count(key)` query over entire table. */
     @Benchmark
     public void countKey(Blackhole bh) {
-        try (var rs = session.execute(null, "SELECT count(ycsb_key) FROM usertable")) {
+        try (var rs = sql.execute(null, "SELECT count(ycsb_key) FROM usertable")) {
             bh.consume(rs.next());
         }
     }
@@ -92,7 +92,7 @@ public class SqlBenchmark extends AbstractMultiNodeBenchmark {
     /** Benchmark that measures performance of `SELECT count(val)` query over entire table. */
     @Benchmark
     public void countVal(Blackhole bh) {
-        try (var rs = session.execute(null, "SELECT count(field2) FROM usertable")) {
+        try (var rs = sql.execute(null, "SELECT count(field2) FROM usertable")) {
             bh.consume(rs.next());
         }
     }
@@ -100,7 +100,7 @@ public class SqlBenchmark extends AbstractMultiNodeBenchmark {
     /** Benchmark that measures performance of `SELECT *` query over entire table. */
     @Benchmark
     public void selectAll(Blackhole bh) {
-        try (var rs = session.execute(null, "SELECT * FROM usertable")) {
+        try (var rs = sql.execute(null, "SELECT * FROM usertable")) {
             while (rs.hasNext()) {
                 bh.consume(rs.next());
             }
@@ -113,7 +113,7 @@ public class SqlBenchmark extends AbstractMultiNodeBenchmark {
     @Benchmark
     @OutputTimeUnit(TimeUnit.MICROSECONDS)
     public void selectAllFromSystemRange(Blackhole bh) {
-        try (var rs = session.execute(null, "SELECT * FROM TABLE(system_range(0, 1))")) {
+        try (var rs = sql.execute(null, "SELECT * FROM TABLE(system_range(0, 1))")) {
             while (rs.hasNext()) {
                 bh.consume(rs.next());
             }

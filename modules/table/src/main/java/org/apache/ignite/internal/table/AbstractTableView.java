@@ -52,7 +52,6 @@ import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.lang.Cursor;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSetMetadata;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.table.criteria.Criteria;
@@ -270,9 +269,8 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
                     .build();
 
             Statement statement = sql.statementBuilder().query(ser.toString()).pageSize(opts0.pageSize()).build();
-            Session session = sql.createSession();
 
-            return session.executeAsync(tx, statement, ser.getArguments())
+            return sql.executeAsync(tx, statement, ser.getArguments())
                     .<AsyncCursor<R>>thenApply(resultSet -> {
                         ResultSetMetadata meta = resultSet.metadata();
 
@@ -281,14 +279,9 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
                         AsyncCursor<R> cursor = new QueryCriteriaAsyncCursor<>(
                                 resultSet,
                                 queryMapper(meta, schema),
-                                session::closeAsync
+                                () -> {/* NO-OP */}
                         );
                         return new AntiHijackAsyncCursor<>(cursor, asyncContinuationExecutor);
-                    })
-                    .whenComplete((ignore, err) -> {
-                        if (err != null) {
-                            session.closeAsync();
-                        }
                     });
         });
 

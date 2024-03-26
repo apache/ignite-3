@@ -192,7 +192,7 @@ public class ClientMetricsTest extends BaseIgniteAbstractTest {
         assertThrowsSqlException(
                 Sql.STMT_VALIDATION_ERR,
                 "Query failed",
-                () -> client.sql().createSession().execute(null, FakeIgniteQueryProcessor.FAILED_SQL));
+                () -> client.sql().execute(null, FakeIgniteQueryProcessor.FAILED_SQL));
 
         assertEquals(0, metrics().requestsActive());
         assertEquals(1, metrics().requestsFailed());

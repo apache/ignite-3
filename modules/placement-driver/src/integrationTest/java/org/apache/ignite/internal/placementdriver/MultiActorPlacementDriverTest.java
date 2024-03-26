@@ -45,6 +45,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteTriFunction;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
@@ -274,7 +275,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
                     logicalTopologyService,
                     raftManager,
                     topologyAwareRaftGroupServiceFactory,
-                    nodeClock
+                    new TestClockService(nodeClock)
             );
 
             res.add(new Node(nodeName, clusterService, raftManager, metaStorageManager, placementDriverManager));

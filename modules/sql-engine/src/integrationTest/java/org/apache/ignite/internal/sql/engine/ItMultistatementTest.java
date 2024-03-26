@@ -30,7 +30,6 @@ import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.sql.IgniteSql;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.tx.Transaction;
@@ -53,12 +52,10 @@ public class ItMultistatementTest extends ClusterPerClassIntegrationTest {
         Ignite ignite = CLUSTER.aliveNode();
         IgniteSql igniteSql = ignite.sql();
 
-        try (Session session = igniteSql.createSession()) {
-            RuntimeException t = assertThrows(RuntimeException.class, () -> execMethod.execute(igniteSql, session, stmtSql, null));
+        RuntimeException t = assertThrows(RuntimeException.class, () -> execMethod.execute(igniteSql, stmtSql, null));
 
-            String message = "Transaction control statement can not be executed as an independent statement";
-            checkError(message, t);
-        }
+        String message = "Transaction control statement can not be executed as an independent statement";
+        checkError(message, t);
     }
 
     /** Sql session method to use. */
@@ -70,22 +67,22 @@ public class ItMultistatementTest extends ClusterPerClassIntegrationTest {
         STMT_SYNC,
         ;
 
-        void execute(IgniteSql sql, Session session, String stmtSql, @Nullable Transaction tx) {
+        void execute(IgniteSql sql, String stmtSql, @Nullable Transaction tx) {
             switch (this) {
                 case ASYNC:
-                    session.executeAsync(tx, stmtSql).join();
+                    sql.executeAsync(tx, stmtSql).join();
                     break;
                 case SYNC:
-                    session.execute(tx, stmtSql).next();
+                    sql.execute(tx, stmtSql).next();
                     break;
                 case STMT_ASYNC: {
                     Statement s = sql.createStatement(stmtSql);
-                    session.executeAsync(tx, s).join();
+                    sql.executeAsync(tx, s).join();
                 }
                     break;
                 case STMT_SYNC: {
                     Statement s = sql.createStatement(stmtSql);
-                    session.execute(tx, s).next();
+                    sql.execute(tx, s).next();
                 }
                     break;
                 default:
