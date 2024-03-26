@@ -86,6 +86,8 @@ class JsonEventSerializerTest {
     @MethodSource("events")
     void serialize(Event givenEvent, String expectedString) {
         String serialized = serializer.serialize(givenEvent);
+        // todo: same json matcher
+
         assertEquals(expectedString, serialized);
     }
 }

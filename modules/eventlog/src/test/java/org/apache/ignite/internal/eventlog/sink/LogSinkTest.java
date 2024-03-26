@@ -34,6 +34,7 @@ import org.apache.ignite.internal.eventlog.config.schema.EventLogConfiguration;
 import org.apache.ignite.internal.eventlog.config.schema.LogSinkChange;
 import org.apache.ignite.internal.eventlog.event.EventUser;
 import org.apache.ignite.internal.eventlog.event.IgniteEvents;
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -74,11 +75,10 @@ class LogSinkTest {
         // When write event into log sink.
         logSink.write(event);
 
-        Thread.sleep(100);
+
 
         // Then event is written to file.
-        var lines = readLines(eventlogFile);
-        assertThat(lines, hasSize(1));
+        Awaitility.await().untilAsserted(() -> assertThat(readLines(eventlogFile), hasSize(1)));
         // And event is written in JSON format.
         var expectedEventJson = "{"
                 + "\"type\":\"USER_AUTHENTICATED\","
@@ -97,9 +97,7 @@ class LogSinkTest {
         logSink.write(event2);
 
         // Then both events are written to file.
-        Thread.sleep(100);
-        lines = readLines(eventlogFile);
-        assertThat(lines, hasSize(2));
+        Awaitility.await().untilAsserted(() -> assertThat(readLines(eventlogFile), hasSize(2)));
     }
 
     private static List<String> readLines(File file) throws IOException {
