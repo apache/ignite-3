@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.catalog;
+package org.apache.ignite.internal.hlc;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -31,9 +31,6 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.apache.ignite.internal.hlc.ClockUpdateListener;
-import org.apache.ignite.internal.hlc.HybridClock;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -49,7 +46,7 @@ import org.apache.ignite.internal.util.TrackerClosedException;
  * no SafeTime mechanisms are involved.
  */
 public class ClockWaiter implements IgniteComponent {
-    private static final IgniteLogger LOG = Loggers.forClass(ClockWaiter.class);
+    private final IgniteLogger log = Loggers.forClass(ClockWaiter.class);
 
     private final String nodeName;
     private final HybridClock clock;
@@ -88,7 +85,7 @@ public class ClockWaiter implements IgniteComponent {
                 1,
                 TimeUnit.MINUTES,
                 new LinkedBlockingQueue<>(),
-                NamedThreadFactory.create(nodeName, "clock-waiter-future-executor", LOG)
+                NamedThreadFactory.create(nodeName, "clock-waiter-future-executor", log)
         );
     }
 
@@ -96,7 +93,7 @@ public class ClockWaiter implements IgniteComponent {
     public CompletableFuture<Void> start() {
         clock.addUpdateListener(updateListener);
 
-        scheduler = Executors.newSingleThreadScheduledExecutor(NamedThreadFactory.create(nodeName, "clock-waiter-scheduler", LOG));
+        scheduler = Executors.newSingleThreadScheduledExecutor(NamedThreadFactory.create(nodeName, "clock-waiter-scheduler", log));
 
         return nullCompletedFuture();
     }
@@ -198,5 +195,4 @@ public class ClockWaiter implements IgniteComponent {
     private void triggerTrackerUpdate() {
         onUpdate(clock.nowLong());
     }
-
 }
