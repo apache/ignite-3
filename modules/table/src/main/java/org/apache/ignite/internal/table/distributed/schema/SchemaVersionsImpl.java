@@ -17,13 +17,13 @@
 
 package org.apache.ignite.internal.table.distributed.schema;
 
-import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Table.TABLE_NOT_FOUND_ERR;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.lang.TableNotFoundException;
 
@@ -35,19 +35,19 @@ public class SchemaVersionsImpl implements SchemaVersions {
 
     private final CatalogService catalogService;
 
-    private final HybridClock clock;
+    private final ClockService clockService;
 
     /**
      * Creates a new instance.
      *
      * @param schemaSyncService Service to use for schema synchronization.
      * @param catalogService Catalog access.
-     * @param clock Clock used by the node.
+     * @param clockService Clock service.
      */
-    public SchemaVersionsImpl(SchemaSyncService schemaSyncService, CatalogService catalogService, HybridClock clock) {
+    public SchemaVersionsImpl(SchemaSyncService schemaSyncService, CatalogService catalogService, ClockService clockService) {
         this.schemaSyncService = schemaSyncService;
         this.catalogService = catalogService;
-        this.clock = clock;
+        this.clockService = clockService;
     }
 
     @Override
@@ -64,7 +64,7 @@ public class SchemaVersionsImpl implements SchemaVersions {
                     if (table == null) {
                         String message = "Table does not exist or was dropped concurrently: " + tableId;
 
-                        throw new TableNotFoundException(UUID.randomUUID(), TABLE_ID_NOT_FOUND_ERR, message, null);
+                        throw new TableNotFoundException(UUID.randomUUID(), TABLE_NOT_FOUND_ERR, message, null);
                     }
 
                     return table;
@@ -73,6 +73,6 @@ public class SchemaVersionsImpl implements SchemaVersions {
 
     @Override
     public CompletableFuture<Integer> schemaVersionAtNow(int tableId) {
-        return schemaVersionAt(clock.now(), tableId);
+        return schemaVersionAt(clockService.now(), tableId);
     }
 }

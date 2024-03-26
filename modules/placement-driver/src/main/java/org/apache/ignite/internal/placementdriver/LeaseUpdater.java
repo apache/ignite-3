@@ -35,7 +35,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
-import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
@@ -103,7 +103,7 @@ public class LeaseUpdater {
     private final LeaseTracker leaseTracker;
 
     /** Cluster clock. */
-    private final HybridClock clock;
+    private final ClockService clockService;
 
     /** Closure to update leases. */
     private final Updater updater;
@@ -124,7 +124,7 @@ public class LeaseUpdater {
      * @param msManager Meta storage manager.
      * @param topologyService Topology service.
      * @param leaseTracker Lease tracker.
-     * @param clock Cluster clock.
+     * @param clockService Clock service.
      */
     LeaseUpdater(
             String nodeName,
@@ -132,13 +132,13 @@ public class LeaseUpdater {
             MetaStorageManager msManager,
             LogicalTopologyService topologyService,
             LeaseTracker leaseTracker,
-            HybridClock clock
+            ClockService clockService
     ) {
         this.nodeName = nodeName;
         this.clusterService = clusterService;
         this.msManager = msManager;
         this.leaseTracker = leaseTracker;
-        this.clock = clock;
+        this.clockService = clockService;
 
         this.longLeaseInterval = IgniteSystemProperties.getLong("IGNITE_LONG_LEASE", 120_000);
         this.assignmentsTracker = new AssignmentsTracker(msManager);
@@ -318,7 +318,7 @@ public class LeaseUpdater {
 
         /** Updates leases in Meta storage. This method is supposed to be used in the busy lock. */
         private void updateLeaseBatchInternal() {
-            HybridTimestamp now = clock.now();
+            HybridTimestamp now = clockService.now();
 
             leaseUpdateStatistics = new LeaseStats();
 
@@ -332,7 +332,7 @@ public class LeaseUpdater {
             Set<ReplicationGroupId> currentAssignmentsReplicationGroupIds = currentAssignments.keySet();
 
             // Remove all expired leases that are no longer present in assignments.
-            renewedLeases.entrySet().removeIf(e -> e.getValue().getExpirationTime().before(now)
+            renewedLeases.entrySet().removeIf(e -> clockService.before(e.getValue().getExpirationTime(), now)
                     && !currentAssignmentsReplicationGroupIds.contains(e.getKey()));
 
             int currentAssignmentsSize = currentAssignments.size();
@@ -449,7 +449,7 @@ public class LeaseUpdater {
          */
         private void writeNewLease(ReplicationGroupId grpId, Lease lease, ClusterNode candidate,
                 Map<ReplicationGroupId, Lease> renewedLeases, Map<ReplicationGroupId, Boolean> toBeNegotiated) {
-            HybridTimestamp startTs = clock.now();
+            HybridTimestamp startTs = clockService.now();
 
             var expirationTs = new HybridTimestamp(startTs.getPhysical() + longLeaseInterval, 0);
 
@@ -469,7 +469,7 @@ public class LeaseUpdater {
          * @param lease Lease to prolong.
          */
         private void prolongLease(ReplicationGroupId grpId, Lease lease, Map<ReplicationGroupId, Lease> renewedLeases) {
-            var newTs = new HybridTimestamp(clock.now().getPhysical() + LEASE_INTERVAL, 0);
+            var newTs = new HybridTimestamp(clockService.now().getPhysical() + LEASE_INTERVAL, 0);
 
             Lease renewedLease = lease.prolongLease(newTs);
 
@@ -486,7 +486,7 @@ public class LeaseUpdater {
          * @param lease Lease to accept.
          */
         private void publishLease(ReplicationGroupId grpId, Lease lease, Map<ReplicationGroupId, Lease> renewedLeases) {
-            var newTs = new HybridTimestamp(clock.now().getPhysical() + LEASE_INTERVAL, 0);
+            var newTs = new HybridTimestamp(clockService.now().getPhysical() + LEASE_INTERVAL, 0);
 
             Lease renewedLease = lease.acceptLease(newTs);
 
@@ -503,9 +503,9 @@ public class LeaseUpdater {
          * @return True when the candidate can be a leaseholder, otherwise false.
          */
         private boolean isLeaseOutdated(Lease lease) {
-            HybridTimestamp now = clock.now();
+            HybridTimestamp now = clockService.now();
 
-            return now.after(lease.getExpirationTime());
+            return clockService.after(now, lease.getExpirationTime());
         }
 
         private boolean shouldLogLeaseStatistics() {

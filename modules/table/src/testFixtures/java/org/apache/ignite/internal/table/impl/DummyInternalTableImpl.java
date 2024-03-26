@@ -42,8 +42,10 @@ import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.AbstractMessagingService;
@@ -130,6 +132,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     // from the current time.
     // Any value greater than that will work, hence 2000.
     public static final HybridClock CLOCK = new TestHybridClock(() -> 2000);
+
+    private static final ClockService CLOCK_SERVICE = new TestClockService(CLOCK);
 
     private static final int PART_ID = 0;
 
@@ -385,7 +389,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 () -> Map.of(pkLocker.id(), pkLocker),
                 pkStorage,
                 Map::of,
-                CLOCK,
+                CLOCK_SERVICE,
                 safeTime,
                 txStateStorage().getOrCreateTxStateStorage(PART_ID),
                 transactionStateResolver,
@@ -408,7 +412,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 safeTime,
                 new PendingComparableValuesTracker<>(0L),
                 catalogService,
-                schemaManager
+                schemaManager,
+                CLOCK_SERVICE
         );
     }
 
@@ -476,7 +481,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 clusterService,
                 replicaSvc,
                 new HeapLockManager(),
-                CLOCK,
+                CLOCK_SERVICE,
                 new TransactionIdGenerator(0xdeadbeef),
                 placementDriver,
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,

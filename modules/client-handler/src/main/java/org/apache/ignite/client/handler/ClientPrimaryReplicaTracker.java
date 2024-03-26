@@ -37,7 +37,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.event.EventListener;
-import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -80,7 +80,7 @@ public class ClientPrimaryReplicaTracker {
 
     private final PlacementDriver placementDriver;
 
-    private final HybridClock clock;
+    private final ClockService clockService;
 
     private final CatalogService catalogService;
 
@@ -105,20 +105,20 @@ public class ClientPrimaryReplicaTracker {
      *
      * @param placementDriver Placement driver.
      * @param catalogService Catalog.
-     * @param clock Hybrid clock.
+     * @param clockService Clock service.
      * @param schemaSyncService Schema synchronization service.
      * @param lowWatermark Low watermark.
      */
     public ClientPrimaryReplicaTracker(
             PlacementDriver placementDriver,
             CatalogService catalogService,
-            HybridClock clock,
+            ClockService clockService,
             SchemaSyncService schemaSyncService,
             LowWatermark lowWatermark
     ) {
         this.placementDriver = placementDriver;
         this.catalogService = catalogService;
-        this.clock = clock;
+        this.clockService = clockService;
         this.schemaSyncService = schemaSyncService;
         this.lowWatermark = lowWatermark;
     }
@@ -150,7 +150,7 @@ public class ClientPrimaryReplicaTracker {
      * @return Primary replicas for the table, or null when not yet known.
      */
     private CompletableFuture<PrimaryReplicasResult> primaryReplicasAsyncInternal(int tableId, @Nullable Long maxStartTime) {
-        HybridTimestamp timestamp = clock.now();
+        HybridTimestamp timestamp = clockService.now();
 
         if (maxStartTime == null) {
             maxStartTime = this.maxStartTime.get();
@@ -264,7 +264,7 @@ public class ClientPrimaryReplicaTracker {
 
     void start() {
         // This could be newer than the actual max start time, but we are on the safe side here.
-        maxStartTime.set(clock.nowLong());
+        maxStartTime.set(clockService.nowLong());
 
         placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, primaryReplicaEventListener);
         catalogService.listen(CatalogEvent.TABLE_DROP, dropTableEventListener);
