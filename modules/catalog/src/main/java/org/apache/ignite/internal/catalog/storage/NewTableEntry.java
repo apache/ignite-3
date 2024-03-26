@@ -29,6 +29,7 @@ import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateTableEventParameters;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
+import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
@@ -40,8 +41,10 @@ import org.apache.ignite.internal.util.io.IgniteDataOutput;
 public class NewTableEntry implements UpdateEntry, Fireable {
     public static final CatalogObjectSerializer<NewTableEntry> SERIALIZER = new NewTableEntrySerializer();
 
+    @IgniteToStringInclude
     private final CatalogTableDescriptor descriptor;
 
+    @IgniteToStringInclude
     private final String schemaName;
 
     /**

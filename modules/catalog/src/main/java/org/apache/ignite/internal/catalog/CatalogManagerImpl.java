@@ -407,11 +407,16 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
             Catalog catalog = catalogByVer.lastEntry().getValue();
 
-            List<UpdateEntry> updates;
+            List<UpdateEntry> updates = List.of();
             try {
                 updates = updateProducer.get(catalog);
             } catch (Exception ex) {
                 return failedFuture(ex);
+            } finally {
+                LOG.info(
+                        ">>>>> CatalogManagerImpl#saveUpdate: [attemptNo={}, entries={}, catalogVersion={}]",
+                        attemptNo, updates, catalog.version()
+                );
             }
 
             if (updates.isEmpty()) {

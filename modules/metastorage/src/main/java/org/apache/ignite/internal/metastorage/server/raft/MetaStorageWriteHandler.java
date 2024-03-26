@@ -122,6 +122,11 @@ public class MetaStorageWriteHandler {
     private void handleWriteWithTime(CommandClosure<WriteCommand> clo, MetaStorageWriteCommand command) {
         HybridTimestamp opTime = command.safeTime();
 
+        LOG.info(
+                ">>>>> Debug MetaStorageWriteHandler#handleWriteWithTime: [index={}, term={}, safeTime={}, initiatorTime={}, commandCls={}]",
+                clo.index(), clo.term(), opTime, command.initiatorTime(), command.getClass().getSimpleName()
+        );
+
         if (command instanceof PutCommand) {
             PutCommand putCmd = (PutCommand) command;
 
