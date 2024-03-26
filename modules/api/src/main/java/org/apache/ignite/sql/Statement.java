@@ -17,6 +17,7 @@
 
 package org.apache.ignite.sql;
 
+import java.time.ZoneId;
 import java.util.concurrent.TimeUnit;
 import org.jetbrains.annotations.Nullable;
 
@@ -58,6 +59,13 @@ public interface Statement extends AutoCloseable {
      * @return Maximum number of rows per page.
      */
     int pageSize();
+
+    /**
+     * Returns time zone used for this statement.
+     *
+     * @return Time zone used for this statement.
+     */
+    ZoneId timeZoneId();
 
     /**
      * Returns statement property value that overrides the session property value or {@code null} if session property value should be used.
@@ -140,6 +148,17 @@ public interface Statement extends AutoCloseable {
          * @return {@code this} for chaining.
          */
         StatementBuilder pageSize(int pageSize);
+
+        /** Returns a statement time zone. */
+        ZoneId timeZoneId();
+
+        /**
+         * Sets a time zone for this statement.
+         *
+         * @param timeZoneId Time zone ID.
+         * @return {@code this} for chaining.
+         */
+        StatementBuilder timeZoneId(ZoneId timeZoneId);
 
         /**
          * Returns a statement property value that overrides the session property value; returns {@code null} if the session

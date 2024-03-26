@@ -37,7 +37,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
-import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
@@ -258,9 +258,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
     }
 
     @ParameterizedTest
-    @CsvSource("1000, true")
-    // TODO IGNITE-21521 Wrong update order in DataStreamer for a new key
-    // @CsvSource({"100, false", "100, true", "1000, false", "1000, true"})
+    @CsvSource({"100, false", "100, true", "1000, false", "1000, true"})
     public void testSameItemMultipleUpdatesOrder(int pageSize, boolean existingKey) {
         int id = pageSize + (existingKey ? 1 : 2);
         RecordView<Tuple> view = defaultTable().recordView();
@@ -292,10 +290,10 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
     @SuppressWarnings("resource")
     @Test
     public void testSchemaUpdateWhileStreaming() throws InterruptedException {
-        Session ses = ignite().sql().createSession();
+        IgniteSql sql = ignite().sql();
 
         String tableName = "testSchemaUpdateWhileStreaming";
-        ses.execute(null, "CREATE TABLE " + tableName + "(ID INT NOT NULL PRIMARY KEY)");
+        sql.execute(null, "CREATE TABLE " + tableName + "(ID INT NOT NULL PRIMARY KEY)");
         RecordView<Tuple> view = ignite().tables().table(tableName).recordView();
 
         CompletableFuture<Void> streamerFut;
@@ -307,7 +305,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
             publisher.submit(tupleKey(1));
             waitForKey(view, tupleKey(1));
 
-            ses.execute(null, "ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR NOT NULL DEFAULT 'bar'");
+            sql.execute(null, "ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR NOT NULL DEFAULT 'bar'");
             publisher.submit(tupleKey(2));
         }
 

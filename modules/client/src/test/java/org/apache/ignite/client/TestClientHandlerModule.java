@@ -18,7 +18,6 @@
 package org.apache.ignite.client;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.mockito.Mockito.mock;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
@@ -35,6 +34,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.client.fakes.FakeIgniteQueryProcessor;
 import org.apache.ignite.client.fakes.FakeInternalTable;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientInboundMessageHandler;
@@ -51,7 +51,6 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
-import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TestLowWatermark;
 import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
@@ -211,11 +210,10 @@ public class TestClientHandlerModule implements IgniteComponent {
                                 new ClientInboundMessageHandler(
                                         (IgniteTablesInternal) ignite.tables(),
                                         (IgniteTransactionsImpl) ignite.transactions(),
-                                        mock(QueryProcessor.class),
+                                        new FakeIgniteQueryProcessor(),
                                         configuration,
                                         compute,
                                         clusterService,
-                                        ignite.sql(),
                                         CompletableFuture.completedFuture(clusterTag),
                                         metrics,
                                         authenticationManager,

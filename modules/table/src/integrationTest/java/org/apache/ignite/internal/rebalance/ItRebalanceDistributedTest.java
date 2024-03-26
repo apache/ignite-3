@@ -1135,6 +1135,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     metaStorageManager.registerRevisionUpdateListener(function::apply);
 
             GcConfiguration gcConfig = clusterConfigRegistry.getConfiguration(GcConfiguration.KEY);
+            TransactionConfiguration txConfig = clusterConfigRegistry.getConfiguration(TransactionConfiguration.KEY);
 
             DataStorageModules dataStorageModules = new DataStorageModules(List.of(
                     new PersistentPageMemoryDataStorageModule(),
@@ -1187,12 +1188,22 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry.getConfiguration(StorageUpdateConfiguration.KEY);
 
             HybridClockImpl clock = new HybridClockImpl();
-            lowWatermark = new LowWatermarkImpl(name, gcConfig.lowWatermark(), clock, txManager, vaultManager, failureProcessor);
+
+            lowWatermark = new LowWatermarkImpl(
+                    name,
+                    gcConfig.lowWatermark(),
+                    clock,
+                    txManager,
+                    vaultManager,
+                    failureProcessor,
+                    clusterService.messagingService()
+            );
 
             tableManager = new TableManager(
                     name,
                     registry,
                     gcConfig,
+                    txConfig,
                     storageUpdateConfiguration,
                     clusterService.messagingService(),
                     clusterService.topologyService(),

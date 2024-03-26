@@ -206,7 +206,8 @@ public class TestServer implements AutoCloseable {
         if (securityConfiguration == null) {
             authenticationManager = new DummyAuthenticationManager();
         } else {
-            authenticationManager = new AuthenticationManagerImpl(securityConfiguration);
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-21665.
+            authenticationManager = new AuthenticationManagerImpl(securityConfiguration, ign -> {});
             authenticationManager.start();
         }
 
@@ -238,7 +239,6 @@ public class TestServer implements AutoCloseable {
                         compute,
                         clusterService,
                         bootstrapFactory,
-                        ignite.sql(),
                         () -> CompletableFuture.completedFuture(tag),
                         mock(MetricManager.class),
                         metrics,

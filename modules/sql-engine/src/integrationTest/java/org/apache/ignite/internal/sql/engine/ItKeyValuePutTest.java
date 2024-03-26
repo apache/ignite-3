@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsSu
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -37,12 +36,10 @@ public class ItKeyValuePutTest extends BaseSqlIntegrationTest {
     @BeforeAll
     @SuppressWarnings({"ConcatenationWithEmptyString", "resource"})
     static void initSchema() {
-        try (Session session = CLUSTER.aliveNode().sql().createSession()) {
-            session.executeScript(""
-                    + "CREATE TABLE simple_key (id INT PRIMARY KEY, val INT);"
-                    + "CREATE TABLE complex_key (id1 INT, id2 INT, val INT, PRIMARY KEY(id1, id2));"
-            );
-        }
+        CLUSTER.aliveNode().sql().executeScript(""
+                + "CREATE TABLE simple_key (id INT PRIMARY KEY, val INT);"
+                + "CREATE TABLE complex_key (id1 INT, id2 INT, val INT, PRIMARY KEY(id1, id2));"
+        );
     }
 
     @AfterEach

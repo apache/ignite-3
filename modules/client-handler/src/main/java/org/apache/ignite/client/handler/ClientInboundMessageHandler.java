@@ -136,7 +136,6 @@ import org.apache.ignite.lang.TraceableException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.security.AuthenticationType;
 import org.apache.ignite.security.exception.UnsupportedAuthenticationTypeException;
-import org.apache.ignite.sql.IgniteSql;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -167,9 +166,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
     /** Cluster. */
     private final ClusterService clusterService;
-
-    /** SQL. */
-    private final IgniteSql sql;
 
     /** Query processor. */
     private final QueryProcessor queryProcessor;
@@ -216,7 +212,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
      * @param configuration Configuration.
      * @param compute Compute.
      * @param clusterService Cluster.
-     * @param sql SQL.
      * @param clusterTag Cluster tag.
      * @param metrics Metrics.
      * @param authenticationManager Authentication manager.
@@ -229,7 +224,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             ClientConnectorView configuration,
             IgniteComputeInternal compute,
             ClusterService clusterService,
-            IgniteSql sql,
             CompletableFuture<ClusterTag> clusterTag,
             ClientHandlerMetricSource metrics,
             AuthenticationManager authenticationManager,
@@ -245,7 +239,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         assert configuration != null;
         assert compute != null;
         assert clusterService != null;
-        assert sql != null;
         assert clusterTag != null;
         assert metrics != null;
         assert authenticationManager != null;
@@ -259,7 +252,6 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         this.configuration = configuration;
         this.compute = compute;
         this.clusterService = clusterService;
-        this.sql = sql;
         this.queryProcessor = processor;
         this.clusterTag = clusterTag;
         this.metrics = metrics;
@@ -766,7 +758,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return ClientClusterGetNodesRequest.process(out, clusterService);
 
             case ClientOp.SQL_EXEC:
-                return ClientSqlExecuteRequest.process(in, out, sql, resources, metrics, igniteTransactions);
+                return ClientSqlExecuteRequest.process(in, out, queryProcessor, resources, metrics, igniteTransactions);
 
             case ClientOp.SQL_CURSOR_NEXT_PAGE:
                 return ClientSqlCursorNextPageRequest.process(in, out, resources, igniteTransactions);
@@ -781,13 +773,13 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                 return ClientJdbcFinishTxRequest.process(in, out, jdbcQueryEventHandler);
 
             case ClientOp.SQL_EXEC_SCRIPT:
-                return ClientSqlExecuteScriptRequest.process(in, sql, igniteTransactions);
+                return ClientSqlExecuteScriptRequest.process(in, queryProcessor, igniteTransactions);
 
             case ClientOp.SQL_QUERY_META:
                 return ClientSqlQueryMetadataRequest.process(in, out, queryProcessor, resources);
 
             case ClientOp.SQL_EXEC_BATCH:
-                return ClientSqlExecuteBatchRequest.process(in, out, sql, resources, metrics, igniteTransactions);
+                return ClientSqlExecuteBatchRequest.process(in, out, queryProcessor, resources, igniteTransactions);
 
             case ClientOp.STREAMER_BATCH_SEND:
                 return ClientStreamerBatchSendRequest.process(in, out, igniteTables);
