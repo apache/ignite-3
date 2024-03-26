@@ -29,6 +29,7 @@ import java.nio.file.Path;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.AbstractMvTableStorageTest;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
@@ -99,21 +100,26 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
 
     @Test
     void testParallelDestroyPartitionAndCheckpoint() {
-        MvPartitionStorage partition = getOrCreateMvPartition(PARTITION_ID);
+        for (int partitionId = 0; partitionId < DEFAULT_PARTITION_COUNT; partitionId++) {
+            int finalPartitionId = partitionId;
 
-        RowId rowId = new RowId(PARTITION_ID);
+            MvPartitionStorage partition = getOrCreateMvPartition(partitionId);
 
-        partition.runConsistently(locker -> {
-            locker.lock(rowId);
+            RowId rowId = new RowId(partitionId);
+            BinaryRow binaryRow = binaryRow(new TestKey(1, "1"), new TestValue(2, "2"));
 
-            partition.addWriteCommitted(rowId, binaryRow(new TestKey(1, "1"), new TestValue(2, "2")), clock.now());
+            partition.runConsistently(locker -> {
+                locker.lock(rowId);
 
-            return null;
-        });
+                partition.addWriteCommitted(rowId, binaryRow, clock.now());
 
-        runRace(
-                () -> assertThat(tableStorage.destroyPartition(PARTITION_ID), willCompleteSuccessfully()),
-                () -> assertThat(engine.checkpointManager().forceCheckpoint("from test").futureFor(FINISHED), willCompleteSuccessfully())
-        );
+                return null;
+            });
+
+            runRace(
+                    () -> assertThat(tableStorage.destroyPartition(finalPartitionId), willCompleteSuccessfully()),
+                    () -> assertThat(engine.checkpointManager().forceCheckpoint("test").futureFor(FINISHED), willCompleteSuccessfully())
+            );
+        }
     }
 }
