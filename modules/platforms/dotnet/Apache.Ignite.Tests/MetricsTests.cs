@@ -394,8 +394,20 @@ public class MetricsTests
 
         public void AssertTaggedMetric(string name, int value, string nodeAddr, Guid? clientId)
         {
-            var taggedName = $"{name}_{MetricTags.ClientId}={clientId},{MetricTags.NodeAddress}={nodeAddr}";
-            Assert.AreEqual(value, _metricsWithTags[taggedName]);
+            if (clientId == null)
+            {
+                // Client id is not known, find by name and node address.
+                var val = _metricsWithTags.Single(x =>
+                    x.Key.StartsWith($"{name}_{MetricTags.ClientId}=", StringComparison.Ordinal) &&
+                    x.Key.EndsWith($",{MetricTags.NodeAddress}={nodeAddr}", StringComparison.Ordinal));
+
+                Assert.AreEqual(value, val.Value);
+            }
+            else
+            {
+                var taggedName = $"{name}_{MetricTags.ClientId}={clientId},{MetricTags.NodeAddress}={nodeAddr}";
+                Assert.AreEqual(value, _metricsWithTags[taggedName]);
+            }
         }
 
         public void AssertMetricGreaterOrEqual(string name, int value, int timeoutMs = 1000) =>
