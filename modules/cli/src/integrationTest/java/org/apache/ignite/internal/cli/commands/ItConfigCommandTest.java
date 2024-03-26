@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.cli.commands;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.ignite.internal.cli.core.style.AnsiStringSupport.fg;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -33,6 +34,7 @@ import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.cli.AbstractCliTest;
+import org.apache.ignite.internal.cli.core.style.AnsiStringSupport.Color;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -88,7 +90,8 @@ public class ItConfigCommandTest extends AbstractCliTest {
         assertEquals(0, exitCode);
         assertThat(
                 out.toString(UTF_8),
-                containsString("Node configuration was updated successfully")
+                containsString("Node configuration updated. "
+                        + fg(Color.YELLOW).mark("Restart the node to apply changes."))
 
         );
 

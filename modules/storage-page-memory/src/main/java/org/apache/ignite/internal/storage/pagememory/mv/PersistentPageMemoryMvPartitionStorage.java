@@ -351,32 +351,21 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     /**
      * Syncs and saves meta-information on checkpoint.
      *
-     * @param executor Executor for asynchronous data synchronization.
-     * @throws IgniteInternalCheckedException If failed.
+     * @param executor Executor for asynchronous data synchronization, {@code null} if absent.
      */
-    private void syncMetadataOnCheckpoint(@Nullable Executor executor) throws IgniteInternalCheckedException {
+    private void syncMetadataOnCheckpoint(@Nullable Executor executor) {
         RenewablePartitionStorageState localState = renewableState;
 
         if (executor == null) {
-            localState.rowVersionFreeList().saveMetadata();
+            busySafe(() -> {
+                saveRowVersionFreeListMetadataBusy(localState);
 
-            localState.indexFreeList().saveMetadata();
+                saveIndexFreeListMetadataBusy(localState);
+            });
         } else {
-            executor.execute(() -> {
-                try {
-                    localState.rowVersionFreeList().saveMetadata();
-                } catch (IgniteInternalCheckedException e) {
-                    throw new StorageException("Failed to save RowVersionFreeList metadata", e);
-                }
-            });
+            executor.execute(() -> busySafe(() -> saveRowVersionFreeListMetadataBusy(localState)));
 
-            executor.execute(() -> {
-                try {
-                    localState.indexFreeList().saveMetadata();
-                } catch (IgniteInternalCheckedException e) {
-                    throw new StorageException("Failed to save IndexColumnsFreeList metadata", e);
-                }
-            });
+            executor.execute(() -> busySafe(() -> saveIndexFreeListMetadataBusy(localState)));
         }
     }
 
@@ -446,5 +435,21 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         throwExceptionIfStorageNotInProgressOfRebalance(state.get(), this::createStorageInfo);
 
         committedGroupConfigurationBusy(config);
+    }
+
+    private void saveRowVersionFreeListMetadataBusy(RenewablePartitionStorageState localState) {
+        try {
+            localState.rowVersionFreeList().saveMetadata();
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException("Failed to save RowVersionFreeList metadata: [{}]", e, createStorageInfo());
+        }
+    }
+
+    private void saveIndexFreeListMetadataBusy(RenewablePartitionStorageState localState) {
+        try {
+            localState.indexFreeList().saveMetadata();
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException("Failed to save IndexColumnsFreeList metadata: [{}]", e, createStorageInfo());
+        }
     }
 }
