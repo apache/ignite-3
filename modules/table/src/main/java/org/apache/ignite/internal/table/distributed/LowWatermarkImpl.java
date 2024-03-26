@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.table.distributed;
 
 import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.MIN_VALUE;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
@@ -44,7 +46,11 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.schema.configuration.LowWatermarkConfiguration;
+import org.apache.ignite.internal.schema.configuration.LowWatermarkConfigurationSchema;
+import org.apache.ignite.internal.table.distributed.message.GetLowWatermarkRequest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.ByteUtils;
@@ -52,13 +58,34 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
-/** Class to manage the low watermark. */
+/**
+ * Class to manage the low watermark.
+ *
+ * <p>Low watermark updating occurs in the following cases (will only be updated if the new value is greater than the existing one):</p>
+ * <ul>
+ *     <li>By calling {@link #updateAndNotify(HybridTimestamp)}.</li>
+ *     <li>In the background every {@link LowWatermarkConfigurationSchema#updateFrequency} milliseconds, a new value will be created in
+ *     {@link #createNewLowWatermarkCandidate()}.</li>
+ * </ul>
+ *
+ * <p>Algorithm for updating a new low watermark:</p>
+ * <ul>
+ *     <li>Wait for all RO transactions up to the new value to complete locally, while new RO transactions with read timestamp below
+ *     the new low watermark will be rejected.</li>
+ *     <li>Write the new value in vault by {@link #LOW_WATERMARK_VAULT_KEY}.</li>
+ *     <li>Notify all {@link LowWatermarkChangedListener}s that the new watermark has changed and wait until they complete processing the
+ *     event.</li>
+ * </ul>
+ */
 public class LowWatermarkImpl implements LowWatermark, IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(LowWatermarkImpl.class);
 
     static final ByteArray LOW_WATERMARK_VAULT_KEY = new ByteArray("low-watermark");
+
+    private static final TableMessagesFactory MESSAGES_FACTORY = new TableMessagesFactory();
 
     private final LowWatermarkConfiguration lowWatermarkConfig;
 
@@ -85,6 +112,12 @@ public class LowWatermarkImpl implements LowWatermark, IgniteComponent {
 
     private final ReadWriteLock updateLowWatermarkLock = new ReentrantReadWriteLock();
 
+    private final MessagingService messagingService;
+
+    private final AtomicReference<LowWatermarkCandidate> lowWatermarkCandidate = new AtomicReference<>(
+            new LowWatermarkCandidate(MIN_VALUE, nullCompletedFuture())
+    );
+
     /**
      * Constructor.
      *
@@ -101,13 +134,15 @@ public class LowWatermarkImpl implements LowWatermark, IgniteComponent {
             HybridClock clock,
             TxManager txManager,
             VaultManager vaultManager,
-            FailureProcessor failureProcessor
+            FailureProcessor failureProcessor,
+            MessagingService messagingService
     ) {
         this.lowWatermarkConfig = lowWatermarkConfig;
         this.clock = clock;
         this.txManager = txManager;
         this.vaultManager = vaultManager;
         this.failureProcessor = failureProcessor;
+        this.messagingService = messagingService;
 
         scheduledThreadPool = Executors.newSingleThreadScheduledExecutor(
                 NamedThreadFactory.create(nodeName, "low-watermark-updater", LOG)
@@ -117,7 +152,9 @@ public class LowWatermarkImpl implements LowWatermark, IgniteComponent {
     @Override
     public CompletableFuture<Void> start() {
         return inBusyLockAsync(busyLock, () -> {
-            setLowWatermark(readLowWatermarkFromVault());
+            setLowWatermarkOnRecovery(readLowWatermarkFromVault());
+
+            messagingService.addMessageHandler(TableMessageGroup.class, this::onReceiveNetworkMessage);
 
             return nullCompletedFuture();
         });
@@ -184,38 +221,7 @@ public class LowWatermarkImpl implements LowWatermark, IgniteComponent {
 
     @Override
     public @Nullable HybridTimestamp getLowWatermark() {
-        return lowWatermark;
-    }
-
-    CompletableFuture<Void> updateLowWatermark() {
-        return inBusyLock(busyLock, () -> {
-            HybridTimestamp lowWatermarkCandidate = createNewLowWatermarkCandidate();
-
-            // Wait until all the read-only transactions are finished before the new candidate, since no new RO transactions could be
-            // created, then we can safely promote the candidate as a new low watermark, store it in vault, and we can safely start cleaning
-            // up the stale/junk data in the tables.
-            return txManager.updateLowWatermark(lowWatermarkCandidate)
-                    .thenComposeAsync(unused -> inBusyLock(busyLock, () -> {
-                        vaultManager.put(LOW_WATERMARK_VAULT_KEY, ByteUtils.toBytes(lowWatermarkCandidate));
-
-                        setLowWatermark(lowWatermarkCandidate);
-
-                        return notifyListeners(lowWatermarkCandidate);
-                    }), scheduledThreadPool)
-                    .whenComplete((unused, throwable) -> {
-                        if (throwable != null) {
-                            if (!(throwable instanceof NodeStoppingException)) {
-                                LOG.error("Failed to update low watermark, will schedule again: {}", throwable, lowWatermarkCandidate);
-
-                                inBusyLock(busyLock, this::scheduleUpdateLowWatermarkBusy);
-                            }
-                        } else {
-                            LOG.info("Successful low watermark update: {}", lowWatermarkCandidate);
-
-                            scheduleUpdateLowWatermarkBusy();
-                        }
-                    });
-        });
+        return inBusyLock(busyLock, () -> lowWatermark);
     }
 
     @Override
@@ -243,13 +249,15 @@ public class LowWatermarkImpl implements LowWatermark, IgniteComponent {
 
     @Override
     public void getLowWatermarkSafe(Consumer<@Nullable HybridTimestamp> consumer) {
-        updateLowWatermarkLock.readLock().lock();
+        inBusyLock(busyLock, () -> {
+            updateLowWatermarkLock.readLock().lock();
 
-        try {
-            consumer.accept(lowWatermark);
-        } finally {
-            updateLowWatermarkLock.readLock().unlock();
-        }
+            try {
+                consumer.accept(lowWatermark);
+            } finally {
+                updateLowWatermarkLock.readLock().unlock();
+            }
+        });
     }
 
     private void scheduleUpdateLowWatermarkBusy() {
@@ -258,7 +266,7 @@ public class LowWatermarkImpl implements LowWatermark, IgniteComponent {
         assert previousScheduledFuture == null || previousScheduledFuture.isDone() : "previous scheduled task has not finished";
 
         ScheduledFuture<?> newScheduledFuture = scheduledThreadPool.schedule(
-                this::updateLowWatermark,
+                () -> updateLowWatermark(createNewLowWatermarkCandidate()),
                 lowWatermarkConfig.updateFrequency().value(),
                 TimeUnit.MILLISECONDS
         );
@@ -271,16 +279,7 @@ public class LowWatermarkImpl implements LowWatermark, IgniteComponent {
     HybridTimestamp createNewLowWatermarkCandidate() {
         HybridTimestamp now = clock.now();
 
-        HybridTimestamp lowWatermarkCandidate = now.addPhysicalTime(
-                -lowWatermarkConfig.dataAvailabilityTime().value() - getMaxClockSkew()
-        );
-
-        HybridTimestamp lowWatermark = this.lowWatermark;
-
-        assert lowWatermark == null || lowWatermarkCandidate.compareTo(lowWatermark) > 0 :
-                "lowWatermark=" + lowWatermark + ", lowWatermarkCandidate=" + lowWatermarkCandidate;
-
-        return lowWatermarkCandidate;
+        return now.addPhysicalTime(-lowWatermarkConfig.dataAvailabilityTime().value() - getMaxClockSkew());
     }
 
     private long getMaxClockSkew() {
@@ -288,7 +287,20 @@ public class LowWatermarkImpl implements LowWatermark, IgniteComponent {
         return HybridTimestamp.CLOCK_SKEW;
     }
 
-    private void setLowWatermark(@Nullable HybridTimestamp newLowWatermark) {
+    private void setLowWatermark(HybridTimestamp newLowWatermark) {
+        updateLowWatermarkLock.writeLock().lock();
+
+        try {
+            assert lowWatermark == null || newLowWatermark.compareTo(lowWatermark) > 0 :
+                    "Low watermark should only grow: [cur=" + lowWatermark + ", new=" + newLowWatermark + "]";
+
+            lowWatermark = newLowWatermark;
+        } finally {
+            updateLowWatermarkLock.writeLock().unlock();
+        }
+    }
+
+    private void setLowWatermarkOnRecovery(@Nullable HybridTimestamp newLowWatermark) {
         updateLowWatermarkLock.writeLock().lock();
 
         try {
@@ -296,5 +308,80 @@ public class LowWatermarkImpl implements LowWatermark, IgniteComponent {
         } finally {
             updateLowWatermarkLock.writeLock().unlock();
         }
+    }
+
+    void onReceiveNetworkMessage(NetworkMessage message, ClusterNode sender, @Nullable Long correlationId) {
+        inBusyLock(busyLock, () -> {
+            if (!(message instanceof GetLowWatermarkRequest)) {
+                return;
+            }
+
+            assert correlationId != null : sender;
+
+            messagingService.respond(
+                    sender,
+                    MESSAGES_FACTORY.getLowWatermarkResponse().lowWatermark(hybridTimestampToLong(lowWatermark)).build(),
+                    correlationId
+            );
+        });
+    }
+
+    @Override
+    public void updateLowWatermark(HybridTimestamp newLowWatermark) {
+        inBusyLock(busyLock, () -> {
+            LowWatermarkCandidate newLowWatermarkCandidate = new LowWatermarkCandidate(newLowWatermark, new CompletableFuture<>());
+            LowWatermarkCandidate oldLowWatermarkCandidate;
+
+            do {
+                oldLowWatermarkCandidate = lowWatermarkCandidate.get();
+
+                // If another candidate contains a higher low watermark, then there is no need to update.
+                if (oldLowWatermarkCandidate.lowWatermark().compareTo(newLowWatermark) >= 0) {
+                    return;
+                }
+            } while (!lowWatermarkCandidate.compareAndSet(oldLowWatermarkCandidate, newLowWatermarkCandidate));
+
+            // We will start the update as soon as the previous one finishes.
+            oldLowWatermarkCandidate.updateFuture()
+                    .thenComposeAsync(unused -> updateAndNotify(newLowWatermark), scheduledThreadPool)
+                    .whenComplete((unused, throwable) -> {
+                        if (throwable != null) {
+                            newLowWatermarkCandidate.updateFuture().completeExceptionally(throwable);
+                        } else {
+                            newLowWatermarkCandidate.updateFuture().complete(null);
+                        }
+                    });
+        });
+    }
+
+    CompletableFuture<Void> updateAndNotify(HybridTimestamp newLowWatermark) {
+        return inBusyLockAsync(busyLock, () -> {
+            // Wait until all the read-only transactions are finished before the new candidate, since no new RO transactions could be
+            // created, then we can safely promote the candidate as a new low watermark, store it in vault, and we can safely start cleaning
+            // up the stale/junk data in the tables.
+            return txManager.updateLowWatermark(newLowWatermark)
+                    .thenComposeAsync(unused -> inBusyLock(busyLock, () -> {
+                        vaultManager.put(LOW_WATERMARK_VAULT_KEY, ByteUtils.toBytes(newLowWatermark));
+
+                        setLowWatermark(newLowWatermark);
+
+                        return notifyListeners(newLowWatermark);
+                    }), scheduledThreadPool)
+                    .whenComplete((unused, throwable) -> {
+                        if (throwable != null) {
+                            if (!(throwable instanceof NodeStoppingException)) {
+                                LOG.error("Failed to update low watermark, will schedule again: {}", throwable, newLowWatermark);
+
+                                failureProcessor.process(new FailureContext(CRITICAL_ERROR, throwable));
+
+                                inBusyLock(busyLock, this::scheduleUpdateLowWatermarkBusy);
+                            }
+                        } else {
+                            LOG.info("Successful low watermark update: {}", newLowWatermark);
+
+                            inBusyLock(busyLock, this::scheduleUpdateLowWatermarkBusy);
+                        }
+                    });
+        });
     }
 }

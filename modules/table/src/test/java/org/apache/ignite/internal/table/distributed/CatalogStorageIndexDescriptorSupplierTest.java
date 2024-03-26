@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.replicator.ReplicaManager.DEFAULT_IDLE_
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -32,6 +33,7 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 
 import java.util.List;
 import org.apache.ignite.internal.catalog.CatalogCommand;
@@ -49,6 +51,7 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.schema.configuration.LowWatermarkConfiguration;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
@@ -104,14 +107,13 @@ class CatalogStorageIndexDescriptorSupplierTest extends BaseIgniteAbstractTest {
                 clock,
                 txManager,
                 vaultManager,
-                failureProcessor
+                failureProcessor,
+                mock(MessagingService.class)
         );
 
         indexDescriptorSupplier = new CatalogStorageIndexDescriptorSupplier(catalogManager, lowWatermark);
 
-        catalogManager.start();
-
-        lowWatermark.start();
+        assertThat(allOf(catalogManager.start(), lowWatermark.start()), willCompleteSuccessfully());
     }
 
     @AfterEach
@@ -234,7 +236,7 @@ class CatalogStorageIndexDescriptorSupplierTest extends BaseIgniteAbstractTest {
             return candidate.compareTo(now) >= 0;
         }, 10_000));
 
-        assertThat(lowWatermark.updateLowWatermark(), willCompleteSuccessfully());
+        assertThat(lowWatermark.updateAndNotify(lowWatermark.createNewLowWatermarkCandidate()), willCompleteSuccessfully());
 
         HybridTimestamp lowWatermarkTimestamp = lowWatermark.getLowWatermark();
 

@@ -1112,7 +1112,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         partitionUpdateHandlers.indexUpdateHandler,
                         partitionUpdateHandlers.gcUpdateHandler,
                         fullStateTransferIndexChooser,
-                        schemaManager.schemaRegistry(partitionKey.tableId())
+                        schemaManager.schemaRegistry(partitionKey.tableId()),
+                        lowWatermark
                 ),
                 catalogService,
                 incomingSnapshotsExecutor
