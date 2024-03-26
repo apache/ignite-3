@@ -1525,7 +1525,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      * @param x Implementation specific argument, {@code null} always means that we need to return full detached data row.
      * @throws IgniteInternalCheckedException If failed.
      */
-    public final <R> @Nullable R findOne(L row, Object x) throws IgniteInternalCheckedException {
+    public final <R> @Nullable R findOne(L row, @Nullable Object x) throws IgniteInternalCheckedException {
         return findOne(row, null, x);
     }
 
@@ -1963,16 +1963,15 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
     private String printPage(BplusIo<L> io, long pageAddr, boolean keys) throws IgniteInternalCheckedException {
         StringBuilder b = new StringBuilder();
 
-        b.append(formatPageId(PageIo.getPageId(pageAddr)));
-
-        b.append(" [ ");
-        b.append(io.isLeaf() ? "L " : "I ");
+        b.append(formatPageId(PageIo.getPageId(pageAddr)))
+                .append(" [ ")
+                .append(io.isLeaf() ? "L " : "I ");
 
         int cnt = io.getCount(pageAddr);
         long fwdId = io.getForward(pageAddr, partId);
 
-        b.append("cnt=").append(cnt).append(' ');
-        b.append("fwd=").append(formatPageId(fwdId)).append(' ');
+        b.append("cnt=").append(cnt).append(' ')
+                .append("fwd=").append(formatPageId(fwdId)).append(' ');
 
         if (!io.isLeaf()) {
             b.append("lm=").append(formatPageId(inner(io).getLeft(pageAddr, 0, partId))).append(' ');

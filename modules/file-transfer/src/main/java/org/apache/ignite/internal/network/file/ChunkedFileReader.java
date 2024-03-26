@@ -19,9 +19,9 @@ package org.apache.ignite.internal.network.file;
 
 import java.io.BufferedInputStream;
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.nio.file.Files;
 
 /**
  * Chunked file reader. Reads the file in chunks. Each chunk has a fixed size. The last chunk may be smaller than the chunk size. If the
@@ -57,7 +57,7 @@ class ChunkedFileReader implements AutoCloseable {
      * @throws FileNotFoundException If the file does not exist.
      */
     static ChunkedFileReader open(File file, int chunkSize) throws IOException {
-        return new ChunkedFileReader(chunkSize, new BufferedInputStream(new FileInputStream(file)));
+        return new ChunkedFileReader(chunkSize, new BufferedInputStream(Files.newInputStream(file.toPath())));
     }
 
     /**

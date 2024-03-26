@@ -110,7 +110,7 @@ public class ColumnFamilyUtils {
      *
      * @see #comparatorFromCfName(byte[])
      */
-    static byte[] sortedIndexCfName(List<StorageSortedIndexColumnDescriptor> columns) {
+    public static byte[] sortedIndexCfName(List<StorageSortedIndexColumnDescriptor> columns) {
         ByteBuffer buf = ByteBuffer.allocate(SORTED_INDEX_CF_PREFIX.length() + columns.size() * 2);
 
         buf.put(SORTED_INDEX_CF_PREFIX.getBytes(UTF_8));

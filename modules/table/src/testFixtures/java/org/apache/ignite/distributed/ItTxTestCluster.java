@@ -136,6 +136,7 @@ import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.ResourceCleanupManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
+import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
@@ -202,7 +203,11 @@ public class ItTxTestCluster {
 
     protected Map<String, TxManager> txManagers;
 
+    protected Map<String, TransactionInflights> txInflights;
+
     protected Map<String, RemotelyTriggeredResourceRegistry> cursorRegistries;
+
+    private TransactionInflights clientTransactionInflights;
 
     protected TxManager clientTxManager;
 
@@ -334,6 +339,7 @@ public class ItTxTestCluster {
         replicaManagers = new HashMap<>(nodes);
         replicaServices = new HashMap<>(nodes);
         txManagers = new HashMap<>(nodes);
+        txInflights = new HashMap<>(nodes);
         cursorRegistries = new HashMap<>(nodes);
         txStateStorages = new HashMap<>(nodes);
 
@@ -398,11 +404,16 @@ public class ItTxTestCluster {
 
             var resourcesRegistry = new RemotelyTriggeredResourceRegistry();
 
+            TransactionInflights transactionInflights = new TransactionInflights(placementDriver);
+
+            txInflights.put(node.name(), transactionInflights);
+
             ResourceCleanupManager resourceCleanupManager = new ResourceCleanupManager(
                     node.name(),
                     resourcesRegistry,
                     clusterService.topologyService(),
-                    clusterService.messagingService()
+                    clusterService.messagingService(),
+                    transactionInflights
             );
 
             cursorRegistries.put(node.name(), resourcesRegistry);
@@ -415,7 +426,8 @@ public class ItTxTestCluster {
                     node,
                     placementDriver,
                     resourcesRegistry,
-                    resourceCleanupManager
+                    resourceCleanupManager,
+                    transactionInflights
             );
 
             txMgr.start();
@@ -436,6 +448,7 @@ public class ItTxTestCluster {
         } else {
             // Collocated mode.
             clientTxManager = txManagers.get(localNodeName);
+            clientTransactionInflights = txInflights.get(localNodeName);
         }
 
         igniteTransactions = new IgniteTransactionsImpl(clientTxManager, timestampTracker);
@@ -451,7 +464,8 @@ public class ItTxTestCluster {
             ClusterNode node,
             PlacementDriver placementDriver,
             RemotelyTriggeredResourceRegistry resourcesRegistry,
-            ResourceCleanupManager resourceCleanupManager
+            ResourceCleanupManager resourceCleanupManager,
+            TransactionInflights transactionInflights
     ) {
         return new TxManagerImpl(
                 node.name(),
@@ -467,7 +481,8 @@ public class ItTxTestCluster {
                 new TestLocalRwTxCounter(),
                 partitionOperationsExecutor,
                 resourcesRegistry,
-                resourceCleanupManager
+                resourceCleanupManager,
+                transactionInflights
         );
     }
 
@@ -552,7 +567,7 @@ public class ItTxTestCluster {
                 StorageHashIndexDescriptor pkIndexDescriptor = mock(StorageHashIndexDescriptor.class);
 
                 when(pkIndexDescriptor.columns()).then(invocation -> Collections.nCopies(
-                        schemaDescriptor.keyColumns().columns().length,
+                        schemaDescriptor.keyColumns().size(),
                         mock(StorageHashIndexColumnDescriptor.class)
                 ));
 
@@ -702,7 +717,10 @@ public class ItTxTestCluster {
                         startClient ? clientClock : clocks.get(localNodeName),
                         timestampTracker,
                         placementDriver,
-                        new TableRaftServiceImpl(tableName, 1, clients, nodeResolver)
+                        new TableRaftServiceImpl(tableName, 1, clients, nodeResolver),
+                        clientTransactionInflights,
+                        500,
+                        0
                 ),
                 new DummySchemaManagerImpl(schemaDescriptor),
                 clientTxManager.lockManager(),
@@ -924,11 +942,14 @@ public class ItTxTestCluster {
     private void initializeClientTxComponents() {
         RemotelyTriggeredResourceRegistry resourceRegistry = new RemotelyTriggeredResourceRegistry();
 
+        clientTransactionInflights = new TransactionInflights(placementDriver);
+
         ResourceCleanupManager resourceCleanupManager = new ResourceCleanupManager(
                 "client",
                 resourceRegistry,
                 client.topologyService(),
-                client.messagingService()
+                client.messagingService(),
+                clientTransactionInflights
         );
 
         clientTxManager = new TxManagerImpl(
@@ -945,7 +966,8 @@ public class ItTxTestCluster {
                 new TestLocalRwTxCounter(),
                 partitionOperationsExecutor,
                 resourceRegistry,
-                resourceCleanupManager
+                resourceCleanupManager,
+                clientTransactionInflights
         );
 
         clientTxStateResolver = new TransactionStateResolver(

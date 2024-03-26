@@ -195,6 +195,16 @@ public class RocksDbStorageEngine implements StorageEngine {
             }
         });
 
-        return new RocksDbTableStorage(sharedInstance, tableDescriptor);
+        var storage = new RocksDbTableStorage(sharedInstance, tableDescriptor, indexDescriptorSupplier);
+
+        storage.start();
+
+        return storage;
+    }
+
+    @Override
+    // TODO: IGNITE-21760 Implement
+    public void dropMvTable(int tableId) {
+        throw new UnsupportedOperationException("https://issues.apache.org/jira/browse/IGNITE-21760");
     }
 }

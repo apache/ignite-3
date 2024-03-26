@@ -37,6 +37,7 @@ import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageClosedException;
+import org.apache.ignite.internal.storage.StorageDestroyedException;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
@@ -69,6 +70,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     final int partitionId;
 
     private volatile boolean closed;
+    private volatile boolean destroyed;
 
     private volatile boolean rebalance;
 
@@ -624,8 +626,13 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         clear0();
     }
 
+    /**
+     * Destroys this storage.
+     */
     public void destroy() {
-        close();
+        destroyed = true;
+
+        clear0();
     }
 
     /** Removes all entries from this storage. */
@@ -649,10 +656,13 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         if (closed) {
             throw new StorageClosedException();
         }
+        if (destroyed) {
+            throw new StorageDestroyedException();
+        }
     }
 
     private void checkStorageClosedForRebalance() {
-        if (closed) {
+        if (closed || destroyed) {
             throw new StorageRebalanceException();
         }
     }
@@ -708,10 +718,6 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         this.lastAppliedIndex = lastAppliedIndex;
         this.lastAppliedTerm = lastAppliedTerm;
         this.groupConfig = Arrays.copyOf(groupConfig, groupConfig.length);
-    }
-
-    boolean closed() {
-        return closed;
     }
 
     private class ScanVersionsCursor implements Cursor<ReadResult> {

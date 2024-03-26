@@ -32,7 +32,6 @@ import java.sql.RowIdLifetime;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
@@ -1186,7 +1185,7 @@ public class JdbcDatabaseMetadata implements DatabaseMetaData {
     public ResultSet getTypeInfo() throws SQLException {
         List<List<Object>> types = new ArrayList<>(21);
 
-        types.add(Arrays.asList("BOOLEAN", Types.BOOLEAN, 1, null, null, null,
+        types.add(asList("BOOLEAN", Types.BOOLEAN, 1, null, null, null,
                 (short) typeNullable, false, (short) typeSearchable, false, false, false, "BOOLEAN", 0, 0,
                 Types.BOOLEAN, 0, 10));
 

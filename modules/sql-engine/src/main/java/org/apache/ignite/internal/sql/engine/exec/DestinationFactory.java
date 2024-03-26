@@ -20,10 +20,14 @@ package org.apache.ignite.internal.sql.engine.exec;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.Collections;
-import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.schema.PartitionCalculator;
@@ -36,7 +40,6 @@ import org.apache.ignite.internal.sql.engine.trait.Identity;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.Partitioned;
 import org.apache.ignite.internal.sql.engine.trait.RandomNode;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
  * Factory that resolves {@link IgniteDistribution} trait, which represents logical {@link DistributionFunction} function, into its
@@ -91,8 +94,6 @@ class DestinationFactory<RowT> {
 
                 assert !nullOrEmpty(group.assignments()) && !nullOrEmpty(keys);
 
-                List<String> assignments = Commons.transform(group.assignments(), NodeWithConsistencyToken::name);
-
                 if (function.affinity()) {
                     int tableId = ((AffinityDistribution) function).tableId();
                     Supplier<PartitionCalculator> calculator = dependencies.partitionCalculator(tableId);
@@ -100,12 +101,22 @@ class DestinationFactory<RowT> {
 
                     var resolver = new TablePartitionExtractor<>(calculator.get(), keys.toIntArray(), tableDescriptor, rowHandler);
 
-                    return new Partitioned<>(assignments, resolver);
+                    Map<Integer, String> partToNode = group.assignments().int2ObjectEntrySet().stream()
+                            .collect(Collectors.toMap(Entry::getKey, e -> e.getValue().name()));
+
+                    return new Partitioned<>(partToNode, resolver);
                 }
 
                 var resolver = new RehashingPartitionExtractor<>(group.nodeNames().size(), keys.toIntArray(), rowHandler);
 
-                return new Partitioned<>(group.nodeNames(), resolver);
+                Int2ObjectMap<String> partToNode = new Int2ObjectOpenHashMap<>();
+                int pos = 0;
+
+                for (String name : group.nodeNames()) {
+                    partToNode.put(pos++, name);
+                }
+
+                return new Partitioned<>(partToNode, resolver);
             }
             default:
                 throw new IllegalStateException("Unsupported distribution function.");

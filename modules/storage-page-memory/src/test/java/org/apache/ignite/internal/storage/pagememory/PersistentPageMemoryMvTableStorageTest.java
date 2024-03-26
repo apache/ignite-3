@@ -18,7 +18,9 @@
 package org.apache.ignite.internal.storage.pagememory;
 
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.FINISHED;
 import static org.apache.ignite.internal.storage.pagememory.configuration.schema.BasePageMemoryStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Mockito.mock;
@@ -27,11 +29,12 @@ import java.nio.file.Path;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
-import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.AbstractMvTableStorageTest;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
-import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -40,6 +43,8 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Tests for {@link PersistentPageMemoryTableStorage} class.
@@ -76,19 +81,45 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
     protected MvTableStorage createMvTableStorage() {
         return engine.createMvTable(
                 new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, DEFAULT_DATA_REGION_NAME),
-                new StorageIndexDescriptorSupplier(catalogService)
+                indexDescriptorSupplier
+        );
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    @Override
+    public void testDestroyPartition(boolean waitForDestroyFuture) {
+        super.testDestroyPartition(waitForDestroyFuture);
+
+        // Let's make sure that the checkpoint doesn't fail.
+        assertThat(
+                engine.checkpointManager().forceCheckpoint("after-test-destroy-partition").futureFor(FINISHED),
+                willCompleteSuccessfully()
         );
     }
 
     @Test
-    @Override
-    public void testDestroyPartition() throws Exception {
-        super.testDestroyPartition();
+    void testParallelDestroyPartitionAndCheckpoint() {
+        for (int partitionId = 0; partitionId < 100; partitionId++) {
+            int finalPartitionId = partitionId % DEFAULT_PARTITION_COUNT;
 
-        // Let's make sure that the checkpoint doesn't fail.
-        assertThat(
-                engine.checkpointManager().forceCheckpoint("after-test-destroy-partition").futureFor(CheckpointState.FINISHED),
-                willCompleteSuccessfully()
-        );
+            MvPartitionStorage partition = getOrCreateMvPartition(finalPartitionId);
+
+            RowId rowId = new RowId(finalPartitionId);
+            BinaryRow binaryRow = binaryRow(new TestKey(1, "1"), new TestValue(2, "2"));
+
+            partition.runConsistently(locker -> {
+                locker.lock(rowId);
+
+                partition.addWriteCommitted(rowId, binaryRow, clock.now());
+
+                return null;
+            });
+
+            runRace(
+                    () -> assertThat(tableStorage.destroyPartition(finalPartitionId), willCompleteSuccessfully()),
+                    () -> assertThat(engine.checkpointManager().forceCheckpoint("test").futureFor(FINISHED), willCompleteSuccessfully())
+            );
+        }
     }
 }

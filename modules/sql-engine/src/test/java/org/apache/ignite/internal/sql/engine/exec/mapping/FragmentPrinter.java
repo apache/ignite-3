@@ -26,12 +26,15 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import org.apache.calcite.rex.RexNode;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
+import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningMetadata;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteReceiver;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
@@ -193,6 +196,25 @@ final class FragmentPrinter extends IgniteRelShuttle {
 
             output.appendPadding();
             output.writeKeyValue("partitions", partitionsAsString);
+            output.writeNewline();
+        }
+
+        PartitionPruningMetadata pruningMetadata = mappedFragment.partitionPruningMetadata();
+        if (pruningMetadata != null) {
+            output.appendPadding();
+            output.writeKeyValue("pruningMetadata", pruningMetadata.data().long2ObjectEntrySet()
+                    .stream()
+                    .map(e -> {
+                        List<Map<Integer, RexNode>> columns = e.getValue().columns().stream()
+                                .map(TreeMap::new)
+                                .collect(Collectors.toList());
+
+                        return Map.entry(e.getLongKey(), columns);
+                    })
+                    .sorted(Entry.comparingByKey())
+                    .collect(Collectors.toList())
+                    .toString()
+            );
             output.writeNewline();
         }
 
@@ -376,7 +398,7 @@ final class FragmentPrinter extends IgniteRelShuttle {
             }
             builder.setLength(builder.length() - 2);
 
-            builder.append("]");
+            builder.append(']');
         }
 
         /** Writes string property: {@code name: value}. */

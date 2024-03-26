@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table.distributed.raft.snapshot.incoming;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.SnapshotMetaUtils.snapshotMetaAt;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
@@ -39,6 +40,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -76,10 +78,12 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
+import org.apache.ignite.internal.table.TestLowWatermark;
 import org.apache.ignite.internal.table.distributed.TableMessagesFactory;
 import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.gc.MvGc;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
+import org.apache.ignite.internal.table.distributed.message.GetLowWatermarkRequest;
 import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfigurationConverter;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.FullStateTransferIndexChooser;
@@ -167,6 +171,8 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
     private final RowId nextRowIdToBuildIndex = new RowId(PARTITION_ID);
 
+    private final TestLowWatermark lowWatermark = spy(new TestLowWatermark());
+
     @BeforeEach
     void setUp() {
         when(mvGc.removeStorage(any(TablePartitionId.class))).then(invocation -> nullCompletedFuture());
@@ -194,6 +200,10 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
                 incomingTxStateTableStorage,
                 messagingService
         );
+
+        HybridTimestamp newLowWatermarkValue = CLOCK.now();
+        assertThat(lowWatermark.updateAndNotify(newLowWatermarkValue), willCompleteSuccessfully());
+        clearInvocations(lowWatermark);
 
         SnapshotCopier snapshotCopier = partitionSnapshotStorage.startToCopyFrom(
                 SnapshotUri.toStringUri(snapshotId, NODE_NAME),
@@ -228,6 +238,8 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
         verify(incomingTxStatePartitionStorage, times(1)).startRebalance();
 
         verify(indexUpdateHandler).setNextRowIdToBuildIndex(eq(indexId), eq(nextRowIdToBuildIndex));
+
+        verify(lowWatermark).updateLowWatermark(eq(newLowWatermarkValue));
     }
 
     private void createTargetStorages() {
@@ -266,6 +278,12 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
             List<TxMeta> txMetas = txIds.stream().map(outgoingTxStatePartitionStorage::get).collect(toList());
 
             return completedFuture(TABLE_MSG_FACTORY.snapshotTxDataResponse().txIds(txIds).txMeta(txMetas).finish(true).build());
+        });
+
+        when(messagingService.invoke(eq(clusterNode), any(GetLowWatermarkRequest.class), anyLong())).thenAnswer(invocation -> {
+            long lowWatermarkValue = hybridTimestampToLong(lowWatermark.getLowWatermark());
+
+            return completedFuture(TABLE_MSG_FACTORY.getLowWatermarkResponse().lowWatermark(lowWatermarkValue).build());
         });
 
         return messagingService;
@@ -320,7 +338,8 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
                         indexUpdateHandler,
                         mock(GcUpdateHandler.class),
                         mock(FullStateTransferIndexChooser.class),
-                        new DummySchemaManagerImpl(SCHEMA)
+                        new DummySchemaManagerImpl(SCHEMA),
+                        lowWatermark
                 )),
                 catalogService,
                 mock(SnapshotMeta.class),

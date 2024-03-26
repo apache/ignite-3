@@ -105,7 +105,7 @@ public class DropIndexCommandValidationTest extends AbstractCommandValidationTes
                         .schemaName(SCHEMA_NAME)
                         .tableName(TABLE_NAME)
                         .columns(List.of(columnParams))
-                        .primaryKeyColumns(List.of(columnParams.name()))
+                        .primaryKey(primaryKey(columnParams.name()))
                         .build()
         );
 

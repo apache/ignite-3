@@ -600,7 +600,7 @@ public class ConnectionManager implements ChannelCreationListener {
 
         // TODO: IGNITE-21207 - remove descriptors for good.
 
-        connectionMaintenanceExecutor.submit(
+        connectionMaintenanceExecutor.execute(
                 () -> closeChannelsWith(id).whenCompleteAsync((res, ex) -> {
                     // Closing descriptors separately (as some of them might not have an operating channel attached, but they
                     // still might have unacknowledged messages/futures).

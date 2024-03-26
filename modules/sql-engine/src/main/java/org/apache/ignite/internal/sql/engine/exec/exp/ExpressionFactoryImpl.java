@@ -644,9 +644,8 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             }.apply(node);
         }
 
-        b.append(", biParam=").append(biParam);
-
-        b.append(']');
+        b.append(", biParam=").append(biParam)
+                .append(']');
 
         if (type != null) {
             b.append(':').append(type.getFullTypeString());

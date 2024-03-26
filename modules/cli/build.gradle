@@ -40,6 +40,10 @@ dependencies {
     implementation project(':ignite-client')
     implementation project(':ignite-jdbc')
 
+    implementation libs.tree.sitter
+    implementation libs.tree.sitter.sql
+    implementation libs.tree.sitter.json
+
     implementation libs.fliptables
     implementation libs.jline.core
     implementation libs.jline.console

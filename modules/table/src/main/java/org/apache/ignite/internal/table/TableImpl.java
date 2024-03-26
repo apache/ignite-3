@@ -23,6 +23,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ForkJoinPool;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.marshaller.MarshallerException;
@@ -76,6 +78,8 @@ public class TableImpl implements TableViewInternal {
 
     private final int pkId;
 
+    private final Executor asyncContinuationExecutor;
+
     /**
      * Constructor.
      *
@@ -85,6 +89,8 @@ public class TableImpl implements TableViewInternal {
      * @param marshallers Marshallers provider.
      * @param sql Ignite SQL facade.
      * @param pkId ID of a primary index.
+     * @param asyncContinuationExecutor Executor to which execution will be resubmitted when leaving asynchronous public API endpoints
+     *     (so as to prevent the user from stealing Ignite threads).
      */
     public TableImpl(
             InternalTable tbl,
@@ -92,7 +98,8 @@ public class TableImpl implements TableViewInternal {
             SchemaVersions schemaVersions,
             MarshallersProvider marshallers,
             IgniteSql sql,
-            int pkId
+            int pkId,
+            Executor asyncContinuationExecutor
     ) {
         this.tbl = tbl;
         this.lockManager = lockManager;
@@ -100,6 +107,7 @@ public class TableImpl implements TableViewInternal {
         this.marshallers = marshallers;
         this.sql = sql;
         this.pkId = pkId;
+        this.asyncContinuationExecutor = asyncContinuationExecutor;
     }
 
     /**
@@ -121,7 +129,7 @@ public class TableImpl implements TableViewInternal {
             IgniteSql sql,
             int pkId
     ) {
-        this(tbl, lockManager, schemaVersions, new ReflectionMarshallersProvider(), sql, pkId);
+        this(tbl, lockManager, schemaVersions, new ReflectionMarshallersProvider(), sql, pkId, ForkJoinPool.commonPool());
 
         this.schemaReg = schemaReg;
     }
@@ -166,22 +174,22 @@ public class TableImpl implements TableViewInternal {
 
     @Override
     public <R> RecordView<R> recordView(Mapper<R> recMapper) {
-        return new RecordViewImpl<>(tbl, schemaReg, schemaVersions, marshallers, recMapper, sql);
+        return new RecordViewImpl<>(tbl, schemaReg, schemaVersions, sql, marshallers, asyncContinuationExecutor, recMapper);
     }
 
     @Override
     public RecordView<Tuple> recordView() {
-        return new RecordBinaryViewImpl(tbl, schemaReg, schemaVersions, marshallers, sql);
+        return new RecordBinaryViewImpl(tbl, schemaReg, schemaVersions, sql, marshallers, asyncContinuationExecutor);
     }
 
     @Override
     public <K, V> KeyValueView<K, V> keyValueView(Mapper<K> keyMapper, Mapper<V> valMapper) {
-        return new KeyValueViewImpl<>(tbl, schemaReg, schemaVersions, marshallers, sql, keyMapper, valMapper);
+        return new KeyValueViewImpl<>(tbl, schemaReg, schemaVersions, sql, marshallers, asyncContinuationExecutor, keyMapper, valMapper);
     }
 
     @Override
     public KeyValueView<Tuple, Tuple> keyValueView() {
-        return new KeyValueBinaryViewImpl(tbl, schemaReg, schemaVersions, marshallers, sql);
+        return new KeyValueBinaryViewImpl(tbl, schemaReg, schemaVersions, sql, marshallers, asyncContinuationExecutor);
     }
 
     @Override
@@ -289,7 +297,6 @@ public class TableImpl implements TableViewInternal {
     public void unregisterIndex(int indexId) {
         indexWrapperById.remove(indexId);
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-21576 Also need to destroy the index storages
-        // tbl.storage().destroyIndex(indexId);
+        tbl.storage().destroyIndex(indexId);
     }
 }

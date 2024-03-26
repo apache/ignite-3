@@ -17,11 +17,15 @@
 
 package org.apache.ignite.internal.index;
 
+import static org.apache.ignite.internal.IndexTestUtils.waitForIndexToAppearInAnyState;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.storage.impl.TestStorageEngine.ENGINE_NAME;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.never;
@@ -34,10 +38,12 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.distributed.replication.request.BuildIndexReplicaRequest;
 import org.apache.ignite.tx.Transaction;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 /** Testing RW transactions and indexes. */
+@SuppressWarnings("resource")
 public class ItRwTransactionAndIndexesTest extends ClusterPerClassIntegrationTest {
     private static final String ZONE_NAME = "TEST_ZONE";
 
@@ -62,28 +68,12 @@ public class ItRwTransactionAndIndexesTest extends ClusterPerClassIntegrationTes
         CLUSTER.runningNodes().forEach(IgniteImpl::stopDroppingMessages);
     }
 
-    @Test
-    void testCreateIndexInsideRwTransaction() {
-        TableImpl table = (TableImpl) createZoneAndTable(ZONE_NAME, TABLE_NAME, 1, 1, ENGINE_NAME);
+    private static IndexStorage indexStorage(TableImpl table, String indexName) {
+        IndexStorage indexStorage = indexStorageOrNull(table, indexName);
 
-        setAwaitIndexAvailability(false);
-        dropAnyBuildIndexMessages();
+        assertNotNull(indexStorage, indexName);
 
-        Transaction rwTx = beginRwTransaction();
-
-        createIndex(TABLE_NAME, INDEX_NAME, COLUMN_NAME);
-
-        IndexStorage pkIndexStorage = indexStorage(table, PK_INDEX_NAME);
-        IndexStorage newIndexStorage = indexStorage(table, INDEX_NAME);
-
-        clearInvocations(pkIndexStorage, newIndexStorage);
-
-        insertPeopleInTransaction(rwTx, TABLE_NAME, newPerson(1));
-
-        verify(pkIndexStorage).put(any());
-        verify(newIndexStorage, never()).put(any());
-
-        assertDoesNotThrow(rwTx::commit);
+        return indexStorage;
     }
 
     @Test
@@ -129,12 +119,35 @@ public class ItRwTransactionAndIndexesTest extends ClusterPerClassIntegrationTes
         return new Person(id, "person" + id, 100.0 + id);
     }
 
-    private static IndexStorage indexStorage(TableImpl table, String indexName) {
-        IndexStorage indexStorage = table.internalTable().storage().getIndex(0, indexId(indexName));
+    @Nullable
+    private static IndexStorage indexStorageOrNull(TableImpl table, String indexName) {
+        return table.internalTable().storage().getIndex(0, indexId(indexName));
+    }
 
-        assertNotNull(indexStorage, indexName);
+    @Test
+    void testCreateIndexInsideRwTransaction() throws Exception {
+        TableImpl table = (TableImpl) createZoneAndTable(ZONE_NAME, TABLE_NAME, 1, 1, ENGINE_NAME);
 
-        return indexStorage;
+        dropAnyBuildIndexMessages();
+
+        Transaction rwTx = beginRwTransaction();
+
+        runAsync(() -> createIndex(TABLE_NAME, INDEX_NAME, COLUMN_NAME));
+
+        waitForIndexToAppearInAnyState(INDEX_NAME, node());
+        assertTrue(waitForCondition(() -> indexStorageOrNull(table, INDEX_NAME) != null, 10_000));
+
+        IndexStorage pkIndexStorage = indexStorage(table, PK_INDEX_NAME);
+        IndexStorage newIndexStorage = indexStorage(table, INDEX_NAME);
+
+        clearInvocations(pkIndexStorage, newIndexStorage);
+
+        insertPeopleInTransaction(rwTx, TABLE_NAME, newPerson(1));
+
+        verify(pkIndexStorage).put(any());
+        verify(newIndexStorage, never()).put(any());
+
+        assertDoesNotThrow(rwTx::commit);
     }
 
     private static int indexId(String indexName) {

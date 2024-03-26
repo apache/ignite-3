@@ -51,6 +51,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.temporal.Temporal;
 import java.util.BitSet;
+import java.util.List;
 import java.util.Random;
 import java.util.UUID;
 import org.apache.ignite.internal.schema.Column;
@@ -80,14 +81,13 @@ public class MutableRowTupleAdapterTest {
     /** Schema descriptor. */
     private final SchemaDescriptor schema = new SchemaDescriptor(
             42,
-            new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
-            new Column[]{new Column("name".toUpperCase(), NativeTypes.STRING, false)}
+            new Column[]{new Column("id".toUpperCase(), INT64, false)},
+            new Column[]{new Column("name".toUpperCase(), STRING, false)}
     );
 
     /** Schema descriptor. */
     private final SchemaDescriptor fullSchema = new SchemaDescriptor(42,
-            new Column[]{new Column("keyUuidCol".toUpperCase(), NativeTypes.UUID, false)},
-            new Column[]{
+            List.of(
                     new Column("valByteCol".toUpperCase(), INT8, true),
                     new Column("valShortCol".toUpperCase(), INT16, true),
                     new Column("valIntCol".toUpperCase(), INT32, true),
@@ -95,6 +95,7 @@ public class MutableRowTupleAdapterTest {
                     new Column("valFloatCol".toUpperCase(), FLOAT, true),
                     new Column("valDoubleCol".toUpperCase(), DOUBLE, true),
                     new Column("valDateCol".toUpperCase(), DATE, true),
+                    new Column("keyUuidCol".toUpperCase(), NativeTypes.UUID, false),
                     new Column("valTimeCol".toUpperCase(), time(TIME_PRECISION), true),
                     new Column("valDateTimeCol".toUpperCase(), datetime(TIMESTAMP_PRECISION), true),
                     new Column("valTimeStampCol".toUpperCase(), timestamp(TIMESTAMP_PRECISION), true),
@@ -102,8 +103,10 @@ public class MutableRowTupleAdapterTest {
                     new Column("valBytesCol".toUpperCase(), BYTES, false),
                     new Column("valStringCol".toUpperCase(), STRING, false),
                     new Column("valNumberCol".toUpperCase(), NativeTypes.numberOf(20), false),
-                    new Column("valDecimalCol".toUpperCase(), NativeTypes.decimalOf(25, 5), false),
-            }
+                    new Column("valDecimalCol".toUpperCase(), NativeTypes.decimalOf(25, 5), false)
+            ),
+            List.of("keyUuidCol".toUpperCase()),
+            null
     );
 
     @Test
@@ -206,17 +209,21 @@ public class MutableRowTupleAdapterTest {
     public void testKeyValueChunks() throws TupleMarshallerException {
         SchemaDescriptor schema = new SchemaDescriptor(
                 42,
-                new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
-                new Column[]{
-                        new Column("name".toUpperCase(), NativeTypes.STRING, true),
-                        new Column("price".toUpperCase(), NativeTypes.DOUBLE, true)
-                }
+                List.of(
+                        new Column("ID2", INT64, false),
+                        new Column("NAME", STRING, true),
+                        new Column("PRICE", DOUBLE, true),
+                        new Column("ID1", INT64, false)
+                ),
+                List.of("ID1", "ID2"),
+                null
         );
 
         Tuple original = Tuple.create()
-                .set("id", 3L)
+                .set("id1", 3L)
                 .set("name", "Shirt")
-                .set("price", 5.99d);
+                .set("price", 5.99d)
+                .set("id2", 33L);
 
         TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
 
@@ -225,17 +232,20 @@ public class MutableRowTupleAdapterTest {
         Tuple key = TableRow.keyTuple(row);
         Tuple val = TableRow.valueTuple(row);
 
-        assertEquals(3L, (Long) key.value("id"));
+        assertEquals(3L, (Long) key.value("id1"));
         assertEquals(3L, (Long) key.value(0));
 
+        assertEquals(33L, (Long) key.value("id2"));
+        assertEquals(33L, (Long) key.value(1));
+
         assertEquals("Shirt", val.value("name"));
-        assertEquals("Shirt", val.value(1));
+        assertEquals("Shirt", val.value(0));
 
         assertEquals(5.99d, val.value("price"));
-        assertEquals(5.99d, val.value(0));
+        assertEquals(5.99d, val.value(1));
 
         // Wrong columns.
-        assertThrows(IndexOutOfBoundsException.class, () -> key.value(1));
+        assertThrows(IndexOutOfBoundsException.class, () -> key.value(2));
         assertThrows(IllegalArgumentException.class, () -> key.value("price"));
 
         assertThrows(IndexOutOfBoundsException.class, () -> val.value(2));
@@ -546,11 +556,11 @@ public class MutableRowTupleAdapterTest {
     @Test
     void testTemporalValuesPrecisionConstraint() throws Exception {
         SchemaDescriptor schemaDescriptor = new SchemaDescriptor(1,
-                new Column[]{new Column("key", NativeTypes.INT32, false)},
+                new Column[]{new Column("key", INT32, false)},
                 new Column[]{
-                        new Column("time", NativeTypes.time(2), true),
-                        new Column("datetime", NativeTypes.datetime(2), true),
-                        new Column("timestamp", NativeTypes.timestamp(2), true)
+                        new Column("time", time(2), true),
+                        new Column("datetime", datetime(2), true),
+                        new Column("timestamp", timestamp(2), true)
                 }
         );
 
@@ -575,7 +585,7 @@ public class MutableRowTupleAdapterTest {
     @Test
     void testVarlenValuesLengthConstraints() throws Exception {
         SchemaDescriptor schemaDescriptor = new SchemaDescriptor(1,
-                new Column[]{new Column("key", NativeTypes.INT32, false)},
+                new Column[]{new Column("key", INT32, false)},
                 new Column[]{
                         new Column("string", NativeTypes.stringOf(5), true),
                         new Column("bytes", NativeTypes.blobOf(5), true),

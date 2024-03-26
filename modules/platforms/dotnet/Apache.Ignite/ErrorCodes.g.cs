@@ -190,14 +190,11 @@ namespace Apache.Ignite
             /// <summary> PlanningTimeout error. </summary>
             public const int PlanningTimeout = (GroupCode << 16) | (10 & 0xFFFF);
 
-            /// <summary> SessionClosed error. </summary>
-            public const int SessionClosed = (GroupCode << 16) | (11 & 0xFFFF);
-
             /// <summary> Mapping error. </summary>
-            public const int Mapping = (GroupCode << 16) | (12 & 0xFFFF);
+            public const int Mapping = (GroupCode << 16) | (11 & 0xFFFF);
 
             /// <summary> TxControlInsideExternalTx error. </summary>
-            public const int TxControlInsideExternalTx = (GroupCode << 16) | (13 & 0xFFFF);
+            public const int TxControlInsideExternalTx = (GroupCode << 16) | (12 & 0xFFFF);
         }
 
         /// <summary> MetaStorage errors. </summary>
@@ -356,6 +353,9 @@ namespace Apache.Ignite
 
             /// <summary> StorageRebalance error. </summary>
             public const int StorageRebalance = (GroupCode << 16) | (4 & 0xFFFF);
+
+            /// <summary> AlreadyDestroyed error. </summary>
+            public const int AlreadyDestroyed = (GroupCode << 16) | (5 & 0xFFFF);
         }
 
         /// <summary> DistributionZones errors. </summary>

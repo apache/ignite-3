@@ -20,8 +20,8 @@ package org.apache.ignite.internal.network.file;
 import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import org.apache.ignite.internal.network.file.exception.FileValidationException;
@@ -59,7 +59,7 @@ class ChunkedFileWriter implements AutoCloseable {
      * @throws FileNotFoundException If the file is not found.
      */
     static ChunkedFileWriter open(File file, long expectedFileLength) throws IOException {
-        return new ChunkedFileWriter(new BufferedOutputStream(new FileOutputStream(file)), expectedFileLength);
+        return new ChunkedFileWriter(new BufferedOutputStream(Files.newOutputStream(file.toPath())), expectedFileLength);
     }
 
     /**

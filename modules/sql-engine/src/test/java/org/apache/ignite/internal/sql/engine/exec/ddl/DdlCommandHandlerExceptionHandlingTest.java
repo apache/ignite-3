@@ -25,8 +25,10 @@ import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.ClockWaiter;
 import org.apache.ignite.internal.catalog.DistributionZoneExistsValidationException;
 import org.apache.ignite.internal.catalog.DistributionZoneNotFoundValidationException;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateZoneCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropZoneCommand;
@@ -45,10 +47,11 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
 
     @BeforeEach
     void before() {
-        catalogManager = createTestCatalogManager("test", new HybridClockImpl());
+        HybridClock clock = new HybridClockImpl();
+        catalogManager = createTestCatalogManager("test", clock);
         assertThat(catalogManager.start(), willCompleteSuccessfully());
 
-        commandHandler = new DdlCommandHandler(catalogManager);
+        commandHandler = new DdlCommandHandler(catalogManager, new ClockWaiter("test", clock), () -> 100);
     }
 
     @AfterEach

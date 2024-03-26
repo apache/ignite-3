@@ -97,6 +97,7 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.ResourceCleanupManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
+import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
@@ -164,14 +165,9 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         this(
                 replicaSvc,
                 new TestMvPartitionStorage(0),
-                false,
-                null,
                 schema,
-                new HybridTimestampTracker(),
-                new TestPlacementDriver(LOCAL_NODE),
-                storageUpdateConfiguration,
                 txConfiguration,
-                new RemotelyTriggeredResourceRegistry()
+                storageUpdateConfiguration
         );
     }
 
@@ -201,7 +197,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 new TestPlacementDriver(LOCAL_NODE),
                 storageUpdateConfiguration,
                 txConfiguration,
-                new RemotelyTriggeredResourceRegistry()
+                new RemotelyTriggeredResourceRegistry(),
+                new TransactionInflights(new TestPlacementDriver(LOCAL_NODE))
         );
     }
 
@@ -228,7 +225,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
             PlacementDriver placementDriver,
             StorageUpdateConfiguration storageUpdateConfiguration,
             TransactionConfiguration txConfiguration,
-            RemotelyTriggeredResourceRegistry resourcesRegistry
+            RemotelyTriggeredResourceRegistry resourcesRegistry,
+            TransactionInflights transactionInflights
     ) {
         super(
                 "test",
@@ -247,7 +245,10 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                         1,
                         Int2ObjectMaps.singleton(PART_ID, mock(RaftGroupService.class)),
                         new SingleClusterNodeResolver(LOCAL_NODE)
-                )
+                ),
+                transactionInflights,
+                3_000,
+                0
         );
 
         RaftGroupService svc = tableRaftService().partitionRaftGroupService(PART_ID);
@@ -334,7 +335,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         StorageHashIndexDescriptor pkIndexDescriptor = mock(StorageHashIndexDescriptor.class);
 
         when(pkIndexDescriptor.columns()).then(
-                invocation -> Collections.nCopies(schema.keyColumns().columns().length, mock(StorageHashIndexColumnDescriptor.class))
+                invocation -> Collections.nCopies(schema.keyColumns().size(), mock(StorageHashIndexColumnDescriptor.class))
         );
 
         Lazy<TableSchemaAwareIndexStorage> pkStorage = new Lazy<>(() -> new TableSchemaAwareIndexStorage(
@@ -460,11 +461,14 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         when(clusterService.messagingService()).thenReturn(new DummyMessagingService(LOCAL_NODE));
         when(clusterService.topologyService()).thenReturn(topologyService);
 
+        TransactionInflights transactionInflights = new TransactionInflights(placementDriver);
+
         ResourceCleanupManager resourceCleanupManager = new ResourceCleanupManager(
                 LOCAL_NODE.name(),
                 resourcesRegistry,
                 clusterService.topologyService(),
-                clusterService.messagingService()
+                clusterService.messagingService(),
+                transactionInflights
         );
 
         var txManager = new TxManagerImpl(
@@ -478,7 +482,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
                 new TestLocalRwTxCounter(),
                 resourcesRegistry,
-                resourceCleanupManager
+                resourceCleanupManager,
+                transactionInflights
         );
 
         txManager.start();

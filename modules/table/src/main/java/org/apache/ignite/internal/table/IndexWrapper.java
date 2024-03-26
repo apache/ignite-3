@@ -103,7 +103,7 @@ abstract class IndexWrapper {
         TableSchemaAwareIndexStorage getStorage(int partitionId) {
             IndexStorage index = tbl.storage().getIndex(partitionId, indexId);
 
-            assert index != null : tbl.name() + " part " + partitionId;
+            assert index != null : "tableId=" + tbl.tableId() + ", indexId=" + indexId + ", partitionId=" + partitionId;
 
             return new TableSchemaAwareIndexStorage(
                     indexId,
