@@ -25,6 +25,7 @@ import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -76,6 +77,7 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommandBuilder;
+import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
@@ -114,6 +116,7 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
+import org.apache.ignite.internal.tx.UpdateCommandResult;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateStorage;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
@@ -183,6 +186,9 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
     @Captor
     private ArgumentCaptor<Throwable> commandClosureResultCaptor;
+
+    @Captor
+    private ArgumentCaptor<UpdateCommandResult> updateCommandClosureResultCaptor;
 
     private final RaftGroupConfigurationConverter raftGroupConfigurationConverter = new RaftGroupConfigurationConverter();
 
@@ -339,18 +345,23 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
         FinishTxCommand finishTxCommand = mock(FinishTxCommand.class);
         when(finishTxCommand.safeTime()).thenAnswer(v -> hybridClock.now());
 
+        PrimaryReplicaChangeCommand primaryReplicaChangeCommand = mock(PrimaryReplicaChangeCommand.class);
+
         // Checks for MvPartitionStorage.
         commandListener.onWrite(List.of(
-                writeCommandCommandClosure(3, 1, updateCommand, commandClosureResultCaptor),
-                writeCommandCommandClosure(10, 1, updateCommand, commandClosureResultCaptor),
+                writeCommandCommandClosure(3, 1, updateCommand, updateCommandClosureResultCaptor),
+                writeCommandCommandClosure(10, 1, updateCommand, updateCommandClosureResultCaptor),
                 writeCommandCommandClosure(4, 1, writeIntentSwitchCommand, commandClosureResultCaptor),
-                writeCommandCommandClosure(5, 1, safeTimeSyncCommand, commandClosureResultCaptor)
+                writeCommandCommandClosure(5, 1, safeTimeSyncCommand, commandClosureResultCaptor),
+                writeCommandCommandClosure(6, 1, primaryReplicaChangeCommand, commandClosureResultCaptor)
         ).iterator());
 
         verify(mvPartitionStorage, never()).runConsistently(any(WriteClosure.class));
         verify(mvPartitionStorage, times(1)).lastApplied(anyLong(), anyLong());
 
-        assertThat(commandClosureResultCaptor.getAllValues(), containsInAnyOrder(new Throwable[]{null, null, null, null}));
+        assertThat(updateCommandClosureResultCaptor.getAllValues(), containsInAnyOrder(new UpdateCommandResult(true),
+                new UpdateCommandResult(true)));
+        assertThat(commandClosureResultCaptor.getAllValues(), containsInAnyOrder(new Throwable[]{null, null, null}));
 
         // Checks for TxStateStorage.
         mvPartitionStorage.lastApplied(1L, 1L);
@@ -388,7 +399,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
             long index,
             long term,
             WriteCommand writeCommand,
-            @Nullable ArgumentCaptor<Throwable> resultClosureCaptor
+            @Nullable ArgumentCaptor<? extends Serializable> resultClosureCaptor
     ) {
         CommandClosure<WriteCommand> commandClosure = mock(CommandClosure.class);
 
@@ -891,7 +902,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                             .build());
 
             doAnswer(invocation -> {
-                assertNull(invocation.getArgument(0));
+                assertTrue(invocation.getArgument(0) instanceof UpdateCommandResult);
 
                 return null;
             }).when(clo).result(any());
@@ -937,7 +948,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                             .build());
 
             doAnswer(invocation -> {
-                assertNull(invocation.getArgument(0));
+                assertTrue(invocation.getArgument(0) instanceof UpdateCommandResult);
 
                 return null;
             }).when(clo).result(any());
@@ -1010,7 +1021,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                             .build());
 
             doAnswer(invocation -> {
-                assertNull(invocation.getArgument(0));
+                assertTrue(invocation.getArgument(0) instanceof UpdateCommandResult);
 
                 return null;
             }).when(clo).result(any());
@@ -1064,7 +1075,11 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
             when(clo.index()).thenReturn(raftIndex.incrementAndGet());
 
             doAnswer(invocation -> {
-                assertNull(invocation.getArgument(0));
+                if (cmd instanceof UpdateCommand || cmd instanceof UpdateAllCommand) {
+                    assertTrue(invocation.getArgument(0) instanceof UpdateCommandResult);
+                } else {
+                    assertNull(invocation.getArgument(0));
+                }
 
                 return null;
             }).when(clo).result(any());

@@ -44,4 +44,23 @@ public class UpdateCommandResult implements Serializable {
     public boolean isPrimaryReplicaSuccess() {
         return primaryReplicaSuccess;
     }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        UpdateCommandResult that = (UpdateCommandResult) o;
+
+        return primaryReplicaSuccess == that.primaryReplicaSuccess;
+    }
+
+    @Override
+    public int hashCode() {
+        return (primaryReplicaSuccess ? 1 : 0);
+    }
 }

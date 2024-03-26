@@ -176,6 +176,7 @@ public class ItTransactionPrimaryChangeTest extends ClusterPerTestIntegrationTes
         } finally {
             regularTxComplete.complete(null);
         }
+
         fullTxFut.join();
 
         // Full transaction should finally complete.
