@@ -284,7 +284,7 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
             }
 
             case DECIMAL_SCALE_TWO_BYTES: {
-                int valScale = firstByte & 0b00111111 + byteValue(begin + 1, begin + 2) << 8;
+                int valScale = (firstByte & 0b00111111) << 8 + byteValue(begin + 1, begin + 2);
                 assert valScale < scale : "Invalid scale, expected less than " + scale + ", but was " + valScale;
 
                 return new BigDecimal(numberValue(begin + 2, end), valScale).setScale(scale, RoundingMode.UNNECESSARY);

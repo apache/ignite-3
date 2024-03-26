@@ -328,7 +328,7 @@ public class BinaryTupleTest {
 
                 BinaryTupleReader reader = new BinaryTupleReader(1, bytes);
                 BigDecimal actual = reader.decimalValue(0, schemaScale);
-                assertEquals(expectedValue, actual);
+                assertEquals(expectedValue, actual, "Schema scale: " + schemaScale + ", value scale: " + valueScale);
             }
         }
     }

@@ -330,7 +330,7 @@ public class BinaryTupleBuilder {
             if (value.scale() < 64) {
                 putByte((byte)(DECIMAL_SCALE_ONE_BYTE | value.scale()));
             } else if (value.scale() < 16384) {
-                putByte((byte)(DECIMAL_SCALE_TWO_BYTES | value.scale() >> 8));
+                putByte((byte)(DECIMAL_SCALE_TWO_BYTES | (value.scale() >> 8)));
                 putByte((byte)(value.scale() & 0xFF));
             } else {
                 putByte(DECIMAL_SCALE_THREE_BYTES);
