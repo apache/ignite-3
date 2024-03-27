@@ -27,8 +27,10 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Sorting composite publisher.
@@ -98,7 +100,7 @@ public class OrderedMergePublisher<T> implements Publisher<T> {
 
         /** Error. */
         @SuppressWarnings({"unused", "FieldMayBeFinal"})
-        private Throwable error;
+        private ErrorChain errorChain;
 
         /** Cancelled flag. */
         @SuppressWarnings({"unused", "FieldMayBeFinal"})
@@ -111,7 +113,7 @@ public class OrderedMergePublisher<T> implements Publisher<T> {
         /** Number of emitted rows (guarded by {@link #guardCntr}). */
         private long emitted;
 
-        static final VarHandle ERROR;
+        static final VarHandle ERROR_CHAIN;
 
         static final VarHandle CANCELLED;
 
@@ -121,7 +123,7 @@ public class OrderedMergePublisher<T> implements Publisher<T> {
             Lookup lk = MethodHandles.lookup();
 
             try {
-                ERROR = lk.findVarHandle(OrderedMergeSubscription.class, "error", Throwable.class);
+                ERROR_CHAIN = lk.findVarHandle(OrderedMergeSubscription.class, "errorChain", ErrorChain.class);
                 CANCELLED = lk.findVarHandle(OrderedMergeSubscription.class, "cancelled", boolean.class);
                 REQUESTED = lk.findVarHandle(OrderedMergeSubscription.class, "requested", long.class);
             } catch (Throwable ex) {
@@ -202,17 +204,10 @@ public class OrderedMergePublisher<T> implements Publisher<T> {
 
         private void updateError(Throwable throwable) {
             for (; ; ) {
-                Throwable current = (Throwable) ERROR.getAcquire(this);
-                Throwable next;
+                ErrorChain current = (ErrorChain) ERROR_CHAIN.getAcquire(this);
+                ErrorChain next = new ErrorChain(throwable, current);
 
-                if (current == null) {
-                    next = throwable;
-                } else {
-                    next = current;
-                    next.addSuppressed(throwable);
-                }
-
-                if (ERROR.compareAndSet(this, current, next)) {
+                if (ERROR_CHAIN.compareAndSet(this, current, next)) {
                     break;
                 }
             }
@@ -274,12 +269,12 @@ public class OrderedMergePublisher<T> implements Publisher<T> {
                     }
 
                     if (completed == subsCnt) {
-                        Throwable ex = (Throwable) ERROR.getAcquire(this);
+                        ErrorChain chain = (ErrorChain) ERROR_CHAIN.getAcquire(this);
 
-                        if (ex == null) {
+                        if (chain == null) {
                             downstream.onComplete();
                         } else {
-                            downstream.onError(ex);
+                            downstream.onError(chain.buildThrowable());
                         }
 
                         return;
@@ -408,6 +403,35 @@ public class OrderedMergePublisher<T> implements Publisher<T> {
                     subscription.cancel();
                 }
             }
+        }
+    }
+
+    private static class ErrorChain {
+        private final Throwable error;
+        @Nullable
+        private final ErrorChain next;
+
+        private final AtomicBoolean built = new AtomicBoolean(false);
+
+        private ErrorChain(Throwable error, @Nullable ErrorChain next) {
+            this.error = error;
+            this.next = next;
+        }
+
+        Throwable buildThrowable() {
+            if (!built.compareAndSet(false, true)) {
+                // Already built, so error already contains all subsequent exceptions attached.
+                return error;
+            }
+
+            ErrorChain chain = next;
+
+            while (chain != null) {
+                error.addSuppressed(chain.error);
+                chain = chain.next;
+            }
+
+            return error;
         }
     }
 }
