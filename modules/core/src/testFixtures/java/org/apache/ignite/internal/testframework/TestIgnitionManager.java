@@ -36,6 +36,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.InitParametersBuilder;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 
@@ -55,6 +56,8 @@ public class TestIgnitionManager {
     /** Default partition idle SafeTime interval in ms used for tests that is set on node init. */
     public static final int DEFAULT_PARTITION_IDLE_SYNC_TIME_INTERVAL_MS = 100;
 
+    public static final long DEFAULT_MAX_CLOCK_SKEW_MS = TestClockService.TEST_MAX_CLOCK_SKEW_MILLIS;
+
     /** Map with default node configuration values. */
     private static final Map<String, String> DEFAULT_NODE_CONFIG = Map.of(
             "network.membership.scaleCube.metadataTimeout", Integer.toString(DEFAULT_SCALECUBE_METADATA_TIMEOUT),
@@ -66,6 +69,7 @@ public class TestIgnitionManager {
     /** Map with default cluster configuration values. */
     private static final Map<String, String> DEFAULT_CLUSTER_CONFIG = Map.of(
             "schemaSync.delayDuration", Integer.toString(DEFAULT_DELAY_DURATION_MS),
+            "schemaSync.maxClockSkew", Long.toString(DEFAULT_MAX_CLOCK_SKEW_MS),
             "metaStorage.idleSyncTimeInterval", Integer.toString(DEFAULT_METASTORAGE_IDLE_SYNC_TIME_INTERVAL_MS),
             "replication.idleSafeTimePropagationDuration", Integer.toString(DEFAULT_PARTITION_IDLE_SYNC_TIME_INTERVAL_MS)
     );

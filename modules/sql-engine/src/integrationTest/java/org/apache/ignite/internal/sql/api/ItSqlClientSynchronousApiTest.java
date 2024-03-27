@@ -23,7 +23,7 @@ import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 /**
  * Tests for synchronous client SQL API.
@@ -42,6 +42,18 @@ public class ItSqlClientSynchronousApiTest extends ItSqlSynchronousApiTest {
     }
 
     @Override
+    @Test
+    public void resultSetCloseShouldFinishImplicitTransaction() {
+        super.resultSetCloseShouldFinishImplicitTransaction();
+    }
+
+    @Override
+    @Test
+    public void errors() throws InterruptedException {
+        super.errors();
+    }
+
+    @Override
     protected IgniteSql igniteSql() {
         return client.sql();
     }
@@ -49,11 +61,5 @@ public class ItSqlClientSynchronousApiTest extends ItSqlSynchronousApiTest {
     @Override
     protected IgniteTransactions igniteTx() {
         return client.transactions();
-    }
-
-    @Override
-    @Disabled("IGNITE-17134")
-    public void closeSession() {
-        super.closeSession();
     }
 }

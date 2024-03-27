@@ -24,7 +24,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -49,8 +49,7 @@ public class TxCleanupRequestHandler {
     /** Lock manager. */
     private final LockManager lockManager;
 
-    /** Hybrid clock. */
-    private final HybridClock hybridClock;
+    private final ClockService clockService;
 
     /** Cleanup processor. */
     private final WriteIntentSwitchProcessor writeIntentSwitchProcessor;
@@ -63,20 +62,20 @@ public class TxCleanupRequestHandler {
      *
      * @param messagingService Messaging service.
      * @param lockManager Lock manager.
-     * @param clock A hybrid logical clock.
+     * @param clockService Clock service.
      * @param writeIntentSwitchProcessor A cleanup processor.
      * @param resourcesRegistry Resources registry.
      */
     public TxCleanupRequestHandler(
             MessagingService messagingService,
             LockManager lockManager,
-            HybridClock clock,
+            ClockService clockService,
             WriteIntentSwitchProcessor writeIntentSwitchProcessor,
             RemotelyTriggeredResourceRegistry resourcesRegistry
     ) {
         this.messagingService = messagingService;
         this.lockManager = lockManager;
-        this.hybridClock = clock;
+        this.clockService = clockService;
         this.writeIntentSwitchProcessor = writeIntentSwitchProcessor;
         this.remotelyTriggeredResourceRegistry = resourcesRegistry;
     }
@@ -153,7 +152,7 @@ public class TxCleanupRequestHandler {
     private NetworkMessage prepareResponse() {
         return FACTORY
                 .txCleanupMessageResponse()
-                .timestampLong(hybridClock.nowLong())
+                .timestampLong(clockService.nowLong())
                 .build();
     }
 
@@ -161,7 +160,7 @@ public class TxCleanupRequestHandler {
         return FACTORY
                 .txCleanupMessageErrorResponse()
                 .throwable(th)
-                .timestampLong(hybridClock.nowLong())
+                .timestampLong(clockService.nowLong())
                 .build();
     }
 }

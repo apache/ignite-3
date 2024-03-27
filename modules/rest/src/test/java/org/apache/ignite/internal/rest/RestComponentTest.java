@@ -85,7 +85,7 @@ public class RestComponentTest extends BaseIgniteAbstractTest {
 
         Mockito.when(cmg.clusterState()).then(invocation -> CompletableFuture.completedFuture(state));
 
-        AuthenticationManager authenticationManager = new AuthenticationManagerImpl(securityConfiguration);
+        AuthenticationManager authenticationManager = new AuthenticationManagerImpl(securityConfiguration, ign -> {});
         Supplier<RestFactory> authProviderFactory = () -> new AuthenticationProviderFactory(authenticationManager);
         Supplier<RestFactory> restPresentationFactory = () -> new PresentationsFactory(
                 configurationManager,

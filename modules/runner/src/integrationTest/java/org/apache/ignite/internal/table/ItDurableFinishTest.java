@@ -19,6 +19,8 @@ package org.apache.ignite.internal.table;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -100,7 +102,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
         Tuple keyTpl = Tuple.create().set("key", 42);
         Tuple tpl = Tuple.create().set("key", 42).set("val", "val 42");
 
-        TableImpl tbl = (TableImpl) coordinatorNode.tables().table(TABLE_NAME);
+        TableImpl tbl = unwrapTableImpl(coordinatorNode.tables().table(TABLE_NAME));
 
         tbl.recordView().upsert(rwTx, tpl);
 
@@ -108,7 +110,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
     }
 
     private TablePartitionId defaultTablePartitionId(IgniteImpl node) {
-        TableImpl table = (TableImpl) node.tables().table(TABLE_NAME);
+        TableViewInternal table = unwrapTableViewInternal(node.tables().table(TABLE_NAME));
 
         return new TablePartitionId(table.tableId(), 0);
     }
@@ -297,7 +299,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
     }
 
     private void markTxAbortedInTxStateStorage(IgniteImpl primaryNode, InternalTransaction tx) {
-        TableImpl primaryTbl = (TableImpl) primaryNode.tables().table(TABLE_NAME);
+        TableViewInternal primaryTbl = unwrapTableViewInternal(primaryNode.tables().table(TABLE_NAME));
 
         TxStateStorage storage = primaryTbl.internalTable().txStateStorage().getTxStateStorage(0);
 

@@ -34,7 +34,6 @@ import org.apache.ignite.internal.security.authentication.basic.BasicAuthenticat
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.security.exception.InvalidCredentialsException;
-import org.apache.ignite.sql.Session;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -186,10 +185,8 @@ public class ItThinClientAuthenticationTest extends ItAbstractThinClientTest {
     }
 
     private static CompletableFuture<Void> checkConnection(IgniteClient client) {
-        try (Session session = client.sql().createSession()) {
-            return session.executeAsync(null, "select 1 as num, 'hello' as str")
-                    .thenApply(ignored -> null);
-        }
+        return client.sql().executeAsync(null, "select 1 as num, 'hello' as str")
+                .thenApply(ignored -> null);
     }
 
     private void updateClusterConfiguration(String hocon) {

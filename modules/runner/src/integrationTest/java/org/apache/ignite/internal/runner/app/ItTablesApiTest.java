@@ -20,8 +20,12 @@ package org.apache.ignite.internal.runner.app;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static org.apache.ignite.internal.IndexTestUtils.waitForIndexToAppearInAnyState;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteTablesInternal;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.test.WatchListenerInhibitor.metastorageEventsInhibitor;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
@@ -47,14 +51,13 @@ import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.IndexExistsValidationException;
 import org.apache.ignite.internal.catalog.TableExistsValidationException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
-import org.apache.ignite.internal.table.IgniteTablesInternal;
-import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ErrorGroups.Sql;
-import org.apache.ignite.sql.Session;
+import org.apache.ignite.lang.TableNotFoundException;
+import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
@@ -155,7 +158,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
                 "Table with name 'PUBLIC.TBL1' already exists",
                 () -> createTable(ignite0, TABLE_NAME));
 
-        assertEquals(tbl, createTableIfNotExists(ignite0, TABLE_NAME));
+        assertEquals(unwrapTableImpl(tbl), unwrapTableImpl(createTableIfNotExists(ignite0, TABLE_NAME)));
     }
 
     /**
@@ -379,13 +382,13 @@ public class ItTablesApiTest extends IgniteAbstractTest {
 
         Table table = createTable(clusterNodes.get(0), TABLE_NAME);
 
-        int tblId = ((TableViewInternal) table).tableId();
+        int tblId = unwrapTableViewInternal(table).tableId();
 
         CompletableFuture<Table> tableByNameFut = supplyAsync(() -> ignite1.tables().table(TABLE_NAME));
 
         CompletableFuture<Table> tableByIdFut = supplyAsync(() -> {
             try {
-                return ((IgniteTablesInternal) ignite1.tables()).table(tblId);
+                return unwrapIgniteTablesInternal(ignite1.tables()).table(tblId);
             } catch (NodeStoppingException e) {
                 throw new AssertionError(e.getMessage());
             }
@@ -397,7 +400,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
             if (ignite != ignite1) {
                 assertNotNull(ignite.tables().table(TABLE_NAME));
 
-                assertNotNull(((IgniteTablesInternal) ignite.tables()).table(tblId));
+                assertNotNull(unwrapIgniteTablesInternal(ignite.tables()).table(tblId));
             }
         }
 
@@ -418,7 +421,7 @@ public class ItTablesApiTest extends IgniteAbstractTest {
         for (Ignite ignite : clusterNodes) {
             assertNull(ignite.tables().table(TABLE_NAME));
 
-            assertNull(((IgniteTablesInternal) ignite.tables()).table(tblId));
+            assertNull(unwrapIgniteTablesInternal(ignite.tables()).table(tblId));
 
             assertThrowsSqlException(
                     Sql.STMT_VALIDATION_ERR,
@@ -429,6 +432,21 @@ public class ItTablesApiTest extends IgniteAbstractTest {
         }
 
         ignite1Inhibitor.stopInhibit();
+    }
+
+    @Test
+    public void usingTableAfterDrop() {
+        Ignite ignite0 = clusterNodes.get(0);
+        Table tbl = createTable(ignite0, TABLE_NAME);
+        RecordView<Tuple> view = tbl.recordView();
+
+        sql(ignite0, "DROP TABLE " + TABLE_NAME);
+
+        assertThrows(
+                TableNotFoundException.class,
+                () -> view.insert(null, Tuple.create().set("key", 1L).set("valInt", 1).set("valStr", "1")),
+                "Table does not exist or was dropped concurrently"
+        );
     }
 
     /**
@@ -509,8 +527,6 @@ public class ItTablesApiTest extends IgniteAbstractTest {
     }
 
     private static void sql(Ignite node, String sql) {
-        try (Session ses = node.sql().createSession()) {
-            ses.execute(null, sql);
-        }
+        node.sql().execute(null, sql);
     }
 }

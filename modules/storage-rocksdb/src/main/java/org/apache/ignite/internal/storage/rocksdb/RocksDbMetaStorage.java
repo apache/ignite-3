@@ -42,17 +42,17 @@ public class RocksDbMetaStorage {
      * Prefix to store partition meta information, such as last applied index and term.
      * Key format is {@code [prefix, tableId, partitionId]} in BE.
      */
-    static final byte[] PARTITION_META_PREFIX = {0};
+    public static final byte[] PARTITION_META_PREFIX = {0};
 
     /**
      * Prefix to store partition configuration. Key format is {@code [prefix, tableId, partitionId]} in BE.
      */
-    static final byte[] PARTITION_CONF_PREFIX = {1};
+    public static final byte[] PARTITION_CONF_PREFIX = {1};
 
     /**
-     * Prefix to store next row id to build in index. Key format is {@code [prefix, indexId, partitionId]} in BE.
+     * Prefix to store next row id to build in index. Key format is {@code [prefix, tableId, indexId, partitionId]} in BE.
      */
-    private static final byte[] INDEX_ROW_ID_PREFIX = {2};
+    public static final byte[] INDEX_ROW_ID_PREFIX = {2};
 
     private final ColumnFamily metaColumnFamily;
 
@@ -73,9 +73,9 @@ public class RocksDbMetaStorage {
      * @param indexId Index ID.
      * @param partitionId Partition ID.
      */
-    public @Nullable RowId getNextRowIdToBuild(int indexId, int partitionId) {
+    public @Nullable RowId getNextRowIdToBuild(int tableId, int indexId, int partitionId) {
         try {
-            byte[] lastBuiltRowIdBytes = metaColumnFamily.get(createKey(INDEX_ROW_ID_PREFIX, indexId, partitionId));
+            byte[] lastBuiltRowIdBytes = metaColumnFamily.get(createKey(INDEX_ROW_ID_PREFIX, tableId, indexId, partitionId));
 
             if (lastBuiltRowIdBytes == null) {
                 return initialRowIdToBuild(partitionId);
@@ -103,9 +103,11 @@ public class RocksDbMetaStorage {
      * @param indexId Index ID.
      * @param rowId Row ID.
      */
-    public void putNextRowIdToBuild(AbstractWriteBatch writeBatch, int indexId, int partitionId, @Nullable RowId rowId) {
+    public void putNextRowIdToBuild(AbstractWriteBatch writeBatch, int tableId, int indexId, int partitionId, @Nullable RowId rowId) {
         try {
-            writeBatch.put(metaColumnFamily.handle(), createKey(INDEX_ROW_ID_PREFIX, indexId, partitionId), indexLastBuildRowId(rowId));
+            byte[] key = createKey(INDEX_ROW_ID_PREFIX, tableId, indexId, partitionId);
+
+            writeBatch.put(metaColumnFamily.handle(), key, indexLastBuildRowId(rowId));
         } catch (RocksDBException e) {
             throw new StorageException(
                     "Failed to save next row ID to build: [partitionId={}, indexId={}, rowId={}]",
@@ -118,9 +120,9 @@ public class RocksDbMetaStorage {
     /**
      * Removes the "next row ID to build" information for the given partition's index.
      */
-    public void removeNextRowIdToBuild(AbstractWriteBatch writeBatch, int indexId, int partitionId) {
+    public void removeNextRowIdToBuild(AbstractWriteBatch writeBatch, int tableId, int indexId, int partitionId) {
         try {
-            writeBatch.delete(metaColumnFamily.handle(), createKey(INDEX_ROW_ID_PREFIX, indexId, partitionId));
+            writeBatch.delete(metaColumnFamily.handle(), createKey(INDEX_ROW_ID_PREFIX, tableId, indexId, partitionId));
         } catch (RocksDBException e) {
             throw new StorageException(
                     "Failed to remove next row ID to build: [partitionId={}, indexId={}]",

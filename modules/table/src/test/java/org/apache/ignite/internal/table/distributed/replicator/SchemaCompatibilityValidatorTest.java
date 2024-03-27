@@ -163,7 +163,7 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
         List<ColumnTypeChange> changes = new ArrayList<>();
 
         for (IgniteBiTuple<ColumnType, ColumnType> pair : simpleTypeCompatibleChanges()) {
-            // noinspection ConstantConditions
+            //noinspection ConstantConditions
             changes.add(new ColumnTypeChange(pair.get1(), pair.get2()));
         }
 

@@ -22,7 +22,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
@@ -47,20 +47,26 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry {
 
     private final ReplicaService replicaService;
 
-    private final HybridClock clock;
+    private final ClockService clockService;
 
     /** Executable tables cache. */
     final ConcurrentMap<CacheKey, CompletableFuture<ExecutableTable>> tableCache;
 
     /** Constructor. */
-    public ExecutableTableRegistryImpl(TableManager tableManager, SchemaManager schemaManager, SqlSchemaManager sqlSchemaManager,
-            ReplicaService replicaService, HybridClock clock, int cacheSize) {
+    public ExecutableTableRegistryImpl(
+            TableManager tableManager,
+            SchemaManager schemaManager,
+            SqlSchemaManager sqlSchemaManager,
+            ReplicaService replicaService,
+            ClockService clockService,
+            int cacheSize
+    ) {
 
         this.sqlSchemaManager = sqlSchemaManager;
         this.tableManager = tableManager;
         this.schemaManager = schemaManager;
         this.replicaService = replicaService;
-        this.clock = clock;
+        this.clockService = clockService;
         this.tableCache = Caffeine.newBuilder()
                 .maximumSize(cacheSize)
                 .<CacheKey, ExecutableTable>buildAsync().asMap();
@@ -91,7 +97,7 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry {
                     TableRowConverter rowConverter = converterFactory.create(null);
 
                     UpdatableTableImpl updatableTable = new UpdatableTableImpl(sqlTable.id(), tableDescriptor, internalTable.partitions(),
-                            internalTable, replicaService, clock, rowConverter);
+                            internalTable, replicaService, clockService, rowConverter);
 
                     return new ExecutableTableImpl(scannableTable, updatableTable, sqlTable.partitionCalculator());
                 });

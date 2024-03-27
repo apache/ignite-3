@@ -18,9 +18,7 @@
 package org.apache.ignite.internal.storage.rocksdb.index;
 
 import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementPrefix;
-import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.INDEX_ID_SIZE;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.KEY_BYTE_ORDER;
-import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.PARTITION_ID_SIZE;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.ROW_ID_SIZE;
 import static org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstance.deleteByPrefix;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
@@ -47,7 +45,8 @@ import org.rocksdb.WriteBatchWithIndex;
  *
  * <p>This storage uses the following format for keys:
  * <pre>
- * Index ID (UUID) - 16 bytes
+ * Table ID - 4 bytes
+ * Index ID - 4 bytes
  * Partition ID - 2 bytes
  * Tuple hash - 4 bytes
  * Tuple value - variable length
@@ -57,8 +56,8 @@ import org.rocksdb.WriteBatchWithIndex;
  * <p>We use an empty array as values, because all required information can be extracted from the key.
  */
 public class RocksDbHashIndexStorage extends AbstractRocksDbIndexStorage implements HashIndexStorage {
-    /** Length of the fixed part of the key: Index ID + Partition ID + Hash. */
-    public static final int FIXED_PREFIX_LENGTH = INDEX_ID_SIZE + PARTITION_ID_SIZE + Integer.BYTES;
+    /** Length of the fixed part of the key: Table ID + Index ID + Partition ID + Hash. */
+    public static final int FIXED_PREFIX_LENGTH = PREFIX_WITH_IDS_LENGTH + Integer.BYTES;
 
     private final StorageHashIndexDescriptor descriptor;
 
@@ -71,25 +70,28 @@ public class RocksDbHashIndexStorage extends AbstractRocksDbIndexStorage impleme
      * Creates a new Hash Index storage.
      *
      * @param descriptor Index descriptor.
+     * @param tableId Table ID.
+     * @param partitionId Partition ID.
      * @param indexCf Column family that stores the index data.
-     * @param helper Partition data helper.
      * @param indexMetaStorage Index meta storage.
      */
     public RocksDbHashIndexStorage(
             StorageHashIndexDescriptor descriptor,
+            int tableId,
+            int partitionId,
             ColumnFamily indexCf,
-            PartitionDataHelper helper,
             RocksDbMetaStorage indexMetaStorage
     ) {
-        super(descriptor.id(), helper, indexMetaStorage);
+        super(tableId, descriptor.id(), partitionId, indexMetaStorage);
 
         this.descriptor = descriptor;
         this.indexCf = indexCf;
 
-        this.constantPrefix = ByteBuffer.allocate(INDEX_ID_SIZE + PARTITION_ID_SIZE)
+        this.constantPrefix = ByteBuffer.allocate(PREFIX_WITH_IDS_LENGTH)
                 .order(KEY_BYTE_ORDER)
+                .putInt(tableId)
                 .putInt(descriptor.id())
-                .putShort((short) helper.partitionId())
+                .putShort((short) partitionId)
                 .array();
     }
 
@@ -114,7 +116,7 @@ public class RocksDbHashIndexStorage extends AbstractRocksDbIndexStorage impleme
                     long mostSignificantBits = byteBuffer.getLong(rangeStart.length);
                     long leastSignificantBits = byteBuffer.getLong(rangeStart.length + Long.BYTES);
 
-                    return new RowId(helper.partitionId(), mostSignificantBits, leastSignificantBits);
+                    return new RowId(partitionId, mostSignificantBits, leastSignificantBits);
                 }
             };
         });

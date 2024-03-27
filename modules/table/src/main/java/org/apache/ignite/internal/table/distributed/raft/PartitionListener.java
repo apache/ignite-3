@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.table.distributed.raft;
 
 import static java.util.Objects.requireNonNull;
-import static org.apache.ignite.internal.hlc.HybridTimestamp.CLOCK_SKEW;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.table.distributed.TableUtils.indexIdsAtRwTxBeginTs;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
@@ -42,6 +41,7 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.SafeTimeReorderException;
@@ -116,6 +116,8 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
     private final SchemaRegistry schemaRegistry;
 
+    private final ClockService clockService;
+
     /**
      * The constructor.
      *
@@ -133,7 +135,8 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
             PendingComparableValuesTracker<HybridTimestamp, Void> safeTime,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
             CatalogService catalogService,
-            SchemaRegistry schemaRegistry
+            SchemaRegistry schemaRegistry,
+            ClockService clockService
     ) {
         this.txManager = txManager;
         this.storage = partitionDataStorage;
@@ -143,6 +146,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         this.storageIndexTracker = storageIndexTracker;
         this.catalogService = catalogService;
         this.schemaRegistry = schemaRegistry;
+        this.clockService = clockService;
     }
 
     @Override
@@ -495,7 +499,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
     @Override
     public void onLeaderStart() {
-        maxObservableSafeTime = txManager.clock().now().addPhysicalTime(CLOCK_SKEW).longValue();
+        maxObservableSafeTime = clockService.now().addPhysicalTime(clockService.maxClockSkewMillis()).longValue();
     }
 
     @Override

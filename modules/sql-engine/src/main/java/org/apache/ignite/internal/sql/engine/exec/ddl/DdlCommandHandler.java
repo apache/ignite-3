@@ -31,7 +31,6 @@ import java.util.function.BiFunction;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.ClockWaiter;
 import org.apache.ignite.internal.catalog.DistributionZoneExistsValidationException;
 import org.apache.ignite.internal.catalog.DistributionZoneNotFoundValidationException;
 import org.apache.ignite.internal.catalog.IndexExistsValidationException;
@@ -46,6 +45,8 @@ import org.apache.ignite.internal.catalog.events.MakeIndexAvailableEventParamete
 import org.apache.ignite.internal.catalog.events.RemoveIndexEventParameters;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.future.InFlightFutures;
+import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterColumnCommand;
@@ -67,7 +68,7 @@ import org.apache.ignite.sql.SqlException;
 public class DdlCommandHandler implements LifecycleAware {
     private final CatalogManager catalogManager;
 
-    private final ClockWaiter clockWaiter;
+    private final ClockService clockService;
 
     private final LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier;
 
@@ -80,11 +81,11 @@ public class DdlCommandHandler implements LifecycleAware {
      */
     public DdlCommandHandler(
             CatalogManager catalogManager,
-            ClockWaiter clockWaiter,
+            ClockService clockService,
             LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier
     ) {
         this.catalogManager = catalogManager;
-        this.clockWaiter = clockWaiter;
+        this.clockService = clockService;
         this.partitionIdleSafeTimePropagationPeriodMsSupplier = partitionIdleSafeTimePropagationPeriodMsSupplier;
     }
 
@@ -261,7 +262,12 @@ public class DdlCommandHandler implements LifecycleAware {
         Catalog catalog = catalogManager.catalog(catalogVersion);
         assert catalog != null;
 
-        clockWaiter.waitFor(clusterWideEnsuredActivationTsSafeForRoReads(catalog, partitionIdleSafeTimePropagationPeriodMsSupplier))
+        HybridTimestamp tsToWait = clusterWideEnsuredActivationTsSafeForRoReads(
+                catalog,
+                partitionIdleSafeTimePropagationPeriodMsSupplier,
+                clockService.maxClockSkewMillis()
+        );
+        clockService.waitFor(tsToWait)
                 .whenComplete((res, ex) -> future.complete(null));
     }
 

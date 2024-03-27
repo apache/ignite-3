@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.client.sql;
 
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
@@ -94,6 +96,13 @@ public class ClientStatement implements Statement {
     @Override
     public String defaultSchema() {
         return defaultSchema;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public ZoneId timeZoneId() {
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-21568
+        return ZoneOffset.UTC;
     }
 
     /** {@inheritDoc} */

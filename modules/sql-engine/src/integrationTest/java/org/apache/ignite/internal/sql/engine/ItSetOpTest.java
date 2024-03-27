@@ -37,6 +37,7 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
@@ -73,7 +74,22 @@ public class ItSetOpTest extends BaseSqlIntegrationTest {
                 {idx, "Igor1", 13d}
         });
 
+        // Creating tables with different numeric types for the "val" column.
+        {
+            sql("CREATE TABLE t1(id INTEGER PRIMARY KEY, val INTEGER)");
+            sql("INSERT INTO t1 VALUES(1, 1)");
+            sql("INSERT INTO t1 VALUES(2, 2)");
+            sql("INSERT INTO t1 VALUES(3, 3)");
+            sql("INSERT INTO t1 VALUES(4, 4)");
 
+            sql("CREATE TABLE t2(id INTEGER PRIMARY KEY, val DECIMAL(4,2))");
+            sql("INSERT INTO t2 VALUES(2, 2)");
+            sql("INSERT INTO t2 VALUES(4, 4)");
+
+            sql("CREATE TABLE t3(id INTEGER PRIMARY KEY, val NUMERIC(4,2))");
+            sql("INSERT INTO t3 VALUES(2, 2)");
+            sql("INSERT INTO t3 VALUES(3, 3)");
+        }
     }
 
     @ParameterizedTest
@@ -240,6 +256,25 @@ public class ItSetOpTest extends BaseSqlIntegrationTest {
                 .matches(QueryChecker.matches(".*IgniteExchange.*IgniteColocatedIntersect.*"))
                 .returns(0)
                 .returns(1)
+                .check();
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @CsvSource({"EXCEPT,1,1.00", "INTERSECT,2,2.00"})
+    public void testSetOpDifferentNumericTypes(String setOp, int expectId, String expectVal) {
+        String query = "SELECT id, val FROM t1 "
+                + setOp
+                + " SELECT id, val FROM t2 "
+                + setOp
+                + " SELECT id, val FROM t3 ";
+
+        assertQuery(query)
+                .returns(expectId, new BigDecimal(expectVal))
+                .columnMetadata(
+                        new MetadataMatcher().nullable(false).type(ColumnType.INT32),
+                        new MetadataMatcher().nullable(true).type(ColumnType.DECIMAL)
+                )
+                .ordered()
                 .check();
     }
 

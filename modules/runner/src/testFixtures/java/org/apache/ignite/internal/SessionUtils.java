@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal;
 
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
@@ -27,26 +27,26 @@ import org.jetbrains.annotations.Nullable;
  */
 public class SessionUtils {
     /**
-     * Executes an update on a session, possibly in a transaction.
+     * Executes an update on a sql, possibly in a transaction.
      *
-     * @param sql SQL query to execute.
-     * @param session Session on which to execute.
+     * @param query SQL query to execute.
+     * @param sql Session on which to execute.
      * @param transaction Transaction in which to execute the update, or {@code null} if the update should
      *     be executed n an implicit transaction.
      */
-    public static void executeUpdate(String sql, Session session, @Nullable Transaction transaction) {
-        try (ResultSet<?> ignored = session.execute(transaction, sql)) {
+    public static void executeUpdate(String query, IgniteSql sql, @Nullable Transaction transaction) {
+        try (ResultSet<?> ignored = sql.execute(transaction, query)) {
             // Do nothing, just adhere to the syntactic ceremony...
         }
     }
 
     /**
-     * Executes an update on a session in an implicit transaction.
+     * Executes an update on a sql in an implicit transaction.
      *
-     * @param sql SQL query to execute.
-     * @param session Session on which to execute.
+     * @param query SQL query to execute.
+     * @param sql Session on which to execute.
      */
-    public static void executeUpdate(String sql, Session session) {
-        executeUpdate(sql, session, null);
+    public static void executeUpdate(String query, IgniteSql sql) {
+        executeUpdate(query, sql, null);
     }
 }

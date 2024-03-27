@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.index;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -99,7 +100,7 @@ public class ItIndexManagerTest extends ClusterPerClassIntegrationTest {
 
         assertThat(tableFuture, willCompleteSuccessfully());
 
-        return (TableImpl) tableFuture.join();
+        return unwrapTableImpl(tableFuture.join());
     }
 
     private static List<Integer> collectIndexIdsFromTable(TableImpl table, int partitionId) {

@@ -25,7 +25,6 @@ import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -46,11 +45,5 @@ public class RocksDbStorageEngineTest extends AbstractStorageEngineTest {
                 engineConfiguration,
                 workDir
         );
-    }
-
-    @Override
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21760")
-    protected void testDropMvTableOnRecovery() throws Exception {
-        super.testDropMvTableOnRecovery();
     }
 }
