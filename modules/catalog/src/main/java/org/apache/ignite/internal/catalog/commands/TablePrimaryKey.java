@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 
 /** Base class for a primary key. */
@@ -44,16 +45,29 @@ public abstract class TablePrimaryKey {
     }
 
     /** Performs additional validation of this primary key. */
-    void validate(Set<String> allColumns) {
-        Set<String> columnSet = new HashSet<>();
+    void validate(List<ColumnParams> allColumns) {
+        Set<String> allColumnNames = new HashSet<>(allColumns.size());
+        for (ColumnParams column : allColumns) {
+            allColumnNames.add(column.name());
 
-        for (String name : columns) {
-            if (!allColumns.contains(name)) {
-                throw new CatalogValidationException(format("PK column '{}' is not part of table", name));
+            boolean partOfPk = columns.contains(column.name());
+            if (partOfPk) {
+                if (column.nullable()) {
+                    throw new CatalogValidationException(format("Primary key cannot contain nullable column [col={}].", column.name()));
+                }
             }
+        }
 
+        List<String> columnsNotInTable = columns.stream().filter(n -> !allColumnNames.contains(n)).collect(Collectors.toList());
+        if (!columnsNotInTable.isEmpty()) {
+            throw new CatalogValidationException(
+                    format("Primary key constraint contains undefined columns: [cols={}].", columnsNotInTable));
+        }
+
+        Set<String> columnSet = new HashSet<>();
+        for (String name : columns) {
             if (!columnSet.add(name)) {
-                throw new CatalogValidationException(format("PK column '{}' specified more that once", name));
+                throw new CatalogValidationException(format("PK column '{}' specified more that once.", name));
             }
         }
     }

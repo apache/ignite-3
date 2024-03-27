@@ -46,7 +46,6 @@ import java.time.LocalTime;
 import java.time.Period;
 import java.util.AbstractMap.SimpleEntry;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.HashSet;
@@ -322,31 +321,22 @@ public class DdlSqlToCommandConverter {
                     + "querySql=\"" + ctx.query() + "\"]");
         }
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-21673 Remove dedupSetPk after this issue is fixed.
-        Set<String> dedupSetPk;
         List<String> pkColumns;
 
-        if (!pkConstraints.isEmpty()) {
-            dedupSetPk = new HashSet<>();
-            IgniteSqlPrimaryKeyConstraint pkConstraint = pkConstraints.get(0);
-            SqlNodeList columnNodes = pkConstraint.getColumnList();
+        IgniteSqlPrimaryKeyConstraint pkConstraint = pkConstraints.get(0);
+        SqlNodeList columnNodes = pkConstraint.getColumnList();
 
-            pkColumns = new ArrayList<>(columnNodes.size());
-            List<Collation> pkCollations = new ArrayList<>(columnNodes.size());
+        pkColumns = new ArrayList<>(columnNodes.size());
+        List<Collation> pkCollations = new ArrayList<>(columnNodes.size());
 
-            PrimaryKeyIndexType pkIndexType = convertPrimaryIndexType(pkConstraint.getIndexType());
-            boolean supportCollation = pkIndexType == PrimaryKeyIndexType.SORTED;
+        PrimaryKeyIndexType pkIndexType = convertPrimaryIndexType(pkConstraint.getIndexType());
+        boolean supportCollation = pkIndexType == PrimaryKeyIndexType.SORTED;
 
-            parseColumnList(pkConstraint.getColumnList(), pkColumns, pkCollations, supportCollation, dedupSetPk);
+        parseColumnList(pkConstraint.getColumnList(), pkColumns, pkCollations, supportCollation);
 
-            createTblCmd.primaryIndexType(pkIndexType);
-            createTblCmd.primaryKeyColumns(pkColumns);
-            createTblCmd.primaryKeyCollations(pkCollations);
-
-        } else {
-            dedupSetPk = Collections.emptySet();
-            pkColumns = Collections.emptyList();
-        }
+        createTblCmd.primaryIndexType(pkIndexType);
+        createTblCmd.primaryKeyColumns(pkColumns);
+        createTblCmd.primaryKeyCollations(pkCollations);
 
         List<String> colocationCols = createTblNode.colocationColumns() == null
                 ? null
@@ -375,25 +365,10 @@ public class DdlSqlToCommandConverter {
 
             String name = col.name.getSimple();
 
-            if (col.dataType.getNullable() != null && col.dataType.getNullable() && dedupSetPk.contains(name)) {
-                throw new SqlException(STMT_VALIDATION_ERR, "Primary key cannot contain nullable column [col=" + name + "]");
-            }
-
-            RelDataType relType = planner.convert(col.dataType, !dedupSetPk.contains(name));
-
-            dedupSetPk.remove(name);
+            RelDataType relType = planner.convert(col.dataType, !pkColumns.contains(name));
 
             DefaultValueDefinition dflt = convertDefault(col.expression, relType, name);
-            if (dflt.type() == DefaultValueDefinition.Type.FUNCTION_CALL && !pkColumns.contains(name)) {
-                throw new SqlException(STMT_VALIDATION_ERR,
-                        "Functional defaults are not supported for non-primary key columns [col=" + name + "]");
-            }
-
             cols.add(new ColumnDefinition(name, relType, dflt));
-        }
-
-        if (!dedupSetPk.isEmpty()) {
-            throw new SqlException(STMT_VALIDATION_ERR, "Primary key constraint contains undefined columns: [cols=" + dedupSetPk + "]");
         }
 
         createTblCmd.columns(cols);
@@ -544,7 +519,7 @@ public class DdlSqlToCommandConverter {
         List<Collation> collations = new ArrayList<>(columnList.size());
         boolean supportCollation = createIdxCmd.type() == Type.SORTED;
 
-        parseColumnList(columnList, columns, collations, supportCollation, null);
+        parseColumnList(columnList, columns, collations, supportCollation);
 
         createIdxCmd.columns(columns);
         createIdxCmd.collations(collations);
@@ -558,8 +533,7 @@ public class DdlSqlToCommandConverter {
             SqlNodeList columnList,
             List<String> columns,
             List<Collation> collations,
-            boolean supportCollation,
-            @Nullable Set<String> dedup
+            boolean supportCollation
     ) {
         for (SqlNode col : columnList.getList()) {
             boolean desc = false;
@@ -572,10 +546,6 @@ public class DdlSqlToCommandConverter {
 
             String columnName = ((SqlIdentifier) col).getSimple();
             columns.add(columnName);
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-21673 Remove dedupSetPk after this issue is fixed.
-            if (dedup != null && !dedup.add(columnName)) {
-                continue;
-            }
             if (supportCollation) {
                 collations.add(desc ? Collation.DESC_NULLS_FIRST : Collation.ASC_NULLS_LAST);
             }
