@@ -17,11 +17,6 @@
 
 package org.apache.ignite.internal.binarytuple;
 
-import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.DECIMAL_SCALE_NONE;
-import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.DECIMAL_SCALE_ONE_BYTE;
-import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.DECIMAL_SCALE_THREE_BYTES;
-import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.DECIMAL_SCALE_TWO_BYTES;
-
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
@@ -269,39 +264,10 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
             return null;
         }
 
-        byte firstByte = byteValue(begin, begin + 1);
-        byte mode = (byte) (firstByte & 0b11000000);
+        short valScale = shortValue(begin, begin + 2);
+        assert valScale <= scale : "Invalid scale, expected less than or equal to " + scale + ", but was " + valScale;
 
-        // TODO: Deduplicate code.
-        // TODO: Avoid setScale call and compute final scale in BigDecimal constructor.
-        switch (mode) {
-            case DECIMAL_SCALE_NONE:
-                return new BigDecimal(numberValue(begin + 1, end), scale);
-
-            case DECIMAL_SCALE_ONE_BYTE: {
-                int valScale = firstByte & 0b00111111;
-                assert valScale < scale : "Invalid scale, expected less than " + scale + ", but was " + valScale;
-
-                return new BigDecimal(numberValue(begin + 1, end), valScale).setScale(scale, RoundingMode.UNNECESSARY);
-            }
-
-            case DECIMAL_SCALE_TWO_BYTES: {
-                int valScale = (firstByte & 0b00111111) + (Byte.toUnsignedInt(byteValue(begin + 1, begin + 2)) << 6);
-                assert valScale < scale : "Invalid scale, expected less than " + scale + ", but was " + valScale;
-
-                return new BigDecimal(numberValue(begin + 2, end), valScale).setScale(scale, RoundingMode.UNNECESSARY);
-            }
-
-            case DECIMAL_SCALE_THREE_BYTES: {
-                var valScale = intValue(begin + 1, begin + 3);
-                assert valScale < scale : "Invalid scale, expected less than " + scale + ", but was " + valScale;
-
-                return new BigDecimal(numberValue(begin + 3, end), valScale).setScale(scale, RoundingMode.UNNECESSARY);
-            }
-
-            default:
-                throw new IllegalStateException("Invalid decimal scale first byte: " + firstByte);
-        }
+        return new BigDecimal(numberValue(begin + 2, end), valScale).setScale(scale, RoundingMode.UNNECESSARY);
     }
 
     /**

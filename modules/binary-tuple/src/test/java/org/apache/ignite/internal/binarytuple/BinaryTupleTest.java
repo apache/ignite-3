@@ -339,7 +339,7 @@ public class BinaryTupleTest {
         BinaryTupleBuilder builder = new BinaryTupleBuilder(1);
         ByteBuffer bytes = builder.appendDecimal(value, Short.MAX_VALUE).build();
 
-        assertEquals(4, bytes.limit());
+        assertEquals(5, bytes.limit());
     }
 
     /**

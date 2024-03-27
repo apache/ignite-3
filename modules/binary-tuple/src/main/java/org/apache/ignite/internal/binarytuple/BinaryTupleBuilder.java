@@ -17,11 +17,6 @@
 
 package org.apache.ignite.internal.binarytuple;
 
-import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.DECIMAL_SCALE_NONE;
-import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.DECIMAL_SCALE_ONE_BYTE;
-import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.DECIMAL_SCALE_THREE_BYTES;
-import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.DECIMAL_SCALE_TWO_BYTES;
-
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
@@ -320,32 +315,17 @@ public class BinaryTupleBuilder {
      * @return {@code this} for chaining.
      */
     public BinaryTupleBuilder appendDecimalNotNull(BigDecimal value, int scale) {
+        if (value.scale() > scale) {
+            value = value.setScale(scale, RoundingMode.HALF_UP);
+        }
+
         value = value.stripTrailingZeros();
-        int valScale = value.scale();
 
-        if (valScale < 0) {
-            value = value.setScale(0, RoundingMode.UNNECESSARY);
-            valScale = 0;
-        }
+        // See CatalogUtils.MAX_DECIMAL_SCALE = Short.MAX_VALUE
+        assert value.scale() <= Short.MAX_VALUE : "Decimal scale is too large: " + value.scale() + " > " + Short.MAX_VALUE;
+        assert value.scale() >= Short.MIN_VALUE : "Decimal scale is too small: " + value.scale() + " < " + Short.MIN_VALUE;
 
-        if (valScale > scale) {
-            value = value.setScale(scale, RoundingMode.HALF_UP); // Only do rounding if necessary.
-            putByte(DECIMAL_SCALE_NONE); // Same scale as schema.
-        } else if (valScale == scale) {
-            putByte(DECIMAL_SCALE_NONE); // Same scale as schema.
-        } else {
-            // Actual scale is less than schema - encode scale as varint.
-            if (valScale < 64) {
-                putByte((byte) (DECIMAL_SCALE_ONE_BYTE | valScale));
-            } else if (valScale < 16384) {
-                putByte((byte) (DECIMAL_SCALE_TWO_BYTES | (valScale & 0b00111111)));
-                putByte((byte) (valScale >> 6));
-            } else {
-                putByte(DECIMAL_SCALE_THREE_BYTES);
-                putShort((short) valScale);
-            }
-        }
-
+        putShort((short) value.scale());
         putBytes(value.unscaledValue().toByteArray());
 
         return proceed();

@@ -35,14 +35,6 @@ public class BinaryTupleCommon {
     /** Flag that indicates that offset table is oversized. */
     public static final int OFFSET_TABLE_OVERSIZED = 1 << 2;
 
-    public static final byte DECIMAL_SCALE_NONE = 0;
-
-    public static final byte DECIMAL_SCALE_ONE_BYTE = 1 << 6;
-
-    public static final byte DECIMAL_SCALE_TWO_BYTES = (byte) (2 << 6);
-
-    public static final byte DECIMAL_SCALE_THREE_BYTES = (byte) (3 << 6);
-
     /**
      * Flag that indicates that a Binary Tuple is instead a Binary Tuple Prefix.
      *
