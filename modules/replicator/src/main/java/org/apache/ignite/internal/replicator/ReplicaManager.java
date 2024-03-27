@@ -519,7 +519,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 return completedFuture(newReplica);
             } else {
                 existingReplicaFuture.complete(newReplica);
-                LOG.info("Replica is started, existing waiter was completed [replicationGroupId={}].", replicaGrpId);
+                LOG.info("Replica is started, existing replica waiter was completed [replicationGroupId={}].", replicaGrpId);
 
                 return existingReplicaFuture;
             }
@@ -785,7 +785,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     }
 
     /**
-     * Check if replica was touched by an any actor. Touched here means either replica replica creation or replica waiter registration.
+     * Check if replica was touched by an any actor. Touched here means either replica creation or replica waiter registration.
      *
      * @param replicaGrpId Replication group id.
      * @return True if the replica was touched.
