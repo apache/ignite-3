@@ -320,7 +320,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         );
 
         txCleanupRequestSender =
-                new TxCleanupRequestSender(txMessageSender, placementDriverHelper, writeIntentSwitchProcessor, txStateVolatileStorage);
+                new TxCleanupRequestSender(txMessageSender, placementDriverHelper, txStateVolatileStorage);
     }
 
     private CompletableFuture<Boolean> primaryReplicaEventListener(PrimaryReplicaEventParameters eventParameters) {

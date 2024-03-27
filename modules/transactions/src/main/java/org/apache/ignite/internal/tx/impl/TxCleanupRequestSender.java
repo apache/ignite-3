@@ -50,9 +50,6 @@ public class TxCleanupRequestSender {
     /** Placement driver helper. */
     private final PlacementDriverHelper placementDriverHelper;
 
-    /** Cleanup processor. */
-    private final WriteIntentSwitchProcessor writeIntentSwitchProcessor;
-
     private final TxMessageSender txMessageSender;
 
     private final ConcurrentMap<UUID, CleanupContext> writeIntentsReplicated = new ConcurrentHashMap<>();
@@ -64,17 +61,15 @@ public class TxCleanupRequestSender {
      *
      * @param txMessageSender Message sender.
      * @param placementDriverHelper Placement driver helper.
-     * @param writeIntentSwitchProcessor A cleanup processor.
+     * @param txStateVolatileStorage Volatile txn state storage.
      */
     public TxCleanupRequestSender(
             TxMessageSender txMessageSender,
             PlacementDriverHelper placementDriverHelper,
-            WriteIntentSwitchProcessor writeIntentSwitchProcessor,
             VolatileTxStateMetaStorage txStateVolatileStorage
     ) {
         this.txMessageSender = txMessageSender;
         this.placementDriverHelper = placementDriverHelper;
-        this.writeIntentSwitchProcessor = writeIntentSwitchProcessor;
         this.txStateVolatileStorage = txStateVolatileStorage;
     }
 
@@ -163,24 +158,22 @@ public class TxCleanupRequestSender {
     ) {
         return placementDriverHelper.findPrimaryReplicas(partitionIds)
                 .thenCompose(partitionData -> {
-                    switchWriteIntentsOnPartitions(commit, commitTimestamp, txId, partitionData.partitionsWithoutPrimary);
+                    cleanupPartitionsWithoutPrimary(commit, commitTimestamp, txId, partitionData.partitionsWithoutPrimary);
 
                     return cleanupPartitions(partitionData.partitionsByNode, commit, commitTimestamp, txId);
                 });
     }
 
-    private void switchWriteIntentsOnPartitions(
+    private void cleanupPartitionsWithoutPrimary(
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId,
             Set<TablePartitionId> noPrimaryFound
     ) {
-        for (TablePartitionId partition : noPrimaryFound) {
-            // Okay, no primary found for that partition.
-            // Means the old one is no longer primary thus the locks were released.
-            // All we need to do is to wait for the new primary to appear and cleanup write intents.
-            writeIntentSwitchProcessor.switchWriteIntentsWithRetry(commit, commitTimestamp, txId, partition);
-        }
+        // For the partitions without primary, we need to wait until a new primary is found.
+        // Then we can proceed with the common cleanup flow.
+        placementDriverHelper.awaitPrimaryReplicas(noPrimaryFound)
+                .thenCompose(partitionsByNode -> cleanupPartitions(partitionsByNode, commit, commitTimestamp, txId));
     }
 
     private CompletableFuture<Void> cleanupPartitions(
