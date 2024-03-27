@@ -38,7 +38,6 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.NavigableMap;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
@@ -71,6 +70,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViewProvider;
 import org.apache.ignite.internal.systemview.api.SystemViews;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.SubscriptionUtils;
@@ -380,26 +380,21 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                         Throwable error;
                         Catalog catalog;
 
-                        Throwable errUnwrapped = err instanceof CompletionException ? err.getCause() : err;
+                        Throwable errUnwrapped = ExceptionUtils.unwrapCause(err);
 
                         if (errUnwrapped instanceof CatalogVersionAwareValidationException) {
                             CatalogVersionAwareValidationException err0 = (CatalogVersionAwareValidationException) errUnwrapped;
                             catalog = catalogByVer.get(err0.version());
                             error = err0.initial();
                         } else {
-                            return failedFuture(err).thenApply(unused -> newVersion);
+                            return CompletableFuture.<Integer>failedFuture(err);
                         }
 
                         if (catalog.version() == 0) {
-                            return failedFuture(error).thenApply(unused -> newVersion);
+                            return CompletableFuture.<Integer>failedFuture(error);
                         }
 
-                        HybridTimestamp tsSafeForRoReadingInPastOptimization =
-                                clusterWideEnsuredActivationTsSafeForRoReads(
-                                        catalog,
-                                        partitionIdleSafeTimePropagationPeriodMsSupplier,
-                                        clockService.maxClockSkewMillis()
-                        );
+                        HybridTimestamp tsSafeForRoReadingInPastOptimization = calcClusterWideEnsureActivationTime(catalog);
 
                         return clockService.waitFor(tsSafeForRoReadingInPastOptimization)
                                 .handle((res, ex) -> {
@@ -408,21 +403,23 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                                     }
                                     return failedFuture(error);
                                 })
-                                .thenCompose(unused -> failedFuture(error))
-                                .thenApply(unused -> newVersion);
+                                .thenCompose(unused -> CompletableFuture.<Integer>failedFuture(error));
                     }
 
                     Catalog catalog = catalogByVer.get(newVersion);
 
-                    HybridTimestamp tsSafeForRoReadingInPastOptimization = clusterWideEnsuredActivationTsSafeForRoReads(
-                            catalog,
-                            partitionIdleSafeTimePropagationPeriodMsSupplier,
-                            clockService.maxClockSkewMillis()
-                    );
+                    HybridTimestamp tsSafeForRoReadingInPastOptimization = calcClusterWideEnsureActivationTime(catalog);
 
                     return clockService.waitFor(tsSafeForRoReadingInPastOptimization).thenApply(unused -> newVersion);
                 })
                 .thenCompose(Function.identity());
+    }
+
+    private HybridTimestamp calcClusterWideEnsureActivationTime(Catalog catalog) {
+        return clusterWideEnsuredActivationTsSafeForRoReads(
+                catalog,
+                partitionIdleSafeTimePropagationPeriodMsSupplier,
+                clockService.maxClockSkewMillis());
     }
 
     /**
