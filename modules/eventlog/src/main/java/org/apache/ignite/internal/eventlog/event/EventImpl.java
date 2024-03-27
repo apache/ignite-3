@@ -26,7 +26,7 @@ import org.apache.ignite.internal.eventlog.ser.JsonEventSerializer;
  * Implementation of the {@link Event} interface. The class is immutable and thread-safe.
  * If you want to create an instance of this class, use the {@link EventBuilder}.
  *
- * <p>NOTE: If you change any field in this class, you should also update the {@link JsonEventSerializer}.
+ * <p>NOTE: If you rename/add any field in this class, you should also update the {@link JsonEventSerializer}.
  */
 public class EventImpl implements Event {
     private final String type;

@@ -22,12 +22,9 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.eventlog.api.Event;
@@ -49,19 +46,17 @@ class LogSinkTest extends BaseIgniteAbstractTest {
     @InjectConfiguration
     private EventLogConfiguration cfg;
 
-    private static File eventlogFile;
+    private static Path eventlogPath;
 
     @BeforeAll
     static void beforeAll() {
         String buildDirPath = System.getProperty("buildDirPath");
-        eventlogFile = Path.of(buildDirPath).resolve("event.log").toFile();
+        eventlogPath = Path.of(buildDirPath).resolve("event.log");
     }
 
     @AfterAll
-    static void afterAll() {
-        if (eventlogFile.exists()) {
-            eventlogFile.delete();
-        }
+    static void afterAll() throws IOException {
+        Files.deleteIfExists(eventlogPath);
     }
 
     @Test
@@ -84,7 +79,7 @@ class LogSinkTest extends BaseIgniteAbstractTest {
         logSink.write(event);
 
         // Then event is written to file.
-        await().untilAsserted(() -> assertThat(readLines(eventlogFile), hasSize(1)));
+        await().untilAsserted(() -> assertThat(Files.readAllLines(eventlogPath), hasSize(1)));
         // And event is written in JSON format.
         var expectedEventJson = "{"
                 + "\"type\":\"USER_AUTHENTICATED\","
@@ -93,7 +88,7 @@ class LogSinkTest extends BaseIgniteAbstractTest {
                 + "\"user\":{\"username\":\"user1\",\"authenticationProvider\":\"basicProvider\"},"
                 + "\"fields\":{}"
                 + "}";
-        assertThat(readLines(eventlogFile), hasItem(expectedEventJson));
+        assertThat(Files.readAllLines(eventlogPath), hasItem(expectedEventJson));
 
         // When write one more event.
         Event event2 = IgniteEvents.CONNECTION_CLOSED.create(
@@ -103,12 +98,6 @@ class LogSinkTest extends BaseIgniteAbstractTest {
         logSink.write(event2);
 
         // Then both events are written to file.
-        await().untilAsserted(() -> assertThat(readLines(eventlogFile), hasSize(2)));
-    }
-
-    private static List<String> readLines(File file) throws IOException {
-        try (var lines = Files.lines(file.toPath())) {
-            return lines.collect(Collectors.toList());
-        }
+        await().untilAsserted(() -> assertThat(Files.readAllLines(eventlogPath), hasSize(2)));
     }
 }

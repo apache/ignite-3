@@ -19,6 +19,7 @@ package org.apache.ignite.internal.eventlog.api;
 
 import org.apache.ignite.internal.eventlog.event.EventBuilder;
 import org.apache.ignite.internal.eventlog.event.EventUser;
+import org.apache.ignite.internal.eventlog.event.IgniteEvents;
 
 /**
  * The factory that is responsible for creating events. This interface should be used everywhere where events are created.
@@ -34,8 +35,9 @@ public interface EventFactory {
     Event create(EventUser user);
 
     /**
-     * Creates an event builder with type defined.
-     *
+     * Creates an event builder with type defined. The type is set by the factory.
+     * For example, {@link IgniteEvents#CONNECTION_CLOSED#builder()} will return
+     * a builder with {@link org.apache.ignite.internal.eventlog.event.IgniteEventTypes#CONNECTION_CLOSED} set.
      */
     EventBuilder builder();
 }

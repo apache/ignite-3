@@ -19,6 +19,8 @@ package org.apache.ignite.internal.eventlog.sink;
 
 import org.apache.ignite.internal.eventlog.config.schema.LogSinkView;
 import org.apache.ignite.internal.eventlog.config.schema.SinkView;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.lang.ErrorGroups.Common;
 
 /**
  * Factory for creating sink instances.
@@ -31,7 +33,10 @@ public class SinkFactory {
      * @return Sink instance.
      */
     public Sink createSink(SinkView sinkView) {
-        // Now only LogSink is supported.
-        return new LogSink((LogSinkView) sinkView);
+        if (sinkView instanceof LogSinkView) {
+            return new LogSink((LogSinkView) sinkView);
+        }
+
+        throw new IgniteInternalException(Common.INTERNAL_ERR, "Unsupported sink type: " + sinkView.id());
     }
 }
