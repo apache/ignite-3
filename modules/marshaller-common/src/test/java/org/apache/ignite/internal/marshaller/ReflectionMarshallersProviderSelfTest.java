@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.stream.Stream;
 import org.apache.ignite.table.mapper.Mapper;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
@@ -96,6 +97,60 @@ public class ReflectionMarshallersProviderSelfTest {
                 assertNotSame(m1, m3);
             }
         }
+    }
+
+    @Test
+    public void testKeyMarshallerCacheDiffOrder() {
+        Mapper<TestPoJo> mapper = Mapper.of(TestPoJo.class);
+        List<String> fieldOrder = List.of("col1", "col2", "col3", "col4");
+
+        TestMarshallerSchema schema1 = new MarshallerSchemaBuilder(fieldOrder)
+                .version(1)
+                .addKey("col1", BinaryMode.INT)
+                .addKey("col2", BinaryMode.INT)
+                .addValue("col3", BinaryMode.INT)
+                .addValue("col4", BinaryMode.INT)
+                .build();
+
+        TestMarshallerSchema schema2 = new MarshallerSchemaBuilder(List.of("col3", "col2", "col1", "col4"))
+                .version(1)
+                .addKey("col1", BinaryMode.INT)
+                .addKey("col2", BinaryMode.INT)
+                .addValue("col3", BinaryMode.INT)
+                .addValue("col4", BinaryMode.INT)
+                .build();
+
+        Marshaller m1 = MarshallerType.KEYS.get(marshallers, schema1, mapper, false, true);
+        Marshaller m2 = MarshallerType.KEYS.get(marshallers, schema2, mapper, false, true);
+
+        assertNotSame(m1, m2);
+    }
+
+    @Test
+    public void testValueMarshallerCacheDiffOrder() {
+        Mapper<TestPoJo> mapper = Mapper.of(TestPoJo.class);
+        List<String> fieldOrder = List.of("col1", "col2", "col3", "col4");
+
+        TestMarshallerSchema schema1 = new MarshallerSchemaBuilder(fieldOrder)
+                .version(1)
+                .addKey("col1", BinaryMode.INT)
+                .addKey("col2", BinaryMode.INT)
+                .addValue("col3", BinaryMode.INT)
+                .addValue("col4", BinaryMode.INT)
+                .build();
+
+        TestMarshallerSchema schema2 = new MarshallerSchemaBuilder(List.of("col1", "col4", "col3", "col3"))
+                .version(1)
+                .addKey("col1", BinaryMode.INT)
+                .addKey("col2", BinaryMode.INT)
+                .addValue("col3", BinaryMode.INT)
+                .addValue("col4", BinaryMode.INT)
+                .build();
+
+        Marshaller m1 = MarshallerType.KEYS.get(marshallers, schema1, mapper, false, true);
+        Marshaller m2 = MarshallerType.KEYS.get(marshallers, schema2, mapper, false, true);
+
+        assertNotSame(m1, m2);
     }
 
     enum MarshallerType {
