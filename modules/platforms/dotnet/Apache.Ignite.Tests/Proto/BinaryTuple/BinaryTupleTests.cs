@@ -18,10 +18,12 @@
 namespace Apache.Ignite.Tests.Proto.BinaryTuple
 {
     using System;
+    using System.Buffers.Binary;
     using System.Collections;
     using System.Linq;
     using System.Numerics;
     using Ignite.Sql;
+    using Internal.Buffers;
     using Internal.Proto.BinaryTuple;
     using Internal.Table;
     using NodaTime;
@@ -472,7 +474,7 @@ namespace Apache.Ignite.Tests.Proto.BinaryTuple
             const int scale = 100;
 
             var ex = Assert.Throws<OverflowException>(
-                () => BuildAndRead((ref BinaryTupleBuilder b) => b.AppendDecimal(12.34m, scale)).GetDecimal(0, scale));
+                () => BuildAndRead((ref BinaryTupleBuilder b) => b.AppendBytes(new byte[] { 64, 64, 64 })).GetDecimal(0, scale));
 
             Assert.AreEqual("Value was either too large or too small for a Decimal.", ex!.Message);
         }
