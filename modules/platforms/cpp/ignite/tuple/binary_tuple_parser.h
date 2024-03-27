@@ -180,7 +180,7 @@ public:
      * @param scale Scale of the decimal.
      * @return Element value.
      */
-    static big_decimal get_decimal(bytes_view bytes, std::int32_t scale);
+    static big_decimal get_decimal(bytes_view bytes, std::int16_t scale);
 
     /**
      * @brief Reads value of specified element.

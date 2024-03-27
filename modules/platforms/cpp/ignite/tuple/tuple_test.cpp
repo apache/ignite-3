@@ -175,12 +175,6 @@ void check_reader_writer_equality(
 
     bytes_view bytes{reinterpret_cast<const std::byte *>(data), size};
 
-    binary_tuple_parser tp(NUM_ELEMENTS, bytes);
-
-    std::apply([&tp](const Ts... args) { ((single_value_check(tp)(args)), ...); }, values);
-
-    EXPECT_EQ(tp.num_elements(), tp.num_parsed_elements());
-
     if (!skip_assembler_check) {
         builder ta(NUM_ELEMENTS);
 
@@ -188,6 +182,12 @@ void check_reader_writer_equality(
 
         EXPECT_THAT(built, testing::ContainerEq(bytes));
     }
+
+    binary_tuple_parser tp(NUM_ELEMENTS, bytes);
+
+    std::apply([&tp](const Ts... args) { ((single_value_check(tp)(args)), ...); }, values);
+
+    EXPECT_EQ(tp.num_elements(), tp.num_parsed_elements());
 }
 
 TEST(tuple, AllTypes) {
