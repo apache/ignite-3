@@ -76,7 +76,6 @@ import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.PrimaryReplicaExpiredException;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
-import org.apache.ignite.internal.tx.impl.ResourceCleanupManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
@@ -146,14 +145,6 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         TransactionInflights transactionInflights = new TransactionInflights(placementDriver);
 
-        ResourceCleanupManager cleanupManager = new ResourceCleanupManager(
-                LOCAL_NODE.name(),
-                resourceRegistry,
-                clusterService.topologyService(),
-                clusterService.messagingService(),
-                transactionInflights
-        );
-
         txManager = new TxManagerImpl(
                 txConfiguration,
                 clusterService,
@@ -165,7 +156,6 @@ public class TxManagerTest extends IgniteAbstractTest {
                 idleSafeTimePropagationPeriodMsSupplier,
                 localRwTxCounter,
                 resourceRegistry,
-                cleanupManager,
                 transactionInflights
         );
 
@@ -659,7 +649,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         assertSame(TransactionException.class, throwable.getClass());
         // short cast is useful for better error code readability
-        // noinspection NumericCastThatLosesPrecision
+        //noinspection NumericCastThatLosesPrecision
         assertEquals((short) TX_COMMIT_ERR, (short) ((TransactionException) throwable).code());
 
         assertEquals(TxState.ABORTED, txManager.stateMeta(committedTransaction.id()).txState());
@@ -764,7 +754,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         assertSame(TransactionException.class, throwable.getClass());
         // short cast is useful for better error code readability
-        // noinspection NumericCastThatLosesPrecision
+        //noinspection NumericCastThatLosesPrecision
         assertEquals((short) TX_PRIMARY_REPLICA_EXPIRED_ERR, (short) ((TransactionException) throwable).code());
 
         assertEquals(TxState.ABORTED, txManager.stateMeta(committedTransaction.id()).txState());

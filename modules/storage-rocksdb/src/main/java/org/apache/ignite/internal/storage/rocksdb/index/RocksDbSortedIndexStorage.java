@@ -199,7 +199,7 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
     }
 
     private static void setEqualityFlag(byte[] prefix) {
-        // noinspection ImplicitNumericConversion
+        //noinspection ImplicitNumericConversion
         prefix[PREFIX_WITH_IDS_LENGTH] |= BinaryTupleCommon.EQUALITY_FLAG;
     }
 

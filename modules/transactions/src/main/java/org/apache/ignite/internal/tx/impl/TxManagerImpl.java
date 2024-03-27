@@ -196,9 +196,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     private final Executor partitionOperationsExecutor;
 
-    /** Cleanup manager for tx resources. */
-    private final ResourceCleanupManager resourceCleanupManager;
-
     private final TransactionInflights transactionInflights;
 
     /**
@@ -228,7 +225,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             LongSupplier idleSafeTimePropagationPeriodMsSupplier,
             LocalRwTxCounter localRwTxCounter,
             RemotelyTriggeredResourceRegistry resourcesRegistry,
-            ResourceCleanupManager resourceCleanupManager,
             TransactionInflights transactionInflights
     ) {
         this(
@@ -245,7 +241,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 localRwTxCounter,
                 ForkJoinPool.commonPool(),
                 resourcesRegistry,
-                resourceCleanupManager,
                 transactionInflights
         );
     }
@@ -281,7 +276,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             LocalRwTxCounter localRwTxCounter,
             Executor partitionOperationsExecutor,
             RemotelyTriggeredResourceRegistry resourcesRegistry,
-            ResourceCleanupManager resourceCleanupManager,
             TransactionInflights transactionInflights
     ) {
         this.txConfig = txConfig;
@@ -295,7 +289,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         this.primaryReplicaEventListener = this::primaryReplicaEventListener;
         this.localRwTxCounter = localRwTxCounter;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
-        this.resourceCleanupManager = resourceCleanupManager;
         this.transactionInflights = transactionInflights;
 
         placementDriverHelper = new PlacementDriverHelper(placementDriver, clockService);
@@ -772,6 +765,13 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     }
 
     @Override
+    public void vacuum() {
+        long vacuumObservationTimestamp = System.currentTimeMillis();
+
+        txStateVolatileStorage.vacuum(vacuumObservationTimestamp, txConfig.txnResourceTtl().value());
+    }
+
+    @Override
     public CompletableFuture<Void> executeWriteIntentSwitchAsync(Runnable runnable) {
         return runAsync(runnable, writeIntentSwitchPool);
     }
@@ -787,7 +787,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         UUID txId = txIdAndTimestamp.getTxId();
 
-        resourceCleanupManager.onReadOnlyTransactionFinished(txId);
+        transactionInflights.markReadOnlyTxFinished(txId);
 
         return readOnlyTxFuture;
     }

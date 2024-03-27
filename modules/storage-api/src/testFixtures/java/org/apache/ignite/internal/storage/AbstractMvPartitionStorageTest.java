@@ -1244,7 +1244,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
             cursor.next();
 
             assertFalse(cursor.hasNext());
-            // noinspection ConstantConditions
+            //noinspection ConstantConditions
             assertFalse(cursor.hasNext());
         }
     }

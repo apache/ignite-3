@@ -150,7 +150,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         // "forEach" makes "i" effectively final, which is convenient for internal lambda.
         IntStream.range(0, ENTRIES).forEach(i -> {
-            // noinspection ThrowableNotThrown
+            //noinspection ThrowableNotThrown
             assertThrows(
                     TimeoutException.class,
                     () -> table.keyValueView().getAsync(null, Tuple.create(of("id", i))).get(500, MILLISECONDS),
@@ -240,7 +240,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
                 continue;
             }
 
-            // noinspection AssignmentToForLoopParameter
+            //noinspection AssignmentToForLoopParameter
             created++;
 
             CompletableFuture<Void> insertFuture = keyValueView.putAsync(null, key, Tuple.create(of("val", i + offset)));
@@ -272,7 +272,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     }
 
     private void startNodesInParallel(int... nodeIndexes) {
-        // noinspection resource
+        //noinspection resource
         runRace(IntStream.of(nodeIndexes).<RunnableX>mapToObj(i -> () -> cluster.startNode(i)).toArray(RunnableX[]::new));
     }
 

@@ -118,7 +118,7 @@ public class AsmMarshallerGenerator implements MarshallerFactory {
             }
 
             // Instantiate marshaller.
-            // noinspection unchecked
+            //noinspection unchecked
             return aClass
                     .getDeclaredConstructor(
                             SchemaDescriptor.class,
