@@ -158,7 +158,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
                 .columns(List.of(
                         ColumnParams.builder().name("C").type(INT32).nullable(true).build(),
                         ColumnParams.builder().name("D").type(INT32).build()))
-                        .primaryKey(primaryKey("D","C"));
+                .primaryKey(primaryKey("D", "C"));
 
         assertThrowsWithCause(
                 builder::build,
