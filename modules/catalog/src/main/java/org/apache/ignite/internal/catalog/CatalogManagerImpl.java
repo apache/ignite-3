@@ -38,6 +38,7 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.NavigableMap;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
@@ -379,8 +380,10 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                         Throwable error;
                         Catalog catalog;
 
-                        if (err instanceof CatalogVersionAwareValidationException) {
-                            CatalogVersionAwareValidationException err0 = (CatalogVersionAwareValidationException) err;
+                        Throwable errUnwrapped = err instanceof CompletionException ? err.getCause() : err;
+
+                        if (errUnwrapped instanceof CatalogVersionAwareValidationException) {
+                            CatalogVersionAwareValidationException err0 = (CatalogVersionAwareValidationException) errUnwrapped;
                             catalog = catalogByVer.get(err0.version());
                             error = err0.initial();
                         } else {
