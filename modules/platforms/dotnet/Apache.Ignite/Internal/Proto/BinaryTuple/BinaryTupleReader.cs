@@ -581,7 +581,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
                 case BinaryTupleCommon.DecimalScaleThreeBytes:
                 {
-                    var valScale = BinaryPrimitives.ReadInt16LittleEndian(span[1..2]);
+                    var valScale = BinaryPrimitives.ReadUInt16LittleEndian(span[1..3]);
                     return ReadDecimalUnscaled(span[3..], valScale);
                 }
 
