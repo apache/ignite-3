@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.runner.app;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
@@ -365,6 +366,6 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
 
         assertThat(tableFuture, willCompleteSuccessfully());
 
-        return (TableViewInternal) tableFuture.join();
+        return unwrapTableViewInternal(tableFuture.join());
     }
 }

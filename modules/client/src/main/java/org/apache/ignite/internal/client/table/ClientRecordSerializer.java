@@ -196,7 +196,7 @@ public class ClientRecordSerializer<R> {
             int colCount = del ? keyColumnCount : columnCount;
             Marshaller marsh = del ? keyMarshaller : marshaller;
 
-            // noinspection DataFlowIssue (reviewed).
+            //noinspection DataFlowIssue (reviewed).
             writeRecRaw(rec, w, marsh, colCount);
         }
     }

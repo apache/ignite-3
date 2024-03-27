@@ -136,7 +136,7 @@ import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
-import org.apache.ignite.internal.tx.impl.ResourceCleanupManager;
+import org.apache.ignite.internal.tx.impl.ResourceVacuumManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
@@ -207,6 +207,8 @@ public class ItTxTestCluster {
 
     protected Map<String, TxManager> txManagers;
 
+    private Map<String, ResourceVacuumManager> resourceCleanupManagers;
+
     protected Map<String, TransactionInflights> txInflights;
 
     protected Map<String, RemotelyTriggeredResourceRegistry> cursorRegistries;
@@ -214,6 +216,8 @@ public class ItTxTestCluster {
     private TransactionInflights clientTransactionInflights;
 
     protected TxManager clientTxManager;
+
+    private ResourceVacuumManager clientResourceVacuumManager;
 
     protected TransactionStateResolver clientTxStateResolver;
 
@@ -344,6 +348,7 @@ public class ItTxTestCluster {
         replicaManagers = new HashMap<>(nodes);
         replicaServices = new HashMap<>(nodes);
         txManagers = new HashMap<>(nodes);
+        resourceCleanupManagers = new HashMap<>(nodes);
         txInflights = new HashMap<>(nodes);
         cursorRegistries = new HashMap<>(nodes);
         txStateStorages = new HashMap<>(nodes);
@@ -415,14 +420,6 @@ public class ItTxTestCluster {
 
             txInflights.put(node.name(), transactionInflights);
 
-            ResourceCleanupManager resourceCleanupManager = new ResourceCleanupManager(
-                    node.name(),
-                    resourcesRegistry,
-                    clusterService.topologyService(),
-                    clusterService.messagingService(),
-                    transactionInflights
-            );
-
             cursorRegistries.put(node.name(), resourcesRegistry);
 
             TxManagerImpl txMgr = newTxManager(
@@ -433,13 +430,23 @@ public class ItTxTestCluster {
                     node,
                     placementDriver,
                     resourcesRegistry,
-                    resourceCleanupManager,
                     transactionInflights
             );
 
-            txMgr.start();
+            ResourceVacuumManager resourceVacuumManager = new ResourceVacuumManager(
+                    node.name(),
+                    resourcesRegistry,
+                    clusterService.topologyService(),
+                    clusterService.messagingService(),
+                    transactionInflights,
+                    txMgr
+            );
 
+            txMgr.start();
             txManagers.put(node.name(), txMgr);
+
+            resourceVacuumManager.start();
+            resourceCleanupManagers.put(node.name(), resourceVacuumManager);
 
             txStateStorages.put(node.name(), new TestTxStateStorage());
         }
@@ -455,6 +462,7 @@ public class ItTxTestCluster {
         } else {
             // Collocated mode.
             clientTxManager = txManagers.get(localNodeName);
+            clientResourceVacuumManager = resourceCleanupManagers.get(localNodeName);
             clientTransactionInflights = txInflights.get(localNodeName);
         }
 
@@ -471,7 +479,6 @@ public class ItTxTestCluster {
             ClusterNode node,
             PlacementDriver placementDriver,
             RemotelyTriggeredResourceRegistry resourcesRegistry,
-            ResourceCleanupManager resourceCleanupManager,
             TransactionInflights transactionInflights
     ) {
         return new TxManagerImpl(
@@ -488,7 +495,6 @@ public class ItTxTestCluster {
                 new TestLocalRwTxCounter(),
                 partitionOperationsExecutor,
                 resourcesRegistry,
-                resourceCleanupManager,
                 transactionInflights
         );
     }
@@ -895,6 +901,16 @@ public class ItTxTestCluster {
             }
         }
 
+        if (resourceCleanupManagers != null) {
+            for (ResourceVacuumManager resourceVacuumManager : resourceCleanupManagers.values()) {
+                resourceVacuumManager.stop();
+            }
+        }
+
+        if (clientResourceVacuumManager != null) {
+            clientResourceVacuumManager.stop();
+        }
+
         if (txManagers != null) {
             for (TxManager txMgr : txManagers.values()) {
                 txMgr.stop();
@@ -954,14 +970,6 @@ public class ItTxTestCluster {
 
         clientTransactionInflights = new TransactionInflights(placementDriver);
 
-        ResourceCleanupManager resourceCleanupManager = new ResourceCleanupManager(
-                "client",
-                resourceRegistry,
-                client.topologyService(),
-                client.messagingService(),
-                clientTransactionInflights
-        );
-
         clientTxManager = new TxManagerImpl(
                 "client",
                 txConfiguration,
@@ -976,8 +984,16 @@ public class ItTxTestCluster {
                 new TestLocalRwTxCounter(),
                 partitionOperationsExecutor,
                 resourceRegistry,
-                resourceCleanupManager,
                 clientTransactionInflights
+        );
+
+        clientResourceVacuumManager = new ResourceVacuumManager(
+                "client",
+                resourceRegistry,
+                client.topologyService(),
+                client.messagingService(),
+                clientTransactionInflights,
+                clientTxManager
         );
 
         clientTxStateResolver = new TransactionStateResolver(
@@ -991,6 +1007,7 @@ public class ItTxTestCluster {
 
         clientTxStateResolver.start();
         clientTxManager.start();
+        clientResourceVacuumManager.start();
     }
 
     public Map<String, Loza> raftServers() {

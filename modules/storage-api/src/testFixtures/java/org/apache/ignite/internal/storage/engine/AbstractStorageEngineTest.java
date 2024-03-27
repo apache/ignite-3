@@ -112,7 +112,7 @@ public abstract class AbstractStorageEngineTest extends BaseMvStoragesTest {
     }
 
     @Test
-    protected void testDropMvTableOnRecovery() throws Exception {
+    void testDropMvTableOnRecovery() throws Exception {
         assumeFalse(storageEngine.isVolatile());
 
         int tableId = 1;

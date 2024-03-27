@@ -79,6 +79,7 @@ import org.apache.ignite.internal.table.RecordBinaryViewImpl;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.table.Table;
@@ -725,7 +726,7 @@ public class PlatformTestNodeRunner {
 
             @SuppressWarnings("resource")
             Table table = context.ignite().tables().table(tableName);
-            RecordBinaryViewImpl view = (RecordBinaryViewImpl) table.recordView();
+            RecordBinaryViewImpl view = Wrappers.unwrap(table.recordView(), RecordBinaryViewImpl.class);
             TupleMarshaller marsh = view.marshaller(1);
 
             try {

@@ -640,7 +640,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
                 byteBufferState++;
 
-                // noinspection fallthrough
+                //noinspection fallthrough
             case 1:
                 assert !val.isReadOnly();
 
@@ -678,7 +678,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
                 uuidState++;
 
-                // noinspection fallthrough
+                //noinspection fallthrough
             case 1:
                 writeLong(val.getMostSignificantBits());
 
@@ -688,7 +688,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
                 uuidState++;
 
-                // noinspection fallthrough
+                //noinspection fallthrough
             case 2:
                 writeLong(val.getLeastSignificantBits());
 
@@ -717,7 +717,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
                 uuidState++;
 
-                // noinspection fallthrough
+                //noinspection fallthrough
             case 1:
                 writeLong(val.globalId().getMostSignificantBits());
 
@@ -727,7 +727,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
                 uuidState++;
 
-                // noinspection fallthrough
+                //noinspection fallthrough
             case 2:
                 writeLong(val.globalId().getLeastSignificantBits());
 
@@ -737,7 +737,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
                 uuidState++;
 
-                // noinspection fallthrough
+                //noinspection fallthrough
             case 3:
                 writeLong(val.localId());
 
@@ -1312,7 +1312,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
                 byteBufferState++;
 
-                // noinspection fallthrough
+                //noinspection fallthrough
             case 1:
                 bytes = readByteArray();
 
@@ -1351,7 +1351,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
                 uuidState++;
 
-                // noinspection fallthrough
+                //noinspection fallthrough
             case 1:
                 uuidMost = readLong();
 
@@ -1361,7 +1361,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
                 uuidState++;
 
-                // noinspection fallthrough
+                //noinspection fallthrough
             case 2:
                 uuidLeast = readLong();
 
@@ -1397,7 +1397,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
                 uuidState++;
 
-                // noinspection fallthrough
+                //noinspection fallthrough
             case 1:
                 uuidMost = readLong();
 
@@ -1407,7 +1407,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
                 uuidState++;
 
-                // noinspection fallthrough
+                //noinspection fallthrough
             case 2:
                 uuidLeast = readLong();
 
@@ -1417,7 +1417,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
                 uuidState++;
 
-                // noinspection fallthrough
+                //noinspection fallthrough
             case 3:
                 uuidLocId = readLong();
 

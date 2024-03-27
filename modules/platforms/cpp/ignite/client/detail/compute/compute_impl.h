@@ -47,8 +47,8 @@ public:
         , m_tables(std::move(tables)) {}
 
     /**
-     * Submits a compute job represented by the given class for an execution on one of the specified nodes asynchronously. If the node
-     * leaves the cluster, it will be restarted on one of the candidate nodes.
+     * Submits a compute job represented by the given class for an execution on one of the specified nodes
+     * asynchronously. If the node leaves the cluster, it will be restarted on one of the candidate nodes.
      *
      * @param nodes Candidate node to use for the job execution.
      * @param units Deployment units. Can be empty.
@@ -61,7 +61,8 @@ public:
         ignite_callback<std::optional<primitive>> callback);
 
     /**
-     * Submits a compute job represented by the given class for an execution on one of the nodes where the given key is located.
+     * Submits a compute job represented by the given class for an execution on one of the nodes where the given key is
+     * located.
      *
      * @param table_name Name of the table to be used with @c key to determine target node.
      * @param key Table key to be used to determine the target node for job execution.

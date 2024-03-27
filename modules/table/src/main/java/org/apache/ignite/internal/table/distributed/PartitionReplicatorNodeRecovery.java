@@ -275,7 +275,7 @@ class PartitionReplicatorNodeRecovery {
     }
 
     private CompletableFuture<Long> queryDataNodesCount(Collection<Peer> peers, HasDataRequest request) {
-        // noinspection unchecked
+        //noinspection unchecked
         CompletableFuture<Boolean>[] requestFutures = peers.stream()
                 .map(Peer::consistentId)
                 .map(topologyService::getByConsistentId)

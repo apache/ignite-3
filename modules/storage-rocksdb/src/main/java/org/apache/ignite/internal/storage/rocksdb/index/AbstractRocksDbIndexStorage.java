@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.KEY
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.PARTITION_ID_SIZE;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.TABLE_ID_SIZE;
 import static org.apache.ignite.internal.storage.util.StorageUtils.initialRowIdToBuild;
+import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnIndexStorageState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageStateOnRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
@@ -61,6 +62,8 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
     /** Common prefix for keys in all index storages, containing IDs of different entities. */
     public static final int PREFIX_WITH_IDS_LENGTH = TABLE_ID_SIZE + INDEX_ID_SIZE + PARTITION_ID_SIZE;
 
+    private final int tableId;
+
     protected final int indexId;
 
     protected final int partitionId;
@@ -76,17 +79,18 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
     /** Row ID for which the index needs to be built, {@code null} means that the index building has completed. */
     private volatile @Nullable RowId nextRowIdToBuild;
 
-    AbstractRocksDbIndexStorage(int indexId, int partitionId, RocksDbMetaStorage indexMetaStorage) {
+    AbstractRocksDbIndexStorage(int tableId, int indexId, int partitionId, RocksDbMetaStorage indexMetaStorage) {
+        this.tableId = tableId;
         this.indexId = indexId;
         this.indexMetaStorage = indexMetaStorage;
         this.partitionId = partitionId;
 
-        nextRowIdToBuild = indexMetaStorage.getNextRowIdToBuild(indexId, partitionId);
+        nextRowIdToBuild = indexMetaStorage.getNextRowIdToBuild(tableId, indexId, partitionId);
     }
 
     @Override
     public @Nullable RowId getNextRowIdToBuild() {
-        return busy(() -> {
+        return busyNonDataRead(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
             return nextRowIdToBuild;
@@ -95,12 +99,12 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
 
     @Override
     public void setNextRowIdToBuild(@Nullable RowId rowId) {
-        busy(() -> {
+        busyNonDataRead(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
             WriteBatchWithIndex writeBatch = PartitionDataHelper.requireWriteBatch();
 
-            indexMetaStorage.putNextRowIdToBuild(writeBatch, indexId, partitionId, rowId);
+            indexMetaStorage.putNextRowIdToBuild(writeBatch, tableId, indexId, partitionId, rowId);
 
             nextRowIdToBuild = rowId;
 
@@ -205,9 +209,29 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
         }
     }
 
-    <V> V busy(Supplier<V> supplier) {
+    /**
+     * Invoke a supplier that performs an operation that is not a data read.
+     *
+     * @param supplier Operation closure.
+     * @return Whatever the supplier returns.
+     */
+    <V> V busyNonDataRead(Supplier<V> supplier) {
+        return busy(supplier, false);
+    }
+
+    /**
+     * Invoke a supplier that performs an operation that is a data read.
+     *
+     * @param supplier Operation closure.
+     * @return Whatever the supplier returns.
+     */
+    <V> V busyDataRead(Supplier<V> supplier) {
+        return busy(supplier, true);
+    }
+
+    private <V> V busy(Supplier<V> supplier, boolean read) {
         if (!busyLock.enterBusy()) {
-            throwExceptionDependingOnStorageState(state.get(), createStorageInfo());
+            throwExceptionDependingOnIndexStorageState(state.get(), read, createStorageInfo());
         }
 
         try {
@@ -229,7 +253,7 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
     public final void destroyData(WriteBatch writeBatch) throws RocksDBException {
         clearIndex(writeBatch);
 
-        indexMetaStorage.removeNextRowIdToBuild(writeBatch, indexId, partitionId);
+        indexMetaStorage.removeNextRowIdToBuild(writeBatch, tableId, indexId, partitionId);
 
         nextRowIdToBuild = initialRowIdToBuild(partitionId);
     }
@@ -284,12 +308,12 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
 
         @Override
         public boolean hasNext() {
-            return busy(this::advanceIfNeededBusy);
+            return busyDataRead(this::advanceIfNeededBusy);
         }
 
         @Override
         public T next() {
-            return busy(() -> {
+            return busyDataRead(() -> {
                 if (!advanceIfNeededBusy()) {
                     throw new NoSuchElementException();
                 }
@@ -302,7 +326,7 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
 
         @Override
         public @Nullable T peek() {
-            return busy(() -> {
+            return busyDataRead(() -> {
                 throwExceptionIfStorageInProgressOfRebalance(state.get(), AbstractRocksDbIndexStorage.this::createStorageInfo);
 
                 byte[] res = peekBusy();
@@ -336,7 +360,7 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
         private boolean advanceIfNeededBusy() throws StorageException {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), AbstractRocksDbIndexStorage.this::createStorageInfo);
 
-            // noinspection ArrayEquality
+            //noinspection ArrayEquality
             key = (peekedKey == BYTE_EMPTY_ARRAY) ? peekBusy() : peekedKey;
             peekedKey = BYTE_EMPTY_ARRAY;
 

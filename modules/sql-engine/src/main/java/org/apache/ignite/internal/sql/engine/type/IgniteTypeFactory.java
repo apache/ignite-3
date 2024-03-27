@@ -471,7 +471,7 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
 
     /** {@inheritDoc} */
     @Override public RelDataType createType(Type type) {
-        // noinspection SuspiciousMethodCalls
+        //noinspection SuspiciousMethodCalls
         if (implementedJavaTypes.containsKey(type)) {
             return createJavaType((Class<?>) type);
         } else if (customDataTypes.javaTypes.contains(type)) {
