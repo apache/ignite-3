@@ -66,7 +66,7 @@ T get_value(bytes_view data) {
     } else if constexpr (std::is_same<T, big_decimal>::value) {
         res = big_decimal(binary_tuple_parser::get_decimal(data));
     } else {
-        static_assert(false, "Type is not supported");
+        throw std::logic_error("Type is not supported");
     }
     return res;
 }
@@ -99,7 +99,7 @@ struct builder : binary_tuple_builder {
         } else if constexpr (std::is_same<T, big_decimal>::value || std::is_same<T, big_integer>::value) {
             claim_number(value);
         } else {
-            static_assert(false, "Type is not supported");
+            throw std::logic_error("Type is not supported");
         }
     }
 
@@ -124,7 +124,7 @@ struct builder : binary_tuple_builder {
         } else if constexpr (std::is_same<T, big_decimal>::value || std::is_same<T, big_integer>::value) {
             append_number(value);
         } else {
-            static_assert(false, "Type is not supported");
+            throw std::logic_error("Type is not supported");
         }
     }
 
@@ -1125,7 +1125,7 @@ TEST_P(tuple_big_decimal_zeros, DecimalZerosTest) { // NOLINT(cert-err58-cpp)
 
 INSTANTIATE_TEST_SUITE_P(zeros, tuple_big_decimal_zeros,
     testing::Values(big_decimal("0"), big_decimal("-0"), big_decimal("0E1000"), big_decimal("0E-1000"), big_decimal(0),
-        big_decimal(0LL, 10)));
+        big_decimal(std::int64_t(0), 10)));
 
 class tuple_big_decimal : public testing::TestWithParam<big_decimal> {};
 
