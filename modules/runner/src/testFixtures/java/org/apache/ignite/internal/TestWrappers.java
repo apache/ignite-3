@@ -26,7 +26,21 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.table.manager.IgniteTables;
 
 /**
- * Utilities to unwrap implementation objects from public API objects.
+ * Utilities to unwrap implementation objects from public API objects. They should be used whenever you need to get an
+ * instance of an implementation class (like {@link TableImpl}) via public API; direct casting will not work as
+ * public API objects might be wrapped in wrappers.
+ *
+ * <p>So, instead of
+ *
+ * <p>{@code
+ *     TableImpl tableImpl = (TableImpl) ignite.tables().table("test");
+ * }
+ *
+ * <p>use
+ *
+ * <p>{@code
+ *     TableImpl tableImpl = TestWrappers.unwrapTableImpl(ignite.tables().table("test"));
+ * }
  */
 public class TestWrappers {
     /**
