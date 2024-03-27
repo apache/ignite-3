@@ -22,14 +22,11 @@ import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
+import static org.apache.ignite.internal.threading.PublicApiThreadingTests.anIgniteThread;
+import static org.apache.ignite.internal.threading.PublicApiThreadingTests.asyncContinuationPool;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.both;
 import static org.hamcrest.Matchers.either;
-import static org.hamcrest.Matchers.hasProperty;
-import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.not;
-import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.util.List;
@@ -44,17 +41,13 @@ import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.streamer.SimplePublisher;
 import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.internal.test.WatchListenerInhibitor;
-import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
-import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.criteria.CriteriaQuerySource;
-import org.hamcrest.Matcher;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junitpioneer.jupiter.cartesian.CartesianTest;
@@ -74,11 +67,6 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
     @Override
     protected int initialNodes() {
         return 1;
-    }
-
-    private static Matcher<Object> asyncContinuationPool() {
-        return both(hasProperty("name", startsWith("ForkJoinPool.commonPool-worker-")))
-                .and(not(instanceOf(IgniteThread.class)));
     }
 
     @BeforeAll
@@ -148,21 +136,7 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
     }
 
     private static <T> T forcingSwitchFromUserThread(Supplier<? extends T> action) {
-        return WatchListenerInhibitor.withInhibition(CLUSTER.aliveNode(), () -> {
-            waitForSchemaSyncRequiringWait();
-
-            return action.get();
-        });
-    }
-
-    private static void waitForSchemaSyncRequiringWait() {
-        try {
-            Thread.sleep(TestIgnitionManager.DEFAULT_DELAY_DURATION_MS + 1);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-
-            throw new RuntimeException(e);
-        }
+        return PublicApiThreadingTests.forcingSwitchFromUserThread(CLUSTER.aliveNode(), action);
     }
 
     private static KeyValueContext<Integer, String> plainKeyValueContext() {
@@ -175,10 +149,6 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
 
     private static RecordView<Record> plainRecordViewForInternalUse() {
         return testTableForInternalUse().recordView(Record.class);
-    }
-
-    private static Matcher<Object> anIgniteThread() {
-        return instanceOf(IgniteThread.class);
     }
 
     @CartesianTest
