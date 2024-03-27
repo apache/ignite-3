@@ -501,7 +501,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
         );
     }
 
-    private static FilePageStoreManager createFilePageStoreManager(Path storagePath) throws Exception {
+    private static FilePageStoreManager createFilePageStoreManager(Path storagePath) {
         return new FilePageStoreManager(
                 "test",
                 storagePath,
