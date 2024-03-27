@@ -78,6 +78,8 @@ public class DisasterRecoveryManager implements IgniteComponent {
 
     private static final int TIMEOUT = 30;
 
+    private static final int CATCH_UP_THRESHOLD = 10;
+
     /** Thread pool executor for async parts. */
     private final ExecutorService threadPool;
 
@@ -302,6 +304,7 @@ public class DisasterRecoveryManager implements IgniteComponent {
                     long lastLogIndex = raftNode.lastLogIndex();
 
                     if (localState == LocalPartitionStateEnum.HEALTHY) {
+                        // Node without log didn't process anything yet, it's not really "healthy" before it accepts leader's configuration.
                         if (lastLogIndex == 0) {
                             localState = LocalPartitionStateEnum.INITIALIZING;
                         }
@@ -329,6 +332,9 @@ public class DisasterRecoveryManager implements IgniteComponent {
         }, threadPool);
     }
 
+    /**
+     * Converts internal raft node state into public local partition state.
+     */
     private static LocalPartitionStateEnum convertState(State nodeState) {
         switch (nodeState) {
             case STATE_LEADER:
@@ -354,6 +360,10 @@ public class DisasterRecoveryManager implements IgniteComponent {
         }
     }
 
+    /**
+     * Replaces some healthy states with a {@link LocalPartitionStateEnum#CATCHING_UP},it can only be done once the state of all peers is
+     * known.
+     */
     private Map<TablePartitionId, Map<String, LocalPartitionState>> normalize(
             Map<TablePartitionId, Map<String, LocalPartitionState>> result
     ) {
@@ -366,7 +376,7 @@ public class DisasterRecoveryManager implements IgniteComponent {
             return map.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, entry2 -> {
                 LocalPartitionState state = entry2.getValue();
 
-                if (state.state() != LocalPartitionStateEnum.HEALTHY || maxLogIndex - state.logIndex() < 10) {
+                if (state.state() != LocalPartitionStateEnum.HEALTHY || maxLogIndex - state.logIndex() < CATCH_UP_THRESHOLD) {
                     return state;
                 }
 

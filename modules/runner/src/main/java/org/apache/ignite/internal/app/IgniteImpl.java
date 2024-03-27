@@ -308,6 +308,7 @@ public class IgniteImpl implements Ignite {
     /** Distributed table manager. */
     private final TableManager distributedTblMgr;
 
+    /** Disaster recovery manager. */
     private final DisasterRecoveryManager disasterRecoveryManager;
 
     private final IndexManager indexManager;

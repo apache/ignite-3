@@ -495,6 +495,12 @@ public class Loza implements RaftManager {
         raftServer.resetPeers(raftNodeId, peersAndLearners);
     }
 
+    /**
+     * Iterates over all currently started raft services. Doesn't block the starting or stopping of other services, so consumer may
+     * accidentally receive stopped service.
+     *
+     * @param consumer Closure to process each service.
+     */
     public void forEach(BiConsumer<RaftNodeId, org.apache.ignite.raft.jraft.RaftGroupService> consumer) {
         raftServer.forEach(consumer);
     }

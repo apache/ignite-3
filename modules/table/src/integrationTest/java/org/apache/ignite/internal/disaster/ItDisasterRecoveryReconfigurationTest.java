@@ -339,7 +339,6 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
     @Retention(RetentionPolicy.RUNTIME)
     @interface ZoneParams {
-
         int replicas();
 
         int partitions();

@@ -318,7 +318,13 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
      */
     long getCurrentTerm();
 
+    /**
+     * Returns {@code true} if node is currently in the process of installing a snapshot.
+     */
     boolean isInstallingSnapshot();
 
+    /**
+     * Returns the value of last replicated log index. Corresponding log entry might not yet be written to the log storage (no flush).
+     */
     long lastLogIndex();
 }
