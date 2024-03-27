@@ -280,10 +280,10 @@ public class ItSetOpTest extends BaseSqlIntegrationTest {
 
     @Test
     public void testUnionDifferentNumericTypes() {
-        String query = "SELECT * FROM ("
+        String query = ""
                 + "SELECT id, val FROM t1 "
                 + "UNION "
-                + "SELECT id, val FROM t2) ORDER BY id";
+                + "SELECT id, val FROM t2";
 
         assertQuery(query)
                 .returns(1, new BigDecimal("1.00"))

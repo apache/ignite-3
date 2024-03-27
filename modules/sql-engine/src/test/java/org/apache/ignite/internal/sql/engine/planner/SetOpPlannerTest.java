@@ -17,16 +17,12 @@
 
 package org.apache.ignite.internal.sql.engine.planner;
 
-import java.util.Arrays;
 import java.util.List;
-import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
 import org.apache.calcite.rel.RelDistribution.Type;
-import org.apache.calcite.rel.RelNode;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
-import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTrimExchange;
 import org.apache.ignite.internal.sql.engine.rel.set.IgniteColocatedIntersect;
 import org.apache.ignite.internal.sql.engine.rel.set.IgniteColocatedMinus;
@@ -767,16 +763,6 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
                         .and(input(1, isTableScan("TABLE2")))
                 )
         );
-    }
-
-    private Predicate<? extends RelNode> projectFromTable(String tableName, String... exprs) {
-        return isInstanceOf(IgniteProject.class)
-                .and(projection -> {
-                    String actualProjStr = projection.getProjects().toString();
-                    String expectedProjStr = Arrays.asList(exprs).toString();
-                    return actualProjStr.equals(expectedProjStr);
-                })
-                .and(hasChildThat(isTableScan(tableName)));
     }
 
     private String setOp(SetOp setOp) {

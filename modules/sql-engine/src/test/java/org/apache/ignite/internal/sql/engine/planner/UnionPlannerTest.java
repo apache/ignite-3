@@ -17,15 +17,11 @@
 
 package org.apache.ignite.internal.sql.engine.planner;
 
-import java.util.Arrays;
-import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
-import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Union;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
-import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.IgniteUnionAll;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteColocatedHashAggregate;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
@@ -166,15 +162,5 @@ public class UnionPlannerTest extends AbstractPlannerTest {
                 .addColumn("ID", NativeTypes.INT32)
                 .addColumn("NAME", NativeTypes.STRING)
                 .addColumn("SALARY", NativeTypes.DOUBLE);
-    }
-
-    private Predicate<? extends RelNode> projectFromTable(String tableName, String... exprs) {
-        return isInstanceOf(IgniteProject.class)
-                .and(projection -> {
-                    String actualProjStr = projection.getProjects().toString();
-                    String expectedProjStr = Arrays.asList(exprs).toString();
-                    return actualProjStr.equals(expectedProjStr);
-                })
-                .and(hasChildThat(input(isTableScan(tableName))));
     }
 }
