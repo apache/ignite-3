@@ -602,7 +602,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
         try {
             for (Row row : rowConverter.resolveKeys(rows, schemaVersion)) {
                 if (row != null) {
-                    keys.add(marsh.unmarshalKey(row));
+                    keys.add(marsh.unmarshalKeyOnly(row));
                 }
             }
 

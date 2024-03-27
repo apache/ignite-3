@@ -21,6 +21,7 @@ import java.util.Objects;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Marshaller column.
@@ -28,6 +29,8 @@ import org.jetbrains.annotations.Nullable;
 public class MarshallerColumn {
     /** Default "default value supplier". */
     private static final Supplier<Object> NULL_SUPPLIER = () -> null;
+
+    private final int schemaIndex;
 
     /**
      * Column name.
@@ -56,22 +59,34 @@ public class MarshallerColumn {
      * @param name      Column name.
      * @param type      An instance of column data type.
      */
+    @TestOnly
     public MarshallerColumn(String name, BinaryMode type) {
-        this(name, type, null, 0);
+        this.schemaIndex = -1;
+        this.name = name;
+        this.type = type;
+        this.defValSup = NULL_SUPPLIER;
+        this.scale = 0;
     }
 
     /**
      * Constructor.
      *
+     * @param schemaIndex Field's position in a schema, or -1,
      * @param name      Column name.
      * @param type      An instance of column data type.
      * @param defValSup Default value supplier.
+     * @param scale     Scale of a decimal type if binary mode is decimal, or zero otherwise.
      */
-    public MarshallerColumn(String name, BinaryMode type, @Nullable Supplier<Object> defValSup, int scale) {
+    public MarshallerColumn(int schemaIndex, String name, BinaryMode type, @Nullable Supplier<Object> defValSup, int scale) {
+        this.schemaIndex = schemaIndex;
         this.name = name;
         this.type = type;
         this.defValSup = defValSup == null ? NULL_SUPPLIER : defValSup;
         this.scale = scale;
+    }
+
+    public int schemaIndex() {
+        return schemaIndex;
     }
 
     public String name() {
@@ -102,12 +117,12 @@ public class MarshallerColumn {
             return false;
         }
         MarshallerColumn that = (MarshallerColumn) o;
-        return scale == that.scale && Objects.equals(name, that.name) && type == that.type;
+        return schemaIndex == that.schemaIndex && scale == that.scale && Objects.equals(name, that.name) && type == that.type;
     }
 
     @Override
     public int hashCode() {
         // See comment in equals method.
-        return Objects.hash(name, type, scale);
+        return Objects.hash(schemaIndex, name, type, scale);
     }
 }
