@@ -19,6 +19,7 @@ package org.apache.ignite.internal.binarytuple;
 
 import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.DECIMAL_SCALE_NONE;
 import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.DECIMAL_SCALE_ONE_BYTE;
+import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.DECIMAL_SCALE_THREE_BYTES;
 import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.DECIMAL_SCALE_TWO_BYTES;
 
 import java.math.BigDecimal;
@@ -291,12 +292,15 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
                 return new BigDecimal(numberValue(begin + 2, end), valScale).setScale(scale, RoundingMode.UNNECESSARY);
             }
 
-            default: {
+            case DECIMAL_SCALE_THREE_BYTES: {
                 var valScale = intValue(begin + 1, begin + 3);
                 assert valScale < scale : "Invalid scale, expected less than " + scale + ", but was " + valScale;
 
                 return new BigDecimal(numberValue(begin + 3, end), valScale).setScale(scale, RoundingMode.UNNECESSARY);
             }
+
+            default:
+                throw new IllegalStateException("Invalid decimal scale first byte: " + firstByte);
         }
     }
 

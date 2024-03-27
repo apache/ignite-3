@@ -565,24 +565,24 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             switch (mode)
             {
                 case BinaryTupleCommon.DecimalScaleNone:
-                    return ReadDecimalUnscaled(span[1..], scale, scale);
+                    return ReadDecimalUnscaled(span[1..], scale);
 
                 case BinaryTupleCommon.DecimalScaleOneByte:
                 {
                     var valScale = firstByte & 0b00111111;
-                    return ReadDecimalUnscaled(span[1..], valScale, scale);
+                    return ReadDecimalUnscaled(span[1..], valScale);
                 }
 
                 case BinaryTupleCommon.DecimalScaleTwoBytes:
                 {
                     var valScale = (firstByte & 0b00111111) + (span[1] << 6);
-                    return ReadDecimalUnscaled(span[2..], valScale, scale);
+                    return ReadDecimalUnscaled(span[2..], valScale);
                 }
 
                 case BinaryTupleCommon.DecimalScaleThreeBytes:
                 {
                     var valScale = BinaryPrimitives.ReadInt16LittleEndian(span[1..2]);
-                    return ReadDecimalUnscaled(span[3..], valScale, scale);
+                    return ReadDecimalUnscaled(span[3..], valScale);
                 }
 
                 default:
@@ -590,15 +590,15 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             }
         }
 
-        private static decimal? ReadDecimalUnscaled(ReadOnlySpan<byte> span, int valScale, int schemaScale)
+        private static decimal? ReadDecimalUnscaled(ReadOnlySpan<byte> span, int scale)
         {
             var unscaled = new BigInteger(span, isBigEndian: true);
             var res = (decimal)unscaled;
 
-            if (schemaScale > 0)
+            if (scale > 0)
             {
                 // TODO: Divide in BigInteger form to fit bigger scales.
-                res /= (decimal)BigInteger.Pow(10, schemaScale);
+                res /= (decimal)BigInteger.Pow(10, scale);
             }
 
             return res;
