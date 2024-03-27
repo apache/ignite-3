@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.replicator.LocalReplicaEvent.AFTER_REPL
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.BEFORE_REPLICA_STOPPED;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
+import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
@@ -535,10 +536,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 .thenCompose(v -> replicaFuture);
     }
 
-    private static boolean isCompletedSuccessfully(CompletableFuture<?> future) {
-        return future.isDone() && !future.isCompletedExceptionally();
-    }
-
     /**
      * Stops a replica by the partition group id.
      *
@@ -788,7 +785,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     }
 
     /**
-     * Check if replica was touched by an any actor.
+     * Check if replica was touched by an any actor. Touched here means either replica replica creation or replica waiter registration.
      *
      * @param replicaGrpId Replication group id.
      * @return True if the replica was touched.
