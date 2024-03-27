@@ -27,7 +27,6 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.jetbrains.annotations.Nullable;
@@ -411,15 +410,15 @@ public class OrderedMergePublisher<T> implements Publisher<T> {
         @Nullable
         private final ErrorChain next;
 
-        private final AtomicBoolean built = new AtomicBoolean(false);
+        private boolean built = false;
 
         private ErrorChain(Throwable error, @Nullable ErrorChain next) {
             this.error = error;
             this.next = next;
         }
 
-        Throwable buildThrowable() {
-            if (!built.compareAndSet(false, true)) {
+        synchronized Throwable buildThrowable() {
+            if (built) {
                 // Already built, so error already contains all subsequent exceptions attached.
                 return error;
             }
@@ -430,6 +429,8 @@ public class OrderedMergePublisher<T> implements Publisher<T> {
                 error.addSuppressed(chain.error);
                 chain = chain.next;
             }
+
+            built = true;
 
             return error;
         }
