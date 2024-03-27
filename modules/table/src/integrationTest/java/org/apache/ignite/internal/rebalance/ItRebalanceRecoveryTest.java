@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.rebalance;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -26,7 +27,6 @@ import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
-import org.apache.ignite.internal.wrapper.Wrappers;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -64,7 +64,7 @@ public class ItRebalanceRecoveryTest extends ClusterPerTestIntegrationTest {
     }
 
     private static boolean containsPartition(Ignite node) {
-        TableManager tableManager = Wrappers.unwrap(node.tables(), TableManager.class);
+        TableManager tableManager = unwrapTableManager(node.tables());
 
         MvPartitionStorage storage = tableManager.tableView("TEST")
                 .internalTable()

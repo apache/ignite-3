@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.schemasync;
 
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
@@ -27,10 +28,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxState;
-import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -102,7 +101,7 @@ class ItSchemaForwardCompatibilityTest extends ClusterPerTestIntegrationTest {
 
         ddl.executeOn(cluster);
 
-        int tableId = Wrappers.unwrap(table, TableViewInternal.class).tableId();
+        int tableId = unwrapTableViewInternal(table).tableId();
 
         TransactionException ex = assertThrows(TransactionException.class, tx::commit);
         assertThat(

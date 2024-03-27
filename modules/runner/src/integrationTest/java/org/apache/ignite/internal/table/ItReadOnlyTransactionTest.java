@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -40,9 +41,7 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -85,10 +84,6 @@ public class ItReadOnlyTransactionTest extends ClusterPerClassIntegrationTest {
         sql(IgniteStringFormatter.format("DROP TABLE {}", TABLE_NAME));
 
         sql(IgniteStringFormatter.format("DROP ZONE {}", ZONE_NAME));
-    }
-
-    private static TableViewInternal unwrapTableViewInternal(Table table) {
-        return Wrappers.unwrap(table, TableViewInternal.class);
     }
 
     @Test

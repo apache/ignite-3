@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.index;
 
 import static java.util.stream.Collectors.joining;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.raft.util.OptimizedMarshaller.NO_POOL;
@@ -60,7 +61,6 @@ import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
 import org.apache.ignite.internal.table.distributed.schema.PartitionCommandsMarshallerImpl;
-import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
 import org.apache.ignite.table.Table;
 import org.jetbrains.annotations.Nullable;
@@ -369,7 +369,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
 
         assertThat(tableFuture, willSucceedFast());
 
-        return Wrappers.unwrap(tableFuture.join(), TableViewInternal.class);
+        return unwrapTableViewInternal(tableFuture.join());
     }
 
     /**
