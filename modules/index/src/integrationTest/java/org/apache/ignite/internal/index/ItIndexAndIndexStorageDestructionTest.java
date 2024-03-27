@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
+import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.storage.index.IndexStorage;
@@ -71,7 +72,7 @@ class ItIndexAndIndexStorageDestructionTest extends ClusterPerTestIntegrationTes
             session.execute(null, "INSERT INTO " + TABLE_NAME + " (id, name) VALUES (" + PREEXISTING_KEY + ", 'John')");
         });
 
-        TableImpl table = (TableImpl) node.tables().table(TABLE_NAME);
+        TableImpl table = TestWrappers.unwrapTableImpl(node.tables().table(TABLE_NAME));
 
         initiateIndexStoragesDestruction(table, INDEX_NAME);
     }
