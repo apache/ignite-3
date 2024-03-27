@@ -553,7 +553,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             return LocalTime.FromHourMinuteSecondNanosecond(hour, minute, second, nanos);
         }
 
-        [SuppressMessage("ReSharper", "UnusedParameter.Local", Justification = "Schema scale is not required for serialization.")]
+        [SuppressMessage("ReSharper", "UnusedParameter.Local", Justification = "Schema scale is not required for deserialization.")]
         private static decimal? ReadDecimal(ReadOnlySpan<byte> span, int scale)
         {
             if (span.IsEmpty)

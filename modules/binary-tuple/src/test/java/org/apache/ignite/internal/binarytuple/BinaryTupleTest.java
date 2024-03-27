@@ -343,7 +343,7 @@ public class BinaryTupleTest {
 
         assertEquals(5, bytes.limit());
 
-        //noinspection DataFlowIssue
+        // noinspection DataFlowIssue
         assertEquals(value.longValue(), new BinaryTupleReader(1, bytes).decimalValue(0, scale).longValue());
     }
 
