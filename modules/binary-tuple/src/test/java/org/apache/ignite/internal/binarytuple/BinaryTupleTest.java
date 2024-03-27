@@ -332,14 +332,19 @@ public class BinaryTupleTest {
         }
     }
 
-    @Test
-    public void decimalSizeTest() {
-        BigDecimal value = new BigDecimal(1);
+    @ParameterizedTest
+    @ValueSource(strings = {"0", "1", "10", "100", "1000", "100000", "-1", "-100", "-1000000"})
+    public void decimalSizeTest(String val) {
+        short scale = Short.MAX_VALUE;
+        BigDecimal value = new BigDecimal(val);
 
         BinaryTupleBuilder builder = new BinaryTupleBuilder(1);
-        ByteBuffer bytes = builder.appendDecimal(value, Short.MAX_VALUE).build();
+        ByteBuffer bytes = builder.appendDecimal(value, scale).build();
 
         assertEquals(5, bytes.limit());
+
+        //noinspection DataFlowIssue
+        assertEquals(value.longValue(), new BinaryTupleReader(1, bytes).decimalValue(0, scale).longValue());
     }
 
     /**
