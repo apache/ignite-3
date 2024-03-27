@@ -320,22 +320,27 @@ public class BinaryTupleBuilder {
      * @return {@code this} for chaining.
      */
     public BinaryTupleBuilder appendDecimalNotNull(BigDecimal value, int scale) {
-        if (value.scale() > scale) {
+        int valScale = value.scale();
+
+        if (valScale < 0) {
+            valScale = 0;
+        }
+
+        if (valScale > scale) {
             value = value.setScale(scale, RoundingMode.HALF_UP); // Only do rounding if necessary.
             putByte(DECIMAL_SCALE_NONE); // Same scale as schema.
-        } else if (value.scale() == scale) {
+        } else if (valScale == scale) {
             putByte(DECIMAL_SCALE_NONE); // Same scale as schema.
         } else {
             // Actual scale is less than schema - encode scale as varint.
-            // TODO: Scale can be negative
-            if (value.scale() < 64) {
-                putByte((byte) (DECIMAL_SCALE_ONE_BYTE | value.scale()));
-            } else if (value.scale() < 16384) {
-                putByte((byte) (DECIMAL_SCALE_TWO_BYTES | (value.scale() & 0b00111111)));
-                putByte((byte) (value.scale() >> 6));
+            if (valScale < 64) {
+                putByte((byte) (DECIMAL_SCALE_ONE_BYTE | valScale));
+            } else if (valScale < 16384) {
+                putByte((byte) (DECIMAL_SCALE_TWO_BYTES | (valScale & 0b00111111)));
+                putByte((byte) (valScale >> 6));
             } else {
                 putByte(DECIMAL_SCALE_THREE_BYTES);
-                putShort((short) value.scale());
+                putShort((short) valScale);
             }
         }
 
