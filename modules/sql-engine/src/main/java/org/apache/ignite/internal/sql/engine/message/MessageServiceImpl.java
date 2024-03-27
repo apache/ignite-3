@@ -24,7 +24,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.network.ChannelType;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
@@ -47,7 +47,7 @@ public class MessageServiceImpl implements MessageService {
 
     private final IgniteSpinBusyLock busyLock;
 
-    private final HybridClock clock;
+    private final ClockService clockService;
 
     private volatile Map<Short, MessageListener> lsnrs;
 
@@ -60,13 +60,13 @@ public class MessageServiceImpl implements MessageService {
             MessagingService messagingSrvc,
             QueryTaskExecutor taskExecutor,
             IgniteSpinBusyLock busyLock,
-            HybridClock clock
+            ClockService clockService
     ) {
         this.localNodeName = localNodeName;
         this.messagingSrvc = messagingSrvc;
         this.taskExecutor = taskExecutor;
         this.busyLock = busyLock;
-        this.clock = clock;
+        this.clockService = clockService;
     }
 
     /** {@inheritDoc} */
@@ -128,7 +128,7 @@ public class MessageServiceImpl implements MessageService {
 
             // TODO https://issues.apache.org/jira/browse/IGNITE-21709
             if (msg instanceof TimestampAware) {
-                clock.update(((TimestampAware) msg).timestamp());
+                clockService.updateClock(((TimestampAware) msg).timestamp());
             }
 
             onMessage(sender.name(), msg);

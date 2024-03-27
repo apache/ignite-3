@@ -378,7 +378,7 @@ public class IncrementalVersionedValueTest extends BaseIgniteAbstractTest {
     public void testImmediateUpdate() {
         var vv = new IncrementalVersionedValue<>(register, () -> 1);
 
-        // noinspection unchecked
+        //noinspection unchecked
         BiFunction<Integer, Throwable, CompletableFuture<Integer>> closure = mock(BiFunction.class);
 
         when(closure.apply(any(), any())).thenReturn(nullCompletedFuture());

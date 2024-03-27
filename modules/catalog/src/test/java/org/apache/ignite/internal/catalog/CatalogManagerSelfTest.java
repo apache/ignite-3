@@ -1103,7 +1103,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         doNothing().when(updateLogMock).registerUpdateHandler(updateHandlerCapture.capture());
 
-        CatalogManagerImpl manager = new CatalogManagerImpl(updateLogMock, clockWaiter, clock);
+        CatalogManagerImpl manager = new CatalogManagerImpl(updateLogMock, clockService);
         manager.start();
 
         when(updateLogMock.append(any())).thenAnswer(invocation -> {
@@ -1135,7 +1135,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     public void catalogActivationTime() throws Exception {
         long delayDuration = TimeUnit.DAYS.toMillis(365);
 
-        CatalogManagerImpl manager = new CatalogManagerImpl(updateLog, clockWaiter, clock, delayDuration, 0);
+        CatalogManagerImpl manager = new CatalogManagerImpl(updateLog, clockService, delayDuration, 0);
 
         manager.start();
 
@@ -1166,7 +1166,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     public void catalogServiceManagesUpdateLogLifecycle() throws Exception {
         UpdateLog updateLogMock = mock(UpdateLog.class);
 
-        CatalogManagerImpl manager = new CatalogManagerImpl(updateLogMock, clockWaiter, clock);
+        CatalogManagerImpl manager = new CatalogManagerImpl(updateLogMock, clockService);
 
         manager.start();
 
@@ -1534,7 +1534,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         HybridTimestamp startTs = clock.now();
 
-        CatalogManagerImpl manager = new CatalogManagerImpl(updateLog, clockWaiter, clock, delayDuration, 0);
+        CatalogManagerImpl manager = new CatalogManagerImpl(updateLog, clockService, delayDuration, 0);
 
         manager.start();
 
@@ -1549,7 +1549,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
             HybridTimestamp userWaitTs = tsCaptor.getValue();
             assertThat(
                     userWaitTs.getPhysical() - startTs.getPhysical(),
-                    greaterThanOrEqualTo(delayDuration + HybridTimestamp.maxClockSkew())
+                    greaterThanOrEqualTo(delayDuration + clockService.maxClockSkewMillis())
             );
         } finally {
             manager.stop();
@@ -1566,8 +1566,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         CatalogManagerImpl manager = new CatalogManagerImpl(
                 updateLog,
-                clockWaiter,
-                clock,
+                clockService,
                 delayDuration,
                 partitionIdleSafeTimePropagationPeriod
         );
@@ -1586,8 +1585,8 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
             assertThat(
                     userWaitTs.getPhysical() - startTs.getPhysical(),
                     greaterThanOrEqualTo(
-                            delayDuration + HybridTimestamp.maxClockSkew()
-                                    + partitionIdleSafeTimePropagationPeriod + HybridTimestamp.maxClockSkew()
+                            delayDuration + clockService.maxClockSkewMillis()
+                                    + partitionIdleSafeTimePropagationPeriod + clockService.maxClockSkewMillis()
                     )
             );
         } finally {

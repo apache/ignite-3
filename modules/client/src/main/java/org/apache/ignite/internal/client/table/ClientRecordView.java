@@ -31,6 +31,7 @@ import java.util.function.Function;
 import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.TuplePart;
+import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.marshaller.TupleReader;
@@ -56,10 +57,11 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
      * Constructor.
      *
      * @param tbl Underlying table.
+     * @param sql Sql.
      * @param recMapper Mapper.
      */
-    ClientRecordView(ClientTable tbl, Mapper<R> recMapper) {
-        super(tbl);
+    ClientRecordView(ClientTable tbl, ClientSql sql, Mapper<R> recMapper) {
+        super(tbl, sql);
 
         ser = new ClientRecordSerializer<>(tbl.tableId(), recMapper);
     }

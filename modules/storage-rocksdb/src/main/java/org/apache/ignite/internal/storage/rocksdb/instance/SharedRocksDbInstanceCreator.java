@@ -36,6 +36,7 @@ import org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbDataRegion;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
+import org.apache.ignite.internal.storage.rocksdb.index.AbstractRocksDbIndexStorage;
 import org.apache.ignite.internal.storage.rocksdb.index.RocksDbHashIndexStorage;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -219,7 +220,7 @@ public class SharedRocksDbInstanceCreator {
     static ColumnFamilyOptions sortedIndexCfOptions(byte[] cfName) {
         return new ColumnFamilyOptions()
                 .setComparator(ColumnFamilyUtils.comparatorFromCfName(cfName))
-                .useFixedLengthPrefixExtractor(7);
+                .useCappedPrefixExtractor(AbstractRocksDbIndexStorage.PREFIX_WITH_IDS_LENGTH);
     }
 
     private <T extends AutoCloseable> T add(T value) {

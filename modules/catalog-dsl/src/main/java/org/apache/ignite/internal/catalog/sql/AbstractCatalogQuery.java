@@ -20,7 +20,6 @@ package org.apache.ignite.internal.catalog.sql;
 import org.apache.ignite.catalog.Options;
 import org.apache.ignite.catalog.Query;
 import org.apache.ignite.sql.IgniteSql;
-import org.apache.ignite.sql.Session;
 
 abstract class AbstractCatalogQuery extends QueryPart implements Query {
     protected final IgniteSql sql;
@@ -34,9 +33,7 @@ abstract class AbstractCatalogQuery extends QueryPart implements Query {
 
     @Override
     public void execute() {
-        try (Session session = sql.createSession()) {
-            session.executeScript(toSqlString());
-        }
+        sql.executeScript(toSqlString());
     }
 
     @Override

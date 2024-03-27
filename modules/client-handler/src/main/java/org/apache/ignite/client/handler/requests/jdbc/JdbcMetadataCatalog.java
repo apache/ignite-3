@@ -32,7 +32,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcPrimaryKeyMeta;
@@ -62,7 +62,7 @@ public class JdbcMetadataCatalog {
     /** Default schema name. */
     private static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
 
-    private final HybridClock clock;
+    private final ClockService clockService;
 
     private final SchemaSyncService schemaSyncService;
 
@@ -80,12 +80,12 @@ public class JdbcMetadataCatalog {
     /**
      * Initializes info.
      *
-     * @param clock The clock.
+     * @param clockService Clock service.
      * @param schemaSyncService Used to wait for schemas' completeness.
      * @param catalogService Used to get table descriptions.
      */
-    public JdbcMetadataCatalog(HybridClock clock, SchemaSyncService schemaSyncService, CatalogService catalogService) {
-        this.clock = clock;
+    public JdbcMetadataCatalog(ClockService clockService, SchemaSyncService schemaSyncService, CatalogService catalogService) {
+        this.clockService = clockService;
         this.schemaSyncService = schemaSyncService;
         this.catalogService = catalogService;
     }
@@ -112,7 +112,7 @@ public class JdbcMetadataCatalog {
     }
 
     private CompletableFuture<Collection<CatalogTableDescriptor>> tablesAtNow() {
-        HybridTimestamp now = clock.now();
+        HybridTimestamp now = clockService.now();
 
         return schemaSyncService.waitForMetadataCompleteness(now)
                 .thenApply(unused -> catalogService.tables(catalogService.activeCatalogVersion(now.longValue())));

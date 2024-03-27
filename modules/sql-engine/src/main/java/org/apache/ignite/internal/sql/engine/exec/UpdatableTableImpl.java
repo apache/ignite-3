@@ -30,7 +30,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.calcite.plan.RelOptUtil;
-import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -65,7 +65,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
 
     private final TableDescriptor desc;
 
-    private final HybridClock clock;
+    private final ClockService clockService;
 
     private final InternalTable table;
 
@@ -82,14 +82,14 @@ public final class UpdatableTableImpl implements UpdatableTable {
             int partitions,
             InternalTable table,
             ReplicaService replicaService,
-            HybridClock clock,
+            ClockService clockService,
             TableRowConverter rowConverter
     ) {
         this.tableId = tableId;
         this.table = table;
         this.desc = desc;
         this.replicaService = replicaService;
-        this.clock = clock;
+        this.clockService = clockService;
         this.partitionExtractor = (row) -> IgniteUtils.safeAbs(row.colocationHash()) % partitions;
         this.rowConverter = rowConverter;
     }
@@ -132,7 +132,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
                     .transactionId(txAttributes.id())
                     .enlistmentConsistencyToken(nodeWithConsistencyToken.enlistmentConsistencyToken())
                     .requestType(RequestType.RW_UPSERT_ALL)
-                    .timestampLong(clock.nowLong())
+                    .timestampLong(clockService.nowLong())
                     .skipDelayedAck(true)
                     .coordinatorId(txAttributes.coordinatorId())
                     .build();
@@ -222,7 +222,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
                     .transactionId(txAttributes.id())
                     .enlistmentConsistencyToken(nodeWithConsistencyToken.enlistmentConsistencyToken())
                     .requestType(RequestType.RW_INSERT_ALL)
-                    .timestampLong(clock.nowLong())
+                    .timestampLong(clockService.nowLong())
                     .skipDelayedAck(true)
                     .coordinatorId(txAttributes.coordinatorId())
                     .build();
@@ -291,7 +291,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
                     .transactionId(txAttributes.id())
                     .enlistmentConsistencyToken(nodeWithConsistencyToken.enlistmentConsistencyToken())
                     .requestType(RequestType.RW_DELETE_ALL)
-                    .timestampLong(clock.nowLong())
+                    .timestampLong(clockService.nowLong())
                     .skipDelayedAck(true)
                     .coordinatorId(txAttributes.coordinatorId())
                     .build();

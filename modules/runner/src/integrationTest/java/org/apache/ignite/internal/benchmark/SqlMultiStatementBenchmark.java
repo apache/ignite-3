@@ -36,8 +36,6 @@ import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
-import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -50,7 +48,6 @@ import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
-import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Threads;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.infra.Blackhole;
@@ -80,6 +77,8 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 public class SqlMultiStatementBenchmark extends AbstractMultiNodeBenchmark {
     private static final int TABLE_SIZE = 10_000;
+
+    private static final int PAGE_SIZE = 1024;
 
     @Param({"1", "2"})
     private int clusterSize;
@@ -151,23 +150,16 @@ public class SqlMultiStatementBenchmark extends AbstractMultiNodeBenchmark {
     public static class InsertState {
         private QueryRunner queryRunner;
         private Parameters parameters;
-        private Session session;
 
         /** Generates required statements.*/
         @Setup
         public void setUp() {
-            session = clusterNode.sql().createSession();
             parameters = new Parameters(statementsCount, n -> createInsertStatement("T" + n));
             queryRunner = new QueryRunner(
                     clusterNode.queryEngine(),
                     clusterNode.transactions(),
-                    session.defaultPageSize()
+                    PAGE_SIZE
             );
-        }
-
-        @TearDown
-        public void closeSession() throws Exception {
-            IgniteUtils.closeAll(session);
         }
 
         private int id = 0;
@@ -216,25 +208,18 @@ public class SqlMultiStatementBenchmark extends AbstractMultiNodeBenchmark {
     public static class CountState {
         private QueryRunner queryRunner;
         private Parameters parameters;
-        private Session session;
 
         /** Generates required statements.*/
         @Setup
         public void setUp() {
             fillTables(statementsCount);
 
-            session = clusterNode.sql().createSession();
             parameters = new Parameters(statementsCount, n -> format("select count(*) from T{}", n));
             queryRunner = new QueryRunner(
                     clusterNode.queryEngine(),
                     clusterNode.transactions(),
-                    session.defaultPageSize()
+                    PAGE_SIZE
             );
-        }
-
-        @TearDown
-        public void closeSession() throws Exception {
-            IgniteUtils.closeAll(session);
         }
 
         void executeQuery(Blackhole bh) {
@@ -265,25 +250,18 @@ public class SqlMultiStatementBenchmark extends AbstractMultiNodeBenchmark {
         private final Random random = new Random();
         private QueryRunner queryRunner;
         private Parameters parameters;
-        private Session session;
 
         /** Generates required statements.*/
         @Setup
         public void setUp() {
             fillTables(statementsCount);
 
-            session = clusterNode.sql().createSession();
             parameters = new Parameters(statementsCount, n -> format("select * from T{} where ycsb_key=?", n));
             queryRunner = new QueryRunner(
                     clusterNode.queryEngine(),
                     clusterNode.transactions(),
-                    session.defaultPageSize()
+                    PAGE_SIZE
             );
-        }
-
-        @TearDown
-        public void closeSession() throws Exception {
-            IgniteUtils.closeAll(session);
         }
 
         void executeQuery(Blackhole bh) {
@@ -322,25 +300,18 @@ public class SqlMultiStatementBenchmark extends AbstractMultiNodeBenchmark {
         private final Random random = new Random();
         private QueryRunner queryRunner;
         private Parameters parameters;
-        private Session session;
 
         /** Generates required statements.*/
         @Setup
         public void setUp() {
             fillTables(statementsCount);
 
-            session = clusterNode.sql().createSession();
             parameters = new Parameters(statementsCount, ignore -> "select * from T0 where ycsb_key=?");
             queryRunner = new QueryRunner(
                     clusterNode.queryEngine(),
                     clusterNode.transactions(),
-                    session.defaultPageSize()
+                    PAGE_SIZE
             );
-        }
-
-        @TearDown
-        public void closeSession() throws Exception {
-            IgniteUtils.closeAll(session);
         }
 
         void executeQuery(Blackhole bh) {

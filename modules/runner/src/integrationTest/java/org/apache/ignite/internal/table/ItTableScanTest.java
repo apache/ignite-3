@@ -812,7 +812,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
                 ClusterNode node0 = CLUSTER.aliveNode().clusterNodes().stream().filter(n -> n.name().equals(consId)).findAny()
                         .orElseThrow();
 
-                // noinspection DataFlowIssue
+                //noinspection DataFlowIssue
                 publisher = internalTable.scan(PART_ID, tx.id(), tx.readTimestamp(), node0, sortedIndexId, null, null, 0, null,
                         tx.coordinatorId());
             } else {

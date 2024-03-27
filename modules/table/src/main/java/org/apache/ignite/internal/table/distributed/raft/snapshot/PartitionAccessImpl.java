@@ -37,6 +37,7 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.table.distributed.LowWatermark;
 import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.gc.MvGc;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
@@ -68,6 +69,8 @@ public class PartitionAccessImpl implements PartitionAccess {
 
     private final SchemaRegistry schemaRegistry;
 
+    private final LowWatermark lowWatermark;
+
     /**
      * Constructor.
      *
@@ -79,6 +82,7 @@ public class PartitionAccessImpl implements PartitionAccess {
      * @param gcUpdateHandler Gc update handler.
      * @param fullStateTransferIndexChooser Index chooser for full state transfer.
      * @param schemaRegistry Schema registry.
+     * @param lowWatermark Low watermark.
      */
     public PartitionAccessImpl(
             PartitionKey partitionKey,
@@ -88,7 +92,8 @@ public class PartitionAccessImpl implements PartitionAccess {
             IndexUpdateHandler indexUpdateHandler,
             GcUpdateHandler gcUpdateHandler,
             FullStateTransferIndexChooser fullStateTransferIndexChooser,
-            SchemaRegistry schemaRegistry
+            SchemaRegistry schemaRegistry,
+            LowWatermark lowWatermark
     ) {
         this.partitionKey = partitionKey;
         this.mvTableStorage = mvTableStorage;
@@ -98,6 +103,7 @@ public class PartitionAccessImpl implements PartitionAccess {
         this.gcUpdateHandler = gcUpdateHandler;
         this.fullStateTransferIndexChooser = fullStateTransferIndexChooser;
         this.schemaRegistry = schemaRegistry;
+        this.lowWatermark = lowWatermark;
     }
 
     @Override
@@ -277,6 +283,11 @@ public class PartitionAccessImpl implements PartitionAccess {
 
             return null;
         });
+    }
+
+    @Override
+    public void updateLowWatermark(HybridTimestamp newLowWatermark) {
+        lowWatermark.updateLowWatermark(newLowWatermark);
     }
 
     private MvPartitionStorage getMvPartitionStorage(int partitionId) {
