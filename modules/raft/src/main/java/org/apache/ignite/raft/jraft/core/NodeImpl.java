@@ -2747,17 +2747,6 @@ public class NodeImpl implements Node, RaftServerService {
         }
     }
 
-    @Override
-    public long lastAppliedIndex() {
-        this.readLock.lock();
-        try {
-            return fsmCaller.getLastAppliedIndex();
-        }
-        finally {
-            this.readLock.unlock();
-        }
-    }
-
     @OnlyForTest
     ConfigurationEntry getConf() {
         this.readLock.lock();

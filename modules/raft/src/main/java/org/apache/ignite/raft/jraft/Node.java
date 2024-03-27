@@ -320,8 +320,5 @@ public interface Node extends Lifecycle<NodeOptions>, Describer {
 
     boolean isInstallingSnapshot();
 
-    // TODO Read diskId, not last log index, because it would makes more practical sense.
     long lastLogIndex();
-
-    long lastAppliedIndex();
 }

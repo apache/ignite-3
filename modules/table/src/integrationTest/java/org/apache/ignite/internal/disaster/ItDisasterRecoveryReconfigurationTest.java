@@ -25,12 +25,12 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.replicator.configuration.ReplicationConfigurationSchema.DEFAULT_IDLE_SAFE_TIME_PROP_DURATION;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.is;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -140,7 +140,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         awaitPrimaryReplica(node0, partId);
 
-        assertEquals(List.of(0, 1, 4), getRealAssignments(node0, partId));
+        assertRealAssignments(node0, partId, 0, 1, 4);
 
         List<Throwable> errors = insertValues(table, partId, 0);
         assertThat(errors, is(empty()));
@@ -149,8 +149,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         waitForScale(node0, 3);
 
-        // TODO flaky, I need to wait for this condition to pass.
-        assertEquals(List.of(0, 2, 3), getRealAssignments(node0, partId));
+        assertRealAssignments(node0, partId, 0, 2, 3);
 
         // Set time in the future to protect us from "getAsync" from the past.
         // Should be replaced with "sleep" when clock skew validation is implemented.
@@ -188,7 +187,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         awaitPrimaryReplica(node0, partId);
 
-        assertEquals(List.of(0, 3, 4), getRealAssignments(node0, partId));
+        assertRealAssignments(node0, partId, 0, 3, 4);
 
         stopNodesInParallel(3, 4);
 
@@ -199,13 +198,12 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         awaitPrimaryReplica(node0, partId);
 
-        assertEquals(List.of(0, 1, 2), getRealAssignments(node0, partId));
+        assertRealAssignments(node0, partId, 0, 1, 2);
 
         List<Throwable> errors = insertValues(table, partId, 0);
         assertThat(errors, is(empty()));
     }
 
-    // TODO this piece of crap fails for some reason :(
     /**
      * Tests a scenario where there's a single partition on a node 1, and the node that hosts it is lost. Reconfiguration of the zone should
      * create new raft group on the remaining node, without any data.
@@ -220,7 +218,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         awaitPrimaryReplica(node0, partId);
 
-        assertEquals(List.of(1), getRealAssignments(node0, partId));
+        assertRealAssignments(node0, partId, 1);
 
         stopNodesInParallel(1);
 
@@ -231,7 +229,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         awaitPrimaryReplica(node0, partId);
 
-        assertEquals(List.of(0), getRealAssignments(node0, partId));
+        assertRealAssignments(node0, partId, 0);
 
         List<Throwable> errors = insertValues(table, partId, 0);
         assertThat(errors, is(empty()));
@@ -242,6 +240,10 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
                 .awaitPrimaryReplica(new TablePartitionId(tableId, partId), node0.clock().now(), 60, SECONDS);
 
         assertThat(awaitPrimaryReplicaFuture, willCompleteSuccessfully());
+    }
+
+    private void assertRealAssignments(IgniteImpl node0, int partId, Integer... expected) throws InterruptedException {
+        assertTrue(waitForCondition(() -> List.of(expected).equals(getRealAssignments(node0, partId)), 2000));
     }
 
     /**
