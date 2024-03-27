@@ -400,6 +400,10 @@ void big_integer::store_bytes(std::byte *data) const {
 
         if (size > 0) {
             std::uint32_t last = mag.empty() ? 0u : mag.back();
+            if (std::int8_t(last) < 0 && size == 1) {
+                last = 0;
+            }
+
             switch (size) {
                 case 3:
                     data[size - 3] = std::byte(last >> 16);
@@ -430,6 +434,9 @@ void big_integer::store_bytes(std::byte *data) const {
 
         if (size > 0) {
             std::uint32_t last = ~mag.back() + carry;
+            if (std::int8_t(last) > 0 && size == 1) {
+                last = -1;
+            }
 
             switch (size) {
                 case 3:
