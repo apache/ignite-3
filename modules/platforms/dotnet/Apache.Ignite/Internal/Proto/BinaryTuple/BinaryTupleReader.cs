@@ -565,21 +565,40 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             switch (mode)
             {
                 case BinaryTupleCommon.DecimalScaleNone:
-                    return ReadDecimalUnscaled(span, scale);
-            }
+                    return ReadDecimalUnscaled(span[1..], scale, scale);
 
-            return ReadDecimalUnscaled(span, scale);
+                case BinaryTupleCommon.DecimalScaleOneByte:
+                {
+                    var valScale = firstByte & 0b00111111;
+                    return ReadDecimalUnscaled(span[1..], valScale, scale);
+                }
+
+                case BinaryTupleCommon.DecimalScaleTwoBytes:
+                {
+                    var valScale = (firstByte & 0b00111111) + (span[1] << 6);
+                    return ReadDecimalUnscaled(span[2..], valScale, scale);
+                }
+
+                case BinaryTupleCommon.DecimalScaleThreeBytes:
+                {
+                    var valScale = BinaryPrimitives.ReadInt16LittleEndian(span[1..2]);
+                    return ReadDecimalUnscaled(span[3..], valScale, scale);
+                }
+
+                default:
+                    throw new InvalidOperationException("Invalid decimal scale first byte: " + firstByte);
+            }
         }
 
-        private static decimal? ReadDecimalUnscaled(ReadOnlySpan<byte> span, int scale)
+        private static decimal? ReadDecimalUnscaled(ReadOnlySpan<byte> span, int valScale, int schemaScale)
         {
             var unscaled = new BigInteger(span, isBigEndian: true);
             var res = (decimal)unscaled;
 
-            if (scale > 0)
+            if (schemaScale > 0)
             {
                 // TODO: Divide in BigInteger form to fit bigger scales.
-                res /= (decimal)BigInteger.Pow(10, scale);
+                res /= (decimal)BigInteger.Pow(10, schemaScale);
             }
 
             return res;
