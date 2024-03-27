@@ -511,12 +511,12 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         );
 
         CompletableFuture<Replica> replicaFuture = replicas.compute(replicaGrpId, (k, existingReplicaFuture) -> {
-            if (existingReplicaFuture == null ) {
+            if (existingReplicaFuture == null || existingReplicaFuture.isDone()) {
+                assert existingReplicaFuture == null || isCompletedSuccessfully(existingReplicaFuture);
                 LOG.info("Replica is started [replicationGroupId={}].", replicaGrpId);
 
                 return completedFuture(newReplica);
             } else {
-                assert !existingReplicaFuture.isDone();
                 existingReplicaFuture.complete(newReplica);
                 LOG.info("Replica is started, existing waiter was completed [replicationGroupId={}].", replicaGrpId);
 
@@ -774,6 +774,17 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 r.join().processRequest(req, localNodeId);
             }
         });
+    }
+
+    /**
+     * Check if replica is started.
+     *
+     * @param replicaGrpId Replication group id.
+     * @return True if the replica is started.
+     */
+    public boolean isReplicaStarted(ReplicationGroupId replicaGrpId) {
+        CompletableFuture<Replica> replicaFuture = replicas.get(replicaGrpId);
+        return replicaFuture != null && isCompletedSuccessfully(replicaFuture);
     }
 
     /**
