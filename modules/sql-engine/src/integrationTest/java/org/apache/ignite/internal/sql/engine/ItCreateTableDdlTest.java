@@ -64,14 +64,23 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     public void pkWithNullableColumns() {
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "Primary key cannot contain nullable column [col=ID0]",
+                "Primary key cannot contain nullable column [col=ID0].",
                 () -> sql("CREATE TABLE T0(ID0 INT NULL, ID1 INT NOT NULL, VAL INT, PRIMARY KEY (ID1, ID0))")
         );
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "Primary key cannot contain nullable column [col=ID]",
+                "Primary key cannot contain nullable column [col=ID].",
                 () -> sql("CREATE TABLE T0(ID INT NULL PRIMARY KEY, VAL INT)")
+        );
+    }
+
+    @Test
+    public void pkWithDuplicatesColumn() {
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "PK column 'ID1' specified more that once.",
+                () -> sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, ID0, ID1))")
         );
     }
 
@@ -79,7 +88,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     public void pkWithInvalidColumns() {
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "Primary key constraint contains undefined columns: [cols=[ID2]]",
+                "Primary key constraint contains undefined columns: [cols=[ID2]].",
                 () -> sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID2, ID0))")
         );
     }
@@ -128,7 +137,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     public void undefinedColumnsInPrimaryKey() {
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "Primary key constraint contains undefined columns: [cols=[ID0, ID2, ID1]]",
+                "Primary key constraint contains undefined columns: [cols=[ID1, ID0, ID2]].",
                 () -> sql("CREATE TABLE T0(ID INT, VAL INT, PRIMARY KEY (ID1, ID0, ID2))")
         );
     }

@@ -46,11 +46,11 @@ public class TableSortedPrimaryKey extends TablePrimaryKey {
 
     /** {@inheritDoc} */
     @Override
-    void validate(Set<String> columns) {
-        super.validate(columns);
+    void validate(List<ColumnParams> allColumns) {
+        super.validate(allColumns);
 
         if (columns().size() != collations.size()) {
-            throw new CatalogValidationException("Number of collations does not match");
+            throw new CatalogValidationException("Number of collations does not match.");
         }
     }
 
