@@ -1712,7 +1712,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * This operation is idempotent, so it's safe to retry it.
      *
      * @param request Transaction cleanup request.
-     * @return CompletableFuture of void.
+     * @return CompletableFuture of ReplicaResult.
      */
     private CompletableFuture<ReplicaResult> processWriteIntentSwitchAction(WriteIntentSwitchReplicaRequest request) {
         markFinished(request.txId(), request.commit() ? COMMITTED : ABORTED, request.commitTimestamp());

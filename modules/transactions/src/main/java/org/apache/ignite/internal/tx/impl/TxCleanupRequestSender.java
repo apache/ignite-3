@@ -52,8 +52,10 @@ public class TxCleanupRequestSender {
 
     private final TxMessageSender txMessageSender;
 
+    /** The map of txId to a cleanup context, tracking partitions with replicated write intents. */
     private final ConcurrentMap<UUID, CleanupContext> writeIntentsReplicated = new ConcurrentHashMap<>();
 
+    /** Local transaction state storage. */
     private final VolatileTxStateMetaStorage txStateVolatileStorage;
 
     /**
@@ -61,7 +63,7 @@ public class TxCleanupRequestSender {
      *
      * @param txMessageSender Message sender.
      * @param placementDriverHelper Placement driver helper.
-     * @param txStateVolatileStorage Volatile txn state storage.
+     * @param txStateVolatileStorage Volatile transaction state storage.
      */
     public TxCleanupRequestSender(
             TxMessageSender txMessageSender,
@@ -74,7 +76,7 @@ public class TxCleanupRequestSender {
     }
 
     /**
-     * Starts the processor.
+     * Starts the request sender.
      */
     public void start() {
         txMessageSender.messagingService().addMessageHandler(TxMessageGroup.class, (msg, sender, correlationId) -> {
@@ -106,7 +108,7 @@ public class TxCleanupRequestSender {
         long cleanupCompletionTimestamp = System.currentTimeMillis();
 
         txStateVolatileStorage.updateMeta(txId, oldMeta ->
-                new TxStateMeta(state,
+                new TxStateMeta(oldMeta == null ? state : oldMeta.txState(),
                         oldMeta == null ? null : oldMeta.txCoordinatorId(),
                         oldMeta == null ? null : oldMeta.commitPartitionId(),
                         oldMeta == null ? null : oldMeta.commitTimestamp(),
@@ -141,8 +143,9 @@ public class TxCleanupRequestSender {
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId
     ) {
+        // Start tracking the partitions we want to learn the replication confirmation from.
         writeIntentsReplicated.put(txId, new CleanupContext(enlistedPartitions.keySet(), commit ? TxState.COMMITTED : TxState.ABORTED));
-        // Main entry point.
+
         Map<String, Set<TablePartitionId>> partitions = new HashMap<>();
         enlistedPartitions.forEach((partitionId, nodeId) ->
                 partitions.computeIfAbsent(nodeId, node -> new HashSet<>()).add(partitionId));
@@ -235,8 +238,14 @@ public class TxCleanupRequestSender {
 
     private static class CleanupContext {
 
+        /**
+         * The partitions the we have not received write intent replication confirmation for.
+         */
         private final Set<TablePartitionId> partitions;
 
+        /**
+         * The state of the transaction.
+         */
         private final TxState txState;
 
         public CleanupContext(Set<TablePartitionId> partitions, TxState txState) {

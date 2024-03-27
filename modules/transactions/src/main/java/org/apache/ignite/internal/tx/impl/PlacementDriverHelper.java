@@ -106,6 +106,11 @@ public class PlacementDriverHelper {
      *         failed to find the primary for.
      */
     public CompletableFuture<PartitionData> findPrimaryReplicas(Collection<TablePartitionId> partitions) {
+        // Please note that we are using `get primary replica` instead of `await primary replica`.
+        // This method is faster, yet we still have the correctness:
+        // If the primary replica has not changed, get will return a valid value and we'll send an unlock request to this node.
+        // If the primary replica has expired and get returns null (or a different node), the primary node step down logic
+        // will automatically release the locks on that node. All we need to do is to clean the storage.
         return computePrimaryReplicas(partitions, placementDriver::getPrimaryReplica);
     }
 
@@ -139,11 +144,6 @@ public class PlacementDriverHelper {
 
         Map<TablePartitionId, CompletableFuture<ReplicaMeta>> primaryReplicaFutures = new HashMap<>();
 
-        // Please note that we are using `get primary replica` instead of `await primary replica`.
-        // This method is faster, yet we still have the correctness:
-        // If the primary replica has not changed, get will return a valid value and we'll send an unlock request to this node.
-        // If the primary replica has expired and get returns null (or a different node), the primary node step down logic
-        // will automatically release the locks on that node. All we need to do is to clean the storage.
         for (TablePartitionId partitionId : partitions) {
             primaryReplicaFutures.put(partitionId, placementFunction.apply(partitionId, timestamp));
         }

@@ -66,6 +66,7 @@ public class TxCleanupRequestHandler {
     /** Cursor registry. */
     private final RemotelyTriggeredResourceRegistry remotelyTriggeredResourceRegistry;
 
+    /** The map of txId to a cleanup context, tracking replicated write intents. */
     private final ConcurrentMap<UUID, CleanupContext> writeIntentsReplicated = new ConcurrentHashMap<>();
 
     /**
@@ -185,6 +186,13 @@ public class TxCleanupRequestHandler {
                 .build();
     }
 
+    /**
+     * Start tracking the cleanup replication process for the provided transaction.
+     *
+     * @param txId Transaction id.
+     * @param groups Replication groups.
+     * @param sender Cleanup request sender, needed to send cleanup replicated response.
+     */
     private void trackPartitions(UUID txId, Collection<ReplicationGroupId> groups, ClusterNode sender) {
         Set<TablePartitionId> partitions =
                 groups.stream()
@@ -194,6 +202,11 @@ public class TxCleanupRequestHandler {
         writeIntentsReplicated.put(txId, new CleanupContext(sender, partitions, partitions));
     }
 
+    /**
+     * Process the replication response from a write intent switch request.
+     *
+     * @param response Write intent replication response.
+     */
     private void processWriteIntentSwitchResponse(ReplicaResponse response) {
         Object result = response.result();
 
@@ -202,6 +215,11 @@ public class TxCleanupRequestHandler {
         }
     }
 
+    /**
+     * Process the replication response from a write intent switch request.
+     *
+     * @param info Write intent replication info.
+     */
     void writeIntentSwitchReplicated(WriteIntentSwitchReplicatedInfo info) {
         CleanupContext cleanupContext = writeIntentsReplicated.computeIfPresent(info.txId(), (uuid, context) -> {
             Set<TablePartitionId> partitions = new HashSet<>(context.partitions);
@@ -218,8 +236,15 @@ public class TxCleanupRequestHandler {
         }
     }
 
-    private void sendCleanupReplicatedResponse(UUID uuid, ClusterNode sender, Collection<TablePartitionId> partitions) {
-        messagingService.send(sender, ChannelType.DEFAULT, prepareResponse(new CleanupReplicatedInfo(uuid, partitions)));
+    /**
+     * Send cleanup replicated response back to the sender (which is the commit partition primary).
+     *
+     * @param txId Transaction id.
+     * @param sender Cleanup request sender.
+     * @param partitions Partitions that we received replication confirmation for.
+     */
+    private void sendCleanupReplicatedResponse(UUID txId, ClusterNode sender, Collection<TablePartitionId> partitions) {
+        messagingService.send(sender, ChannelType.DEFAULT, prepareResponse(new CleanupReplicatedInfo(txId, partitions)));
     }
 
     private static class CleanupContext {
