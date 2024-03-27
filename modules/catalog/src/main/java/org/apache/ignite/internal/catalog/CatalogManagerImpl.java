@@ -387,8 +387,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                             catalog = catalogByVer.get(err0.version());
                             error = err0.initial();
                         } else {
-                            catalog = catalogByVer.lastEntry().getValue();
-                            error = err;
+                            return failedFuture(err).thenApply(unused -> newVersion);
                         }
 
                         if (catalog.version() == 0) {
