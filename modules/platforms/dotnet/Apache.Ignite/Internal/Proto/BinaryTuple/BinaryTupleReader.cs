@@ -559,11 +559,26 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 return null;
             }
 
+            var firstByte = span[0];
+            var mode = (byte) (firstByte & 0b11000000);
+
+            switch (mode)
+            {
+                case BinaryTupleCommon.DecimalScaleNone:
+                    return ReadDecimalUnscaled(span, scale);
+            }
+
+            return ReadDecimalUnscaled(span, scale);
+        }
+
+        private static decimal? ReadDecimalUnscaled(ReadOnlySpan<byte> span, int scale)
+        {
             var unscaled = new BigInteger(span, isBigEndian: true);
             var res = (decimal)unscaled;
 
             if (scale > 0)
             {
+                // TODO: Divide in BigInteger form to fit bigger scales.
                 res /= (decimal)BigInteger.Pow(10, scale);
             }
 

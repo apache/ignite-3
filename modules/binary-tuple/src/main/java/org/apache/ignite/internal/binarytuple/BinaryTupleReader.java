@@ -272,6 +272,7 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
         byte mode = (byte) (firstByte & 0b11000000);
 
         // TODO: Deduplicate code.
+        // TODO: Avoid setScale call and compute final scale in BigDecimal constructor.
         switch (mode) {
             case DECIMAL_SCALE_NONE:
                 return new BigDecimal(numberValue(begin + 1, end), scale);

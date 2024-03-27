@@ -43,6 +43,26 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         public const byte VarlenEmptyByte = 0x80;
 
         /// <summary>
+        /// Decimal scale flag: none.
+        /// </summary>
+        public const byte DecimalScaleNone = 0;
+
+        /// <summary>
+        /// Decimal scale flag: one byte.
+        /// </summary>
+        public const byte DecimalScaleOneByte = 1 << 6;
+
+        /// <summary>
+        /// Decimal scale flag: two bytes.
+        /// </summary>
+        public const byte DecimalScaleTwoBytes = 2 << 6;
+
+        /// <summary>
+        /// Decimal scale flag: three bytes.
+        /// </summary>
+        public const byte DecimalScaleThreeBytes = 3 << 6;
+
+        /// <summary>
         /// Calculates flags for a given size of variable-length area.
         /// </summary>
         /// <param name="size">Variable-length area size.</param>
