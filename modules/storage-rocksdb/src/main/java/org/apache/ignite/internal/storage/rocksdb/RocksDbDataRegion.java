@@ -33,7 +33,7 @@ import org.rocksdb.WriteBufferManager;
  */
 public class RocksDbDataRegion {
     /** Region configuration. */
-    private final RocksDbDataRegionView cfg;
+    private final RocksDbDataRegionView dataRegionView;
 
     /** RocksDB cache instance. */
     private Cache cache;
@@ -44,33 +44,34 @@ public class RocksDbDataRegion {
     /**
      * Constructor.
      *
-     * @param cfg Data region configuration.
+     * @param dataRegionView Data region configuration.
      */
-    public RocksDbDataRegion(RocksDbDataRegionView cfg) {
-        this.cfg = cfg;
+    public RocksDbDataRegion(RocksDbDataRegionView dataRegionView) {
+        this.dataRegionView = dataRegionView;
     }
 
     /**
      * Start the rocksDb data region.
      */
     public void start() {
-        long writeBufferSize = cfg.writeBufferSize();
+        long writeBufferSize = dataRegionView.writeBufferSize();
 
-        long totalCacheSize = cfg.size() + writeBufferSize;
+        long totalCacheSize = dataRegionView.size() + writeBufferSize;
 
-        switch (cfg.cache().toLowerCase(Locale.ROOT)) {
+        switch (dataRegionView.cache().toLowerCase(Locale.ROOT)) {
             case ROCKSDB_CLOCK_CACHE:
-                cache = new ClockCache(totalCacheSize, cfg.numShardBits(), false);
+                cache = new ClockCache(totalCacheSize, dataRegionView.numShardBits(), false);
 
                 break;
 
             case ROCKSDB_LRU_CACHE:
-                cache = new LRUCache(totalCacheSize, cfg.numShardBits(), false);
+                cache = new LRUCache(totalCacheSize, dataRegionView.numShardBits(), false);
 
                 break;
 
             default:
-                assert false : cfg.cache();
+                assert false : String.format("Unknown data region cache type: [dataRegion=%s, cacheType=%s]",
+                        dataRegionView.name(), dataRegionView.cache());
         }
 
         writeBufferManager = new WriteBufferManager(writeBufferSize, cache);
