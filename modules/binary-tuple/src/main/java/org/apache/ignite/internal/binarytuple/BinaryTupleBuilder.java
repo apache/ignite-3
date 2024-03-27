@@ -324,6 +324,7 @@ public class BinaryTupleBuilder {
         int valScale = value.scale();
 
         if (valScale < 0) {
+            value = value.setScale(0, RoundingMode.UNNECESSARY);
             valScale = 0;
         }
 
