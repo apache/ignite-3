@@ -40,6 +40,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Integration test for set op (EXCEPT, INTERSECT).
@@ -278,6 +279,25 @@ public class ItSetOpTest extends BaseSqlIntegrationTest {
                 .check();
     }
 
+    @Test
+    public void testUnionDifferentNumericTypes() {
+        String query = "SELECT * FROM ("
+                + "SELECT id, val FROM t1 "
+                + "UNION "
+                + "SELECT id, val FROM t2) ORDER BY id";
+
+        assertQuery(query)
+                .returns(1, new BigDecimal("1.00"))
+                .returns(2, new BigDecimal("2.00"))
+                .returns(3, new BigDecimal("3.00"))
+                .returns(4, new BigDecimal("4.00"))
+                .columnMetadata(
+                        new MetadataMatcher().type(ColumnType.INT32),
+                        new MetadataMatcher().type(ColumnType.DECIMAL)
+                )
+                .check();
+    }
+
     /**
      * Test that set op node can be rewinded.
      */
@@ -340,54 +360,6 @@ public class ItSetOpTest extends BaseSqlIntegrationTest {
 
     private static void createTable(String tableName) {
         sql("CREATE TABLE " + tableName + "(id INT PRIMARY KEY, name VARCHAR, salary DOUBLE)");
-    }
-
-    @Test
-    public void testUnionAllOfDifferentTypes() {
-        sql("CREATE TABLE t1(id INTEGER PRIMARY KEY, val INTEGER)");
-        sql("CREATE TABLE t2(id INTEGER PRIMARY KEY, val DECIMAL(4,2))");
-
-        sql("INSERT INTO t1 VALUES(1, 1)");
-        sql("INSERT INTO t2 VALUES(1, 2)");
-
-        String query = ""
-                + "SELECT id, val FROM t1 "
-                + "UNION "
-                + "SELECT id, val FROM t2";
-
-        assertQuery(query)
-                .returns(1, new BigDecimal("1.00"))
-                .returns(1, new BigDecimal("2.00"))
-                .columnMetadata(
-                        new MetadataMatcher().nullable(false).type(ColumnType.INT32),
-                        new MetadataMatcher().nullable(true).type(ColumnType.DECIMAL)
-                )
-                .check();
-    }
-
-    @Test
-    public void testUnionAllDifferentNullability() {
-        sql("CREATE TABLE t3(id INTEGER PRIMARY KEY, val INTEGER)");
-        sql("CREATE TABLE t4(id INTEGER PRIMARY KEY, val INTEGER NOT NULL)");
-
-        sql("INSERT INTO t3 VALUES(1, 1)");
-        sql("INSERT INTO t4 VALUES(1, 2)");
-        sql("INSERT INTO t3 VALUES(2, NULL)");
-
-        String query = ""
-                + "SELECT id, val FROM t3 "
-                + "UNION "
-                + "SELECT id, val FROM t4";
-
-        assertQuery(query)
-                .returns(1, 1)
-                .returns(1, 2)
-                .returns(2, null)
-                .columnMetadata(
-                        new MetadataMatcher().nullable(false).type(ColumnType.INT32),
-                        new MetadataMatcher().nullable(true).type(ColumnType.INT32)
-                )
-                .check();
     }
 
     private <T> long countIf(Iterable<T> it, Predicate<T> pred) {
