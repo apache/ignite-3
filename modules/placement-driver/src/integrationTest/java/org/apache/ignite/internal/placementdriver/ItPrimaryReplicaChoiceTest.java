@@ -58,6 +58,7 @@ import org.apache.ignite.internal.testframework.flow.TestFlowUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.apache.ignite.internal.utils.PrimaryReplica;
+import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.TransactionOptions;
@@ -114,7 +115,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
     @Test
     public void testPrimaryChangeSubscription() throws Exception {
-        TableViewInternal tbl = (TableViewInternal) node(0).tables().table(TABLE_NAME);
+        TableViewInternal tbl = Wrappers.unwrap(node(0).tables().table(TABLE_NAME), TableViewInternal.class);
 
         var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
 
@@ -194,7 +195,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
     @Test
     @WithSystemProperty(key = IgniteSystemProperties.THREAD_ASSERTIONS_ENABLED, value = "false")
     public void testClearingTransactionResourcesWhenPrimaryChange() throws Exception {
-        TableViewInternal tbl = (TableViewInternal) node(0).tables().table(TABLE_NAME);
+        TableViewInternal tbl = Wrappers.unwrap(node(0).tables().table(TABLE_NAME), TableViewInternal.class);
 
         for (int i = 0; i < 10; i++) {
             assertTrue(tbl.recordView().insert(null, Tuple.create().set("key", i).set("val", "preload val")));
@@ -235,13 +236,14 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
         scanSingleEntryAndLeaveCursorOpen(tbl, roTx, hashIdxId, idxKey);
         scanSingleEntryAndLeaveCursorOpen(tbl, roTx, sortedIdxId, null);
 
-        var partitionStorage = (TestMvPartitionStorage) ((TableViewInternal) ignite.tables().table(TABLE_NAME))
+        TableViewInternal tableViewInternal = Wrappers.unwrap(ignite.tables().table(TABLE_NAME), TableViewInternal.class);
+        var partitionStorage = (TestMvPartitionStorage) tableViewInternal
                 .internalTable().storage().getMvPartition(PART_ID);
 
-        var hashIdxStorage = (TestHashIndexStorage) ((TableViewInternal) ignite.tables().table(TABLE_NAME))
+        var hashIdxStorage = (TestHashIndexStorage) tableViewInternal
                 .internalTable().storage().getIndex(PART_ID, hashIdxId);
 
-        var sortedIdxStorage = (TestSortedIndexStorage) ((TableViewInternal) ignite.tables().table(TABLE_NAME))
+        var sortedIdxStorage = (TestSortedIndexStorage) tableViewInternal
                 .internalTable().storage().getIndex(PART_ID, sortedIdxId);
 
         assertTrue(ignite.txManager().lockManager().locks(rwTx.id()).hasNext());
