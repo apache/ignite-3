@@ -227,7 +227,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                     // If we 'stop' a replica before its future even appears, invocation will not get ReplicaStoppingException
                     // as there was no sign of the replica yet.
                     assertTrue(
-                            waitForCondition(() -> replicaManager.isReplicaStarted(tablePartitionId), TimeUnit.SECONDS.toMillis(10))
+                            waitForCondition(() -> replicaManager.isReplicaTouched(tablePartitionId), TimeUnit.SECONDS.toMillis(10))
                     );
 
                     assertThat(replicaManager.stopReplica(tablePartitionId), willSucceedFast());
