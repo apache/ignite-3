@@ -23,7 +23,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.wrapper.Wrapper;
-import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -45,6 +44,8 @@ public class AntiHijackRecordView<R> extends AntiHijackViewBase<R> implements Re
      */
     public AntiHijackRecordView(RecordView<R> view, Executor asyncContinuationExecutor) {
         super(view, view, asyncContinuationExecutor);
+
+        assert !(view instanceof Wrapper) : "Wrapping other wrappers is not supported";
 
         this.view = view;
     }
@@ -211,6 +212,6 @@ public class AntiHijackRecordView<R> extends AntiHijackViewBase<R> implements Re
 
     @Override
     public <T> T unwrap(Class<T> classToUnwrap) {
-        return Wrappers.unwrap(view, classToUnwrap);
+        return classToUnwrap.cast(view);
     }
 }

@@ -23,6 +23,7 @@ import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import org.apache.ignite.internal.thread.PublicApiThreading;
+import org.apache.ignite.internal.wrapper.Wrapper;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.tx.Transaction;
@@ -45,6 +46,8 @@ public class AntiHijackKeyValueView<K, V> extends AntiHijackViewBase<Entry<K, V>
      */
     public AntiHijackKeyValueView(KeyValueView<K, V> view, Executor asyncContinuationExecutor) {
         super(view, view, asyncContinuationExecutor);
+
+        assert !(view instanceof Wrapper) : "Wrapping other wrappers is not supported";
 
         this.view = view;
     }

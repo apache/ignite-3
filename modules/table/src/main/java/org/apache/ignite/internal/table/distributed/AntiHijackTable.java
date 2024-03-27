@@ -23,7 +23,6 @@ import org.apache.ignite.internal.table.AntiHijackKeyValueView;
 import org.apache.ignite.internal.table.AntiHijackRecordView;
 import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.wrapper.Wrapper;
-import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
@@ -43,6 +42,8 @@ class AntiHijackTable implements Table, Wrapper {
      * Constructor.
      */
     AntiHijackTable(Table table, Executor asyncContinuationExecutor) {
+        assert !(table instanceof Wrapper) : "Wrapping other wrappers is not supported";
+
         this.table = table;
         this.asyncContinuationExecutor = asyncContinuationExecutor;
     }
@@ -74,6 +75,6 @@ class AntiHijackTable implements Table, Wrapper {
 
     @Override
     public <T> T unwrap(Class<T> classToUnwrap) {
-        return Wrappers.unwrap(table, classToUnwrap);
+        return classToUnwrap.cast(table);
     }
 }

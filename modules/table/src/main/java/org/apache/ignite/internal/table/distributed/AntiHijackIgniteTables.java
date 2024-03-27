@@ -23,7 +23,6 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import org.apache.ignite.internal.wrapper.Wrapper;
-import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.jetbrains.annotations.Nullable;
@@ -39,6 +38,8 @@ public class AntiHijackIgniteTables implements IgniteTables, Wrapper {
      * Constructor.
      */
     public AntiHijackIgniteTables(IgniteTables tables, Executor asyncContinuationExecutor) {
+        assert !(tables instanceof Wrapper) : "Wrapping other wrappers is not supported";
+
         this.tables = tables;
         this.asyncContinuationExecutor = asyncContinuationExecutor;
     }
@@ -81,6 +82,6 @@ public class AntiHijackIgniteTables implements IgniteTables, Wrapper {
 
     @Override
     public <T> T unwrap(Class<T> classToUnwrap) {
-        return Wrappers.unwrap(tables, classToUnwrap);
+        return classToUnwrap.cast(tables);
     }
 }
