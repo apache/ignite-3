@@ -597,7 +597,6 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
 
             if (scale > 0)
             {
-                // TODO: Divide in BigInteger form to fit bigger scales.
                 res /= (decimal)BigInteger.Pow(10, scale);
             }
 
