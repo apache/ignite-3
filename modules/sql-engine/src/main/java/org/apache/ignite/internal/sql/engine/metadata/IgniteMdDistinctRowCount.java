@@ -17,7 +17,10 @@
 
 package org.apache.ignite.internal.sql.engine.metadata;
 
+import org.apache.calcite.plan.Convention;
 import org.apache.calcite.plan.volcano.RelSubset;
+import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.core.Aggregate;
 import org.apache.calcite.rel.metadata.ReflectiveRelMetadataProvider;
 import org.apache.calcite.rel.metadata.RelMdDistinctRowCount;
 import org.apache.calcite.rel.metadata.RelMetadataProvider;
@@ -25,6 +28,7 @@ import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.BuiltInMethod;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * IgniteMdDistinctRowCount.
@@ -36,6 +40,11 @@ public class IgniteMdDistinctRowCount extends RelMdDistinctRowCount {
             ReflectiveRelMetadataProvider.reflectiveSource(
                     BuiltInMethod.DISTINCT_ROW_COUNT.method, new IgniteMdDistinctRowCount());
 
+    @Override
+    public Double getDistinctRowCount(Aggregate rel, RelMetadataQuery mq, ImmutableBitSet groupKey, @Nullable RexNode predicate) {
+        return rel.estimateRowCount(mq);
+    }
+
     /** {@inheritDoc} */
     @Override
     public Double getDistinctRowCount(
@@ -44,14 +53,22 @@ public class IgniteMdDistinctRowCount extends RelMdDistinctRowCount {
             ImmutableBitSet groupKey,
             RexNode predicate
     ) {
-        if (groupKey.cardinality() == 0) {
-            return 1d;
+        RelNode best = rel.getBest();
+        if (best != null) {
+            return mq.getDistinctRowCount(best, groupKey, predicate);
         }
 
-        double rowCount = mq.getRowCount(rel);
+        if (rel.getConvention() == Convention.NONE) {
+            return null;
+        }
 
-        rowCount *= 1.0 - Math.pow(.5, groupKey.cardinality());
-
-        return rowCount;
+        int groupSize = groupKey.cardinality();
+        if (groupSize == 0) {
+            return 1.0;
+        } else {
+            double rowCount = mq.getRowCount(rel);
+            rowCount *= (1.0 - Math.pow(.8, groupSize));
+            return rowCount;
+        }
     }
 }
