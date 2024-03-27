@@ -22,6 +22,7 @@ import static java.util.stream.Collectors.toList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.wrapper.Wrapper;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.manager.IgniteTables;
@@ -65,8 +66,8 @@ public class AntiHijackIgniteTables implements IgniteTables, Wrapper {
 
     @Override
     public CompletableFuture<List<Table>> tablesAsync() {
-        // TODO: prevent thread hijacking https://issues.apache.org/jira/browse/IGNITE-21849
-        return tables.tablesAsync().thenApply(this::wrapInPublicProxies);
+        return preventThreadHijack(tables.tablesAsync())
+                .thenApply(this::wrapInPublicProxies);
     }
 
     @Override
@@ -76,8 +77,12 @@ public class AntiHijackIgniteTables implements IgniteTables, Wrapper {
 
     @Override
     public CompletableFuture<Table> tableAsync(String name) {
-        // TODO: prevent thread hijacking https://issues.apache.org/jira/browse/IGNITE-21849
-        return tables.tableAsync(name).thenApply(this::wrapInPublicProxy);
+        return preventThreadHijack(tables.tableAsync(name))
+                .thenApply(this::wrapInPublicProxy);
+    }
+
+    private <T> CompletableFuture<T> preventThreadHijack(CompletableFuture<T> originalFuture) {
+        return PublicApiThreading.preventThreadHijack(originalFuture, asyncContinuationExecutor);
     }
 
     @Override
