@@ -37,7 +37,7 @@ public class ItCreateManyTablesTest extends BaseSqlIntegrationTest {
         createZoneOnlyIfNotExists(ZONE_NAME, initialNodes(), DEFAULT_PARTITION_COUNT, DEFAULT_STORAGE_ENGINE);
 
         for (int i = 0; i < 1_000; i++) {
-            createTableOnly("TABLE_" + i, ZONE_NAME);
+            createTableOnly2("TABLE_" + i, ZONE_NAME);
         }
     }
 }

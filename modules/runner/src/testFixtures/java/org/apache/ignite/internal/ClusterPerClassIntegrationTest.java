@@ -166,6 +166,21 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     }
 
     /**
+     * Creates a table.
+     *
+     * @param tableName Table name.
+     * @param zoneName Zone name.
+     */
+    protected static Table createTableOnly2(String tableName, String zoneName) {
+        sql(format(
+                "CREATE TABLE {} (id INT PRIMARY KEY, name VARCHAR, salary DOUBLE) WITH PRIMARY_ZONE='{}'",
+                tableName, zoneName
+        ));
+
+        return CLUSTER.node(0).tables().table(tableName);
+    }
+
+    /**
      * Creates a zone.
      *
      * @param zoneName Zone name.
