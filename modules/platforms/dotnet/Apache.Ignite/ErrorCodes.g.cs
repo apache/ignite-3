@@ -82,9 +82,6 @@ namespace Apache.Ignite
             /// <summary> ResourceClosing error. </summary>
             public const int ResourceClosing = (GroupCode << 16) | (7 & 0xFFFF);
 
-            /// <summary> RetryNeeded error. </summary>
-            public const int RetryNeeded = (GroupCode << 16) | (8 & 0xFFFF);
-
             /// <summary> Internal error. </summary>
             public const int Internal = (GroupCode << 16) | (65535 & 0xFFFF);
         }
@@ -359,9 +356,6 @@ namespace Apache.Ignite
 
             /// <summary> AlreadyDestroyed error. </summary>
             public const int AlreadyDestroyed = (GroupCode << 16) | (5 & 0xFFFF);
-
-            /// <summary> ReadingFromAlreadyDestroyedIndex error. </summary>
-            public const int ReadingFromAlreadyDestroyedIndex = (GroupCode << 16) | (6 & 0xFFFF);
         }
 
         /// <summary> DistributionZones errors. </summary>

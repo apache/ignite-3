@@ -17,10 +17,11 @@
 
 package org.apache.ignite.internal.index;
 
-import static org.apache.ignite.lang.ErrorGroups.Common.RETRY_NEEDED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Storage.ALREADY_DESTROYED_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -137,8 +138,11 @@ class ItIndexAndIndexStorageDestructionTest extends ClusterPerTestIntegrationTes
                 () -> cluster.query(0, "SELECT * FROM " + TABLE_NAME + " WHERE name = 'John'", rs -> null)
         );
 
-        assertThat(ex.code(), is(RETRY_NEEDED_ERR));
-        assertThat(ex.getMessage(), is("Query has been executed using an outdated plan. Retry the query."));
+        assertThat(ex.code(), is(ALREADY_DESTROYED_ERR));
+        assertThat(
+                ex.getMessage(),
+                startsWith("Read from an index storage that is in the process of being destroyed or already destroyed")
+        );
     }
 
     @Test
@@ -151,7 +155,10 @@ class ItIndexAndIndexStorageDestructionTest extends ClusterPerTestIntegrationTes
             }
         });
 
-        assertThat(ex.code(), is(RETRY_NEEDED_ERR));
-        assertThat(ex.getMessage(), is("Query has been executed using an outdated plan. Retry the query."));
+        assertThat(ex.code(), is(ALREADY_DESTROYED_ERR));
+        assertThat(
+                ex.getMessage(),
+                startsWith("Read from an index storage that is in the process of being destroyed or already destroyed")
+        );
     }
 }

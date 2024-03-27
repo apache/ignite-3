@@ -31,8 +31,6 @@ import org.apache.ignite.internal.lang.IgniteExceptionMapper;
 import org.apache.ignite.internal.lang.IgniteExceptionMappersProvider;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.exec.RemoteFragmentExecutionException;
-import org.apache.ignite.lang.ErrorGroups.Common;
-import org.apache.ignite.lang.ErrorGroups.Storage;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.SqlException;
 
@@ -50,15 +48,6 @@ public class SqlExceptionMapperProvider implements IgniteExceptionMappersProvide
         mappers.add(unchecked(RemoteFragmentExecutionException.class, err -> {
             if (err.groupCode() == SQL_ERR_GROUP.groupCode()) {
                 return new SqlException(err.traceId(), err.code(), err.getMessage(), err);
-            }
-
-            if (err.code() == Storage.READING_FROM_ALREADY_DESTROYED_INDEX_ERR) {
-                return new SqlException(
-                        err.traceId(),
-                        Common.RETRY_NEEDED_ERR,
-                        "Query has been executed using an outdated plan. Retry the query.",
-                        err
-                );
             }
 
             return new IgniteException(err.traceId(), err.code(), err.getMessage(), err);

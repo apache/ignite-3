@@ -139,9 +139,6 @@ public class ErrorGroups {
         /** Resource closing error. */
         public static final int RESOURCE_CLOSING_ERR = COMMON_ERR_GROUP.registerErrorCode((short) 7);
 
-        /** An operation should be retried. */
-        public static final int RETRY_NEEDED_ERR = COMMON_ERR_GROUP.registerErrorCode((short) 8);
-
         /**
          * This error code represents an internal error caused by faulty logic or coding in the Ignite codebase.
          * In general, this error code should be considered as a non-recoverable error
@@ -420,9 +417,6 @@ public class ErrorGroups {
 
         /** Operation on a destroyed storage. */
         public static final int ALREADY_DESTROYED_ERR = STORAGE_ERR_GROUP.registerErrorCode((short) 5);
-
-        /** Read operation on a destroyed index storage. */
-        public static final int READING_FROM_ALREADY_DESTROYED_INDEX_ERR = STORAGE_ERR_GROUP.registerErrorCode((short) 6);
     }
 
     /** Distribution zones error group. */

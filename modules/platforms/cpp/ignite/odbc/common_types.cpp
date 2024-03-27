@@ -120,7 +120,6 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::ILLEGAL_ARGUMENT:
         case error::code::SSL_CONFIGURATION:
         case error::code::NODE_LEFT:
-        case error::code::RETRY_NEEDED:
         case error::code::INTERNAL:
             return sql_state::SHY000_GENERAL_ERROR;
 
@@ -228,7 +227,6 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::ALREADY_CLOSED:
         case error::code::STORAGE_REBALANCE:
         case error::code::ALREADY_DESTROYED:
-        case error::code::READING_FROM_ALREADY_DESTROYED_INDEX:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // DistributionZones group. Group code: 10

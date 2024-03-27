@@ -21,7 +21,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
-import org.apache.ignite.internal.storage.ReadFromDestroyedIndexStorageException;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageDestroyedException;
@@ -162,7 +161,10 @@ public class StorageUtils {
                 throw new StorageException(createStorageInProcessOfCleanupErrorMessage(storageInfo));
             case DESTROYED:
                 if (read) {
-                    throw new ReadFromDestroyedIndexStorageException(createStorageDestroyedErrorMessage(storageInfo));
+                    throw new StorageDestroyedException(IgniteStringFormatter.format(
+                            "Read from an index storage that is in the process of being destroyed or already destroyed: [{}]",
+                            storageInfo
+                    ));
                 } else {
                     throw new StorageDestroyedException(createStorageDestroyedErrorMessage(storageInfo));
                 }

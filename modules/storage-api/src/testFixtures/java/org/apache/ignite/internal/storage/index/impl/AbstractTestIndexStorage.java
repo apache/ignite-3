@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.storage.util.StorageUtils.initialRowIdT
 import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.storage.ReadFromDestroyedIndexStorageException;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageDestroyedException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
@@ -167,11 +166,7 @@ abstract class AbstractTestIndexStorage implements IndexStorage {
 
     void checkStorageClosed(boolean read) {
         if (destroyed) {
-            if (read) {
-                throw new ReadFromDestroyedIndexStorageException();
-            } else {
-                throw new StorageDestroyedException();
-            }
+            throw new StorageDestroyedException();
         }
     }
 
