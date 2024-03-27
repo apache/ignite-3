@@ -177,6 +177,14 @@ public:
      * @brief Reads value of specified element.
      *
      * @param bytes Binary view of the element.
+     * @return Element value.
+     */
+    static big_decimal get_decimal(bytes_view bytes);
+
+    /**
+     * @brief Reads value of specified element.
+     *
+     * @param bytes Binary view of the element.
      * @param scale Scale of the decimal.
      * @return Element value.
      */

@@ -87,7 +87,7 @@ public:
      * @param val String to assign.
      * @param len String length.
      */
-    big_decimal(const char *val, int32_t len)
+    explicit big_decimal(const char *val, int32_t len)
         : m_magnitude(0) {
         assign_string(val, len);
     }

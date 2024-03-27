@@ -223,17 +223,21 @@ big_integer binary_tuple_parser::get_number(bytes_view bytes) {
     return {bytes.data(), bytes.size()};
 }
 
-big_decimal binary_tuple_parser::get_decimal(bytes_view bytes, std::int16_t scale) {
+big_decimal binary_tuple_parser::get_decimal(bytes_view bytes) {
     auto val_scale = load_little<std::int16_t>(bytes);
 
-    if (val_scale > scale)
-        throw std::out_of_range("Invalid scale, expected less than or equal to " + std::to_string(scale) + ", but was "
-            + std::to_string(val_scale));
-
     big_integer mag(bytes.data() + 2, bytes.size() - 2);
-    big_decimal val{std::move(mag), val_scale};
-    val.set_scale(scale, val);
+    return {std::move(mag), val_scale};
+}
 
+big_decimal binary_tuple_parser::get_decimal(bytes_view bytes, std::int16_t scale) {
+    auto val = get_decimal(bytes);
+
+    if (val.get_scale() > scale)
+        throw std::out_of_range("Invalid scale, expected less than or equal to " + std::to_string(scale) + ", but was "
+            + std::to_string(val.get_scale()));
+
+    val.set_scale(scale, val);
     return val;
 }
 
