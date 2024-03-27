@@ -30,7 +30,6 @@ import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
@@ -139,12 +138,12 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
     /**
      * Benchmark state for {@link #sqlInsert(SqlState)} and {@link #sqlInsertScript(SqlState)}.
      *
-     * <p>Holds {@link Session} and {@link Statement}.
+     * <p>Holds {@link Statement}.
      */
     @State(Scope.Benchmark)
     public static class SqlState {
         private Statement statement;
-        private Session session;
+        private IgniteSql sql;
 
         /**
          * Initializes session and statement.
@@ -153,44 +152,33 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
         public void setUp() {
             String queryStr = createInsertStatement();
 
-            IgniteSql sql = clusterNode.sql();
-
+            sql = clusterNode.sql();
             statement = sql.createStatement(queryStr);
-            session = sql.createSession();
-        }
-
-        /**
-         * Closes resources.
-         */
-        @TearDown
-        public void tearDown() throws Exception {
-            // statement.close() throws `UnsupportedOperationException("Not implemented yet.")`, that's why it's commented.
-            IgniteUtils.closeAll(session/* , statement*/);
         }
 
         private int id = 0;
 
         void executeQuery() {
-            try (ResultSet<?> rs = session.execute(null, statement, id++)) {
+            try (ResultSet<?> rs = sql.execute(null, statement, id++)) {
                 // NO-OP
             }
         }
 
         void executeScript() {
-            session.executeScript(statement.query(), id++);
+            sql.executeScript(statement.query(), id++);
         }
     }
 
     /**
      * Benchmark state for {@link #sqlThinInsert(SqlThinState)}.
      *
-     * <p>Holds {@link Session}, {@link IgniteClient}, and {@link Statement}.
+     * <p>Holds {@link IgniteClient} and {@link Statement}.
      */
     @State(Scope.Benchmark)
     public static class SqlThinState {
         private IgniteClient client;
         private Statement statement;
-        private Session session;
+        private IgniteSql sql;
 
         /**
          * Initializes session and statement.
@@ -201,10 +189,9 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
 
             client = IgniteClient.builder().addresses("127.0.0.1:10800").build();
 
-            IgniteSql sql = client.sql();
+            sql = client.sql();
 
             statement = sql.createStatement(queryStr);
-            session = sql.createSession();
         }
 
         /**
@@ -213,13 +200,13 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
         @TearDown
         public void tearDown() throws Exception {
             // statement.close() throws `UnsupportedOperationException("Not implemented yet.")`, that's why it's commented.
-            IgniteUtils.closeAll(session/* , statement*/, client);
+            IgniteUtils.closeAll(/* statement, */ client);
         }
 
         private int id = 0;
 
         void executeQuery() {
-            session.execute(null, statement, id++);
+            sql.execute(null, statement, id++);
         }
     }
 
@@ -243,7 +230,7 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
         public void setUp() throws SQLException {
             String queryStr = createInsertStatement();
 
-            // noinspection CallToDriverManagerGetConnection
+            //noinspection CallToDriverManagerGetConnection
             conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
 
             stmt = conn.prepareStatement(queryStr);

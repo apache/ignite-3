@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.params.ParameterizedTest.ARGUMENTS_PLACEHOLDER;
 
@@ -92,9 +93,10 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
             sql("insert into test1 values(?, ?, ?)", i, generateValueByType(i, type), 0);
         }
 
-        int parts = ((TableViewInternal) CLUSTER.aliveNode().tables().table("test0")).internalTable().partitions();
-        TableViewInternal tbl0 = (TableViewInternal) CLUSTER.aliveNode().tables().table("test0");
-        TableViewInternal tbl1 = (TableViewInternal) CLUSTER.aliveNode().tables().table("test1");
+        TableViewInternal tableViewInternal = unwrapTableViewInternal(CLUSTER.aliveNode().tables().table("test0"));
+        int parts = tableViewInternal.internalTable().partitions();
+        TableViewInternal tbl0 = unwrapTableViewInternal(CLUSTER.aliveNode().tables().table("test0"));
+        TableViewInternal tbl1 = unwrapTableViewInternal(CLUSTER.aliveNode().tables().table("test1"));
 
         for (int i = 0; i < parts; ++i) {
             List<Tuple> r0 = getAll(tbl0, i);

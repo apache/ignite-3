@@ -44,7 +44,7 @@ import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
-import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -62,7 +62,6 @@ import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.sql.IgniteSql;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -82,9 +81,6 @@ public class ClientHandlerModule implements IgniteComponent {
 
     /** Ignite transactions API. */
     private final IgniteTransactionsImpl igniteTransactions;
-
-    /** Ignite SQL API. */
-    private final IgniteSql sql;
 
     /** Cluster ID supplier. */
     private final Supplier<CompletableFuture<ClusterTag>> clusterTagSupplier;
@@ -113,7 +109,7 @@ public class ClientHandlerModule implements IgniteComponent {
 
     private final AuthenticationManager authenticationManager;
 
-    private final HybridClock clock;
+    private final ClockService clockService;
 
     private final SchemaSyncService schemaSyncService;
 
@@ -140,11 +136,10 @@ public class ClientHandlerModule implements IgniteComponent {
      * @param igniteCompute Compute.
      * @param clusterService Cluster.
      * @param bootstrapFactory Bootstrap factory.
-     * @param sql SQL.
      * @param clusterTagSupplier ClusterTag supplier.
      * @param metricManager Metric manager.
      * @param authenticationManager Authentication manager.
-     * @param clock Hybrid clock.
+     * @param clockService Clock service.
      * @param clientConnectorConfiguration Configuration of the connector.
      * @param lowWatermark Low watermark.
      */
@@ -155,12 +150,11 @@ public class ClientHandlerModule implements IgniteComponent {
             IgniteComputeInternal igniteCompute,
             ClusterService clusterService,
             NettyBootstrapFactory bootstrapFactory,
-            IgniteSql sql,
             Supplier<CompletableFuture<ClusterTag>> clusterTagSupplier,
             MetricManager metricManager,
             ClientHandlerMetricSource metrics,
             AuthenticationManager authenticationManager,
-            HybridClock clock,
+            ClockService clockService,
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
             PlacementDriver placementDriver,
@@ -172,12 +166,11 @@ public class ClientHandlerModule implements IgniteComponent {
         assert igniteCompute != null;
         assert clusterService != null;
         assert bootstrapFactory != null;
-        assert sql != null;
         assert clusterTagSupplier != null;
         assert metricManager != null;
         assert metrics != null;
         assert authenticationManager != null;
-        assert clock != null;
+        assert clockService != null;
         assert schemaSyncService != null;
         assert catalogService != null;
         assert placementDriver != null;
@@ -190,15 +183,14 @@ public class ClientHandlerModule implements IgniteComponent {
         this.igniteCompute = igniteCompute;
         this.clusterService = clusterService;
         this.bootstrapFactory = bootstrapFactory;
-        this.sql = sql;
         this.clusterTagSupplier = clusterTagSupplier;
         this.metricManager = metricManager;
         this.metrics = metrics;
         this.authenticationManager = authenticationManager;
-        this.clock = clock;
+        this.clockService = clockService;
         this.schemaSyncService = schemaSyncService;
         this.catalogService = catalogService;
-        this.primaryReplicaTracker = new ClientPrimaryReplicaTracker(placementDriver, catalogService, clock, schemaSyncService,
+        this.primaryReplicaTracker = new ClientPrimaryReplicaTracker(placementDriver, catalogService, clockService, schemaSyncService,
                 lowWatermark);
         this.clientConnectorConfiguration = clientConnectorConfiguration;
     }
@@ -302,7 +294,7 @@ public class ClientHandlerModule implements IgniteComponent {
                             ClientInboundMessageHandler messageHandler = createInboundMessageHandler(
                                     configuration, clusterTag, connectionId);
 
-                            // noinspection TestOnlyProblems
+                            //noinspection TestOnlyProblems
                             handler = messageHandler;
 
                             ch.pipeline().addLast(
@@ -371,11 +363,10 @@ public class ClientHandlerModule implements IgniteComponent {
                 configuration,
                 igniteCompute,
                 clusterService,
-                sql,
                 clusterTag,
                 metrics,
                 authenticationManager,
-                clock,
+                clockService,
                 schemaSyncService,
                 catalogService,
                 connectionId,

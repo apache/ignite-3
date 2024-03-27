@@ -54,6 +54,7 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
+import org.apache.ignite.internal.table.distributed.LowWatermark;
 import org.apache.ignite.internal.table.distributed.gc.GcUpdateHandler;
 import org.apache.ignite.internal.table.distributed.gc.MvGc;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
@@ -296,7 +297,8 @@ public class PartitionAccessImplTest extends BaseIgniteAbstractTest {
                 mock(IndexUpdateHandler.class),
                 mock(GcUpdateHandler.class),
                 mock(FullStateTransferIndexChooser.class),
-                SCHEMA_REGISTRY
+                SCHEMA_REGISTRY,
+                mock(LowWatermark.class)
         );
     }
 
@@ -313,7 +315,8 @@ public class PartitionAccessImplTest extends BaseIgniteAbstractTest {
                 indexUpdateHandler,
                 mock(GcUpdateHandler.class),
                 fullStateTransferIndexChooser,
-                SCHEMA_REGISTRY
+                SCHEMA_REGISTRY,
+                mock(LowWatermark.class)
         );
     }
 }

@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.collectIn
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceIndex;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceTable;
+import static org.apache.ignite.internal.hlc.TestClockService.TEST_MAX_CLOCK_SKEW_MILLIS;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -396,10 +397,10 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
         Catalog catalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
 
         HybridTimestamp expClusterWideActivationTs = HybridTimestamp.hybridTimestamp(catalog.time())
-                .addPhysicalTime(HybridTimestamp.maxClockSkew())
+                .addPhysicalTime(TEST_MAX_CLOCK_SKEW_MILLIS)
                 .roundUpToPhysicalTick();
 
-        assertEquals(expClusterWideActivationTs, clusterWideEnsuredActivationTimestamp(catalog));
+        assertEquals(expClusterWideActivationTs, clusterWideEnsuredActivationTimestamp(catalog, TEST_MAX_CLOCK_SKEW_MILLIS));
     }
 
     private void createTable(String tableName) {

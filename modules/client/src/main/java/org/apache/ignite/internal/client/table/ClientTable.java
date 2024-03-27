@@ -39,6 +39,7 @@ import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
+import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
@@ -67,6 +68,8 @@ public class ClientTable implements Table {
     private final ReliableChannel ch;
 
     private final MarshallersProvider marshallers;
+
+    private final ClientSql sql;
 
     private final ConcurrentHashMap<Integer, CompletableFuture<ClientSchema>> schemas = new ConcurrentHashMap<>();
 
@@ -100,6 +103,7 @@ public class ClientTable implements Table {
         this.id = id;
         this.name = name;
         this.log = ClientUtils.logger(ch.configuration(), ClientTable.class);
+        this.sql = new ClientSql(ch, marshallers);
     }
 
     /**
@@ -140,12 +144,12 @@ public class ClientTable implements Table {
     public <R> RecordView<R> recordView(Mapper<R> recMapper) {
         Objects.requireNonNull(recMapper);
 
-        return new ClientRecordView<>(this, recMapper);
+        return new ClientRecordView<>(this, sql, recMapper);
     }
 
     @Override
     public RecordView<Tuple> recordView() {
-        return new ClientRecordBinaryView(this);
+        return new ClientRecordBinaryView(this, sql);
     }
 
     /** {@inheritDoc} */
@@ -154,13 +158,13 @@ public class ClientTable implements Table {
         Objects.requireNonNull(keyMapper);
         Objects.requireNonNull(valMapper);
 
-        return new ClientKeyValueView<>(this, keyMapper, valMapper);
+        return new ClientKeyValueView<>(this, sql, keyMapper, valMapper);
     }
 
     /** {@inheritDoc} */
     @Override
     public KeyValueView<Tuple, Tuple> keyValueView() {
-        return new ClientKeyValueBinaryView(this);
+        return new ClientKeyValueBinaryView(this, sql);
     }
 
     CompletableFuture<ClientSchema> getLatestSchema() {
@@ -274,7 +278,7 @@ public class ClientTable implements Table {
         } else {
             ClientTransaction clientTx = ClientTransaction.get(tx);
 
-            // noinspection resource
+            //noinspection resource
             if (clientTx.channel() != out.clientChannel()) {
                 // Do not throw IgniteClientConnectionException to avoid retry kicking in.
                 throw new IgniteException(CONNECTION_ERR, "Transaction context has been lost due to connection errors.");

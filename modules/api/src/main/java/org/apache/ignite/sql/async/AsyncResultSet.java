@@ -20,10 +20,10 @@ package org.apache.ignite.sql.async;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.lang.CursorClosedException;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.ResultSetMetadata;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
@@ -55,8 +55,8 @@ import org.jetbrains.annotations.Nullable;
  *     if no explicit mapper is provided or a particular type defined by supplied mapper.
  *
  * @see ResultSet
- * @see Session#executeAsync(Transaction, String, Object...)
- * @see Session#executeAsync(Transaction, Mapper, String, Object...)
+ * @see IgniteSql#executeAsync(Transaction, String, Object...)
+ * @see IgniteSql#executeAsync(Transaction, Mapper, String, Object...)
  */
 public interface AsyncResultSet<T> extends AsyncCursor<T> {
     /**

@@ -46,6 +46,7 @@ import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnType;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -84,6 +85,7 @@ public class ItFunctionsTest extends BaseSqlIntegrationTest {
 
     @ParameterizedTest(name = "use default time zone: {0}")
     @ValueSource(booleans = {true, false})
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18647")
     public void testCurrentDateTimeTimeStamp(boolean useDefaultTimeZone) {
         ZoneId zoneId = ZoneId.systemDefault();
 

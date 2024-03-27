@@ -75,7 +75,6 @@ import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.BaseIgniteRestartTest;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
-import org.apache.ignite.internal.catalog.ClockWaiter;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
@@ -94,7 +93,9 @@ import org.apache.ignite.internal.configuration.validation.ConfigurationValidato
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.Augmentation;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.ZoneState;
 import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -247,7 +248,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         var clockWaiter = new ClockWaiter(name, clock);
 
-        var catalogManager = new CatalogManagerImpl(new UpdateLogImpl(metastore), clockWaiter, clock);
+        var catalogManager = new CatalogManagerImpl(new UpdateLogImpl(metastore), new TestClockService(clock, clockWaiter));
 
         ScheduledExecutorService rebalanceScheduler = new ScheduledThreadPoolExecutor(REBALANCE_SCHEDULER_POOL_SIZE,
                 NamedThreadFactory.create(name, "test-rebalance-scheduler", logger()));

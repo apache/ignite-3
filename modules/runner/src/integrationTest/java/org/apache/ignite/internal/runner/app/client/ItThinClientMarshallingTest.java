@@ -158,7 +158,7 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
     @Test
     public void testMissingValTupleFields() {
         var tableName = "testMissingValTupleFields";
-        ignite().sql().createSession().execute(null, "CREATE TABLE " + tableName + " (KEY INT PRIMARY KEY, VAL VARCHAR NOT NULL)");
+        ignite().sql().execute(null, "CREATE TABLE " + tableName + " (KEY INT PRIMARY KEY, VAL VARCHAR NOT NULL)");
 
         Table table = ignite().tables().table(tableName);
         var tupleView = table.recordView();
@@ -181,7 +181,7 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
     @Test
     public void testKvMissingValTupleFields() {
         var tableName = "testKvMissingValTupleFields";
-        ignite().sql().createSession().execute(null, "CREATE TABLE " + tableName + " (KEY INT PRIMARY KEY, VAL VARCHAR NOT NULL)");
+        ignite().sql().execute(null, "CREATE TABLE " + tableName + " (KEY INT PRIMARY KEY, VAL VARCHAR NOT NULL)");
 
         Table table = ignite().tables().table(tableName);
         var tupleView = table.keyValueView();
@@ -198,7 +198,7 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
     @Test
     public void testMissingTupleFieldsWithDefaultValue() {
         var tableName = "testMissingTupleFieldsWithDefaultValue";
-        ignite().sql().createSession().execute(null,
+        ignite().sql().execute(null,
                 "CREATE TABLE " + tableName + " (KEY INT PRIMARY KEY, VAL VARCHAR NOT NULL DEFAULT 'def')");
 
         Table table = ignite().tables().table(tableName);
@@ -284,7 +284,7 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
     @Test
     public void testNullValTupleFields() {
         var tableName = "testNullValTupleFields";
-        ignite().sql().createSession().execute(null, "CREATE TABLE " + tableName + " (KEY INT PRIMARY KEY, VAL VARCHAR NOT NULL)");
+        ignite().sql().execute(null, "CREATE TABLE " + tableName + " (KEY INT PRIMARY KEY, VAL VARCHAR NOT NULL)");
 
         Table table = ignite().tables().table(tableName);
         var tupleView = table.recordView();
@@ -308,7 +308,7 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
     @Test
     public void testKvNullValTupleFields() {
         var tableName = "testKvNullValTupleFields";
-        ignite().sql().createSession().execute(null, "CREATE TABLE " + tableName + " (KEY INT PRIMARY KEY, VAL VARCHAR NOT NULL)");
+        ignite().sql().execute(null, "CREATE TABLE " + tableName + " (KEY INT PRIMARY KEY, VAL VARCHAR NOT NULL)");
 
         Table table = ignite().tables().table(tableName);
         var tupleView = table.keyValueView();

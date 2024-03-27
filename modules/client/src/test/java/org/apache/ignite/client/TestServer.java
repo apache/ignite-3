@@ -53,6 +53,7 @@ import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterService;
@@ -206,7 +207,8 @@ public class TestServer implements AutoCloseable {
         if (securityConfiguration == null) {
             authenticationManager = new DummyAuthenticationManager();
         } else {
-            authenticationManager = new AuthenticationManagerImpl(securityConfiguration);
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-21665.
+            authenticationManager = new AuthenticationManagerImpl(securityConfiguration, ign -> {});
             authenticationManager.start();
         }
 
@@ -238,12 +240,11 @@ public class TestServer implements AutoCloseable {
                         compute,
                         clusterService,
                         bootstrapFactory,
-                        ignite.sql(),
                         () -> CompletableFuture.completedFuture(tag),
                         mock(MetricManager.class),
                         metrics,
                         authenticationManager,
-                        clock,
+                        new TestClockService(clock),
                         new AlwaysSyncedSchemaSyncService(),
                         new FakeCatalogService(FakeInternalTable.PARTITIONS),
                         placementDriver,
