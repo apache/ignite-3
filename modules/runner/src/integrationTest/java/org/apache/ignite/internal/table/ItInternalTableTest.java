@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
 import static org.apache.ignite.internal.schema.BinaryRowMatcher.equalToRow;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
@@ -61,7 +62,6 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
@@ -155,62 +155,6 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
         stopTable(node(), TABLE_NAME);
 
         table = null;
-    }
-
-    private static TableViewInternal unwrapTableViewInternal(Table tableToUnwrap) {
-        return Wrappers.unwrap(tableToUnwrap, TableViewInternal.class);
-    }
-
-    /**
-     * Scans all table entries.
-     *
-     * @param node Ignite instance.
-     * @return Collection with all rows.
-     * @throws InterruptedException If fail.
-     */
-    private static List<BinaryRow> scanAllPartitions(IgniteImpl node) throws InterruptedException {
-        InternalTable internalTable = (unwrapTableViewInternal(node.tables().table(TABLE_NAME))).internalTable();
-
-        List<BinaryRow> retrievedItems = new CopyOnWriteArrayList<>();
-
-        int parts = internalTable.partitions();
-
-        var subscriberAllDataAwaitLatch = new CountDownLatch(parts);
-
-        InternalTransaction roTx =
-                (InternalTransaction) node.transactions().begin(new TransactionOptions().readOnly(true));
-
-        for (int i = 0; i < parts; i++) {
-            Publisher<BinaryRow> res = internalTable.scan(i, roTx.id(), node.clock().now(), node.node(), roTx.coordinatorId());
-
-            res.subscribe(new Subscriber<>() {
-                @Override
-                public void onSubscribe(Subscription subscription) {
-                    subscription.request(10000);
-                }
-
-                @Override
-                public void onNext(BinaryRow item) {
-                    retrievedItems.add(item);
-                }
-
-                @Override
-                public void onError(Throwable throwable) {
-                    fail("onError call is not expected.");
-                }
-
-                @Override
-                public void onComplete() {
-                    subscriberAllDataAwaitLatch.countDown();
-                }
-            });
-        }
-
-        assertTrue(subscriberAllDataAwaitLatch.await(10, TimeUnit.SECONDS));
-
-        roTx.commit();
-
-        return retrievedItems;
     }
 
     @Test
@@ -366,16 +310,6 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testRoScanAllImplicitPopulatingData() throws InterruptedException {
-        roScanAll(true);
-    }
-
-    @Test
-    public void testRoScanAllExplicitPopulatingData() throws InterruptedException {
-        roScanAll(false);
-    }
-
-    @Test
     public void testRoGetAllWithSeveralInserts() throws Exception {
         IgniteImpl node = node();
 
@@ -414,6 +348,16 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
         res = internalTable.getAll(keyRows, node.clock().now(), node.node()).get();
 
         assertThat(res, contains(equalToRow(newKeyValueRow1), equalToRow(newKeyValueRow2), equalToRow(newKeyValueRow3)));
+    }
+
+    @Test
+    public void testRoScanAllImplicitPopulatingData() throws InterruptedException {
+        roScanAll(true);
+    }
+
+    @Test
+    public void testRoScanAllExplicitPopulatingData() throws InterruptedException {
+        roScanAll(false);
     }
 
     @Test
@@ -568,6 +512,41 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
         assertEquals("row-" + lastId, res.stringValue("valStr"));
     }
 
+    @Test
+    public void updateAllWithDeleteTest() {
+        InternalTable internalTable = unwrapTableViewInternal(table).internalTable();
+
+        RecordView<Tuple> view = table.recordView();
+        view.upsert(null, Tuple.create().set("key", 1L).set("valInt", 1).set("valStr", "val1"));
+        view.upsert(null, Tuple.create().set("key", 3L).set("valInt", 3).set("valStr", "val3"));
+
+        // Update, insert, delete.
+        List<BinaryRowEx> rows = List.of(
+                createKeyValueRow(1, 11, "val11"),
+                createKeyValueRow(3, 2, "val2"),
+                createKeyRow(5)
+        );
+
+        int partitionId = internalTable.partitionId(rows.get(0));
+
+        for (int i = 0; i < rows.size(); i++) {
+            assertEquals(partitionId, internalTable.partitionId(rows.get(i)), "Unexpected partition for row " + i);
+        }
+
+        BitSet deleted = new BitSet(3);
+        deleted.set(2);
+        internalTable.updateAll(rows, deleted, partitionId).join();
+
+        var row1 = view.get(null, Tuple.create().set("key", 1L));
+        assertEquals(11, row1.intValue("valInt"));
+
+        var row2 = view.get(null, Tuple.create().set("key", 3L));
+        assertEquals(2, row2.intValue("valInt"));
+
+        var row3 = view.get(null, Tuple.create().set("key", 5L));
+        assertNull(row3);
+    }
+
     private ArrayList<BinaryRowEx> populateEvenKeysAndPrepareEntriesToLookup(boolean keyOnly) {
         KeyValueView<Tuple, Tuple> keyValueView = table.keyValueView();
 
@@ -602,39 +581,57 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
         assertEquals(15, retrievedItems.size());
     }
 
-    @Test
-    public void updateAllWithDeleteTest() {
-        InternalTable internalTable = unwrapTableViewInternal(table).internalTable();
 
-        RecordView<Tuple> view = table.recordView();
-        view.upsert(null, Tuple.create().set("key", 1L).set("valInt", 1).set("valStr", "val1"));
-        view.upsert(null, Tuple.create().set("key", 3L).set("valInt", 3).set("valStr", "val3"));
+    /**
+     * Scans all table entries.
+     *
+     * @param node Ignite instance.
+     * @return Collection with all rows.
+     * @throws InterruptedException If fail.
+     */
+    private static List<BinaryRow> scanAllPartitions(IgniteImpl node) throws InterruptedException {
+        InternalTable internalTable = unwrapTableViewInternal(node.tables().table(TABLE_NAME)).internalTable();
 
-        // Update, insert, delete.
-        List<BinaryRowEx> rows = List.of(
-                createKeyValueRow(1, 11, "val11"),
-                createKeyValueRow(3, 2, "val2"),
-                createKeyRow(5)
-        );
+        List<BinaryRow> retrievedItems = new CopyOnWriteArrayList<>();
 
-        int partitionId = internalTable.partitionId(rows.get(0));
+        int parts = internalTable.partitions();
 
-        for (int i = 0; i < rows.size(); i++) {
-            assertEquals(partitionId, internalTable.partitionId(rows.get(i)), "Unexpected partition for row " + i);
+        var subscriberAllDataAwaitLatch = new CountDownLatch(parts);
+
+        InternalTransaction roTx =
+                (InternalTransaction) node.transactions().begin(new TransactionOptions().readOnly(true));
+
+        for (int i = 0; i < parts; i++) {
+            Publisher<BinaryRow> res = internalTable.scan(i, roTx.id(), node.clock().now(), node.node(), roTx.coordinatorId());
+
+            res.subscribe(new Subscriber<>() {
+                @Override
+                public void onSubscribe(Subscription subscription) {
+                    subscription.request(10000);
+                }
+
+                @Override
+                public void onNext(BinaryRow item) {
+                    retrievedItems.add(item);
+                }
+
+                @Override
+                public void onError(Throwable throwable) {
+                    fail("onError call is not expected.");
+                }
+
+                @Override
+                public void onComplete() {
+                    subscriberAllDataAwaitLatch.countDown();
+                }
+            });
         }
 
-        BitSet deleted = new BitSet(3);
-        deleted.set(2);
-        internalTable.updateAll(rows, deleted, partitionId).join();
+        assertTrue(subscriberAllDataAwaitLatch.await(10, TimeUnit.SECONDS));
 
-        var row1 = view.get(null, Tuple.create().set("key", 1L));
-        assertEquals(11, row1.intValue("valInt"));
+        roTx.commit();
 
-        var row2 = view.get(null, Tuple.create().set("key", 3L));
-        assertEquals(2, row2.intValue("valInt"));
-
-        var row3 = view.get(null, Tuple.create().set("key", 5L));
-        assertNull(row3);
+        return retrievedItems;
     }
 
     private static Row createKeyValueRow(long id, int value, String str) {

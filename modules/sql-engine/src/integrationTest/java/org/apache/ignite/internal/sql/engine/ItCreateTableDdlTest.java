@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.SYSTEM_SCHEMAS;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
@@ -39,12 +40,9 @@ import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
-import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypeSpec;
-import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.lang.ErrorGroups.Sql;
-import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.AfterEach;
@@ -153,8 +151,18 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
         );
     }
 
-    private static TableViewInternal unwrapTableViewInternal(Table table) {
-        return Wrappers.unwrap(table, TableViewInternal.class);
+    /**
+     * Check implicit colocation columns configuration (defined by PK)..
+     */
+    @Test
+    public void implicitColocationColumns() {
+        sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, ID0))");
+
+        List<Column> colocationColumns = unwrapTableViewInternal(table("T0")).schemaView().lastKnownSchema().colocationColumns();
+
+        assertEquals(2, colocationColumns.size());
+        assertEquals("ID1", colocationColumns.get(0).name());
+        assertEquals("ID0", colocationColumns.get(1).name());
     }
 
     /** Test correct mapping schema after alter columns. */
@@ -279,20 +287,6 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
         int tableVersionAfter = getTableStrict(node.catalogManager(), "TEST", node.clock().nowLong()).tableVersion();
 
         assertEquals(tableVersionBefore + 1, tableVersionAfter);
-    }
-
-    /**
-     * Check implicit colocation columns configuration (defined by PK)..
-     */
-    @Test
-    public void implicitColocationColumns() {
-        sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, ID0))");
-
-        List<Column> colocationColumns = unwrapTableViewInternal(table("T0")).schemaView().lastKnownSchema().colocationColumns();
-
-        assertEquals(2, colocationColumns.size());
-        assertEquals("ID1", colocationColumns.get(0).name());
-        assertEquals("ID0", colocationColumns.get(1).name());
     }
 
     /**

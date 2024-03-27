@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.affinity.AffinityUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATER_OR_EQUAL;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.LESS_OR_EQUAL;
@@ -72,7 +73,6 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.utils.PrimaryReplica;
-import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
@@ -141,24 +141,32 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
         assertTrue(ignite.txManager().lockManager().isEmpty());
     }
 
-    private static TableViewInternal tableViewInternal(IgniteImpl ignite, String tableName) {
-        return Wrappers.unwrap(ignite.tables().table(tableName), TableViewInternal.class);
-    }
-
     /**
-     * Creates or gets, if the table already exists, a table with the sorted index.
+     * Checks all transaction cursors are closed.
      *
-     * @return Ignite table.
+     * @param ignite Ignite instance.
      */
-    private static TableViewInternal getOrCreateTable() {
-        sql("CREATE ZONE IF NOT EXISTS ZONE1 ENGINE " + TestStorageEngine.ENGINE_NAME + " WITH REPLICAS=1, PARTITIONS=1;");
+    private void checkCursorsAreClosed(IgniteImpl ignite) {
+        int sortedIdxId = getIndexId(ignite, SORTED_IDX);
 
-        sql("CREATE TABLE IF NOT EXISTS " + TABLE_NAME
-                + " (key INTEGER PRIMARY KEY, valInt INTEGER NOT NULL, valStr VARCHAR NOT NULL) WITH PRIMARY_ZONE='ZONE1';");
+        var partitionStorage = (TestMvPartitionStorage) unwrapTableViewInternal(ignite.tables().table(TABLE_NAME))
+                .internalTable().storage().getMvPartition(PART_ID);
+        var sortedIdxStorage = (TestSortedIndexStorage) unwrapTableViewInternal(ignite.tables().table(TABLE_NAME))
+                .internalTable().storage().getIndex(PART_ID, sortedIdxId);
 
-        sql("CREATE INDEX IF NOT EXISTS " + SORTED_IDX + " ON " + TABLE_NAME + " USING TREE (valInt)");
+        try {
+            assertTrue(
+                    waitForCondition(() -> partitionStorage.pendingCursors() == 0, AWAIT_TIMEOUT_MILLIS),
+                    "Alive versioned storage cursors: " + partitionStorage.pendingCursors()
+            );
 
-        return tableViewInternal(CLUSTER.aliveNode(), TABLE_NAME);
+            assertTrue(
+                    waitForCondition(() -> sortedIdxStorage.pendingCursors() == 0, AWAIT_TIMEOUT_MILLIS),
+                    "Alive index storage cursors: " + sortedIdxStorage.pendingCursors()
+            );
+        } catch (InterruptedException e) {
+            fail("Waiting cursors close was interrupted.");
+        }
     }
 
     /**
@@ -921,31 +929,19 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
     }
 
     /**
-     * Checks all transaction cursors are closed.
+     * Creates or gets, if the table already exists, a table with the sorted index.
      *
-     * @param ignite Ignite instance.
+     * @return Ignite table.
      */
-    private void checkCursorsAreClosed(IgniteImpl ignite) {
-        int sortedIdxId = getIndexId(ignite, SORTED_IDX);
+    private static TableViewInternal getOrCreateTable() {
+        sql("CREATE ZONE IF NOT EXISTS ZONE1 ENGINE " + TestStorageEngine.ENGINE_NAME + " WITH REPLICAS=1, PARTITIONS=1;");
 
-        var partitionStorage = (TestMvPartitionStorage) tableViewInternal(ignite, TABLE_NAME)
-                .internalTable().storage().getMvPartition(PART_ID);
-        var sortedIdxStorage = (TestSortedIndexStorage) tableViewInternal(ignite, TABLE_NAME)
-                .internalTable().storage().getIndex(PART_ID, sortedIdxId);
+        sql("CREATE TABLE IF NOT EXISTS " + TABLE_NAME
+                + " (key INTEGER PRIMARY KEY, valInt INTEGER NOT NULL, valStr VARCHAR NOT NULL) WITH PRIMARY_ZONE='ZONE1';");
 
-        try {
-            assertTrue(
-                    waitForCondition(() -> partitionStorage.pendingCursors() == 0, AWAIT_TIMEOUT_MILLIS),
-                    "Alive versioned storage cursors: " + partitionStorage.pendingCursors()
-            );
+        sql("CREATE INDEX IF NOT EXISTS " + SORTED_IDX + " ON " + TABLE_NAME + " USING TREE (valInt)");
 
-            assertTrue(
-                    waitForCondition(() -> sortedIdxStorage.pendingCursors() == 0, AWAIT_TIMEOUT_MILLIS),
-                    "Alive index storage cursors: " + sortedIdxStorage.pendingCursors()
-            );
-        } catch (InterruptedException e) {
-            fail("Waiting cursors close was interrupted.");
-        }
+        return unwrapTableViewInternal(CLUSTER.aliveNode().tables().table(TABLE_NAME));
     }
 
     /**
@@ -1016,7 +1012,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         InternalTransaction tx = (InternalTransaction) ignite.transactions().begin(new TransactionOptions().readOnly(readOnly));
 
-        InternalTable table = tableViewInternal(ignite, TABLE_NAME).internalTable();
+        InternalTable table = unwrapTableViewInternal(ignite.tables().table(TABLE_NAME)).internalTable();
         TablePartitionId tblPartId = new TablePartitionId(table.tableId(), partId);
 
         PlacementDriver placementDriver = ignite.placementDriver();
