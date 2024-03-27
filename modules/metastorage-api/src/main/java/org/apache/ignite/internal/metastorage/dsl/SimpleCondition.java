@@ -17,13 +17,15 @@
 
 package org.apache.ignite.internal.metastorage.dsl;
 
+import java.nio.charset.StandardCharsets;
+import org.apache.ignite.internal.network.ToString;
 import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
  * Represents a condition for a meta storage conditional update.
  */
 @Transferable(MetaStorageMessageGroup.SIMPLE_CONDITION)
-public interface SimpleCondition extends Condition {
+public interface SimpleCondition extends Condition, ToString {
     /** Entry key. */
     byte[] key();
 
@@ -39,21 +41,45 @@ public interface SimpleCondition extends Condition {
         return ConditionType.values()[conditionType()];
     }
 
+    @Override
+    default String toStr() {
+        return String.format(
+                "%s [type=%s, key=%s]",
+                getClass().getSimpleName(), type(), new String(key(), StandardCharsets.UTF_8)
+        );
+    }
+
     /**
      * Represents a condition on an entry revision.
      */
     @Transferable(MetaStorageMessageGroup.REVISION_CONDITION)
-    interface RevisionCondition extends SimpleCondition {
+    interface RevisionCondition extends SimpleCondition, ToString {
         /** The revision as the condition argument. */
         long revision();
+
+        @Override
+        default String toStr() {
+            return String.format(
+                    "%s [type=%s, key=%s, revision=%s]",
+                    getClass().getSimpleName(), type(), new String(key(), StandardCharsets.UTF_8), revision()
+            );
+        }
     }
 
     /**
      * Represents a condition on an entry value.
      */
     @Transferable(MetaStorageMessageGroup.VALUE_CONDITION)
-    interface ValueCondition extends SimpleCondition {
+    interface ValueCondition extends SimpleCondition, ToString {
         /** The value as the condition argument. */
         byte[] value();
+
+        @Override
+        default String toStr() {
+            return String.format(
+                    "%s [type=%s, key=%s]",
+                    getClass().getSimpleName(), type(), new String(key(), StandardCharsets.UTF_8)
+            );
+        }
     }
 }

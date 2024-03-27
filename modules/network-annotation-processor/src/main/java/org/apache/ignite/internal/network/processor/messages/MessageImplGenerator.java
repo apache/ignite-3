@@ -49,6 +49,7 @@ import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
 import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.ToString;
 import org.apache.ignite.internal.network.annotations.Marshallable;
 import org.apache.ignite.internal.network.annotations.WithSetter;
 import org.apache.ignite.internal.network.processor.MessageClass;
@@ -210,12 +211,18 @@ public class MessageImplGenerator {
         messageImpl.addMethod(groupTypeMethod);
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-17591
-        MethodSpec toStringMethod = MethodSpec.methodBuilder("toString")
+        Builder toStringBuilder = MethodSpec.methodBuilder("toString")
                 .addAnnotation(Override.class)
                 .addModifiers(Modifier.PUBLIC)
-                .returns(String.class)
-                .addStatement("return $T.toString($T.class, this)", S.class, messageImplClassName)
-                .build();
+                .returns(String.class);
+
+        if (message.element().getInterfaces().stream().anyMatch(t -> typeUtils.isSameType(t, ToString.class))) {
+            toStringBuilder.addStatement("return toStr()");
+        } else {
+            toStringBuilder.addStatement("return $T.toString($T.class, this)", S.class, messageImplClassName);
+        }
+
+        MethodSpec toStringMethod = toStringBuilder.build();
 
         messageImpl.addMethod(toStringMethod);
 

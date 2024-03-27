@@ -43,6 +43,7 @@ import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
 import org.apache.ignite.internal.metastorage.dsl.Statement.IfStatement;
 import org.apache.ignite.internal.metastorage.dsl.Statement.UpdateStatement;
+import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.server.AndCondition;
 import org.apache.ignite.internal.metastorage.server.Condition;
 import org.apache.ignite.internal.metastorage.server.ExistenceCondition;
@@ -123,8 +124,8 @@ public class MetaStorageWriteHandler {
         HybridTimestamp opTime = command.safeTime();
 
         LOG.info(
-                ">>>>> Debug MetaStorageWriteHandler#handleWriteWithTime: [index={}, term={}, safeTime={}, initiatorTime={}, commandCls={}]",
-                clo.index(), clo.term(), opTime, command.initiatorTime(), command.getClass().getSimpleName()
+                ">>>>> Debug MetaStorageWriteHandler#handleWriteWithTime: [index={}, term={}, safeTime={}, initiatorTime={}, command={}]",
+                clo.index(), clo.term(), opTime, command.initiatorTime(), command
         );
 
         if (command instanceof PutCommand) {
@@ -178,11 +179,25 @@ public class MetaStorageWriteHandler {
         } else if (command instanceof InvokeCommand) {
             InvokeCommand cmd = (InvokeCommand) command;
 
-            clo.result(storage.invoke(toCondition(cmd.condition()), cmd.success(), cmd.failure(), opTime));
+            boolean invoke = storage.invoke(toCondition(cmd.condition()), cmd.success(), cmd.failure(), opTime);
+
+            LOG.info(
+                    ">>>>> Debug MetaStorageWriteHandler#handleWriteWithTime: [index={}, term={}, result={}]",
+                    clo.index(), clo.term(), invoke
+            );
+
+            clo.result(invoke);
         } else if (command instanceof MultiInvokeCommand) {
             MultiInvokeCommand cmd = (MultiInvokeCommand) command;
 
-            clo.result(storage.invoke(toIf(cmd.iif()), opTime));
+            StatementResult invoke = storage.invoke(toIf(cmd.iif()), opTime);
+
+            LOG.info(
+                    ">>>>> Debug MetaStorageWriteHandler#handleWriteWithTime: [index={}, term={}, result={}]",
+                    clo.index(), clo.term(), invoke
+            );
+
+            clo.result(invoke);
         } else if (command instanceof SyncTimeCommand) {
             storage.advanceSafeTime(command.safeTime());
 

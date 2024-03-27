@@ -414,8 +414,8 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                 return failedFuture(ex);
             } finally {
                 LOG.info(
-                        ">>>>> CatalogManagerImpl#saveUpdate: [attemptNo={}, entries={}, catalogVersion={}]",
-                        attemptNo, updates, catalog.version()
+                        ">>>>> Debug CatalogManagerImpl#saveUpdate: [attemptNo={}, catalogVersion={}, updateProducer={}, entries={}]",
+                        attemptNo, catalog.version(), updateProducer, updates
                 );
             }
 
@@ -457,6 +457,11 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     class OnUpdateHandlerImpl implements OnUpdateHandler {
         @Override
         public CompletableFuture<Void> handle(UpdateLogEvent event, HybridTimestamp metaStorageUpdateTimestamp, long causalityToken) {
+            LOG.info(
+                    ">>>>> Debug OnUpdateHandlerImpl#handle: [metaStorageUpdateTimestamp={}, causalityToken={}, event={}]",
+                    metaStorageUpdateTimestamp, causalityToken, event
+            );
+
             if (event instanceof SnapshotEntry) {
                 return handle((SnapshotEntry) event);
             }
