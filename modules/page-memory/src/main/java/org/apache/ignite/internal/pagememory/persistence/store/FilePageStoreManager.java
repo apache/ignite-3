@@ -42,6 +42,8 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.failure.FailureType;
+import org.apache.ignite.internal.fileio.FileIo;
+import org.apache.ignite.internal.fileio.FileIoFactory;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
@@ -114,23 +116,26 @@ public class FilePageStoreManager implements PageReadWriteManager {
      *
      * @param igniteInstanceName Name of the Ignite instance.
      * @param storagePath Storage path.
-     * @param filePageStoreFactory {@link FilePageStore} factory.
+     * @param filePageStoreFileIoFactory {@link FileIo} factory for file page store.
+     * @param pageSize Page size in bytes.
      * @param failureProcessor Failure processor that is used to handler critical errors.
      */
     public FilePageStoreManager(
             String igniteInstanceName,
             Path storagePath,
-            FilePageStoreFactory filePageStoreFactory,
+            FileIoFactory filePageStoreFileIoFactory,
             // TODO: IGNITE-17017 Move to common config
+            int pageSize,
             FailureProcessor failureProcessor
     ) {
         this.dbDir = storagePath.resolve("db");
-        this.filePageStoreFactory = filePageStoreFactory;
         this.failureProcessor = failureProcessor;
 
         cleanupAsyncExecutor = new LongOperationAsyncExecutor(igniteInstanceName, LOG);
 
         groupPageStores = new GroupPageStoresMap<>(cleanupAsyncExecutor);
+
+        filePageStoreFactory = new FilePageStoreFactory(filePageStoreFileIoFactory, pageSize);
     }
 
     /**

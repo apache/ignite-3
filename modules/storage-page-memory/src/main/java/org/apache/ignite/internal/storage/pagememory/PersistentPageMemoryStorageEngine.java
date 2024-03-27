@@ -48,7 +48,6 @@ import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPage
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
-import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreFactory;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.storage.StorageException;
@@ -271,12 +270,11 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
      */
     protected FilePageStoreManager createFilePageStoreManager(String igniteInstanceName, Path storagePath, FileIoFactory fileIoFactory,
             int pageSize, FailureProcessor failureProcessor) throws IgniteInternalCheckedException {
-        FilePageStoreFactory filePageStoreFactory = new FilePageStoreFactory(fileIoFactory, pageSize);
-
         return new FilePageStoreManager(
                 igniteInstanceName,
                 storagePath,
-                filePageStoreFactory,
+                fileIoFactory,
+                pageSize,
                 failureProcessor
         );
     }

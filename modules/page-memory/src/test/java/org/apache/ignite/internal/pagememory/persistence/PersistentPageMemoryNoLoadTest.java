@@ -66,7 +66,6 @@ import org.apache.ignite.internal.pagememory.persistence.PartitionMeta.Partition
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointProgress;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
-import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreFactory;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -503,12 +502,11 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
     }
 
     private static FilePageStoreManager createFilePageStoreManager(Path storagePath) {
-        var filePageStoreFactory = new FilePageStoreFactory(new RandomAccessFileIoFactory(), PAGE_SIZE);
-
         return new FilePageStoreManager(
                 "test",
                 storagePath,
-                filePageStoreFactory,
+                new RandomAccessFileIoFactory(),
+                PAGE_SIZE,
                 mock(FailureProcessor.class));
     }
 
