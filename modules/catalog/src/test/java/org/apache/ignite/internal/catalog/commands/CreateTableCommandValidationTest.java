@@ -113,7 +113,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
                 ColumnParams.builder().name("C").type(INT32).defaultValue(DefaultValue.functionCall("function")).build(),
                 ColumnParams.builder().name("D").type(INT32).defaultValue(DefaultValue.constant(1)).build()
 
-        )).primaryKey(primaryKey("C","D"));
+        )).primaryKey(primaryKey("C", "D"));
 
         builder.build();
     }
@@ -175,7 +175,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
                 .columns(List.of(
                         ColumnParams.builder().name("C").type(INT32).build(),
                         ColumnParams.builder().name("D").type(INT32).build()))
-                .primaryKey(primaryKey("Z","D","E"));
+                .primaryKey(primaryKey("Z", "D", "E"));
 
         assertThrowsWithCause(
                 builder::build,
