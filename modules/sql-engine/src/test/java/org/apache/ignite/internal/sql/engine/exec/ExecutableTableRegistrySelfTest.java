@@ -28,6 +28,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -132,7 +133,14 @@ public class ExecutableTableRegistrySelfTest extends BaseIgniteAbstractTest {
         }
 
         Tester(int cacheSize) {
-            registry = new ExecutableTableRegistryImpl(tableManager, schemaManager, sqlSchemaManager, replicaService, clock, cacheSize);
+            registry = new ExecutableTableRegistryImpl(
+                    tableManager,
+                    schemaManager,
+                    sqlSchemaManager,
+                    replicaService,
+                    new TestClockService(clock),
+                    cacheSize
+            );
         }
 
         CompletableFuture<ExecutableTable> getTable(int tableId) {

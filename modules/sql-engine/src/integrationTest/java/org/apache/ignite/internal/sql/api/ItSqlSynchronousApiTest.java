@@ -130,7 +130,7 @@ public class ItSqlSynchronousApiTest extends ItSqlApiBaseTest {
 
         @Override
         public List<SqlRow> result() {
-            // noinspection AssignmentOrReturnOfFieldWithMutableType
+            //noinspection AssignmentOrReturnOfFieldWithMutableType
             return res;
         }
 

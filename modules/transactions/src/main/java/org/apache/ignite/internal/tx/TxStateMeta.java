@@ -41,6 +41,8 @@ public class TxStateMeta implements TransactionMeta {
 
     private final HybridTimestamp commitTimestamp;
 
+    private final Long initialVacuumObservationTimestamp;
+
     /**
      * Constructor.
      *
@@ -55,7 +57,7 @@ public class TxStateMeta implements TransactionMeta {
             @Nullable TablePartitionId commitPartitionId,
             @Nullable HybridTimestamp commitTimestamp
     ) {
-        this(txState, txCoordinatorId, commitPartitionId, commitTimestamp, 0);
+        this(txState, txCoordinatorId, commitPartitionId, commitTimestamp, null);
     }
 
     /**
@@ -65,19 +67,20 @@ public class TxStateMeta implements TransactionMeta {
      * @param txCoordinatorId Transaction coordinator id.
      * @param commitPartitionId Commit partition replication group id.
      * @param commitTimestamp Commit timestamp.
-     * @param lastAbandonedMarkerTs Timestamp indicates when the transaction is marked as abandoned.
+     * @param initialVacuumObservationTimestamp Initial vacuum observation timestamp.
      */
-    private TxStateMeta(
+    public TxStateMeta(
             TxState txState,
             @Nullable String txCoordinatorId,
             @Nullable TablePartitionId commitPartitionId,
             @Nullable HybridTimestamp commitTimestamp,
-            long lastAbandonedMarkerTs
+            @Nullable Long initialVacuumObservationTimestamp
     ) {
         this.txState = txState;
         this.txCoordinatorId = txCoordinatorId;
         this.commitPartitionId = commitPartitionId;
         this.commitTimestamp = commitTimestamp;
+        this.initialVacuumObservationTimestamp = initialVacuumObservationTimestamp;
     }
 
     /**
@@ -116,6 +119,10 @@ public class TxStateMeta implements TransactionMeta {
     @Override
     public @Nullable HybridTimestamp commitTimestamp() {
         return commitTimestamp;
+    }
+
+    public @Nullable Long initialVacuumObservationTimestamp() {
+        return initialVacuumObservationTimestamp;
     }
 
     @Override

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.tx.configuration;
 
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.Value;
@@ -44,4 +45,9 @@ public class TransactionConfigurationSchema {
     @Range(min = 0)
     @Value(hasDefault = true)
     public final int attemptsObtainLock = 3;
+
+    /** Transaction resource time to live (ms), the minimum lifetime of a transaction state. */
+    @Value(hasDefault = true)
+    @Range(min = 0)
+    public long txnResourceTtl = TimeUnit.SECONDS.toMillis(30);
 }

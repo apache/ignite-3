@@ -91,7 +91,7 @@ public class SchemaUpdateTest extends BaseIgniteAbstractTest {
 
         TestLoggerFactory testLoggerFactory = (TestLoggerFactory) client.configuration().loggerFactory();
 
-        // noinspection DataFlowIssue
+        //noinspection DataFlowIssue
         testLoggerFactory.assertLogContains("Retrying operation [opCode=" + ClientOp.SCHEMAS_GET);
     }
 

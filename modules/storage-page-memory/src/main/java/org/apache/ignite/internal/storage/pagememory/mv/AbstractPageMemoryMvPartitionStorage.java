@@ -661,6 +661,23 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     /**
+     * Performs a {@code fn} in {@code busyLock} if {@link IgniteSpinBusyLock#enterBusy()} succeed. Otherwise it just silently returns.
+     *
+     * @param fn Runnable to run.
+     */
+    void busySafe(Runnable fn) {
+        if (!busyLock.enterBusy()) {
+            return;
+        }
+
+        try {
+            fn.run();
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /**
      * Creates a summary info of the storage in the format "table=user, partitionId=1".
      */
     public String createStorageInfo() {

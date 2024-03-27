@@ -46,8 +46,11 @@ import org.apache.ignite.internal.catalog.commands.TablePrimaryKey;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
+import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
@@ -72,11 +75,13 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
 
     final HybridClock clock = new HybridClockImpl();
 
+    ClockWaiter clockWaiter;
+
+    ClockService clockService;
+
     private MetaStorageManager metastore;
 
     UpdateLog updateLog;
-
-    ClockWaiter clockWaiter;
 
     protected CatalogManagerImpl manager;
 
@@ -91,10 +96,11 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
         updateLog = spy(new UpdateLogImpl(metastore));
         clockWaiter = spy(new ClockWaiter(NODE_NAME, clock));
 
+        clockService = new TestClockService(clock, clockWaiter);
+
         manager = new CatalogManagerImpl(
                 updateLog,
-                clockWaiter,
-                clock,
+                clockService,
                 delayDuration::get,
                 () -> CatalogManagerImpl.DEFAULT_PARTITION_IDLE_SAFE_TIME_PROPAGATION_PERIOD
         );
