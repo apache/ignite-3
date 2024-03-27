@@ -43,14 +43,15 @@ protected:
 
         client.get_sql().execute(nullptr, {"drop table if exists " TEST_TABLE_NAME}, {});
 
-        client.get_sql().execute(nullptr, {
-            "create table column_order_test(val1 varchar, key1 int, val2 bigint, key2 varchar, primary key(key2, key1))"
-        }, {});
+        client.get_sql().execute(nullptr,
+            {"create table column_order_test(val1 varchar, key1 int, val2 bigint, key2 varchar, primary key(key2, "
+             "key1))"},
+            {});
 
         for (std::int32_t i = 0; i < test_records; ++i) {
             auto stri = std::to_string(i);
             client.get_sql().execute(nullptr, {"insert into " TEST_TABLE_NAME " values(?, ?, ?, ?)"},
-                {"test val " + stri, std::int32_t(i), std::int64_t(i*2), "test key " + stri});
+                {"test val " + stri, std::int32_t(i), std::int64_t(i * 2), "test key " + stri});
         }
     }
 
@@ -90,7 +91,8 @@ ignite_tuple make_test_key_tuple(std::int32_t index) {
 
 ignite_tuple make_test_full_tuple(std::int32_t index) {
     auto stri = std::to_string(index);
-    return {{"key1", std::int32_t(index)}, {"key2", "test key " + stri}, {"val1", "test val " + stri}, {"val2", std::int64_t(index * 2)}};
+    return {{"key1", std::int32_t(index)}, {"key2", "test key " + stri}, {"val1", "test val " + stri},
+        {"val2", std::int64_t(index * 2)}};
 }
 
 void check_test_tuple(const ignite_tuple &tuple, std::int32_t index, bool key_only) {
@@ -105,7 +107,6 @@ void check_test_tuple(const ignite_tuple &tuple, std::int32_t index, bool key_on
         EXPECT_EQ(ref.get("val2").get<std::int64_t>(), tuple.get("val2").get<std::int64_t>());
     }
 }
-
 
 TEST_F(column_order_test, test_key_columns_nondefault_ordering_get) {
     auto tuple_view = m_table.get_record_binary_view();
