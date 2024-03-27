@@ -20,6 +20,7 @@ package org.apache.ignite.internal;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.manager.IgniteTables;
@@ -44,6 +45,15 @@ public class TestWrappers {
      */
     public static TableViewInternal unwrapTableViewInternal(Table table) {
         return Wrappers.unwrap(table, TableViewInternal.class);
+    }
+
+    /**
+     * Unwraps {@link TableManager} from an {@link IgniteTables}.
+     *
+     * @param tables Tables to unwrap.
+     */
+    public static TableManager unwrapTableManager(IgniteTables tables) {
+        return Wrappers.unwrap(tables, TableManager.class);
     }
 
     /**

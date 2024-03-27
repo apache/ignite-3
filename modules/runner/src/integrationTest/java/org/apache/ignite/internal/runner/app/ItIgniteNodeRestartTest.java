@@ -21,6 +21,9 @@ import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.alterZone;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
@@ -189,7 +192,6 @@ import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.internal.worker.CriticalWorkerWatchdog;
 import org.apache.ignite.internal.worker.configuration.CriticalWorkersConfiguration;
-import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
@@ -198,7 +200,6 @@ import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
-import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.TransactionException;
 import org.awaitility.Awaitility;
 import org.intellij.lang.annotations.Language;
@@ -1031,12 +1032,52 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         }
     }
 
-    private static TableViewInternal unwrapTableViewInternal(Table table) {
-        return Wrappers.unwrap(table, TableViewInternal.class);
-    }
+    /**
+     * Restarts the node which stores some data.
+     */
+    @Test
+    public void nodeWithDataAndIndexRebuildTest() {
+        IgniteImpl ignite = startNode(0);
 
-    private static TableManager unwrapTableManager(IgniteTables tables) {
-        return Wrappers.unwrap(tables, TableManager.class);
+        int partitions = 20;
+
+        createTableWithData(List.of(ignite), TABLE_NAME, 1, partitions);
+
+        TableViewInternal table = unwrapTableViewInternal(ignite.tables().table(TABLE_NAME));
+
+        InternalTableImpl internalTable = (InternalTableImpl) table.internalTable();
+
+        CompletableFuture[] flushFuts = new CompletableFuture[partitions];
+
+        for (int i = 0; i < partitions; i++) {
+            // Flush data on disk, so that we will have a snapshot to read on restart.
+            flushFuts[i] = internalTable.storage().getMvPartition(i).flush();
+        }
+
+        assertThat(CompletableFuture.allOf(flushFuts), willCompleteSuccessfully());
+
+        // Add more data, so that on restart there will be a index rebuilding operation.
+        for (int i = 0; i < 100; i++) {
+            ignite.sql().execute(null, "INSERT INTO " + TABLE_NAME + "(id, name) VALUES (?, ?)",
+                    i + 500, VALUE_PRODUCER.apply(i + 500));
+        }
+
+        stopNode(0);
+
+        ignite = startNode(0);
+
+        checkTableWithData(ignite, TABLE_NAME);
+
+        table = unwrapTableViewInternal(ignite.tables().table(TABLE_NAME));
+
+        // Check data that was added after flush.
+        for (int i = 0; i < 100; i++) {
+            Tuple row = table.keyValueView().get(null, Tuple.create().set("id", i + 500));
+
+            Objects.requireNonNull(row, "row");
+
+            assertEquals(VALUE_PRODUCER.apply(i + 500), row.stringValue("name"));
+        }
     }
 
     /**
@@ -1145,58 +1186,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         assertTablePresent(tableManager, TABLE_NAME_2.toUpperCase());
     }
 
-    private static TableImpl unwrapTableImpl(Table table) {
-        return Wrappers.unwrap(table, TableImpl.class);
-    }
-
-    /**
-     * Restarts the node which stores some data.
-     */
-    @Test
-    public void nodeWithDataAndIndexRebuildTest() {
-        IgniteImpl ignite = startNode(0);
-
-        int partitions = 20;
-
-        createTableWithData(List.of(ignite), TABLE_NAME, 1, partitions);
-
-        TableViewInternal table = unwrapTableViewInternal(ignite.tables().table(TABLE_NAME));
-
-        InternalTableImpl internalTable = (InternalTableImpl) table.internalTable();
-
-        CompletableFuture[] flushFuts = new CompletableFuture[partitions];
-
-        for (int i = 0; i < partitions; i++) {
-            // Flush data on disk, so that we will have a snapshot to read on restart.
-            flushFuts[i] = internalTable.storage().getMvPartition(i).flush();
-        }
-
-        assertThat(CompletableFuture.allOf(flushFuts), willCompleteSuccessfully());
-
-        // Add more data, so that on restart there will be a index rebuilding operation.
-        for (int i = 0; i < 100; i++) {
-            ignite.sql().execute(null, "INSERT INTO " + TABLE_NAME + "(id, name) VALUES (?, ?)",
-                    i + 500, VALUE_PRODUCER.apply(i + 500));
-        }
-
-        stopNode(0);
-
-        ignite = startNode(0);
-
-        checkTableWithData(ignite, TABLE_NAME);
-
-        table = unwrapTableViewInternal(ignite.tables().table(TABLE_NAME));
-
-        // Check data that was added after flush.
-        for (int i = 0; i < 100; i++) {
-            Tuple row = table.keyValueView().get(null, Tuple.create().set("id", i + 500));
-
-            Objects.requireNonNull(row, "row");
-
-            assertEquals(VALUE_PRODUCER.apply(i + 500), row.stringValue("name"));
-        }
-    }
-
     /**
      * Checks that the table created in cluster of 2 nodes, is recovered on a node after restart of this node.
      */
@@ -1248,6 +1237,36 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         TableManager tableManager = unwrapTableManager(node1.tables());
 
         assertTablePresent(tableManager, TABLE_NAME.toUpperCase());
+    }
+
+    /**
+     * The test for node restart when there is a gap between the node local configuration and distributed configuration.
+     */
+    @Test
+    public void testCfgGapWithoutData() {
+        List<IgniteImpl> nodes = startNodes(3);
+
+        createTableWithData(nodes, TABLE_NAME, nodes.size());
+
+        log.info("Stopping the node.");
+
+        stopNode(nodes.size() - 1);
+
+        nodes.set(nodes.size() - 1, null);
+
+        createTableWithData(nodes, TABLE_NAME_2, nodes.size());
+        createTableWithData(nodes, TABLE_NAME_2 + "0", nodes.size());
+
+        log.info("Starting the node.");
+
+        IgniteImpl node = startNode(nodes.size() - 1, null);
+
+        log.info("After starting the node.");
+
+        TableManager tableManager = unwrapTableManager(node.tables());
+
+        assertTablePresent(tableManager, TABLE_NAME.toUpperCase());
+        assertTablePresent(tableManager, TABLE_NAME_2.toUpperCase());
     }
 
     /**
@@ -1335,36 +1354,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         stopNode(0);
 
         startNodes(3);
-    }
-
-    /**
-     * The test for node restart when there is a gap between the node local configuration and distributed configuration.
-     */
-    @Test
-    public void testCfgGapWithoutData() {
-        List<IgniteImpl> nodes = startNodes(3);
-
-        createTableWithData(nodes, TABLE_NAME, nodes.size());
-
-        log.info("Stopping the node.");
-
-        stopNode(nodes.size() - 1);
-
-        nodes.set(nodes.size() - 1, null);
-
-        createTableWithData(nodes, TABLE_NAME_2, nodes.size());
-        createTableWithData(nodes, TABLE_NAME_2 + "0", nodes.size());
-
-        log.info("Starting the node.");
-
-        IgniteImpl node = startNode(nodes.size() - 1, null);
-
-        log.info("After starting the node.");
-
-        TableManager tableManager = unwrapTableManager(node.tables());
-
-        assertTablePresent(tableManager, TABLE_NAME.toUpperCase());
-        assertTablePresent(tableManager, TABLE_NAME_2.toUpperCase());
     }
 
     @Test
@@ -1823,8 +1812,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     }
 
     private int tableId(Ignite node, String tableName) {
-        TableImpl table = unwrapTableImpl(node.tables().table(tableName));
-        return table.tableId();
+        return (unwrapTableImpl(node.tables().table(tableName))).tableId();
     }
 
     /**

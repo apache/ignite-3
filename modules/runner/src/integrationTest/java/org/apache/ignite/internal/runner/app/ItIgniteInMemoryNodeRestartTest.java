@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -49,7 +50,6 @@ import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -155,115 +155,6 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
     }
 
     /**
-     * Creates a table and load data to it.
-     *
-     * @param ignite Ignite.
-     * @param name Table name.
-     * @param replicas Replica factor.
-     * @param partitions Partitions count.
-     */
-    private static void createTableWithData(Ignite ignite, String name, int replicas, int partitions) throws InterruptedException {
-        IgniteSql sql = ignite.sql();
-
-        sql.execute(null, String.format("CREATE ZONE IF NOT EXISTS ZONE_%s ENGINE aimem WITH REPLICAS=%d, PARTITIONS=%d",
-                name, replicas, partitions));
-        sql.execute(null, "CREATE TABLE " + name
-                + " (id INT PRIMARY KEY, name VARCHAR)"
-                + " WITH PRIMARY_ZONE='ZONE_" + name.toUpperCase() + "';");
-
-        for (int i = 0; i < 100; i++) {
-            sql.execute(null, "INSERT INTO " + name + "(id, name) VALUES (?, ?)",
-                    i, VALUE_PRODUCER.apply(i));
-        }
-
-        var table = unwrapTableViewInternal(ignite.tables().table(name));
-
-        assertThat(table.internalTable().storage().isVolatile(), is(true));
-
-        waitTillTableDataPropagatesToAllNodes(name, partitions);
-    }
-
-    private static boolean solePartitionAssignmentsContain(String restartingNodeConsistentId, InternalTableImpl internalTable) {
-        Map<Integer, List<String>> assignments = internalTable.tableRaftService().peersAndLearners();
-
-        List<String> partitionAssignments = assignments.get(0);
-
-        return partitionAssignments.contains(restartingNodeConsistentId);
-    }
-
-    private static boolean isRaftNodeStarted(TableViewInternal table, Loza loza) {
-        return loza.localNodes().stream().anyMatch(nodeId ->
-                nodeId.groupId() instanceof TablePartitionId && ((TablePartitionId) nodeId.groupId()).tableId() == table.tableId());
-    }
-
-    /**
-     * Restarts multiple nodes so the majority is lost.
-     */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17586")
-    @Test
-    public void inMemoryNodeRestartNoMajority(TestInfo testInfo) throws Exception {
-        // Start three nodes, the first one is going to be CMG and MetaStorage leader.
-        IgniteImpl ignite0 = startNode(testInfo, 0);
-        startNode(testInfo, 1);
-        startNode(testInfo, 2);
-
-        // Create a table with replica on every node.
-        createTableWithData(ignite0, TABLE_NAME, 3, 1);
-
-        TableViewInternal table = (TableViewInternal) ignite0.tables().table(TABLE_NAME);
-
-        // Lose the majority.
-        stopNode(1);
-        stopNode(2);
-
-        IgniteImpl restartingNode = startNode(testInfo, 1);
-
-        Loza loza = restartingNode.raftManager();
-
-        // Check that it restarts.
-        assertTrue(waitForCondition(
-                () -> loza.localNodes().stream().anyMatch(nodeId -> {
-                    if (nodeId.groupId() instanceof TablePartitionId) {
-                        return ((TablePartitionId) nodeId.groupId()).tableId() == table.tableId();
-                    }
-
-                    return true;
-                }),
-                TimeUnit.SECONDS.toMillis(10)
-        ));
-
-        // Check the data rebalanced correctly.
-        checkTableWithData(restartingNode, TABLE_NAME);
-    }
-
-    private static TableViewInternal unwrapTableViewInternal(Table table) {
-        return Wrappers.unwrap(table, TableViewInternal.class);
-    }
-
-    /**
-     * Checks the table exists and validates all data in it.
-     *
-     * @param ignite Ignite.
-     * @param name Table name.
-     */
-    private static void checkTableWithData(Ignite ignite, String name) {
-        Table table = ignite.tables().table(name);
-
-        assertNotNull(table);
-
-        for (int i = 0; i < 100; i++) {
-            Tuple row = table.keyValueView().get(null, Tuple.create().set("id", i));
-
-            assertEquals(VALUE_PRODUCER.apply(i), row.stringValue("name"));
-        }
-    }
-
-    private static boolean tableHasDataOnAllIgnites(String name, int partitions) {
-        return CLUSTER_NODES.stream()
-                .allMatch(igniteNode -> tableHasAnyData(unwrapTableViewInternal(igniteNode.tables().table(name)), partitions));
-    }
-
-    /**
      * Restarts an in-memory node that is not a leader of the table's partition.
      */
     @Test
@@ -322,11 +213,57 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
         checkTableWithData(restartingNode, TABLE_NAME);
     }
 
-    private static void waitTillTableDataPropagatesToAllNodes(String name, int partitions) throws InterruptedException {
-        assertTrue(
-                waitForCondition(() -> tableHasDataOnAllIgnites(name, partitions), TimeUnit.SECONDS.toMillis(10)),
-                "Did not see tuples propagate to all Ignites in time"
-        );
+    private static boolean solePartitionAssignmentsContain(String restartingNodeConsistentId, InternalTableImpl internalTable) {
+        Map<Integer, List<String>> assignments = internalTable.tableRaftService().peersAndLearners();
+
+        List<String> partitionAssignments = assignments.get(0);
+
+        return partitionAssignments.contains(restartingNodeConsistentId);
+    }
+
+    private static boolean isRaftNodeStarted(TableViewInternal table, Loza loza) {
+        return loza.localNodes().stream().anyMatch(nodeId ->
+                nodeId.groupId() instanceof TablePartitionId && ((TablePartitionId) nodeId.groupId()).tableId() == table.tableId());
+    }
+
+    /**
+     * Restarts multiple nodes so the majority is lost.
+     */
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17586")
+    @Test
+    public void inMemoryNodeRestartNoMajority(TestInfo testInfo) throws Exception {
+        // Start three nodes, the first one is going to be CMG and MetaStorage leader.
+        IgniteImpl ignite0 = startNode(testInfo, 0);
+        startNode(testInfo, 1);
+        startNode(testInfo, 2);
+
+        // Create a table with replica on every node.
+        createTableWithData(ignite0, TABLE_NAME, 3, 1);
+
+        TableViewInternal table = (TableViewInternal) ignite0.tables().table(TABLE_NAME);
+
+        // Lose the majority.
+        stopNode(1);
+        stopNode(2);
+
+        IgniteImpl restartingNode = startNode(testInfo, 1);
+
+        Loza loza = restartingNode.raftManager();
+
+        // Check that it restarts.
+        assertTrue(waitForCondition(
+                () -> loza.localNodes().stream().anyMatch(nodeId -> {
+                    if (nodeId.groupId() instanceof TablePartitionId) {
+                        return ((TablePartitionId) nodeId.groupId()).tableId() == table.tableId();
+                    }
+
+                    return true;
+                }),
+                TimeUnit.SECONDS.toMillis(10)
+        ));
+
+        // Check the data rebalanced correctly.
+        checkTableWithData(restartingNode, TABLE_NAME);
     }
 
     /**
@@ -367,6 +304,65 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
                     TimeUnit.SECONDS.toMillis(10)
             ));
         }
+    }
+
+    /**
+     * Checks the table exists and validates all data in it.
+     *
+     * @param ignite Ignite.
+     * @param name Table name.
+     */
+    private static void checkTableWithData(Ignite ignite, String name) {
+        Table table = ignite.tables().table(name);
+
+        assertNotNull(table);
+
+        for (int i = 0; i < 100; i++) {
+            Tuple row = table.keyValueView().get(null, Tuple.create().set("id", i));
+
+            assertEquals(VALUE_PRODUCER.apply(i), row.stringValue("name"));
+        }
+    }
+
+    /**
+     * Creates a table and load data to it.
+     *
+     * @param ignite Ignite.
+     * @param name Table name.
+     * @param replicas Replica factor.
+     * @param partitions Partitions count.
+     */
+    private static void createTableWithData(Ignite ignite, String name, int replicas, int partitions) throws InterruptedException {
+        IgniteSql sql = ignite.sql();
+
+        sql.execute(null, String.format("CREATE ZONE IF NOT EXISTS ZONE_%s ENGINE aimem WITH REPLICAS=%d, PARTITIONS=%d",
+                name, replicas, partitions));
+        sql.execute(null, "CREATE TABLE " + name
+                + " (id INT PRIMARY KEY, name VARCHAR)"
+                + " WITH PRIMARY_ZONE='ZONE_" + name.toUpperCase() + "';");
+
+        for (int i = 0; i < 100; i++) {
+            sql.execute(null, "INSERT INTO " + name + "(id, name) VALUES (?, ?)",
+                    i, VALUE_PRODUCER.apply(i));
+        }
+
+        TableViewInternal table = unwrapTableViewInternal(ignite.tables().table(name));
+
+        assertThat(table.internalTable().storage().isVolatile(), is(true));
+
+        waitTillTableDataPropagatesToAllNodes(name, partitions);
+    }
+
+    private static void waitTillTableDataPropagatesToAllNodes(String name, int partitions) throws InterruptedException {
+        assertTrue(
+                waitForCondition(() -> tableHasDataOnAllIgnites(name, partitions), TimeUnit.SECONDS.toMillis(10)),
+                "Did not see tuples propagate to all Ignites in time"
+        );
+    }
+
+    private static boolean tableHasDataOnAllIgnites(String name, int partitions) {
+        return CLUSTER_NODES.stream()
+                .allMatch(igniteNode -> tableHasAnyData(unwrapTableViewInternal(igniteNode.tables().table(name)), partitions));
     }
 
     private static boolean tableHasAnyData(TableViewInternal nodeTable, int partitions) {
