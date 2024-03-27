@@ -18,12 +18,10 @@
 namespace Apache.Ignite.Tests.Proto.BinaryTuple
 {
     using System;
-    using System.Buffers.Binary;
     using System.Collections;
     using System.Linq;
     using System.Numerics;
     using Ignite.Sql;
-    using Internal.Buffers;
     using Internal.Proto.BinaryTuple;
     using Internal.Table;
     using NodaTime;
