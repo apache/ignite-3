@@ -102,7 +102,7 @@ public class RocksDbHashIndexStorage extends AbstractRocksDbIndexStorage impleme
 
     @Override
     public Cursor<RowId> get(BinaryTuple key) {
-        return busy(() -> {
+        return busyDataRead(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
             byte[] rangeStart = rocksPrefix(key);
@@ -124,7 +124,7 @@ public class RocksDbHashIndexStorage extends AbstractRocksDbIndexStorage impleme
 
     @Override
     public void put(IndexRow row) {
-        busy(() -> {
+        busyNonDataRead(() -> {
             try {
                 WriteBatchWithIndex writeBatch = PartitionDataHelper.requireWriteBatch();
 
@@ -139,7 +139,7 @@ public class RocksDbHashIndexStorage extends AbstractRocksDbIndexStorage impleme
 
     @Override
     public void remove(IndexRow row) {
-        busy(() -> {
+        busyNonDataRead(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
             try {
