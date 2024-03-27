@@ -21,6 +21,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
     using System.Buffers.Binary;
     using System.Collections;
     using System.Diagnostics;
+    using System.Diagnostics.CodeAnalysis;
     using System.Numerics;
     using Ignite.Sql;
     using NodaTime;
@@ -552,6 +553,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             return LocalTime.FromHourMinuteSecondNanosecond(hour, minute, second, nanos);
         }
 
+        [SuppressMessage("ReSharper", "UnusedParameter.Local", Justification = "Schema scale is not required for serialization.")]
         private static decimal? ReadDecimal(ReadOnlySpan<byte> span, int scale)
         {
             if (span.IsEmpty)
@@ -559,35 +561,8 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 return null;
             }
 
-            var firstByte = span[0];
-            var mode = (byte) (firstByte & 0b11000000);
-
-            switch (mode)
-            {
-                case BinaryTupleCommon.DecimalScaleNone:
-                    return ReadDecimalUnscaled(span[1..], scale);
-
-                case BinaryTupleCommon.DecimalScaleOneByte:
-                {
-                    var valScale = firstByte & 0b00111111;
-                    return ReadDecimalUnscaled(span[1..], valScale);
-                }
-
-                case BinaryTupleCommon.DecimalScaleTwoBytes:
-                {
-                    var valScale = (firstByte & 0b00111111) + (span[1] << 6);
-                    return ReadDecimalUnscaled(span[2..], valScale);
-                }
-
-                case BinaryTupleCommon.DecimalScaleThreeBytes:
-                {
-                    var valScale = BinaryPrimitives.ReadUInt16LittleEndian(span[1..3]);
-                    return ReadDecimalUnscaled(span[3..], valScale);
-                }
-
-                default:
-                    throw new InvalidOperationException("Invalid decimal scale first byte: " + firstByte);
-            }
+            var valScale = BinaryPrimitives.ReadUInt16LittleEndian(span[..2]);
+            return ReadDecimalUnscaled(span[2..], valScale);
         }
 
         private static decimal? ReadDecimalUnscaled(ReadOnlySpan<byte> span, int scale)
