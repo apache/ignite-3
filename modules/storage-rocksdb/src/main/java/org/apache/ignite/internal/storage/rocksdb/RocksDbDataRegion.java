@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.storage.rocksdb.configuration.schema.Ro
 import static org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataRegionConfigurationSchema.ROCKSDB_LRU_CACHE;
 
 import java.util.Locale;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataRegionConfiguration;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataRegionView;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.rocksdb.Cache;
@@ -34,7 +33,7 @@ import org.rocksdb.WriteBufferManager;
  */
 public class RocksDbDataRegion {
     /** Region configuration. */
-    private final RocksDbDataRegionConfiguration cfg;
+    private final RocksDbDataRegionView dataRegionView;
 
     /** RocksDB cache instance. */
     private Cache cache;
@@ -45,18 +44,16 @@ public class RocksDbDataRegion {
     /**
      * Constructor.
      *
-     * @param cfg Data region configuration.
+     * @param dataRegionView Data region configuration.
      */
-    public RocksDbDataRegion(RocksDbDataRegionConfiguration cfg) {
-        this.cfg = cfg;
+    public RocksDbDataRegion(RocksDbDataRegionView dataRegionView) {
+        this.dataRegionView = dataRegionView;
     }
 
     /**
      * Start the rocksDb data region.
      */
     public void start() {
-        RocksDbDataRegionView dataRegionView = cfg.value();
-
         long writeBufferSize = dataRegionView.writeBufferSize();
 
         long totalCacheSize = dataRegionView.size() + writeBufferSize;
@@ -73,7 +70,10 @@ public class RocksDbDataRegion {
                 break;
 
             default:
-                assert false : dataRegionView.cache();
+                throw new AssertionError(String.format(
+                        "Unknown data region cache type: [dataRegion=%s, cacheType=%s]",
+                        dataRegionView.name(), dataRegionView.cache()
+                ));
         }
 
         writeBufferManager = new WriteBufferManager(writeBufferSize, cache);
