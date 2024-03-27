@@ -65,7 +65,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Flow.Subscription;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.Phaser;
 import java.util.concurrent.ScheduledExecutorService;
@@ -788,7 +787,6 @@ public class TableManagerTest extends IgniteAbstractTest {
                 new RemotelyTriggeredResourceRegistry(),
                 mock(ScheduledExecutorService.class),
                 lowWatermark,
-                ForkJoinPool.commonPool(),
                 mock(TransactionInflights.class)
         ) {
 

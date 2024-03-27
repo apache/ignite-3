@@ -50,7 +50,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
@@ -333,7 +332,6 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 new RemotelyTriggeredResourceRegistry(),
                 mock(ScheduledExecutorService.class),
                 lowWatermark,
-                ForkJoinPool.commonPool(),
                 new TransactionInflights(placementDriver)
         ) {
 

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -166,7 +167,7 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
         // Create a table with replica on every node.
         createTableWithData(ignite, TABLE_NAME, 3, 1);
 
-        TableViewInternal table = (TableViewInternal) ignite.tables().table(TABLE_NAME);
+        TableViewInternal table = unwrapTableViewInternal(ignite.tables().table(TABLE_NAME));
 
         // Find the leader of the table's partition group.
         RaftGroupService raftGroupService = table.internalTable().tableRaftService().partitionRaftGroupService(0);
@@ -193,7 +194,7 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
 
         String restartingNodeConsistentId = restartingNode.name();
 
-        TableViewInternal restartingTable = (TableViewInternal) restartingNode.tables().table(TABLE_NAME);
+        TableViewInternal restartingTable = unwrapTableViewInternal(restartingNode.tables().table(TABLE_NAME));
         InternalTableImpl internalTable = (InternalTableImpl) restartingTable.internalTable();
 
         // Check that it restarts.
@@ -278,7 +279,7 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
         // Create a table with replicas on every node.
         createTableWithData(ignite0, TABLE_NAME, 3, 1);
 
-        TableViewInternal table = (TableViewInternal) ignite0.tables().table(TABLE_NAME);
+        TableViewInternal table = unwrapTableViewInternal(ignite0.tables().table(TABLE_NAME));
 
         stopNode(0);
         stopNode(1);
@@ -345,7 +346,7 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
                     i, VALUE_PRODUCER.apply(i));
         }
 
-        var table = (TableViewInternal) ignite.tables().table(name);
+        TableViewInternal table = unwrapTableViewInternal(ignite.tables().table(name));
 
         assertThat(table.internalTable().storage().isVolatile(), is(true));
 
@@ -361,7 +362,7 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
 
     private static boolean tableHasDataOnAllIgnites(String name, int partitions) {
         return CLUSTER_NODES.stream()
-                .allMatch(igniteNode -> tableHasAnyData((TableViewInternal) igniteNode.tables().table(name), partitions));
+                .allMatch(igniteNode -> tableHasAnyData(unwrapTableViewInternal(igniteNode.tables().table(name)), partitions));
     }
 
     private static boolean tableHasAnyData(TableViewInternal nodeTable, int partitions) {
