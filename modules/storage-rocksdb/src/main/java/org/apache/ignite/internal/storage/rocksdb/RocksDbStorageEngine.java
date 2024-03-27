@@ -202,7 +202,8 @@ public class RocksDbStorageEngine implements StorageEngine {
 
         RocksDbStorage storage = storageByRegionName.get(regionName);
 
-        assert storage != null : "No instances exist for region " + regionName;
+        assert storage != null :
+                String.format("RocksDB instance has not yet been created for [tableId=%d, region=%s]", tableDescriptor.getId(), regionName);
 
         var tableStorage = new RocksDbTableStorage(storage.rocksDbInstance, tableDescriptor, indexDescriptorSupplier);
 

@@ -70,8 +70,10 @@ public class RocksDbDataRegion {
                 break;
 
             default:
-                assert false : String.format("Unknown data region cache type: [dataRegion=%s, cacheType=%s]",
-                        dataRegionView.name(), dataRegionView.cache());
+                throw new AssertionError(String.format(
+                        "Unknown data region cache type: [dataRegion=%s, cacheType=%s]",
+                        dataRegionView.name(), dataRegionView.cache()
+                ));
         }
 
         writeBufferManager = new WriteBufferManager(writeBufferSize, cache);
