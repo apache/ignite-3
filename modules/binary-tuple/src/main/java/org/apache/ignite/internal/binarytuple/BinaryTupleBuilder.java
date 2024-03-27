@@ -320,6 +320,7 @@ public class BinaryTupleBuilder {
      * @return {@code this} for chaining.
      */
     public BinaryTupleBuilder appendDecimalNotNull(BigDecimal value, int scale) {
+        value = value.stripTrailingZeros();
         int valScale = value.scale();
 
         if (valScale < 0) {
