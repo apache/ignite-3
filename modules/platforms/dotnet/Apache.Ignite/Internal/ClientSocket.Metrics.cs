@@ -15,24 +15,25 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal
-{
-    using System;
-    using Ignite.Network;
-    using Network;
+namespace Apache.Ignite.Internal;
 
+/// <summary>
+/// Metrics-related functionality.
+/// </summary>
+internal sealed partial class ClientSocket
+{
     /// <summary>
-    /// Socket connection context.
+    /// Gets the metrics context.
     /// </summary>
-    /// <param name="Version">Protocol version.</param>
-    /// <param name="IdleTimeout">Server idle timeout.</param>
-    /// <param name="ClusterNode">Cluster node.</param>
-    /// <param name="ClusterId">Cluster id.</param>
-    /// <param name="SslInfo">SSL info.</param>
-    internal record ConnectionContext(
-        ClientProtocolVersion Version,
-        TimeSpan IdleTimeout,
-        ClusterNode ClusterNode,
-        Guid ClusterId,
-        ISslInfo? SslInfo);
+    public MetricsContext MetricsContext { get; }
+
+    private static void AddBytesReceived(int bytes, MetricsContext metricsContext) =>
+        Metrics.BytesReceived.Add(bytes, metricsContext.Tags);
+
+    private static void AddBytesSent(int bytes, MetricsContext metricsContext) =>
+        Metrics.BytesSent.Add(bytes, metricsContext.Tags);
+
+    private void AddBytesSent(int bytes) => AddBytesSent(bytes, MetricsContext);
+
+    private void AddFailedRequest() => Metrics.RequestsFailed.Add(1, MetricsContext.Tags);
 }

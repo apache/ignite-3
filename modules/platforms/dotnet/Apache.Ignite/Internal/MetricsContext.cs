@@ -15,24 +15,14 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal
-{
-    using System;
-    using Ignite.Network;
-    using Network;
+namespace Apache.Ignite.Internal;
 
-    /// <summary>
-    /// Socket connection context.
-    /// </summary>
-    /// <param name="Version">Protocol version.</param>
-    /// <param name="IdleTimeout">Server idle timeout.</param>
-    /// <param name="ClusterNode">Cluster node.</param>
-    /// <param name="ClusterId">Cluster id.</param>
-    /// <param name="SslInfo">SSL info.</param>
-    internal record ConnectionContext(
-        ClientProtocolVersion Version,
-        TimeSpan IdleTimeout,
-        ClusterNode ClusterNode,
-        Guid ClusterId,
-        ISslInfo? SslInfo);
-}
+using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
+
+/// <summary>
+/// Metrics context.
+/// </summary>
+/// <param name="Tags">Metric tags.</param>
+[SuppressMessage("Performance", "CA1819:Properties should not return arrays", Justification = "Performance.")]
+internal sealed record MetricsContext(KeyValuePair<string, object?>[] Tags);

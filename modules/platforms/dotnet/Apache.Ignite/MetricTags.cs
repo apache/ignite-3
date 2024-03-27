@@ -15,24 +15,23 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal
+namespace Apache.Ignite;
+
+/// <summary>
+/// Metric tag names. See also <see cref="MetricNames"/>.
+/// </summary>
+public static class MetricTags
 {
-    using System;
-    using Ignite.Network;
-    using Network;
+    // Naming guidelines: https://github.com/open-telemetry/semantic-conventions/blob/main/docs/general/attribute-naming.md
+    // https://learn.microsoft.com/en-us/dotnet/core/diagnostics/metrics-instrumentation#best-practices-4
 
     /// <summary>
-    /// Socket connection context.
+    /// Client id.
     /// </summary>
-    /// <param name="Version">Protocol version.</param>
-    /// <param name="IdleTimeout">Server idle timeout.</param>
-    /// <param name="ClusterNode">Cluster node.</param>
-    /// <param name="ClusterId">Cluster id.</param>
-    /// <param name="SslInfo">SSL info.</param>
-    internal record ConnectionContext(
-        ClientProtocolVersion Version,
-        TimeSpan IdleTimeout,
-        ClusterNode ClusterNode,
-        Guid ClusterId,
-        ISslInfo? SslInfo);
+    public const string ClientId = "client.id";
+
+    /// <summary>
+    /// Node address.
+    /// </summary>
+    public const string NodeAddress = "node.addr";
 }
