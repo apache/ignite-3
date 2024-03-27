@@ -176,13 +176,6 @@ public:
     void swap(big_integer &other);
 
     /**
-     * Get this number's length in bits as if it was positive.
-     *
-     * @return Number's length in bits.
-     */
-    [[nodiscard]] std::uint32_t magnitude_bit_length() const noexcept;
-
-    /**
      * Get length in bits of the two's-complement representation of this number, excluding a sign bit.
      *
      * @return Length in bits of the two's-complement representation of this number, excluding a sign bit.
@@ -336,6 +329,13 @@ public:
     static void get_power_of_ten(std::int32_t pow, big_integer &res);
 
 private:
+    /**
+     * Get this number's length in bits as if it was positive.
+     *
+     * @return Number's length in bits.
+     */
+    [[nodiscard]] std::uint32_t magnitude_bit_length() const noexcept;
+
     /**
      * Initializes a big integer from a byte array with big-endian byte order.
      *

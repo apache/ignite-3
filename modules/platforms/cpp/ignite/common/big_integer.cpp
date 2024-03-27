@@ -366,7 +366,10 @@ std::uint32_t big_integer::magnitude_bit_length() const noexcept {
 
 std::uint32_t big_integer::bit_length() const noexcept {
     auto res = magnitude_bit_length();
-    if (res != 0 && is_negative()) {
+    if (res == 0)
+        return 1;
+
+    if (is_negative()) {
         // Check if the magnitude is a power of 2.
         auto last = mag.back();
         if ((last & (last - 1)) == 0 && std::all_of(mag.rbegin() + 1, mag.rend(), [](auto x) { return x == 0; })) {
@@ -382,6 +385,11 @@ std::size_t big_integer::byte_size() const noexcept {
 }
 
 void big_integer::store_bytes(std::byte *data) const {
+    if (mag.empty()) {
+        data[0] = std::byte{0};
+        return;
+    }
+
     std::size_t size = byte_size();
 
     if (!is_negative()) {

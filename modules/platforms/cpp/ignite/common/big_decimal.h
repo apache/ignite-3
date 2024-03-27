@@ -186,13 +186,6 @@ public:
     }
 
     /**
-     * Get length of the magnitude.
-     *
-     * @return Length of the magnitude.
-     */
-    [[nodiscard]] int32_t get_magnitude_length() const { return int32_t(m_magnitude.mag.size()); }
-
-    /**
      * Assign specified value to this Decimal.
      *
      * @param val String to assign.
