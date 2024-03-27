@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.index;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.lang.ErrorGroups.Storage.ALREADY_DESTROYED_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -71,7 +72,7 @@ class ItIndexAndIndexStorageDestructionTest extends ClusterPerTestIntegrationTes
             session.execute(null, "INSERT INTO " + TABLE_NAME + " (id, name) VALUES (" + PREEXISTING_KEY + ", 'John')");
         });
 
-        TableImpl table = (TableImpl) node.tables().table(TABLE_NAME);
+        TableImpl table = unwrapTableImpl(node.tables().table(TABLE_NAME));
 
         initiateIndexStoragesDestruction(table, INDEX_NAME);
     }
