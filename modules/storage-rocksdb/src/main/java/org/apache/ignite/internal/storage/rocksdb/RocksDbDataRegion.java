@@ -17,14 +17,9 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
-import static org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataRegionConfigurationSchema.ROCKSDB_CLOCK_CACHE;
-import static org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataRegionConfigurationSchema.ROCKSDB_LRU_CACHE;
-
-import java.util.Locale;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataRegionView;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.rocksdb.Cache;
-import org.rocksdb.ClockCache;
 import org.rocksdb.LRUCache;
 import org.rocksdb.WriteBufferManager;
 
@@ -58,23 +53,7 @@ public class RocksDbDataRegion {
 
         long totalCacheSize = dataRegionView.size() + writeBufferSize;
 
-        switch (dataRegionView.cache().toLowerCase(Locale.ROOT)) {
-            case ROCKSDB_CLOCK_CACHE:
-                cache = new ClockCache(totalCacheSize, dataRegionView.numShardBits(), false);
-
-                break;
-
-            case ROCKSDB_LRU_CACHE:
-                cache = new LRUCache(totalCacheSize, dataRegionView.numShardBits(), false);
-
-                break;
-
-            default:
-                throw new AssertionError(String.format(
-                        "Unknown data region cache type: [dataRegion=%s, cacheType=%s]",
-                        dataRegionView.name(), dataRegionView.cache()
-                ));
-        }
+        cache = new LRUCache(totalCacheSize, dataRegionView.numShardBits(), false);
 
         writeBufferManager = new WriteBufferManager(writeBufferSize, cache);
     }

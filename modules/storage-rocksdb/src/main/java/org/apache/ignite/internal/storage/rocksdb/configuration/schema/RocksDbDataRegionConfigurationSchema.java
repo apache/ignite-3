@@ -20,7 +20,6 @@ package org.apache.ignite.internal.storage.rocksdb.configuration.schema;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.InjectedName;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.OneOf;
 import org.apache.ignite.configuration.validation.Range;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 
@@ -29,12 +28,6 @@ import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
  */
 @Config
 public class RocksDbDataRegionConfigurationSchema {
-    /** Cache type for the RocksDB LRU cache. */
-    public static final String ROCKSDB_LRU_CACHE = "lru";
-
-    /** Cache type for the RocksDB LRU cache. */
-    public static final String ROCKSDB_CLOCK_CACHE = "clock";
-
     /** Name of the data region. */
     @InjectedName
     public String name;
@@ -47,11 +40,6 @@ public class RocksDbDataRegionConfigurationSchema {
     @Value(hasDefault = true)
     @Range(min = 1)
     public long writeBufferSize = 64 * 1024 * 1024;
-
-    /** Cache type - only {@code LRU} is supported at the moment. {@code Clock} implementation has known bugs. */
-    @OneOf(ROCKSDB_LRU_CACHE)
-    @Value(hasDefault = true)
-    public String cache = ROCKSDB_LRU_CACHE;
 
     /** The cache is sharded to 2^numShardBits shards, by hash of the key. */
     @Range(min = -1)
