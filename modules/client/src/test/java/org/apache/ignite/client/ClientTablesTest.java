@@ -19,17 +19,10 @@ package org.apache.ignite.client;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Comparator;
-import java.util.concurrent.CompletionException;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
-import org.apache.ignite.internal.client.table.ClientTable;
-import org.apache.ignite.internal.table.TableViewInternal;
-import org.apache.ignite.lang.TableAlreadyExistsException;
 import org.apache.ignite.table.Table;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
