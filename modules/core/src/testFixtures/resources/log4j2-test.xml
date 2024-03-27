@@ -42,7 +42,19 @@
       filePattern="build/ignite.log.%i">
       <PatternLayout pattern="[%d{ISO8601}][%-5p][%t][%c{1}]%notEmpty{[%markerSimpleName]} %m%n"/>
       <Policies>
-        <OnStartupTriggeringPolicy />
+        <OnStartupTriggeringPolicy/>
+        <SizeBasedTriggeringPolicy size="10 MB"/>
+      </Policies>
+      <DefaultRolloverStrategy max="10"/>
+    </RollingFile>
+
+    <RollingFile name="EVENTLOG_FILE"
+      append="true"
+      fileName="build/event.log"
+      filePattern="build/event.log">
+      <PatternLayout pattern="%m%n"/>
+      <Policies>
+        <OnStartupTriggeringPolicy/>
         <SizeBasedTriggeringPolicy size="10 MB"/>
       </Policies>
       <DefaultRolloverStrategy max="10"/>
@@ -55,5 +67,8 @@
       <AppenderRef ref="CONSOLE_ERR" level="WARN"/>
       <AppenderRef ref="FILE" level="DEBUG"/>
     </Root>
+    <Logger name="EventLog" level="INFO">
+      <AppenderRef ref="EVENTLOG_FILE"/>
+    </Logger>
   </Loggers>
 </Configuration>
