@@ -21,7 +21,6 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
     using System.Buffers.Binary;
     using System.Collections;
     using System.Diagnostics;
-    using System.Diagnostics.CodeAnalysis;
     using System.Numerics;
     using System.Runtime.InteropServices;
     using Buffers;

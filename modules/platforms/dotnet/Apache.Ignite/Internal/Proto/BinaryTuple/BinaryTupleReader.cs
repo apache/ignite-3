@@ -561,7 +561,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                 return null;
             }
 
-            var valScale = BinaryPrimitives.ReadUInt16LittleEndian(span[..2]);
+            var valScale = BinaryPrimitives.ReadInt16LittleEndian(span[..2]);
             return ReadDecimalUnscaled(span[2..], valScale);
         }
 
@@ -573,6 +573,10 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
             if (scale > 0)
             {
                 res /= (decimal)BigInteger.Pow(10, scale);
+            }
+            else if (scale < 0)
+            {
+                res *= (decimal)BigInteger.Pow(10, -scale);
             }
 
             return res;
