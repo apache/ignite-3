@@ -26,6 +26,7 @@ import java.math.RoundingMode;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
+import org.apache.ignite.internal.binarytuple.BinaryTupleFormatException;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -241,6 +242,7 @@ public class NumericTypesSerializerTest {
     @Test
     public void testDecimalMaxScale() throws TupleMarshallerException {
         int maxScale = CatalogUtils.MAX_DECIMAL_SCALE;
+
         schema = new SchemaDescriptor(
                 42,
                 new Column[]{new Column("key", NativeTypes.INT64, false)},
@@ -258,6 +260,31 @@ public class NumericTypesSerializerTest {
         final Row row = marshaller.marshal(tup);
 
         assertEquals(row.decimalValue(1), BigDecimal.valueOf(123, maxScale));
+    }
+
+    @Test
+    public void testDecimalScaleTooLarge() {
+        int maxScale = Integer.MAX_VALUE;
+
+        schema = new SchemaDescriptor(
+                42,
+                new Column[]{new Column("key", NativeTypes.INT64, false)},
+                new Column[]{
+                        new Column("decimalCol", NativeTypes.decimalOf(CatalogUtils.MAX_DECIMAL_PRECISION, maxScale), false),
+                }
+        );
+
+        Tuple badTup = createTuple()
+                .set("key", rnd.nextLong())
+                .set("decimalCol", BigDecimal.valueOf(123, maxScale));
+
+        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
+
+        assertThrowsWithCause(
+                () -> marshaller.marshal(badTup),
+                BinaryTupleFormatException.class,
+                "Decimal scale is too large: 2147483647 > 32767"
+        );
     }
 
     /**
