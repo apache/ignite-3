@@ -28,6 +28,7 @@ import java.util.TimeZone;
 import java.util.UUID;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.avatica.util.ByteString;
+import org.apache.calcite.avatica.util.DateTimeUtils;
 import org.apache.calcite.linq4j.tree.Types;
 import org.apache.calcite.runtime.SqlFunctions;
 import org.apache.calcite.sql.SqlIntervalQualifier;
@@ -133,6 +134,11 @@ public enum IgniteMethod {
      * See {@link IgniteSqlFunctions#decimalDivide(BigDecimal, BigDecimal, int, int)}.
      */
     DECIMAL_DIVIDE(IgniteSqlFunctions.class, "decimalDivide", BigDecimal.class, BigDecimal.class, int.class, int.class),
+
+    /**
+     * Conversion of timestamp to string (precision aware).
+     */
+    UNIX_TIMESTAMP_TO_STRING_PRECISION_AWARE(DateTimeUtils.class, "unixTimestampToString", long.class, int.class),
     ;
 
     private final Method method;

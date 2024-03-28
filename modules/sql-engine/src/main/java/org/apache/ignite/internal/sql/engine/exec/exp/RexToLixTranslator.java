@@ -450,8 +450,9 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                                         BuiltInMethod.TIMESTAMP_STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE.method,
                                         RexImpTable.optimize2(operand,
                                                 Expressions.call(
-                                                        BuiltInMethod.UNIX_TIMESTAMP_TO_STRING.method,
-                                                        operand)),
+                                                        IgniteMethod.UNIX_TIMESTAMP_TO_STRING_PRECISION_AWARE.method(),
+                                                        operand,
+                                                        Expressions.constant(targetType.getPrecision()))),
                                         Expressions.call(BuiltInMethod.TIME_ZONE.method, root));
                         break;
                     default:
