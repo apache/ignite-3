@@ -374,45 +374,48 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     private CompletableFuture<Integer> saveUpdateAndWaitForActivation(UpdateProducer updateProducer) {
-        return saveUpdate(updateProducer, 0)
-                .handle((newVersion, err) -> {
-                    if (err != null) {
-                        Throwable error;
-                        Catalog catalog;
+        CompletableFuture<Integer> resultFuture = new CompletableFuture<>();
 
-                        Throwable errUnwrapped = ExceptionUtils.unwrapCause(err);
-
-                        if (errUnwrapped instanceof CatalogVersionAwareValidationException) {
-                            CatalogVersionAwareValidationException err0 = (CatalogVersionAwareValidationException) errUnwrapped;
-                            catalog = catalogByVer.get(err0.version());
-                            error = err0.initial();
-                        } else {
-                            return CompletableFuture.<Integer>failedFuture(err);
-                        }
-
-                        if (catalog.version() == 0) {
-                            return CompletableFuture.<Integer>failedFuture(error);
-                        }
-
-                        HybridTimestamp tsSafeForRoReadingInPastOptimization = calcClusterWideEnsureActivationTime(catalog);
-
-                        return clockService.waitFor(tsSafeForRoReadingInPastOptimization)
-                                .handle((res, ex) -> {
-                                    if (ex != null) {
-                                        error.addSuppressed(ex);
-                                    }
-                                    return failedFuture(error);
-                                })
-                                .thenCompose(unused -> CompletableFuture.<Integer>failedFuture(error));
-                    }
-
+        saveUpdate(updateProducer, 0)
+                .thenCompose(newVersion -> {
                     Catalog catalog = catalogByVer.get(newVersion);
 
                     HybridTimestamp tsSafeForRoReadingInPastOptimization = calcClusterWideEnsureActivationTime(catalog);
 
                     return clockService.waitFor(tsSafeForRoReadingInPastOptimization).thenApply(unused -> newVersion);
                 })
-                .thenCompose(Function.identity());
+                .whenComplete((newVersion, err) -> {
+                    if (err != null) {
+                        Throwable errUnwrapped = ExceptionUtils.unwrapCause(err);
+
+                        if (errUnwrapped instanceof CatalogVersionAwareValidationException) {
+                            CatalogVersionAwareValidationException err0 = (CatalogVersionAwareValidationException) errUnwrapped;
+                            Catalog catalog = catalogByVer.get(err0.version());
+                            Throwable error = err0.initial();
+
+                            if (catalog.version() == 0) {
+                                resultFuture.completeExceptionally(error);
+                            } else {
+                                HybridTimestamp tsSafeForRoReadingInPastOptimization = calcClusterWideEnsureActivationTime(catalog);
+
+                                clockService.waitFor(tsSafeForRoReadingInPastOptimization)
+                                        .whenComplete((ver, err1) -> {
+                                            if (err1 != null) {
+                                                error.addSuppressed(err1);
+                                            }
+
+                                            resultFuture.completeExceptionally(error);
+                                        });
+                            }
+                        } else {
+                            resultFuture.completeExceptionally(err);
+                        }
+                    } else {
+                        resultFuture.complete(newVersion);
+                    }
+                });
+
+        return resultFuture;
     }
 
     private HybridTimestamp calcClusterWideEnsureActivationTime(Catalog catalog) {
