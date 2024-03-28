@@ -26,6 +26,7 @@ import java.math.RoundingMode;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
+import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
@@ -239,23 +240,24 @@ public class NumericTypesSerializerTest {
 
     @Test
     public void testDecimalMaxScale() throws TupleMarshallerException {
+        int maxScale = CatalogUtils.MAX_DECIMAL_SCALE;
         schema = new SchemaDescriptor(
                 42,
                 new Column[]{new Column("key", NativeTypes.INT64, false)},
                 new Column[]{
-                        new Column("decimalCol", NativeTypes.decimalOf(Integer.MAX_VALUE, Integer.MAX_VALUE), false),
+                        new Column("decimalCol", NativeTypes.decimalOf(CatalogUtils.MAX_DECIMAL_PRECISION, maxScale), false),
                 }
         );
 
         final Tuple tup = createTuple()
                 .set("key", rnd.nextLong())
-                .set("decimalCol", BigDecimal.valueOf(123, Integer.MAX_VALUE));
+                .set("decimalCol", BigDecimal.valueOf(123, maxScale));
 
         TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
 
         final Row row = marshaller.marshal(tup);
 
-        assertEquals(row.decimalValue(1), BigDecimal.valueOf(123, Integer.MAX_VALUE));
+        assertEquals(row.decimalValue(1), BigDecimal.valueOf(123, maxScale));
     }
 
     /**
