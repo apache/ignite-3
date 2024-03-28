@@ -263,8 +263,7 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
                 .check();
         assertQuery("SELECT ts, ts_tz FROM timestamps WHERE id=?")
                 .withParam(3)
-                // TODO Conversion loses precision https://issues.apache.org/jira/browse/IGNITE-21567
-                .returns(localDateTime, instant.truncatedTo(ChronoUnit.SECONDS))
+                .returns(localDateTime, instant)
                 .check();
     }
 
