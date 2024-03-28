@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.metastorage.dsl;
 
+import java.nio.charset.StandardCharsets;
 import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.ToString;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.jetbrains.annotations.Nullable;
 
@@ -25,7 +27,7 @@ import org.jetbrains.annotations.Nullable;
  * Defines operation for meta storage conditional update (invoke).
  */
 @Transferable(MetaStorageMessageGroup.OPERATION)
-public interface Operation extends NetworkMessage {
+public interface Operation extends NetworkMessage, ToString {
     /**
      * Key identifies an entry which operation will be applied to. Key is {@code null} for {@link OperationType#NO_OP} operation.
      */
@@ -46,5 +48,14 @@ public interface Operation extends NetworkMessage {
     /** Operation type. */
     default OperationType type() {
         return OperationType.values()[operationType()];
+    }
+
+    @Override
+    default String toStr() {
+        byte[] key = key();
+
+        String keyStr = key == null ? null : new String(key, StandardCharsets.UTF_8);
+
+        return String.format("%s [opType=%s, key=%s]", getClass().getSimpleName(), type(), keyStr);
     }
 }

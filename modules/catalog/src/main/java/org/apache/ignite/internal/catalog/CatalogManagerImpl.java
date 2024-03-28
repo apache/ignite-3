@@ -407,11 +407,16 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
             Catalog catalog = catalogByVer.lastEntry().getValue();
 
-            List<UpdateEntry> updates;
+            List<UpdateEntry> updates = List.of();
             try {
                 updates = updateProducer.get(catalog);
             } catch (Exception ex) {
                 return failedFuture(ex);
+            } finally {
+                LOG.info(
+                        ">>>>> Debug CatalogManagerImpl#saveUpdate: [attemptNo={}, catalogVersion={}, updateProducer={}, entries={}]",
+                        attemptNo, catalog.version(), updateProducer, updates
+                );
             }
 
             if (updates.isEmpty()) {
@@ -452,6 +457,11 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     class OnUpdateHandlerImpl implements OnUpdateHandler {
         @Override
         public CompletableFuture<Void> handle(UpdateLogEvent event, HybridTimestamp metaStorageUpdateTimestamp, long causalityToken) {
+            LOG.info(
+                    ">>>>> Debug OnUpdateHandlerImpl#handle: [metaStorageUpdateTimestamp={}, causalityToken={}, event={}]",
+                    metaStorageUpdateTimestamp, causalityToken, event
+            );
+
             if (event instanceof SnapshotEntry) {
                 return handle((SnapshotEntry) event);
             }

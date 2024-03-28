@@ -305,4 +305,12 @@ public class CreateTableCommand extends AbstractTableCommand {
             );
         }
     }
+
+    @Override
+    public String toString() {
+        return String.format(
+                "%s [schemaName=%s, tableName=%s, zoneName=%s]",
+                getClass().getSimpleName(), schemaName, tableName, zoneName
+        );
+    }
 }
