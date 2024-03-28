@@ -19,6 +19,7 @@ package org.apache.ignite.internal.index;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
@@ -336,7 +337,7 @@ public class ItBuildIndexOneNodeTest extends BaseSqlIntegrationTest {
     }
 
     private static void createTableAndInsertManyPeople(AtomicInteger nextPersonId) {
-        createZoneOnlyIfNotExists(ZONE_NAME, 1, 1, null);
+        createZoneOnlyIfNotExists(ZONE_NAME, 1, 1, DEFAULT_STORAGE_PROFILE);
         // Use hash index for primary key, otherwise if sorted index exists,
         // the optimizer might choose it (the primary key index) instead of an existing sorted one.
         sql(format(

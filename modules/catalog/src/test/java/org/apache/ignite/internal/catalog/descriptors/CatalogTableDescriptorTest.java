@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
@@ -37,7 +38,8 @@ class CatalogTableDescriptorTest {
                 4,
                 List.of(new CatalogTableColumnDescriptor("pkCol", ColumnType.STRING, false, 0, 0, 10, null)),
                 List.of("pkCol"),
-                null
+                null,
+                DEFAULT_STORAGE_PROFILE
         );
 
         String toString = descriptor.toString();

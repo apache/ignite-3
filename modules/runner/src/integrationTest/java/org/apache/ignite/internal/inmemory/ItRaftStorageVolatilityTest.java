@@ -20,6 +20,8 @@ package org.apache.ignite.internal.inmemory;
 import static ca.seinesoftware.hamcrest.path.PathMatcher.exists;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -75,11 +77,11 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
     }
 
     private void createInMemoryTable() {
-        executeSql("CREATE ZONE ZONE_" + TABLE_NAME + " ENGINE aimem");
+        executeSql("CREATE ZONE ZONE_" + TABLE_NAME + " WITH STORAGE_PROFILES = '" + DEFAULT_AIMEM_PROFILE_NAME + "'");
 
         executeSql("CREATE TABLE " + TABLE_NAME
-                + " (k int, v int, CONSTRAINT PK PRIMARY KEY (k)) WITH PRIMARY_ZONE='ZONE_"
-                + TABLE_NAME.toUpperCase() + "'");
+                + " (k int, v int, CONSTRAINT PK PRIMARY KEY (k)) WITH STORAGE_PROFILE='"
+                + DEFAULT_AIMEM_PROFILE_NAME + "', PRIMARY_ZONE='ZONE_" + TABLE_NAME.toUpperCase() + "'");
     }
 
     /**
@@ -163,11 +165,13 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
     }
 
     private void createPersistentTable() {
-        executeSql("CREATE ZONE ZONE_" + TABLE_NAME + " ENGINE rocksdb");
+        executeSql("CREATE ZONE ZONE_" + TABLE_NAME
+                + " WITH STORAGE_PROFILES = '" + DEFAULT_ROCKSDB_PROFILE_NAME + "'");
 
         executeSql("CREATE TABLE " + TABLE_NAME
-                + " (k int, v int, CONSTRAINT PK PRIMARY KEY (k)) WITH PRIMARY_ZONE='ZONE_"
-                + TABLE_NAME.toUpperCase() + "'");
+                + " (k int, v int, CONSTRAINT PK PRIMARY KEY (k)) "
+                + "WITH STORAGE_PROFILE='" + DEFAULT_ROCKSDB_PROFILE_NAME + "',"
+                + "PRIMARY_ZONE='ZONE_" + TABLE_NAME.toUpperCase() + "'");
     }
 
     @Test
@@ -240,8 +244,14 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
         assertThat(configUpdateFuture, willCompleteSuccessfully());
 
         cluster.doInSession(0, session -> {
-            session.execute(null, "create zone zone1 engine aimem with partitions=1, replicas=1");
-            session.execute(null, "create table " + tableName + " (id int primary key, name varchar) with primary_zone='ZONE1'");
+            session.execute(
+                    null,
+                    "create zone zone1 with partitions=1, replicas=1, "
+                            + "storage_profiles = '" + DEFAULT_AIMEM_PROFILE_NAME + "'"
+            );
+            session.execute(null, "create table " + tableName
+                    + " (id int primary key, name varchar) with storage_profile='"
+                    + DEFAULT_AIMEM_PROFILE_NAME + "', primary_zone='ZONE1'");
         });
     }
 }

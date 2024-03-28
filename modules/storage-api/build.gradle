@@ -26,7 +26,6 @@ dependencies {
 
     implementation project(':ignite-api')
     implementation project(':ignite-schema')
-    implementation project(':ignite-distribution-zones')
     implementation project(':ignite-configuration')
     implementation project(":ignite-core")
     implementation project(":ignite-catalog")
@@ -38,7 +37,6 @@ dependencies {
     testAnnotationProcessor project(":ignite-configuration-annotation-processor")
     testImplementation project(':ignite-core')
     testImplementation project(':ignite-configuration')
-    testImplementation project(':ignite-distribution-zones')
     testImplementation project(':ignite-schema')
     testImplementation(testFixtures(project(':ignite-schema')))
     testImplementation(testFixtures(project(':ignite-core')))
@@ -52,7 +50,6 @@ dependencies {
 
     testFixturesImplementation project(':ignite-core')
     testFixturesImplementation project(':ignite-configuration')
-    testFixturesImplementation project(':ignite-distribution-zones')
     testFixturesImplementation project(':ignite-schema')
     testFixturesImplementation project(':ignite-api')
     testFixturesImplementation project(':ignite-catalog')

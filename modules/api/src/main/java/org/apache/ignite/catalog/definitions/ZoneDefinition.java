@@ -18,7 +18,6 @@
 package org.apache.ignite.catalog.definitions;
 
 import java.util.Objects;
-import org.apache.ignite.catalog.ZoneEngine;
 
 /**
  * Definition of the {@code CREATE ZONE} statement.
@@ -42,9 +41,7 @@ public class ZoneDefinition {
 
     private final String filter;
 
-    private final ZoneEngine engine;
-
-    private final String dataRegion;
+    private final String storageProfiles;
 
     private ZoneDefinition(
             String zoneName,
@@ -56,8 +53,7 @@ public class ZoneDefinition {
             Integer dataNodesAutoAdjustScaleUp,
             Integer dataNodesAutoAdjustScaleDown,
             String filter,
-            ZoneEngine engine,
-            String dataRegion
+            String storageProfiles
     ) {
         this.zoneName = zoneName;
         this.ifNotExists = ifNotExists;
@@ -68,8 +64,7 @@ public class ZoneDefinition {
         this.dataNodesAutoAdjustScaleUp = dataNodesAutoAdjustScaleUp;
         this.dataNodesAutoAdjustScaleDown = dataNodesAutoAdjustScaleDown;
         this.filter = filter;
-        this.engine = engine;
-        this.dataRegion = dataRegion;
+        this.storageProfiles = storageProfiles;
     }
 
     /**
@@ -164,21 +159,12 @@ public class ZoneDefinition {
     }
 
     /**
-     * Returns the storage engine name.
+     * Returns storage profiles.
      *
-     * @return The storage engine name.
+     * @return Storage profiles.
      */
-    public ZoneEngine engine() {
-        return engine;
-    }
-
-    /**
-     * Returns the data region name within the storage engine.
-     *
-     * @return Data region name.
-     */
-    public String dataRegion() {
-        return dataRegion;
+    public String storageProfiles() {
+        return storageProfiles;
     }
 
     /**
@@ -212,9 +198,7 @@ public class ZoneDefinition {
 
         private String filter;
 
-        private ZoneEngine engine = ZoneEngine.DEFAULT;
-
-        private String dataRegion;
+        private String storageProfiles;
 
         private Builder() {}
 
@@ -228,8 +212,7 @@ public class ZoneDefinition {
             dataNodesAutoAdjustScaleUp = definition.dataNodesAutoAdjustScaleUp;
             dataNodesAutoAdjustScaleDown = definition.dataNodesAutoAdjustScaleDown;
             filter = definition.filter;
-            engine = definition.engine;
-            dataRegion = definition.dataRegion;
+            storageProfiles = definition.storageProfiles;
         }
 
         /**
@@ -359,31 +342,15 @@ public class ZoneDefinition {
         }
 
         /**
-         * Sets the storage engine name.
+         * Sets the storage profiles.
          *
-         * @param engine Storage engine name.
+         * @param storageProfiles Storage profiles.
          * @return This builder instance.
          */
-        public Builder engine(ZoneEngine engine) {
-            Objects.requireNonNull(engine, "Engine must not be null.");
+        public Builder storageProfiles(String storageProfiles) {
+            Objects.requireNonNull(storageProfiles, "Storage profiles must not be null.");
 
-            this.engine = engine;
-            return this;
-        }
-
-        /**
-         * Sets the data region name within the storage engine.
-         *
-         * @param dataRegion Data region name within the storage engine.
-         * @return This builder instance.
-         */
-        public Builder dataRegion(String dataRegion) {
-            Objects.requireNonNull(dataRegion, "Data region must not be null.");
-            if (dataRegion.isBlank()) {
-                throw new IllegalArgumentException("Data region must not be blank.");
-            }
-
-            this.dataRegion = dataRegion;
+            this.storageProfiles = storageProfiles;
             return this;
         }
 
@@ -403,8 +370,7 @@ public class ZoneDefinition {
                     dataNodesAutoAdjustScaleUp,
                     dataNodesAutoAdjustScaleDown,
                     filter,
-                    engine,
-                    dataRegion
+                    storageProfiles
             );
         }
     }

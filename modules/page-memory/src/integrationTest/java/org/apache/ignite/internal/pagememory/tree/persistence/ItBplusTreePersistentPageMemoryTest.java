@@ -17,21 +17,23 @@
 
 package org.apache.ignite.internal.pagememory.tree.persistence;
 
+import static org.apache.ignite.internal.configuration.ConfigurationTestUtils.fixConfiguration;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTestUtils.mockCheckpointTimeoutLock;
 import static org.apache.ignite.internal.util.Constants.MiB;
 
-import java.util.concurrent.TimeUnit;
 import java.util.stream.LongStream;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.TestPageIoRegistry;
-import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
 import org.apache.ignite.internal.pagememory.persistence.TestPageReadWriteManager;
 import org.apache.ignite.internal.pagememory.reuse.ReuseList;
 import org.apache.ignite.internal.pagememory.tree.AbstractBplusTreePageMemoryTest;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
+import org.apache.ignite.internal.storage.configurations.StorageProfileConfiguration;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -40,20 +42,24 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(ConfigurationExtension.class)
 public class ItBplusTreePersistentPageMemoryTest extends AbstractBplusTreePageMemoryTest {
-    @InjectConfiguration
-    private PersistentPageMemoryDataRegionConfiguration dataRegionCfg;
+    @InjectConfiguration(
+            polymorphicExtensions = { PersistentPageMemoryProfileConfigurationSchema.class },
+            value = "mock = {"
+            + "engine=aipersist, "
+            + "size=" + MAX_MEMORY_SIZE
+            + "}"
+    )
+    private StorageProfileConfiguration storageProfileCfg;
 
     /** {@inheritDoc} */
     @Override
-    protected PageMemory createPageMemory() throws Exception {
-        dataRegionCfg.change(c -> c.changeSize(MAX_MEMORY_SIZE)).get(1, TimeUnit.SECONDS);
-
+    protected PageMemory createPageMemory() {
         TestPageIoRegistry ioRegistry = new TestPageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
 
         return new PersistentPageMemory(
-                dataRegionCfg,
+                (PersistentPageMemoryProfileConfiguration) fixConfiguration(storageProfileCfg),
                 ioRegistry,
                 LongStream.range(0, CPUS).map(i -> MAX_MEMORY_SIZE / CPUS).toArray(),
                 10 * MiB,

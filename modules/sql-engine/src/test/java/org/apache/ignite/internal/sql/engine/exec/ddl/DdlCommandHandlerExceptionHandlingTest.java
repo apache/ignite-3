@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec.ddl;
 
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
@@ -98,6 +99,7 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
 
         CreateZoneCommand cmd = new CreateZoneCommand();
         cmd.zoneName(ZONE_NAME);
+        cmd.storageProfiles(DEFAULT_STORAGE_PROFILE);
         cmd.ifNotExists(ifNotExists);
 
         return commandHandler.handle(cmd);

@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbDataRegionView;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileView;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.rocksdb.Cache;
 import org.rocksdb.LRUCache;
@@ -27,8 +27,8 @@ import org.rocksdb.WriteBufferManager;
  * Data region implementation for {@link RocksDbStorageEngine}. Based on a {@link Cache}.
  */
 public class RocksDbDataRegion {
-    /** Region configuration. */
-    private final RocksDbDataRegionView dataRegionView;
+    /** Region configuration view. */
+    private final RocksDbProfileView storageProfileView;
 
     /** RocksDB cache instance. */
     private Cache cache;
@@ -39,21 +39,21 @@ public class RocksDbDataRegion {
     /**
      * Constructor.
      *
-     * @param dataRegionView Data region configuration.
+     * @param storageProfileView Storage profile configuration view.
      */
-    public RocksDbDataRegion(RocksDbDataRegionView dataRegionView) {
-        this.dataRegionView = dataRegionView;
+    public RocksDbDataRegion(RocksDbProfileView storageProfileView) {
+        this.storageProfileView = storageProfileView;
     }
 
     /**
      * Start the rocksDb data region.
      */
     public void start() {
-        long writeBufferSize = dataRegionView.writeBufferSize();
+        long writeBufferSize = storageProfileView.writeBufferSize();
 
-        long totalCacheSize = dataRegionView.size() + writeBufferSize;
+        long totalCacheSize = storageProfileView.size() + writeBufferSize;
 
-        cache = new LRUCache(totalCacheSize, dataRegionView.numShardBits(), false);
+        cache = new LRUCache(totalCacheSize, storageProfileView.numShardBits(), false);
 
         writeBufferManager = new WriteBufferManager(writeBufferSize, cache);
     }

@@ -27,8 +27,10 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineExtensionConfiguration;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -51,9 +53,11 @@ public class PersistentPageMemoryDataStorageModule implements DataStorageModule 
             @Nullable LongJvmPauseDetector longJvmPauseDetector,
             FailureProcessor failureProcessor
     ) throws StorageException {
-        PersistentPageMemoryStorageEngineConfiguration engineConfig = configRegistry.getConfiguration(
-                PersistentPageMemoryStorageEngineConfiguration.KEY
-        );
+        PersistentPageMemoryStorageEngineConfiguration engineConfig =
+                ((PersistentPageMemoryStorageEngineExtensionConfiguration) configRegistry
+                        .getConfiguration(StorageConfiguration.KEY).engines()).aipersist();
+
+        StorageConfiguration storageConfig = configRegistry.getConfiguration(StorageConfiguration.KEY);
 
         assert engineConfig != null;
 
@@ -64,6 +68,7 @@ public class PersistentPageMemoryDataStorageModule implements DataStorageModule 
         return new PersistentPageMemoryStorageEngine(
                 igniteInstanceName,
                 engineConfig,
+                storageConfig,
                 ioRegistry,
                 storagePath,
                 longJvmPauseDetector,

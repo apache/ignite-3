@@ -54,6 +54,6 @@ public class RocksDbStorageExample {
      * @throws Exception If failed.
      */
     public static void main(String[] args) throws Exception {
-        new StorageEngineExample("rocksdb", "rocksdb-example").run();
+        new StorageEngineExample("rocksdb-example").run();
     }
 }

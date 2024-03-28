@@ -19,12 +19,9 @@ package org.apache.ignite.example.storage;
 
 import static org.apache.ignite.example.ExampleTestUtils.assertConsoleOutputContains;
 
-import java.util.concurrent.TimeUnit;
 import org.apache.ignite.example.AbstractExamplesTest;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -33,8 +30,6 @@ import org.junit.jupiter.api.Test;
 public class ItPageMemoryStorageExampleTest extends AbstractExamplesTest {
     @Test
     public void testPersistentExample() throws Exception {
-        addPersistentDataRegionConfig("persistent");
-
         assertConsoleOutputContains(PersistentPageMemoryStorageExample::main, EMPTY_ARGS,
                 "\nAll accounts:\n"
                         + "    1, John, Doe, 1000.0\n"
@@ -46,8 +41,6 @@ public class ItPageMemoryStorageExampleTest extends AbstractExamplesTest {
 
     @Test
     public void testInMemoryExample() throws Exception {
-        addVolatileDataRegionConfig("in-memory");
-
         assertConsoleOutputContains(VolatilePageMemoryStorageExample::main, EMPTY_ARGS,
                 "\nAll accounts:\n"
                         + "    1, John, Doe, 1000.0\n"
@@ -55,19 +48,5 @@ public class ItPageMemoryStorageExampleTest extends AbstractExamplesTest {
                         + "    3, Mary, Major, 1500.0\n"
                         + "    4, Richard, Miles, 1450.0\n"
         );
-    }
-
-    private void addVolatileDataRegionConfig(String name) throws Exception {
-        ignite.nodeConfiguration().getConfiguration(VolatilePageMemoryStorageEngineConfiguration.KEY)
-                .regions()
-                .change(regionsChange -> regionsChange.create(name, c -> {}))
-                .get(1, TimeUnit.SECONDS);
-    }
-
-    private void addPersistentDataRegionConfig(String name) throws Exception {
-        ignite.nodeConfiguration().getConfiguration(PersistentPageMemoryStorageEngineConfiguration.KEY)
-                .regions()
-                .change(regionsChange -> regionsChange.create(name, c -> {}))
-                .get(1, TimeUnit.SECONDS);
     }
 }

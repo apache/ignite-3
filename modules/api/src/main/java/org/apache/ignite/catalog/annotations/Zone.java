@@ -22,7 +22,6 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
-import org.apache.ignite.catalog.ZoneEngine;
 
 /**
  * Describes a distribution zone.
@@ -87,16 +86,9 @@ public @interface Zone {
     String filter() default "";
 
     /**
-     * The storage engine name.
+     * Storage profiles.
      *
-     * @return The storage engine name.
+     * @return Storage profiles.
      */
-    ZoneEngine engine() default ZoneEngine.DEFAULT;
-
-    /**
-     * Data region name within the storage engine.
-     *
-     * @return Data region name.
-     */
-    String dataRegion() default "";
+    String storageProfiles();
 }

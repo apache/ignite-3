@@ -19,6 +19,7 @@ package org.apache.ignite.internal.catalog;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
@@ -36,6 +37,7 @@ import org.apache.ignite.internal.catalog.commands.ColumnParams.Builder;
 import org.apache.ignite.internal.catalog.commands.CreateZoneCommand;
 import org.apache.ignite.internal.catalog.commands.CreateZoneCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.DropTableCommand;
+import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.storage.SnapshotEntry;
@@ -338,8 +340,16 @@ public class CatalogTestUtils {
         return AlterTableAddColumnCommand.builder().schemaName(DEFAULT_SCHEMA_NAME).tableName(tableName).columns(List.of(columns)).build();
     }
 
+    /**
+     * Builder for {@link CreateZoneCommand}.
+     *
+     * @param zoneName Zone name.
+     * @return Builder for {@link CreateZoneCommand}.
+     */
     public static CreateZoneCommandBuilder createZoneBuilder(String zoneName) {
-        return CreateZoneCommand.builder().zoneName(zoneName);
+        return CreateZoneCommand.builder()
+                .zoneName(zoneName)
+                .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile(DEFAULT_STORAGE_PROFILE).build()));
     }
 
     public static AlterZoneCommandBuilder alterZoneBuilder(String zoneName) {

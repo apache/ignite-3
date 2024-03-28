@@ -29,7 +29,6 @@ import static org.hamcrest.Matchers.is;
 import org.apache.ignite.catalog.ColumnType;
 import org.apache.ignite.catalog.IndexType;
 import org.apache.ignite.catalog.Options;
-import org.apache.ignite.catalog.ZoneEngine;
 import org.apache.ignite.catalog.annotations.Column;
 import org.apache.ignite.catalog.annotations.Id;
 import org.apache.ignite.catalog.definitions.TableDefinition;
@@ -41,9 +40,9 @@ import org.junit.jupiter.api.Test;
 class CreateFromDefinitionTest {
     @Test
     void createFromZoneBuilderSimple() {
-        ZoneDefinition zone = ZoneDefinition.builder("zone_test").build();
+        ZoneDefinition zone = ZoneDefinition.builder("zone_test").storageProfiles("default").build();
 
-        assertThat(createZone(zone), is("CREATE ZONE zone_test;"));
+        assertThat(createZone(zone), is("CREATE ZONE zone_test WITH STORAGE_PROFILES='default';"));
     }
 
     @Test
@@ -57,15 +56,15 @@ class CreateFromDefinitionTest {
                 .dataNodesAutoAdjustScaleDown(2)
                 .dataNodesAutoAdjustScaleUp(3)
                 .filter("filter")
-                .engine(ZoneEngine.AIMEM)
-                .dataRegion("dataRegion")
+                .storageProfiles("default")
                 .build();
 
         assertThat(
                 createZone(zone),
-                is("CREATE ZONE IF NOT EXISTS zone_test ENGINE AIMEM WITH PARTITIONS=3, REPLICAS=3, AFFINITY_FUNCTION='affinity',"
+                is("CREATE ZONE IF NOT EXISTS zone_test WITH STORAGE_PROFILES='default', PARTITIONS=3, REPLICAS=3,"
+                        + " AFFINITY_FUNCTION='affinity',"
                         + " DATA_NODES_AUTO_ADJUST=1, DATA_NODES_AUTO_ADJUST_SCALE_UP=3, DATA_NODES_AUTO_ADJUST_SCALE_DOWN=2,"
-                        + " DATA_NODES_FILTER='filter', DATAREGION='dataRegion';")
+                        + " DATA_NODES_FILTER='filter';")
         );
     }
 

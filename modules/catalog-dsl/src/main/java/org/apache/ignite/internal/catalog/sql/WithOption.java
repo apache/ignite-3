@@ -63,6 +63,10 @@ class WithOption extends QueryPart {
         return new WithOption("DATAREGION", dataRegion);
     }
 
+    public static WithOption storageProfiles(String storageProfiles) {
+        return new WithOption("STORAGE_PROFILES", storageProfiles);
+    }
+
     @Override
     protected void accept(QueryContext ctx) {
         ctx.sql(name).sql("=");

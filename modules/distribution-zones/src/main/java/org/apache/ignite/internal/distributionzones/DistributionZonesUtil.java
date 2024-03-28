@@ -37,13 +37,18 @@ import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import com.jayway.jsonpath.Configuration;
 import com.jayway.jsonpath.JsonPath;
 import com.jayway.jsonpath.Option;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ThreadPoolExecutor;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
+import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfileDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager.ZoneState;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -377,9 +382,9 @@ public class DistributionZonesUtil {
      * @param topologyVersion Logical topology version.
      * @return Update command for the meta storage.
      */
-    public static Update updateLogicalTopologyAndVersion(Set<LogicalNode> logicalTopology, long topologyVersion) {
+    static Update updateLogicalTopologyAndVersion(Set<LogicalNode> logicalTopology, long topologyVersion) {
         Set<NodeWithAttributes> topologyFromCmg = logicalTopology.stream()
-                .map(n -> new NodeWithAttributes(n.name(), n.id(), n.userAttributes()))
+                .map(n -> new NodeWithAttributes(n.name(), n.id(), n.userAttributes(), n.storageProfiles()))
                 .collect(toSet());
 
         return ops(
@@ -469,7 +474,7 @@ public class DistributionZonesUtil {
      * @param filter Valid {@link JsonPath} filter of JSON fields.
      * @return True if {@code nodeAttributes} satisfy {@code filter}, false otherwise. Returns true if {@code nodeAttributes} is empty.
      */
-    public static boolean filter(Map<String, String> nodeAttributes, String filter) {
+    public static boolean filterNodeAttributes(Map<String, String> nodeAttributes, String filter) {
         if (filter.equals(DEFAULT_FILTER)) {
             return true;
         }
@@ -502,23 +507,61 @@ public class DistributionZonesUtil {
     }
 
     /**
-     * Filters {@code dataNodes} according to the provided {@code filter}.
-     * Nodes' attributes are taken from {@code nodesAttributes} map.
+     * Filters storage profiles.
+     *
+     * @param node Node with storage profile attributes.
+     * @param zoneStorageProfiles Zone's storage profiles.
+     * @return True, if matches, false otherwise.
+     */
+    public static boolean filterStorageProfiles(
+            NodeWithAttributes node,
+            List<CatalogStorageProfileDescriptor> zoneStorageProfiles
+    ) {
+        if (node.storageProfiles() == null) {
+            return false;
+        }
+
+        List<String> zoneStorageProfilesNames = zoneStorageProfiles.stream()
+                .map(CatalogStorageProfileDescriptor::storageProfile)
+                .collect(toList());
+
+        return new HashSet<>(node.storageProfiles()).containsAll(zoneStorageProfilesNames);
+    }
+
+    /**
+     * Filters {@code dataNodes} according to the provided filter and storage profiles from {@code zoneDescriptor}.
+     * Nodes' attributes and storage profiles are taken from {@code nodesAttributes} map.
      *
      * @param dataNodes Data nodes.
-     * @param filter Filter for data nodes.
+     * @param zoneDescriptor Zone descriptor.
      * @param nodesAttributes Nodes' attributes which used for filtering.
      * @return Filtered data nodes.
      */
     public static Set<String> filterDataNodes(
             Set<Node> dataNodes,
-            String filter,
-            Map<String, Map<String, String>> nodesAttributes
+            CatalogZoneDescriptor zoneDescriptor,
+            Map<String, NodeWithAttributes> nodesAttributes
     ) {
+
         return dataNodes.stream()
-                .filter(n -> filter(nodesAttributes.get(n.nodeId()), filter))
+                .filter(n -> filterNodeAttributes(nodesAttributes.get(n.nodeId()).userAttributes(), zoneDescriptor.filter()))
+                .filter(n -> filterStorageProfiles(nodesAttributes.get(n.nodeId()), zoneDescriptor.storageProfiles().profiles()))
                 .map(Node::nodeName)
                 .collect(toSet());
+    }
+
+    /**
+     * Parse string representation of storage profiles.
+     *
+     * @param storageProfiles String representation of storage profiles.
+     * @return List of storage profile params
+     */
+    public static List<StorageProfileParams> parseStorageProfiles(String storageProfiles) {
+        List<String> items = Arrays.asList(storageProfiles.split("\\s*,\\s*"));
+
+        return items.stream()
+                .map(p -> StorageProfileParams.builder().storageProfile(p).build())
+                .collect(toList());
     }
 
     /**

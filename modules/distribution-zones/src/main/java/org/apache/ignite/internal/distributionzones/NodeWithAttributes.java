@@ -18,8 +18,10 @@
 package org.apache.ignite.internal.distributionzones;
 
 import java.io.Serializable;
+import java.util.List;
 import java.util.Map;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Structure that represents node with the attributes and which we store in Meta Storage when we store logical topology.
@@ -30,11 +32,37 @@ public class NodeWithAttributes implements Serializable {
 
     private final Node node;
 
-    private final Map<String, String> nodeAttributes;
+    private final Map<String, String> userAttributes;
 
-    public NodeWithAttributes(String nodeName, String nodeId, Map<String, String> nodeAttributes) {
+    private final List<String> storageProfiles;
+
+    /**
+     * Constructor.
+     *
+     * @param nodeName Node name.
+     * @param nodeId Node consistent identifier.
+     * @param userAttributes Key value map of user's node's attributes.
+     */
+    public NodeWithAttributes(String nodeName, String nodeId, @Nullable Map<String, String> userAttributes) {
+        this(nodeName, nodeId, userAttributes, List.of());
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param nodeName Node name.
+     * @param nodeId Node consistent identifier.
+     * @param userAttributes Key value map of user's node's attributes.
+     * @param storageProfiles List of supported storage profiles on the node.
+     */
+    public NodeWithAttributes(
+            String nodeName,
+            String nodeId,
+            @Nullable Map<String, String> userAttributes,
+            @Nullable List<String> storageProfiles) {
         this.node = new Node(nodeName, nodeId);
-        this.nodeAttributes = nodeAttributes;
+        this.userAttributes = userAttributes == null ? Map.of() : userAttributes;
+        this.storageProfiles = storageProfiles == null ? List.of() : storageProfiles;
     }
 
     @Override
@@ -54,7 +82,9 @@ public class NodeWithAttributes implements Serializable {
 
         NodeWithAttributes that = (NodeWithAttributes) obj;
 
-        return node.equals(that.node);
+        return node.equals(that.node)
+                && this.userAttributes.equals(that.userAttributes)
+                && this.storageProfiles.equals(that.storageProfiles);
     }
 
     public String nodeName() {
@@ -69,8 +99,12 @@ public class NodeWithAttributes implements Serializable {
         return node;
     }
 
-    public Map<String, String> nodeAttributes() {
-        return nodeAttributes;
+    public Map<String, String> userAttributes() {
+        return userAttributes;
+    }
+
+    public List<String> storageProfiles() {
+        return storageProfiles;
     }
 
     @Override

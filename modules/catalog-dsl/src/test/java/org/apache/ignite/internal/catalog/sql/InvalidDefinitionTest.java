@@ -27,7 +27,6 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.apache.ignite.catalog.ColumnSorted;
-import org.apache.ignite.catalog.ZoneEngine;
 import org.apache.ignite.catalog.definitions.ColumnDefinition;
 import org.apache.ignite.catalog.definitions.TableDefinition;
 import org.apache.ignite.catalog.definitions.ZoneDefinition;
@@ -42,7 +41,6 @@ class InvalidDefinitionTest {
 
     @Test
     void zone() {
-        assertZoneBuilderNull(ZoneDefinition.Builder::engine, ZoneEngine.AIMEM, "Engine");
         assertZoneBuilderNull(ZoneDefinition.Builder::partitions, 1, "Number of partitions");
         assertZoneBuilderNull(ZoneDefinition.Builder::replicas, 1, "Number of replicas");
 
@@ -56,7 +54,6 @@ class InvalidDefinitionTest {
                 "Timeout between node left topology event itself and data nodes switch");
 
         assertZoneBuilderNullOrBlank(ZoneDefinition.Builder::filter, "f", "Filter");
-        assertZoneBuilderNullOrBlank(ZoneDefinition.Builder::dataRegion, "r", "Data region");
     }
 
     @Test

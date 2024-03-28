@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.sql.ColumnType.INT32;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import java.util.List;
 import java.util.stream.Stream;
@@ -416,5 +418,31 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
                 CatalogValidationException.class,
                 "Index with name 'PUBLIC.FOO_PK' already exists"
         );
+    }
+
+    @Test
+    void exceptionIsThrownIfZoneDoesNotContainTableStorageProfile() {
+        CreateTableCommandBuilder builder = CreateTableCommand.builder();
+
+        String zoneName = "testZone";
+
+        Catalog catalog = catalog(createZoneCommand(zoneName, List.of("profile1, profile2")));
+
+        String tableProfile = "profile3";
+
+        CatalogCommand command = fillProperties(builder).zone(zoneName).storageProfile(tableProfile).build();
+
+        assertThrowsWithCause(
+                () -> command.get(catalog),
+                CatalogValidationException.class,
+                format("Zone with name '{}' does not contain table's storage profile [storageProfile='{}']", zoneName, tableProfile)
+        );
+
+        assertDoesNotThrow(() -> {
+            // Let's check the success case.
+            Catalog newCatalog = catalog(createZoneCommand(zoneName, List.of("profile1", "profile2", tableProfile)));
+
+            command.get(newCatalog);
+        });
     }
 }

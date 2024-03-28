@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.cluster.management;
 
+import java.util.List;
 import java.util.Map;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 
@@ -39,7 +40,7 @@ public interface NodeAttributes {
     Map<String, String> systemAttributes();
 
     /**
-     * TODO: add java doc https://issues.apache.org/jira/browse/IGNITE-20564
+     * List of storage profiles, which the node supports.
      */
-    Map<String, String> storageProfiles();
+    List<String> storageProfiles();
 }
