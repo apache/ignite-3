@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -26,10 +24,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
-import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.close.ManuallyCloseable;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.storage.StorageException;
@@ -37,7 +32,6 @@ import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileConfiguration;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileView;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstance;

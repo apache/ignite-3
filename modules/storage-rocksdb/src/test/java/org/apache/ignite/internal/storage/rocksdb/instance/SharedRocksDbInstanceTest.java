@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.storage.rocksdb.instance;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.configuration.ConfigurationTestUtils.fixConfiguration;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.sortedIndexCfName;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.KEY_BYTE_ORDER;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
@@ -41,7 +40,6 @@ import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbDataRegion;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileConfiguration;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileView;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;

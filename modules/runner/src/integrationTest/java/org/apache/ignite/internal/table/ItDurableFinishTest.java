@@ -19,9 +19,9 @@ package org.apache.ignite.internal.table;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.hamcrest.MatcherAssert.assertThat;
