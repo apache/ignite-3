@@ -21,9 +21,11 @@ import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
+import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.manager.IgniteTables;
+import org.apache.ignite.tx.IgniteTransactions;
 
 /**
  * Utilities to unwrap implementation objects from public API objects. They should be used whenever you need to get an
@@ -77,5 +79,14 @@ public class TestWrappers {
      */
     public static IgniteTablesInternal unwrapIgniteTablesInternal(IgniteTables tables) {
         return Wrappers.unwrap(tables, IgniteTablesInternal.class);
+    }
+
+    /**
+     * Unwraps {@link IgniteTransactionsImpl} from an {@link IgniteTransactions}.
+     *
+     * @param transactions Object to unwrap.
+     */
+    public static IgniteTransactionsImpl unwrapIgniteTransactionsImpl(IgniteTransactions transactions) {
+        return Wrappers.unwrap(transactions, IgniteTransactionsImpl.class);
     }
 }
