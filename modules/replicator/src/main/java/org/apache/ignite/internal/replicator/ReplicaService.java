@@ -49,9 +49,6 @@ import org.jetbrains.annotations.TestOnly;
 
 /** The service is intended to execute requests on replicas. */
 public class ReplicaService {
-    /** Network timeout. */
-    private static final long RPC_TIMEOUT = 3000;
-
     /** Message service. */
     private final MessagingService messagingService;
 
@@ -122,7 +119,11 @@ public class ReplicaService {
     private <R> CompletableFuture<R> sendToReplica(String targetNodeConsistentId, ReplicaRequest req) {
         CompletableFuture<R> res = new CompletableFuture<>();
 
-        messagingService.invoke(targetNodeConsistentId, req, RPC_TIMEOUT).whenComplete((response, throwable) -> {
+        messagingService.invoke(
+                targetNodeConsistentId,
+                req,
+                replicationConfiguration.replicationRequestProcessingTimeout().value()
+        ).whenComplete((response, throwable) -> {
             if (throwable != null) {
                 throwable = unwrapCause(throwable);
 
@@ -154,7 +155,11 @@ public class ReplicaService {
                                             .groupId(req.groupId())
                                             .build();
 
-                                    return messagingService.invoke(targetNodeConsistentId, awaitReplicaReq, RPC_TIMEOUT);
+                                    return messagingService.invoke(
+                                            targetNodeConsistentId,
+                                            awaitReplicaReq,
+                                            replicationConfiguration.replicationRequestProcessingTimeout().value()
+                                    );
                                 }
                         );
 
