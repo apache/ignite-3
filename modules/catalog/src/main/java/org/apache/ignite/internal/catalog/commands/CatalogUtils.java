@@ -414,6 +414,23 @@ public class CatalogUtils {
     }
 
     /**
+     * Returns a schema descriptor of the schema with the a given ID.
+     *
+     * @param catalog Catalog to look up the schema in.
+     * @param schemaId Schema ID.
+     * @throws CatalogValidationException If schema does not exist.
+     */
+    public static CatalogSchemaDescriptor schemaOrThrow(Catalog catalog, int schemaId) throws IndexNotFoundValidationException {
+        CatalogSchemaDescriptor schema = catalog.schema(schemaId);
+
+        if (schema == null) {
+            throw new CatalogValidationException(format("Schema with ID '{}' not found", schemaId));
+        }
+
+        return schema;
+    }
+
+    /**
      * Returns table with given name, or throws {@link TableNotFoundValidationException} if table with given name not exists.
      *
      * @param schema Schema to look up table in.
@@ -428,6 +445,23 @@ public class CatalogUtils {
 
         if (table == null) {
             throw new TableNotFoundValidationException(format("Table with name '{}.{}' not found", schema.name(), name));
+        }
+
+        return table;
+    }
+
+    /**
+     * Returns a table descriptor of the table with the a given ID.
+     *
+     * @param catalog Catalog to look up the table in.
+     * @param tableId Table ID.
+     * @throws TableNotFoundValidationException If table does not exist.
+     */
+    public static CatalogTableDescriptor tableOrThrow(Catalog catalog, int tableId) throws IndexNotFoundValidationException {
+        CatalogTableDescriptor table = catalog.table(tableId);
+
+        if (table == null) {
+            throw new TableNotFoundValidationException(format("Table with ID '{}' not found", tableId));
         }
 
         return table;
