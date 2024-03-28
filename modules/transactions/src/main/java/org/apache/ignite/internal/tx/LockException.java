@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.tx;
 
-import org.apache.ignite.internal.replicator.exception.TransactionRetryAllowingException;
+import org.apache.ignite.internal.tx.exception.TransactionRetriableException;
 
 /**
  * This exception is thrown when a lock cannot be acquired, released or downgraded.
  */
-public class LockException extends TransactionInternalCheckedException implements TransactionRetryAllowingException {
+public class LockException extends TransactionInternalCheckedException implements TransactionRetriableException {
     /**
      * Creates a new instance of LockException with the given message.
      *

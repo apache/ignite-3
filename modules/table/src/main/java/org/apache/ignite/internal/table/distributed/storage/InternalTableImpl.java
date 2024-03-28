@@ -72,7 +72,7 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
-import org.apache.ignite.internal.replicator.exception.TransactionRetryAllowingException;
+import org.apache.ignite.internal.tx.exception.TransactionRetriableException;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -2233,19 +2233,19 @@ public class InternalTableImpl implements InternalTable {
      * @return True if retrying is possible, false otherwise.
      */
     private static boolean isRestartTransactionPossible(Throwable e) {
-        if (e instanceof TransactionRetryAllowingException) {
+        if (e instanceof TransactionRetriableException) {
             return true;
-        } else if (e instanceof TransactionException && e.getCause() instanceof TransactionRetryAllowingException) {
+        } else if (e instanceof TransactionException && e.getCause() instanceof TransactionRetriableException) {
             return true;
-        } else if (e instanceof CompletionException && e.getCause() instanceof TransactionRetryAllowingException) {
+        } else if (e instanceof CompletionException && e.getCause() instanceof TransactionRetriableException) {
             return true;
         } else if (e instanceof CompletionException
                 && e.getCause() instanceof TransactionException
-                && e.getCause().getCause() instanceof TransactionRetryAllowingException) {
+                && e.getCause().getCause() instanceof TransactionRetriableException) {
             return true;
         } else if (e instanceof CompletionException
                 && e.getCause() instanceof IgniteException
-                && e.getCause().getCause() instanceof TransactionRetryAllowingException) {
+                && e.getCause().getCause() instanceof TransactionRetriableException) {
             return true;
         }
 

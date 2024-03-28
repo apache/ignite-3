@@ -15,10 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.replicator.exception;
+package org.apache.ignite.internal.tx.exception;
+
+import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_MISS_ERR;
+
+import org.apache.ignite.internal.lang.IgniteInternalException;
 
 /**
- *  Marker interface for exception that allow transaction retries.
+ * This exception is used when a full transaction misses primary replica.
  */
-public interface TransactionRetryAllowingException {
+public class FullTransactionPrimaryReplicaMissException extends IgniteInternalException implements TransactionRetriableException {
+    private static final long serialVersionUID = -6260803345179861139L;
+
+    /**
+     * Constructor.
+     */
+    public FullTransactionPrimaryReplicaMissException() {
+        super(
+                REPLICA_MISS_ERR,
+                " The primary replica has changed during a full transaction."
+        );
+    }
 }
