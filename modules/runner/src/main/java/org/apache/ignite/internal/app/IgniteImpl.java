@@ -188,6 +188,7 @@ import org.apache.ignite.internal.table.distributed.AntiHijackIgniteTables;
 import org.apache.ignite.internal.table.distributed.LowWatermarkImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
+import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnActionRequest;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnAppendEntries;
@@ -309,6 +310,9 @@ public class IgniteImpl implements Ignite {
 
     /** Distributed table manager. */
     private final TableManager distributedTblMgr;
+
+    /** Disaster recovery manager. */
+    private final DisasterRecoveryManager disasterRecoveryManager;
 
     private final IndexManager indexManager;
 
@@ -758,6 +762,15 @@ public class IgniteImpl implements Ignite {
                 transactionInflights
         );
 
+        disasterRecoveryManager = new DisasterRecoveryManager(
+                threadPoolsManager.tableIoExecutor(),
+                messagingServiceReturningToStorageOperationsPool,
+                metaStorageMgr,
+                catalogManager,
+                distributionZoneManager,
+                raftMgr
+        );
+
         indexManager = new IndexManager(
                 schemaManager,
                 distributedTblMgr,
@@ -1048,6 +1061,7 @@ public class IgniteImpl implements Ignite {
                                     volatileLogStorageFactoryCreator,
                                     outgoingSnapshotsManager,
                                     distributedTblMgr,
+                                    disasterRecoveryManager,
                                     indexManager,
                                     indexBuildingManager,
                                     qryEngine,
@@ -1163,6 +1177,10 @@ public class IgniteImpl implements Ignite {
     @Override
     public IgniteTables tables() {
         return new AntiHijackIgniteTables(distributedTblMgr, asyncContinuationExecutor);
+    }
+
+    public DisasterRecoveryManager disasterRecoveryManager() {
+        return disasterRecoveryManager;
     }
 
     @TestOnly
