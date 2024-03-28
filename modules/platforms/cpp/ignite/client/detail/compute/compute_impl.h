@@ -52,7 +52,7 @@ public:
      *
      * @param nodes Candidate node to use for the job execution.
      * @param units Deployment units. Can be empty.
-     * @param job_class_name Java class name of the job to execute.
+     * @param job_class_name Java class name of the job to submit.
      * @param args Job arguments.
      * @param callback A callback called on operation completion with job execution result.
      */
@@ -67,11 +67,11 @@ public:
      * @param table_name Name of the table to be used with @c key to determine target node.
      * @param key Table key to be used to determine the target node for job execution.
      * @param units Deployment units. Can be empty.
-     * @param job_class_name Java class name of the job to execute.
+     * @param job_class_name Java class name of the job to submit.
      * @param args Job arguments.
      * @param callback A callback called on operation completion with job execution result.
      */
-    void execute_colocated_async(const std::string &table_name, const ignite_tuple &key,
+    void submit_colocated_async(const std::string &table_name, const ignite_tuple &key,
         const std::vector<deployment_unit> &units, const std::string &job_class_name,
         const std::vector<primitive> &args, ignite_callback<std::optional<primitive>> callback);
 

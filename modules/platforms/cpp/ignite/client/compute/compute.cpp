@@ -21,7 +21,7 @@
 
 namespace ignite {
 
-void compute::execute_async(const std::vector<cluster_node> &nodes, const std::vector<deployment_unit> &units,
+void compute::submit_async(const std::vector<cluster_node> &nodes, const std::vector<deployment_unit> &units,
     std::string_view job_class_name, const std::vector<primitive> &args,
     ignite_callback<std::optional<primitive>> callback) {
     detail::arg_check::container_non_empty(nodes, "Nodes container");
@@ -30,7 +30,7 @@ void compute::execute_async(const std::vector<cluster_node> &nodes, const std::v
     m_impl->submit_to_nodes(nodes, units, job_class_name, args, std::move(callback));
 }
 
-void compute::broadcast_async(const std::set<cluster_node> &nodes, const std::vector<deployment_unit> &units,
+void compute::submit_broadcast_async(const std::set<cluster_node> &nodes, const std::vector<deployment_unit> &units,
     std::string_view job_class_name, const std::vector<primitive> &args,
     ignite_callback<std::map<cluster_node, ignite_result<std::optional<primitive>>>> callback) {
     typedef std::map<cluster_node, ignite_result<std::optional<primitive>>> result_type;
@@ -65,14 +65,14 @@ void compute::broadcast_async(const std::set<cluster_node> &nodes, const std::ve
     }
 }
 
-void compute::execute_colocated_async(std::string_view table_name, const ignite_tuple &key,
+void compute::submit_colocated_async(std::string_view table_name, const ignite_tuple &key,
     const std::vector<deployment_unit> &units, std::string_view job_class_name, const std::vector<primitive> &args,
     ignite_callback<std::optional<primitive>> callback) {
     detail::arg_check::container_non_empty(table_name, "Table name");
     detail::arg_check::tuple_non_empty(key, "Key tuple");
     detail::arg_check::container_non_empty(job_class_name, "Job class name");
 
-    m_impl->execute_colocated_async(
+    m_impl->submit_colocated_async(
         std::string(table_name), key, units, std::string(job_class_name), args, std::move(callback));
 }
 
