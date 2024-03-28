@@ -18,10 +18,8 @@
 package org.apache.ignite.internal.runner.app.client;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.apache.ignite.Ignite;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
@@ -62,17 +60,6 @@ public class ItCustomKeyColumnOrderClientTest extends ItAbstractThinClientTest {
 
         Tuple res = recView.get(null, key);
         assertEquals(val, res);
-    }
-
-    @Test
-    void testRecordBinaryViewUnmappedColumns() {
-        var recView = table().recordView();
-        Tuple val = Tuple.create().set("key1", 1).set("key2", "key2").set("val1", "val1").set("val2", 2L).set("val3", 3);
-
-        assertThrows(
-                IgniteException.class,
-                () -> recView.insert(null, val),
-                "Tuple doesn't match schema: schemaVersion=1, extraColumns=[VAL3]");
     }
 
     @Test

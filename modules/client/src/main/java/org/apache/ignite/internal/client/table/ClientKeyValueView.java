@@ -483,7 +483,6 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
         ClientMarshallerWriter writer = new ClientMarshallerWriter(builder, noValueSet);
 
         try {
-            // TODO: Check for unmapped columns, write a test for embedded mode too.
             Marshaller keyMarsh = s.getMarshaller(keySer.mapper(), TuplePart.KEY, false);
             Marshaller valMarsh = s.getMarshaller(valSer.mapper(), TuplePart.VAL, false);
 
