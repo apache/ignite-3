@@ -30,7 +30,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.tostring.S;
 
 class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
@@ -66,10 +65,9 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
     @Override
     public CompletableFuture<Void> handle(
             DisasterRecoveryManager disasterRecoveryManager,
-            WatchEvent watchEvent,
+            long msRevision,
             CompletableFuture<Void> operationFuture
     ) {
-        long msRevision = watchEvent.revision();
         HybridTimestamp msSafeTime = disasterRecoveryManager.metaStorageManager.timestampByRevision(msRevision);
 
         int catalogVersion = disasterRecoveryManager.catalogManager.activeCatalogVersion(msSafeTime.longValue());
@@ -95,7 +93,9 @@ class ManualGroupUpdateRequest implements DisasterRecoveryRequest {
                     disasterRecoveryManager.metaStorageManager
             );
 
-            return allOf(futures).whenComplete(copyStateTo(operationFuture));
+            allOf(futures).whenComplete(copyStateTo(operationFuture));
+
+            return operationFuture;
         });
     }
 

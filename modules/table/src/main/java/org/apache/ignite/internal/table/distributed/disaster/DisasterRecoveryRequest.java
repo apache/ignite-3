@@ -20,7 +20,6 @@ package org.apache.ignite.internal.table.distributed.disaster;
 import java.io.Serializable;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.metastorage.WatchEvent;
 
 /**
  * General interface for disaster recovery requests.
@@ -40,13 +39,13 @@ interface DisasterRecoveryRequest extends Serializable {
      * The recovery operation itself.
      *
      * @param disasterRecoveryManager Disaster recovery manager.
-     * @param watchEvent Watch event that corresponds to {@link DisasterRecoveryManager#RECOVERY_TRIGGER_KEY} update.
+     * @param revision Revision of the {@link DisasterRecoveryManager#RECOVERY_TRIGGER_KEY} update.
      * @param operationFuture Operation future.
      * @return New operation future, that completes when operation is completed.
      */
     CompletableFuture<Void> handle(
             DisasterRecoveryManager disasterRecoveryManager,
-            WatchEvent watchEvent,
+            long revision,
             CompletableFuture<Void> operationFuture
     );
 }

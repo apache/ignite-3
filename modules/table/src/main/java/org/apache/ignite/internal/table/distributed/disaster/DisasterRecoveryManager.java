@@ -248,7 +248,7 @@ public class DisasterRecoveryManager implements IgniteComponent {
 
     /**
      * Handler for {@link #RECOVERY_TRIGGER_KEY} update event. Deserializes the request and delegates the execution to
-     * {@link DisasterRecoveryRequest#handle(DisasterRecoveryManager, WatchEvent, CompletableFuture)}.
+     * {@link DisasterRecoveryRequest#handle(DisasterRecoveryManager, long, CompletableFuture)}.
      */
     private CompletableFuture<Void> handleTriggerKeyUpdate(WatchEvent watchEvent) {
         Entry newEntry = watchEvent.entryEvent().newEntry();
@@ -272,7 +272,7 @@ public class DisasterRecoveryManager implements IgniteComponent {
             return nullCompletedFuture();
         }
 
-        return request.handle(this, watchEvent, operationFuture);
+        return request.handle(this, watchEvent.revision(), operationFuture);
     }
 
     private void handleMessage(NetworkMessage message, ClusterNode sender, @Nullable Long correlationId) {
