@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.catalog.commands;
 
 import java.util.List;
-import java.util.Set;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.tostring.S;
@@ -46,11 +45,11 @@ public class TableSortedPrimaryKey extends TablePrimaryKey {
 
     /** {@inheritDoc} */
     @Override
-    void validate(Set<String> columns) {
-        super.validate(columns);
+    void validate(List<ColumnParams> allColumns) {
+        super.validate(allColumns);
 
         if (columns().size() != collations.size()) {
-            throw new CatalogValidationException("Number of collations does not match");
+            throw new CatalogValidationException("Number of collations does not match.");
         }
     }
 
