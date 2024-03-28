@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 
@@ -56,7 +57,9 @@ public abstract class TablePrimaryKey {
             }
         }
 
-        List<String> columnsNotInTable = columns.stream().filter(n -> !allColumnNames.contains(n)).collect(Collectors.toList());
+        List<String> columnsNotInTable = columns.stream()
+                .filter(Predicate.not(allColumnNames::contains))
+                .collect(Collectors.toList());
         if (!columnsNotInTable.isEmpty()) {
             throw new CatalogValidationException(
                     format("Primary key constraint contains undefined columns: [cols={}].", columnsNotInTable));
