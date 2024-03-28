@@ -139,6 +139,7 @@ public final class MarshallerUtil {
         NativeType columnType = column.type();
 
         return new MarshallerColumn(
+                column.positionInRow(),
                 column.name(),
                 mode(columnType),
                 column.defaultValueProvider()::get,

@@ -161,7 +161,7 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
                         commit ? COMMITTED : ABORTED,
                         coordinatorId,
                         tx.commitPartition(),
-                        commit ? testCluster.clocks.get(coord.name()).now() : null
+                        commit ? testCluster.clockServices.get(coord.name()).now() : null
                 )
         );
     }

@@ -27,7 +27,6 @@ import static org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbI
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Stream;
@@ -39,6 +38,7 @@ import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.rocksdb.index.AbstractRocksDbIndexStorage;
+import org.apache.ignite.internal.storage.rocksdb.instance.IndexColumnFamily;
 import org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstance;
 import org.jetbrains.annotations.Nullable;
 import org.rocksdb.RocksDBException;
@@ -69,41 +69,32 @@ class RocksDbIndexes {
                 if (descriptor == null) {
                     deleteByPrefix(writeBatch, rocksDb.hashIndexCf(), indexPrefix(tableId, indexId));
                 } else {
-                    hashIndices.put(indexId, new HashIndex(rocksDb, tableId, descriptor, rocksDb.meta));
+                    hashIndices.put(indexId, new HashIndex(tableId, rocksDb.hashIndexCf(), descriptor, rocksDb.meta));
                 }
             }
 
-            var indexCfsToDestroy = new ArrayList<Map.Entry<Integer, ColumnFamily>>();
+            var indexCfsToDestroy = new ArrayList<IndexColumnFamily>();
 
-            for (Map.Entry<Integer, ColumnFamily> e : rocksDb.sortedIndexes(tableId).entrySet()) {
-                int indexId = e.getKey();
+            for (IndexColumnFamily indexColumnFamily : rocksDb.sortedIndexes(tableId)) {
+                int indexId = indexColumnFamily.indexId();
 
-                ColumnFamily indexCf = e.getValue();
+                ColumnFamily cf = indexColumnFamily.columnFamily();
 
                 var descriptor = (StorageSortedIndexDescriptor) indexDescriptorSupplier.get(indexId);
 
                 if (descriptor == null) {
-                    deleteByPrefix(writeBatch, indexCf, indexPrefix(tableId, indexId));
+                    deleteByPrefix(writeBatch, cf, indexPrefix(tableId, indexId));
 
-                    indexCfsToDestroy.add(e);
+                    indexCfsToDestroy.add(indexColumnFamily);
                 } else {
-                    sortedIndices.put(indexId, SortedIndex.restoreExisting(rocksDb, tableId, indexCf, descriptor, rocksDb.meta));
+                    sortedIndices.put(indexId, SortedIndex.restoreExisting(tableId, cf, descriptor, rocksDb.meta));
                 }
             }
 
             rocksDb.db.write(DFLT_WRITE_OPTS, writeBatch);
 
             if (!indexCfsToDestroy.isEmpty()) {
-                rocksDb.flusher.awaitFlush(false)
-                        .thenRunAsync(() -> {
-                            for (Map.Entry<Integer, ColumnFamily> e : indexCfsToDestroy) {
-                                int indexId = e.getKey();
-
-                                ColumnFamily indexCf = e.getValue();
-
-                                rocksDb.destroySortedIndexCfIfNeeded(indexCf.nameBytes(), indexId);
-                            }
-                        }, rocksDb.engine.threadPool());
+                rocksDb.scheduleIndexCfsDestroy(indexCfsToDestroy);
             }
         }
     }
@@ -120,7 +111,7 @@ class RocksDbIndexes {
     HashIndexStorage getOrCreateHashIndex(int partitionId, StorageHashIndexDescriptor indexDescriptor) {
         HashIndex hashIndex = hashIndices.computeIfAbsent(
                 indexDescriptor.id(),
-                id -> new HashIndex(rocksDb, tableId, indexDescriptor, rocksDb.meta)
+                id -> new HashIndex(tableId, rocksDb.hashIndexCf(), indexDescriptor, rocksDb.meta)
         );
 
         return hashIndex.getOrCreateStorage(partitionId);
@@ -190,8 +181,7 @@ class RocksDbIndexes {
         }
 
         if (sortedIdx != null) {
-            rocksDb.flusher.awaitFlush(false)
-                    .thenRunAsync(sortedIdx::destroySortedIndexCfIfNeeded, rocksDb.engine.threadPool());
+            rocksDb.scheduleIndexCfsDestroy(List.of(sortedIdx.indexColumnFamily()));
         }
     }
 
@@ -203,21 +193,6 @@ class RocksDbIndexes {
         for (SortedIndex sortedIndex : sortedIndices.values()) {
             sortedIndex.destroy(partitionId, writeBatch);
         }
-    }
-
-    void destroyAllIndexes(WriteBatch writeBatch) throws RocksDBException {
-        for (HashIndex hashIndex : hashIndices.values()) {
-            hashIndex.destroy(writeBatch);
-        }
-
-        for (SortedIndex sortedIndex : sortedIndices.values()) {
-            sortedIndex.destroy(writeBatch);
-        }
-    }
-
-    void scheduleAllIndexCfDestroy() {
-        rocksDb.flusher.awaitFlush(false)
-                .thenRunAsync(() -> sortedIndices.values().forEach(SortedIndex::destroySortedIndexCfIfNeeded), rocksDb.engine.threadPool());
     }
 
     Stream<AbstractRocksDbIndexStorage> getAllStorages(int partitionId) {

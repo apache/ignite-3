@@ -70,9 +70,11 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -134,7 +136,7 @@ import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
-import org.apache.ignite.internal.tx.impl.ResourceCleanupManager;
+import org.apache.ignite.internal.tx.impl.ResourceVacuumManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
@@ -190,10 +192,12 @@ public class ItTxTestCluster {
     private ClusterService client;
 
     private HybridClock clientClock;
+    private ClockService clientClockService;
+
+    private Map<String, HybridClock> clocks;
+    protected Map<String, ClockService> clockServices;
 
     private ReplicaService clientReplicaSvc;
-
-    protected Map<String, HybridClock> clocks;
 
     protected Map<String, Loza> raftServers;
 
@@ -203,6 +207,8 @@ public class ItTxTestCluster {
 
     protected Map<String, TxManager> txManagers;
 
+    private Map<String, ResourceVacuumManager> resourceCleanupManagers;
+
     protected Map<String, TransactionInflights> txInflights;
 
     protected Map<String, RemotelyTriggeredResourceRegistry> cursorRegistries;
@@ -210,6 +216,8 @@ public class ItTxTestCluster {
     private TransactionInflights clientTransactionInflights;
 
     protected TxManager clientTxManager;
+
+    private ResourceVacuumManager clientResourceVacuumManager;
 
     protected TransactionStateResolver clientTxStateResolver;
 
@@ -335,10 +343,12 @@ public class ItTxTestCluster {
 
         // Start raft servers. Each raft server can hold multiple groups.
         clocks = new HashMap<>(nodes);
+        clockServices = new HashMap<>(nodes);
         raftServers = new HashMap<>(nodes);
         replicaManagers = new HashMap<>(nodes);
         replicaServices = new HashMap<>(nodes);
         txManagers = new HashMap<>(nodes);
+        resourceCleanupManagers = new HashMap<>(nodes);
         txInflights = new HashMap<>(nodes);
         cursorRegistries = new HashMap<>(nodes);
         txStateStorages = new HashMap<>(nodes);
@@ -359,8 +369,10 @@ public class ItTxTestCluster {
             ClusterNode node = clusterService.topologyService().localMember();
 
             HybridClock clock = new HybridClockImpl();
+            TestClockService clockService = new TestClockService(clock);
 
             clocks.put(node.name(), clock);
+            clockServices.put(node.name(), clockService);
 
             var raftSrv = new Loza(
                     clusterService,
@@ -382,7 +394,7 @@ public class ItTxTestCluster {
                     node.name(),
                     clusterService,
                     cmgManager,
-                    clock,
+                    clockService,
                     Set.of(TableMessageGroup.class, TxMessageGroup.class),
                     placementDriver,
                     partitionOperationsExecutor
@@ -408,31 +420,33 @@ public class ItTxTestCluster {
 
             txInflights.put(node.name(), transactionInflights);
 
-            ResourceCleanupManager resourceCleanupManager = new ResourceCleanupManager(
-                    node.name(),
-                    resourcesRegistry,
-                    clusterService.topologyService(),
-                    clusterService.messagingService(),
-                    transactionInflights
-            );
-
             cursorRegistries.put(node.name(), resourcesRegistry);
 
             TxManagerImpl txMgr = newTxManager(
                     clusterService,
                     replicaSvc,
-                    clock,
+                    clockService,
                     new TransactionIdGenerator(i),
                     node,
                     placementDriver,
                     resourcesRegistry,
-                    resourceCleanupManager,
                     transactionInflights
             );
 
-            txMgr.start();
+            ResourceVacuumManager resourceVacuumManager = new ResourceVacuumManager(
+                    node.name(),
+                    resourcesRegistry,
+                    clusterService.topologyService(),
+                    clusterService.messagingService(),
+                    transactionInflights,
+                    txMgr
+            );
 
+            txMgr.start();
             txManagers.put(node.name(), txMgr);
+
+            resourceVacuumManager.start();
+            resourceCleanupManagers.put(node.name(), resourceVacuumManager);
 
             txStateStorages.put(node.name(), new TestTxStateStorage());
         }
@@ -448,6 +462,7 @@ public class ItTxTestCluster {
         } else {
             // Collocated mode.
             clientTxManager = txManagers.get(localNodeName);
+            clientResourceVacuumManager = resourceCleanupManagers.get(localNodeName);
             clientTransactionInflights = txInflights.get(localNodeName);
         }
 
@@ -459,12 +474,11 @@ public class ItTxTestCluster {
     protected TxManagerImpl newTxManager(
             ClusterService clusterService,
             ReplicaService replicaSvc,
-            HybridClock clock,
+            ClockService clockService,
             TransactionIdGenerator generator,
             ClusterNode node,
             PlacementDriver placementDriver,
             RemotelyTriggeredResourceRegistry resourcesRegistry,
-            ResourceCleanupManager resourceCleanupManager,
             TransactionInflights transactionInflights
     ) {
         return new TxManagerImpl(
@@ -474,14 +488,13 @@ public class ItTxTestCluster {
                 clusterService.topologyService(),
                 replicaSvc,
                 new HeapLockManager(),
-                clock,
+                clockService,
                 generator,
                 placementDriver,
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
                 new TestLocalRwTxCounter(),
                 partitionOperationsExecutor,
                 resourcesRegistry,
-                resourceCleanupManager,
                 transactionInflights
         );
     }
@@ -549,12 +562,12 @@ public class ItTxTestCluster {
                         new TxMessageSender(
                                 clusterServices.get(assignment).messagingService(),
                                 replicaServices.get(assignment),
-                                clocks.get(assignment)
+                                clockServices.get(assignment)
                         );
 
                 var transactionStateResolver = new TransactionStateResolver(
                         txManagers.get(assignment),
-                        clocks.get(assignment),
+                        clockServices.get(assignment),
                         nodeResolver,
                         clusterServices.get(assignment).messagingService(),
                         placementDriver,
@@ -582,7 +595,7 @@ public class ItTxTestCluster {
                 PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(partAssignments);
 
                 PendingComparableValuesTracker<HybridTimestamp, Void> safeTime =
-                        new PendingComparableValuesTracker<>(clocks.get(assignment).now());
+                        new PendingComparableValuesTracker<>(clockServices.get(assignment).now());
                 PendingComparableValuesTracker<Long, Void> storageIndexTracker = new PendingComparableValuesTracker<>(0L);
 
                 PartitionDataStorage partitionDataStorage = new TestPartitionDataStorage(tableId, partId, mvPartStorage);
@@ -615,7 +628,8 @@ public class ItTxTestCluster {
                         safeTime,
                         storageIndexTracker,
                         catalogService,
-                        schemaManager
+                        schemaManager,
+                        clockServices.get(assignment)
                 );
 
                 CompletableFuture<Void> partitionReadyFuture = raftServers.get(assignment).startRaftGroupNode(
@@ -637,7 +651,7 @@ public class ItTxTestCluster {
                                         () -> Map.of(pkLocker.id(), pkLocker),
                                         pkStorage,
                                         Map::of,
-                                        clocks.get(assignment),
+                                        clockServices.get(assignment),
                                         safeTime,
                                         txStateStorage,
                                         transactionStateResolver,
@@ -740,7 +754,7 @@ public class ItTxTestCluster {
             Supplier<Map<Integer, IndexLocker>> indexesLockers,
             Lazy<TableSchemaAwareIndexStorage> pkIndexStorage,
             Supplier<Map<Integer, TableSchemaAwareIndexStorage>> secondaryIndexStorages,
-            HybridClock hybridClock,
+            ClockService clockService,
             PendingComparableValuesTracker<HybridTimestamp, Void> safeTime,
             TxStateStorage txStateStorage,
             TransactionStateResolver transactionStateResolver,
@@ -765,7 +779,7 @@ public class ItTxTestCluster {
                 indexesLockers,
                 pkIndexStorage,
                 secondaryIndexStorages,
-                hybridClock,
+                clockService,
                 safeTime,
                 txStateStorage,
                 transactionStateResolver,
@@ -887,6 +901,16 @@ public class ItTxTestCluster {
             }
         }
 
+        if (resourceCleanupManagers != null) {
+            for (ResourceVacuumManager resourceVacuumManager : resourceCleanupManagers.values()) {
+                resourceVacuumManager.stop();
+            }
+        }
+
+        if (clientResourceVacuumManager != null) {
+            clientResourceVacuumManager.stop();
+        }
+
         if (txManagers != null) {
             for (TxManager txMgr : txManagers.values()) {
                 txMgr.stop();
@@ -928,6 +952,8 @@ public class ItTxTestCluster {
 
         clientClock = new HybridClockImpl();
 
+        clientClockService = new TestClockService(clientClock);
+
         LOG.info("Replica manager has been started, node=[" + client.topologyService().localMember() + ']');
 
         clientReplicaSvc = spy(new ReplicaService(
@@ -944,14 +970,6 @@ public class ItTxTestCluster {
 
         clientTransactionInflights = new TransactionInflights(placementDriver);
 
-        ResourceCleanupManager resourceCleanupManager = new ResourceCleanupManager(
-                "client",
-                resourceRegistry,
-                client.topologyService(),
-                client.messagingService(),
-                clientTransactionInflights
-        );
-
         clientTxManager = new TxManagerImpl(
                 "client",
                 txConfiguration,
@@ -959,28 +977,37 @@ public class ItTxTestCluster {
                 client.topologyService(),
                 clientReplicaSvc,
                 new HeapLockManager(),
-                clientClock,
+                clientClockService,
                 new TransactionIdGenerator(-1),
                 placementDriver,
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
                 new TestLocalRwTxCounter(),
                 partitionOperationsExecutor,
                 resourceRegistry,
-                resourceCleanupManager,
                 clientTransactionInflights
+        );
+
+        clientResourceVacuumManager = new ResourceVacuumManager(
+                "client",
+                resourceRegistry,
+                client.topologyService(),
+                client.messagingService(),
+                clientTransactionInflights,
+                clientTxManager
         );
 
         clientTxStateResolver = new TransactionStateResolver(
                 clientTxManager,
-                clientClock,
+                clientClockService,
                 nodeResolver,
                 client.messagingService(),
                 placementDriver,
-                new TxMessageSender(client.messagingService(), clientReplicaSvc, clientClock)
+                new TxMessageSender(client.messagingService(), clientReplicaSvc, clientClockService)
         );
 
         clientTxStateResolver.start();
         clientTxManager.start();
+        clientResourceVacuumManager.start();
     }
 
     public Map<String, Loza> raftServers() {

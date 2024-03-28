@@ -98,9 +98,11 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.StartBuildingIndexEventParameters;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.MessagingService;
@@ -307,6 +309,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     /** Hybrid clock. */
     private final HybridClock clock = new HybridClockImpl();
+
+    private final ClockService clockService = new TestClockService(clock);
 
     /** The storage stores transaction states. */
     private final TestTxStateStorage txStateStorage = new TestTxStateStorage();
@@ -541,11 +545,11 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         transactionStateResolver = new TransactionStateResolver(
                 txManager,
-                clock,
+                clockService,
                 clusterNodeResolver,
                 messagingService,
                 mock(PlacementDriver.class),
-                new TxMessageSender(messagingService, mock(ReplicaService.class), clock)
+                new TxMessageSender(messagingService, mock(ReplicaService.class), clockService)
         );
 
         transactionStateResolver.start();
@@ -563,7 +567,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 () -> Map.of(pkLocker.id(), pkLocker, sortedIndexId, sortedIndexLocker, hashIndexId, hashIndexLocker),
                 pkStorageSupplier,
                 () -> Map.of(sortedIndexId, sortedIndexStorage, hashIndexId, hashIndexStorage),
-                clock,
+                clockService,
                 safeTimeClock,
                 txStateStorage,
                 transactionStateResolver,
@@ -2704,7 +2708,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     private TestKey key(BinaryRow binaryRow) {
         try {
-            return kvMarshaller.unmarshalKey(Row.wrapKeyOnlyBinaryRow(schemaDescriptor, binaryRow));
+            return kvMarshaller.unmarshalKeyOnly(Row.wrapKeyOnlyBinaryRow(schemaDescriptor, binaryRow));
         } catch (MarshallerException e) {
             throw new AssertionError(e);
         }

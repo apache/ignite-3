@@ -26,7 +26,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -62,18 +61,15 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
      * @param schemaVersions Schema versions access.
      * @param sql Ignite SQL facade.
      * @param marshallers Marshallers provider.
-     * @param asyncContinuationExecutor Executor to which execution will be resubmitted when leaving asynchronous public API
-     *         endpoints (so as to prevent the user from stealing Ignite threads).
      */
     public RecordBinaryViewImpl(
             InternalTable tbl,
             SchemaRegistry schemaRegistry,
             SchemaVersions schemaVersions,
             IgniteSql sql,
-            MarshallersProvider marshallers,
-            Executor asyncContinuationExecutor
+            MarshallersProvider marshallers
     ) {
-        super(tbl, schemaVersions, schemaRegistry, sql, marshallers, asyncContinuationExecutor);
+        super(tbl, schemaVersions, schemaRegistry, sql, marshallers);
 
         marshallerCache = new TupleMarshallerCache(schemaRegistry);
     }
@@ -496,7 +492,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
                 );
 
         CompletableFuture<Void> future = DataStreamer.streamData(publisher, options, batchSender, partitioner);
-        return convertToPublicFuture(preventThreadHijack(future));
+        return convertToPublicFuture(future);
     }
 
     /**

@@ -19,7 +19,7 @@ package org.apache.ignite.internal.table.distributed;
 
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
-import static org.apache.ignite.internal.hlc.HybridTimestamp.CLOCK_SKEW;
+import static org.apache.ignite.internal.hlc.TestClockService.TEST_MAX_CLOCK_SKEW_MILLIS;
 import static org.apache.ignite.internal.replicator.ReplicaManager.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -51,6 +51,7 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.schema.configuration.LowWatermarkConfiguration;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
@@ -71,8 +72,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 @ExtendWith(ConfigurationExtension.class)
 class CatalogStorageIndexDescriptorSupplierTest extends BaseIgniteAbstractTest {
-    // TODO: remove this, see https://issues.apache.org/jira/browse/IGNITE-18977
-    private static final long MIN_DATA_AVAILABILITY_TIME = DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS + CLOCK_SKEW;
+    private static final long MIN_DATA_AVAILABILITY_TIME = DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
+            + TEST_MAX_CLOCK_SKEW_MILLIS;
 
     private static final String TABLE_NAME = "TEST";
 
@@ -86,6 +87,7 @@ class CatalogStorageIndexDescriptorSupplierTest extends BaseIgniteAbstractTest {
 
     private StorageIndexDescriptorSupplier indexDescriptorSupplier;
 
+    @SuppressWarnings("JUnitMalformedDeclaration")
     @BeforeEach
     void setUp(
             TestInfo testInfo,
@@ -104,7 +106,7 @@ class CatalogStorageIndexDescriptorSupplierTest extends BaseIgniteAbstractTest {
         lowWatermark = new LowWatermarkImpl(
                 nodeName,
                 lowWatermarkConfiguration,
-                clock,
+                new TestClockService(clock),
                 txManager,
                 vaultManager,
                 failureProcessor,

@@ -543,7 +543,7 @@ public class NodeImpl implements Node, RaftServerService {
                     }
                     break;
                 case STAGE_NONE:
-                    // noinspection ConstantConditions
+                    //noinspection ConstantConditions
                     Requires.requireTrue(false, "Can't reach here");
                     break;
             }
@@ -1883,7 +1883,7 @@ public class NodeImpl implements Node, RaftServerService {
                         "Parse candidateId failed: %s.", request.serverId());
             }
             boolean granted = false;
-            // noinspection ConstantConditions
+            //noinspection ConstantConditions
             do {
                 if (!this.conf.contains(candidateId)) {
                     LOG.warn("Node {} ignore PreVoteRequest from {} as it is not in conf <{}>.", getNodeId(),
@@ -1987,7 +1987,7 @@ public class NodeImpl implements Node, RaftServerService {
                         "Parse candidateId failed: %s.", request.serverId());
             }
 
-            // noinspection ConstantConditions
+            //noinspection ConstantConditions
             do {
                 // check term
                 if (request.term() >= this.currTerm) {

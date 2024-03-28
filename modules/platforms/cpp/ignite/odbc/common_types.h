@@ -72,7 +72,7 @@ enum class sql_state {
     /** Restricted data type attribute violation. */
     S07006_RESTRICTION_VIOLATION,
 
-    /** Indicator needed but not suplied. */
+    /** Indicator needed but not supplied. */
     S22002_INDICATOR_NEEDED,
 
     /** String data, length mismatch. */
