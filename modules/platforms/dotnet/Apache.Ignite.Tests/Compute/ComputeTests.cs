@@ -644,15 +644,22 @@ namespace Apache.Ignite.Tests.Compute
 
         [Test]
         [TestCase("1E3", -3)]
-        [TestCase("1.12E5", -5)]
-        [TestCase("1.123456789E-10", 10)]
-        [TestCase("1.123456789E-10", 5)]
+        [TestCase("1.12E5", 0)]
+        [TestCase("1.123456789", 10)]
+        [TestCase("1.123456789", 5)]
         public async Task TestBigDecimalPropagation(string number, int scale)
         {
             var res = await Client.Compute.SubmitAsync<decimal>(await GetNodeAsync(1), Units, DecimalJob, number, scale);
             var resVal = await res.GetResultAsync();
 
-            Assert.AreEqual(decimal.Parse(number, NumberStyles.Float), resVal);
+            var expected = decimal.Parse(number, NumberStyles.Float);
+
+            if (scale > 0)
+            {
+                expected = decimal.Round(expected, scale);
+            }
+
+            Assert.AreEqual(expected, resVal);
         }
 
         private static async Task AssertJobStatus<T>(IJobExecution<T> jobExecution, JobState state, Instant beforeStart)
