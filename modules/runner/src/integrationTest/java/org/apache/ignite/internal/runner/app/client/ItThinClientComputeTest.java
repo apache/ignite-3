@@ -660,7 +660,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     }
 
     @ParameterizedTest
-    @CsvSource({"1E3,-3", "1.12E5,-5"})
+    @CsvSource({"1E3,-3", "1.12E5,-5", "1.123456789E-10,10", "1.123456789E-10,5"})
     void testBigDecimalPropagation(String number, int scale) {
         BigDecimal res = client().compute().execute(Set.of(node(0)), List.of(), DecimalJob.class.getName(), number, scale);
 
