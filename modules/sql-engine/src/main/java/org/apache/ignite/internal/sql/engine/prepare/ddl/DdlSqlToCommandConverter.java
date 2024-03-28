@@ -289,7 +289,7 @@ public class DdlSqlToCommandConverter {
                 DdlOptionInfo<CreateTableCommand, ?> tblOptionInfo = tableOptionInfos.get(optionKey);
 
                 if (tblOptionInfo != null) {
-                    updateCommandOption("Table", optionKey, (SqlLiteral) option.value(), tblOptionInfo, ctx.query(), createTblCmd);
+                    updateCommandOption("Table", optionKey, option.value(), tblOptionInfo, ctx.query(), createTblCmd);
                 } else {
                     throw new SqlException(
                             STMT_VALIDATION_ERR, String.format("Unexpected table option [option=%s, query=%s]", optionKey, ctx.query()));
@@ -814,40 +814,74 @@ public class DdlSqlToCommandConverter {
     private <S, T> void updateCommandOption(
             String sqlObjName,
             Object optId,
-            SqlLiteral value,
+            SqlNode value,
             DdlOptionInfo<S, T> optInfo,
             String query,
             S target
     ) {
-        T value0;
+        T expectedValue = extractValueForUpdateCommandOption(sqlObjName, optId, value, optInfo, query);
+        validateValue(sqlObjName, optId, optInfo, query, expectedValue);
+        optInfo.setter.accept(target, expectedValue);
+    }
+
+    private static <T, S> T extractValueForUpdateCommandOption(
+            String sqlObjName,
+            Object optId,
+            SqlNode value,
+            DdlOptionInfo<S, T> optInfo,
+            String query
+    ) {
+        var valueKind = value.getKind();
+        switch (valueKind) {
+            case IDENTIFIER:
+                return (T) ((SqlIdentifier) value).getSimple();
+            case LITERAL:
+                return valueFromLiteralAccordingToOptionType(sqlObjName, optId, optInfo, query, (SqlLiteral) value);
+            default:
+                var msg = String.format(
+                        "Invalid %s value kind [kind=%s, expectedKind=(IDENTIFIER, LITERAL), query=%s]",
+                        sqlObjName.toLowerCase(),
+                        valueKind,
+                        query);
+                throw new SqlException(STMT_VALIDATION_ERR, msg);
+        }
+    }
+
+    private static <S, T> void validateValue(String sqlObjName, Object optId, DdlOptionInfo<S, T> optInfo, String query, T expectedValue) {
+        if (optInfo.validator == null) {
+            return;
+        }
 
         try {
-            value0 = value.getValueAs(optInfo.type);
+            optInfo.validator.accept(expectedValue);
         } catch (Throwable e) {
-            throw new SqlException(STMT_VALIDATION_ERR, String.format(
+            var msg = String.format(
+                    "%s option validation failed [option=%s, err=%s, query=%s]",
+                    sqlObjName,
+                    optId,
+                    e.getMessage(),
+                    query);
+            throw new SqlException(STMT_VALIDATION_ERR, msg, e);
+        }
+    }
+
+    private static <T, S> T valueFromLiteralAccordingToOptionType(
+            String sqlObjName,
+            Object optId,
+            DdlOptionInfo<S, T> optInfo,
+            String query,
+            SqlLiteral literalValue) {
+        try {
+            return literalValue.getValueAs(optInfo.type);
+        } catch (Throwable cause) {
+            var msg = String.format(
                     "Invalid %s option type [option=%s, expectedType=%s, query=%s]",
                     sqlObjName.toLowerCase(),
                     optId,
                     optInfo.type.getSimpleName(),
-                    query)
-            );
+                    query);
+            throw new SqlException(STMT_VALIDATION_ERR, msg, cause);
         }
-
-        if (optInfo.validator != null) {
-            try {
-                optInfo.validator.accept(value0);
-            } catch (Throwable e) {
-                throw new SqlException(STMT_VALIDATION_ERR, String.format(
-                        "%s option validation failed [option=%s, err=%s, query=%s]",
-                        sqlObjName,
-                        optId,
-                        e.getMessage(),
-                        query
-                ), e);
-            }
-        }
-
-        optInfo.setter.accept(target, value0);
     }
 
     private void checkPositiveNumber(int num) {
