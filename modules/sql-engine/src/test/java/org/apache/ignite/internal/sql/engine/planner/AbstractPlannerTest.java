@@ -89,6 +89,7 @@ import org.apache.ignite.internal.sql.engine.prepare.PlannerHelper;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
+import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSystemViewScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
@@ -753,6 +754,16 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         }
 
         rel.getInputs().forEach(this::clearHints);
+    }
+
+    protected Predicate<? extends RelNode> projectFromTable(String tableName, String... exprs) {
+        return isInstanceOf(IgniteProject.class)
+                .and(projection -> {
+                    String actualProjStr = projection.getProjects().toString();
+                    String expectedProjStr = Arrays.asList(exprs).toString();
+                    return actualProjStr.equals(expectedProjStr);
+                })
+                .and(hasChildThat(isTableScan(tableName)));
     }
 
     /**
