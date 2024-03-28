@@ -37,17 +37,17 @@ public class LeaseSerializationTest {
 
         checksSerialization(Lease.emptyLease(groupId));
 
-        checksSerialization(newLease("node1", timestamp(now, 1), timestamp(now + 1_000_000, 100), true, true, groupId));
+        checksSerialization(newLease("node1", timestamp(now, 1), timestamp(now + 1_000_000, 100), true, true, null, groupId));
 
-        checksSerialization(newLease("node1", timestamp(now, 1), timestamp(now + 1_000_000, 100), false, false, groupId));
+        checksSerialization(newLease("node1", timestamp(now, 1), timestamp(now + 1_000_000, 100), false, false, "node2", groupId));
 
-        checksSerialization(newLease("node1", timestamp(now, 1), timestamp(now + 1_000_000, 100), false, true, groupId));
+        checksSerialization(newLease("node1", timestamp(now, 1), timestamp(now + 1_000_000, 100), false, true, "node2", groupId));
 
-        checksSerialization(newLease("node1", timestamp(now, 1), timestamp(now + 1_000_000, 100), true, false, groupId));
+        checksSerialization(newLease("node1", timestamp(now, 1), timestamp(now + 1_000_000, 100), true, false, null, groupId));
 
-        checksSerialization(newLease(null, timestamp(1, 1), timestamp(2 + 1_000_000, 100), true, true, groupId));
+        checksSerialization(newLease(null, timestamp(1, 1), timestamp(2 + 1_000_000, 100), true, true, null, groupId));
 
-        checksSerialization(newLease("node" + new String(new byte[1000]), timestamp(1, 1), timestamp(2, 100), false, false, groupId));
+        checksSerialization(newLease("node" + new String(new byte[1000]), timestamp(1, 1), timestamp(2, 100), false, false, null, groupId));
     }
 
     @Test
@@ -57,7 +57,15 @@ public class LeaseSerializationTest {
         ReplicationGroupId groupId = new TablePartitionId(1, 1);
 
         for (int i = 0; i < 25; i++) {
-            leases.add(newLease("node" + i, timestamp(1, i), timestamp(1, i + 1), i % 2 == 0, i % 2 == 1, groupId));
+            leases.add(newLease(
+                    "node" + i,
+                    timestamp(1, i),
+                    timestamp(1, i + 1),
+                    i % 2 == 0,
+                    i % 2 == 1,
+                    i % 2 == 0 ? null : "node" + i,
+                    groupId
+            ));
         }
 
         byte[] leaseBatchBytes = new LeaseBatch(leases).bytes();
@@ -75,6 +83,7 @@ public class LeaseSerializationTest {
             HybridTimestamp expirationTime,
             boolean prolong,
             boolean accepted,
+            @Nullable String proposedCandidate,
             ReplicationGroupId replicationGroupId
     ) {
         return new Lease(
@@ -84,6 +93,7 @@ public class LeaseSerializationTest {
                 expirationTime,
                 prolong,
                 accepted,
+                proposedCandidate,
                 replicationGroupId
         );
     }

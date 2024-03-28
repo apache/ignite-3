@@ -253,8 +253,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             ThreadAttributes thread = (ThreadAttributes) Thread.currentThread();
             return !thread.allows(STORAGE_READ) || !thread.allows(STORAGE_WRITE);
         } else {
-            // We don't know for sure.
-            return false;
+            // We don't know for sure, but false negative will cause thread assertions (see ThreadAssertions#assertThreadAllowsTo).
+            return true;
         }
     }
 
@@ -340,14 +340,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
                 clusterNetSvc.messagingService().respond(senderConsistentId, msg, correlationId);
 
-                if (request instanceof PrimaryReplicaRequest) {
-                    ClusterNode localNode = clusterNetSvc.topologyService().localMember();
-
-                    if (!localNode.name().equals(replica.proposedPrimary())) {
-                        stopLeaseProlongation(request.groupId(), replica.proposedPrimary());
-                    } else if (isConnectivityRelatedException(ex)) {
-                        stopLeaseProlongation(request.groupId(), null);
-                    }
+                if (request instanceof PrimaryReplicaRequest && isConnectivityRelatedException(ex)) {
+                    stopLeaseProlongation(request.groupId(), null);
                 }
 
                 if (ex == null && res.replicationFuture() != null) {
