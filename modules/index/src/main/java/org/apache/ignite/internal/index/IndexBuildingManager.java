@@ -30,11 +30,10 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.ClockWaiter;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
-import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -80,8 +79,7 @@ public class IndexBuildingManager implements IgniteComponent {
             PlacementDriver placementDriver,
             ClusterService clusterService,
             LogicalTopologyService logicalTopologyService,
-            HybridClock clock,
-            ClockWaiter clockWaiter
+            ClockService clockService
     ) {
         this.metaStorageManager = metaStorageManager;
 
@@ -102,14 +100,20 @@ public class IndexBuildingManager implements IgniteComponent {
 
         indexAvailabilityController = new IndexAvailabilityController(catalogManager, metaStorageManager, indexBuilder);
 
-        indexBuildController = new IndexBuildController(indexBuilder, indexManager, catalogManager, clusterService, placementDriver, clock);
+        indexBuildController = new IndexBuildController(
+                indexBuilder,
+                indexManager,
+                catalogManager,
+                clusterService,
+                placementDriver,
+                clockService
+        );
 
         var indexTaskScheduler = new ChangeIndexStatusTaskScheduler(
                 catalogManager,
                 clusterService,
                 logicalTopologyService,
-                clock,
-                clockWaiter,
+                clockService,
                 placementDriver,
                 executor
         );

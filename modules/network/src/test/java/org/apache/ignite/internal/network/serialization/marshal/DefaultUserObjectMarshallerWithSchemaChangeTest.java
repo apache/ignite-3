@@ -193,7 +193,7 @@ public class DefaultUserObjectMarshallerWithSchemaChangeTest extends BaseIgniteA
         Class<?> remoteClass = addFieldTo(Empty.class, "value", String.class);
         Class<?> localClass = addFieldTo(Empty.class, "value", CharSequence.class);
 
-        // noinspection unchecked
+        //noinspection unchecked
         localMarshaller.replaceSchemaMismatchHandler((Class<Object>) localClass, schemaMismatchHandler);
 
         Object remoteInstance = instantiate(remoteClass);
@@ -604,7 +604,7 @@ public class DefaultUserObjectMarshallerWithSchemaChangeTest extends BaseIgniteA
         Class<?> localClass = baseClass;
         Class<?> remoteClass = addInterface(baseClass, iface);
 
-        // noinspection unchecked
+        //noinspection unchecked
         localMarshaller.replaceSchemaMismatchHandler((Class<Object>) localClass, schemaMismatchHandler);
 
         Object remoteInstance = instantiate(remoteClass);
@@ -665,7 +665,7 @@ public class DefaultUserObjectMarshallerWithSchemaChangeTest extends BaseIgniteA
         Class<?> remoteClass = baseClass;
         Class<?> localClass = addInterface(baseClass, iface);
 
-        // noinspection unchecked
+        //noinspection unchecked
         localMarshaller.replaceSchemaMismatchHandler((Class<Object>) localClass, schemaMismatchHandler);
 
         Object remoteInstance = instantiate(remoteClass);

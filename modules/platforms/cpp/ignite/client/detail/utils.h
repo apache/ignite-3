@@ -56,4 +56,43 @@ void write_tuple(protocol::writer &writer, const schema &sch, const ignite_tuple
  */
 void write_tuples(protocol::writer &writer, const schema &sch, const std::vector<ignite_tuple> &tuples, bool key_only);
 
+/**
+ * Read tuple.
+ *
+ * @param reader Reader.
+ * @param sch Schema.
+ * @param key_only Should only key fields be read or not.
+ * @return Tuple.
+ */
+ignite_tuple read_tuple(protocol::reader &reader, const schema *sch, bool key_only);
+
+/**
+ * Read tuple.
+ *
+ * @param reader Reader.
+ * @param sch Schema.
+ * @return Tuple.
+ */
+std::optional<ignite_tuple> read_tuple_opt(protocol::reader &reader, const schema *sch);
+
+/**
+ * Read tuples.
+ *
+ * @param reader Reader.
+ * @param sch Schema.
+ * @param key_only Should only key fields be read or not.
+ * @return Tuples.
+ */
+std::vector<ignite_tuple> read_tuples(protocol::reader &reader, const schema *sch, bool key_only);
+
+/**
+ * Read tuples.
+ *
+ * @param reader Reader.
+ * @param sch Schema.
+ * @param key_only Should only key fields be read or not.
+ * @return Tuples.
+ */
+std::vector<std::optional<ignite_tuple>> read_tuples_opt(protocol::reader &reader, const schema *sch, bool key_only);
+
 } // namespace ignite::detail

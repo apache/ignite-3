@@ -24,7 +24,6 @@ namespace Apache.Ignite.Internal
     using System.Diagnostics.CodeAnalysis;
     using System.IO;
     using System.Linq;
-    using System.Net;
     using System.Net.Security;
     using System.Net.Sockets;
     using System.Threading;
@@ -40,7 +39,7 @@ namespace Apache.Ignite.Internal
     /// Wrapper over framework socket for Ignite thin client operations.
     /// </summary>
     // ReSharper disable SuggestBaseTypeForParameter (NetworkStream has more efficient read/write methods).
-    internal sealed class ClientSocket : IDisposable
+    internal sealed partial class ClientSocket : IDisposable
     {
         /** General-purpose client type code. */
         private const byte ClientType = 2;
@@ -132,6 +131,9 @@ namespace Apache.Ignite.Internal
             _socketTimeout = configuration.SocketTimeout;
             _operationTimeout = configuration.OperationTimeout;
 
+            MetricsContext = connectionContext.ClusterNode.MetricsContext ??
+                             throw new InvalidOperationException("Metrics context is missing.");
+
             _heartbeatInterval = GetHeartbeatInterval(configuration.HeartbeatInterval, connectionContext.IdleTimeout, _logger);
 
             // ReSharper disable once AsyncVoidLambda (timer callback)
@@ -194,11 +196,11 @@ namespace Apache.Ignite.Internal
                     .WaitAsync(configuration.SocketTimeout, cts.Token)
                     .ConfigureAwait(false);
 
-                connected = true;
                 logger.LogConnectionEstablishedDebug(socket.RemoteEndPoint);
 
-                Metrics.ConnectionsEstablished.Add(1);
+                Metrics.ConnectionsEstablished.Add(1, endPoint.MetricsContext.Tags);
                 Metrics.ConnectionsActiveIncrement();
+                connected = true;
 
                 stream = new NetworkStream(socket, ownsSocket: true);
 
@@ -211,7 +213,7 @@ namespace Apache.Ignite.Internal
                     logger.LogSslConnectionEstablishedDebug(socket.RemoteEndPoint, sslStream.NegotiatedCipherSuite);
                 }
 
-                var context = await HandshakeAsync(stream, endPoint.EndPoint, configuration, cts.Token)
+                var context = await HandshakeAsync(stream, endPoint, configuration, cts.Token)
                     .WaitAsync(configuration.SocketTimeout, cts.Token)
                     .ConfigureAwait(false);
 
@@ -240,11 +242,11 @@ namespace Apache.Ignite.Internal
 
                 if (ex.GetBaseException() is TimeoutException)
                 {
-                    Metrics.HandshakesFailedTimeout.Add(1);
+                    Metrics.HandshakesFailedTimeout.Add(1, endPoint.MetricsContext.Tags);
                 }
                 else
                 {
-                    Metrics.HandshakesFailed.Add(1);
+                    Metrics.HandshakesFailed.Add(1, endPoint.MetricsContext.Tags);
                 }
 
                 if (connected)
@@ -288,28 +290,35 @@ namespace Apache.Ignite.Internal
         /// <param name="cancellationToken">Cancellation token.</param>
         private static async Task<ConnectionContext> HandshakeAsync(
             Stream stream,
-            IPEndPoint endPoint,
+            SocketEndpoint endPoint,
             IgniteClientConfiguration configuration,
             CancellationToken cancellationToken)
         {
             await stream.WriteAsync(ProtoCommon.MagicBytes, cancellationToken).ConfigureAwait(false);
-            await WriteHandshakeAsync(stream, CurrentProtocolVersion, configuration, cancellationToken).ConfigureAwait(false);
+            await WriteHandshakeAsync(stream, CurrentProtocolVersion, configuration, endPoint.MetricsContext, cancellationToken)
+                .ConfigureAwait(false);
 
             await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
 
-            await CheckMagicBytesAsync(stream, cancellationToken).ConfigureAwait(false);
+            await CheckMagicBytesAsync(stream, endPoint.MetricsContext, cancellationToken).ConfigureAwait(false);
 
-            using var response = await ReadResponseAsync(stream, new byte[4], CancellationToken.None).ConfigureAwait(false);
+            using var response = await ReadResponseAsync(stream, new byte[4], endPoint.MetricsContext, CancellationToken.None)
+                .ConfigureAwait(false);
+
             return ReadHandshakeResponse(response.GetReader(), endPoint, GetSslInfo(stream));
         }
 
-        private static async ValueTask CheckMagicBytesAsync(Stream stream, CancellationToken cancellationToken)
+        private static async ValueTask CheckMagicBytesAsync(
+            Stream stream,
+            MetricsContext metricsContext,
+            CancellationToken cancellationToken)
         {
             var responseMagic = ByteArrayPool.Rent(ProtoCommon.MagicBytes.Length);
 
             try
             {
-                await ReceiveBytesAsync(stream, responseMagic, ProtoCommon.MagicBytes.Length, cancellationToken).ConfigureAwait(false);
+                await ReceiveBytesAsync(stream, responseMagic, ProtoCommon.MagicBytes.Length, metricsContext, cancellationToken)
+                    .ConfigureAwait(false);
 
                 for (var i = 0; i < ProtoCommon.MagicBytes.Length; i++)
                 {
@@ -327,7 +336,7 @@ namespace Apache.Ignite.Internal
             }
         }
 
-        private static ConnectionContext ReadHandshakeResponse(MsgPackReader reader, IPEndPoint endPoint, ISslInfo? sslInfo)
+        private static ConnectionContext ReadHandshakeResponse(MsgPackReader reader, SocketEndpoint endPoint, ISslInfo? sslInfo)
         {
             var serverVer = new ClientProtocolVersion(reader.ReadInt16(), reader.ReadInt16(), reader.ReadInt16());
 
@@ -352,7 +361,7 @@ namespace Apache.Ignite.Internal
             return new ConnectionContext(
                 serverVer,
                 TimeSpan.FromMilliseconds(idleTimeoutMs),
-                new ClusterNode(clusterNodeId, clusterNodeName, endPoint),
+                new ClusterNode(clusterNodeId, clusterNodeName, endPoint.EndPoint, endPoint.MetricsContext),
                 clusterId,
                 sslInfo);
         }
@@ -386,15 +395,16 @@ namespace Apache.Ignite.Internal
         private static async ValueTask<PooledBuffer> ReadResponseAsync(
             Stream stream,
             byte[] messageSizeBytes,
+            MetricsContext metricsContext,
             CancellationToken cancellationToken)
         {
-            var size = await ReadMessageSizeAsync(stream, messageSizeBytes, cancellationToken).ConfigureAwait(false);
+            var size = await ReadMessageSizeAsync(stream, messageSizeBytes, metricsContext, cancellationToken).ConfigureAwait(false);
 
             var bytes = ByteArrayPool.Rent(size);
 
             try
             {
-                await ReceiveBytesAsync(stream, bytes, size, cancellationToken).ConfigureAwait(false);
+                await ReceiveBytesAsync(stream, bytes, size, metricsContext, cancellationToken).ConfigureAwait(false);
 
                 return new PooledBuffer(bytes, 0, size);
             }
@@ -409,12 +419,13 @@ namespace Apache.Ignite.Internal
         private static async Task<int> ReadMessageSizeAsync(
             Stream stream,
             byte[] buffer,
+            MetricsContext metricsContext,
             CancellationToken cancellationToken)
         {
             const int messageSizeByteCount = 4;
             Debug.Assert(buffer.Length >= messageSizeByteCount, "buffer.Length >= messageSizeByteCount");
 
-            await ReceiveBytesAsync(stream, buffer, messageSizeByteCount, cancellationToken).ConfigureAwait(false);
+            await ReceiveBytesAsync(stream, buffer, messageSizeByteCount, metricsContext, cancellationToken).ConfigureAwait(false);
 
             return ReadMessageSize(buffer);
         }
@@ -423,6 +434,7 @@ namespace Apache.Ignite.Internal
             Stream stream,
             byte[] buffer,
             int size,
+            MetricsContext metricsContext,
             CancellationToken cancellationToken)
         {
             int received = 0;
@@ -442,7 +454,7 @@ namespace Apache.Ignite.Internal
 
                 received += res;
 
-                Metrics.BytesReceived.Add(res);
+                AddBytesReceived(res, metricsContext);
             }
         }
 
@@ -450,6 +462,7 @@ namespace Apache.Ignite.Internal
             Stream stream,
             ClientProtocolVersion version,
             IgniteClientConfiguration configuration,
+            MetricsContext metricsContext,
             CancellationToken token)
         {
             using var bufferWriter = new PooledArrayBuffer(prefixSize: ProtoCommon.MessagePrefixSize);
@@ -462,7 +475,8 @@ namespace Apache.Ignite.Internal
             WriteMessageSize(resBuf, size);
 
             await stream.WriteAsync(resBuf, token).ConfigureAwait(false);
-            Metrics.BytesSent.Add(resBuf.Length);
+
+            AddBytesSent(resBuf.Length + ProtoCommon.MagicBytes.Length, metricsContext);
         }
 
         private static void WriteHandshake(MsgPackWriter w, ClientProtocolVersion version, IgniteClientConfiguration configuration)
@@ -595,7 +609,7 @@ namespace Apache.Ignite.Internal
             {
                 if (_requests.TryRemove(requestId, out _))
                 {
-                    Metrics.RequestsFailed.Add(1);
+                    AddFailedRequest();
                     Metrics.RequestsActiveDecrement();
                 }
 
@@ -645,7 +659,7 @@ namespace Apache.Ignite.Internal
 
                     await _stream.WriteAsync(requestBufWithPrefix, _disposeTokenSource.Token).ConfigureAwait(false);
 
-                    Metrics.BytesSent.Add(requestBufWithPrefix.Length);
+                    AddBytesSent(requestBufWithPrefix.Length);
                 }
                 else
                 {
@@ -654,10 +668,10 @@ namespace Apache.Ignite.Internal
                     var prefixBytes = _prefixBuffer.AsMemory()[..(prefixSize + 4)];
                     await _stream.WriteAsync(prefixBytes, _disposeTokenSource.Token).ConfigureAwait(false);
 
-                    Metrics.BytesSent.Add(prefixBytes.Length);
+                    AddBytesSent(prefixBytes.Length);
                 }
 
-                Metrics.RequestsSent.Add(1);
+                Metrics.RequestsSent.Add(1, MetricsContext.Tags);
             }
             catch (Exception e)
             {
@@ -688,7 +702,8 @@ namespace Apache.Ignite.Internal
             {
                 while (!cancellationToken.IsCancellationRequested)
                 {
-                    PooledBuffer response = await ReadResponseAsync(_stream, messageSizeBytes, cancellationToken).ConfigureAwait(false);
+                    PooledBuffer response = await ReadResponseAsync(
+                        _stream, messageSizeBytes, MetricsContext, cancellationToken).ConfigureAwait(false);
 
                     // Invoke response handler in another thread to continue the receive loop.
                     // Response buffer should be disposed by the task handler.
@@ -774,13 +789,13 @@ namespace Apache.Ignite.Internal
 
             if (exception != null)
             {
-                Metrics.RequestsFailed.Add(1);
+                AddFailedRequest();
 
                 taskCompletionSource.TrySetException(exception);
                 return false;
             }
 
-            Metrics.RequestsCompleted.Add(1);
+            Metrics.RequestsCompleted.Add(1, MetricsContext.Tags);
 
             return taskCompletionSource.TrySetResult(response);
         }
@@ -873,11 +888,11 @@ namespace Apache.Ignite.Internal
                 {
                     _logger.LogConnectionClosedWithErrorWarn(ex, ConnectionContext.ClusterNode.Address, ex.Message);
 
-                    Metrics.ConnectionsLost.Add(1);
+                    Metrics.ConnectionsLost.Add(1, MetricsContext.Tags);
 
                     if (ex.GetBaseException() is TimeoutException)
                     {
-                        Metrics.ConnectionsLostTimeout.Add(1);
+                        Metrics.ConnectionsLostTimeout.Add(1, MetricsContext.Tags);
                     }
                 }
                 else

@@ -62,7 +62,7 @@ public class SnapshotMetaUtils {
                 .nextRowIdToBuildByIndexId(nextRowIdToBuildByIndexId);
 
         if (!config.isStable()) {
-            // noinspection ConstantConditions
+            //noinspection ConstantConditions
             metaBuilder
                     .oldPeersList(config.oldPeers())
                     .oldLearnersList(config.oldLearners());

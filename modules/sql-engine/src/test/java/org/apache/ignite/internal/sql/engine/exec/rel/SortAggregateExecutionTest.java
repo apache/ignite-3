@@ -137,7 +137,13 @@ public class SortAggregateExecutionTest extends BaseAggregateTest {
         }
 
         Mapping mapping = Commons.trimmingMapping(grpSet.length(), grpSet);
-        MapReduceAgg mapReduceAgg = MapReduceAggregates.createMapReduceAggCall(call, mapping.getTargetCount());
+        MapReduceAgg mapReduceAgg = MapReduceAggregates.createMapReduceAggCall(
+                Commons.cluster(),
+                call,
+                mapping.getTargetCount(),
+                inRowType,
+                true
+        );
 
         SortAggregateNode<Object[]> aggRdc = new SortAggregateNode<>(
                 ctx,

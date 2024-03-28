@@ -744,7 +744,10 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         RelDataType rowType = rel.getRowType();
 
         Supplier<List<AccumulatorWrapper<RowT>>> accFactory = expressionFactory.accumulatorsFactory(
-                type, rel.getAggregateCalls(), null);
+                type,
+                rel.getAggregateCalls(),
+                rel.getInput().getRowType()
+        );
 
         RowSchema rowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
         RowFactory<RowT> rowFactory = ctx.rowHandler().factory(rowSchema);

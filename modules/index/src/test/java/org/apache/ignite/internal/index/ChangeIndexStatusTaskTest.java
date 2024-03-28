@@ -61,16 +61,18 @@ import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.ChangeIndexStatusValidationException;
-import org.apache.ignite.internal.catalog.ClockWaiter;
 import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.index.message.IndexMessagesFactory;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
@@ -105,6 +107,8 @@ public class ChangeIndexStatusTaskTest extends IgniteAbstractTest {
     @Spy
     private final ClockWaiter clockWaiter = new ClockWaiter(NODE_NAME, clock);
 
+    private ClockService clockService;
+
     private CatalogManager catalogManager;
 
     private final ExecutorService executor = spy(newSingleThreadExecutor());
@@ -123,6 +127,8 @@ public class ChangeIndexStatusTaskTest extends IgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
+        clockService = new TestClockService(clock, clockWaiter);
+
         catalogManager = createTestCatalogManager(NODE_NAME, clockWaiter, clock);
 
         assertThat(allOf(clockWaiter.start(), catalogManager.start()), willCompleteSuccessfully());
@@ -150,8 +156,7 @@ public class ChangeIndexStatusTaskTest extends IgniteAbstractTest {
                 placementDriver,
                 clusterService,
                 logicalTopologyService,
-                clock,
-                clockWaiter,
+                clockService,
                 executor,
                 busyLock
         ) {

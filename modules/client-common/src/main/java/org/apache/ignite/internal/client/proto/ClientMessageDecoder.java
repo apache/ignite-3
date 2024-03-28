@@ -49,7 +49,7 @@ public class ClientMessageDecoder extends LengthFieldBasedFrameDecoder {
     @Override
     protected Object decode(ChannelHandlerContext ctx, ByteBuf in) throws Exception {
         if (!readMagic(in)) {
-            // noinspection ReturnOfNull
+            //noinspection ReturnOfNull
             return null;
         }
 

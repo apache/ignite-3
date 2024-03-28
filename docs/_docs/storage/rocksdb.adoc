@@ -31,7 +31,6 @@ Below is the list of properties for link:https://rocksdb.org/[RocksDB,window=_bl
 |name|| The name of the data region.
 |size| `256 * 1024 * 1024` | Size of the offheap cache.
 |writeBufferSize | `64 * 1024 * 1024` | Size of the write buffer.
-|cache| `lru` | The type of the cache to use. Currently only lru is supported. Using `clock` cache is not recommended.
 |numShardBits| `-1` | The number of parts the cache is sharded to.
 |===
 
@@ -45,8 +44,7 @@ ignite config set --type cluster \
 "{
     rocksDb.regions: [{
         name: lsm_region,
-        size: 256000000,
-        cache: lru
+        size: 256000000
     }]
 }"
 ----

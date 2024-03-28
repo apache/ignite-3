@@ -36,6 +36,7 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.commands.DefaultValue.Type;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescriptor;
@@ -138,32 +139,39 @@ public class CreateTableCommand extends AbstractTableCommand {
 
     private void validate() {
         if (nullOrEmpty(columns)) {
-            throw new CatalogValidationException("Table should have at least one column");
+            throw new CatalogValidationException("Table should have at least one column.");
         }
 
         Set<String> columnNames = new HashSet<>();
-
         for (ColumnParams column : columns) {
             if (!columnNames.add(column.name())) {
-                throw new CatalogValidationException(format("Column with name '{}' specified more than once", column.name()));
+                throw new CatalogValidationException(format("Column with name '{}' specified more than once.", column.name()));
             }
         }
 
         if (primaryKey == null || nullOrEmpty(primaryKey.columns())) {
-            throw new CatalogValidationException("Table should have primary key");
+            throw new CatalogValidationException("Table should have primary key.");
         }
 
-        primaryKey.validate(columnNames);
+        primaryKey.validate(columns);
+
+        for (ColumnParams column : columns) {
+            boolean partOfPk = primaryKey.columns().contains(column.name());
+            if (!partOfPk && column.defaultValueDefinition().type == Type.FUNCTION_CALL) {
+                throw new CatalogValidationException(
+                        format("Functional defaults are not supported for non-primary key columns [col={}].", column.name()));
+            }
+        }
 
         if (nullOrEmpty(colocationColumns)) {
-            throw new CatalogValidationException("Colocation columns could not be empty");
+            throw new CatalogValidationException("Colocation columns could not be empty.");
         }
 
         Set<String> colocationColumnsSet = new HashSet<>();
 
         for (String name : colocationColumns) {
             if (!primaryKey.columns().contains(name)) {
-                throw new CatalogValidationException(format("Colocation column '{}' is not part of PK", name));
+                throw new CatalogValidationException(format("Colocation column '{}' is not part of PK.", name));
             }
 
             if (!colocationColumnsSet.add(name)) {

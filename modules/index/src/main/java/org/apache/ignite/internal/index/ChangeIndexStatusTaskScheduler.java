@@ -26,14 +26,13 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.ClockWaiter;
 import org.apache.ignite.internal.catalog.commands.RemoveIndexCommand;
 import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
-import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterService;
@@ -50,9 +49,7 @@ class ChangeIndexStatusTaskScheduler implements ManuallyCloseable {
 
     private final LogicalTopologyService logicalTopologyService;
 
-    private final HybridClock clock;
-
-    private final ClockWaiter clockWaiter;
+    private final ClockService clockService;
 
     private final PlacementDriver placementDriver;
 
@@ -68,16 +65,14 @@ class ChangeIndexStatusTaskScheduler implements ManuallyCloseable {
             CatalogManager catalogManager,
             ClusterService clusterService,
             LogicalTopologyService logicalTopologyService,
-            HybridClock clock,
-            ClockWaiter clockWaiter,
+            ClockService clockService,
             PlacementDriver placementDriver,
             Executor executor
     ) {
         this.catalogManager = catalogManager;
         this.clusterService = clusterService;
         this.logicalTopologyService = logicalTopologyService;
-        this.clock = clock;
-        this.clockWaiter = clockWaiter;
+        this.clockService = clockService;
         this.placementDriver = placementDriver;
         this.executor = executor;
     }
@@ -115,8 +110,7 @@ class ChangeIndexStatusTaskScheduler implements ManuallyCloseable {
                 placementDriver,
                 clusterService,
                 logicalTopologyService,
-                clock,
-                clockWaiter,
+                clockService,
                 executor,
                 busyLock
         ) {
@@ -149,8 +143,7 @@ class ChangeIndexStatusTaskScheduler implements ManuallyCloseable {
                 placementDriver,
                 clusterService,
                 logicalTopologyService,
-                clock,
-                clockWaiter,
+                clockService,
                 executor,
                 busyLock
         ) {

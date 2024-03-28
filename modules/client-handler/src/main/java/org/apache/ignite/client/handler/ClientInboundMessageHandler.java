@@ -103,7 +103,7 @@ import org.apache.ignite.internal.client.proto.ResponseFlags;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.event.EventListener;
-import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
@@ -128,7 +128,6 @@ import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersionsImpl;
-import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
@@ -179,8 +178,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     /** Metrics. */
     private final ClientHandlerMetricSource metrics;
 
-    /** Hybrid clock. */
-    private final HybridClock clock;
+    private final ClockService clockService;
 
     /** Context. */
     private ClientContext clientContext;
@@ -215,7 +213,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
      * @param clusterTag Cluster tag.
      * @param metrics Metrics.
      * @param authenticationManager Authentication manager.
-     * @param clock Hybrid clock.
+     * @param clockService Clock service.
      */
     public ClientInboundMessageHandler(
             IgniteTablesInternal igniteTables,
@@ -227,7 +225,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             CompletableFuture<ClusterTag> clusterTag,
             ClientHandlerMetricSource metrics,
             AuthenticationManager authenticationManager,
-            HybridClock clock,
+            ClockService clockService,
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
             long connectionId,
@@ -242,7 +240,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         assert clusterTag != null;
         assert metrics != null;
         assert authenticationManager != null;
-        assert clock != null;
+        assert clockService != null;
         assert schemaSyncService != null;
         assert catalogService != null;
         assert primaryReplicaTracker != null;
@@ -256,18 +254,18 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         this.clusterTag = clusterTag;
         this.metrics = metrics;
         this.authenticationManager = authenticationManager;
-        this.clock = clock;
+        this.clockService = clockService;
         this.primaryReplicaTracker = primaryReplicaTracker;
 
         jdbcQueryCursorHandler = new JdbcQueryCursorHandlerImpl(resources);
         jdbcQueryEventHandler = new JdbcQueryEventHandlerImpl(
                 processor,
-                new JdbcMetadataCatalog(clock, schemaSyncService, catalogService),
+                new JdbcMetadataCatalog(clockService, schemaSyncService, catalogService),
                 resources,
                 igniteTransactions
         );
 
-        schemaVersions = new SchemaVersionsImpl(schemaSyncService, catalogService, clock);
+        schemaVersions = new SchemaVersionsImpl(schemaSyncService, catalogService, clockService);
         this.connectionId = connectionId;
 
         this.primaryReplicaMaxStartTime = new AtomicLong(HybridTimestamp.MIN_VALUE.longValue());
@@ -559,17 +557,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             // Observable timestamp should be calculated after the operation is processed; reserve space, write later.
             int observableTimestampIdx = out.reserveLong();
 
-            CompletableFuture fut;
-
-            // Enclosing in 'internal call' to save resubmission to the async continuation thread pool on return. This will only
-            // work if the corresponding call (like an async KeyValueView method) is invoked in this same thread, but in most cases this
-            // will be true.
-            PublicApiThreading.startInternalCall();
-            try {
-                fut = processOperation(in, out, opCode, requestId);
-            } finally {
-                PublicApiThreading.endInternalCall();
-            }
+            CompletableFuture fut = processOperation(in, out, opCode, requestId);
 
             if (fut == null) {
                 // Operation completed synchronously.
@@ -881,7 +869,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             }
         }
 
-        return clock.now().longValue();
+        return clockService.nowLong();
     }
 
     private void sendNotification(long requestId, @Nullable Consumer<ClientMessagePacker> writer, @Nullable Throwable err) {

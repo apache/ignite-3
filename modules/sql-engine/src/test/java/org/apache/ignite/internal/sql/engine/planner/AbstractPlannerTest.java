@@ -65,6 +65,7 @@ import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.schema.ColumnStrategy;
 import org.apache.calcite.schema.SchemaPlus;
+import org.apache.calcite.sql.SqlExplainFormat;
 import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.sql.SqlFunction;
 import org.apache.calcite.sql.SqlNode;
@@ -482,6 +483,9 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             String... disabledRules
     ) throws Exception {
         IgniteRel plan = physicalPlan(sql, schemas, hintStrategies, params, null, disabledRules);
+
+        String planString = RelOptUtil.dumpPlan("", plan, SqlExplainFormat.TEXT, SqlExplainLevel.ALL_ATTRIBUTES);
+        log.info("statement: {}\n{}", sql, planString);
 
         checkSplitAndSerialization(plan, schemas);
 

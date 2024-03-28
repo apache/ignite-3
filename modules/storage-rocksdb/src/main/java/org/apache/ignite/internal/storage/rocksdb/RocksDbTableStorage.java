@@ -18,13 +18,8 @@
 package org.apache.ignite.internal.storage.rocksdb;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage.PARTITION_CONF_PREFIX;
-import static org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage.PARTITION_META_PREFIX;
-import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.createKey;
 import static org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstance.DFLT_WRITE_OPTS;
-import static org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstance.deleteByPrefix;
 import static org.apache.ignite.internal.storage.util.StorageUtils.createMissingMvPartitionErrorMessage;
-import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
@@ -94,7 +89,7 @@ public class RocksDbTableStorage implements MvTableStorage {
         this.rocksDb = rocksDb;
         this.tableDescriptor = tableDescriptor;
         this.mvPartitionStorages = new MvPartitionStorages<>(tableDescriptor.getId(), tableDescriptor.getPartitions());
-        this.indexes = new RocksDbIndexes(rocksDb, this::getMvPartitionChecked);
+        this.indexes = new RocksDbIndexes(rocksDb, tableDescriptor.getId());
         this.indexDescriptorSupplier = indexDescriptorSupplier;
     }
 
@@ -179,7 +174,7 @@ public class RocksDbTableStorage implements MvTableStorage {
                     }
 
                     if (destroy) {
-                        destroyTableData();
+                        rocksDb.destroyTable(getTableId());
                     }
                 });
     }
@@ -197,28 +192,6 @@ public class RocksDbTableStorage implements MvTableStorage {
     @Override
     public CompletableFuture<Void> destroy() {
         return stop(true);
-    }
-
-    private void destroyTableData() {
-        try (WriteBatch writeBatch = new WriteBatch()) {
-            int tableId = getTableId();
-
-            byte[] tablePrefix = createKey(BYTE_EMPTY_ARRAY, tableId);
-
-            deleteByPrefix(writeBatch, rocksDb.partitionCf, tablePrefix);
-            deleteByPrefix(writeBatch, rocksDb.gcQueueCf, tablePrefix);
-
-            indexes.destroyAllIndexes(writeBatch);
-
-            deleteByPrefix(writeBatch, rocksDb.meta.columnFamily(), createKey(PARTITION_META_PREFIX, tableId));
-            deleteByPrefix(writeBatch, rocksDb.meta.columnFamily(), createKey(PARTITION_CONF_PREFIX, tableId));
-
-            rocksDb.db.write(DFLT_WRITE_OPTS, writeBatch);
-
-            indexes.scheduleAllIndexCfDestroy();
-        } catch (RocksDBException e) {
-            throw new StorageException("Failed to destroy table data. [tableId={}]", e, getTableId());
-        }
     }
 
     @Override
@@ -244,16 +217,6 @@ public class RocksDbTableStorage implements MvTableStorage {
         return inBusyLock(busyLock, () -> mvPartitionStorages.get(partitionId));
     }
 
-    private RocksDbMvPartitionStorage getMvPartitionChecked(int partitionId) {
-        RocksDbMvPartitionStorage partitionStorage = mvPartitionStorages.get(partitionId);
-
-        if (partitionStorage == null) {
-            throw new StorageException(createMissingMvPartitionErrorMessage(partitionId));
-        }
-
-        return partitionStorage;
-    }
-
     @Override
     public CompletableFuture<Void> destroyPartition(int partitionId) {
         return inBusyLock(busyLock, () -> mvPartitionStorages.destroy(partitionId, mvPartitionStorage -> {
@@ -277,12 +240,20 @@ public class RocksDbTableStorage implements MvTableStorage {
 
     @Override
     public SortedIndexStorage getOrCreateSortedIndex(int partitionId, StorageSortedIndexDescriptor indexDescriptor) {
-        return inBusyLock(busyLock, () -> indexes.getOrCreateSortedIndex(partitionId, indexDescriptor));
+        return inBusyLock(busyLock, () -> {
+            checkPartitionExists(partitionId);
+
+            return indexes.getOrCreateSortedIndex(partitionId, indexDescriptor);
+        });
     }
 
     @Override
     public HashIndexStorage getOrCreateHashIndex(int partitionId, StorageHashIndexDescriptor indexDescriptor) {
-        return inBusyLock(busyLock, () -> indexes.getOrCreateHashIndex(partitionId, indexDescriptor));
+        return inBusyLock(busyLock, () -> {
+            checkPartitionExists(partitionId);
+
+            return indexes.getOrCreateHashIndex(partitionId, indexDescriptor);
+        });
     }
 
     @Override
@@ -401,11 +372,16 @@ public class RocksDbTableStorage implements MvTableStorage {
         return tableDescriptor.getId();
     }
 
+    private void checkPartitionExists(int partitionId) {
+        if (mvPartitionStorages.get(partitionId) == null) {
+            throw new StorageException(createMissingMvPartitionErrorMessage(partitionId));
+        }
+    }
+
     @Override
     public @Nullable IndexStorage getIndex(int partitionId, int indexId) {
         return inBusyLock(busyLock, () -> {
-            // Check for partition existence.
-            getMvPartitionChecked(partitionId);
+            checkPartitionExists(partitionId);
 
             return indexes.getIndex(partitionId, indexId);
         });

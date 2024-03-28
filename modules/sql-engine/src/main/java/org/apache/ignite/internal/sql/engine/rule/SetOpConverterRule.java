@@ -38,6 +38,7 @@ import org.apache.ignite.internal.sql.engine.rel.set.IgniteMapMinus;
 import org.apache.ignite.internal.sql.engine.rel.set.IgniteReduceIntersect;
 import org.apache.ignite.internal.sql.engine.rel.set.IgniteReduceMinus;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
  * Set op (MINUS, INTERSECT) converter rule.
@@ -70,6 +71,8 @@ public class SetOpConverterRule {
             RelTraitSet inTrait = cluster.traitSetOf(IgniteConvention.INSTANCE).replace(IgniteDistributions.single());
             RelTraitSet outTrait = cluster.traitSetOf(IgniteConvention.INSTANCE).replace(IgniteDistributions.single());
             List<RelNode> inputs = Util.transform(setOp.getInputs(), rel -> convert(rel, inTrait));
+
+            inputs = Commons.castInputsToLeastRestrictiveTypeIfNeeded(inputs, cluster, inTrait);
 
             return createNode(cluster, outTrait, inputs, setOp.all);
         }
@@ -121,6 +124,8 @@ public class SetOpConverterRule {
             RelTraitSet inTrait = cluster.traitSetOf(IgniteConvention.INSTANCE);
             RelTraitSet outTrait = cluster.traitSetOf(IgniteConvention.INSTANCE);
             List<RelNode> inputs = Util.transform(setOp.getInputs(), rel -> convert(rel, inTrait));
+
+            inputs = Commons.castInputsToLeastRestrictiveTypeIfNeeded(inputs, cluster, inTrait);
 
             RelNode map = createMapNode(cluster, outTrait, inputs, setOp.all);
 

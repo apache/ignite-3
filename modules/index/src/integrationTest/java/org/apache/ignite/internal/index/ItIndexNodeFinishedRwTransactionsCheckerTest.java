@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.index;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -219,7 +220,7 @@ public class ItIndexNodeFinishedRwTransactionsCheckerTest extends ClusterPerClas
 
         assertThat(tableFuture, willBe(notNullValue()));
 
-        return (TableImpl) tableFuture.join();
+        return unwrapTableImpl(tableFuture.join());
     }
 
     private static long[] partitionSizes() {

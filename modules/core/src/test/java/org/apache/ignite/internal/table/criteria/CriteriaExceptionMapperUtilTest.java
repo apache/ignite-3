@@ -63,7 +63,7 @@ class CriteriaExceptionMapperUtilTest {
         CriteriaException mappedCriteriaErr = (CriteriaException) mappedErr;
 
         assertThat("Mapped exception should have the same trace identifier.", mappedCriteriaErr.traceId(), is(sqlErr.traceId()));
-        assertThat("Mapped exception shouldn't have the same error code.", mappedCriteriaErr.code(), is(sqlErr.code()));
+        assertThat("Mapped exception should have the same error code.", mappedCriteriaErr.code(), is(sqlErr.code()));
     }
 
     /**

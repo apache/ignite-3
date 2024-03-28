@@ -198,8 +198,7 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
                 new ConstantSchemaVersions(1),
                 marshallers,
                 mock(IgniteSql.class),
-                table.primaryKeyIndexId(),
-                ForkJoinPool.commonPool()
+                table.primaryKeyIndexId()
         ));
     }
 

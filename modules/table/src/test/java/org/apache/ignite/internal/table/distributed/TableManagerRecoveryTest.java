@@ -50,7 +50,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
@@ -69,6 +68,7 @@ import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
@@ -320,6 +320,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 partitionOperationsExecutor,
                 partitionOperationsExecutor,
                 clock,
+                new TestClockService(clock),
                 new OutgoingSnapshotsManager(clusterService.messagingService()),
                 mock(TopologyAwareRaftGroupServiceFactory.class),
                 distributionZoneManager,
@@ -331,7 +332,6 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 new RemotelyTriggeredResourceRegistry(),
                 mock(ScheduledExecutorService.class),
                 lowWatermark,
-                ForkJoinPool.commonPool(),
                 new TransactionInflights(placementDriver)
         ) {
 

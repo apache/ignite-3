@@ -43,8 +43,10 @@ import java.util.function.Function;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.failure.handlers.StopNodeFailureHandler;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
@@ -619,19 +621,20 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
             MailboxRegistry mailboxRegistry
     ) {
         HybridClock clock = new HybridClockImpl();
+        ClockService clockService = new TestClockService(clock);
 
         MessageService messageService = new MessageServiceImpl(
                 clusterService.topologyService().localMember().name(),
                 clusterService.messagingService(),
                 taskExecutor,
                 new IgniteSpinBusyLock(),
-                clock
+                clockService
         );
 
         ExchangeService exchangeService = new ExchangeServiceImpl(
                 mailboxRegistry,
                 messageService,
-                clock
+                clockService
         );
 
         messageService.start();

@@ -232,7 +232,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                                 lastAppliedIndex = state.pendingAppliedIndex;
                                 lastAppliedTerm = state.pendingAppliedTerm;
                             }
-                            // noinspection ArrayEquality
+                            //noinspection ArrayEquality
                             if (oldGroupConfig != state.pendingGroupConfig) {
                                 lastGroupConfig = state.pendingGroupConfig;
                             }
@@ -994,7 +994,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     public @Nullable GcEntry peek(HybridTimestamp lowWatermark) {
-        // noinspection resource
+        //noinspection resource
         PartitionDataHelper.requireWriteBatch();
 
         // No busy lock required, we're already in "runConsistently" closure.
