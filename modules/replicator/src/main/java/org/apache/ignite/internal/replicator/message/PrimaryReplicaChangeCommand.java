@@ -15,22 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx;
+package org.apache.ignite.internal.replicator.message;
 
-import org.apache.ignite.internal.tx.exception.TransactionRetriableException;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageGroup.PRIMARY_REPLICA_CHANGE_COMMAND;
+
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.annotations.Transferable;
+import org.apache.ignite.internal.raft.WriteCommand;
 
 /**
- * This exception is thrown when a lock cannot be acquired, released or downgraded.
+ * Command to write the primary replica change to the replication group.
  */
-public class LockException extends TransactionInternalCheckedException implements TransactionRetriableException {
-    /**
-     * Creates a new instance of LockException with the given message.
-     *
-     * @param code Full error code. {{@link org.apache.ignite.lang.ErrorGroups.Transactions#ACQUIRE_LOCK_ERR},
-     *     {@link org.apache.ignite.lang.ErrorGroups.Transactions#ACQUIRE_LOCK_TIMEOUT_ERR},
-     * @param msg The detail message.
-     */
-    public LockException(int code, String msg) {
-        super(code, msg);
-    }
+@Transferable(PRIMARY_REPLICA_CHANGE_COMMAND)
+public interface PrimaryReplicaChangeCommand extends WriteCommand {
+    /** Lease start time, hybrid timestamp as long, see {@link HybridTimestamp#longValue()}. */
+    long leaseStartTime();
 }

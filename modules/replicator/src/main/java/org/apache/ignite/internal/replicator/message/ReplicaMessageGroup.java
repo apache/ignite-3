@@ -51,4 +51,7 @@ public interface ReplicaMessageGroup {
 
     /** Message type for {@link SafeTimeSyncCommand}. */
     short SAFE_TIME_SYNC_COMMAND = 40;
+
+    /** Message type for {@link PrimaryReplicaChangeCommand}. */
+    short PRIMARY_REPLICA_CHANGE_COMMAND = 41;
 }

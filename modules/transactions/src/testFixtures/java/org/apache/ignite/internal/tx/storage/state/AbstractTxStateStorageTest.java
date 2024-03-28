@@ -409,6 +409,25 @@ public abstract class AbstractTxStateStorageTest {
         }
     }
 
+    @Test
+    void testLeases() {
+        TxStateStorage storage0 = tableStorage.getOrCreateTxStateStorage(0);
+
+        long lst0 = 1000;
+
+        long lst1 = 2000;
+
+        storage0.updateLease(lst0);
+
+        assertEquals(lst0, storage0.leaseStartTime());
+
+        storage0.updateLease(lst1);
+
+        assertEquals(lst1, storage0.leaseStartTime());
+
+        assertThrows(AssertionError.class, () -> storage0.updateLease(100));
+    }
+
     private static void checkStorageIsEmpty(TxStateStorage storage) {
         try (Cursor<IgniteBiTuple<UUID, TxMeta>> scan = storage.scan()) {
             assertThat(scan.stream().collect(toList()), is(empty()));

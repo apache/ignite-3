@@ -143,4 +143,18 @@ public class ThreadAssertingTxStateStorage implements TxStateStorage {
 
         return storage.clear();
     }
+
+    @Override
+    public void updateLease(long leaseStartTime) {
+        assertThreadAllowsToWrite();
+
+        storage.updateLease(leaseStartTime);
+    }
+
+    @Override
+    public long leaseStartTime() {
+        assertThreadAllowsToRead();
+
+        return storage.leaseStartTime();
+    }
 }

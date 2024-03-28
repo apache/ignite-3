@@ -30,6 +30,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
@@ -48,8 +49,11 @@ import org.jetbrains.annotations.TestOnly;
 
 /** The service is intended to execute requests on replicas. */
 public class ReplicaService {
+    /** RPC timeout system property name. */
+    public static final String REPLICA_SERVICE_RPC_TIMEOUT = "REPLICA_SERVICE_RPC_TIMEOUT";
+
     /** Network timeout. */
-    private static final long RPC_TIMEOUT = 3000;
+    private final long rpcTimeout = IgniteSystemProperties.getInteger(REPLICA_SERVICE_RPC_TIMEOUT, 3000);
 
     /** Message service. */
     private final MessagingService messagingService;
@@ -101,7 +105,7 @@ public class ReplicaService {
     private <R> CompletableFuture<R> sendToReplica(String targetNodeConsistentId, ReplicaRequest req) {
         CompletableFuture<R> res = new CompletableFuture<>();
 
-        messagingService.invoke(targetNodeConsistentId, req, RPC_TIMEOUT).whenComplete((response, throwable) -> {
+        messagingService.invoke(targetNodeConsistentId, req, rpcTimeout).whenComplete((response, throwable) -> {
             if (throwable != null) {
                 throwable = unwrapCause(throwable);
 
@@ -133,7 +137,7 @@ public class ReplicaService {
                                             .groupId(req.groupId())
                                             .build();
 
-                                    return messagingService.invoke(targetNodeConsistentId, awaitReplicaReq, RPC_TIMEOUT);
+                                    return messagingService.invoke(targetNodeConsistentId, awaitReplicaReq, rpcTimeout);
                                 }
                         );
 

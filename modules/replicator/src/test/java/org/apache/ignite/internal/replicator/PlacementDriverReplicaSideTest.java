@@ -113,6 +113,8 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
             }
         });
 
+        when(raftClient.run(any())).thenAnswer(invocationOnMock -> completedFuture(null));
+
         return new Replica(
                 GRP_ID,
                 mock(ReplicaListener.class),

@@ -15,22 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx;
+package org.apache.ignite.internal.tx.exception;
 
-import org.apache.ignite.internal.tx.exception.TransactionRetriableException;
+import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_MISS_ERR;
+
+import org.apache.ignite.internal.lang.IgniteInternalException;
 
 /**
- * This exception is thrown when a lock cannot be acquired, released or downgraded.
+ * This exception is used when a full transaction misses primary replica.
  */
-public class LockException extends TransactionInternalCheckedException implements TransactionRetriableException {
+public class FullTransactionPrimaryReplicaMissException extends IgniteInternalException implements TransactionRetriableException {
+    private static final long serialVersionUID = -6260803345179861139L;
+
     /**
-     * Creates a new instance of LockException with the given message.
-     *
-     * @param code Full error code. {{@link org.apache.ignite.lang.ErrorGroups.Transactions#ACQUIRE_LOCK_ERR},
-     *     {@link org.apache.ignite.lang.ErrorGroups.Transactions#ACQUIRE_LOCK_TIMEOUT_ERR},
-     * @param msg The detail message.
+     * Constructor.
      */
-    public LockException(int code, String msg) {
-        super(code, msg);
+    public FullTransactionPrimaryReplicaMissException() {
+        super(
+                REPLICA_MISS_ERR,
+                " The primary replica has changed during a full transaction."
+        );
     }
 }

@@ -98,6 +98,7 @@ import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.exception.TransactionRetriableException;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.CollectionUtils;
@@ -2231,16 +2232,20 @@ public class InternalTableImpl implements InternalTable {
      * @param e Exception to check.
      * @return True if retrying is possible, false otherwise.
      */
-    private boolean isRestartTransactionPossible(Throwable e) {
-        if (e instanceof LockException) {
+    private static boolean isRestartTransactionPossible(Throwable e) {
+        if (e instanceof TransactionRetriableException) {
             return true;
-        } else if (e instanceof TransactionException && e.getCause() instanceof LockException) {
+        } else if (e instanceof TransactionException && e.getCause() instanceof TransactionRetriableException) {
             return true;
-        } else if (e instanceof CompletionException && e.getCause() instanceof LockException) {
+        } else if (e instanceof CompletionException && e.getCause() instanceof TransactionRetriableException) {
             return true;
         } else if (e instanceof CompletionException
                 && e.getCause() instanceof TransactionException
-                && e.getCause().getCause() instanceof LockException) {
+                && e.getCause().getCause() instanceof TransactionRetriableException) {
+            return true;
+        } else if (e instanceof CompletionException
+                && e.getCause() instanceof IgniteException
+                && e.getCause().getCause() instanceof TransactionRetriableException) {
             return true;
         }
 

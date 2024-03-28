@@ -171,6 +171,8 @@ import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.TxStateMetaFinishing;
+import org.apache.ignite.internal.tx.UpdateCommandResult;
+import org.apache.ignite.internal.tx.exception.FullTransactionPrimaryReplicaMissException;
 import org.apache.ignite.internal.tx.impl.FullyQualifiedResourceId;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
@@ -315,6 +317,8 @@ public class PartitionReplicaListener implements ReplicaListener {
     private final EventListener<CatalogEventParameters> indexBuildingCatalogEventListener = this::onIndexBuilding;
 
     private final SchemaRegistry schemaRegistry;
+
+    private volatile long leaseStartTime = HybridTimestamp.MIN_VALUE.longValue();
 
     /**
      * The constructor.
@@ -1345,7 +1349,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         RowId rowId = indexRow.rowId();
 
         return resolvePlainReadResult(rowId, null, readTimestamp).thenComposeAsync(resolvedReadResult -> {
-            BinaryRow binaryRow = upgrage(binaryRow(resolvedReadResult), tableVersion);
+            BinaryRow binaryRow = upgrade(binaryRow(resolvedReadResult), tableVersion);
 
             if (binaryRow != null && indexRowMatches(indexRow, binaryRow, schemaAwareIndexStorage)) {
                 result.add(binaryRow);
@@ -1393,7 +1397,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     return lockManager.acquire(txId, new LockKey(tableId(), rowId), LockMode.S)
                             .thenComposeAsync(rowLock -> { // Table row S lock
                                 return resolvePlainReadResult(rowId, txId).thenCompose(resolvedReadResult -> {
-                                    BinaryRow binaryRow = upgrage(binaryRow(resolvedReadResult), tableVersion);
+                                    BinaryRow binaryRow = upgrade(binaryRow(resolvedReadResult), tableVersion);
 
                                     if (binaryRow != null && indexRowMatches(currentRow, binaryRow, schemaAwareIndexStorage)) {
                                         result.add(resolvedReadResult.binaryRow());
@@ -2632,8 +2636,8 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                 CompletableFuture<UUID> fut = applyCmdWithExceptionHandling(cmd, new CompletableFuture<>())
                         .thenApply(res -> {
-                            // This check guaranties the result will never be lost. Currently always null.
-                            assert res == null : "Replication result is lost";
+                            // This check guaranties the result will never be lost.
+                            assert res != null : "Replication result is lost";
 
                             // Set context for delayed response.
                             return cmd.txId();
@@ -2646,8 +2650,14 @@ public class PartitionReplicaListener implements ReplicaListener {
                 applyCmdWithExceptionHandling(cmd, resultFuture);
 
                 return resultFuture.thenApply(res -> {
-                    // This check guaranties the result will never be lost. Currently always null.
-                    assert res == null : "Replication result is lost";
+                    // This check guaranties the result will never be lost.
+                    assert res != null : "Replication result is lost";
+
+                    UpdateCommandResult updateCommandResult = (UpdateCommandResult) res;
+
+                    if (full && !updateCommandResult.isPrimaryReplicaSuccess()) {
+                        throw new FullTransactionPrimaryReplicaMissException();
+                    }
 
                     // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Temporary code below
                     // Try to avoid double write if an entry is already replicated.
@@ -2775,9 +2785,8 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     CompletableFuture<Object> fut = applyCmdWithExceptionHandling(cmd, new CompletableFuture<>())
                             .thenApply(res -> {
-                                // Currently result is always null on a successfull execution of a replication command.
                                 // This check guaranties the result will never be lost.
-                                assert res == null : "Replication result is lost";
+                                assert res != null : "Replication result is lost";
 
                                 // Set context for delayed response.
                                 return cmd.txId();
@@ -2788,7 +2797,13 @@ public class PartitionReplicaListener implements ReplicaListener {
             } else {
                 return applyCmdWithExceptionHandling(cmd, new CompletableFuture<>())
                         .thenApply(res -> {
-                            assert res == null : "Replication result is lost";
+                            assert res != null : "Replication result is lost";
+
+                            UpdateCommandResult updateCommandResult = (UpdateCommandResult) res;
+
+                            if (full && !updateCommandResult.isPrimaryReplicaSuccess()) {
+                                throw new FullTransactionPrimaryReplicaMissException();
+                            }
 
                             // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Temporary code below
                             // Try to avoid double write if an entry is already replicated.
@@ -3447,6 +3462,12 @@ public class PartitionReplicaListener implements ReplicaListener {
                             );
                         }
 
+                        synchronized (this) {
+                            if (leaseStartTime < primaryReplicaMeta.getStartTime().longValue()) {
+                                leaseStartTime = primaryReplicaMeta.getStartTime().longValue();
+                            }
+                        }
+
                         return nullCompletedFuture();
                     });
         } else if (request instanceof ReadOnlyReplicaRequest || request instanceof ReplicaSafeTimeSyncRequest) {
@@ -3658,7 +3679,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 });
     }
 
-    private static UpdateCommand updateCommand(
+    private UpdateCommand updateCommand(
             TablePartitionId tablePartId,
             UUID rowUuid,
             @Nullable BinaryRow row,
@@ -3669,6 +3690,8 @@ public class PartitionReplicaListener implements ReplicaListener {
             HybridTimestamp safeTimeTimestamp,
             int catalogVersion
     ) {
+        Long leaseStartTime = full ? this.leaseStartTime : null;
+
         UpdateCommandBuilder bldr = MSG_FACTORY.updateCommand()
                 .tablePartitionId(tablePartitionId(tablePartId))
                 .rowUuid(rowUuid)
@@ -3676,7 +3699,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .full(full)
                 .safeTimeLong(safeTimeTimestamp.longValue())
                 .txCoordinatorId(txCoordinatorId)
-                .requiredCatalogVersion(catalogVersion);
+                .requiredCatalogVersion(catalogVersion)
+                .leaseStartTime(leaseStartTime);
 
         if (lastCommitTimestamp != null || row != null) {
             TimedBinaryRowMessageBuilder rowMsgBldr = MSG_FACTORY.timedBinaryRowMessage();
@@ -3702,7 +3726,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .build();
     }
 
-    private static UpdateAllCommand updateAllCommand(
+    private UpdateAllCommand updateAllCommand(
             Map<UUID, TimedBinaryRowMessage> rowsToUpdate,
             TablePartitionIdMessage commitPartitionId,
             UUID transactionId,
@@ -3711,6 +3735,8 @@ public class PartitionReplicaListener implements ReplicaListener {
             String txCoordinatorId,
             int catalogVersion
     ) {
+        Long leaseStartTime = full ? this.leaseStartTime : null;
+
         return MSG_FACTORY.updateAllCommand()
                 .tablePartitionId(commitPartitionId)
                 .messageRowsToUpdate(rowsToUpdate)
@@ -3719,6 +3745,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .full(full)
                 .txCoordinatorId(txCoordinatorId)
                 .requiredCatalogVersion(catalogVersion)
+                .leaseStartTime(leaseStartTime)
                 .build();
     }
 
@@ -3940,7 +3967,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         return timedBinaryRow == null ? null : timedBinaryRow.binaryRow();
     }
 
-    private @Nullable BinaryRow upgrage(@Nullable BinaryRow source, int targetSchemaVersion) {
+    private @Nullable BinaryRow upgrade(@Nullable BinaryRow source, int targetSchemaVersion) {
         return source == null ? null : new BinaryRowUpgrader(schemaRegistry, targetSchemaVersion).upgrade(source);
     }
 
