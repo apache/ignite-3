@@ -30,12 +30,12 @@ import org.apache.ignite.internal.eventlog.api.EventFactory;
  * <pre>{@code IgniteEvents.USER_AUTHENTICATED.create(EventUser.system());}</pre>
  */
 public final class IgniteEvents implements EventFactory {
-    public static final IgniteEvents USER_AUTHENTICATED = new IgniteEvents(IgniteEventTypes.USER_AUTHENTICATED.name());
+    public static final IgniteEvents USER_AUTHENTICATED = new IgniteEvents(IgniteEventType.USER_AUTHENTICATED.name());
 
-    public static final IgniteEvents CONNECTION_CLOSED = new IgniteEvents(IgniteEventTypes.CONNECTION_CLOSED.name());
+    public static final IgniteEvents CONNECTION_CLOSED = new IgniteEvents(IgniteEventType.CONNECTION_CLOSED.name());
 
     static {
-        Arrays.stream(IgniteEventTypes.values()).forEach(type -> EventTypeRegistry.register(type.name()));
+        Arrays.stream(IgniteEventType.values()).forEach(type -> EventTypeRegistry.register(type.name()));
     }
 
     private final String type;

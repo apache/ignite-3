@@ -21,7 +21,6 @@ import java.util.function.Supplier;
 
 /**
  * Logs events into specified sinks.
- * TODO: https://issues.apache.org/jira/browse/IGNITE-21665.
  */
 public interface EventLog {
     void log(Supplier<Event> eventProvider);

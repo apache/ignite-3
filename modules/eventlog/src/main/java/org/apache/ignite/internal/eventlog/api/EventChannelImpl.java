@@ -17,27 +17,27 @@
 
 package org.apache.ignite.internal.eventlog.api;
 
-import org.apache.ignite.internal.eventlog.event.EventBuilder;
-import org.apache.ignite.internal.eventlog.event.EventUser;
+import java.util.Set;
 import org.apache.ignite.internal.eventlog.event.IgniteEventType;
+import org.apache.ignite.internal.eventlog.sink.Sink;
 
-/**
- * The factory that is responsible for creating events. This interface should be used everywhere where events are created.
- * Only special cases should use {@link org.apache.ignite.internal.eventlog.event.EventBuilder} directly, for example, in tests.
- */
-public interface EventFactory {
-    /**
-     * Creates an event object.
-     *
-     * @param user The user that caused the event.
-     * @return The event object.
-     */
-    Event create(EventUser user);
+public class EventChannelImpl implements EventChannel {
 
-    /**
-     * Creates an event builder with type defined. The type is set by the factory.
-     * For example, {@link org.apache.ignite.internal.eventlog.event.IgniteEvents.CONNECTION_CLOSED.build} will return
-     * a builder with {@link IgniteEventType.CONNECTION_CLOSED} set.
-     */
-    EventBuilder builder();
+    private final Set<Sink> sinks;
+    private final Set<IgniteEventType> types;
+
+    public EventChannelImpl(Set<IgniteEventType> types) {
+        this.types = types;
+        this.sinks = null;
+    }
+
+    @Override
+    public Set<IgniteEventType> types() {
+        return types;
+    }
+
+    @Override
+    public void log(Event event) {
+
+    }
 }

@@ -15,13 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.eventlog.event;
+package org.apache.ignite.internal.eventlog.api;
 
-/**
- * Defines a subset of event types that can be created in the system. Note, the event type is a string that is unique
- * within the system. The event type is used to filter the events in the event log.
- */
-public enum IgniteEventTypes {
-    USER_AUTHENTICATED,
-    CONNECTION_CLOSED
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Supplier;
+import org.apache.ignite.internal.eventlog.config.schema.EventLogConfiguration;
+import org.apache.ignite.internal.eventlog.event.IgniteEventType;
+
+public class EventLogImpl implements EventLog {
+    private final Map<IgniteEventType, Set<EventChannel>> channels;
+
+    private final EventLogConfiguration configuration;
+
+    public EventLogImpl(EventLogConfiguration configuration) {
+        this.configuration = configuration;
+        this.channels = new ConcurrentHashMap<>();
+    }
+
+    @Override
+    public void log(Supplier<Event> eventProvider) {
+
+    }
 }

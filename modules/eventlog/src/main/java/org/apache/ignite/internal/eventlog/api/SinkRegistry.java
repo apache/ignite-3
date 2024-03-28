@@ -15,19 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.eventlog.config.schema;
+package org.apache.ignite.internal.eventlog.api;
 
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.annotation.NamedConfigValue;
+import org.apache.ignite.internal.eventlog.sink.Sink;
 
-/** Configuration schema for event log. */
-@ConfigurationRoot(rootName = "eventlog", type = ConfigurationType.DISTRIBUTED)
-public class EventLogConfigurationSchema {
-    /** The configuration schema for sinks. */
-    @NamedConfigValue
-    public SinkConfigurationSchema sinks;
-
-    @NamedConfigValue
-    public ChannelConfigurationSchema channels;
+public interface SinkRegistry {
+    Sink getByName(String name);
 }
