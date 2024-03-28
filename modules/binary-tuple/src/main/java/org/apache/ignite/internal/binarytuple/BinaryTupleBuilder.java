@@ -322,8 +322,13 @@ public class BinaryTupleBuilder {
         value = value.stripTrailingZeros();
 
         // See CatalogUtils.MAX_DECIMAL_SCALE = Short.MAX_VALUE
-        assert value.scale() <= Short.MAX_VALUE : "Decimal scale is too large: " + value.scale() + " > " + Short.MAX_VALUE;
-        assert value.scale() >= Short.MIN_VALUE : "Decimal scale is too small: " + value.scale() + " < " + Short.MIN_VALUE;
+        if (value.scale() > Short.MAX_VALUE) {
+            throw new BinaryTupleFormatException("Decimal scale is too large: " + value.scale() + " > " + Short.MAX_VALUE);
+        }
+
+        if (value.scale() < Short.MIN_VALUE) {
+            throw new BinaryTupleFormatException("Decimal scale is too small: " + value.scale() + " < " + Short.MIN_VALUE);
+        }
 
         putShort((short) value.scale());
         putBytes(value.unscaledValue().toByteArray());
