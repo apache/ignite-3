@@ -353,7 +353,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
         Objects.requireNonNull(keyRecs);
 
         return doOperation(tx, (schemaVersion) -> {
-            Collection<BinaryRowEx> rows = marshal(keyRecs, schemaVersion);
+            Collection<BinaryRowEx> rows = marshalKeys(keyRecs, schemaVersion);
 
             return tbl.deleteAll(rows, (InternalTransaction) tx).thenApply(binaryRows -> unmarshal(binaryRows, schemaVersion, false));
         });
@@ -367,11 +367,11 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<List<R>> deleteAllExactAsync(@Nullable Transaction tx, Collection<R> keyRecs) {
-        Objects.requireNonNull(keyRecs);
+    public CompletableFuture<List<R>> deleteAllExactAsync(@Nullable Transaction tx, Collection<R> recs) {
+        Objects.requireNonNull(recs);
 
         return doOperation(tx, (schemaVersion) -> {
-            Collection<BinaryRowEx> rows = marshal(keyRecs, schemaVersion);
+            Collection<BinaryRowEx> rows = marshal(recs, schemaVersion);
 
             return tbl.deleteAllExact(rows, (InternalTransaction) tx)
                     .thenApply(binaryRows -> unmarshal(binaryRows, schemaVersion, false));
