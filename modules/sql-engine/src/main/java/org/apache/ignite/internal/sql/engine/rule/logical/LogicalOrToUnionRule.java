@@ -41,6 +41,7 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.RexUtils.DnfHelper;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.immutables.value.Value;
 import org.jetbrains.annotations.Nullable;
@@ -63,13 +64,15 @@ public class LogicalOrToUnionRule extends RelRule<LogicalOrToUnionRule.Config> {
     }
 
     private static @Nullable List<RexNode> getOrOperands(RexBuilder rexBuilder, RexNode condition) {
-        RexNode dnf = RexUtil.toDnf(rexBuilder, condition);
+        DnfHelper helper = new DnfHelper(Commons.rexBuilder(), 2);
+        RexNode dnf = helper.tryToDnf(condition);
 
-        if (!dnf.isA(SqlKind.OR)) {
+        if (dnf != null && !dnf.isA(SqlKind.OR)) {
             return null;
         }
 
         List<RexNode> operands = RelOptUtil.disjunctions(dnf);
+        assert operands.size() <= 2 : "unexpected operands count: " + operands.size();
 
         if (operands.size() != 2 || RexUtil.find(SqlKind.IS_NULL).anyContain(operands)) {
             return null;
