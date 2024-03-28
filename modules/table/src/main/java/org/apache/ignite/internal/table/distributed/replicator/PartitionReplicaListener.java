@@ -21,6 +21,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
@@ -90,6 +91,7 @@ import org.apache.ignite.internal.lang.SafeTimeReorderException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.replicator.ReplicaResult;
@@ -391,6 +393,48 @@ public class PartitionReplicaListener implements ReplicaListener {
         schemaCompatValidator = new SchemaCompatibilityValidator(validationSchemasSource, catalogService, schemaSyncService);
 
         prepareIndexBuilderTxRwOperationTracker();
+    }
+
+    @Override
+    public CompletableFuture<Boolean> onPrimaryElected(PrimaryReplicaEventParameters evt) {
+        assert replicationGroupId.equals(evt.groupId()) : format(
+                "The replication group listener does not match the event [grp={}, eventGrp={}]",
+                replicationGroupId,
+                evt.groupId()
+        );
+
+        if (!localNode.id().equals(evt.leaseholderId())) {
+            return falseCompletedFuture();
+        }
+
+        schedulePersistentStorageScan();
+
+        // The future returned by this event handler can't wait for all cleanups because it's not necessary and it can block
+        // meta storage notification thread for a while, preventing it from delivering further updates (including leases) and therefore
+        // causing deadlock on primary replica waiting.
+        return falseCompletedFuture();
+    }
+
+    private void schedulePersistentStorageScan() {
+        txManager.executeWriteIntentSwitchAsync(this::runPersistentStorageScan);
+    }
+
+    private void runPersistentStorageScan() {
+        try (Cursor<IgniteBiTuple<UUID, TxMeta>> txs = txStateStorage.scan()) {
+            for (IgniteBiTuple<UUID, TxMeta> tx : txs) {
+                UUID txId = tx.getKey();
+                TxMeta txMeta = tx.getValue();
+
+                assert !txMeta.enlistedPartitions().isEmpty();
+
+                if (isFinalState(txMeta.txState())) {
+                    txManager.cleanup(txMeta.enlistedPartitions(), txMeta.txState() == COMMITTED,
+                            txMeta.commitTimestamp(), txId);
+                }
+            }
+        } catch (IgniteInternalException e) {
+            LOG.warn("Failed to scan transaction state storage [commitPartition={}]", e, replicationGroupId);
+        }
     }
 
     @Override
@@ -1621,7 +1665,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             return completedFuture(new TransactionResult(txMeta.txState(), txMeta.commitTimestamp()));
         }
 
-        return finishTransaction(txId, commit, commitTimestamp)
+        return finishTransaction(enlistedPartitions.keySet(), txId, commit, commitTimestamp)
                 .thenCompose(txResult ->
                         txManager.cleanup(enlistedPartitions, commit, commitTimestamp, txId)
                                 .thenApply(v -> txResult)
@@ -1637,6 +1681,7 @@ public class PartitionReplicaListener implements ReplicaListener {
      * @return Future to wait of the finish.
      */
     private CompletableFuture<TransactionResult> finishTransaction(
+            Collection<TablePartitionId> aggregatedGroupIds,
             UUID txId,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp
@@ -1650,7 +1695,10 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 txId,
                                 commit,
                                 commitTimestamp,
-                                catalogVersion
+                                catalogVersion,
+                                aggregatedGroupIds.stream()
+                                        .map(PartitionReplicaListener::tablePartitionId)
+                                        .collect(toList())
                         )
                 )
                 .handle((txOutcome, ex) -> {
@@ -1681,14 +1729,16 @@ public class PartitionReplicaListener implements ReplicaListener {
             UUID transactionId,
             boolean commit,
             HybridTimestamp commitTimestamp,
-            int catalogVersion
+            int catalogVersion,
+            List<TablePartitionIdMessage> tablePartitionIds
     ) {
         synchronized (commandProcessingLinearizationMutex) {
             FinishTxCommandBuilder finishTxCmdBldr = MSG_FACTORY.finishTxCommand()
                     .txId(transactionId)
                     .commit(commit)
                     .safeTimeLong(clockService.nowLong())
-                    .requiredCatalogVersion(catalogVersion);
+                    .requiredCatalogVersion(catalogVersion)
+                    .tablePartitionIds(tablePartitionIds);
 
             if (commit) {
                 finishTxCmdBldr.commitTimestampLong(commitTimestamp.longValue());

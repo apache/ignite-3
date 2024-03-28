@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
+import static java.util.Arrays.asList;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
@@ -298,7 +299,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
         Context context = prepareTransactionData();
 
         // Simulate the state when a tx has already been committed by writing a corresponding state into tx state storage.
-        markTxAbortedInTxStateStorage(context.primaryNode, context.tx);
+        markTxAbortedInTxStateStorage(context.primaryNode, context.tx, context.tbl);
 
         // Tx.commit should throw MismatchingTransactionOutcomeException.
         TransactionException transactionException = assertThrows(TransactionException.class, context.tx::commit);
@@ -308,13 +309,14 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
         assertInstanceOf(MismatchingTransactionOutcomeException.class, cause);
     }
 
-    private void markTxAbortedInTxStateStorage(IgniteImpl primaryNode, InternalTransaction tx) {
+    private void markTxAbortedInTxStateStorage(IgniteImpl primaryNode, InternalTransaction tx, TableImpl tbl) {
         TableViewInternal primaryTbl = unwrapTableViewInternal(primaryNode.tables().table(TABLE_NAME));
 
         TxStateStorage storage = primaryTbl.internalTable().txStateStorage().getTxStateStorage(0);
 
         TxMeta txMetaToSet = new TxMeta(
                 ABORTED,
+                asList(new TablePartitionId(tbl.tableId(), 0)),
                 null
         );
         storage.put(tx.id(), txMetaToSet);

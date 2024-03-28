@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.tx;
 
+import java.util.Collection;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -150,6 +151,22 @@ public interface TxManager extends IgniteComponent {
      */
     CompletableFuture<Void> cleanup(
             Map<TablePartitionId, String> enlistedPartitions,
+            boolean commit,
+            @Nullable HybridTimestamp commitTimestamp,
+            UUID txId
+    );
+
+    /**
+     * Sends cleanup request to the cluster nodes that hosts primary replicas for the enlisted partitions.
+     *
+     * @param enlistedPartitions Enlisted partition groups.
+     * @param commit {@code true} if a commit requested.
+     * @param commitTimestamp Commit timestamp ({@code null} if it's an abort).
+     * @param txId Transaction id.
+     * @return Completable future of Void.
+     */
+    CompletableFuture<Void> cleanup(
+            Collection<TablePartitionId> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId

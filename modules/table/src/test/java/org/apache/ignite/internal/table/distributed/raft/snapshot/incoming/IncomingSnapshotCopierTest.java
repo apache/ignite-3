@@ -384,10 +384,12 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
     ) {
         assertEquals(0, txIds.size() % 2, "size=" + txIds.size());
 
+        int tableId = 2;
+
         for (int i = 0; i < txIds.size(); i++) {
             TxState txState = i % 2 == 0 ? COMMITTED : ABORTED;
 
-            storage.put(txIds.get(i), new TxMeta(txState, CLOCK.now()));
+            storage.put(txIds.get(i), new TxMeta(txState,  List.of(new TablePartitionId(tableId, PARTITION_ID)), CLOCK.now()));
         }
 
         storage.lastApplied(lastAppliedIndex, lastAppliedTerm);

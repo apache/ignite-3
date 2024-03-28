@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table.distributed.raft;
 
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.table.distributed.TableUtils.indexIdsAtRwTxBeginTs;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
@@ -67,6 +68,7 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
+import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.command.WriteIntentSwitchCommand;
@@ -353,6 +355,10 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
         TxMeta txMetaToSet = new TxMeta(
                 stateToSet,
+                cmd.tablePartitionIds()
+                        .stream()
+                        .map(TablePartitionIdMessage::asTablePartitionId)
+                        .collect(toList()),
                 cmd.commitTimestamp()
         );
 
