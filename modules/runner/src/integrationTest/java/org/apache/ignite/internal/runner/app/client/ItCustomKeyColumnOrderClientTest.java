@@ -111,8 +111,7 @@ public class ItCustomKeyColumnOrderClientTest extends ItAbstractThinClientTest {
         private String val1;
         private long val2;
 
-        @SuppressWarnings("unused")
-            // Required by serializer.
+        @SuppressWarnings("unused") // Required by serializer.
         Pojo() {
             this(0, null, null, 0L);
         }
