@@ -51,10 +51,8 @@ public abstract class TablePrimaryKey {
             allColumnNames.add(column.name());
 
             boolean partOfPk = columns.contains(column.name());
-            if (partOfPk) {
-                if (column.nullable()) {
-                    throw new CatalogValidationException(format("Primary key cannot contain nullable column [col={}].", column.name()));
-                }
+            if (partOfPk && column.nullable()) {
+                throw new CatalogValidationException(format("Primary key cannot contain nullable column [col={}].", column.name()));
             }
         }
 
