@@ -17,12 +17,16 @@
 
 package org.apache.ignite.internal.sql.engine.tx;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
 
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.tx.IgniteTransactions;
+import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 
@@ -32,10 +36,20 @@ import org.jetbrains.annotations.Nullable;
 public class QueryTransactionContext {
     private final IgniteTransactions transactions;
     private final @Nullable InternalTransaction tx;
+    private final TransactionInflights transactionInflights;
 
-    public QueryTransactionContext(IgniteTransactions transactions, @Nullable InternalTransaction tx) {
+    /**
+     * Constructor.
+     *
+     * @param transactions Ignite transactions.
+     * @param tx Transaction.
+     * @param transactionInflights Transaction inflights.
+     */
+    public QueryTransactionContext(IgniteTransactions transactions, @Nullable InternalTransaction tx,
+            TransactionInflights transactionInflights) {
         this.transactions = transactions;
         this.tx = tx;
+        this.transactionInflights = transactionInflights;
     }
 
     /**
@@ -45,18 +59,25 @@ public class QueryTransactionContext {
      * @return Transaction wrapper.
      */
     public QueryTransactionWrapper getOrStartImplicit(SqlQueryType queryType) {
-        InternalTransaction outerTx = tx;
+        InternalTransaction transaction = tx;
+        boolean implicit;
 
-        if (outerTx == null) {
-            return new QueryTransactionWrapperImpl((InternalTransaction) transactions.begin(
-                    new TransactionOptions().readOnly(queryType != SqlQueryType.DML)), true);
+        if (transaction == null) {
+            implicit = true;
+            transaction = (InternalTransaction) transactions.begin(
+                    new TransactionOptions().readOnly(queryType != SqlQueryType.DML));
+        } else {
+            implicit = false;
+            validateStatement(queryType, transaction.isReadOnly());
         }
 
-        validateStatement(queryType, outerTx.isReadOnly());
+        // Adding inflights only for read-only transactions.
+        if (transaction.isReadOnly() && !transactionInflights.addInflight(transaction.id(), transaction.isReadOnly())) {
+            throw new TransactionException(TX_ALREADY_FINISHED_ERR, format("Transaction is already finished [tx={}]", transaction));
+        }
 
-        return new QueryTransactionWrapperImpl(outerTx, false);
+        return new QueryTransactionWrapperImpl(transaction, implicit, transactionInflights);
     }
-
 
     /** Returns transactions facade. */
     IgniteTransactions transactions() {
