@@ -184,6 +184,7 @@ import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.ThreadAssertingStorageEngine;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.systemview.api.SystemViewManager;
+import org.apache.ignite.internal.table.distributed.AntiHijackIgniteTables;
 import org.apache.ignite.internal.table.distributed.LowWatermarkImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
@@ -754,7 +755,6 @@ public class IgniteImpl implements Ignite {
                 resourcesRegistry,
                 rebalanceScheduler,
                 lowWatermark,
-                asyncContinuationExecutor,
                 transactionInflights
         );
 
@@ -1162,7 +1162,7 @@ public class IgniteImpl implements Ignite {
     /** {@inheritDoc} */
     @Override
     public IgniteTables tables() {
-        return distributedTblMgr;
+        return new AntiHijackIgniteTables(distributedTblMgr, asyncContinuationExecutor);
     }
 
     @TestOnly

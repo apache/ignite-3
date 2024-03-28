@@ -26,7 +26,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import org.apache.ignite.internal.marshaller.Marshaller;
@@ -77,8 +76,6 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
      * @param schemaVersions Schema versions access.
      * @param sql Ignite SQL facade.
      * @param marshallers Marshallers provider.
-     * @param asyncContinuationExecutor Executor to which execution will be resubmitted when leaving asynchronous public API
-     *         endpoints (so as to prevent the user from stealing Ignite threads).
      * @param mapper Record class mapper.
      */
     public RecordViewImpl(
@@ -87,10 +84,9 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
             SchemaVersions schemaVersions,
             IgniteSql sql,
             MarshallersProvider marshallers,
-            Executor asyncContinuationExecutor,
             Mapper<R> mapper
     ) {
-        super(tbl, schemaVersions, schemaRegistry, sql, marshallers, asyncContinuationExecutor);
+        super(tbl, schemaVersions, schemaRegistry, sql, marshallers);
 
         this.mapper = mapper;
         marshallerFactory = (schema) -> new RecordMarshallerImpl<>(schema, marshallers, mapper);
@@ -581,7 +577,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
                 );
 
         CompletableFuture<Void> future = DataStreamer.streamData(publisher, options, batchSender, partitioner);
-        return convertToPublicFuture(preventThreadHijack(future));
+        return convertToPublicFuture(future);
     }
 
     /** {@inheritDoc} */

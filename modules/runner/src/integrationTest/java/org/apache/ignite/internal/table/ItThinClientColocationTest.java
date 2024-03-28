@@ -43,6 +43,7 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -54,7 +55,7 @@ import org.junit.jupiter.params.provider.ValueSource;
  * Tests that client and server have matching colocation logic.
  */
 public class ItThinClientColocationTest extends ClusterPerClassIntegrationTest {
-    private static ReflectionMarshallersProvider marshallers = new ReflectionMarshallersProvider();
+    private static final ReflectionMarshallersProvider marshallers = new ReflectionMarshallersProvider();
 
     @ParameterizedTest
     @MethodSource("nativeTypes")
@@ -87,7 +88,7 @@ public class ItThinClientColocationTest extends ClusterPerClassIntegrationTest {
                 + "primary key(id, id0, id1)) colocate by " + (reverseColocationOrder ? "(id1, id0)" : "(id0, id1)"));
 
         Table serverTable = CLUSTER.aliveNode().tables().table(tableName);
-        RecordBinaryViewImpl serverView = (RecordBinaryViewImpl) serverTable.recordView();
+        RecordBinaryViewImpl serverView = Wrappers.unwrap(serverTable.recordView(), RecordBinaryViewImpl.class);
         TupleMarshaller marsh = serverView.marshaller(1);
 
         try (IgniteClient client = IgniteClient.builder().addresses("localhost").build()) {
