@@ -270,7 +270,7 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
             testArr(val, limit);
         }
 
-        // noinspection ZeroLengthArrayAllocation
+        //noinspection ZeroLengthArrayAllocation
         int[] intArr1 = new int[0];
 
         assertEquals("[]", IgniteToStringBuilder.arrayToString(intArr1));

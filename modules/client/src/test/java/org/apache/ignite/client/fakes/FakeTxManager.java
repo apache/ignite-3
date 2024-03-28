@@ -201,6 +201,11 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
+    public void vacuum() {
+        // No-op.
+    }
+
+    @Override
     public int finished() {
         return 0;
     }

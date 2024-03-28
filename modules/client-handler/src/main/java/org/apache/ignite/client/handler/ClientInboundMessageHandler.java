@@ -128,7 +128,6 @@ import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersionsImpl;
-import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
@@ -558,17 +557,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             // Observable timestamp should be calculated after the operation is processed; reserve space, write later.
             int observableTimestampIdx = out.reserveLong();
 
-            CompletableFuture fut;
-
-            // Enclosing in 'internal call' to save resubmission to the async continuation thread pool on return. This will only
-            // work if the corresponding call (like an async KeyValueView method) is invoked in this same thread, but in most cases this
-            // will be true.
-            PublicApiThreading.startInternalCall();
-            try {
-                fut = processOperation(in, out, opCode, requestId);
-            } finally {
-                PublicApiThreading.endInternalCall();
-            }
+            CompletableFuture fut = processOperation(in, out, opCode, requestId);
 
             if (fut == null) {
                 // Operation completed synchronously.

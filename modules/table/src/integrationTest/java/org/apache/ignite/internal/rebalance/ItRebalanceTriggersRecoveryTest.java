@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.rebalance;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableId;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -235,7 +236,7 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
     }
 
     private static boolean containsPartition(Ignite node) {
-        var tableManager = ((TableManager) node.tables());
+        TableManager tableManager = unwrapTableManager(node.tables());
 
         MvPartitionStorage storage = tableManager.tableView("TEST")
                 .internalTable()

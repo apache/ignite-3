@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.replicator.LocalReplicaEvent.AFTER_REPL
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.BEFORE_REPLICA_STOPPED;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
+import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
@@ -495,6 +496,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             TopologyAwareRaftGroupService raftClient,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker
     ) {
+        LOG.info("Replica is about to start [replicationGroupId={}].", replicaGrpId);
+
         ClusterNode localNode = clusterNetSvc.topologyService().localMember();
 
         Replica newReplica = new Replica(
@@ -511,10 +514,12 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         CompletableFuture<Replica> replicaFuture = replicas.compute(replicaGrpId, (k, existingReplicaFuture) -> {
             if (existingReplicaFuture == null || existingReplicaFuture.isDone()) {
                 assert existingReplicaFuture == null || isCompletedSuccessfully(existingReplicaFuture);
+                LOG.info("Replica is started [replicationGroupId={}].", replicaGrpId);
 
                 return completedFuture(newReplica);
             } else {
                 existingReplicaFuture.complete(newReplica);
+                LOG.info("Replica is started, existing replica waiter was completed [replicationGroupId={}].", replicaGrpId);
 
                 return existingReplicaFuture;
             }
@@ -529,10 +534,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     return null;
                 })
                 .thenCompose(v -> replicaFuture);
-    }
-
-    private static boolean isCompletedSuccessfully(CompletableFuture<?> future) {
-        return future.isDone() && !future.isCompletedExceptionally();
     }
 
     /**
@@ -779,6 +780,18 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @return True if the replica is started.
      */
     public boolean isReplicaStarted(ReplicationGroupId replicaGrpId) {
+        CompletableFuture<Replica> replicaFuture = replicas.get(replicaGrpId);
+        return replicaFuture != null && isCompletedSuccessfully(replicaFuture);
+    }
+
+    /**
+     * Check if replica was touched by an any actor. Touched here means either replica creation or replica waiter registration.
+     *
+     * @param replicaGrpId Replication group id.
+     * @return True if the replica was touched.
+     */
+    @TestOnly
+    public boolean isReplicaTouched(ReplicationGroupId replicaGrpId) {
         return replicas.containsKey(replicaGrpId);
     }
 
@@ -789,6 +802,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      */
     @TestOnly
     public Set<ReplicationGroupId> startedGroups() {
-        return replicas.keySet();
+        return replicas.entrySet().stream()
+                .filter(entry -> isCompletedSuccessfully(entry.getValue()))
+                .map(Entry::getKey)
+                .collect(toSet());
     }
 }

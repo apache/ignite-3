@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.schemasync;
 
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -34,7 +35,6 @@ import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.TableViewInternal;
-import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnAppendEntries;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
@@ -150,7 +150,7 @@ class ItSchemaSyncAndReplicationTest extends ClusterPerTestIntegrationTest {
 
     private static MvPartitionStorage solePartitionStorage(IgniteImpl node) {
         // We use this api because there is no waiting for schemas to sync.
-        TableViewInternal table = ((TableManager) node.tables()).cachedTable(TABLE_NAME);
+        TableViewInternal table = unwrapTableManager(node.tables()).cachedTable(TABLE_NAME);
 
         assertNotNull(table);
 

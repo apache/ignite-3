@@ -71,7 +71,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -188,7 +187,6 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
-import org.apache.ignite.internal.tx.impl.ResourceCleanupManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
@@ -1084,14 +1082,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             TransactionInflights transactionInflights = new TransactionInflights(placementDriver);
 
-            ResourceCleanupManager resourceCleanupManager = new ResourceCleanupManager(
-                    name,
-                    resourcesRegistry,
-                    clusterService.topologyService(),
-                    clusterService.messagingService(),
-                    transactionInflights
-            );
-
             cfgStorage = new DistributedConfigurationStorage("test", metaStorageManager);
 
             clusterCfgGenerator = new ConfigurationTreeGenerator(GcConfiguration.KEY);
@@ -1151,7 +1141,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     partitionIdleSafeTimePropagationPeriodMsSupplier,
                     new TestLocalRwTxCounter(),
                     resourcesRegistry,
-                    resourceCleanupManager,
                     transactionInflights
             );
 
@@ -1239,7 +1228,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     resourcesRegistry,
                     rebalanceScheduler,
                     lowWatermark,
-                    ForkJoinPool.commonPool(),
                     transactionInflights
             ) {
                 @Override

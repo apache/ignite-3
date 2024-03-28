@@ -21,6 +21,9 @@ import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.alterZone;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
@@ -58,7 +61,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -180,7 +182,7 @@ import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
-import org.apache.ignite.internal.tx.impl.ResourceCleanupManager;
+import org.apache.ignite.internal.tx.impl.ResourceVacuumManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
@@ -474,14 +476,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         TransactionInflights transactionInflights = new TransactionInflights(placementDriverManager.placementDriver());
 
-        ResourceCleanupManager resourceCleanupManager = new ResourceCleanupManager(
-                name,
-                resourcesRegistry,
-                clusterSvc.topologyService(),
-                clusterSvc.messagingService(),
-                transactionInflights
-        );
-
         var txManager = new TxManagerImpl(
                 name,
                 txConfiguration,
@@ -496,8 +490,16 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 new TestLocalRwTxCounter(),
                 threadPoolsManager.partitionOperationsExecutor(),
                 resourcesRegistry,
-                resourceCleanupManager,
                 transactionInflights
+        );
+
+        ResourceVacuumManager resourceVacuumManager = new ResourceVacuumManager(
+                name,
+                resourcesRegistry,
+                clusterSvc.topologyService(),
+                clusterSvc.messagingService(),
+                transactionInflights,
+                txManager
         );
 
         Consumer<LongFunction<CompletableFuture<?>>> registry = (c) -> metaStorageMgr.registerRevisionUpdateListener(c::apply);
@@ -601,7 +603,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 resourcesRegistry,
                 rebalanceScheduler,
                 lowWatermark,
-                ForkJoinPool.commonPool(),
                 transactionInflights
         );
 
@@ -665,6 +666,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 cmgManager,
                 replicaMgr,
                 txManager,
+                resourceVacuumManager,
                 lowWatermark,
                 metaStorageMgr,
                 clusterCfgMgr,
@@ -1041,7 +1043,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         createTableWithData(List.of(ignite), TABLE_NAME, 1, partitions);
 
-        TableViewInternal table = (TableViewInternal) ignite.tables().table(TABLE_NAME);
+        TableViewInternal table = unwrapTableViewInternal(ignite.tables().table(TABLE_NAME));
 
         InternalTableImpl internalTable = (InternalTableImpl) table.internalTable();
 
@@ -1066,7 +1068,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         checkTableWithData(ignite, TABLE_NAME);
 
-        table = (TableViewInternal) ignite.tables().table(TABLE_NAME);
+        table = unwrapTableViewInternal(ignite.tables().table(TABLE_NAME));
 
         // Check data that was added after flush.
         for (int i = 0; i < 100; i++) {
@@ -1199,7 +1201,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         node = startNode(1);
 
-        TableManager tableManager = (TableManager) node.tables();
+        TableManager tableManager = unwrapTableManager(node.tables());
 
         assertNotNull(tableManager);
 
@@ -1232,7 +1234,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         IgniteImpl node1 = startNode(1, cfgString);
 
-        TableManager tableManager = (TableManager) node1.tables();
+        TableManager tableManager = unwrapTableManager(node1.tables());
 
         assertTablePresent(tableManager, TABLE_NAME.toUpperCase());
     }
@@ -1261,7 +1263,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         log.info("After starting the node.");
 
-        TableManager tableManager = (TableManager) node.tables();
+        TableManager tableManager = unwrapTableManager(node.tables());
 
         assertTablePresent(tableManager, TABLE_NAME.toUpperCase());
         assertTablePresent(tableManager, TABLE_NAME_2.toUpperCase());
@@ -1378,7 +1380,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         IgniteImpl restartedNode = startNode(restartedNodeIndex);
 
-        TableImpl table = (TableImpl) restartedNode.tables().table(TABLE_NAME);
+        TableImpl table = unwrapTableImpl(restartedNode.tables().table(TABLE_NAME));
 
         assertTrue(waitForCondition(() -> {
             // Check that only storage for 1 partition left on the restarted node.
@@ -1414,7 +1416,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         IgniteImpl restartedNode = startNode(restartedNodeIndex);
 
-        TableImpl table = (TableImpl) restartedNode.tables().table(TABLE_NAME);
+        TableImpl table = unwrapTableImpl(restartedNode.tables().table(TABLE_NAME));
 
         long recoveryRevision = restartedNode.metaStorageManager().recoveryFinishedFuture().join();
 
@@ -1810,7 +1812,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     }
 
     private int tableId(Ignite node, String tableName) {
-        return ((TableImpl) node.tables().table(tableName)).tableId();
+        return (unwrapTableImpl(node.tables().table(tableName))).tableId();
     }
 
     /**

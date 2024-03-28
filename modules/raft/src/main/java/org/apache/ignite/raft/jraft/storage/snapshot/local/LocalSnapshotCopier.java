@@ -109,7 +109,7 @@ public class LocalSnapshotCopier extends SnapshotCopier {
     }
 
     private void internalCopy() throws IOException, InterruptedException {
-        // noinspection ConstantConditions
+        //noinspection ConstantConditions
         do {
             loadMetaTable();
             if (!isOk()) {

@@ -46,14 +46,14 @@ public class ClientColumnOrigin implements ColumnMetadata.ColumnOrigin {
 
         int schemaNameIdx = unpacker.tryUnpackInt(-1);
 
-        // noinspection ConstantConditions
+        //noinspection ConstantConditions
         this.schemaName = schemaNameIdx == -1
                 ? unpacker.unpackString()
                 : prevColumns.get(schemaNameIdx).origin().schemaName();
 
         int tableNameIdx = unpacker.tryUnpackInt(-1);
 
-        // noinspection ConstantConditions
+        //noinspection ConstantConditions
         this.tableName = tableNameIdx == -1
                 ? unpacker.unpackString()
                 : prevColumns.get(tableNameIdx).origin().tableName();

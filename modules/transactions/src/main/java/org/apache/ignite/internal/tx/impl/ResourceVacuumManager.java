@@ -22,7 +22,6 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -33,6 +32,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNodeResolver;
 import org.apache.ignite.network.TopologyService;
@@ -40,17 +40,17 @@ import org.apache.ignite.network.TopologyService;
 /**
  * Manager responsible from cleaning up the transaction resources.
  */
-public class ResourceCleanupManager implements IgniteComponent {
+public class ResourceVacuumManager implements IgniteComponent {
     /** The logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(ResourceCleanupManager.class);
+    private static final IgniteLogger LOG = Loggers.forClass(ResourceVacuumManager.class);
 
-    private static final int RESOURCE_CLEANUP_EXECUTOR_SIZE = 1;
+    private static final int RESOURCE_VACUUM_EXECUTOR_SIZE = 1;
 
     /** System property name. */
-    public static final String RESOURCE_CLEANUP_INTERVAL_MILLISECONDS_PROPERTY = "RESOURCE_CLEANUP_INTERVAL_MILLISECONDS";
+    public static final String RESOURCE_VACUUM_INTERVAL_MILLISECONDS_PROPERTY = "RESOURCE_VACUUM_INTERVAL_MILLISECONDS";
 
-    private final int resourceCleanupIntervalMilliseconds = IgniteSystemProperties
-            .getInteger(RESOURCE_CLEANUP_INTERVAL_MILLISECONDS_PROPERTY, 30_000);
+    private final int resourceVacuumIntervalMilliseconds = IgniteSystemProperties
+            .getInteger(RESOURCE_VACUUM_INTERVAL_MILLISECONDS_PROPERTY, 30_000);
 
     private final FinishedReadOnlyTransactionTracker finishedReadOnlyTransactionTracker;
 
@@ -61,11 +61,13 @@ public class ResourceCleanupManager implements IgniteComponent {
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
-    private final ScheduledExecutorService resourceCleanupExecutor;
+    private final ScheduledExecutorService resourceVacuumExecutor;
 
     private final RemotelyTriggeredResourceRegistry resourceRegistry;
 
     private final ClusterNodeResolver clusterNodeResolver;
+
+    private final TxManager txManager;
 
     /**
      * Constructor.
@@ -75,19 +77,21 @@ public class ResourceCleanupManager implements IgniteComponent {
      * @param topologyService Topology service.
      * @param messagingService Messaging service.
      * @param transactionInflights Transaction inflights.
+     * @param txManager Transactional manager.
      */
-    public ResourceCleanupManager(
+    public ResourceVacuumManager(
             String nodeName,
             RemotelyTriggeredResourceRegistry resourceRegistry,
             TopologyService topologyService,
             MessagingService messagingService,
-            TransactionInflights transactionInflights
+            TransactionInflights transactionInflights,
+            TxManager txManager
     ) {
         this.resourceRegistry = resourceRegistry;
         this.clusterNodeResolver = topologyService;
-        this.resourceCleanupExecutor = Executors.newScheduledThreadPool(
-                RESOURCE_CLEANUP_EXECUTOR_SIZE,
-                NamedThreadFactory.create(nodeName, "resource-cleanup-executor", LOG)
+        this.resourceVacuumExecutor = Executors.newScheduledThreadPool(
+                RESOURCE_VACUUM_EXECUTOR_SIZE,
+                NamedThreadFactory.create(nodeName, "resource-vacuum-executor", LOG)
         );
         this.finishedReadOnlyTransactionTracker = new FinishedReadOnlyTransactionTracker(
                 topologyService,
@@ -95,22 +99,24 @@ public class ResourceCleanupManager implements IgniteComponent {
                 transactionInflights
         );
         this.finishedTransactionBatchRequestHandler =
-                new FinishedTransactionBatchRequestHandler(messagingService, resourceRegistry, resourceCleanupExecutor);
+                new FinishedTransactionBatchRequestHandler(messagingService, resourceRegistry, resourceVacuumExecutor);
+
+        this.txManager = txManager;
     }
 
     @Override
     public CompletableFuture<Void> start() {
-        resourceCleanupExecutor.scheduleAtFixedRate(
-                this::runCleanupOperations,
+        resourceVacuumExecutor.scheduleAtFixedRate(
+                this::runVacuumOperations,
                 0,
-                resourceCleanupIntervalMilliseconds,
+                resourceVacuumIntervalMilliseconds,
                 TimeUnit.MILLISECONDS
         );
 
-        resourceCleanupExecutor.scheduleAtFixedRate(
+        resourceVacuumExecutor.scheduleAtFixedRate(
                 finishedReadOnlyTransactionTracker::broadcastClosedTransactions,
                 0,
-                resourceCleanupIntervalMilliseconds,
+                resourceVacuumIntervalMilliseconds,
                 TimeUnit.MILLISECONDS
         );
 
@@ -123,23 +129,15 @@ public class ResourceCleanupManager implements IgniteComponent {
     public void stop() throws Exception {
         busyLock.block();
 
-        shutdownAndAwaitTermination(resourceCleanupExecutor, 10, TimeUnit.SECONDS);
+        shutdownAndAwaitTermination(resourceVacuumExecutor, 10, TimeUnit.SECONDS);
     }
 
-    /**
-     * Is called on the finish of read only transaction.
-     *
-     * @param id Transaction id.
-     */
-    void onReadOnlyTransactionFinished(UUID id) {
-        finishedReadOnlyTransactionTracker.onTransactionFinished(id);
+    private void runVacuumOperations() {
+        inBusyLock(busyLock, this::vacuumOrphanTxResources);
+        inBusyLock(busyLock, this::vacuumTxnResources);
     }
 
-    private void runCleanupOperations() {
-        inBusyLock(busyLock, this::cleanupOrphanTxResources);
-    }
-
-    private void cleanupOrphanTxResources() {
+    private void vacuumOrphanTxResources() {
         try {
             Set<String> remoteHosts = resourceRegistry.registeredRemoteHosts();
 
@@ -149,7 +147,19 @@ public class ResourceCleanupManager implements IgniteComponent {
                 }
             }
         } catch (Throwable err) {
+            // TODO https://issues.apache.org/jira/browse/IGNITE-21829 Use failure handler instead.
             LOG.error("Error occurred during the orphan resources closing.", err);
+
+            throw err;
+        }
+    }
+
+    private void vacuumTxnResources() {
+        try {
+            txManager.vacuum();
+        } catch (Throwable err) {
+            // TODO https://issues.apache.org/jira/browse/IGNITE-21829 Use failure handler instead.
+            LOG.error("Error occurred during txn resources vacuum.", err);
 
             throw err;
         }

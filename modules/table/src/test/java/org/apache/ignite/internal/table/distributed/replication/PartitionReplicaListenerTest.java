@@ -2714,7 +2714,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     private TestKey key(BinaryRow binaryRow) {
         try {
-            return kvMarshaller.unmarshalKey(Row.wrapKeyOnlyBinaryRow(schemaDescriptor, binaryRow));
+            return kvMarshaller.unmarshalKeyOnly(Row.wrapKeyOnlyBinaryRow(schemaDescriptor, binaryRow));
         } catch (MarshallerException e) {
             throw new AssertionError(e);
         }

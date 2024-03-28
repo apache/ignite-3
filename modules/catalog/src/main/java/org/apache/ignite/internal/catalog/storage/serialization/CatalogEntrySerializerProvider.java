@@ -75,7 +75,7 @@ public interface CatalogEntrySerializerProvider {
             serializers[MarshallableEntryType.RENAME_TABLE.id()] = RenameTableEntry.SERIALIZER;
             serializers[MarshallableEntryType.ID_GENERATOR.id()] = ObjectIdGenUpdateEntry.SERIALIZER;
             serializers[MarshallableEntryType.SNAPSHOT.id()] = SnapshotEntry.SERIALIZER;
-            // noinspection ThisEscapedInObjectConstruction
+            //noinspection ThisEscapedInObjectConstruction
             serializers[MarshallableEntryType.VERSIONED_UPDATE.id()] = new VersionedUpdateSerializer(this);
 
             assert Stream.of(serializers).noneMatch(Objects::isNull);
