@@ -18,10 +18,14 @@
 package org.apache.ignite.internal.eventlog.api;
 
 import java.util.Arrays;
+import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
@@ -31,28 +35,41 @@ import org.apache.ignite.internal.eventlog.config.schema.EventLogConfiguration;
 import org.apache.ignite.internal.eventlog.event.IgniteEventType;
 
 public class ConfigurationBasedChannelRegistry implements ChannelRegistry {
-    private final EventLogConfiguration cfg;
+    private final ReadWriteLock guard;
 
     private final Map<String, EventChannel> cache;
     private final Map<IgniteEventType, Set<EventChannel>> typeCache;
 
-    public ConfigurationBasedChannelRegistry(EventLogConfiguration cfg) {
-        this.cfg = cfg;
-        this.cache = new ConcurrentHashMap<>();
-        this.typeCache = new ConcurrentHashMap<>();
-        this.cfg.channels().listen(new CacheUpdater());
+    private final SinkRegistry sinkRegistry;
+
+    public ConfigurationBasedChannelRegistry(EventLogConfiguration cfg, SinkRegistry sinkRegistry) {
+        this.guard = new ReentrantReadWriteLock();
+        this.cache = new HashMap<>();
+        this.typeCache = new EnumMap<>(IgniteEventType.class);
+        this.sinkRegistry = sinkRegistry;
+
+        cfg.channels().listen(new CacheUpdater());
     }
 
     @Override
     public EventChannel getByName(String name) {
-        return cache.get(name);
+        guard.readLock().lock();
+        try {
+            return cache.get(name);
+        } finally {
+            guard.readLock().unlock();
+        }
     }
 
     @Override
     public Set<EventChannel> findAllChannelsByEventType(IgniteEventType igniteEventType) {
-        Set<EventChannel> result = typeCache.get(igniteEventType);
-
-        return result == null ? Set.of() : result;
+        guard.readLock().lock();
+        try {
+            Set<EventChannel> result = typeCache.get(igniteEventType);
+            return result == null ? Set.of() : result;
+        } finally {
+            guard.readLock().unlock();
+        }
     }
 
     private class CacheUpdater implements ConfigurationListener<NamedListView<ChannelView>> {
@@ -60,24 +77,34 @@ public class ConfigurationBasedChannelRegistry implements ChannelRegistry {
         public CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<NamedListView<ChannelView>> ctx) {
             NamedListView<ChannelView> newListValue = ctx.newValue();
 
-            cache.clear();
-            typeCache.clear();
+            guard.writeLock().lock();
 
-            newListValue.forEach(view -> {
-                cache.put(view.name(), createChannel(view));
-                for (String eventType : view.events()) {
-                    IgniteEventType type = IgniteEventType.valueOf(eventType.trim());
-                    typeCache.computeIfAbsent(type, t -> ConcurrentHashMap.newKeySet())
-                            .add(cache.get(view.name()));
-                }
-            });
+            try {
+                cache.clear();
+                typeCache.clear();
 
-            return CompletableFuture.completedFuture(null);
+                newListValue.forEach(view -> {
+                    if (view.enabled()) {
+                        cache.put(view.name(), createChannel(view));
+                        for (String eventType : view.events()) {
+                            IgniteEventType type = IgniteEventType.valueOf(eventType.trim());
+                            typeCache.computeIfAbsent(type, t -> ConcurrentHashMap.newKeySet())
+                                    .add(cache.get(view.name()));
+                        }
+                    }
+                });
+
+                return CompletableFuture.completedFuture(null);
+            } finally {
+                guard.writeLock().unlock();
+            }
         }
 
         private EventChannel createChannel(ChannelView view) {
-            Set<IgniteEventType> types = Arrays.stream(view.events()).map(e -> IgniteEventType.valueOf(e.trim())).collect(Collectors.toSet());
-            return new EventChannelImpl(types);
+            Set<IgniteEventType> types = Arrays.stream(view.events()).map(e -> IgniteEventType.valueOf(e.trim()))
+                    .collect(Collectors.toSet());
+
+            return new EventChannelImpl(types, sinkRegistry.findAllByChannel(view.name())); //todo
         }
     }
 }

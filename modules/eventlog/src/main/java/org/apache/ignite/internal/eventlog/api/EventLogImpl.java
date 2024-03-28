@@ -17,25 +17,22 @@
 
 package org.apache.ignite.internal.eventlog.api;
 
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.eventlog.config.schema.EventLogConfiguration;
-import org.apache.ignite.internal.eventlog.event.IgniteEventType;
 
 public class EventLogImpl implements EventLog {
-    private final Map<IgniteEventType, Set<EventChannel>> channels;
 
-    private final EventLogConfiguration configuration;
+    private final ChannelRegistry channelRegistry;
 
-    public EventLogImpl(EventLogConfiguration configuration) {
-        this.configuration = configuration;
-        this.channels = new ConcurrentHashMap<>();
+    public EventLogImpl(ChannelRegistry channelRegistry) {
+        this.channelRegistry = channelRegistry;
     }
 
     @Override
     public void log(Supplier<Event> eventProvider) {
-
+        Event event = eventProvider.get();
+        EventChannel channel = channelRegistry.findAllChannelsByEventType(event.type());
+        if (channel != null) {
+            channel.log(event);
+        }
     }
 }

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.eventlog.config.schema;
 import org.apache.ignite.configuration.annotation.InjectedName;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicId;
+import org.apache.ignite.configuration.annotation.Value;
 
 
 /** Configuration schema for sink. */
@@ -32,4 +33,7 @@ public class SinkConfigurationSchema {
     /** The name of the sink. */
     @InjectedName
     public String name;
+
+    @Value
+    public String channel;
 }

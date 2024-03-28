@@ -17,31 +17,122 @@
 
 package org.apache.ignite.internal.eventlog.event;
 
+import static org.hamcrest.CoreMatchers.hasItem;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.eventlog.api.ChannelFactory;
+import org.apache.ignite.internal.eventlog.api.ChannelRegistry;
+import org.apache.ignite.internal.eventlog.api.Event;
+import org.apache.ignite.internal.eventlog.api.EventChannel;
 import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.eventlog.api.EventLogImpl;
+import org.apache.ignite.internal.eventlog.api.SinkRegistry;
 import org.apache.ignite.internal.eventlog.config.schema.EventLogConfiguration;
+import org.apache.ignite.internal.eventlog.sink.Sink;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 public class EventLogTest {
     private static final EventUser TEST_USER = EventUser.of("testuser", "basicAuthenticator");
+    private static final Event TEST_EVENT = IgniteEvents.USER_AUTHENTICATED.create(TEST_USER);
+    private static final String TEST_CHANNEL = "testChannel";
+
     @InjectConfiguration
     private EventLogConfiguration cfg;
 
     private EventLog eventLog;
 
+    private TestChannelRegistry channelRegistry;
+    private TestSinkRegistry sinkRegistry;
+    private ChannelFactory channelFactory;
+
     @BeforeEach
     void setUp() {
-       eventLog = new EventLogImpl(cfg);
+        channelRegistry = new TestChannelRegistry();
+       sinkRegistry = new TestSinkRegistry();
+       channelFactory = new ChannelFactory(sinkRegistry);
+        eventLog = new EventLogImpl(channelRegistry);
     }
 
     @Test
-    void logEvents() {
-        // When log event with default configuration.
-        eventLog.log(() -> IgniteEvents.USER_AUTHENTICATED.create(TEST_USER));
+    void noop() {
+        // Given no channels and sinks.
 
-        // Then nothing happens.
+        // Then nothing thrown.
+        assertDoesNotThrow(() -> eventLog.log(() -> TEST_EVENT));
 
+        // When add a channel but there is no sink.
+        channelRegistry.register(TEST_CHANNEL, channelFactory.createChannel(
+                TEST_CHANNEL, Set.of(IgniteEventType.USER_AUTHENTICATED))
+        );
+
+        // Then nothing thrown.
+        assertDoesNotThrow(() -> eventLog.log(() -> TEST_EVENT));
+
+        // When add a sink for the channel.
+        List<Event> container = new ArrayList<>();
+        sinkRegistry.register(TEST_CHANNEL, container::add);
+
+        // And log event.
+        eventLog.log(() -> TEST_EVENT);
+
+        // Then event is logged.
+        assertThat(container, hasItem(TEST_EVENT));
+    }
+
+    private static class TestChannelRegistry implements ChannelRegistry {
+        private final Map<String, EventChannel> channels;
+
+        private TestChannelRegistry() {
+            channels = new HashMap<>();
+        }
+
+        void register(String name, EventChannel channel) {
+            channels.put(name, channel);
+        }
+
+        @Override
+        public EventChannel getByName(String name) {
+            return channels.get(name);
+        }
+
+        @Override
+        public Set<EventChannel> findAllChannelsByEventType(IgniteEventType igniteEventType) {
+            return channels.values().stream()
+                .filter(channel -> channel.types().contains(igniteEventType))
+                .collect(Set::of, Set::add, Set::addAll);
+        }
+    }
+
+    private static class TestSinkRegistry implements SinkRegistry {
+        private final Map<String, Sink> sinks;
+
+        private TestSinkRegistry() {
+            sinks = new HashMap<>();
+        }
+
+        void register(String name, Sink sink) {
+            sinks.put(name, sink);
+        }
+
+        @Override
+        public Sink getByName(String name) {
+            return sinks.get(name);
+        }
+
+        @Override
+        public Set<Sink> findAllByChannel(String channel) {
+            if (!sinks.containsKey(channel)) {
+                return Set.of();
+            }
+            return Set.of(sinks.get(channel));
+        }
     }
 }

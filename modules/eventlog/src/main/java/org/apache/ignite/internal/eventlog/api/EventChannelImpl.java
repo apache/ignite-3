@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.eventlog.api;
 
+import java.util.HashSet;
 import java.util.Set;
 import org.apache.ignite.internal.eventlog.event.IgniteEventType;
 import org.apache.ignite.internal.eventlog.sink.Sink;
@@ -26,9 +27,9 @@ public class EventChannelImpl implements EventChannel {
     private final Set<Sink> sinks;
     private final Set<IgniteEventType> types;
 
-    public EventChannelImpl(Set<IgniteEventType> types) {
-        this.types = types;
-        this.sinks = null;
+    public EventChannelImpl(Set<IgniteEventType> types, Set<Sink> sinks) {
+        this.types = new HashSet<>(types);
+        this.sinks = new HashSet<>(sinks);
     }
 
     @Override

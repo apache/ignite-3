@@ -48,7 +48,7 @@ public class EventImpl implements Event {
     }
 
     @Override
-    public String type() {
+    public IgniteEventType type() {
         return type;
     }
 

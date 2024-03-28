@@ -27,7 +27,7 @@ public class ChannelConfigurationSchema {
     @InjectedName
     public String name;
 
-    @Value
+    @Value(hasDefault = true)
     public boolean enabled = true;
 
     @Value(hasDefault = true)

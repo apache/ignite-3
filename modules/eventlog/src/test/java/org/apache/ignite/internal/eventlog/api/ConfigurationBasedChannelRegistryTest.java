@@ -35,7 +35,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 
 @ExtendWith(ConfigurationExtension.class)
 class ConfigurationBasedChannelRegistryTest extends BaseIgniteAbstractTest {
-    public static final String TEST_CHANNEL = "testChannel";
+    private static final String TEST_CHANNEL = "testChannel";
 
     @InjectConfiguration
     private EventLogConfiguration cfg;
@@ -44,7 +44,7 @@ class ConfigurationBasedChannelRegistryTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        registry = new ConfigurationBasedChannelRegistry(cfg);
+        registry = new ConfigurationBasedChannelRegistry(cfg, new ConfigurationBasedSinkRegistry(cfg));
     }
 
     @Test
@@ -143,5 +143,36 @@ class ConfigurationBasedChannelRegistryTest extends BaseIgniteAbstractTest {
         await().untilAsserted(
                 () -> assertThat(registry.findAllChannelsByEventType(IgniteEventType.CONNECTION_CLOSED).size(), is(1))
         );
+
+        // When add new channel.
+        cfg.channels().change(c -> c.create("newChannel", s -> {
+            s.changeEnabled(true);
+            s.changeEvents(IgniteEventType.USER_AUTHENTICATED.name());
+        }));
+
+        // Then.
+        await().untilAsserted(
+                () -> assertThat(registry.findAllChannelsByEventType(IgniteEventType.USER_AUTHENTICATED).size(), is(2))
+        );
+        await().untilAsserted(
+                () -> assertThat(registry.findAllChannelsByEventType(IgniteEventType.CONNECTION_CLOSED).size(), is(1))
+        );
+    }
+
+    @Test
+    void enableDisable() {
+        // Given configuration with a channel.
+        cfg.channels().change(c -> c.create(TEST_CHANNEL, s -> {
+            s.changeEvents(IgniteEventType.USER_AUTHENTICATED.name());
+        }));
+
+        // Then can get channel from registry.
+        await().until(() -> registry.getByName(TEST_CHANNEL) != null);
+
+        // When disable channel.
+        cfg.channels().change(c -> c.update(TEST_CHANNEL, s -> s.changeEnabled(false)));
+
+        // Then channel is removed from registry.
+        await().until(() -> registry.getByName(TEST_CHANNEL) == null);
     }
 }
