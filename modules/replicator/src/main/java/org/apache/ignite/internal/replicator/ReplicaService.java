@@ -122,7 +122,7 @@ public class ReplicaService {
         messagingService.invoke(
                 targetNodeConsistentId,
                 req,
-                replicationConfiguration.replicationRequestProcessingTimeout().value()
+                replicationConfiguration.rpcTimeout().value()
         ).whenComplete((response, throwable) -> {
             if (throwable != null) {
                 throwable = unwrapCause(throwable);
@@ -158,7 +158,7 @@ public class ReplicaService {
                                     return messagingService.invoke(
                                             targetNodeConsistentId,
                                             awaitReplicaReq,
-                                            replicationConfiguration.replicationRequestProcessingTimeout().value()
+                                            replicationConfiguration.rpcTimeout().value()
                                     );
                                 }
                         );

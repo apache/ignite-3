@@ -40,5 +40,5 @@ public class ReplicationConfigurationSchema {
     /** Replication request processing timeout.  */
     @Value(hasDefault = true)
     @Range(min = 1000)
-    public long replicationRequestProcessingTimeout = TimeUnit.SECONDS.toMillis(60);
+    public long rpcTimeout = TimeUnit.SECONDS.toMillis(60);
 }

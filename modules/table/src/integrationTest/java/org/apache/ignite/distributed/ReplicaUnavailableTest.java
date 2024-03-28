@@ -104,7 +104,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
             new Column[]{new Column("value", NativeTypes.INT64, false)}
     );
 
-    @InjectConfiguration
+    @InjectConfiguration("mock.rpcTimeout= 3000")
     private ReplicationConfiguration replicationConfiguration;
 
     private final TableMessagesFactory tableMessagesFactory = new TableMessagesFactory();
@@ -148,7 +148,6 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 clock,
                 replicationConfiguration
         );
-
         replicaManager = new ReplicaManager(
                 NODE_NAME,
                 clusterService,
