@@ -27,13 +27,11 @@ import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFI
 import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.AWAIT_PRIMARY_REPLICA_TIMEOUT;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
 
 import java.time.ZoneId;
 import java.util.ArrayList;
@@ -135,7 +133,6 @@ import org.apache.ignite.lang.SchemaNotFoundException;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.tx.IgniteTransactions;
-import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -493,7 +490,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         }
 
         try {
-            return querySingle0(properties, new QueryTransactionContext(transactions, transaction), qry, params);
+            return querySingle0(properties, new QueryTransactionContext(transactions, transaction, transactionInflights), qry, params);
         } finally {
             busyLock.leaveBusy();
         }
@@ -513,7 +510,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         }
 
         try {
-            return queryScript0(properties, new QueryTransactionContext(transactions, transaction), qry, params);
+            return queryScript0(properties, new QueryTransactionContext(transactions, transaction, transactionInflights), qry, params);
         } finally {
             busyLock.leaveBusy();
         }
@@ -584,27 +581,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
             QueryTransactionWrapper txWrapper = txCtx.getOrStartImplicit(result.queryType());
 
-            InternalTransaction tx = txWrapper.unwrap();
-
-            // Adding inflights only for read-only transactions.
-            if (tx.isReadOnly() && !transactionInflights.addInflight(tx.id(), tx.isReadOnly())) {
-                return failedFuture(new TransactionException(
-                        TX_ALREADY_FINISHED_ERR, format("Transaction is already finished [tx={}]", tx)
-                ));
-            }
-
-            return executeParsedStatement(schemaName, result, txWrapper, queryCancel, timeZoneId, params, null)
-                    .handle((executionResult, e) -> {
-                        if (tx.isReadOnly()) {
-                            transactionInflights.removeInflight(txWrapper.unwrap().id());
-                        }
-
-                        if (e != null) {
-                            sneakyThrow(e);
-                        }
-
-                        return executionResult;
-                    });
+            return executeParsedStatement(schemaName, result, txWrapper, queryCancel, timeZoneId, params, null);
         });
 
         // TODO IGNITE-20078 Improve (or remove) CancellationException handling.
@@ -845,7 +822,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             this.timeZoneId = timeZoneId;
             this.schemaName = schemaName;
             this.statements = prepareStatementsQueue(parsedResults, params);
-            this.txCtx = new ScriptTransactionContext(txCtx);
+            this.txCtx = new ScriptTransactionContext(txCtx, transactionInflights);
         }
 
         /**

@@ -30,6 +30,7 @@ import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapperImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.util.AsyncWrapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -50,7 +51,7 @@ public class JdbcQueryCursorSelfTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void initTxMock() {
-        txWrapper = new QueryTransactionWrapperImpl(mock(InternalTransaction.class), false);
+        txWrapper = new QueryTransactionWrapperImpl(mock(InternalTransaction.class), false, mock(TransactionInflights.class));
     }
 
     /** Tests corner cases of setting the {@code maxRows} parameter. */

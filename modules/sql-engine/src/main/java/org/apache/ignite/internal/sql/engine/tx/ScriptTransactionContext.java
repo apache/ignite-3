@@ -31,6 +31,7 @@ import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCommitTransaction;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlStartTransaction;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlStartTransactionMode;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.tx.TransactionOptions;
 
@@ -44,8 +45,11 @@ public class ScriptTransactionContext {
 
     private volatile ScriptTransactionWrapperImpl wrapper;
 
-    public ScriptTransactionContext(QueryTransactionContext queryTxCtx) {
+    private final TransactionInflights transactionInflights;
+
+    public ScriptTransactionContext(QueryTransactionContext queryTxCtx, TransactionInflights transactionInflights) {
         this.queryTxCtx = queryTxCtx;
+        this.transactionInflights = transactionInflights;
     }
 
     /**
@@ -96,7 +100,7 @@ public class ScriptTransactionContext {
             boolean readOnly = ((IgniteSqlStartTransaction) node).getMode() == IgniteSqlStartTransactionMode.READ_ONLY;
             InternalTransaction tx = (InternalTransaction) queryTxCtx.transactions().begin(new TransactionOptions().readOnly(readOnly));
 
-            this.wrapper = new ScriptTransactionWrapperImpl(tx);
+            this.wrapper = new ScriptTransactionWrapperImpl(tx, transactionInflights);
 
             return nullCompletedFuture();
         } else {

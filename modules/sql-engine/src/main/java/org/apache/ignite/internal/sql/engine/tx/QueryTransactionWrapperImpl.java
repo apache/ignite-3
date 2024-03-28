@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.impl.TransactionInflights;
 
 /**
  * Wrapper for the transaction that encapsulates the management of an implicit transaction.
@@ -30,9 +31,19 @@ public class QueryTransactionWrapperImpl implements QueryTransactionWrapper {
 
     private final InternalTransaction transaction;
 
-    public QueryTransactionWrapperImpl(InternalTransaction transaction, boolean implicit) {
+    private final TransactionInflights transactionInflights;
+
+    /**
+     * Constructor.
+     *
+     * @param transaction Transaction.
+     * @param implicit Whether tx is implicit.
+     * @param transactionInflights Transaction inflights.
+     */
+    public QueryTransactionWrapperImpl(InternalTransaction transaction, boolean implicit, TransactionInflights transactionInflights) {
         this.transaction = transaction;
         this.implicit = implicit;
+        this.transactionInflights = transactionInflights;
     }
 
     @Override
@@ -42,6 +53,10 @@ public class QueryTransactionWrapperImpl implements QueryTransactionWrapper {
 
     @Override
     public CompletableFuture<Void> commitImplicit() {
+        if (transaction.isReadOnly()) {
+            transactionInflights.removeInflight(transaction.id());
+        }
+
         if (implicit) {
             return transaction.commitAsync();
         }

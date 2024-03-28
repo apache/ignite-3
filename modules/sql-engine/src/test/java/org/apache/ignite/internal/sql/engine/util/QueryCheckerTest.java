@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThr
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.Matchers.containsString;
+import static org.mockito.Mockito.mock;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -40,6 +41,7 @@ import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapperImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.sql.ColumnMetadata;
@@ -336,7 +338,7 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
             AsyncSqlCursor<InternalSqlRow> sqlCursor = new AsyncSqlCursorImpl<>(
                     type,
                     plan.metadata(),
-                    new QueryTransactionWrapperImpl(new NoOpTransaction("test"), false),
+                    new QueryTransactionWrapperImpl(new NoOpTransaction("test"), false, mock(TransactionInflights.class)),
                     dataCursor,
                     nullCompletedFuture(),
                     null
