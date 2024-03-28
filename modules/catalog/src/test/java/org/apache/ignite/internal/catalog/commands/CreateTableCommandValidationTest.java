@@ -85,7 +85,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
     }
 
     @Test
-    void functionalDefaultsNotSupportsForNonPkColumns() {
+    void functionalDefaultNotSupportsForNonPkColumns() {
         CreateTableCommandBuilder builder = CreateTableCommand.builder();
 
         builder = fillProperties(builder);
@@ -104,7 +104,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
     }
 
     @Test
-    void functionalDefaultsSupportsForPkColumns() {
+    void functionalDefaultSupportsForPkColumns() {
         CreateTableCommandBuilder builder = CreateTableCommand.builder();
 
         builder = fillProperties(builder);
@@ -151,7 +151,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
     }
 
     @Test
-    void primaryKeyColumnsShouldNotContainsNullable() {
+    void primaryKeyColumnsShouldNotContainNullable() {
         CreateTableCommandBuilder builder = CreateTableCommand.builder();
 
         builder = fillProperties(builder)
@@ -168,7 +168,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
     }
 
     @Test
-    void primaryKeyColumnsCanContainsOnlyTableColumns() {
+    void primaryKeyColumnsCanContainOnlyTableColumns() {
         CreateTableCommandBuilder builder = CreateTableCommand.builder();
 
         builder = fillProperties(builder)

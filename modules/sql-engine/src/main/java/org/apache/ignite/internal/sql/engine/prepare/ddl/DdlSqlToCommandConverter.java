@@ -321,12 +321,10 @@ public class DdlSqlToCommandConverter {
                     + "querySql=\"" + ctx.query() + "\"]");
         }
 
-        List<String> pkColumns;
-
         IgniteSqlPrimaryKeyConstraint pkConstraint = pkConstraints.get(0);
         SqlNodeList columnNodes = pkConstraint.getColumnList();
 
-        pkColumns = new ArrayList<>(columnNodes.size());
+        List<String> pkColumns = new ArrayList<>(columnNodes.size());
         List<Collation> pkCollations = new ArrayList<>(columnNodes.size());
 
         PrimaryKeyIndexType pkIndexType = convertPrimaryIndexType(pkConstraint.getIndexType());
