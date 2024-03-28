@@ -36,4 +36,9 @@ public class ReplicationConfigurationSchema {
     @Range(min = 0)
     // TODO: IGNITE-19792 - make @Immutable when it gets being handled property for distributed config.
     public long idleSafeTimePropagationDuration = DEFAULT_IDLE_SAFE_TIME_PROP_DURATION;
+
+    /** Replication request processing timeout.  */
+    @Value(hasDefault = true)
+    @Range(min = 1000)
+    public long rpcTimeout = TimeUnit.SECONDS.toMillis(60);
 }
