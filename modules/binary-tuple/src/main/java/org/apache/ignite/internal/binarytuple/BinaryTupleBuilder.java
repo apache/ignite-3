@@ -315,8 +315,24 @@ public class BinaryTupleBuilder {
      * @return {@code this} for chaining.
      */
     public BinaryTupleBuilder appendDecimalNotNull(BigDecimal value, int scale) {
-        // TODO IGNITE-21745: Inefficient serialization, many bytes wasted to store small values when scale is big.
-        putBytes(value.setScale(scale, RoundingMode.HALF_UP).unscaledValue().toByteArray());
+        if (value.scale() > scale) {
+            value = value.setScale(scale, RoundingMode.HALF_UP);
+        }
+
+        value = value.stripTrailingZeros();
+
+        // See CatalogUtils.MAX_DECIMAL_SCALE = Short.MAX_VALUE
+        if (value.scale() > Short.MAX_VALUE) {
+            throw new BinaryTupleFormatException("Decimal scale is too large: " + value.scale() + " > " + Short.MAX_VALUE);
+        }
+
+        if (value.scale() < Short.MIN_VALUE) {
+            throw new BinaryTupleFormatException("Decimal scale is too small: " + value.scale() + " < " + Short.MIN_VALUE);
+        }
+
+        putShort((short) value.scale());
+        putBytes(value.unscaledValue().toByteArray());
+
         return proceed();
     }
 

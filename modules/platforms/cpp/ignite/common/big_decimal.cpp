@@ -18,15 +18,14 @@
 #include "big_decimal.h"
 
 #include <cstring>
-#include <utility>
 
 namespace ignite {
 
-void big_decimal::set_scale(int32_t new_scale, big_decimal &res) const {
+void big_decimal::set_scale(std::int16_t new_scale, big_decimal &res) const {
     if (m_scale == new_scale)
         return;
 
-    int32_t diff = m_scale - new_scale;
+    auto diff = std::int16_t(m_scale - new_scale);
 
     big_integer adjustment;
 

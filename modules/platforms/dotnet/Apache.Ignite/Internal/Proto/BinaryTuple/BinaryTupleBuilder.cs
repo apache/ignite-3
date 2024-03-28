@@ -551,8 +551,13 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// </summary>
         /// <param name="value">Value.</param>
         /// <param name="scale">Decimal scale from schema.</param>
-        public void AppendDecimal(decimal value, int scale) =>
-            AppendNumber(BinaryTupleCommon.DecimalToUnscaledBigInteger(value, scale));
+        public void AppendDecimal(decimal value, int scale)
+        {
+            var (unscaled, actualScale) = BinaryTupleCommon.DecimalToUnscaledBigInteger(value, scale);
+
+            PutShort(actualScale);
+            AppendNumber(unscaled);
+        }
 
         /// <summary>
         /// Appends a decimal.

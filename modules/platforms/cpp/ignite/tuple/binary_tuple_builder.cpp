@@ -230,7 +230,12 @@ void binary_tuple_builder::append_number(const big_decimal &value) {
     assert(element_index < element_count);
     assert(next_value + size <= value_base + value_area_size);
 
-    value.get_unscaled_value().store_bytes(next_value);
+    std::int16_t scale = value.get_scale();
+    if (value.is_zero())
+        scale = 0;
+
+    bytes::store<endian::LITTLE>(next_value, std::int16_t(scale));
+    value.get_unscaled_value().store_bytes(next_value + 2);
     next_value += size;
 
     append_entry();
