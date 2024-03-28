@@ -483,8 +483,16 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
         ClientMarshallerWriter writer = new ClientMarshallerWriter(builder, noValueSet);
 
         try {
-            s.getMarshaller(keySer.mapper(), TuplePart.KEY, false).writeObject(key, writer);
-            s.getMarshaller(valSer.mapper(), TuplePart.VAL, false).writeObject(val, writer);
+            Marshaller keyMarsh = s.getMarshaller(keySer.mapper(), TuplePart.KEY, false);
+            Marshaller valMarsh = s.getMarshaller(valSer.mapper(), TuplePart.VAL, false);
+
+            for (var column : s.columns()) {
+                if (column.key()) {
+                    keyMarsh.writeField(key, writer, column.keyIndex());
+                } else {
+                    valMarsh.writeField(val, writer, column.valIndex());
+                }
+            }
         } catch (MarshallerException e) {
             throw new IgniteException(INTERNAL_ERR, e.getMessage(), e);
         }
