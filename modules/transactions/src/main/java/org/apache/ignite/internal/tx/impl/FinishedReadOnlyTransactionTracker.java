@@ -22,6 +22,8 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.tx.message.FinishedTransactionsBatchMessage;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
@@ -32,6 +34,8 @@ import org.apache.ignite.network.TopologyService;
  * Keeps track of all finished RO transactions.
  */
 public class FinishedReadOnlyTransactionTracker {
+    private static final IgniteLogger LOG = Loggers.forClass(FinishedReadOnlyTransactionTracker.class);
+
     /** Tx messages factory. */
     private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
 
@@ -65,18 +69,25 @@ public class FinishedReadOnlyTransactionTracker {
      * Send close cursors batch message to all cluster nodes.
      */
     public void broadcastClosedTransactions() {
-        Collection<UUID> txToSend = transactionInflights.finishedReadOnlyTransactions();
+        try {
+            Collection<UUID> txToSend = transactionInflights.finishedReadOnlyTransactions();
 
-        if (!txToSend.isEmpty()) {
-            FinishedTransactionsBatchMessage message = FACTORY.finishedTransactionsBatchMessage()
-                    .transactions(txToSend)
-                    .build();
+            if (!txToSend.isEmpty()) {
+                FinishedTransactionsBatchMessage message = FACTORY.finishedTransactionsBatchMessage()
+                        .transactions(txToSend)
+                        .build();
 
-            CompletableFuture<?>[] messages = topologyService.allMembers()
-                    .stream()
-                    .map(clusterNode -> sendCursorCleanupCommand(clusterNode, message))
-                    .toArray(CompletableFuture[]::new);
-            allOf(messages).thenRun(() -> transactionInflights.removeTxContexts(txToSend));
+                CompletableFuture<?>[] messages = topologyService.allMembers()
+                        .stream()
+                        .map(clusterNode -> sendCursorCleanupCommand(clusterNode, message))
+                        .toArray(CompletableFuture[]::new);
+                allOf(messages).thenRun(() -> transactionInflights.removeTxContexts(txToSend));
+            }
+        } catch (Throwable err) {
+            // TODO https://issues.apache.org/jira/browse/IGNITE-21829 Use failure handler instead.
+            LOG.error("Error occurred during broadcasting closed transactions.", err);
+
+            throw err;
         }
     }
 

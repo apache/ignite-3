@@ -75,8 +75,10 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.failure.handlers.StopNodeFailureHandler;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.metrics.MetricManager;
@@ -847,8 +849,9 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         mailboxes.add(mailboxRegistry);
 
         HybridClock clock = new HybridClockImpl();
+        ClockService clockService = new TestClockService(clock);
 
-        var exchangeService = new ExchangeServiceImpl(mailboxRegistry, messageService, clock);
+        var exchangeService = new ExchangeServiceImpl(mailboxRegistry, messageService, clockService);
 
         var schemaManagerMock = mock(SqlSchemaManager.class);
 
@@ -910,7 +913,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 executableTableRegistry,
                 dependencyResolver,
                 (ctx, deps) -> node.implementor(ctx, mailboxRegistry, exchangeService, deps),
-                clock,
+                clockService,
                 SHUTDOWN_TIMEOUT
         );
 

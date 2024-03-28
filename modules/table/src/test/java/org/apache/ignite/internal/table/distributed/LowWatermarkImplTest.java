@@ -51,9 +51,10 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureProcessor;
-import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.schema.configuration.LowWatermarkConfiguration;
@@ -78,7 +79,7 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
     @InjectConfiguration
     private LowWatermarkConfiguration lowWatermarkConfig;
 
-    private final HybridClock clock = spy(new HybridClockImpl());
+    private final ClockService clockService = spy(new TestClockService(new HybridClockImpl()));
 
     private final TxManager txManager = mock(TxManager.class);
 
@@ -98,7 +99,7 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
         lowWatermark = new LowWatermarkImpl(
                 "test",
                 lowWatermarkConfig,
-                clock,
+                clockService,
                 txManager,
                 vaultManager,
                 mock(FailureProcessor.class),
@@ -144,7 +145,7 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void testCreateNewLowWatermarkCandidate() {
-        when(clock.now()).thenReturn(new HybridTimestamp(1_000, 500));
+        when(clockService.now()).thenReturn(new HybridTimestamp(1_000, 500));
 
         assertThat(lowWatermarkConfig.dataAvailabilityTime().update(100L), willSucceedFast());
 
@@ -156,9 +157,9 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void testUpdateAndNotify() {
-        HybridTimestamp now = clock.now();
+        HybridTimestamp now = clockService.now();
 
-        when(clock.now()).thenReturn(now);
+        when(clockService.now()).thenReturn(now);
 
         when(txManager.updateLowWatermark(any(HybridTimestamp.class))).thenReturn(nullCompletedFuture());
 
@@ -264,7 +265,7 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
 
         CompletableFuture<HybridTimestamp> updateLowWatermarkFuture0 = listenUpdateLowWatermark();
 
-        HybridTimestamp newLwm0 = clock.now();
+        HybridTimestamp newLwm0 = clockService.now();
 
         lowWatermark.updateLowWatermark(newLwm0);
 
@@ -273,7 +274,7 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
         // Let's check it again.
         CompletableFuture<HybridTimestamp> updateLowWatermarkFuture1 = listenUpdateLowWatermark();
 
-        HybridTimestamp newLwm1 = clock.now();
+        HybridTimestamp newLwm1 = clockService.now();
 
         lowWatermark.updateLowWatermark(newLwm1);
 

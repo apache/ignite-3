@@ -36,9 +36,11 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
@@ -87,6 +89,8 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
 
     private final HybridClock clock = new HybridClockImpl();
 
+    private final ClockService clockService = new TestClockService(clock);
+
     @InjectConfiguration
     private TransactionConfiguration txConfiguration;
 
@@ -98,7 +102,7 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
     public void setup() {
         idGenerator = new TransactionIdGenerator(LOCAL_NODE.name().hashCode());
 
-        PlacementDriverHelper placementDriverHelper = new PlacementDriverHelper(placementDriver, clock);
+        PlacementDriverHelper placementDriverHelper = new PlacementDriverHelper(placementDriver, clockService);
 
         OrphanDetector orphanDetector = new OrphanDetector(topologyService, replicaService, placementDriverHelper, lockManager);
 

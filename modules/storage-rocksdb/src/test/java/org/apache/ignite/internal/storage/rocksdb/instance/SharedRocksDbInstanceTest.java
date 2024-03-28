@@ -17,18 +17,22 @@
 
 package org.apache.ignite.internal.storage.rocksdb.instance;
 
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.sortedIndexCfName;
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.KEY_BYTE_ORDER;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.hasKey;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsInAnyOrder;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.sameInstance;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.ByteBuffer;
 import java.util.List;
-import java.util.Map;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
@@ -38,7 +42,6 @@ import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -63,7 +66,7 @@ class SharedRocksDbInstanceTest extends IgniteAbstractTest {
 
         engine.start();
 
-        dataRegion = new RocksDbDataRegion(engineConfig.defaultRegion());
+        dataRegion = new RocksDbDataRegion(engineConfig.defaultRegion().value());
 
         dataRegion.start();
 
@@ -86,70 +89,145 @@ class SharedRocksDbInstanceTest extends IgniteAbstractTest {
     @Test
     void testSortedIndexCfCaching() {
         byte[] fooName = sortedIndexCfName(List.of(
-                new StorageSortedIndexColumnDescriptor("x", NativeTypes.INT64, true, true)
+                new StorageSortedIndexColumnDescriptor("a", NativeTypes.INT64, true, true)
         ));
 
         byte[] barName = sortedIndexCfName(List.of(
-                new StorageSortedIndexColumnDescriptor("y", NativeTypes.UUID, true, true)
+                new StorageSortedIndexColumnDescriptor("b", NativeTypes.UUID, true, true)
         ));
 
         byte[] bazName = sortedIndexCfName(List.of(
-                new StorageSortedIndexColumnDescriptor("z", NativeTypes.INT64, true, true)
+                new StorageSortedIndexColumnDescriptor("c", NativeTypes.INT64, true, true)
         ));
 
-        ColumnFamily foo = rocksDb.getOrCreateSortedIndexCf(fooName, 1);
-        ColumnFamily bar = rocksDb.getOrCreateSortedIndexCf(barName, 2);
-        ColumnFamily baz = rocksDb.getOrCreateSortedIndexCf(bazName, 3);
+        byte[] quuxName = sortedIndexCfName(List.of(
+                new StorageSortedIndexColumnDescriptor("d", NativeTypes.INT64, true, true)
+        ));
+
+        ColumnFamily foo = rocksDb.getOrCreateSortedIndexCf(fooName, 1, 0);
+        // Different index CF, same table.
+        ColumnFamily bar = rocksDb.getOrCreateSortedIndexCf(barName, 2, 0);
+        // Same index CF, same table.
+        ColumnFamily baz = rocksDb.getOrCreateSortedIndexCf(bazName, 3, 0);
+        // Same index CF, different table.
+        ColumnFamily quux = rocksDb.getOrCreateSortedIndexCf(quuxName, 4, 1);
 
         assertThat(foo, is(sameInstance(baz)));
         assertThat(foo, is(not(sameInstance(bar))));
+        assertThat(quux, is((sameInstance(baz))));
 
-        rocksDb.destroySortedIndexCfIfNeeded(fooName, 1);
+        rocksDb.destroySortedIndexCfIfNeeded(new IndexColumnFamily(1, foo));
 
         assertTrue(cfExists(fooName));
 
-        rocksDb.destroySortedIndexCfIfNeeded(barName, 2);
+        rocksDb.destroySortedIndexCfIfNeeded(new IndexColumnFamily(2, bar));
 
         assertFalse(cfExists(barName));
 
-        rocksDb.destroySortedIndexCfIfNeeded(bazName, 3);
+        rocksDb.destroySortedIndexCfIfNeeded(new IndexColumnFamily(3, baz));
 
-        assertFalse(cfExists(bazName));
+        assertTrue(cfExists(fooName));
+
+        rocksDb.destroySortedIndexCfIfNeeded(new IndexColumnFamily(4, quux));
+
+        assertFalse(cfExists(fooName));
     }
 
     @Test
     void testSortedIndexRecovery() throws Exception {
         byte[] fooName = sortedIndexCfName(List.of(
-                new StorageSortedIndexColumnDescriptor("x", NativeTypes.INT64, true, true)
+                new StorageSortedIndexColumnDescriptor("a", NativeTypes.INT64, true, true)
         ));
 
         byte[] barName = sortedIndexCfName(List.of(
-                new StorageSortedIndexColumnDescriptor("y", NativeTypes.UUID, true, true)
+                new StorageSortedIndexColumnDescriptor("b", NativeTypes.UUID, true, true)
         ));
 
         byte[] bazName = sortedIndexCfName(List.of(
-                new StorageSortedIndexColumnDescriptor("z", NativeTypes.INT64, true, true)
+                new StorageSortedIndexColumnDescriptor("c", NativeTypes.INT64, true, true)
         ));
 
-        ColumnFamily foo = rocksDb.getOrCreateSortedIndexCf(fooName, 1);
-        ColumnFamily bar = rocksDb.getOrCreateSortedIndexCf(barName, 2);
-        ColumnFamily baz = rocksDb.getOrCreateSortedIndexCf(bazName, 3);
+        byte[] quuxName = sortedIndexCfName(List.of(
+                new StorageSortedIndexColumnDescriptor("d", NativeTypes.INT64, true, true)
+        ));
 
-        assertThat(rocksDb.sortedIndexes(), is(Map.of(1, foo, 2, bar, 3, baz)));
+        ColumnFamily foo = rocksDb.getOrCreateSortedIndexCf(fooName, 1, 0);
+        // Different index CF, same table.
+        ColumnFamily bar = rocksDb.getOrCreateSortedIndexCf(barName, 2, 0);
+        // Same index CF, same table.
+        ColumnFamily baz = rocksDb.getOrCreateSortedIndexCf(bazName, 3, 0);
+        // Same index CF, different table.
+        ColumnFamily quux = rocksDb.getOrCreateSortedIndexCf(quuxName, 4, 1);
+
+        assertThat(
+                rocksDb.sortedIndexes(0).stream().map(IndexColumnFamily::indexId).collect(toList()),
+                containsInAnyOrder(1, 2, 3)
+        );
+
+        assertThat(
+                rocksDb.sortedIndexes(0).stream().map(IndexColumnFamily::columnFamily).collect(toList()),
+                containsInAnyOrder(foo, bar, baz)
+        );
+
+        assertThat(
+                rocksDb.sortedIndexes(1).stream().map(IndexColumnFamily::indexId).collect(toList()),
+                containsInAnyOrder(4)
+        );
+
+        assertThat(
+                rocksDb.sortedIndexes(1).stream().map(IndexColumnFamily::columnFamily).collect(toList()),
+                containsInAnyOrder(quux)
+        );
 
         // Put some data in the CF. We then check that the non-empty CF is restored upon DB restart but the empty one is dropped.
-        foo.put(ByteUtils.intToBytes(1), BYTE_EMPTY_ARRAY);
+        byte[] key = ByteBuffer.allocate(Integer.BYTES * 2)
+                .order(KEY_BYTE_ORDER)
+                .putInt(0)
+                .putInt(1)
+                .array();
+
+        foo.put(key, BYTE_EMPTY_ARRAY);
 
         rocksDb.stop();
 
         rocksDb = createDb();
 
-        assertThat(rocksDb.sortedIndexes(), hasKey(1));
-        assertThat(rocksDb.sortedIndexes(), not(hasKey(2)));
-        assertThat(rocksDb.sortedIndexes(), not(hasKey(3)));
+        assertThat(rocksDb.sortedIndexes(0).stream().map(IndexColumnFamily::indexId).collect(toList()), contains(1));
+        assertThat(rocksDb.sortedIndexes(1), is(empty()));
 
         assertTrue(cfExists(fooName));
         assertFalse(cfExists(barName));
+    }
+
+    @Test
+    void testHashIndexRecovery() throws Exception {
+        assertThat(rocksDb.hashIndexIds(2), is(empty()));
+        assertThat(rocksDb.hashIndexIds(4), is(empty()));
+        assertThat(rocksDb.hashIndexIds(5), is(empty()));
+
+        // Put some data in the CF. We then check that the non-empty CF is restored upon DB restart but the empty one is dropped.
+        byte[] key1 = ByteBuffer.allocate(Integer.BYTES * 2)
+                .order(KEY_BYTE_ORDER)
+                .putInt(2)
+                .putInt(1)
+                .array();
+
+        byte[] key2 = ByteBuffer.allocate(Integer.BYTES * 2)
+                .order(KEY_BYTE_ORDER)
+                .putInt(4)
+                .putInt(3)
+                .array();
+
+        rocksDb.hashIndexCf().put(key1, BYTE_EMPTY_ARRAY);
+        rocksDb.hashIndexCf().put(key2, BYTE_EMPTY_ARRAY);
+
+        rocksDb.stop();
+
+        rocksDb = createDb();
+
+        assertThat(rocksDb.hashIndexIds(2), contains(1));
+        assertThat(rocksDb.hashIndexIds(4), contains(3));
+        assertThat(rocksDb.hashIndexIds(5), is(empty()));
     }
 
     private boolean cfExists(byte[] cfName) {

@@ -59,10 +59,9 @@ import java.util.stream.Collectors;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.ClockWaiter;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.failure.FailureProcessor;
-import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -210,9 +209,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     private volatile PrepareService prepareSvc;
 
     /** Clock. */
-    private final HybridClock clock;
-
-    private final ClockWaiter clockWaiter;
+    private final ClockService clockService;
 
     private final SchemaSyncService schemaSyncService;
 
@@ -247,8 +244,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             DataStorageManager dataStorageManager,
             Supplier<Map<String, Map<String, Class<?>>>> dataStorageFieldsSupplier,
             ReplicaService replicaService,
-            HybridClock clock,
-            ClockWaiter clockWaiter,
+            ClockService clockService,
             SchemaSyncService schemaSyncService,
             CatalogManager catalogManager,
             MetricManager metricManager,
@@ -267,8 +263,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.dataStorageManager = dataStorageManager;
         this.dataStorageFieldsSupplier = dataStorageFieldsSupplier;
         this.replicaService = replicaService;
-        this.clock = clock;
-        this.clockWaiter = clockWaiter;
+        this.clockService = clockService;
         this.schemaSyncService = schemaSyncService;
         this.catalogManager = catalogManager;
         this.metricManager = metricManager;
@@ -313,23 +308,23 @@ public class SqlQueryProcessor implements QueryProcessor {
                 clusterSrvc.messagingService(),
                 taskExecutor,
                 busyLock,
-                clock
+                clockService
         ));
 
         var exchangeService = registerService(new ExchangeServiceImpl(
                 mailboxRegistry,
                 msgSrvc,
-                clock
+                clockService
         ));
 
         this.prepareSvc = prepareSvc;
 
         var ddlCommandHandler = registerService(
-                new DdlCommandHandler(catalogManager, clockWaiter, partitionIdleSafeTimePropagationPeriodMsSupplier)
+                new DdlCommandHandler(catalogManager, clockService, partitionIdleSafeTimePropagationPeriodMsSupplier)
         );
 
         var executableTableRegistry = new ExecutableTableRegistryImpl(
-                tableManager, schemaManager, sqlSchemaManager, replicaService, clock, TABLE_CACHE_SIZE
+                tableManager, schemaManager, sqlSchemaManager, replicaService, clockService, TABLE_CACHE_SIZE
         );
 
         var dependencyResolver = new ExecutionDependencyResolverImpl(
@@ -389,7 +384,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 mappingService,
                 executableTableRegistry,
                 dependencyResolver,
-                clock,
+                clockService,
                 EXECUTION_SERVICE_SHUTDOWN_TIMEOUT
         ));
 
@@ -410,7 +405,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         List<CompletableFuture<NodeWithConsistencyToken>> result = new ArrayList<>(partitions);
 
-        HybridTimestamp clockNow = clock.now();
+        HybridTimestamp clockNow = clockService.now();
 
         // no need to wait all partitions after pruning was implemented.
         for (int partId = 0; partId < partitions; ++partId) {
@@ -549,7 +544,7 @@ public class SqlQueryProcessor implements QueryProcessor {
             validateParsedStatement(properties0, result);
             validateDynamicParameters(result.dynamicParamsCount(), params, false);
 
-            HybridTimestamp timestamp = explicitTransaction != null ? explicitTransaction.startTimestamp() : clock.now();
+            HybridTimestamp timestamp = explicitTransaction != null ? explicitTransaction.startTimestamp() : clockService.now();
 
             return prepareParsedStatement(schemaName, result, timestamp, queryCancel, params)
                     .thenApply(plan -> new QueryMetadata(plan.metadata(), plan.parameterMetadata()));

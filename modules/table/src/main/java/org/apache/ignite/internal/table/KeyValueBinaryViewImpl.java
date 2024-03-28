@@ -28,7 +28,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
@@ -74,18 +73,15 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
      * @param schemaVersions Schema versions access.
      * @param sql Ignite SQL facade.
      * @param marshallers Marshallers provider.
-     * @param asyncContinuationExecutor Executor to which execution will be resubmitted when leaving asynchronous public API
-     *         endpoints (so as to prevent the user from stealing Ignite threads).
      */
     public KeyValueBinaryViewImpl(
             InternalTable tbl,
             SchemaRegistry schemaReg,
             SchemaVersions schemaVersions,
             IgniteSql sql,
-            MarshallersProvider marshallers,
-            Executor asyncContinuationExecutor
+            MarshallersProvider marshallers
     ) {
-        super(tbl, schemaVersions, schemaReg, sql, marshallers, asyncContinuationExecutor);
+        super(tbl, schemaVersions, schemaReg, sql, marshallers);
 
         marshallerCache = new TupleMarshallerCache(schemaReg);
     }
@@ -571,7 +567,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
                 );
 
         CompletableFuture<Void> future = DataStreamer.streamData(publisher, options, batchSender, partitioner);
-        return convertToPublicFuture(preventThreadHijack(future));
+        return convertToPublicFuture(future);
     }
 
     private List<BinaryRowEx> marshalPairs(Collection<Entry<Tuple, Tuple>> pairs, int schemaVersion, @Nullable BitSet deleted) {
