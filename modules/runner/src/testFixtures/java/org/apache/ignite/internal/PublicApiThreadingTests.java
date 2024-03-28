@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.threading;
+package org.apache.ignite.internal;
 
 import static org.hamcrest.Matchers.both;
 import static org.hamcrest.Matchers.hasProperty;
@@ -23,6 +23,7 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.startsWith;
 
+import java.util.concurrent.ForkJoinPool;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
@@ -33,17 +34,34 @@ import org.hamcrest.Matcher;
 /**
  * Common code for tests of Public API threading aspects.
  */
-class PublicApiThreadingTests {
-    static Matcher<Object> asyncContinuationPool() {
+public class PublicApiThreadingTests {
+    /**
+     * Returns a {@link Matcher} that matches threads from {@link ForkJoinPool#commonPool()}.
+     */
+    public static Matcher<Object> asyncContinuationPool() {
         return both(hasProperty("name", startsWith("ForkJoinPool.commonPool-worker-")))
                 .and(not(instanceOf(IgniteThread.class)));
     }
 
-    static Matcher<Object> anIgniteThread() {
+    /**
+     * Returns a {@link Matcher} that matches instances of {@link IgniteThread}.
+     */
+    public static Matcher<Object> anIgniteThread() {
         return instanceOf(IgniteThread.class);
     }
 
-    static <T> T forcingSwitchFromUserThread(IgniteImpl ignite, Supplier<? extends T> action) {
+    /**
+     * Makes an action execution to happen in an Ignite internal thread. This is achieved by inhibiting metastorage
+     * watches, then waiting for DelayDuration to pass. As a result, if a schema sync is made by the action,
+     * the schema sync future will not be resolved right away; instead, it will be resolved in an Ignite thread.
+     *
+     * <p>This only works for actions that do schema sync.
+     *
+     * @param ignite Ignite node.
+     * @param action Action to do.
+     * @return Whatever the action returns.
+     */
+    public static <T> T forcingSwitchFromUserThread(IgniteImpl ignite, Supplier<? extends T> action) {
         return WatchListenerInhibitor.withInhibition(ignite, () -> {
             waitForSchemaSyncRequiringWait();
 

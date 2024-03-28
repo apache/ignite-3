@@ -59,6 +59,7 @@ import org.apache.ignite.internal.testframework.flow.TestFlowUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.apache.ignite.internal.utils.PrimaryReplica;
+import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.TransactionOptions;
@@ -301,7 +302,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
         } else if (exactKey == null) {
             publisher = tbl.internalTable().scan(PART_ID, tx, idxId, null, null, 0, null);
         } else {
-            var rwTx = (ReadWriteTransactionImpl) tx;
+            ReadWriteTransactionImpl rwTx = Wrappers.unwrap(tx, ReadWriteTransactionImpl.class);
 
             CompletableFuture<ReplicaMeta> primaryReplicaFut = node(0).placementDriver().getPrimaryReplica(
                     new TablePartitionId(tbl.tableId(), PART_ID),

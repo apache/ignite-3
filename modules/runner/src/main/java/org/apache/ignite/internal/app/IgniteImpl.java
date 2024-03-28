@@ -172,6 +172,7 @@ import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguratio
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
+import org.apache.ignite.internal.sql.api.AntiHijackIgniteSql;
 import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
 import org.apache.ignite.internal.sql.configuration.distributed.SqlDistributedConfiguration;
 import org.apache.ignite.internal.sql.configuration.local.SqlLocalConfiguration;
@@ -199,6 +200,7 @@ import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
+import org.apache.ignite.internal.tx.impl.AntiHijackIgniteTransactions;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
@@ -751,7 +753,7 @@ public class IgniteImpl implements Ignite {
                 catalogManager,
                 observableTimestampTracker,
                 placementDriverMgr.placementDriver(),
-                this::sql,
+                this::bareSql,
                 resourcesRegistry,
                 rebalanceScheduler,
                 lowWatermark,
@@ -1188,13 +1190,18 @@ public class IgniteImpl implements Ignite {
     /** {@inheritDoc} */
     @Override
     public IgniteTransactions transactions() {
-        return new IgniteTransactionsImpl(txManager, observableTimestampTracker);
+        IgniteTransactionsImpl transactions = new IgniteTransactionsImpl(txManager, observableTimestampTracker);
+        return new AntiHijackIgniteTransactions(transactions, asyncContinuationExecutor);
+    }
+
+    private IgniteSql bareSql() {
+        return sql;
     }
 
     /** {@inheritDoc} */
     @Override
     public IgniteSql sql() {
-        return sql;
+        return new AntiHijackIgniteSql(sql, asyncContinuationExecutor);
     }
 
     /** {@inheritDoc} */
