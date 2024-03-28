@@ -40,6 +40,7 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -71,7 +72,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 /**
  * Tests for a transaction cleanup.
  */
-@ExtendWith(MockitoExtension.class)
+@ExtendWith({MockitoExtension.class, ConfigurationExtension.class})
 public class TxCleanupTest extends IgniteAbstractTest {
 
     private static final ClusterNode LOCAL_NODE =
