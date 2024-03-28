@@ -33,6 +33,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.replicator.exception.ReplicaUnavailableException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
@@ -59,6 +60,8 @@ public class ReplicaService {
 
     private final Executor partitionOperationsExecutor;
 
+    private final ReplicationConfiguration replicationConfiguration;
+
     /** Requests to retry. */
     private final Map<String, CompletableFuture<NetworkMessage>> pendingInvokes = new ConcurrentHashMap<>();
 
@@ -70,10 +73,20 @@ public class ReplicaService {
      *
      * @param messagingService Cluster message service.
      * @param clock A hybrid logical clock.
+     * @param replicationConfiguration Replication configuration.
      */
     @TestOnly
-    public ReplicaService(MessagingService messagingService, HybridClock clock) {
-        this(messagingService, clock, ForkJoinPool.commonPool());
+    public ReplicaService(
+            MessagingService messagingService,
+            HybridClock clock,
+            ReplicationConfiguration replicationConfiguration
+    ) {
+        this(
+                messagingService,
+                clock,
+                ForkJoinPool.commonPool(),
+                replicationConfiguration
+        );
     }
 
     /**
@@ -81,11 +94,19 @@ public class ReplicaService {
      *
      * @param messagingService Cluster message service.
      * @param clock A hybrid logical clock.
+     * @param partitionOperationsExecutor Partition operation executor.
+     * @param replicationConfiguration Replication configuration.
      */
-    public ReplicaService(MessagingService messagingService, HybridClock clock, Executor partitionOperationsExecutor) {
+    public ReplicaService(
+            MessagingService messagingService,
+            HybridClock clock,
+            Executor partitionOperationsExecutor,
+            ReplicationConfiguration replicationConfiguration
+    ) {
         this.messagingService = messagingService;
         this.clock = clock;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
+        this.replicationConfiguration = replicationConfiguration;
     }
 
     /**

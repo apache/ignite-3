@@ -70,6 +70,8 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -96,6 +98,7 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -158,12 +161,17 @@ import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Class that allows to mock a cluster for transaction tests' purposes.
  */
+@ExtendWith(ConfigurationExtension.class)
 public class ItTxTestCluster {
     private static final int SCHEMA_VERSION = 1;
+
+    @InjectConfiguration
+    private ReplicationConfiguration replicationConfiguration;
 
     private final List<NetworkAddress> localAddresses;
 
@@ -409,7 +417,8 @@ public class ItTxTestCluster {
             ReplicaService replicaSvc = spy(new ReplicaService(
                     clusterService.messagingService(),
                     clock,
-                    partitionOperationsExecutor
+                    partitionOperationsExecutor,
+                    replicationConfiguration
             ));
 
             replicaServices.put(node.name(), replicaSvc);
@@ -960,7 +969,8 @@ public class ItTxTestCluster {
         clientReplicaSvc = spy(new ReplicaService(
                 client.messagingService(),
                 clientClock,
-                partitionOperationsExecutor
+                partitionOperationsExecutor,
+                replicationConfiguration
         ));
 
         LOG.info("The client has been started");

@@ -45,6 +45,8 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
@@ -58,6 +60,7 @@ import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.replicator.exception.ReplicaStoppingException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
@@ -86,10 +89,12 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tests handling requests from {@link ReplicaService} to {@link ReplicaManager} when the {@link Replica} is not started.
  */
+@ExtendWith(ConfigurationExtension.class)
 public class ReplicaUnavailableTest extends IgniteAbstractTest {
     private static final String NODE_NAME = "client";
 
@@ -98,6 +103,9 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
             new Column[]{new Column("key", NativeTypes.INT64, false)},
             new Column[]{new Column("value", NativeTypes.INT64, false)}
     );
+
+    @InjectConfiguration
+    private ReplicationConfiguration replicationConfiguration;
 
     private final TableMessagesFactory tableMessagesFactory = new TableMessagesFactory();
 
@@ -135,7 +143,11 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 NamedThreadFactory.create(NODE_NAME, "partition-operations", log)
         );
 
-        replicaService = new ReplicaService(clusterService.messagingService(), clock);
+        replicaService = new ReplicaService(
+                clusterService.messagingService(),
+                clock,
+                replicationConfiguration
+        );
 
         replicaManager = new ReplicaManager(
                 NODE_NAME,
