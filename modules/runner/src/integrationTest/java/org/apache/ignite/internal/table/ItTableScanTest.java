@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.affinity.AffinityUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATER_OR_EQUAL;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.LESS_OR_EQUAL;
@@ -147,9 +148,9 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
     private void checkCursorsAreClosed(IgniteImpl ignite) {
         int sortedIdxId = getIndexId(ignite, SORTED_IDX);
 
-        var partitionStorage = (TestMvPartitionStorage) ((TableViewInternal) ignite.tables().table(TABLE_NAME))
+        var partitionStorage = (TestMvPartitionStorage) unwrapTableViewInternal(ignite.tables().table(TABLE_NAME))
                 .internalTable().storage().getMvPartition(PART_ID);
-        var sortedIdxStorage = (TestSortedIndexStorage) ((TableViewInternal) ignite.tables().table(TABLE_NAME))
+        var sortedIdxStorage = (TestSortedIndexStorage) unwrapTableViewInternal(ignite.tables().table(TABLE_NAME))
                 .internalTable().storage().getIndex(PART_ID, sortedIdxId);
 
         try {
@@ -811,7 +812,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
                 ClusterNode node0 = CLUSTER.aliveNode().clusterNodes().stream().filter(n -> n.name().equals(consId)).findAny()
                         .orElseThrow();
 
-                // noinspection DataFlowIssue
+                //noinspection DataFlowIssue
                 publisher = internalTable.scan(PART_ID, tx.id(), tx.readTimestamp(), node0, sortedIndexId, null, null, 0, null,
                         tx.coordinatorId());
             } else {
@@ -939,7 +940,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         sql("CREATE INDEX IF NOT EXISTS " + SORTED_IDX + " ON " + TABLE_NAME + " USING TREE (valInt)");
 
-        return (TableViewInternal) CLUSTER.aliveNode().tables().table(TABLE_NAME);
+        return unwrapTableViewInternal(CLUSTER.aliveNode().tables().table(TABLE_NAME));
     }
 
     /**
@@ -1010,7 +1011,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         InternalTransaction tx = (InternalTransaction) ignite.transactions().begin(new TransactionOptions().readOnly(readOnly));
 
-        InternalTable table = ((TableViewInternal) ignite.tables().table(TABLE_NAME)).internalTable();
+        InternalTable table = unwrapTableViewInternal(ignite.tables().table(TABLE_NAME)).internalTable();
         TablePartitionId tblPartId = new TablePartitionId(table.tableId(), partId);
 
         PlacementDriver placementDriver = ignite.placementDriver();

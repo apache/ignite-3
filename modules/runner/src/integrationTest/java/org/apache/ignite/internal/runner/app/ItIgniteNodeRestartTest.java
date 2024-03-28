@@ -22,6 +22,9 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.alterZone;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
@@ -59,7 +62,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -81,12 +83,12 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.app.ThreadPoolsManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
-import org.apache.ignite.internal.catalog.ClockWaiter;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
+import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationConfiguration;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.MakeIndexAvailableEventParameters;
@@ -113,6 +115,9 @@ import org.apache.ignite.internal.configuration.validation.ConfigurationValidato
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.hlc.ClockServiceImpl;
+import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -178,7 +183,7 @@ import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
-import org.apache.ignite.internal.tx.impl.ResourceCleanupManager;
+import org.apache.ignite.internal.tx.impl.ResourceVacuumManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
@@ -433,6 +438,19 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 ConfigurationValidatorImpl.withDefaultValidators(distributedConfigurationGenerator, modules.distributed().validators())
         );
 
+        ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
+
+        var clockWaiter = new ClockWaiter(name, hybridClock);
+
+        SchemaSynchronizationConfiguration schemaSyncConfiguration = clusterConfigRegistry.getConfiguration(
+                SchemaSynchronizationConfiguration.KEY
+        );
+        ClockService clockService = new ClockServiceImpl(
+                hybridClock,
+                clockWaiter,
+                () -> schemaSyncConfiguration.maxClockSkew().value()
+        );
+
         var placementDriverManager = new PlacementDriverManager(
                 name,
                 metaStorageMgr,
@@ -442,14 +460,14 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 logicalTopologyService,
                 raftMgr,
                 topologyAwareRaftGroupServiceFactory,
-                hybridClock
+                clockService
         );
 
         ReplicaManager replicaMgr = new ReplicaManager(
                 name,
                 clusterSvc,
                 cmgManager,
-                hybridClock,
+                clockService,
                 Set.of(TableMessageGroup.class, TxMessageGroup.class),
                 placementDriverManager.placementDriver(),
                 threadPoolsManager.partitionOperationsExecutor(),
@@ -460,14 +478,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         TransactionInflights transactionInflights = new TransactionInflights(placementDriverManager.placementDriver());
 
-        ResourceCleanupManager resourceCleanupManager = new ResourceCleanupManager(
-                name,
-                resourcesRegistry,
-                clusterSvc.topologyService(),
-                clusterSvc.messagingService(),
-                transactionInflights
-        );
-
         var txManager = new TxManagerImpl(
                 name,
                 txConfiguration,
@@ -475,18 +485,24 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 clusterSvc.topologyService(),
                 replicaService,
                 lockManager,
-                hybridClock,
+                clockService,
                 new TransactionIdGenerator(idx),
                 placementDriverManager.placementDriver(),
                 partitionIdleSafeTimePropagationPeriodMsSupplier,
                 new TestLocalRwTxCounter(),
                 threadPoolsManager.partitionOperationsExecutor(),
                 resourcesRegistry,
-                resourceCleanupManager,
                 transactionInflights
         );
 
-        ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
+        ResourceVacuumManager resourceVacuumManager = new ResourceVacuumManager(
+                name,
+                resourcesRegistry,
+                clusterSvc.topologyService(),
+                clusterSvc.messagingService(),
+                transactionInflights,
+                txManager
+        );
 
         Consumer<LongFunction<CompletableFuture<?>>> registry = (c) -> metaStorageMgr.registerRevisionUpdateListener(c::apply);
 
@@ -510,14 +526,11 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         GcConfiguration gcConfig = clusterConfigRegistry.getConfiguration(GcConfiguration.KEY);
         TransactionConfiguration txConfiguration = clusterConfigRegistry.getConfiguration(TransactionConfiguration.KEY);
 
-        var clockWaiter = new ClockWaiter(name, hybridClock);
-
         LongSupplier delayDurationMsSupplier = () -> TestIgnitionManager.DEFAULT_DELAY_DURATION_MS;
 
         var catalogManager = new CatalogManagerImpl(
                 new UpdateLogImpl(metaStorageMgr),
-                clockWaiter,
-                hybridClock,
+                clockService,
                 delayDurationMsSupplier,
                 partitionIdleSafeTimePropagationPeriodMsSupplier
         );
@@ -551,7 +564,15 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var sqlRef = new AtomicReference<IgniteSqlImpl>();
 
-        var lowWatermark = new LowWatermarkImpl(name, gcConfig.lowWatermark(), hybridClock, txManager, vault, failureProcessor);
+        var lowWatermark = new LowWatermarkImpl(
+                name,
+                gcConfig.lowWatermark(),
+                clockService,
+                txManager,
+                vault,
+                failureProcessor,
+                clusterSvc.messagingService()
+        );
 
         TableManager tableManager = new TableManager(
                 name,
@@ -575,6 +596,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 threadPoolsManager.tableIoExecutor(),
                 threadPoolsManager.partitionOperationsExecutor(),
                 hybridClock,
+                clockService,
                 new OutgoingSnapshotsManager(clusterSvc.messagingService()),
                 topologyAwareRaftGroupServiceFactory,
                 distributionZoneManager,
@@ -586,7 +608,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 resourcesRegistry,
                 rebalanceScheduler,
                 lowWatermark,
-                ForkJoinPool.commonPool(),
                 transactionInflights
         );
 
@@ -609,8 +630,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 schemaManager,
                 dataStorageManager,
                 replicaService,
-                hybridClock,
-                clockWaiter,
+                clockService,
                 schemaSyncService,
                 catalogManager,
                 metricManager,
@@ -650,6 +670,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 cmgManager,
                 replicaMgr,
                 txManager,
+                resourceVacuumManager,
                 lowWatermark,
                 metaStorageMgr,
                 clusterCfgMgr,
@@ -967,6 +988,27 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         }
     }
 
+    /**
+     * Checks that logical topology version is maintained after nodes restart.
+     */
+    @Test
+    public void logicalTopologyVersionMaintainedTest() {
+        IgniteImpl main = startNodes(3).get(0);
+
+        stopNode(1);
+        IgniteImpl restarted = startNode(1);
+
+        stopNode(2);
+        IgniteImpl secondRestarted = startNode(2);
+
+        long mainVersion = main.logicalTopologyService().localLogicalTopology().version();
+        long restartedVersion = restarted.logicalTopologyService().localLogicalTopology().version();
+        long secondRestartedVersion = secondRestarted.logicalTopologyService().localLogicalTopology().version();
+
+        assertEquals(mainVersion, restartedVersion);
+        assertEquals(mainVersion, secondRestartedVersion);
+    }
+
     private static void forceSnapshotUsageOnRestart(IgniteImpl main) throws InterruptedException {
         // Force log truncation, so that restarting node would request a snapshot.
         JraftServerImpl server = (JraftServerImpl) main.raftManager().server();
@@ -1005,7 +1047,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         createTableWithData(List.of(ignite), TABLE_NAME, 1, partitions);
 
-        TableViewInternal table = (TableViewInternal) ignite.tables().table(TABLE_NAME);
+        TableViewInternal table = unwrapTableViewInternal(ignite.tables().table(TABLE_NAME));
 
         InternalTableImpl internalTable = (InternalTableImpl) table.internalTable();
 
@@ -1030,7 +1072,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         checkTableWithData(ignite, TABLE_NAME);
 
-        table = (TableViewInternal) ignite.tables().table(TABLE_NAME);
+        table = unwrapTableViewInternal(ignite.tables().table(TABLE_NAME));
 
         // Check data that was added after flush.
         for (int i = 0; i < 100; i++) {
@@ -1163,7 +1205,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         node = startNode(1);
 
-        TableManager tableManager = (TableManager) node.tables();
+        TableManager tableManager = unwrapTableManager(node.tables());
 
         assertNotNull(tableManager);
 
@@ -1196,7 +1238,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         IgniteImpl node1 = startNode(1, cfgString);
 
-        TableManager tableManager = (TableManager) node1.tables();
+        TableManager tableManager = unwrapTableManager(node1.tables());
 
         assertTablePresent(tableManager, TABLE_NAME.toUpperCase());
     }
@@ -1225,7 +1267,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         log.info("After starting the node.");
 
-        TableManager tableManager = (TableManager) node.tables();
+        TableManager tableManager = unwrapTableManager(node.tables());
 
         assertTablePresent(tableManager, TABLE_NAME.toUpperCase());
         assertTablePresent(tableManager, TABLE_NAME_2.toUpperCase());
@@ -1342,7 +1384,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         IgniteImpl restartedNode = startNode(restartedNodeIndex);
 
-        TableImpl table = (TableImpl) restartedNode.tables().table(TABLE_NAME);
+        TableImpl table = unwrapTableImpl(restartedNode.tables().table(TABLE_NAME));
 
         assertTrue(waitForCondition(() -> {
             // Check that only storage for 1 partition left on the restarted node.
@@ -1378,7 +1420,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         IgniteImpl restartedNode = startNode(restartedNodeIndex);
 
-        TableImpl table = (TableImpl) restartedNode.tables().table(TABLE_NAME);
+        TableImpl table = unwrapTableImpl(restartedNode.tables().table(TABLE_NAME));
 
         long recoveryRevision = restartedNode.metaStorageManager().recoveryFinishedFuture().join();
 
@@ -1778,7 +1820,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     }
 
     private int tableId(Ignite node, String tableName) {
-        return ((TableImpl) node.tables().table(tableName)).tableId();
+        return (unwrapTableImpl(node.tables().table(tableName))).tableId();
     }
 
     /**

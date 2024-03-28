@@ -79,7 +79,7 @@ public abstract class AbstractClientTest extends BaseIgniteAbstractTest {
         IgniteUtils.closeAll(client, testServer);
 
         // Force GC to detect Netty buffer leaks.
-        // noinspection CallToSystemGC
+        //noinspection CallToSystemGC
         System.gc();
     }
 
@@ -158,7 +158,7 @@ public abstract class AbstractClientTest extends BaseIgniteAbstractTest {
         }
 
         if (y == null) {
-            // noinspection ConstantConditions
+            //noinspection ConstantConditions
             assertNull(x);
             return;
         }

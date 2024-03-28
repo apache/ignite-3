@@ -46,6 +46,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
@@ -142,7 +143,11 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
         when(pdClusterService.messagingService()).thenAnswer(inv -> pdMessagingService);
         when(pdClusterService.topologyService()).thenAnswer(inv -> pdTopologyService);
 
-        LeaseTracker leaseTracker = new LeaseTracker(metaStorageManager, pdClusterService.topologyService());
+        LeaseTracker leaseTracker = new LeaseTracker(
+                metaStorageManager,
+                pdClusterService.topologyService(),
+                new TestClockService(new HybridClockImpl())
+        );
 
         leaseTracker.startTrack(0L);
 
@@ -152,7 +157,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
                 metaStorageManager,
                 pdLogicalTopologyService,
                 leaseTracker,
-                new HybridClockImpl()
+                new TestClockService(new HybridClockImpl())
         );
     }
 

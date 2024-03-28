@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table;
 
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -91,8 +92,9 @@ public class ItReadOnlyTransactionTest extends ClusterPerClassIntegrationTest {
         for (int i = 0; i < initialNodes(); i++) {
             IgniteImpl ignite = CLUSTER.node(i);
 
-            InternalTable internalTable = ((TableViewInternal) ignite.tables().table(TABLE_NAME)).internalTable();
-            SchemaDescriptor schema = ((TableViewInternal) ignite.tables().table(TABLE_NAME)).schemaView().lastKnownSchema();
+            TableViewInternal tableViewInternal = unwrapTableViewInternal(ignite.tables().table(TABLE_NAME));
+            InternalTable internalTable = tableViewInternal.internalTable();
+            SchemaDescriptor schema = tableViewInternal.schemaView().lastKnownSchema();
             HybridClock clock = ignite.clock();
 
             Collection<ClusterNode> nodes = ignite.clusterNodes();
@@ -141,8 +143,9 @@ public class ItReadOnlyTransactionTest extends ClusterPerClassIntegrationTest {
         for (int i = 0; i < initialNodes(); i++) {
             IgniteImpl ignite = CLUSTER.node(i);
 
-            InternalTable internalTable = ((TableViewInternal) ignite.tables().table(TABLE_NAME)).internalTable();
-            SchemaDescriptor schema = ((TableViewInternal) ignite.tables().table(TABLE_NAME)).schemaView().lastKnownSchema();
+            TableViewInternal tableViewInternal = unwrapTableViewInternal(ignite.tables().table(TABLE_NAME));
+            InternalTable internalTable = tableViewInternal.internalTable();
+            SchemaDescriptor schema = tableViewInternal.schemaView().lastKnownSchema();
             HybridClock clock = ignite.clock();
 
             Collection<ClusterNode> nodes = ignite.clusterNodes();

@@ -22,6 +22,8 @@ import static java.util.Map.of;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
 import static org.apache.ignite.internal.replicator.configuration.ReplicationConfigurationSchema.DEFAULT_IDLE_SAFE_TIME_PROP_DURATION;
 import static org.apache.ignite.internal.storage.pagememory.configuration.PageMemoryStorageEngineLocalConfigurationModule.DEFAULT_PROFILE_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
@@ -50,11 +52,9 @@ import org.apache.ignite.internal.affinity.RendezvousAffinityFunction;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -118,7 +118,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         executeSql(format("CREATE TABLE %s (id INT PRIMARY KEY, val INT) WITH PRIMARY_ZONE='%s'", TABLE_NAME, zoneName));
 
-        TableManager tableManager = (TableManager) node0.tables();
+        TableManager tableManager = unwrapTableManager(node0.tables());
         tableId = ((TableViewInternal) tableManager.table(TABLE_NAME)).tableId();
     }
 
@@ -147,12 +147,12 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         // Set time in the future to protect us from "getAsync" from the past.
         // Should be replaced with "sleep" when clock skew validation is implemented.
         node0.clock().update(node0.clock().now().addPhysicalTime(
-                SECONDS.toMillis(DEFAULT_IDLE_SAFE_TIME_PROP_DURATION) + HybridTimestamp.CLOCK_SKEW)
+                SECONDS.toMillis(DEFAULT_IDLE_SAFE_TIME_PROP_DURATION) + node0.clockService().maxClockSkewMillis())
         );
 
         // "forEach" makes "i" effectively final, which is convenient for internal lambda.
         IntStream.range(0, ENTRIES).forEach(i -> {
-            // noinspection ThrowableNotThrown
+            //noinspection ThrowableNotThrown
             assertThrows(
                     TimeoutException.class,
                     () -> table.keyValueView().getAsync(null, Tuple.create(of("id", i))).get(500, MILLISECONDS),
@@ -238,11 +238,11 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         for (int i = 0, created = 0; created < ENTRIES; i++) {
             Tuple key = Tuple.create(of("id", i));
-            if (((TableImpl) table).partition(key) != partitionId) {
+            if ((unwrapTableImpl(table)).partition(key) != partitionId) {
                 continue;
             }
 
-            // noinspection AssignmentToForLoopParameter
+            //noinspection AssignmentToForLoopParameter
             created++;
 
             CompletableFuture<Void> insertFuture = keyValueView.putAsync(null, key, Tuple.create(of("val", i + offset)));
@@ -274,7 +274,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     }
 
     private void startNodesInParallel(int... nodeIndexes) {
-        // noinspection resource
+        //noinspection resource
         runRace(IntStream.of(nodeIndexes).<RunnableX>mapToObj(i -> () -> cluster.startNode(i)).toArray(RunnableX[]::new));
     }
 

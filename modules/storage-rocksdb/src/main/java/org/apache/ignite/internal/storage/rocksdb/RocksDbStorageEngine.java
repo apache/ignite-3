@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import java.nio.file.Path;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -24,6 +26,9 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
+import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
+import org.apache.ignite.internal.close.ManuallyCloseable;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -51,6 +56,22 @@ public class RocksDbStorageEngine implements StorageEngine {
 
     private static final IgniteLogger LOG = Loggers.forClass(RocksDbStorageEngine.class);
 
+    private static class RocksDbStorage implements ManuallyCloseable {
+        final RocksDbDataRegion dataRegion;
+
+        final SharedRocksDbInstance rocksDbInstance;
+
+        RocksDbStorage(RocksDbDataRegion dataRegion, SharedRocksDbInstance rocksDbInstance) {
+            this.dataRegion = dataRegion;
+            this.rocksDbInstance = rocksDbInstance;
+        }
+
+        @Override
+        public void close() throws Exception {
+            IgniteUtils.closeAllManually(rocksDbInstance::stop, dataRegion::stop);
+        }
+    }
+
     static {
         RocksDB.loadLibrary();
     }
@@ -65,14 +86,12 @@ public class RocksDbStorageEngine implements StorageEngine {
 
     private final ScheduledExecutorService scheduledPool;
 
-    private final Map<String, RocksDbDataRegion> regions = new ConcurrentHashMap<>();
-
     /**
-     * Mapping from the data region name to the shared RocksDB instance. Map is filled lazily.
-     * Most likely, the association of shared instances with regions will be removed/revisited in the future.
+     * Mapping from the data region name to the shared RocksDB instance. Most likely, the association of shared
+     * instances with regions will be removed/revisited in the future.
      */
     // TODO IGNITE-19762 Think of proper way to use regions and storages.
-    private final Map<String, SharedRocksDbInstance> sharedInstances = new ConcurrentHashMap<>();
+    private final Map<String, RocksDbStorage> storageByRegionName = new ConcurrentHashMap<>();
 
     /**
      * Constructor.
@@ -128,31 +147,37 @@ public class RocksDbStorageEngine implements StorageEngine {
         // TODO: IGNITE-17066 Add handling deleting/updating data regions configuration
         storageConfiguration.profiles().value().stream().forEach(p -> {
             if (p instanceof RocksDbProfileView) {
-                registerDataRegion(p.name());
+                registerDataRegion((RocksDbProfileView) p);
             }
         });
     }
 
-    private void registerDataRegion(String name) {
-        RocksDbProfileConfiguration storageProfileConfiguration =
-                (RocksDbProfileConfiguration) storageConfiguration.profiles().get(name);
+    private void registerDataRegion(RocksDbProfileView dataRegionView) {
+        String regionName = dataRegionView.name();
 
-        var region = new RocksDbDataRegion(storageProfileConfiguration);
+        var region = new RocksDbDataRegion(dataRegionView);
 
         region.start();
 
-        RocksDbDataRegion previousRegion = regions.put(storageProfileConfiguration.name().value(), region);
+        SharedRocksDbInstance rocksDbInstance = newRocksDbInstance(regionName, region);
 
-        assert previousRegion == null : storageProfileConfiguration.name().value();
+        RocksDbStorage previousStorage = storageByRegionName.put(regionName, new RocksDbStorage(region, rocksDbInstance));
+
+        assert previousStorage == null : regionName;
+    }
+
+    private SharedRocksDbInstance newRocksDbInstance(String regionName, RocksDbDataRegion region) {
+        try {
+            return new SharedRocksDbInstanceCreator().create(this, region, storagePath.resolve("rocksdb-" + regionName));
+        } catch (Exception e) {
+            throw new StorageException("Failed to create new RocksDB instance", e);
+        }
     }
 
     @Override
     public void stop() throws StorageException {
         try {
-            IgniteUtils.closeAll(Stream.concat(
-                    regions.values().stream().map(region -> region::stop),
-                    sharedInstances.values().stream().map(instance -> instance::stop)
-            ));
+            IgniteUtils.closeAllManually(storageByRegionName.values());
         } catch (Exception e) {
             throw new StorageException("Error when stopping the rocksdb engine", e);
         }
@@ -171,34 +196,24 @@ public class RocksDbStorageEngine implements StorageEngine {
             StorageTableDescriptor tableDescriptor,
             StorageIndexDescriptorSupplier indexDescriptorSupplier
     ) throws StorageException {
-        RocksDbDataRegion dataRegion = regions.get(tableDescriptor.getStorageProfile());
+        String regionName = tableDescriptor.getStorageProfile();
 
-        int tableId = tableDescriptor.getId();
+        RocksDbStorage storage = storageByRegionName.get(regionName);
 
-        assert dataRegion != null : "tableId=" + tableId + ", dataRegion=" + tableDescriptor.getStorageProfile();
+        assert storage != null :
+                String.format("RocksDB instance has not yet been created for [tableId=%d, region=%s]", tableDescriptor.getId(), regionName);
 
-        SharedRocksDbInstance sharedInstance = sharedInstances.computeIfAbsent(tableDescriptor.getStorageProfile(), name -> {
-            try {
-                return new SharedRocksDbInstanceCreator().create(
-                        this,
-                        dataRegion,
-                        storagePath.resolve("rocksdb-" + name)
-                );
-            } catch (Exception e) {
-                throw new StorageException("Failed to create new RocksDB data region", e);
-            }
-        });
+        var tableStorage = new RocksDbTableStorage(storage.rocksDbInstance, tableDescriptor, indexDescriptorSupplier);
 
-        var storage = new RocksDbTableStorage(sharedInstance, tableDescriptor, indexDescriptorSupplier);
+        tableStorage.start();
 
-        storage.start();
-
-        return storage;
+        return tableStorage;
     }
 
     @Override
-    // TODO: IGNITE-21760 Implement
     public void dropMvTable(int tableId) {
-        throw new UnsupportedOperationException("https://issues.apache.org/jira/browse/IGNITE-21760");
+        for (RocksDbStorage rocksDbStorage : storageByRegionName.values()) {
+            rocksDbStorage.rocksDbInstance.destroyTable(tableId);
+        }
     }
 }

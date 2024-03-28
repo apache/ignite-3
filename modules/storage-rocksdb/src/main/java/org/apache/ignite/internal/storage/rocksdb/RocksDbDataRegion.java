@@ -17,15 +17,9 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
-import static org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileConfigurationSchema.ROCKSDB_CLOCK_CACHE;
-import static org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileConfigurationSchema.ROCKSDB_LRU_CACHE;
-
-import java.util.Locale;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileConfiguration;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileView;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.rocksdb.Cache;
-import org.rocksdb.ClockCache;
 import org.rocksdb.LRUCache;
 import org.rocksdb.WriteBufferManager;
 
@@ -33,8 +27,8 @@ import org.rocksdb.WriteBufferManager;
  * Data region implementation for {@link RocksDbStorageEngine}. Based on a {@link Cache}.
  */
 public class RocksDbDataRegion {
-    /** Region configuration. */
-    private final RocksDbProfileConfiguration cfg;
+    /** Region configuration view. */
+    private final RocksDbProfileView storageProfileView;
 
     /** RocksDB cache instance. */
     private Cache cache;
@@ -45,36 +39,21 @@ public class RocksDbDataRegion {
     /**
      * Constructor.
      *
-     * @param cfg Storage profile configuration.
+     * @param storageProfileView Storage profile configuration view.
      */
-    public RocksDbDataRegion(RocksDbProfileConfiguration cfg) {
-        this.cfg = cfg;
+    public RocksDbDataRegion(RocksDbProfileView storageProfileView) {
+        this.storageProfileView = storageProfileView;
     }
 
     /**
      * Start the rocksDb data region.
      */
     public void start() {
-        RocksDbProfileView storageProfileView = (RocksDbProfileView) cfg.value();
-
         long writeBufferSize = storageProfileView.writeBufferSize();
 
         long totalCacheSize = storageProfileView.size() + writeBufferSize;
 
-        switch (storageProfileView.cache().toLowerCase(Locale.ROOT)) {
-            case ROCKSDB_CLOCK_CACHE:
-                cache = new ClockCache(totalCacheSize, storageProfileView.numShardBits(), false);
-
-                break;
-
-            case ROCKSDB_LRU_CACHE:
-                cache = new LRUCache(totalCacheSize, storageProfileView.numShardBits(), false);
-
-                break;
-
-            default:
-                assert false : storageProfileView.cache();
-        }
+        cache = new LRUCache(totalCacheSize, storageProfileView.numShardBits(), false);
 
         writeBufferManager = new WriteBufferManager(writeBufferSize, cache);
     }

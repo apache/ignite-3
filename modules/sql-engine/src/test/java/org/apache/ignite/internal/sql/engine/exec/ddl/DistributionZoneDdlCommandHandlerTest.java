@@ -26,9 +26,9 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.ClockWaiter;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
 import org.apache.ignite.internal.catalog.commands.RenameZoneCommand;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterZoneRenameCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterZoneSetCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateZoneCommand;
@@ -52,7 +52,7 @@ public class DistributionZoneDdlCommandHandlerTest extends IgniteAbstractTest {
     void before() {
         catalogManager = mock(CatalogManager.class, invocation -> nullCompletedFuture());
 
-        commandHandler = new DdlCommandHandler(catalogManager, mock(ClockWaiter.class, invocation -> nullCompletedFuture()), () -> 100);
+        commandHandler = new DdlCommandHandler(catalogManager, mock(ClockService.class, invocation -> nullCompletedFuture()), () -> 100);
     }
 
     @Test

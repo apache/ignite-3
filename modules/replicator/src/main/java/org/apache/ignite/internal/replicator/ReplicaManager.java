@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.replicator.LocalReplicaEvent.BEFORE_REP
 import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
+import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
@@ -47,7 +48,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.event.AbstractEventProducer;
-import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -129,8 +130,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     /** Replicas. */
     private final ConcurrentHashMap<ReplicationGroupId, CompletableFuture<Replica>> replicas = new ConcurrentHashMap<>();
 
-    /** A hybrid logical clock. */
-    private final HybridClock clock;
+    private final ClockService clockService;
 
     /** Scheduled executor for idle safe time sync. */
     private final ScheduledExecutorService scheduledIdleSafeTimeSyncExecutor;
@@ -152,7 +152,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param nodeName Node name.
      * @param clusterNetSvc Cluster network service.
      * @param cmgMgr Cluster group manager.
-     * @param clock A hybrid logical clock.
+     * @param clockService Clock service.
      * @param messageGroupsToHandle Message handlers.
      * @param placementDriver A placement driver.
      */
@@ -161,7 +161,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             String nodeName,
             ClusterService clusterNetSvc,
             ClusterManagementGroupManager cmgMgr,
-            HybridClock clock,
+            ClockService clockService,
             Set<Class<?>> messageGroupsToHandle,
             PlacementDriver placementDriver,
             Executor requestsExecutor
@@ -170,7 +170,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 nodeName,
                 clusterNetSvc,
                 cmgMgr,
-                clock,
+                clockService,
                 messageGroupsToHandle,
                 placementDriver,
                 requestsExecutor,
@@ -184,7 +184,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param nodeName Node name.
      * @param clusterNetSvc Cluster network service.
      * @param cmgMgr Cluster group manager.
-     * @param clock A hybrid logical clock.
+     * @param clockService Clock service.
      * @param messageGroupsToHandle Message handlers.
      * @param placementDriver A placement driver.
      * @param requestsExecutor Executor that will be used to execute requests by replicas.
@@ -194,7 +194,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             String nodeName,
             ClusterService clusterNetSvc,
             ClusterManagementGroupManager cmgMgr,
-            HybridClock clock,
+            ClockService clockService,
             Set<Class<?>> messageGroupsToHandle,
             PlacementDriver placementDriver,
             Executor requestsExecutor,
@@ -202,7 +202,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     ) {
         this.clusterNetSvc = clusterNetSvc;
         this.cmgMgr = cmgMgr;
-        this.clock = clock;
+        this.clockService = clockService;
         this.messageGroupsToHandle = messageGroupsToHandle;
         this.handler = this::onReplicaMessageReceived;
         this.placementDriverMessageHandler = this::onPlacementDriverMessageReceived;
@@ -309,7 +309,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             }
 
             if (requestTimestamp != null) {
-                clock.update(requestTimestamp);
+                clockService.updateClock(requestTimestamp);
             }
 
             boolean sendTimestamp = request instanceof TimestampAware || request instanceof ReadOnlyDirectReplicaRequest;
@@ -494,6 +494,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             TopologyAwareRaftGroupService raftClient,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker
     ) {
+        LOG.info("Replica is about to start [replicationGroupId={}].", replicaGrpId);
+
         ClusterNode localNode = clusterNetSvc.topologyService().localMember();
 
         Replica newReplica = new Replica(
@@ -503,16 +505,19 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 raftClient,
                 localNode,
                 executor,
-                placementDriver
+                placementDriver,
+                clockService
         );
 
         CompletableFuture<Replica> replicaFuture = replicas.compute(replicaGrpId, (k, existingReplicaFuture) -> {
             if (existingReplicaFuture == null || existingReplicaFuture.isDone()) {
                 assert existingReplicaFuture == null || isCompletedSuccessfully(existingReplicaFuture);
+                LOG.info("Replica is started [replicationGroupId={}].", replicaGrpId);
 
                 return completedFuture(newReplica);
             } else {
                 existingReplicaFuture.complete(newReplica);
+                LOG.info("Replica is started, existing replica waiter was completed [replicationGroupId={}].", replicaGrpId);
 
                 return existingReplicaFuture;
             }
@@ -527,10 +532,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     return null;
                 })
                 .thenCompose(v -> replicaFuture);
-    }
-
-    private static boolean isCompletedSuccessfully(CompletableFuture<?> future) {
-        return future.isDone() && !future.isCompletedExceptionally();
     }
 
     /**
@@ -689,7 +690,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                             groupId,
                                             clusterNetSvc.topologyService().localMember())
                             )
-                            .timestampLong(clock.update(requestTimestamp).longValue())
+                            .timestampLong(clockService.updateClock(requestTimestamp).longValue())
                             .build(),
                     correlationId);
         } else {
@@ -727,7 +728,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             return REPLICA_MESSAGES_FACTORY
                     .timestampAwareReplicaResponse()
                     .result(result)
-                    .timestampLong(clock.nowLong())
+                    .timestampLong(clockService.nowLong())
                     .build();
         } else {
             return REPLICA_MESSAGES_FACTORY
@@ -745,7 +746,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             return REPLICA_MESSAGES_FACTORY
                     .errorTimestampAwareReplicaResponse()
                     .throwable(ex)
-                    .timestampLong(clock.nowLong())
+                    .timestampLong(clockService.nowLong())
                     .build();
         } else {
             return REPLICA_MESSAGES_FACTORY
@@ -777,6 +778,18 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @return True if the replica is started.
      */
     public boolean isReplicaStarted(ReplicationGroupId replicaGrpId) {
+        CompletableFuture<Replica> replicaFuture = replicas.get(replicaGrpId);
+        return replicaFuture != null && isCompletedSuccessfully(replicaFuture);
+    }
+
+    /**
+     * Check if replica was touched by an any actor. Touched here means either replica creation or replica waiter registration.
+     *
+     * @param replicaGrpId Replication group id.
+     * @return True if the replica was touched.
+     */
+    @TestOnly
+    public boolean isReplicaTouched(ReplicationGroupId replicaGrpId) {
         return replicas.containsKey(replicaGrpId);
     }
 
@@ -787,6 +800,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      */
     @TestOnly
     public Set<ReplicationGroupId> startedGroups() {
-        return replicas.keySet();
+        return replicas.entrySet().stream()
+                .filter(entry -> isCompletedSuccessfully(entry.getValue()))
+                .map(Entry::getKey)
+                .collect(toSet());
     }
 }

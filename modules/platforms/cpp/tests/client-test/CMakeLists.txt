@@ -21,6 +21,7 @@ set(TARGET ${PROJECT_NAME})
 
 set(SOURCES
     basic_authenticator_test.cpp
+    column_order_test.cpp
     compute_test.cpp
     gtest_logger.h
     ignite_client_test.cpp

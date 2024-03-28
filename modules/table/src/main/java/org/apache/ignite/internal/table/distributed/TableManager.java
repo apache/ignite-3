@@ -116,6 +116,7 @@ import org.apache.ignite.internal.distributionzones.rebalance.PartitionMover;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceRaftGroupEventsListener;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.event.EventListener;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -336,6 +337,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private final HybridClock clock;
 
+    private final ClockService clockService;
+
     private final OutgoingSnapshotsManager outgoingSnapshotsManager;
 
     private final TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory;
@@ -398,8 +401,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private final RemotelyTriggeredResourceRegistry remotelyTriggeredResourceRegistry;
 
-    private final Executor asyncContinuationExecutor;
-
     private final TransactionInflights transactionInflights;
 
     private final TransactionConfiguration txCfg;
@@ -433,8 +434,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param sql A supplier function that returns {@link IgniteSql}.
      * @param rebalanceScheduler Executor for scheduling rebalance routine.
      * @param lowWatermark Low watermark.
-     * @param asyncContinuationExecutor Executor to which execution will be resubmitted when leaving asynchronous public API endpoints
-     *     (so as to prevent the user from stealing Ignite threads).
      * @param transactionInflights Transaction inflights.
      */
     public TableManager(
@@ -459,6 +458,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             ExecutorService ioExecutor,
             Executor partitionOperationsExecutor,
             HybridClock clock,
+            ClockService clockService,
             OutgoingSnapshotsManager outgoingSnapshotsManager,
             TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory,
             DistributionZoneManager distributionZoneManager,
@@ -470,7 +470,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             RemotelyTriggeredResourceRegistry remotelyTriggeredResourceRegistry,
             ScheduledExecutorService rebalanceScheduler,
             LowWatermark lowWatermark,
-            Executor asyncContinuationExecutor,
             TransactionInflights transactionInflights
     ) {
         this.topologyService = topologyService;
@@ -486,6 +485,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.ioExecutor = ioExecutor;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
         this.clock = clock;
+        this.clockService = clockService;
         this.outgoingSnapshotsManager = outgoingSnapshotsManager;
         this.raftGroupServiceFactory = raftGroupServiceFactory;
         this.distributionZoneManager = distributionZoneManager;
@@ -496,25 +496,24 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.remotelyTriggeredResourceRegistry = remotelyTriggeredResourceRegistry;
         this.rebalanceScheduler = rebalanceScheduler;
         this.lowWatermark = lowWatermark;
-        this.asyncContinuationExecutor = asyncContinuationExecutor;
         this.transactionInflights = transactionInflights;
         this.txCfg = txCfg;
 
         this.executorInclinedSchemaSyncService = new ExecutorInclinedSchemaSyncService(schemaSyncService, partitionOperationsExecutor);
         this.executorInclinedPlacementDriver = new ExecutorInclinedPlacementDriver(placementDriver, partitionOperationsExecutor);
 
-        TxMessageSender txMessageSender = new TxMessageSender(messagingService, replicaSvc, clock);
+        TxMessageSender txMessageSender = new TxMessageSender(messagingService, replicaSvc, clockService);
 
         transactionStateResolver = new TransactionStateResolver(
                 txManager,
-                clock,
+                clockService,
                 topologyService,
                 messagingService,
                 executorInclinedPlacementDriver,
                 txMessageSender
         );
 
-        schemaVersions = new SchemaVersionsImpl(executorInclinedSchemaSyncService, catalogService, clock);
+        schemaVersions = new SchemaVersionsImpl(executorInclinedSchemaSyncService, catalogService, clockService);
 
         tablesVv = new IncrementalVersionedValue<>(registry);
 
@@ -1051,7 +1050,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 table.indexesLockers(partId),
                 new Lazy<>(() -> table.indexStorageAdapters(partId).get().get(table.pkId())),
                 () -> table.indexStorageAdapters(partId).get(),
-                clock,
+                clockService,
                 safeTimeTracker,
                 txStatePartitionStorage,
                 transactionStateResolver,
@@ -1111,7 +1110,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         partitionUpdateHandlers.indexUpdateHandler,
                         partitionUpdateHandlers.gcUpdateHandler,
                         fullStateTransferIndexChooser,
-                        schemaManager.schemaRegistry(partitionKey.tableId())
+                        schemaManager.schemaRegistry(partitionKey.tableId()),
+                        lowWatermark
                 ),
                 catalogService,
                 incomingSnapshotsExecutor
@@ -1321,8 +1321,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 schemaVersions,
                 marshallers,
                 sql.get(),
-                tableDescriptor.primaryKeyIndexId(),
-                asyncContinuationExecutor
+                tableDescriptor.primaryKeyIndexId()
         );
 
         tablesVv.update(causalityToken, (ignore, e) -> inBusyLock(busyLock, () -> {
@@ -1481,7 +1480,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private CompletableFuture<List<Table>> tablesAsyncInternalBusy() {
-        HybridTimestamp now = clock.now();
+        HybridTimestamp now = clockService.now();
 
         return orStopManagerFuture(executorInclinedSchemaSyncService.waitForMetadataCompleteness(now))
                 .thenCompose(unused -> inBusyLockAsync(busyLock, () -> {
@@ -1566,7 +1565,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     @Override
     public CompletableFuture<TableViewInternal> tableAsync(int tableId) {
         return inBusyLockAsync(busyLock, () -> {
-            HybridTimestamp now = clock.now();
+            HybridTimestamp now = clockService.now();
 
             return orStopManagerFuture(executorInclinedSchemaSyncService.waitForMetadataCompleteness(now))
                     .thenCompose(unused -> inBusyLockAsync(busyLock, () -> {
@@ -1618,7 +1617,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      */
     private CompletableFuture<TableViewInternal> tableAsyncInternal(String name) {
         return inBusyLockAsync(busyLock, () -> {
-            HybridTimestamp now = clock.now();
+            HybridTimestamp now = clockService.now();
 
             return orStopManagerFuture(executorInclinedSchemaSyncService.waitForMetadataCompleteness(now))
                     .thenCompose(unused -> inBusyLockAsync(busyLock, () -> {
@@ -2029,7 +2028,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 safeTimeTracker,
                 storageIndexTracker,
                 catalogService,
-                table.schemaView()
+                table.schemaView(),
+                clockService
         );
 
         RaftGroupEventsListener raftGrpEvtsLsnr = new RebalanceRaftGroupEventsListener(

@@ -38,7 +38,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
@@ -118,7 +120,8 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
                 raftClient,
                 LOCAL_NODE,
                 executor,
-                new TestPlacementDriver(LOCAL_NODE)
+                new TestPlacementDriver(LOCAL_NODE),
+                new TestClockService(new HybridClockImpl())
         );
     }
 

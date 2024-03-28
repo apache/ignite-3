@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.rebalance;
 
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -65,7 +66,7 @@ public class ItRebalanceRecoveryTest extends ClusterPerTestIntegrationTest {
     }
 
     private static boolean containsPartition(Ignite node) {
-        var tableManager = ((TableManager) node.tables());
+        TableManager tableManager = unwrapTableManager(node.tables());
 
         MvPartitionStorage storage = tableManager.tableView("TEST")
                 .internalTable()

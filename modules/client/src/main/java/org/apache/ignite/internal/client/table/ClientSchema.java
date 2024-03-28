@@ -268,7 +268,7 @@ public class ClientSchema {
     }
 
     private static MarshallerColumn marshallerColumn(ClientColumn col) {
-        return new MarshallerColumn(col.name(), mode(col.type()), null, col.scale());
+        return new MarshallerColumn(col.schemaIndex(), col.name(), mode(col.type()), null, col.scale());
     }
 
     private static BinaryMode mode(ColumnType dataType) {

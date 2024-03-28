@@ -19,7 +19,6 @@ package org.apache.ignite.internal.storage.rocksdb.configuration.schema;
 
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.OneOf;
 import org.apache.ignite.configuration.validation.Range;
 import org.apache.ignite.internal.storage.configurations.StorageProfileConfigurationSchema;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
@@ -29,12 +28,6 @@ import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
  */
 @PolymorphicConfigInstance("rocksDb")
 public class RocksDbProfileConfigurationSchema extends StorageProfileConfigurationSchema {
-    /** Cache type for the RocksDB LRU cache. */
-    public static final String ROCKSDB_LRU_CACHE = "lru";
-
-    /** Cache type for the RocksDB LRU cache. */
-    public static final String ROCKSDB_CLOCK_CACHE = "clock";
-
     /** Size of the rocksdb offheap cache. */
     @Value(hasDefault = true)
     public long size = 256 * 1024 * 1024;
@@ -43,11 +36,6 @@ public class RocksDbProfileConfigurationSchema extends StorageProfileConfigurati
     @Value(hasDefault = true)
     @Range(min = 1)
     public long writeBufferSize = 64 * 1024 * 1024;
-
-    /** Cache type - only {@code LRU} is supported at the moment. {@code Clock} implementation has known bugs. */
-    @OneOf(ROCKSDB_LRU_CACHE)
-    @Value(hasDefault = true)
-    public String cache = ROCKSDB_LRU_CACHE;
 
     /** The cache is sharded to 2^numShardBits shards, by hash of the key. */
     @Range(min = -1)

@@ -17,12 +17,18 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbIndexes.indexPrefix;
+import static org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstance.deleteByPrefix;
+
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.rocksdb.index.AbstractRocksDbIndexStorage;
+import org.apache.ignite.internal.storage.rocksdb.instance.IndexColumnFamily;
 import org.apache.ignite.internal.storage.util.StorageState;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.jetbrains.annotations.Nullable;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.WriteBatch;
 
@@ -30,13 +36,38 @@ import org.rocksdb.WriteBatch;
  * Represents an index for all its partitions.
  */
 abstract class Index<S extends AbstractRocksDbIndexStorage> {
-    final ConcurrentMap<Integer, S> storageByPartitionId = new ConcurrentHashMap<>();
+    final int tableId;
 
-    private final int indexId;
+    private final IndexColumnFamily indexColumnFamily;
 
-    Index(int indexId) {
-        this.indexId = indexId;
+    private final ConcurrentMap<Integer, S> storageByPartitionId = new ConcurrentHashMap<>();
+
+    Index(int tableId, int indexId, ColumnFamily cf) {
+        this.tableId = tableId;
+        this.indexColumnFamily = new IndexColumnFamily(indexId, cf);
     }
+
+    IndexColumnFamily indexColumnFamily() {
+        return indexColumnFamily;
+    }
+
+    /**
+     * Returns an index storage for a partition.
+     *
+     * @param partitionId Partition ID.
+     */
+    @Nullable S getStorage(int partitionId) {
+        return storageByPartitionId.get(partitionId);
+    }
+
+    /**
+     * Creates a new Index storage or returns an existing one.
+     */
+    S getOrCreateStorage(int partitionId) {
+        return storageByPartitionId.computeIfAbsent(partitionId, this::createStorage);
+    }
+
+    abstract S createStorage(int partitionId);
 
     /**
      * Closes all index storages.
@@ -45,7 +76,7 @@ abstract class Index<S extends AbstractRocksDbIndexStorage> {
         try {
             IgniteUtils.closeAll(storageByPartitionId.values().stream().map(index -> index::close));
         } catch (Exception e) {
-            throw new StorageException("Failed to close index storages: " + indexId, e);
+            throw new StorageException("Failed to close index storages: " + indexColumnFamily.indexId(), e);
         }
     }
 
@@ -56,7 +87,7 @@ abstract class Index<S extends AbstractRocksDbIndexStorage> {
         try {
             IgniteUtils.closeAll(storageByPartitionId.values().stream().map(index -> index::transitionToDestroyedState));
         } catch (Exception e) {
-            throw new StorageException("Failed to transition index storages to the DESTROYED state: " + indexId, e);
+            throw new StorageException("Failed to transition index storages to the DESTROYED state: " + indexColumnFamily.indexId(), e);
         }
     }
 
@@ -74,5 +105,14 @@ abstract class Index<S extends AbstractRocksDbIndexStorage> {
 
             storage.destroyData(writeBatch);
         }
+    }
+
+    /**
+     * Removes all data associated with the index.
+     */
+    void destroy(WriteBatch writeBatch) throws RocksDBException {
+        transitionToDestroyedState();
+
+        deleteByPrefix(writeBatch, indexColumnFamily.columnFamily(), indexPrefix(tableId, indexColumnFamily().indexId()));
     }
 }

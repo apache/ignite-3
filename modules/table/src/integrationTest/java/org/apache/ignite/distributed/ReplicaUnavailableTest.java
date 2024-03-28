@@ -47,6 +47,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
@@ -140,7 +141,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 NODE_NAME,
                 clusterService,
                 cmgManager,
-                clock,
+                new TestClockService(clock),
                 Set.of(TableMessageGroup.class, TxMessageGroup.class),
                 new TestPlacementDriver(clusterService.topologyService().localMember()),
                 requestsExecutor
@@ -226,7 +227,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                     // If we 'stop' a replica before its future even appears, invocation will not get ReplicaStoppingException
                     // as there was no sign of the replica yet.
                     assertTrue(
-                            waitForCondition(() -> replicaManager.isReplicaStarted(tablePartitionId), TimeUnit.SECONDS.toMillis(10))
+                            waitForCondition(() -> replicaManager.isReplicaTouched(tablePartitionId), TimeUnit.SECONDS.toMillis(10))
                     );
 
                     assertThat(replicaManager.stopReplica(tablePartitionId), willSucceedFast());

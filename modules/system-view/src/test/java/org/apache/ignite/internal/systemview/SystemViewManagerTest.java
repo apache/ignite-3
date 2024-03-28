@@ -200,7 +200,7 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
     public void startAfterStopFails() throws Exception {
         viewMgr.stop();
 
-        // noinspection ThrowableNotThrown
+        //noinspection ThrowableNotThrown
         assertThrowsWithCause(viewMgr::start, NodeStoppingException.class);
     }
 
@@ -208,7 +208,7 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
     public void registerAfterStopFails() throws Exception {
         viewMgr.stop();
 
-        // noinspection ThrowableNotThrown
+        //noinspection ThrowableNotThrown
         assertThrowsWithCause(() -> viewMgr.register(() -> List.of(dummyView("test"))), NodeStoppingException.class);
     }
 

@@ -235,7 +235,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
         // It's safe to leak with partially initialised object here, because rebalanceEngine is only accessible through this or by
         // meta storage notification thread that won't start before all components start.
-        // noinspection ThisEscapedInObjectConstruction
+        //noinspection ThisEscapedInObjectConstruction
         rebalanceEngine = new DistributionZoneRebalanceEngine(
                 busyLock,
                 metaStorageManager,
@@ -244,7 +244,7 @@ public class DistributionZoneManager implements IgniteComponent {
                 rebalanceScheduler
         );
 
-        // noinspection ThisEscapedInObjectConstruction
+        //noinspection ThisEscapedInObjectConstruction
         causalityDataNodesEngine = new CausalityDataNodesEngine(
                 busyLock,
                 registry,
@@ -254,7 +254,7 @@ public class DistributionZoneManager implements IgniteComponent {
                 catalogManager
         );
 
-        // noinspection ThisEscapedInObjectConstruction
+        //noinspection ThisEscapedInObjectConstruction
         disasterRecoveryManager = new DisasterRecoveryManager(metaStorageManager, catalogManager, this);
     }
 

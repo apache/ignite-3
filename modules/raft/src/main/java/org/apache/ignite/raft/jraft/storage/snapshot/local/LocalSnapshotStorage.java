@@ -189,7 +189,7 @@ public class LocalSnapshotStorage implements SnapshotStorage {
         int ret = writer.getCode();
         IOException ioe = null;
 
-        // noinspection ConstantConditions
+        //noinspection ConstantConditions
         do {
             if (ret != 0) {
                 break;
@@ -273,7 +273,7 @@ public class LocalSnapshotStorage implements SnapshotStorage {
 
     public SnapshotWriter create(final boolean fromEmpty) {
         LocalSnapshotWriter writer = null;
-        // noinspection ConstantConditions
+        //noinspection ConstantConditions
         do {
             final String snapshotPath = this.path + File.separator + TEMP_PATH;
             // delete temp

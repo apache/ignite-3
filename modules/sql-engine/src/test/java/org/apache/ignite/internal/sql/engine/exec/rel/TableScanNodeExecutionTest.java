@@ -43,6 +43,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
@@ -73,7 +74,6 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
-import org.apache.ignite.internal.tx.impl.ResourceCleanupManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
@@ -152,26 +152,17 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
 
             TransactionInflights transactionInflights = new TransactionInflights(placementDriver);
 
-            ResourceCleanupManager resourceCleanupManager = new ResourceCleanupManager(
-                    leaseholder,
-                    resourcesRegistry,
-                    clusterService.topologyService(),
-                    clusterService.messagingService(),
-                    transactionInflights
-            );
-
             TxManagerImpl txManager = new TxManagerImpl(
                     txConfiguration,
                     clusterService,
                     replicaSvc,
                     new HeapLockManager(),
-                    new HybridClockImpl(),
+                    new TestClockService(new HybridClockImpl()),
                     new TransactionIdGenerator(0xdeadbeef),
                     placementDriver,
                     () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
                     new TestLocalRwTxCounter(),
                     resourcesRegistry,
-                    resourceCleanupManager,
                     transactionInflights
             );
 

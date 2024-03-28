@@ -19,6 +19,7 @@ package org.apache.ignite.internal.index;
 
 import static org.apache.ignite.internal.IndexTestUtils.waitForIndexToAppearInAnyState;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_PROFILE_NAME;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -78,7 +79,7 @@ public class ItRwTransactionAndIndexesTest extends ClusterPerClassIntegrationTes
 
     @Test
     void testDropIndexInsideRwTransaction() {
-        TableImpl table = (TableImpl) createZoneAndTable(ZONE_NAME, TABLE_NAME, 1, 1, DEFAULT_TEST_PROFILE_NAME);
+        TableImpl table = unwrapTableImpl(createZoneAndTable(ZONE_NAME, TABLE_NAME, 1, 1, DEFAULT_TEST_PROFILE_NAME));
 
         createIndex(TABLE_NAME, INDEX_NAME, COLUMN_NAME);
 
@@ -126,7 +127,7 @@ public class ItRwTransactionAndIndexesTest extends ClusterPerClassIntegrationTes
 
     @Test
     void testCreateIndexInsideRwTransaction() throws Exception {
-        TableImpl table = (TableImpl) createZoneAndTable(ZONE_NAME, TABLE_NAME, 1, 1, DEFAULT_TEST_PROFILE_NAME);
+        TableImpl table = unwrapTableImpl(createZoneAndTable(ZONE_NAME, TABLE_NAME, 1, 1, DEFAULT_TEST_PROFILE_NAME));
 
         dropAnyBuildIndexMessages();
 
