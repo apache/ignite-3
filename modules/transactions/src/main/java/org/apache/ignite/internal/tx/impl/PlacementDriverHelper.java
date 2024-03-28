@@ -32,6 +32,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.BiFunction;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -76,6 +77,13 @@ public class PlacementDriverHelper {
     public CompletableFuture<ReplicaMeta> awaitPrimaryReplicaWithExceptionHandling(TablePartitionId partitionId) {
         HybridTimestamp timestamp = clockService.now();
 
+        return awaitPrimaryReplicaWithExceptionHandling(partitionId, timestamp);
+    }
+
+    private CompletableFuture<ReplicaMeta> awaitPrimaryReplicaWithExceptionHandling(
+            TablePartitionId partitionId,
+            HybridTimestamp timestamp
+    ) {
         return placementDriver.awaitPrimaryReplica(partitionId, timestamp, AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS)
                 .handle((primaryReplica, e) -> {
                     if (e != null) {
@@ -98,6 +106,36 @@ public class PlacementDriverHelper {
      *         failed to find the primary for.
      */
     public CompletableFuture<PartitionData> findPrimaryReplicas(Collection<TablePartitionId> partitions) {
+        // Please note that we are using `get primary replica` instead of `await primary replica`.
+        // This method is faster, yet we still have the correctness:
+        // If the primary replica has not changed, get will return a valid value and we'll send an unlock request to this node.
+        // If the primary replica has expired and get returns null (or a different node), the primary node step down logic
+        // will automatically release the locks on that node. All we need to do is to clean the storage.
+        return computePrimaryReplicas(partitions, placementDriver::getPrimaryReplica);
+    }
+
+    /**
+     * Wait for primary replica to appear for the provided partitions.
+     *
+     * @param partitions A collection of partitions.
+     * @return A future that completes with a map of node to the partitions the node is primary for.
+     */
+    public CompletableFuture<Map<String, Set<TablePartitionId>>> awaitPrimaryReplicas(Collection<TablePartitionId> partitions) {
+        return computePrimaryReplicas(partitions, this::awaitPrimaryReplicaWithExceptionHandling)
+                .thenApply(partitionData -> partitionData.partitionsByNode);
+    }
+
+    /**
+     * Get primary replicas for the provided partitions according to the provided placement driver function.
+     *
+     * @param partitions A collection of partitions.
+     * @return A future that completes with a map of node to the partitions the node is primary for and a collection of partitions that we
+     *         failed to find the primary for.
+     */
+    private CompletableFuture<PartitionData> computePrimaryReplicas(
+            Collection<TablePartitionId> partitions,
+            BiFunction<TablePartitionId, HybridTimestamp, CompletableFuture<ReplicaMeta>> placementFunction
+    ) {
         if (partitions == null || partitions.isEmpty()) {
             return completedFuture(new PartitionData(emptyMap(), emptySet()));
         }
@@ -106,13 +144,8 @@ public class PlacementDriverHelper {
 
         Map<TablePartitionId, CompletableFuture<ReplicaMeta>> primaryReplicaFutures = new HashMap<>();
 
-        // Please note that we are using `get primary replica` instead of `await primary replica`.
-        // This method is faster, yet we still have the correctness:
-        // If the primary replica has not changed, get will return a valid value and we'll send an unlock request to this node.
-        // If the primary replica has expired and get returns null (or a different node), the primary node step down logic
-        // will automatically release the locks on that node. All we need to do is to clean the storage.
         for (TablePartitionId partitionId : partitions) {
-            primaryReplicaFutures.put(partitionId, placementDriver.getPrimaryReplica(partitionId, timestamp));
+            primaryReplicaFutures.put(partitionId, placementFunction.apply(partitionId, timestamp));
         }
 
         return allOf(primaryReplicaFutures.values().toArray(new CompletableFuture<?>[0]))

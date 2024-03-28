@@ -30,6 +30,7 @@ import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
@@ -77,7 +78,7 @@ public class TxMessageSender {
      * @param commitTimestamp Commit timestamp ({@code null} if it's an abort).
      * @return Completable future of Void.
      */
-    public CompletableFuture<Void> switchWriteIntents(
+    public CompletableFuture<ReplicaResponse> switchWriteIntents(
             String primaryConsistentId,
             TablePartitionId tablePartitionId,
             UUID txId,
@@ -208,5 +209,9 @@ public class TxMessageSender {
 
                     return (TxStateResponse) resp;
                 });
+    }
+
+    public MessagingService messagingService() {
+        return messagingService;
     }
 }

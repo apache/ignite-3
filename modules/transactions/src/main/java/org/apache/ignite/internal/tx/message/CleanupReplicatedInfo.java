@@ -17,18 +17,32 @@
 
 package org.apache.ignite.internal.tx.message;
 
-import org.apache.ignite.internal.network.annotations.Marshallable;
-import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.replicator.message.TimestampAware;
-import org.jetbrains.annotations.Nullable;
+import java.io.Serializable;
+import java.util.Collection;
+import java.util.UUID;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 
 /**
- * Cleanup transaction message response.
+ * The result of a replicated cleanup request.
  */
-@Transferable(TxMessageGroup.TX_CLEANUP_MSG_RESPONSE)
-public interface TxCleanupMessageResponse extends TimestampAware {
+public class CleanupReplicatedInfo implements Serializable {
 
-    @Nullable
-    @Marshallable
-    Object result();
+    private static final long serialVersionUID = -975001033274630774L;
+
+    private final UUID txId;
+
+    private final Collection<TablePartitionId> partitions;
+
+    public CleanupReplicatedInfo(UUID txId, Collection<TablePartitionId> partitions) {
+        this.txId = txId;
+        this.partitions = partitions;
+    }
+
+    public UUID txId() {
+        return txId;
+    }
+
+    public Collection<TablePartitionId> partitions() {
+        return partitions;
+    }
 }

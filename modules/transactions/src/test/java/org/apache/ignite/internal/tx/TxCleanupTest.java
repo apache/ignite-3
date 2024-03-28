@@ -29,10 +29,10 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
@@ -56,7 +56,7 @@ import org.apache.ignite.internal.tx.impl.PlacementDriverHelper;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxCleanupRequestSender;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
-import org.apache.ignite.internal.tx.impl.WriteIntentSwitchProcessor;
+import org.apache.ignite.internal.tx.impl.VolatileTxStateMetaStorage;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
@@ -98,8 +98,6 @@ public class TxCleanupTest extends IgniteAbstractTest {
 
     private TransactionIdGenerator idGenerator;
 
-    private WriteIntentSwitchProcessor writeIntentSwitchProcessor;
-
     private TxMessageSender txMessageSender;
 
     /** Init test callback. */
@@ -115,9 +113,8 @@ public class TxCleanupTest extends IgniteAbstractTest {
 
         PlacementDriverHelper placementDriverHelper = new PlacementDriverHelper(placementDriver, clockService);
 
-        writeIntentSwitchProcessor = spy(new WriteIntentSwitchProcessor(placementDriverHelper, txMessageSender, topologyService));
-
-        cleanupRequestSender = new TxCleanupRequestSender(txMessageSender, placementDriverHelper, writeIntentSwitchProcessor);
+        cleanupRequestSender = new TxCleanupRequestSender(txMessageSender, placementDriverHelper, mock(
+                VolatileTxStateMetaStorage.class));
     }
 
     @Test
@@ -140,7 +137,6 @@ public class TxCleanupTest extends IgniteAbstractTest {
 
         assertThat(cleanup, willCompleteSuccessfully());
 
-        verifyNoInteractions(writeIntentSwitchProcessor);
         verify(txMessageSender, times(1)).cleanup(any(), any(), any(), anyBoolean(), any());
         verifyNoMoreInteractions(txMessageSender);
     }
@@ -177,8 +173,7 @@ public class TxCleanupTest extends IgniteAbstractTest {
 
         assertThat(cleanup, willCompleteSuccessfully());
 
-        verify(txMessageSender, times(1)).switchWriteIntents(any(), any(), any(), anyBoolean(), any());
-        verify(txMessageSender, times(2)).cleanup(any(), any(), any(), anyBoolean(), any());
+        verify(txMessageSender, times(3)).cleanup(any(), any(), any(), anyBoolean(), any());
         verifyNoMoreInteractions(txMessageSender);
     }
 
@@ -212,8 +207,7 @@ public class TxCleanupTest extends IgniteAbstractTest {
 
         assertThat(cleanup, willCompleteSuccessfully());
 
-        verify(txMessageSender, times(3)).switchWriteIntents(any(), any(), any(), anyBoolean(), any());
-        verify(txMessageSender, times(1)).cleanup(any(), any(), any(), anyBoolean(), any());
+        verify(txMessageSender, times(2)).cleanup(any(), any(), any(), anyBoolean(), any());
 
         verifyNoMoreInteractions(txMessageSender);
     }
