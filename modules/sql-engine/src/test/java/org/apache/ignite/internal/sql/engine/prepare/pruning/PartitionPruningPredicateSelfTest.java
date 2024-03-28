@@ -19,7 +19,9 @@ package org.apache.ignite.internal.sql.engine.prepare.pruning;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -33,7 +35,6 @@ import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexBuilder;
@@ -124,7 +125,7 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
         PartitionPruningColumns columns = new PartitionPruningColumns(List.of(Int2ObjectMaps.singleton(fieldIndex, expr)));
 
         List<String> nodeNames = List.of("n1", "n2", "n3");
-        List<NodeWithConsistencyToken> assignments = randomAssignments(table, nodeNames);
+        Int2ObjectMap<NodeWithConsistencyToken> assignments = randomAssignments(table, nodeNames);
         ColocationGroup group = new ColocationGroup(List.of(0L), nodeNames, assignments);
 
         expectPartitionsPruned(table, columns, new Object[0], group, val);
@@ -153,7 +154,7 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
         PartitionPruningColumns columns = new PartitionPruningColumns(List.of(Int2ObjectMaps.singleton(fieldIndex, expr)));
 
         List<String> nodeNames = List.of("n1", "n2", "n3");
-        List<NodeWithConsistencyToken> assignments = randomAssignments(table, nodeNames);
+        Int2ObjectMap<NodeWithConsistencyToken> assignments = randomAssignments(table, nodeNames);
         ColocationGroup group = new ColocationGroup(List.of(0L), nodeNames, assignments);
 
         expectPartitionsPruned(table, columns, dynamicParameters, group, val);
@@ -166,7 +167,7 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
             ColocationGroup group,
             Object... values
     ) {
-        List<NodeWithConsistencyToken> assignments = group.assignments();
+        Int2ObjectMap<NodeWithConsistencyToken> assignments = group.assignments();
 
         // Compute expected partitions using table's PartitionCalculator.
         PartitionWithConsistencyToken expectedPartition = computeExpectedPartition(table, group.assignments(), values);
@@ -216,7 +217,7 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
 
     private static PartitionWithConsistencyToken computeExpectedPartition(
             IgniteTable table,
-            List<NodeWithConsistencyToken> assignments,
+            Map<Integer, NodeWithConsistencyToken> assignments,
             Object[] values
     ) {
         PartitionCalculator calculator = table.partitionCalculator().get();
@@ -232,13 +233,15 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
         return new PartitionWithConsistencyToken(p, expected.enlistmentConsistencyToken());
     }
 
-    private static List<NodeWithConsistencyToken> randomAssignments(IgniteTable table, List<String> nodeNames) {
-        return IntStream.range(0, table.partitions())
-                .mapToObj(i -> {
-                    String nodeName = nodeNames.get(i % nodeNames.size());
-                    return new NodeWithConsistencyToken(nodeName, i);
-                })
-                .collect(Collectors.toList());
+    private static Int2ObjectMap<NodeWithConsistencyToken> randomAssignments(IgniteTable table, List<String> nodeNames) {
+        Int2ObjectMap<NodeWithConsistencyToken> assignments = new Int2ObjectOpenHashMap<>();
+
+        for (int i = 0; i < table.partitions(); ++i) {
+            String nodeName = nodeNames.get(i % nodeNames.size());
+            assignments.put(i, new NodeWithConsistencyToken(nodeName, i));
+        }
+
+        return assignments;
     }
 
     private Object generateFieldValue(IgniteTable table, int index) {

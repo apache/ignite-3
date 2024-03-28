@@ -24,7 +24,7 @@ import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.sql.engine.util.tpch.TpchHelper;
 import org.apache.ignite.internal.sql.engine.util.tpch.TpchTables;
-import org.apache.ignite.sql.Session;
+import org.apache.ignite.sql.IgniteSql;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -82,7 +82,7 @@ public class TpchBenchmark extends AbstractMultiNodeBenchmark {
     })
     private String queryId;
 
-    private Session session;
+    private IgniteSql sql;
     private String queryString;
 
     /** Initializes a schema and fills tables with data. */
@@ -90,7 +90,7 @@ public class TpchBenchmark extends AbstractMultiNodeBenchmark {
     @SuppressWarnings("ConstantValue")
     public void setUp() throws Exception {
         try {
-            session = clusterNode.sql().createSession();
+            sql = clusterNode.sql();
 
             if (!Files.exists(workDir().resolve(DATASET_READY_MARK_FILE_NAME))) {
                 if (pathToDataset == null) {
@@ -102,10 +102,10 @@ public class TpchBenchmark extends AbstractMultiNodeBenchmark {
 
                 for (TpchTables table : tablesToInit) {
                     System.out.println("Going to create table \"" + table.tableName() + "\"...");
-                    session.executeScript(table.ddlScript());
+                    sql.executeScript(table.ddlScript());
                     System.out.println("Done");
 
-                    fillTable(session, table);
+                    fillTable(table);
                 }
 
                 Files.createFile(workDir().resolve(DATASET_READY_MARK_FILE_NAME));
@@ -122,7 +122,7 @@ public class TpchBenchmark extends AbstractMultiNodeBenchmark {
     /** Benchmark that measures performance of queries from TPC-H suite. */
     @Benchmark
     public void run(Blackhole bh) {
-        try (var rs = session.execute(null, queryString)) {
+        try (var rs = sql.execute(null, queryString)) {
             while (rs.hasNext()) {
                 bh.consume(rs.next());
             }
@@ -140,14 +140,14 @@ public class TpchBenchmark extends AbstractMultiNodeBenchmark {
         new Runner(opt).run();
     }
 
-    private void fillTable(Session session, TpchTables table) throws IOException {
+    private void fillTable(TpchTables table) throws IOException {
         System.out.println("Going to fill table \"" + table.tableName() + "\"...");
         long start = System.nanoTime();
         int count = 0;
         for (String line : Files.readAllLines(pathToDataset.resolve(table.tableName() + ".tbl"))) {
             Object[] params = line.split("\\|");
 
-            session.execute(null, table.insertPrepareStatement(), params);
+            sql.execute(null, table.insertPrepareStatement(), params);
 
             if (++count % 10_000 == 0) {
                 System.out.println("Uploaded " + count + " rows");

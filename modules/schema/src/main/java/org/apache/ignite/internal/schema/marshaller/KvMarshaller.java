@@ -54,6 +54,15 @@ public interface KvMarshaller<K, V> {
     Row marshal(K key, @Nullable V val) throws MarshallerException;
 
     /**
+     * Unmarshal given key-only row to a key object.
+     *
+     * @param row Table row.
+     * @return Key object.
+     * @throws MarshallerException If failed to unmarshal row.
+     */
+    K unmarshalKeyOnly(Row row) throws MarshallerException;
+
+    /**
      * Unmarshal given row to a key object.
      *
      * @param row Table row.

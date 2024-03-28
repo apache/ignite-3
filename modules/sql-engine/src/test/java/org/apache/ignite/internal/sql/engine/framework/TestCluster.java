@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
@@ -49,10 +50,15 @@ public class TestCluster implements LifecycleAware {
             Map<String, TestNode> nodeByName,
             CatalogManager catalogManager,
             PrepareService prepareService,
+            ClockWaiter clockWaiter,
             Runnable initClosure
     ) {
         this.nodeByName = nodeByName;
-        this.components = List.of(new ComponentToLifecycleAwareAdaptor(catalogManager), prepareService);
+        this.components = List.of(
+                new ComponentToLifecycleAwareAdaptor(catalogManager),
+                prepareService,
+                new ComponentToLifecycleAwareAdaptor(clockWaiter)
+        );
         this.initClosure = initClosure;
         this.catalogManager = catalogManager;
     }

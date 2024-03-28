@@ -40,4 +40,12 @@ public class StorageDestroyedException extends StorageException {
     public StorageDestroyedException(String message) {
         super(Storage.ALREADY_DESTROYED_ERR, message);
     }
+
+    protected StorageDestroyedException(int code) {
+        this(code, "Storage is already destroyed");
+    }
+
+    protected StorageDestroyedException(int code, String message) {
+        super(code, message);
+    }
 }

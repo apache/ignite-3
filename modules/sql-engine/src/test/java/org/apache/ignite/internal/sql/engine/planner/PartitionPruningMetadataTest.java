@@ -29,6 +29,7 @@ import java.util.stream.Collectors;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.sql.SqlExplainFormat;
 import org.apache.calcite.sql.SqlExplainLevel;
+import org.apache.calcite.sql.SqlKind;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningColumns;
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningMetadata;
@@ -67,6 +68,13 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
             .distribution(IgniteDistributions.affinity(List.of(0, 1), 1, 2))
             .build());
 
+    private static final IgniteSchema TABLE_C1_C2_NULLABLE_C3 = createSchema(TestBuilders.table().name("T")
+            .addKeyColumn("C1", NativeTypes.INT32)
+            .addKeyColumn("C2", NativeTypes.INT32)
+            .addColumn("C3", NativeTypes.INT32, true)
+            .distribution(IgniteDistributions.affinity(List.of(0, 1), 1, 2))
+            .build());
+
     private static final IgniteSchema TABLE_C1_C2_C3 = createSchema(TestBuilders.table().name("T")
             .addKeyColumn("C1", NativeTypes.INT32)
             .addKeyColumn("C2", NativeTypes.INT32)
@@ -100,11 +108,99 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
             .distribution(IgniteDistributions.affinity(List.of(0), 1, 2))
             .build());
 
-    /** Basic test cases for partition pruning metadata extractor. */
-    @ParameterizedTest
+    /** Basic test cases for partition pruning metadata extractor, select case. */
+    @ParameterizedTest(name = "SELECT: {0}")
     @EnumSource(TestCaseBasic.class)
-    public void testBasic(TestCaseBasic testCaseSimple) {
-        checkPruningMetadata(testCaseSimple.data);
+    public void testBasicSelect(TestCaseBasic testCaseSimple) {
+        checkPruningMetadata(testCaseSimple.data, SqlKind.SELECT);
+    }
+
+    /** Basic test cases for partition pruning metadata extractor, delete case. */
+    @ParameterizedTest(name = "DELETE: {0}")
+    @EnumSource(TestCaseBasic.class)
+    public void testBasicDelete(TestCaseBasic testCaseSimple) {
+        checkPruningMetadata(testCaseSimple.data, SqlKind.DELETE);
+    }
+
+    /** Basic test cases for partition pruning metadata extractor, insert case. */
+    @ParameterizedTest(name = "INSERT: {0}")
+    @EnumSource(TestCaseBasicInsert.class)
+    public void testBasicInsert(TestCaseBasicInsert testCaseSimple) {
+        checkPruningMetadata(testCaseSimple.data, SqlKind.INSERT);
+    }
+
+    /** Basic test cases for partition pruning metadata extractor, update case. */
+    @ParameterizedTest(name = "UPDATE: {0}")
+    @EnumSource(TestCaseBasicUpdate.class)
+    public void testBasicUpdate(TestCaseBasicUpdate testCaseSimple) {
+        checkPruningMetadata(testCaseSimple.data, SqlKind.UPDATE);
+    }
+
+    enum TestCaseBasicInsert {
+        SIMPLE_1a1("t(C1) VALUES (SELECT 100)", TABLE_C1_NULLABLE_C2),
+        // values with rex expression case
+        SIMPLE_1a2("t(C1) VALUES (1), (2)", TABLE_C1_NULLABLE_C2, "[c1=1]", "[c1=2]"),
+        SIMPLE_1a3("t(C1) VALUES (1), (SELECT 1)", TABLE_C1_NULLABLE_C2),
+        // union can be used here
+        SIMPLE_1a4("t(C1) VALUES (?), (?), (1)", TABLE_C1_NULLABLE_C2, "[c1=?0]", "[c1=?1]", "[c1=1]"),
+        // values with projection and rex expression case
+        SIMPLE_1a5("t(C2, C1) VALUES (null, 1), (null, 2)", TABLE_C1_NULLABLE_C2, "[c1=1]", "[c1=2]"),
+        SIMPLE_1a6("t(C2, C1) VALUES (?, ?), (?, ?)", TABLE_C1_NULLABLE_C2, "[c1=?1]", "[c1=?3]"),
+        SIMPLE_1a7("t(C2, C1) VALUES (?, ?), ((SELECT 1), (SELECT 1))", TABLE_C1_NULLABLE_C2),
+        SIMPLE_1a8("t(C2, C1) VALUES (null, ?), (null, ?)", TABLE_C1_NULLABLE_C2, "[c1=?0]", "[c1=?1]"),
+
+        SIMPLE_1a9("t(C2, C1) VALUES (?, ?), (?, 1)", TABLE_C1_C2_NULLABLE_C3, "[c1=?1, c2=?0]", "[c1=1, c2=?2]"),
+        SIMPLE_1a10("t(C2, C1) VALUES (?, ?), (2, 1)", TABLE_C1_C2_NULLABLE_C3, "[c1=?1, c2=?0]", "[c1=1, c2=2]"),
+        SIMPLE_1a11("t(C2, C1) VALUES (?, ?), (2, (SELECT 1))", TABLE_C1_C2_NULLABLE_C3),
+        SIMPLE_1a12("t(C2, C1) VALUES (?, ?), (2, (OCTET_LENGTH('TEST')))", TABLE_C1_C2_NULLABLE_C3),
+
+        // pure values case
+        SIMPLE_1b1("t(C1, C2) VALUES (1, 2), (2, 3)", TABLE_C1, "[c1=1]", "[c1=2]"),
+        // values with projection case
+        SIMPLE_1b2("t(C2, C1) VALUES (2, 1), (3, 2)", TABLE_C1, "[c1=1]", "[c1=2]"),
+
+        SIMPLE_1d("t(C1) VALUES (OCTET_LENGTH('TEST')), (2)", TABLE_C1_NULLABLE_C2),
+        SIMPLE_1e("t(C1) VALUES (SELECT 1), (2)", TABLE_C1_NULLABLE_C2),
+
+        SIMPLE_1f1("t(C1, C2, C3) VALUES (1, ?, 1), (2, ?, 2), (3, ?, 3)", TABLE_C1_C2,
+                "[c1=1, c2=?0]", "[c1=2, c2=?1]", "[c1=3, c2=?2]"),
+        SIMPLE_1f2("t(C2, C1, C3) VALUES (1, ?, 1), (2, ?, 2), (3, ?, 3)", TABLE_C1_C2,
+                "[c1=?0, c2=1]", "[c1=?1, c2=2]", "[c1=?2, c2=3]"),
+
+        SIMPLE_1j1("t(C4, C2, C3, C1) VALUES (1, 2, 3, 4), (2, 3, 4, 5)", TABLE_C1_C2_C3, "[c1=4, c2=2, c3=3]", "[c1=5, c2=3, c3=4]"),
+        SIMPLE_1j2("t(C4, C2, C3, C1) VALUES (?, 1, ?, ?), (?, 1, ?, ?)", TABLE_C1_C2_C3, "[c1=?2, c2=1, c3=?1]", "[c1=?5, c2=1, c3=?4]"),
+        SIMPLE_1j3("t(C4, C2, C3, C1) VALUES (?, ?, ?, ?), (2, 3, 4, 5)", TABLE_C1_C2_C3, "[c1=?3, c2=?1, c3=?2]", "[c1=5, c2=3, c3=4]"),
+        ;
+
+        private final TestCase data;
+
+        TestCaseBasicInsert(String condition, IgniteSchema schema, String... expected) {
+            this.data = new TestCase(condition, schema, expected);
+        }
+
+        @Override
+        public String toString() {
+            return data.toString();
+        }
+    }
+
+    enum TestCaseBasicUpdate {
+        SIMPLE_1a("c1 = 42", TABLE_C1, "[c1=42]"),
+        SIMPLE_1b("42 = c1", TABLE_C1, "[c1=42]"),
+        SIMPLE_1c("c1 = ?", TABLE_C1, "[c1=?0]"),
+        SIMPLE_1d("? = c1", TABLE_C1, "[c1=?0]"),
+        SIMPLE_1e("c1 = '42'::INTEGER", TABLE_C1, "[c1=42]"),
+        ;
+        private final TestCase data;
+
+        TestCaseBasicUpdate(String condition, IgniteSchema schema, String... expected) {
+            this.data = new TestCase(condition, schema, expected);
+        }
+
+        @Override
+        public String toString() {
+            return data.toString();
+        }
     }
 
     enum TestCaseBasic {
@@ -301,11 +397,18 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
         }
     }
 
-    /** Test cases for bool columns. */
-    @ParameterizedTest
+    /** Test cases for bool columns, select case. */
+    @ParameterizedTest(name = "SELECT: {0}")
     @EnumSource(TestCaseBool.class)
-    public void testBool(TestCaseBool testCaseBool) {
-        checkPruningMetadata(testCaseBool.data);
+    public void testBoolSelect(TestCaseBool testCaseBool) {
+        checkPruningMetadata(testCaseBool.data, SqlKind.SELECT);
+    }
+
+    /** Test cases for bool columns, delete case. */
+    @ParameterizedTest(name = "DELETE: {0}")
+    @EnumSource(TestCaseBool.class)
+    public void testBoolDelete(TestCaseBool testCaseBool) {
+        checkPruningMetadata(testCaseBool.data, SqlKind.DELETE);
     }
 
     enum TestCaseBool {
@@ -347,11 +450,18 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
         }
     }
 
-    /** Test cases for CASE expression. */
-    @ParameterizedTest
+    /** Test cases for CASE expression, select case. */
+    @ParameterizedTest(name = "SELECT: {0}")
     @EnumSource(TestCaseCaseExpr.class)
-    public void testCaseExpr(TestCaseCaseExpr testCaseBool) {
-        checkPruningMetadata(testCaseBool.data);
+    public void testCaseExprSelect(TestCaseCaseExpr testCaseBool) {
+        checkPruningMetadata(testCaseBool.data, SqlKind.SELECT);
+    }
+
+    /** Test cases for CASE expression, delete case. */
+    @ParameterizedTest(name = "DELETE: {0}")
+    @EnumSource(TestCaseCaseExpr.class)
+    public void testCaseExprDelete(TestCaseCaseExpr testCaseBool) {
+        checkPruningMetadata(testCaseBool.data, SqlKind.DELETE);
     }
 
     enum TestCaseCaseExpr {
@@ -426,8 +536,24 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
         }
     }
 
-    private void checkPruningMetadata(TestCase testCase) {
-        String statement = "SELECT * FROM t WHERE " + testCase.condition;
+    private void checkPruningMetadata(TestCase testCase, SqlKind kind) {
+        String statement;
+        switch (kind) {
+            case SELECT:
+                statement = "SELECT * FROM t WHERE " + testCase.condition;
+                break;
+            case DELETE:
+                statement = "DELETE FROM t WHERE " + testCase.condition;
+                break;
+            case INSERT:
+                statement = "INSERT INTO " + testCase.condition;
+                break;
+            case UPDATE:
+                statement = "UPDATE t SET C2 = 100 WHERE " + testCase.condition;
+                break;
+            default:
+                throw new UnsupportedOperationException(kind.name());
+        }
 
         List<String> expectedMetadata = Arrays.asList(testCase.expected);
         List<Integer> colocationKeys = testCase.colocationKeys();

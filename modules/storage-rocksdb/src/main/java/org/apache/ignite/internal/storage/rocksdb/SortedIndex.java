@@ -20,12 +20,9 @@ package org.apache.ignite.internal.storage.rocksdb;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.sortedIndexCfName;
 
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
-import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.rocksdb.index.RocksDbSortedIndexStorage;
 import org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstance;
-import org.jetbrains.annotations.Nullable;
-import org.rocksdb.WriteBatch;
 
 /**
  * Class that represents a Sorted Index defined for all partitions of a Table.
@@ -33,53 +30,42 @@ import org.rocksdb.WriteBatch;
 class SortedIndex extends Index<RocksDbSortedIndexStorage> {
     private final StorageSortedIndexDescriptor descriptor;
 
-    private final SharedRocksDbInstance rocksDb;
-
-    private final ColumnFamily indexCf;
-
     private final RocksDbMetaStorage indexMetaStorage;
 
-    SortedIndex(
-            SharedRocksDbInstance rocksDb,
+    private SortedIndex(
+            int tableId,
+            ColumnFamily indexCf,
             StorageSortedIndexDescriptor descriptor,
             RocksDbMetaStorage indexMetaStorage
     ) {
-        super(descriptor.id());
+        super(tableId, descriptor.id(), indexCf);
 
-        this.rocksDb = rocksDb;
         this.descriptor = descriptor;
-        this.indexCf = rocksDb.getSortedIndexCfOnIndexCreate(
-                sortedIndexCfName(descriptor.columns()),
-                descriptor.id()
-        );
         this.indexMetaStorage = indexMetaStorage;
     }
 
-    /**
-     * Creates a new Sorted Index storage or returns an existing one.
-     */
-    SortedIndexStorage getOrCreateStorage(RocksDbMvPartitionStorage partitionStorage) {
-        return storageByPartitionId.computeIfAbsent(
-                partitionStorage.partitionId(),
-                partId -> new RocksDbSortedIndexStorage(descriptor, indexCf, partitionStorage.helper(), indexMetaStorage)
-        );
+    static SortedIndex createNew(
+            SharedRocksDbInstance rocksDb,
+            int tableId,
+            StorageSortedIndexDescriptor descriptor,
+            RocksDbMetaStorage indexMetaStorage
+    ) {
+        ColumnFamily indexCf = rocksDb.getOrCreateSortedIndexCf(sortedIndexCfName(descriptor.columns()), descriptor.id(), tableId);
+
+        return new SortedIndex(tableId, indexCf, descriptor, indexMetaStorage);
     }
 
-    /**
-     * Removes all data associated with the index.
-     */
-    void destroy(WriteBatch writeBatch) {
-        transitionToDestroyedState();
-
-        rocksDb.dropCfOnIndexDestroy(indexCf.nameBytes(), descriptor.id());
+    static SortedIndex restoreExisting(
+            int tableId,
+            ColumnFamily indexCf,
+            StorageSortedIndexDescriptor descriptor,
+            RocksDbMetaStorage indexMetaStorage
+    ) {
+        return new SortedIndex(tableId, indexCf, descriptor, indexMetaStorage);
     }
 
-    /**
-     * Returns sorted index storage for partition.
-     *
-     * @param partitionId Partition ID.
-     */
-    @Nullable RocksDbSortedIndexStorage get(int partitionId) {
-        return storageByPartitionId.get(partitionId);
+    @Override
+    RocksDbSortedIndexStorage createStorage(int partitionId) {
+        return new RocksDbSortedIndexStorage(descriptor, tableId, partitionId, indexColumnFamily().columnFamily(), indexMetaStorage);
     }
 }

@@ -23,6 +23,7 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.tx.Lock;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * A decorator interface to hide all tx-protocol-related things.
@@ -58,9 +59,9 @@ public interface IndexLocker {
      * @param txId An identifier of the transaction in which the row is inserted.
      * @param tableRow A table row to insert.
      * @param rowId An identifier of the row in the main storage.
-     * @return A future representing a result.
+     * @return A future representing a result (the result might be {@code null} if no lock has been acquired).
      */
-    CompletableFuture<Lock> locksForInsert(UUID txId, BinaryRow tableRow, RowId rowId);
+    CompletableFuture<@Nullable Lock> locksForInsert(UUID txId, BinaryRow tableRow, RowId rowId);
 
     /**
      * Acquires the lock for remove operation.

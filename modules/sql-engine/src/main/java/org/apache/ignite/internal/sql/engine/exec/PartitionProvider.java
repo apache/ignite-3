@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -46,7 +47,7 @@ public interface PartitionProvider<RowT> {
      *
      * @return List of partitions.
      */
-    static List<PartitionWithConsistencyToken> partitionsForNode(List<NodeWithConsistencyToken> assignments, String nodeName) {
+    static List<PartitionWithConsistencyToken> partitionsForNode(Int2ObjectMap<NodeWithConsistencyToken> assignments, String nodeName) {
         List<PartitionWithConsistencyToken> result = new ArrayList<>();
 
         for (int i = 0; i < assignments.size(); i++) {

@@ -25,9 +25,6 @@ import static org.hamcrest.Matchers.both;
 import static org.hamcrest.Matchers.hasProperty;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -36,8 +33,6 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.hamcrest.core.CombinableMatcher;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 
 class PublicApiThreadingTest {
     private final ExecutorService internalThreadPool = Executors.newSingleThreadExecutor(task -> new TestThread(task, true));
@@ -47,17 +42,8 @@ class PublicApiThreadingTest {
         return publicFuture.thenApply(unused -> Thread.currentThread());
     }
 
-    private static CombinableMatcher<Object> internalPoolThread() {
-        return both(instanceOf(TestThread.class)).and(hasProperty("internal", is(true)));
-    }
-
     private static CombinableMatcher<Object> asyncContinuationThread() {
         return both(instanceOf(TestThread.class)).and(hasProperty("internal", is(false)));
-    }
-
-    @AfterEach
-    void clearInInternalCallStatus() {
-        PublicApiThreading.endInternalCall();
     }
 
     @AfterEach
@@ -67,67 +53,11 @@ class PublicApiThreadingTest {
     }
 
     @Test
-    void notInInternalCallByDefault() {
-        assertFalse(PublicApiThreading.inInternalCall());
-    }
-
-    @Test
-    void startInternalCallRaisesInInternalCallStatus() {
-        PublicApiThreading.startInternalCall();
-
-        assertTrue(PublicApiThreading.inInternalCall());
-    }
-
-    @Test
-    void endInternalCallClearsInInternalCallStatus() {
-        PublicApiThreading.startInternalCall();
-
-        PublicApiThreading.endInternalCall();
-
-        assertFalse(PublicApiThreading.inInternalCall());
-    }
-
-    @Test
-    void doInternalCallExecutesClosureWithFlagRaised() {
-        PublicApiThreading.doInternalCall(() -> {
-            assertTrue(PublicApiThreading.inInternalCall());
-
-            return null;
-        });
-    }
-
-    @ParameterizedTest
-    @ValueSource(booleans = {false, true})
-    void doInternalCallRestoresFlagAfterFinishing(boolean flagBeforeDoInternalCall) {
-        if (flagBeforeDoInternalCall) {
-            PublicApiThreading.startInternalCall();
-        }
-
-        PublicApiThreading.doInternalCall(() -> null);
-
-        assertEquals(flagBeforeDoInternalCall, PublicApiThreading.inInternalCall());
-    }
-
-    @Test
     void doesNotSwitchThreadWhenFutureIsCompleteRightAway() {
         CompletableFuture<Void> publicFuture = PublicApiThreading.preventThreadHijack(nullCompletedFuture(), asyncContinuationExecutor);
         CompletableFuture<Thread> completionThreadFuture = getCompletionThreadFuture(publicFuture);
 
         assertThat(completionThreadFuture, willBe(Thread.currentThread()));
-    }
-
-    @Test
-    void doesNotSwitchThreadWhenDoingInternalCall() {
-        CompletableFuture<Void> internallyCompletedFuture = new CompletableFuture<>();
-
-        CompletableFuture<Void> publicFuture = PublicApiThreading.doInternalCall(
-                () -> PublicApiThreading.preventThreadHijack(internallyCompletedFuture, asyncContinuationExecutor)
-        );
-        CompletableFuture<Thread> completionThreadFuture = getCompletionThreadFuture(publicFuture);
-
-        internallyCompletedFuture.completeAsync(() -> null, internalThreadPool);
-
-        assertThat(completionThreadFuture, willBe(internalPoolThread()));
     }
 
     @Test

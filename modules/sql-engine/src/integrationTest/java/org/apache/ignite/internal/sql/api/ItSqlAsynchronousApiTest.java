@@ -36,10 +36,11 @@ import org.apache.ignite.internal.sql.SyncResultSetAdapter;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.tx.Transaction;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -48,17 +49,22 @@ import org.junit.jupiter.api.Test;
 @SuppressWarnings("ThrowableNotThrown")
 public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18647")
     public void pageSequence() {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
 
         IgniteSql sql = igniteSql();
-        Session ses = sql.sessionBuilder().defaultPageSize(1).build();
 
         for (int i = 0; i < ROW_COUNT; ++i) {
-            ses.execute(null, "INSERT INTO TEST VALUES (?, ?)", i, i);
+            sql.execute(null, "INSERT INTO TEST VALUES (?, ?)", i, i);
         }
 
-        AsyncResultSet<SqlRow> ars0 = await(ses.executeAsync(null, "SELECT ID FROM TEST ORDER BY ID"));
+        Statement statement = sql.statementBuilder()
+                .query("SELECT ID FROM TEST ORDER BY ID")
+                .pageSize(1)
+                .build();
+
+        AsyncResultSet<SqlRow> ars0 = await(sql.executeAsync(null, statement));
         var p0 = ars0.currentPage();
         AsyncResultSet<SqlRow> ars1 = await(ars0.fetchNextPage());
         var p1 = ars1.currentPage();
@@ -89,26 +95,47 @@ public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
     }
 
     @Override
-    protected ResultSet<SqlRow> executeForRead(Session ses, Transaction tx, String query, Object... args) {
-        return new SyncResultSetAdapter(await(ses.executeAsync(tx, query, args)));
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18647")
+    public void select() {
+        super.select();
     }
 
     @Override
-    protected long[] executeBatch(Session ses, String sql, BatchedArguments args) {
-        return await(ses.executeBatchAsync(null, sql, args));
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18647")
+    public void resultSetCloseShouldFinishImplicitTransaction() {
+        super.resultSetCloseShouldFinishImplicitTransaction();
     }
 
     @Override
-    protected ResultProcessor execute(Integer expectedPages, Transaction tx, Session ses, String sql, Object... args) {
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18647")
+    public void errors() throws InterruptedException {
+        super.errors();
+    }
+
+    @Override
+    protected ResultSet<SqlRow> executeForRead(IgniteSql sql, Transaction tx, Statement statement, Object... args) {
+        return new SyncResultSetAdapter(await(sql.executeAsync(tx, statement, args)));
+    }
+
+    @Override
+    protected long[] executeBatch(IgniteSql sql, String query, BatchedArguments args) {
+        return await(sql.executeBatchAsync(null, query, args));
+    }
+
+    @Override
+    protected ResultProcessor execute(Integer expectedPages, Transaction tx, IgniteSql sql, Statement statement, Object... args) {
         AsyncResultProcessor asyncProcessor = new AsyncResultProcessor(expectedPages);
-        await(ses.executeAsync(tx, sql, args).thenCompose(asyncProcessor));
+        await(sql.executeAsync(tx, statement, args).thenCompose(asyncProcessor));
 
         return asyncProcessor;
     }
 
     @Override
-    protected void executeScript(Session ses, String sql, Object... args) {
-        await(ses.executeScriptAsync(sql, args));
+    protected void executeScript(IgniteSql sql, String query, Object... args) {
+        await(sql.executeScriptAsync(query, args));
     }
 
     @Override
@@ -122,8 +149,8 @@ public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
     }
 
     @Override
-    protected void checkDml(int expectedAffectedRows, Transaction tx, Session ses, String sql, Object... args) {
-        AsyncResultSet asyncRes = await(ses.executeAsync(tx, sql, args));
+    protected void checkDml(int expectedAffectedRows, Transaction tx, IgniteSql sql, String query, Object... args) {
+        AsyncResultSet asyncRes = await(sql.executeAsync(tx, query, args));
 
         assertFalse(asyncRes.wasApplied());
         assertFalse(asyncRes.hasMorePages());
@@ -136,10 +163,10 @@ public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
     }
 
     @Override
-    protected void checkDdl(boolean expectedApplied, Session ses, String sql, Transaction tx) {
-        CompletableFuture<AsyncResultSet<SqlRow>> fut = ses.executeAsync(
+    protected void checkDdl(boolean expectedApplied, IgniteSql sql, String query, Transaction tx) {
+        CompletableFuture<AsyncResultSet<SqlRow>> fut = sql.executeAsync(
                 tx,
-                sql
+                query
         );
 
         AsyncResultSet<SqlRow> asyncRes = await(fut);
@@ -193,7 +220,7 @@ public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
 
         @Override
         public List<SqlRow> result() {
-            // noinspection AssignmentOrReturnOfFieldWithMutableType
+            //noinspection AssignmentOrReturnOfFieldWithMutableType
             if (expectedPages != null) {
                 assertEquals(0, expectedPages, "Expected to be read more pages");
             }

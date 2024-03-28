@@ -22,7 +22,6 @@ import org.apache.ignite.internal.sql.engine.datatypes.DataTypeTestSpecs;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.BaseIndexDataTypeTest;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.DataTypeTestSpec;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
-import org.junit.jupiter.api.Disabled;
 
 /**
  * Tests for queries that use indexes with {@link UuidType UUID data type}.
@@ -33,11 +32,5 @@ public class ItUuidIndexTest extends BaseIndexDataTypeTest<UUID> {
     @Override
     protected DataTypeTestSpec<UUID> getTypeSpec() {
         return DataTypeTestSpecs.UUID_TYPE;
-    }
-
-    @Override
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21330")
-    public void testInLookUp() {
-        super.testInLookUp();
     }
 }

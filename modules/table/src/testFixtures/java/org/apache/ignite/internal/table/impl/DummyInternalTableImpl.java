@@ -42,8 +42,10 @@ import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.AbstractMessagingService;
@@ -95,8 +97,8 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
-import org.apache.ignite.internal.tx.impl.ResourceCleanupManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
+import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
@@ -129,6 +131,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     // from the current time.
     // Any value greater than that will work, hence 2000.
     public static final HybridClock CLOCK = new TestHybridClock(() -> 2000);
+
+    private static final ClockService CLOCK_SERVICE = new TestClockService(CLOCK);
 
     private static final int PART_ID = 0;
 
@@ -164,14 +168,9 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         this(
                 replicaSvc,
                 new TestMvPartitionStorage(0),
-                false,
-                null,
                 schema,
-                new HybridTimestampTracker(),
-                new TestPlacementDriver(LOCAL_NODE),
-                storageUpdateConfiguration,
                 txConfiguration,
-                new RemotelyTriggeredResourceRegistry()
+                storageUpdateConfiguration
         );
     }
 
@@ -201,7 +200,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 new TestPlacementDriver(LOCAL_NODE),
                 storageUpdateConfiguration,
                 txConfiguration,
-                new RemotelyTriggeredResourceRegistry()
+                new RemotelyTriggeredResourceRegistry(),
+                new TransactionInflights(new TestPlacementDriver(LOCAL_NODE))
         );
     }
 
@@ -228,7 +228,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
             PlacementDriver placementDriver,
             StorageUpdateConfiguration storageUpdateConfiguration,
             TransactionConfiguration txConfiguration,
-            RemotelyTriggeredResourceRegistry resourcesRegistry
+            RemotelyTriggeredResourceRegistry resourcesRegistry,
+            TransactionInflights transactionInflights
     ) {
         super(
                 "test",
@@ -247,7 +248,10 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                         1,
                         Int2ObjectMaps.singleton(PART_ID, mock(RaftGroupService.class)),
                         new SingleClusterNodeResolver(LOCAL_NODE)
-                )
+                ),
+                transactionInflights,
+                3_000,
+                0
         );
 
         RaftGroupService svc = tableRaftService().partitionRaftGroupService(PART_ID);
@@ -384,7 +388,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 () -> Map.of(pkLocker.id(), pkLocker),
                 pkStorage,
                 Map::of,
-                CLOCK,
+                CLOCK_SERVICE,
                 safeTime,
                 txStateStorage().getOrCreateTxStateStorage(PART_ID),
                 transactionStateResolver,
@@ -407,7 +411,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 safeTime,
                 new PendingComparableValuesTracker<>(0L),
                 catalogService,
-                schemaManager
+                schemaManager,
+                CLOCK_SERVICE
         );
     }
 
@@ -460,25 +465,20 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         when(clusterService.messagingService()).thenReturn(new DummyMessagingService(LOCAL_NODE));
         when(clusterService.topologyService()).thenReturn(topologyService);
 
-        ResourceCleanupManager resourceCleanupManager = new ResourceCleanupManager(
-                LOCAL_NODE.name(),
-                resourcesRegistry,
-                clusterService.topologyService(),
-                clusterService.messagingService()
-        );
+        TransactionInflights transactionInflights = new TransactionInflights(placementDriver);
 
         var txManager = new TxManagerImpl(
                 txConfiguration,
                 clusterService,
                 replicaSvc,
                 new HeapLockManager(),
-                CLOCK,
+                CLOCK_SERVICE,
                 new TransactionIdGenerator(0xdeadbeef),
                 placementDriver,
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
                 new TestLocalRwTxCounter(),
                 resourcesRegistry,
-                resourceCleanupManager
+                transactionInflights
         );
 
         txManager.start();

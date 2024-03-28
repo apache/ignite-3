@@ -56,7 +56,6 @@ import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -285,14 +284,10 @@ public class ItSqlLogicTest extends IgniteIntegrationTest {
     private void beforeTest() {
         if (RESTART_CLUSTER != RestartMode.TEST) {
             for (Table t : CLUSTER_NODES.get(0).tables().tables()) {
-                try (Session s = CLUSTER_NODES.get(0).sql().createSession()) {
-                    try (ResultSet rs = s.execute(null, "DROP TABLE " + t.name())) {
-                        assertTrue(rs.wasApplied());
-                    }
+                try (ResultSet rs = CLUSTER_NODES.get(0).sql().execute(null, "DROP TABLE " + t.name())) {
+                    assertTrue(rs.wasApplied());
                 }
             }
-
-            forceCleanupAbandonedResources(CLUSTER_NODES.get(0));
         }
     }
 
@@ -341,6 +336,10 @@ public class ItSqlLogicTest extends IgniteIntegrationTest {
                 .destinationNodeName(metaStorageNodeName)
                 .metaStorageNodeNames(List.of(metaStorageNodeName))
                 .clusterName("cluster")
+                .clusterConfiguration("{"
+                        + "gc.lowWatermark.dataAvailabilityTime: 1010,\n"
+                        + "gc.lowWatermark.updateFrequency: 3000\n"
+                        + "}")
                 .build();
         TestIgnitionManager.init(initParameters);
 

@@ -134,6 +134,22 @@ public class WatchListenerInhibitor {
      * Executes an action enclosed in watch inhibition: that is, before execution inhibition gets started, and after the execution
      * it gets stopped.
      *
+     * @param action Action to execute.
+     */
+    public void withInhibition(Runnable action) {
+        startInhibit();
+
+        try {
+            action.run();
+        } finally {
+            stopInhibit();
+        }
+    }
+
+    /**
+     * Executes an action enclosed in watch inhibition: that is, before execution inhibition gets started, and after the execution
+     * it gets stopped.
+     *
      * @param ignite Node on which to inhibit watch processing.
      * @param action Action to execute.
      * @return Action result.

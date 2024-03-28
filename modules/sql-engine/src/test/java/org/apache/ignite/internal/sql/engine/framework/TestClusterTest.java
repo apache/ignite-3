@@ -269,7 +269,7 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
 
         initiatorClock.update(initiatorClock.now().addPhysicalTime(ChronoUnit.YEARS.getDuration().toMillis()));
 
-        assertTrue(initiatorClock.now().after(otherNodeClock.now()));
+        assertTrue(initiator.clockService().after(initiatorClock.now(), otherNodeClock.now()));
 
         QueryPlan plan = initiator.prepare("SELECT * FROM t1");
 
@@ -288,13 +288,14 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
         cluster.start();
 
         TestNode initiator = cluster.node("N1");
+        TestNode otherNode = cluster.node("N2");
 
         HybridClock initiatorClock = initiator.clock();
-        HybridClock otherNodeClock = cluster.node("N2").clock();
+        HybridClock otherNodeClock = otherNode.clock();
 
         otherNodeClock.update(otherNodeClock.now().addPhysicalTime(ChronoUnit.YEARS.getDuration().toMillis()));
 
-        assertTrue(otherNodeClock.now().after(initiatorClock.now()));
+        assertTrue(otherNode.clockService().after(otherNodeClock.now(), initiatorClock.now()));
 
         QueryPlan plan = initiator.prepare("SELECT * FROM t1");
 

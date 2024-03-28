@@ -1525,7 +1525,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      * @param x Implementation specific argument, {@code null} always means that we need to return full detached data row.
      * @throws IgniteInternalCheckedException If failed.
      */
-    public final <R> @Nullable R findOne(L row, Object x) throws IgniteInternalCheckedException {
+    public final <R> @Nullable R findOne(L row, @Nullable Object x) throws IgniteInternalCheckedException {
         return findOne(row, null, x);
     }
 
@@ -5645,7 +5645,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                 cmp = -shift; // We need to fix the case when search row matches multiple data rows.
             }
 
-            // noinspection Duplicates
+            //noinspection Duplicates
             if (cmp < 0) {
                 low = mid + 1;
             } else if (cmp > 0) {

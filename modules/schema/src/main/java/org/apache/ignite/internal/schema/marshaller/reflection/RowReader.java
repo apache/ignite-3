@@ -27,6 +27,7 @@ import java.util.BitSet;
 import java.util.UUID;
 import org.apache.ignite.internal.marshaller.MarshallerReader;
 import org.apache.ignite.internal.schema.row.Row;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Adapter from a {@link Row} to a {@link MarshallerReader}.
@@ -36,13 +37,27 @@ class RowReader implements MarshallerReader {
 
     private int index;
 
+    private final int @Nullable[] positions;
+
+    /**
+     * Constructor for a reader that reads row fields in consecutive order.
+     *
+     * @param row Row.
+     */
     RowReader(Row row) {
-        this(row, 0);
+        this(row, null);
     }
 
-    RowReader(Row row, int index) {
+    /**
+     * Constructor for a reader that can read row fields in an order specified by positions array. If positions array is not specified
+     * then this reader reads fields in consecutive order.
+     *
+     * @param row Row.
+     * @param positions Positions array that defines row field read order.
+     */
+    RowReader(Row row, int @Nullable[] positions) {
         this.row = row;
-        this.index = index;
+        this.positions = positions;
     }
 
     @Override
@@ -52,121 +67,150 @@ class RowReader implements MarshallerReader {
 
     @Override
     public boolean readBoolean() {
-        return row.booleanValue(index++);
+        int idx = nextSchemaIndex();
+        return row.booleanValue(idx);
     }
 
     @Override
     public Boolean readBooleanBoxed() {
-        return row.booleanValueBoxed(index++);
+        int idx = nextSchemaIndex();
+        return row.booleanValueBoxed(idx);
     }
 
     @Override
     public byte readByte() {
-        return row.byteValue(index++);
+        int idx = nextSchemaIndex();
+        return row.byteValue(idx);
     }
 
     @Override
     public Byte readByteBoxed() {
-        return row.byteValueBoxed(index++);
+        int idx = nextSchemaIndex();
+        return row.byteValueBoxed(idx);
     }
 
     @Override
     public short readShort() {
-        return row.shortValue(index++);
+        int idx = nextSchemaIndex();
+        return row.shortValue(idx);
     }
 
     @Override
     public Short readShortBoxed() {
-        return row.shortValueBoxed(index++);
+        int idx = nextSchemaIndex();
+        return row.shortValueBoxed(idx);
     }
 
     @Override
     public int readInt() {
-        return row.intValue(index++);
+        int idx = nextSchemaIndex();
+        return row.intValue(idx);
     }
 
     @Override
     public Integer readIntBoxed() {
-        return row.intValueBoxed(index++);
+        int idx = nextSchemaIndex();
+        return row.intValueBoxed(idx);
     }
 
     @Override
     public long readLong() {
-        return row.longValue(index++);
+        int idx = nextSchemaIndex();
+        return row.longValue(idx);
     }
 
     @Override
     public Long readLongBoxed() {
-        return row.longValueBoxed(index++);
+        int idx = nextSchemaIndex();
+        return row.longValueBoxed(idx);
     }
 
     @Override
     public float readFloat() {
-        return row.floatValue(index++);
+        int idx = nextSchemaIndex();
+        return row.floatValue(idx);
     }
 
     @Override
     public Float readFloatBoxed() {
-        return row.floatValueBoxed(index++);
+        int idx = nextSchemaIndex();
+        return row.floatValueBoxed(idx);
     }
 
     @Override
     public double readDouble() {
-        return row.doubleValue(index++);
+        int idx = nextSchemaIndex();
+        return row.doubleValue(idx);
     }
 
     @Override
     public Double readDoubleBoxed() {
-        return row.doubleValueBoxed(index++);
+        int idx = nextSchemaIndex();
+        return row.doubleValueBoxed(idx);
     }
 
     @Override
     public String readString() {
-        return row.stringValue(index++);
+        int idx = nextSchemaIndex();
+        return row.stringValue(idx);
     }
 
     @Override
     public UUID readUuid() {
-        return row.uuidValue(index++);
+        int idx = nextSchemaIndex();
+        return row.uuidValue(idx);
     }
 
     @Override
     public byte[] readBytes() {
-        return row.bytesValue(index++);
+        int idx = nextSchemaIndex();
+        return row.bytesValue(idx);
     }
 
     @Override
     public BitSet readBitSet() {
-        return row.bitmaskValue(index++);
+        int idx = nextSchemaIndex();
+        return row.bitmaskValue(idx);
     }
 
     @Override
     public BigInteger readBigInt() {
-        return row.numberValue(index++);
+        int idx = nextSchemaIndex();
+        return row.numberValue(idx);
     }
 
     @Override
     public BigDecimal readBigDecimal(int scale) {
-        return row.decimalValue(index++, scale);
+        int idx = nextSchemaIndex();
+        return row.decimalValue(idx);
     }
 
     @Override
     public LocalDate readDate() {
-        return row.dateValue(index++);
+        int idx = nextSchemaIndex();
+        return row.dateValue(idx);
     }
 
     @Override
     public LocalTime readTime() {
-        return row.timeValue(index++);
+        int idx = nextSchemaIndex();
+        return row.timeValue(idx);
     }
 
     @Override
     public Instant readTimestamp() {
-        return row.timestampValue(index++);
+        int idx = nextSchemaIndex();
+        return row.timestampValue(idx);
     }
 
     @Override
     public LocalDateTime readDateTime() {
-        return row.dateTimeValue(index++);
+        int idx = nextSchemaIndex();
+        return row.dateTimeValue(idx);
+    }
+
+    private int nextSchemaIndex() {
+        int i = index++;
+        return positions == null ? i : positions[i];
     }
 }

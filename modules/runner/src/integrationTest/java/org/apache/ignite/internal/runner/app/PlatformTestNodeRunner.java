@@ -61,7 +61,6 @@ import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
-import org.apache.ignite.internal.IgniteIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
@@ -80,9 +79,9 @@ import org.apache.ignite.internal.table.RecordBinaryViewImpl;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteCheckedException;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 
@@ -122,7 +121,7 @@ public class PlatformTestNodeRunner {
     /** Nodes bootstrap configuration. */
     private static final Map<String, String> nodesBootstrapCfg = Map.of(
             NODE_NAME, "{\n"
-                    + "  \"clientConnector\":{\"port\": 10942,\"idleTimeout\":3000,\""
+                    + "  \"clientConnector\":{\"port\": 10942,\"idleTimeout\":6000,\""
                     + "sendServerExceptionStackTraceToClient\":true},"
                     + "  \"network\": {\n"
                     + "    \"port\":3344,\n"
@@ -134,7 +133,7 @@ public class PlatformTestNodeRunner {
                     + "}",
 
             NODE_NAME2, "{\n"
-                    + "  \"clientConnector\":{\"port\": 10943,\"idleTimeout\":3000,"
+                    + "  \"clientConnector\":{\"port\": 10943,\"idleTimeout\":6000,"
                     + "\"sendServerExceptionStackTraceToClient\":true},"
                     + "  \"network\": {\n"
                     + "    \"port\":3345,\n"
@@ -148,7 +147,7 @@ public class PlatformTestNodeRunner {
             NODE_NAME3, "{\n"
                     + "  \"clientConnector\":{"
                     + "    \"port\": 10944,"
-                    + "    \"idleTimeout\":3000,"
+                    + "    \"idleTimeout\":6000,"
                     + "    \"sendServerExceptionStackTraceToClient\":true, "
                     + "    \"ssl\": {\n"
                     + "      enabled: true,\n"
@@ -170,7 +169,7 @@ public class PlatformTestNodeRunner {
             NODE_NAME4, "{\n"
                     + "  \"clientConnector\":{"
                     + "    \"port\": 10945,"
-                    + "    \"idleTimeout\":3000,"
+                    + "    \"idleTimeout\":6000,"
                     + "    \"sendServerExceptionStackTraceToClient\":true, "
                     + "    \"ssl\": {\n"
                     + "      enabled: true,\n"
@@ -548,9 +547,7 @@ public class PlatformTestNodeRunner {
         public String execute(JobExecutionContext context, Object... args) {
             String tableName = (String) args[0];
 
-            try (Session session = context.ignite().sql().createSession()) {
-                session.execute(null, "CREATE TABLE " + tableName + "(key BIGINT PRIMARY KEY, val INT)");
-            }
+            context.ignite().sql().execute(null, "CREATE TABLE " + tableName + "(key BIGINT PRIMARY KEY, val INT)");
 
             return tableName;
         }
@@ -564,11 +561,7 @@ public class PlatformTestNodeRunner {
         @Override
         public String execute(JobExecutionContext context, Object... args) {
             String tableName = (String) args[0];
-            try (Session session = context.ignite().sql().createSession()) {
-                session.execute(null, "DROP TABLE " + tableName + "");
-            }
-
-            IgniteIntegrationTest.forceCleanupAbandonedResources(context.ignite());
+            context.ignite().sql().execute(null, "DROP TABLE " + tableName + "");
 
             return tableName;
         }
@@ -733,7 +726,7 @@ public class PlatformTestNodeRunner {
 
             @SuppressWarnings("resource")
             Table table = context.ignite().tables().table(tableName);
-            RecordBinaryViewImpl view = (RecordBinaryViewImpl) table.recordView();
+            RecordBinaryViewImpl view = Wrappers.unwrap(table.recordView(), RecordBinaryViewImpl.class);
             TupleMarshaller marsh = view.marshaller(1);
 
             try {

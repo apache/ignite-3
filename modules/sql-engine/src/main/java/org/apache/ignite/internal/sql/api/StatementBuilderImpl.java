@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.api;
 
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -43,6 +45,8 @@ class StatementBuilderImpl implements StatementBuilder {
 
     /** Page size. */
     private Integer pageSize;
+
+    private ZoneId zoneId = ZoneOffset.UTC;
 
     /** {@inheritDoc} */
     @Override
@@ -100,6 +104,21 @@ class StatementBuilderImpl implements StatementBuilder {
     @Override
     public StatementBuilder pageSize(int pageSize) {
         this.pageSize = pageSize;
+
+        return this;
+    }
+
+
+    /** {@inheritDoc} */
+    @Override
+    public ZoneId timeZoneId() {
+        return zoneId;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public StatementBuilder timeZoneId(ZoneId zoneId) {
+        this.zoneId = Objects.requireNonNull(zoneId);
 
         return this;
     }

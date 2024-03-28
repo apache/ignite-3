@@ -248,6 +248,7 @@ public class ItRaftCommandLeftInLogUntilRestartTest extends ClusterPerClassInteg
                 64,
                 () -> new ApplyTask(),
                 1,
+                false,
                 false
         ) {
             @Override

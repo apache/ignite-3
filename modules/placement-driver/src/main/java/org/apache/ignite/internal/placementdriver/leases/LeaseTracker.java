@@ -22,7 +22,6 @@ import static java.util.Collections.emptyMap;
 import static java.util.Collections.unmodifiableMap;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.hlc.HybridTimestamp.CLOCK_SKEW;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.MIN_VALUE;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_LEASES_KEY;
 import static org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED;
@@ -44,6 +43,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.event.AbstractEventProducer;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -99,14 +99,18 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
     /** Cluster node resolver. */
     private final ClusterNodeResolver clusterNodeResolver;
 
+    private final ClockService clockService;
+
     /**
      * Constructor.
      *
      * @param msManager Meta storage manager.
+     * @param clockService Clock service.
      */
-    public LeaseTracker(MetaStorageManager msManager, ClusterNodeResolver clusterNodeResolver) {
+    public LeaseTracker(MetaStorageManager msManager, ClusterNodeResolver clusterNodeResolver, ClockService clockService) {
         this.msManager = msManager;
         this.clusterNodeResolver = clusterNodeResolver;
+        this.clockService = clockService;
     }
 
     /**
@@ -285,17 +289,17 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
         return inBusyLockAsync(busyLock, () -> {
             Lease lease = getLease(replicationGroupId);
 
-            if (lease.isAccepted() && lease.getExpirationTime().after(timestamp)) {
+            if (lease.isAccepted() && clockService.after(lease.getExpirationTime(), timestamp)) {
                 return completedFuture(lease);
             }
 
             return msManager
                     .clusterTime()
-                    .waitFor(timestamp.addPhysicalTime(CLOCK_SKEW))
+                    .waitFor(timestamp.addPhysicalTime(clockService.maxClockSkewMillis()))
                     .thenApply(ignored -> inBusyLock(busyLock, () -> {
                         Lease lease0 = getLease(replicationGroupId);
 
-                        if (lease0.isAccepted() && lease0.getExpirationTime().after(timestamp)) {
+                        if (lease0.isAccepted() && clockService.after(lease0.getExpirationTime(), timestamp)) {
                             return lease0;
                         } else {
                             return null;

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.prepare.pruning;
 import static org.apache.ignite.internal.util.IgniteUtils.newHashMap;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.ints.IntArraySet;
 import it.unimi.dsi.fastutil.ints.IntSet;
 import java.time.Instant;
@@ -86,6 +87,15 @@ public final class PartitionPruningPredicate {
 
         Map<String, List<PartitionWithConsistencyToken>> partitionsPerNode = newHashMap(colocationGroup.nodeNames().size());
         Set<String> newNodes = new HashSet<>();
+        Int2ObjectMap<NodeWithConsistencyToken> newAssignments = new Int2ObjectOpenHashMap<>(remainingPartitions.size());
+
+        for (int p = 0; p < colocationGroup.assignments().size(); p++) {
+            NodeWithConsistencyToken nodeWithConsistencyToken = colocationGroup.assignments().get(p);
+
+            if (remainingPartitions.contains(p)) {
+                newAssignments.put(p, nodeWithConsistencyToken);
+            }
+        }
 
         for (String nodeName : colocationGroup.nodeNames()) {
             List<PartitionWithConsistencyToken> partsWithConsistencyTokens = new ArrayList<>();
@@ -109,11 +119,10 @@ public final class PartitionPruningPredicate {
             }
         }
 
-        // Keep assignments intact, because they are used by DestinationFactory.
         return new ColocationGroup(
                 colocationGroup.sourceIds(),
                 List.copyOf(newNodes),
-                colocationGroup.assignments(),
+                newAssignments,
                 partitionsPerNode
         );
     }
@@ -133,7 +142,7 @@ public final class PartitionPruningPredicate {
             PartitionPruningColumns pruningColumns,
             IgniteTable table,
             ExpressionFactory<RowT> expressionFactory,
-            List<NodeWithConsistencyToken> assignments,
+            Int2ObjectMap<NodeWithConsistencyToken> assignments,
             String nodeName
     ) {
         ImmutableIntList keys = table.distribution().getKeys();

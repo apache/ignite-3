@@ -27,7 +27,10 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.DistributionZoneExistsValidationException;
 import org.apache.ignite.internal.catalog.DistributionZoneNotFoundValidationException;
+import org.apache.ignite.internal.hlc.ClockWaiter;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateZoneCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropZoneCommand;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -43,16 +46,23 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
 
     private CatalogManager catalogManager;
 
+    private ClockWaiter clockWaiter;
+
     @BeforeEach
     void before() {
-        catalogManager = createTestCatalogManager("test", new HybridClockImpl());
+        HybridClock clock = new HybridClockImpl();
+        catalogManager = createTestCatalogManager("test", clock);
         assertThat(catalogManager.start(), willCompleteSuccessfully());
 
-        commandHandler = new DdlCommandHandler(catalogManager);
+        clockWaiter = new ClockWaiter("test", clock);
+        assertThat(clockWaiter.start(), willCompleteSuccessfully());
+
+        commandHandler = new DdlCommandHandler(catalogManager, new TestClockService(clock, clockWaiter), () -> 100);
     }
 
     @AfterEach
     public void after() throws Exception {
+        clockWaiter.stop();
         catalogManager.stop();
     }
 

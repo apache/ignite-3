@@ -29,7 +29,6 @@ import org.apache.ignite.InitParameters;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
@@ -95,9 +94,7 @@ public class ItSingleNodeTest extends IgniteAbstractTest {
                 + "    field1   int\n"
                 + ")";
 
-        try (Session session = ignite.sql().createSession()) {
-            session.execute(null, sqlCreate);
-        }
+        ignite.sql().execute(null, sqlCreate);
 
         stopNode();
         ignite = startNode();

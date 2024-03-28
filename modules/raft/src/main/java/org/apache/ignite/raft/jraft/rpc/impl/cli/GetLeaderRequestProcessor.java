@@ -92,7 +92,6 @@ public class GetLeaderRequestProcessor extends BaseCliRequestProcessor<GetLeader
             }
         }
         return RaftRpcFactory.DEFAULT //
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-21415 Investigate correct RaftError
             .newResponse(msgFactory(), RaftError.UNKNOWN, "Unknown leader");
     }
 

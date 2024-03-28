@@ -18,6 +18,7 @@
 package org.apache.ignite.client.fakes;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.mockito.Mockito.mock;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -38,6 +39,7 @@ import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.Table;
 import org.jetbrains.annotations.Nullable;
 
@@ -220,7 +222,7 @@ public class FakeIgniteTables implements IgniteTablesInternal {
                         return completedFuture(schemaReg.lastKnownSchemaVersion());
                     }
                 },
-                new FakeIgniteSql(),
+                mock(IgniteSql.class),
                 -1
         );
     }

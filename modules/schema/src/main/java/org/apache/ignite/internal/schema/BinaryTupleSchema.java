@@ -104,7 +104,7 @@ public class BinaryTupleSchema {
 
     /** Tuple schema corresponding to a set of row columns going in a contiguous range. */
     private static final class DenseRowSchema extends BinaryTupleSchema {
-        List<Column> columns;
+        int columnBase;
 
         boolean fullSize;
 
@@ -112,19 +112,19 @@ public class BinaryTupleSchema {
          * Constructs a tuple schema for a contiguous range of columns.
          *
          * @param elements Tuple elements.
-         * @param columns Schema columns.
+         * @param columnBase Row column matching the first tuple element.
          * @param fullSize True if the tuple contains enough elements to form a full row.
          */
-        private DenseRowSchema(Element[] elements, List<Column> columns, boolean fullSize) {
+        private DenseRowSchema(Element[] elements, int columnBase, boolean fullSize) {
             super(elements);
-            this.columns = columns;
+            this.columnBase = columnBase;
             this.fullSize = fullSize;
         }
 
         /** {@inheritDoc} */
         @Override
         public int columnIndex(int index) {
-            return columns.get(index).positionInRow();
+            return index + columnBase;
         }
 
         /** {@inheritDoc} */
@@ -185,7 +185,7 @@ public class BinaryTupleSchema {
      * @return Tuple schema.
      */
     public static BinaryTupleSchema createRowSchema(SchemaDescriptor descriptor) {
-        return createSchema(descriptor, descriptor.columns());
+        return createSchema(descriptor, 0, descriptor.length());
     }
 
     /**
@@ -195,7 +195,38 @@ public class BinaryTupleSchema {
      * @return Tuple schema.
      */
     public static BinaryTupleSchema createKeySchema(SchemaDescriptor descriptor) {
-        return createSchema(descriptor, descriptor.keyColumns());
+        List<Column> columns = descriptor.keyColumns();
+        Element[] elements = new Element[columns.size()];
+
+        for (int i = 0; i < columns.size(); i++) {
+            Column column = columns.get(i);
+            elements[i] = new Element(column.type(), column.nullable());
+        }
+
+        // Key schema can be converted into a key-only tuple, so this schema should be have convertible = true
+        return new DenseRowSchema(elements, 0, true);
+    }
+
+    /**
+     * Creates a schema for binary tuples that should be used to place key columns into a row.
+     * Unlike {@link #createKeySchema(SchemaDescriptor)} this schema is not convertible, because
+     * key columns might be located at arbitrary positions and in non-consecutive manner.
+     *
+     * @param descriptor Row schema.
+     * @return Tuple schema.
+     */
+    public static BinaryTupleSchema createDestinationKeySchema(SchemaDescriptor descriptor) {
+        List<Column> columns = descriptor.keyColumns();
+        Element[] elements = new Element[columns.size()];
+        int[] positions = new int[columns.size()];
+
+        for (int i = 0; i < columns.size(); i++) {
+            Column column = columns.get(i);
+            elements[i] = new Element(column.type(), column.nullable());
+            positions[i] = column.positionInRow();
+        }
+
+        return new SparseRowSchema(elements, positions);
     }
 
     /**
@@ -205,27 +236,31 @@ public class BinaryTupleSchema {
      * @return Tuple schema.
      */
     public static BinaryTupleSchema createValueSchema(SchemaDescriptor descriptor) {
-        return createSchema(descriptor, descriptor.valueColumns());
+        return createSchema(descriptor, descriptor.keyColumns().size(), descriptor.length());
     }
 
     /**
      * Creates a tuple schema based on a range of row columns.
      *
      * @param descriptor Row schema.
-     * @param columns Columns to use.
+     * @param colBegin First columns in the range.
+     * @param colEnd Last column in the range (exclusive).
      * @return Tuple schema.
      */
-    private static BinaryTupleSchema createSchema(SchemaDescriptor descriptor, List<Column> columns) {
-        Element[] elements = new Element[columns.size()];
+    private static BinaryTupleSchema createSchema(SchemaDescriptor descriptor, int colBegin, int colEnd) {
+        int numCols = colEnd - colBegin;
 
-        for (int i = 0; i < columns.size(); i++) {
-            Column col = columns.get(i);
-            elements[i] = new Element(col.type(), col.nullable());
+        Element[] elements = new Element[numCols];
+
+        for (int i = 0; i < numCols; i++) {
+            Column column = descriptor.column(colBegin + i);
+            elements[i] = new Element(column.type(), column.nullable());
         }
 
-        boolean fullSize = columns.size() == descriptor.columns().size();
+        boolean fullSize = (colBegin == 0
+                && (colEnd == descriptor.length() || colEnd == descriptor.keyColumns().size()));
 
-        return new DenseRowSchema(elements, columns, fullSize);
+        return new DenseRowSchema(elements, colBegin, fullSize);
     }
 
     /**

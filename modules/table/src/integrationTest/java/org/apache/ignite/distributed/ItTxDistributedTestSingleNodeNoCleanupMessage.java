@@ -34,7 +34,7 @@ import java.util.concurrent.Executor;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -58,8 +58,8 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
-import org.apache.ignite.internal.tx.impl.ResourceCleanupManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
+import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
@@ -111,25 +111,25 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
             protected TxManagerImpl newTxManager(
                     ClusterService clusterService,
                     ReplicaService replicaSvc,
-                    HybridClock clock,
+                    ClockService clockService,
                     TransactionIdGenerator generator,
                     ClusterNode node,
                     PlacementDriver placementDriver,
                     RemotelyTriggeredResourceRegistry resourcesRegistry,
-                    ResourceCleanupManager resourceCleanupManager
+                    TransactionInflights transactionInflights
             ) {
                 return new TxManagerImpl(
                         txConfiguration,
                         clusterService,
                         replicaSvc,
                         new HeapLockManager(),
-                        clock,
+                        clockService,
                         generator,
                         placementDriver,
                         () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
                         new TestLocalRwTxCounter(),
                         resourcesRegistry,
-                        resourceCleanupManager
+                        transactionInflights
                 ) {
                     @Override
                     public CompletableFuture<Void> executeWriteIntentSwitchAsync(Runnable runnable) {
@@ -153,7 +153,7 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                     Supplier<Map<Integer, IndexLocker>> indexesLockers,
                     Lazy<TableSchemaAwareIndexStorage> pkIndexStorage,
                     Supplier<Map<Integer, TableSchemaAwareIndexStorage>> secondaryIndexStorages,
-                    HybridClock hybridClock,
+                    ClockService clockService,
                     PendingComparableValuesTracker<HybridTimestamp, Void> safeTime,
                     TxStateStorage txStateStorage,
                     TransactionStateResolver transactionStateResolver,
@@ -178,7 +178,7 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                         indexesLockers,
                         pkIndexStorage,
                         secondaryIndexStorages,
-                        hybridClock,
+                        clockService,
                         safeTime,
                         txStateStorage,
                         transactionStateResolver,

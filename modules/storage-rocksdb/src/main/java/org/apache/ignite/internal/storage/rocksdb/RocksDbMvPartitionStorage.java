@@ -34,8 +34,8 @@ import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.put
 import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.readTimestampDesc;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage.PARTITION_CONF_PREFIX;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage.PARTITION_META_PREFIX;
-import static org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage.createKey;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.KEY_BYTE_ORDER;
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.createKey;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.normalize;
 import static org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstance.DFLT_WRITE_OPTS;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageState;
@@ -232,7 +232,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                                 lastAppliedIndex = state.pendingAppliedIndex;
                                 lastAppliedTerm = state.pendingAppliedTerm;
                             }
-                            // noinspection ArrayEquality
+                            //noinspection ArrayEquality
                             if (oldGroupConfig != state.pendingGroupConfig) {
                                 lastGroupConfig = state.pendingGroupConfig;
                             }
@@ -877,7 +877,6 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         });
     }
 
-    // TODO: IGNITE-16914 Play with prefix settings and benchmark results.
     @Override
     public PartitionTimestampCursor scan(HybridTimestamp timestamp) throws StorageException {
         Objects.requireNonNull(timestamp, "timestamp is null");
@@ -995,7 +994,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     public @Nullable GcEntry peek(HybridTimestamp lowWatermark) {
-        // noinspection resource
+        //noinspection resource
         PartitionDataHelper.requireWriteBatch();
 
         // No busy lock required, we're already in "runConsistently" closure.

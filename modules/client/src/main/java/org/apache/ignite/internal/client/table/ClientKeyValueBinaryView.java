@@ -32,6 +32,7 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.table.criteria.SqlRowProjection;
@@ -60,9 +61,10 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
      * Constructor.
      *
      * @param tbl Table.
+     * @param sql Sql.
      */
-    public ClientKeyValueBinaryView(ClientTable tbl) {
-        super(tbl);
+    public ClientKeyValueBinaryView(ClientTable tbl, ClientSql sql) {
+        super(tbl, sql);
 
         ser = new ClientTupleSerializer(tbl.tableId());
     }

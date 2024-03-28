@@ -40,6 +40,8 @@ namespace Apache.Ignite.Internal
     /// </summary>
     internal sealed class ClientFailoverSocket : IDisposable, IClientSocketEventListener
     {
+        private const string ExceptionDataEndpoint = "Endpoint";
+
         /** Current global endpoint index for Round-robin. */
         private static long _globalEndPointIndex;
 
@@ -109,6 +111,11 @@ namespace Apache.Ignite.Internal
         /// Gets the observable timestamp.
         /// </summary>
         public long ObservableTimestamp => Interlocked.Read(ref _observableTimestamp);
+
+        /// <summary>
+        /// Gets the client ID.
+        /// </summary>
+        public Guid ClientId { get; } = Guid.NewGuid();
 
         /// <summary>
         /// Connects the socket.
@@ -197,9 +204,11 @@ namespace Apache.Ignite.Internal
 
             while (true)
             {
+                ClientSocket? socket = null;
+
                 try
                 {
-                    var socket = await GetSocketAsync(preferredNode).ConfigureAwait(false);
+                    socket = await GetSocketAsync(preferredNode).ConfigureAwait(false);
 
                     var buffer = await socket.DoOutInOpAsync(clientOp, request, expectNotifications).ConfigureAwait(false);
 
@@ -210,7 +219,14 @@ namespace Apache.Ignite.Internal
                     // Preferred node connection may not be available, do not use it after first failure.
                     preferredNode = default;
 
-                    if (!HandleOpError(e, clientOp, ref attempt, ref errors, retryPolicyOverride ?? Configuration.RetryPolicy))
+                    MetricsContext? metricsContext =
+                        socket?.MetricsContext
+                        ?? (e.Data[ExceptionDataEndpoint] as SocketEndpoint)?.MetricsContext
+                        ?? (e.InnerException?.Data[ExceptionDataEndpoint] as SocketEndpoint)?.MetricsContext;
+
+                    IRetryPolicy retryPolicy = retryPolicyOverride ?? Configuration.RetryPolicy;
+
+                    if (!HandleOpError(e, clientOp, ref attempt, ref errors, retryPolicy, metricsContext))
                     {
                         throw;
                     }
@@ -438,6 +454,8 @@ namespace Apache.Ignite.Internal
                 {
                     errors ??= new List<Exception>();
 
+                    e.Data[ExceptionDataEndpoint] = endPoint;
+
                     errors.Add(e);
                 }
             }
@@ -518,6 +536,9 @@ namespace Apache.Ignite.Internal
         /// </summary>
         private IEnumerable<SocketEndpoint> GetIpEndPoints(IgniteClientConfiguration cfg)
         {
+            // Metric collection tools expect numbers and strings, don't pass Guid.
+            var clientId = ClientId.ToString();
+
             foreach (var e in Endpoint.GetEndpoints(cfg))
             {
                 var host = e.Host;
@@ -525,7 +546,7 @@ namespace Apache.Ignite.Internal
 
                 foreach (var ip in GetIps(host))
                 {
-                    yield return new SocketEndpoint(new IPEndPoint(ip, e.Port), host);
+                    yield return new SocketEndpoint(new IPEndPoint(ip, e.Port), host, clientId);
                 }
             }
         }
@@ -610,6 +631,7 @@ namespace Apache.Ignite.Internal
         /// <param name="attempt">Current attempt.</param>
         /// <param name="errors">Previous errors.</param>
         /// <param name="retryPolicy">Retry policy.</param>
+        /// <param name="metricsContext">Metrics context.</param>
         /// <returns>True if the error was handled, false otherwise.</returns>
         [SuppressMessage("Microsoft.Design", "CA1002:DoNotExposeGenericLists", Justification = "Private.")]
         private bool HandleOpError(
@@ -617,7 +639,8 @@ namespace Apache.Ignite.Internal
             ClientOp op,
             ref int attempt,
             ref List<Exception>? errors,
-            IRetryPolicy? retryPolicy)
+            IRetryPolicy? retryPolicy,
+            MetricsContext? metricsContext)
         {
             if (!ShouldRetry(exception, op, attempt, retryPolicy))
             {
@@ -645,7 +668,8 @@ namespace Apache.Ignite.Internal
                 _logger.LogRetryingOperationDebug("Retrying", (int)op, op, attempt, exception.Message);
             }
 
-            Metrics.RequestsRetried.Add(1);
+            Metrics.RequestsRetried.Add(1, metricsContext?.Tags ?? Array.Empty<KeyValuePair<string, object?>>());
+            Debug.Assert(metricsContext != null, "metricsContext != null");
 
             if (errors == null)
             {

@@ -19,11 +19,13 @@ package org.apache.ignite.internal.index;
 
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -33,6 +35,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
@@ -53,6 +56,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Test class for scenarios related to dropping of indices, executed on a multiple node cluster.
  */
+@SuppressWarnings("resource")
 public class ItDropIndexMultipleNodesTest extends BaseSqlIntegrationTest {
     private static final String TABLE_NAME = "TEST";
 
@@ -227,10 +231,21 @@ public class ItDropIndexMultipleNodesTest extends BaseSqlIntegrationTest {
         assertThat(readDataFromIndexTransaction, willCompleteSuccessfully());
     }
 
+    private static int createIndex() {
+        createIndexBlindly();
+
+        IgniteImpl node = CLUSTER.aliveNode();
+
+        return node.catalogManager().aliveIndex(INDEX_NAME, node.clock().nowLong()).id();
+    }
+
+    private static void createIndexBlindly() {
+        createIndex(TABLE_NAME, INDEX_NAME, "name");
+    }
+
     @Test
     void testDropIndexAfterRegistering() {
-        // We are going to block index building.
-        setAwaitIndexAvailability(false);
+        CatalogManager catalogManager = CLUSTER.aliveNode().catalogManager();
 
         populateTable();
 
@@ -239,10 +254,19 @@ public class ItDropIndexMultipleNodesTest extends BaseSqlIntegrationTest {
         runInRwTransaction(CLUSTER.aliveNode(), tx -> {
             // Create an index inside a transaction, this will prevent the index from building.
             try {
-                createIndex();
+                CompletableFuture<Void> creationFuture = runAsync(ItDropIndexMultipleNodesTest::createIndexBlindly);
+
+                assertTrue(waitForCondition(
+                        () -> catalogManager.schema(catalogManager.latestCatalogVersion()).aliveIndex(INDEX_NAME) != null,
+                        10_000
+                ));
 
                 dropIndex();
-            } catch (Exception e) {
+
+                assertThat(creationFuture, willCompleteSuccessfully());
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+
                 throw new RuntimeException(e);
             }
         });
@@ -252,9 +276,6 @@ public class ItDropIndexMultipleNodesTest extends BaseSqlIntegrationTest {
 
     @Test
     void testDropIndexDuringBuilding() {
-        // We are going to block index building.
-        setAwaitIndexAvailability(false);
-
         populateTable();
 
         // Block index building messages, this way index will never become AVAILABLE.
@@ -264,21 +285,14 @@ public class ItDropIndexMultipleNodesTest extends BaseSqlIntegrationTest {
 
         CompletableFuture<Void> indexRemovedFuture = indexRemovedFuture();
 
-        createIndex();
+        CompletableFuture<Void> creationFuture = runAsync(ItDropIndexMultipleNodesTest::createIndexBlindly);
 
         assertThat(indexBuildingFuture, willCompleteSuccessfully());
 
         dropIndex();
 
         assertThat(indexRemovedFuture, willCompleteSuccessfully());
-    }
-
-    private static int createIndex() {
-        createIndex(TABLE_NAME, INDEX_NAME, "name");
-
-        IgniteImpl node = CLUSTER.aliveNode();
-
-        return node.catalogManager().aliveIndex(INDEX_NAME, node.clock().nowLong()).id();
+        assertThat(creationFuture, willCompleteSuccessfully());
     }
 
     private static void dropIndex() {

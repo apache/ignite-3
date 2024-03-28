@@ -201,6 +201,11 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
+    public void vacuum() {
+        // No-op.
+    }
+
+    @Override
     public int finished() {
         return 0;
     }
@@ -213,20 +218,5 @@ public class FakeTxManager implements TxManager {
     @Override
     public CompletableFuture<Void> updateLowWatermark(HybridTimestamp newLowWatermark) {
         return null;
-    }
-
-    @Override
-    public boolean addInflight(UUID txId) {
-        return false;
-    }
-
-    @Override
-    public void removeInflight(UUID txId) {
-        // No-op.
-    }
-
-    @Override
-    public HybridClock clock() {
-        return clock;
     }
 }

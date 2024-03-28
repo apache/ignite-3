@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
@@ -56,7 +57,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.configuration.ConfigurationChangeException;
-import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -162,7 +163,49 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
     private final long shutdownTimeout;
 
-    private final HybridClock clock;
+    private final ClockService clockService;
+
+    /**
+     * Constructor.
+     *
+     * @param messageService Message service.
+     * @param topSrvc Topology service.
+     * @param mappingService Nodes mapping calculation service.
+     * @param sqlSchemaManager Schema manager.
+     * @param ddlCmdHnd Handler of the DDL commands.
+     * @param taskExecutor Task executor.
+     * @param handler Row handler.
+     * @param implementorFactory Relational node implementor factory.
+     * @param clockService Clock service.
+     */
+    public ExecutionServiceImpl(
+            MessageService messageService,
+            TopologyService topSrvc,
+            MappingService mappingService,
+            SqlSchemaManager sqlSchemaManager,
+            DdlCommandHandler ddlCmdHnd,
+            QueryTaskExecutor taskExecutor,
+            RowHandler<RowT> handler,
+            ExecutableTableRegistry tableRegistry,
+            ExecutionDependencyResolver dependencyResolver,
+            ImplementorFactory<RowT> implementorFactory,
+            ClockService clockService,
+            long shutdownTimeout
+    ) {
+        this.localNode = topSrvc.localMember();
+        this.handler = handler;
+        this.messageService = messageService;
+        this.mappingService = mappingService;
+        this.topSrvc = topSrvc;
+        this.sqlSchemaManager = sqlSchemaManager;
+        this.taskExecutor = taskExecutor;
+        this.ddlCmdHnd = ddlCmdHnd;
+        this.tableRegistry = tableRegistry;
+        this.dependencyResolver = dependencyResolver;
+        this.implementorFactory = implementorFactory;
+        this.clockService = clockService;
+        this.shutdownTimeout = shutdownTimeout;
+    }
 
     /**
      * Creates the execution services.
@@ -190,7 +233,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             MappingService mappingService,
             ExecutableTableRegistry tableRegistry,
             ExecutionDependencyResolver dependencyResolver,
-            HybridClock clock,
+            ClockService clockService,
             long shutdownTimeout
     ) {
         return new ExecutionServiceImpl<>(
@@ -208,51 +251,9 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                         mailboxRegistry,
                         exchangeSrvc,
                         deps),
-                clock,
+                clockService,
                 shutdownTimeout
         );
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param messageService Message service.
-     * @param topSrvc Topology service.
-     * @param mappingService Nodes mapping calculation service.
-     * @param sqlSchemaManager Schema manager.
-     * @param ddlCmdHnd Handler of the DDL commands.
-     * @param taskExecutor Task executor.
-     * @param handler Row handler.
-     * @param implementorFactory Relational node implementor factory.
-     * @param clock Hybrid clock.
-     */
-    public ExecutionServiceImpl(
-            MessageService messageService,
-            TopologyService topSrvc,
-            MappingService mappingService,
-            SqlSchemaManager sqlSchemaManager,
-            DdlCommandHandler ddlCmdHnd,
-            QueryTaskExecutor taskExecutor,
-            RowHandler<RowT> handler,
-            ExecutableTableRegistry tableRegistry,
-            ExecutionDependencyResolver dependencyResolver,
-            ImplementorFactory<RowT> implementorFactory,
-            HybridClock clock,
-            long shutdownTimeout
-    ) {
-        this.localNode = topSrvc.localMember();
-        this.handler = handler;
-        this.messageService = messageService;
-        this.mappingService = mappingService;
-        this.topSrvc = topSrvc;
-        this.sqlSchemaManager = sqlSchemaManager;
-        this.taskExecutor = taskExecutor;
-        this.ddlCmdHnd = ddlCmdHnd;
-        this.tableRegistry = tableRegistry;
-        this.dependencyResolver = dependencyResolver;
-        this.implementorFactory = implementorFactory;
-        this.clock = clock;
-        this.shutdownTimeout = shutdownTimeout;
     }
 
     /** {@inheritDoc} */
@@ -724,7 +725,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     .txAttributes(txAttributes)
                     .schemaVersion(ctx.schemaVersion())
                     .timeZoneId(ctx.timeZoneId().getId())
-                    .timestampLong(clock.nowLong())
+                    .timestampLong(clockService.nowLong())
                     .build();
 
             return messageService.send(targetNodeName, request);
@@ -1053,7 +1054,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     return super.visit(rel);
                 }
 
-                private void enlist(int tableId, List<NodeWithConsistencyToken> assignments) {
+                private void enlist(int tableId, Int2ObjectMap<NodeWithConsistencyToken> assignments) {
                     if (assignments.isEmpty()) {
                         return;
                     }
@@ -1062,10 +1063,10 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
                     tx.assignCommitPartition(new TablePartitionId(tableId, ThreadLocalRandom.current().nextInt(partsCnt)));
 
-                    for (int p = 0; p < partsCnt; p++) {
-                        TablePartitionId tablePartId = new TablePartitionId(tableId, p);
+                    for (Map.Entry<Integer, NodeWithConsistencyToken> partWithToken : assignments.int2ObjectEntrySet()) {
+                        TablePartitionId tablePartId = new TablePartitionId(tableId, partWithToken.getKey());
 
-                        NodeWithConsistencyToken assignment = assignments.get(p);
+                        NodeWithConsistencyToken assignment = partWithToken.getValue();
 
                         tx.enlist(tablePartId,
                                 new IgniteBiTuple<>(
@@ -1079,7 +1080,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     int tableId = rel.getTable().unwrap(IgniteTable.class).id();
 
                     ColocationGroup colocationGroup = mappedFragment.groupsBySourceId().get(rel.sourceId());
-                    List<NodeWithConsistencyToken> assignments = colocationGroup.assignments();
+                    Int2ObjectMap<NodeWithConsistencyToken> assignments = colocationGroup.assignments();
 
                     enlist(tableId, assignments);
                 }

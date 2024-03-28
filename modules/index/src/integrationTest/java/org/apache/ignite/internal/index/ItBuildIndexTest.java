@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.index;
 
 import static java.util.stream.Collectors.joining;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.raft.util.OptimizedMarshaller.NO_POOL;
@@ -65,7 +66,6 @@ import org.apache.ignite.table.Table;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -78,12 +78,6 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
     private static final String TABLE_NAME = "TEST_TABLE";
 
     private static final String INDEX_NAME = "TEST_INDEX";
-
-    @BeforeEach
-    void setup() {
-        // Do not wait for indexes to become available.
-        setAwaitIndexAvailability(false);
-    }
 
     @AfterEach
     void tearDown() {
@@ -375,7 +369,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
 
         assertThat(tableFuture, willSucceedFast());
 
-        return (TableViewInternal) tableFuture.join();
+        return unwrapTableViewInternal(tableFuture.join());
     }
 
     /**
