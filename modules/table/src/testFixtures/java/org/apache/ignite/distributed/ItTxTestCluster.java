@@ -562,7 +562,8 @@ public class ItTxTestCluster {
                         new TxMessageSender(
                                 clusterServices.get(assignment).messagingService(),
                                 replicaServices.get(assignment),
-                                clockServices.get(assignment)
+                                clockServices.get(assignment),
+                                txConfiguration
                         );
 
                 var transactionStateResolver = new TransactionStateResolver(
@@ -1002,7 +1003,12 @@ public class ItTxTestCluster {
                 nodeResolver,
                 client.messagingService(),
                 placementDriver,
-                new TxMessageSender(client.messagingService(), clientReplicaSvc, clientClockService)
+                new TxMessageSender(
+                        client.messagingService(),
+                        clientReplicaSvc,
+                        clientClockService,
+                        txConfiguration
+                )
         );
 
         clientTxStateResolver.start();
