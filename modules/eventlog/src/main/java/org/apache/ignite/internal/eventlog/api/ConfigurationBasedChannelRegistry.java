@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.eventlog.api;
 
 import java.util.Arrays;
-import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -32,20 +31,19 @@ import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.eventlog.config.schema.ChannelView;
 import org.apache.ignite.internal.eventlog.config.schema.EventLogConfiguration;
-import org.apache.ignite.internal.eventlog.event.IgniteEventType;
 
 public class ConfigurationBasedChannelRegistry implements ChannelRegistry {
     private final ReadWriteLock guard;
 
     private final Map<String, EventChannel> cache;
-    private final Map<IgniteEventType, Set<EventChannel>> typeCache;
+    private final Map<String, Set<EventChannel>> typeCache;
 
     private final SinkRegistry sinkRegistry;
 
     public ConfigurationBasedChannelRegistry(EventLogConfiguration cfg, SinkRegistry sinkRegistry) {
         this.guard = new ReentrantReadWriteLock();
         this.cache = new HashMap<>();
-        this.typeCache = new EnumMap<>(IgniteEventType.class);
+        this.typeCache = new HashMap<>();
         this.sinkRegistry = sinkRegistry;
 
         cfg.channels().listen(new CacheUpdater());
@@ -62,7 +60,7 @@ public class ConfigurationBasedChannelRegistry implements ChannelRegistry {
     }
 
     @Override
-    public Set<EventChannel> findAllChannelsByEventType(IgniteEventType igniteEventType) {
+    public Set<EventChannel> findAllChannelsByEventType(String igniteEventType) {
         guard.readLock().lock();
         try {
             Set<EventChannel> result = typeCache.get(igniteEventType);
@@ -87,9 +85,10 @@ public class ConfigurationBasedChannelRegistry implements ChannelRegistry {
                     if (view.enabled()) {
                         cache.put(view.name(), createChannel(view));
                         for (String eventType : view.events()) {
-                            IgniteEventType type = IgniteEventType.valueOf(eventType.trim());
-                            typeCache.computeIfAbsent(type, t -> ConcurrentHashMap.newKeySet())
-                                    .add(cache.get(view.name()));
+                            typeCache.computeIfAbsent(
+                                    eventType.trim(),
+                                    t -> ConcurrentHashMap.newKeySet()
+                            ).add(cache.get(view.name()));
                         }
                     }
                 });
@@ -101,7 +100,8 @@ public class ConfigurationBasedChannelRegistry implements ChannelRegistry {
         }
 
         private EventChannel createChannel(ChannelView view) {
-            Set<IgniteEventType> types = Arrays.stream(view.events()).map(e -> IgniteEventType.valueOf(e.trim()))
+            Set<String> types = Arrays.stream(view.events())
+                    .map(String::trim)
                     .collect(Collectors.toSet());
 
             return new EventChannelImpl(types, sinkRegistry.findAllByChannel(view.name())); //todo

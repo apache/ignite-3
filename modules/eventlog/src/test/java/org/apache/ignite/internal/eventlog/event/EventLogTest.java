@@ -18,14 +18,17 @@
 package org.apache.ignite.internal.eventlog.event;
 
 import static org.hamcrest.CoreMatchers.hasItem;
+import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.eventlog.api.ChannelFactory;
 import org.apache.ignite.internal.eventlog.api.ChannelRegistry;
@@ -42,7 +45,7 @@ import org.junit.jupiter.api.Test;
 public class EventLogTest {
     private static final EventUser TEST_USER = EventUser.of("testuser", "basicAuthenticator");
     private static final Event TEST_EVENT = IgniteEvents.USER_AUTHENTICATED.create(TEST_USER);
-    private static final String TEST_CHANNEL = "testChannel";
+    private static final String TEST_CHANNEL_NAME = "testChannel";
 
     @InjectConfiguration
     private EventLogConfiguration cfg;
@@ -56,21 +59,21 @@ public class EventLogTest {
     @BeforeEach
     void setUp() {
         channelRegistry = new TestChannelRegistry();
-       sinkRegistry = new TestSinkRegistry();
-       channelFactory = new ChannelFactory(sinkRegistry);
+        sinkRegistry = new TestSinkRegistry();
+        channelFactory = new ChannelFactory(sinkRegistry);
         eventLog = new EventLogImpl(channelRegistry);
     }
 
     @Test
-    void noop() {
+    void logsEventCorrectly() {
         // Given no channels and sinks.
 
         // Then nothing thrown.
         assertDoesNotThrow(() -> eventLog.log(() -> TEST_EVENT));
 
         // When add a channel but there is no sink.
-        channelRegistry.register(TEST_CHANNEL, channelFactory.createChannel(
-                TEST_CHANNEL, Set.of(IgniteEventType.USER_AUTHENTICATED))
+        channelRegistry.register(TEST_CHANNEL_NAME, () -> channelFactory.createChannel(
+                TEST_CHANNEL_NAME, Set.of(TEST_EVENT.type()))
         );
 
         // Then nothing thrown.
@@ -78,36 +81,45 @@ public class EventLogTest {
 
         // When add a sink for the channel.
         List<Event> container = new ArrayList<>();
-        sinkRegistry.register(TEST_CHANNEL, container::add);
+        sinkRegistry.register(TEST_CHANNEL_NAME, container::add);
 
         // And log event.
         eventLog.log(() -> TEST_EVENT);
 
         // Then event is logged.
         assertThat(container, hasItem(TEST_EVENT));
+
+        // When log event with a type that is not supported by the channel.
+        Event event = IgniteEvents.CONNECTION_CLOSED.create(TEST_USER);
+
+        // Then nothing thrown.
+        assertDoesNotThrow(() -> eventLog.log(() -> event));
+        // And the event is not logged.
+        assertThat(container, not(hasItem(event)));
     }
 
     private static class TestChannelRegistry implements ChannelRegistry {
-        private final Map<String, EventChannel> channels;
+        private final Map<String, Supplier<EventChannel>> channels;
 
         private TestChannelRegistry() {
             channels = new HashMap<>();
         }
 
-        void register(String name, EventChannel channel) {
+        void register(String name, Supplier<EventChannel> channel) {
             channels.put(name, channel);
         }
 
         @Override
         public EventChannel getByName(String name) {
-            return channels.get(name);
+            return channels.get(name).get();
         }
 
         @Override
-        public Set<EventChannel> findAllChannelsByEventType(IgniteEventType igniteEventType) {
+        public Set<EventChannel> findAllChannelsByEventType(String igniteEventType) {
             return channels.values().stream()
-                .filter(channel -> channel.types().contains(igniteEventType))
-                .collect(Set::of, Set::add, Set::addAll);
+                    .map(Supplier::get)
+                    .filter(channel -> channel.types().contains(igniteEventType))
+                    .collect(HashSet::new, Set::add, Set::addAll);
         }
     }
 

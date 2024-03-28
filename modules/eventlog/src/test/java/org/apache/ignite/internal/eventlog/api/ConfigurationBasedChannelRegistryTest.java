@@ -67,7 +67,7 @@ class ConfigurationBasedChannelRegistryTest extends BaseIgniteAbstractTest {
         );
 
         // Then it is configured correctly.
-        assertThat(channel.types(), hasItem(IgniteEventType.USER_AUTHENTICATED));
+        assertThat(channel.types(), hasItem(IgniteEventType.USER_AUTHENTICATED.name()));
     }
 
     @Test
@@ -125,10 +125,10 @@ class ConfigurationBasedChannelRegistryTest extends BaseIgniteAbstractTest {
 
         // Then registry returns the channel by type.
         await().untilAsserted(
-                () -> assertThat(registry.findAllChannelsByEventType(IgniteEventType.USER_AUTHENTICATED).size(), is(1))
+                () -> assertThat(registry.findAllChannelsByEventType(IgniteEventType.USER_AUTHENTICATED.name()).size(), is(1))
         );
         // But for another type it returns empty set.
-        assertThat(registry.findAllChannelsByEventType(IgniteEventType.CONNECTION_CLOSED).size(), is(0));
+        assertThat(registry.findAllChannelsByEventType(IgniteEventType.CONNECTION_CLOSED.name()).size(), is(0));
 
         // When update configuration entry.
         cfg.channels().change(c -> c.update(TEST_CHANNEL, s -> {
@@ -138,10 +138,10 @@ class ConfigurationBasedChannelRegistryTest extends BaseIgniteAbstractTest {
 
         // Then registry returns the channel by type.
         await().untilAsserted(
-                () -> assertThat(registry.findAllChannelsByEventType(IgniteEventType.USER_AUTHENTICATED).size(), is(1))
+                () -> assertThat(registry.findAllChannelsByEventType(IgniteEventType.USER_AUTHENTICATED.name()).size(), is(1))
         );
         await().untilAsserted(
-                () -> assertThat(registry.findAllChannelsByEventType(IgniteEventType.CONNECTION_CLOSED).size(), is(1))
+                () -> assertThat(registry.findAllChannelsByEventType(IgniteEventType.CONNECTION_CLOSED.name()).size(), is(1))
         );
 
         // When add new channel.
@@ -152,10 +152,10 @@ class ConfigurationBasedChannelRegistryTest extends BaseIgniteAbstractTest {
 
         // Then.
         await().untilAsserted(
-                () -> assertThat(registry.findAllChannelsByEventType(IgniteEventType.USER_AUTHENTICATED).size(), is(2))
+                () -> assertThat(registry.findAllChannelsByEventType(IgniteEventType.USER_AUTHENTICATED.name()).size(), is(2))
         );
         await().untilAsserted(
-                () -> assertThat(registry.findAllChannelsByEventType(IgniteEventType.CONNECTION_CLOSED).size(), is(1))
+                () -> assertThat(registry.findAllChannelsByEventType(IgniteEventType.CONNECTION_CLOSED.name()).size(), is(1))
         );
     }
 

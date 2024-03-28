@@ -18,10 +18,9 @@
 package org.apache.ignite.internal.eventlog.api;
 
 import java.util.Set;
-import org.apache.ignite.internal.eventlog.event.IgniteEventType;
 
 public interface EventChannel {
-    Set<IgniteEventType> types();
+    Set<String> types();
 
     void log(Event event);
 }

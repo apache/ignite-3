@@ -21,12 +21,11 @@ import java.util.Map;
 import org.apache.ignite.internal.eventlog.event.EventBuilder;
 import org.apache.ignite.internal.eventlog.event.EventTypeRegistry;
 import org.apache.ignite.internal.eventlog.event.EventUser;
-import org.apache.ignite.internal.eventlog.event.IgniteEventType;
 
 /** Represents an event object that can be logged to the event log. */
 public interface Event {
     /** The type of the event. The type must be registered in the {@link EventTypeRegistry}. */
-    IgniteEventType type();
+    String type();
 
     /** The unix timestamp of the event. */
     long timestamp();

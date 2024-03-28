@@ -18,10 +18,9 @@
 package org.apache.ignite.internal.eventlog.api;
 
 import java.util.Set;
-import org.apache.ignite.internal.eventlog.event.IgniteEventType;
 
 public interface ChannelRegistry {
     EventChannel getByName(String name);
 
-    Set<EventChannel> findAllChannelsByEventType(IgniteEventType igniteEventType);
+    Set<EventChannel> findAllChannelsByEventType(String igniteEventType);
 }

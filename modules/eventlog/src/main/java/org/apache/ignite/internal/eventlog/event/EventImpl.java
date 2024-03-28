@@ -29,7 +29,7 @@ import org.apache.ignite.internal.eventlog.ser.JsonEventSerializer;
  * <p>NOTE: If you rename/add any field in this class, you should also update the {@link JsonEventSerializer}.
  */
 public class EventImpl implements Event {
-    private final String type;
+    private final IgniteEventType type;
 
     private final long timestamp;
 
@@ -39,7 +39,7 @@ public class EventImpl implements Event {
 
     private final Map<String, Object> fields;
 
-    EventImpl(String type, long timestamp, String productVersion, EventUser user, Map<String, Object> fields) {
+    EventImpl(IgniteEventType type, long timestamp, String productVersion, EventUser user, Map<String, Object> fields) {
         this.type = type;
         this.timestamp = timestamp;
         this.productVersion = productVersion;
@@ -48,8 +48,8 @@ public class EventImpl implements Event {
     }
 
     @Override
-    public IgniteEventType type() {
-        return type;
+    public String type() {
+        return type.name();
     }
 
     @Override

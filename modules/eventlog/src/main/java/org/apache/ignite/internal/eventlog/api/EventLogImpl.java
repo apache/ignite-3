@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.eventlog.api;
 
+import java.util.Set;
 import java.util.function.Supplier;
 
 public class EventLogImpl implements EventLog {
@@ -30,9 +31,7 @@ public class EventLogImpl implements EventLog {
     @Override
     public void log(Supplier<Event> eventProvider) {
         Event event = eventProvider.get();
-        EventChannel channel = channelRegistry.findAllChannelsByEventType(event.type());
-        if (channel != null) {
-            channel.log(event);
-        }
+        Set<EventChannel> channel = channelRegistry.findAllChannelsByEventType(event.type());
+        channel.forEach(c -> c.log(event));
     }
 }

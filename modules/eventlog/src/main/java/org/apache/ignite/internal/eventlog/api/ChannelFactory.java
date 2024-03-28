@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.eventlog.api;
 
 import java.util.Set;
-import org.apache.ignite.internal.eventlog.event.IgniteEventType;
 
 public class ChannelFactory {
     private final SinkRegistry sinkRegistry;
@@ -27,7 +26,7 @@ public class ChannelFactory {
         this.sinkRegistry = sinkRegistry;
     }
 
-    public EventChannel createChannel(String name, Set<IgniteEventType> types) {
+    public EventChannel createChannel(String name, Set<String> types) {
         return new EventChannelImpl(types, sinkRegistry.findAllByChannel(name));
     }
 }
