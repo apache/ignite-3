@@ -83,7 +83,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    public void ddl() throws Exception {
+    public void ddl() {
         IgniteSql sql = igniteSql();
 
         // CREATE TABLE
