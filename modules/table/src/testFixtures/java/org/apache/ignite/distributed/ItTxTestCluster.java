@@ -70,8 +70,6 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -161,17 +159,9 @@ import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.TestInfo;
-import org.junit.jupiter.api.extension.ExtendWith;
 
-/**
- * Class that allows to mock a cluster for transaction tests' purposes.
- */
-@ExtendWith(ConfigurationExtension.class)
 public class ItTxTestCluster {
     private static final int SCHEMA_VERSION = 1;
-
-    @InjectConfiguration
-    private ReplicationConfiguration replicationConfiguration;
 
     private final List<NetworkAddress> localAddresses;
 
@@ -285,6 +275,8 @@ public class ItTxTestCluster {
     /** Observable timestamp tracker. */
     private final HybridTimestampTracker timestampTracker;
 
+    private final ReplicationConfiguration replicationConfiguration;
+
     private CatalogService catalogService;
 
     private final AtomicInteger globalCatalogId = new AtomicInteger();
@@ -301,7 +293,8 @@ public class ItTxTestCluster {
             int nodes,
             int replicas,
             boolean startClient,
-            HybridTimestampTracker timestampTracker
+            HybridTimestampTracker timestampTracker,
+            ReplicationConfiguration replicationConfiguration
     ) {
         this.raftConfig = raftConfig;
         this.txConfiguration = txConfiguration;
@@ -312,6 +305,7 @@ public class ItTxTestCluster {
         this.startClient = startClient;
         this.testInfo = testInfo;
         this.timestampTracker = timestampTracker;
+        this.replicationConfiguration = replicationConfiguration;
 
         localAddresses = findLocalAddresses(NODE_PORT_BASE, NODE_PORT_BASE + nodes);
         nodeFinder = new StaticNodeFinder(localAddresses);
