@@ -48,7 +48,11 @@ void CreateTableOption(List<SqlNode> list) :
 {
     key = SimpleIdentifier() { s = span(); }
     <EQ>
-    val = Literal()
+    (
+        val = Literal()
+    |
+        val = SimpleIdentifier()
+    )
     {
         list.add(new IgniteSqlCreateTableOption(key, val, s.end(this)));
     }
