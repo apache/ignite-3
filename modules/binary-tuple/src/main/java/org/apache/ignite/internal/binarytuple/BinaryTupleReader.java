@@ -265,7 +265,6 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
         }
 
         short valScale = shortValue(begin, begin + 2);
-        assert valScale <= scale : "Invalid scale, expected less than or equal to " + scale + ", but was " + valScale;
 
         return new BigDecimal(numberValue(begin + 2, end), valScale).setScale(scale, RoundingMode.UNNECESSARY);
     }
