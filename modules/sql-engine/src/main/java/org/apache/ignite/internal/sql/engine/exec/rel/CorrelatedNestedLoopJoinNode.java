@@ -408,14 +408,20 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
             if (joinType == JoinRelType.LEFT && !nullOrEmpty(leftInBuf)) {
                 int notMatchedIdx = leftMatched.nextClearBit(0);
 
-                while (requested > 0 && notMatchedIdx < leftInBuf.size()) {
-                    downstream().push(handler.concat(leftInBuf.get(notMatchedIdx), rightEmptyRow));
+                state = State.IN_LOOP;
 
-                    requested--;
+                try {
+                    while (requested > 0 && notMatchedIdx < leftInBuf.size()) {
+                        requested--;
 
-                    leftMatched.set(notMatchedIdx);
+                        downstream().push(handler.concat(leftInBuf.get(notMatchedIdx), rightEmptyRow));
 
-                    notMatchedIdx = leftMatched.nextClearBit(notMatchedIdx + 1);
+                        leftMatched.set(notMatchedIdx);
+
+                        notMatchedIdx = leftMatched.nextClearBit(notMatchedIdx + 1);
+                    }
+                } finally {
+                    state = State.IDLE;
                 }
 
                 if (requested == 0 && notMatchedIdx < leftInBuf.size()) {

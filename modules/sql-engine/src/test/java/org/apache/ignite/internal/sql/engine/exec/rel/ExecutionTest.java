@@ -496,8 +496,11 @@ public class ExecutionTest extends AbstractExecutionTest<Object[]> {
 
         join.register(Arrays.asList(left, right));
 
+        FilterNode<Object[]> filter = new FilterNode<>(ctx, r -> true);
+        filter.register(join);
+
         RootNode<Object[]> root = new RootNode<>(ctx);
-        root.register(join);
+        root.register(filter);
 
         int cnt = 0;
         while (root.hasNext()) {
