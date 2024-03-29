@@ -23,6 +23,7 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.Map.Entry;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.lang.Cursor;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
@@ -96,7 +97,7 @@ public class ItCustomKeyColumnOrderClientTest extends ItAbstractThinClientTest {
     void testKeyValueView() {
         var kvView = table().keyValueView(PojoKey.class, PojoVal.class);
 
-        // Put/get.
+        // put/get.
         PojoKey key = new PojoKey(1, "key2");
         PojoVal val = new PojoVal("val1", 2L);
         kvView.put(null, key, val);
@@ -118,7 +119,12 @@ public class ItCustomKeyColumnOrderClientTest extends ItAbstractThinClientTest {
         assertEquals(val.val2, resEntry.getValue().val2);
 
         // Query mapper.
-        // TODO
+        try (Cursor<Entry<PojoKey, PojoVal>> cursor = kvView.query(null, null)) {
+            Entry<PojoKey, PojoVal> curEntry = cursor.next();
+            assertEquals(key.key1, curEntry.getKey().key1);
+            assertEquals(val.val1, curEntry.getValue().val1);
+            assertEquals(val.val2, curEntry.getValue().val2);
+        }
     }
 
     @SuppressWarnings("FieldMayBeFinal")
