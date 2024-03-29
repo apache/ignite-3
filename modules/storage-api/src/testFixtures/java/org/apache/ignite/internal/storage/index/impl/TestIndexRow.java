@@ -61,7 +61,7 @@ public class TestIndexRow implements IndexRow, Comparable<TestIndexRow> {
     /**
      * Creates an row with random column values that satisfies the given schema.
      */
-    public static TestIndexRow randomRow(SortedIndexStorage indexStorage) {
+    public static TestIndexRow randomRow(SortedIndexStorage indexStorage, int partitionId) {
         var random = new Random();
 
         Object[] columns = indexStorage.indexDescriptor().columns().stream()
@@ -69,7 +69,7 @@ public class TestIndexRow implements IndexRow, Comparable<TestIndexRow> {
                 .map(type -> generateRandomValue(random, type))
                 .toArray();
 
-        var rowId = new RowId(0);
+        var rowId = new RowId(partitionId);
 
         var serializer = new BinaryTupleRowSerializer(indexStorage.indexDescriptor());
 
