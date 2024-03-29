@@ -237,7 +237,7 @@ public class CorrelatedSubqueryPlannerTest extends AbstractPlannerTest {
     }
 
     /** Creates test table with columns of given name and INT32 type. */
-    private static IgniteTable createTestTable(String... columns) {
+    static IgniteTable createTestTable(String... columns) {
         assert columns.length > 0;
 
         TableBuilder tableBuilder = TestBuilders.table()

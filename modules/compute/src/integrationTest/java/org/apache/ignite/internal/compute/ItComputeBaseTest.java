@@ -290,7 +290,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         assertThat(ex.getCause().getMessage(), containsString("The table does not exist [name=\"PUBLIC\".\"bad-table\"]"));
     }
 
-    private static void createTestTableWithOneRow() {
+    static void createTestTableWithOneRow() {
         sql("DROP TABLE IF EXISTS test");
         sql("CREATE TABLE test (k int, v int, CONSTRAINT PK PRIMARY KEY (k))");
         sql("INSERT INTO test(k, v) VALUES (1, 101)");
