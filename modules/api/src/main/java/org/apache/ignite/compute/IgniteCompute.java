@@ -22,6 +22,7 @@ import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.compute.JobExecutionOptions.DEFAULT;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -50,9 +51,9 @@ public interface IgniteCompute {
      * @return Job execution object.
      */
     <R> JobExecution<R> submit(
-            Set<ClusterNode> nodes, 
-            List<DeploymentUnit> units, 
-            String jobClassName, 
+            Set<ClusterNode> nodes,
+            List<DeploymentUnit> units,
+            String jobClassName,
             JobExecutionOptions options,
             Object... args
     );
@@ -504,8 +505,15 @@ public interface IgniteCompute {
                 .collect(toMap(identity(), node -> executeAsync(Set.of(node), units, jobClassName, options, args)));
 
         return allOf(futures.values().toArray(CompletableFuture[]::new))
-                .thenApply(ignored -> futures.entrySet().stream()
-                        .collect(toMap(Entry::getKey, entry -> entry.getValue().join()))
+                .thenApply(ignored -> {
+                            Map<ClusterNode, R> map = new HashMap<>();
+
+                            for (Entry<ClusterNode, CompletableFuture<R>> entry : futures.entrySet()) {
+                                map.put(entry.getKey(), entry.getValue().join());
+                            }
+
+                            return map;
+                        }
                 );
     }
 
@@ -548,8 +556,13 @@ public interface IgniteCompute {
             JobExecutionOptions options,
             Object... args
     ) {
-        return nodes.stream()
-                .collect(toMap(identity(), node -> execute(Set.of(node), units, jobClassName, options, args)));
+        Map<ClusterNode, R> map = new HashMap<>();
+
+        for (ClusterNode node : nodes) {
+            map.put(node, execute(Set.of(node), units, jobClassName, options, args));
+        }
+
+        return map;
     }
 
     /**
