@@ -75,18 +75,18 @@ public final class SharedRocksDbInstance {
     private static class SortedIndexColumnFamily implements AutoCloseable {
         final ColumnFamily columnFamily;
 
-        final Map<Integer, Integer> indexIdToTableId;
+        final Map<Integer, Integer> indexIdToTableId = new ConcurrentHashMap<>();
 
         SortedIndexColumnFamily(ColumnFamily columnFamily, int indexId, int tableId) {
             this.columnFamily = columnFamily;
-            this.indexIdToTableId = new HashMap<>();
 
             indexIdToTableId.put(indexId, tableId);
         }
 
         SortedIndexColumnFamily(ColumnFamily columnFamily, Map<Integer, Integer> indexIdToTableId) {
             this.columnFamily = columnFamily;
-            this.indexIdToTableId = indexIdToTableId;
+
+            this.indexIdToTableId.putAll(indexIdToTableId);
         }
 
         @Override

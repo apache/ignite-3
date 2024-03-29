@@ -22,6 +22,7 @@ import static java.util.stream.Collectors.toList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.wrapper.Wrapper;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.manager.IgniteTables;
@@ -46,16 +47,16 @@ public class AntiHijackIgniteTables implements IgniteTables, Wrapper {
 
     @Override
     public List<Table> tables() {
-        return wrapInPublicProxies(tables.tables());
+        return applyAntiHijackProtection(tables.tables());
     }
 
-    private List<Table> wrapInPublicProxies(List<Table> tablesToWrap) {
+    private List<Table> applyAntiHijackProtection(List<Table> tablesToWrap) {
         return tablesToWrap.stream()
-                .map(this::wrapInPublicProxy)
+                .map(this::applyAntiHijackProtection)
                 .collect(toList());
     }
 
-    private @Nullable Table wrapInPublicProxy(@Nullable Table table) {
+    private @Nullable Table applyAntiHijackProtection(@Nullable Table table) {
         if (table == null) {
             return null;
         }
@@ -65,19 +66,23 @@ public class AntiHijackIgniteTables implements IgniteTables, Wrapper {
 
     @Override
     public CompletableFuture<List<Table>> tablesAsync() {
-        // TODO: prevent thread hijacking https://issues.apache.org/jira/browse/IGNITE-21849
-        return tables.tablesAsync().thenApply(this::wrapInPublicProxies);
+        return preventThreadHijack(tables.tablesAsync())
+                .thenApply(this::applyAntiHijackProtection);
     }
 
     @Override
     public Table table(String name) {
-        return wrapInPublicProxy(tables.table(name));
+        return applyAntiHijackProtection(tables.table(name));
     }
 
     @Override
     public CompletableFuture<Table> tableAsync(String name) {
-        // TODO: prevent thread hijacking https://issues.apache.org/jira/browse/IGNITE-21849
-        return tables.tableAsync(name).thenApply(this::wrapInPublicProxy);
+        return preventThreadHijack(tables.tableAsync(name))
+                .thenApply(this::applyAntiHijackProtection);
+    }
+
+    private <T> CompletableFuture<T> preventThreadHijack(CompletableFuture<T> originalFuture) {
+        return PublicApiThreading.preventThreadHijack(originalFuture, asyncContinuationExecutor);
     }
 
     @Override

@@ -19,6 +19,8 @@ package org.apache.ignite.internal.sql.engine.framework;
 
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.convertSqlRows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -327,5 +329,17 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
         List<List<Object>> rows = convertSqlRows(results.items());
 
         assertEquals(List.of(List.of(42L, "mango", "N2", 42)), rows);
+    }
+
+    @Test
+    public void testNodeInitSchema() {
+        cluster.start();
+
+        TestNode gatewayNode = cluster.node("N1");
+
+        gatewayNode.initSchema("CREATE INDEX T1_NEW_HASH_VAK_IDX ON T1 USING HASH (VAL)");
+
+        MultiStepPlan plan = (MultiStepPlan) gatewayNode.prepare("SELECT * FROM t1 WHERE val = ?");
+        assertThat(plan.explain(), containsString("index=[T1_NEW_HASH_VAK_IDX], type=[HASH]"));
     }
 }

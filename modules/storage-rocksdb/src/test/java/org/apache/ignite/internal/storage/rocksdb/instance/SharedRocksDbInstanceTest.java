@@ -17,9 +17,12 @@
 
 package org.apache.ignite.internal.storage.rocksdb.instance;
 
+import static java.util.concurrent.CompletableFuture.runAsync;
+import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.sortedIndexCfName;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.KEY_BYTE_ORDER;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
@@ -33,6 +36,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.concurrent.BrokenBarrierException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
@@ -47,6 +56,7 @@ import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.rocksdb.ColumnFamilyDescriptor;
@@ -234,6 +244,43 @@ class SharedRocksDbInstanceTest extends IgniteAbstractTest {
         assertThat(rocksDb.hashIndexIds(2), contains(1));
         assertThat(rocksDb.hashIndexIds(4), contains(3));
         assertThat(rocksDb.hashIndexIds(5), is(empty()));
+    }
+
+    @RepeatedTest(10)
+    void testConcurrentSortedIndexReadAndCreate() {
+        byte[] fooName = sortedIndexCfName(List.of(
+                new StorageSortedIndexColumnDescriptor("a", NativeTypes.INT64, true, true)
+        ));
+
+        rocksDb.getOrCreateSortedIndexCf(fooName, 0, 0);
+
+        // Start two concurrent tasks: one searches for an existing index, another creates a new index.
+        var barrier = new CyclicBarrier(2);
+
+        CompletableFuture<List<IndexColumnFamily>> getIndexFuture = supplyAsync(() -> {
+            try {
+                barrier.await(1, TimeUnit.SECONDS);
+            } catch (InterruptedException | BrokenBarrierException | TimeoutException e) {
+                throw new CompletionException(e);
+            }
+
+            return rocksDb.sortedIndexes(0);
+        });
+
+        CompletableFuture<Void> createIndexFuture = runAsync(() -> {
+            try {
+                barrier.await(1, TimeUnit.SECONDS);
+            } catch (InterruptedException | BrokenBarrierException | TimeoutException e) {
+                throw new CompletionException(e);
+            }
+
+            rocksDb.getOrCreateSortedIndexCf(fooName, 1, 1);
+        });
+
+        assertThat(getIndexFuture, willCompleteSuccessfully());
+        assertThat(createIndexFuture, willCompleteSuccessfully());
+
+        assertThat(getIndexFuture.join().stream().map(IndexColumnFamily::indexId).collect(toList()), contains(0));
     }
 
     private boolean cfExists(byte[] cfName) {
