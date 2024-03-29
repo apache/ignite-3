@@ -15,8 +15,6 @@
  * limitations under the License.
  */
 
-#pragma once
-
 #include "ignite/client/compute/job_execution.h"
 #include "ignite/client/detail/compute/job_execution_impl.h"
 
