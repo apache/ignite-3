@@ -66,11 +66,13 @@ import org.apache.calcite.rel.RelCollationTraitDef;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.hint.HintStrategyTable;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.type.SqlTypeCoercionRule;
+import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql2rel.SqlToRelConverter;
 import org.apache.calcite.tools.FrameworkConfig;
@@ -365,6 +367,8 @@ public final class Commons {
                 // Add line numbers to the generated janino class
                 cbe.setDebuggingInformation(true, true, true);
             }
+
+            System.err.println(body);
 
             return (T) cbe.createInstance(new StringReader(body));
         } catch (Exception e) {
@@ -850,7 +854,8 @@ public final class Commons {
 
         // Output type of a set operator is equal to leastRestrictive(inputTypes) (see SetOp::deriveRowType)
 
-        RelDataType resultType = cluster.getTypeFactory().leastRestrictive(inputRowTypes);
+        RelDataTypeFactory typeFactory = cluster.getTypeFactory();
+        RelDataType resultType = typeFactory.leastRestrictive(inputRowTypes);
         if (resultType == null) {
             throw new IllegalArgumentException("Cannot compute compatible row type for arguments to set op: " + inputRowTypes);
         }
@@ -864,7 +869,10 @@ public final class Commons {
         for (RelNode input : inputs) {
             RelDataType inputRowType = input.getRowType();
 
-            if (resultType.equalsSansFieldNames(inputRowType)) {
+            // We can ignore nullability because it is always safe to convert from
+            // ROW (T1 nullable, T2 not nullable) to ROW (T1 nullable, T2 nullable)
+            // and leastRestrictive does exactly that.
+            if (SqlTypeUtil.equalAsStructSansNullability(typeFactory, resultType, inputRowType, null)) {
                 actualInputs.add(input);
 
                 continue;
