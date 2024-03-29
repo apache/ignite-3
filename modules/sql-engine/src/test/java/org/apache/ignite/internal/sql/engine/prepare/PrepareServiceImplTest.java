@@ -246,7 +246,7 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     private static ParsedResult parse(String query) {
-        return new ParserServiceImpl(0, EmptyCacheFactory.INSTANCE).parse(query);
+        return new ParserServiceImpl().parse(query);
     }
 
     private static BaseQueryContext createContext(Object... params) {

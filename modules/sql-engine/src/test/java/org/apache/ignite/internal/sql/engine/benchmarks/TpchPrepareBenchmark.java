@@ -83,7 +83,7 @@ public class TpchPrepareBenchmark {
         }
 
         String query = TpchHelper.getQuery(queryId);
-        parsedResult = new ParserServiceImpl(0, EmptyCacheFactory.INSTANCE).parse(query);
+        parsedResult = new ParserServiceImpl().parse(query);
     }
 
     /** Stops the cluster. */
