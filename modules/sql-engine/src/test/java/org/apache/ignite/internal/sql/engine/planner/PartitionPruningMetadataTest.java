@@ -142,7 +142,7 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
         SIMPLE_1a2("t(C1) VALUES (1), (2)", TABLE_C1_NULLABLE_C2, "[c1=1]", "[c1=2]"),
         SIMPLE_1a3("t(C1) VALUES (1), (SELECT 1)", TABLE_C1_NULLABLE_C2),
         // union can be used here
-         SIMPLE_1a4("t(C1) VALUES (?), (?), (1)", TABLE_C1_NULLABLE_C2, "[c1=?0]", "[c1=?1]", "[c1=1]"),
+        SIMPLE_1a4("t(C1) VALUES (?), (?), (1)", TABLE_C1_NULLABLE_C2, "[c1=?0]", "[c1=?1]", "[c1=1]"),
         // values with projection and rex expression case
         SIMPLE_1a5("t(C2, C1) VALUES (null, 1), (null, 2)", TABLE_C1_NULLABLE_C2, "[c1=1]", "[c1=2]"),
         SIMPLE_1a6("t(C2, C1) VALUES (?, ?), (?, ?)", TABLE_C1_NULLABLE_C2, "[c1=?1]", "[c1=?3]"),
