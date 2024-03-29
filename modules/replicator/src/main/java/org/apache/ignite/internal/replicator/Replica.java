@@ -20,7 +20,6 @@ package org.apache.ignite.internal.replicator;
 import static java.lang.System.currentTimeMillis;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.retryOperationUntilSuccess;
 
@@ -32,7 +31,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
-import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessage;
@@ -180,16 +178,12 @@ public class Replica {
                         if (e != null) {
                             Throwable ex = unwrapCause(e);
 
-                            if (!(unwrapCause(ex) instanceof NodeStoppingException)) {
-                                LOG.warn("Failed to process the lease granted message [msg={}].", ex, msg);
+                            LOG.warn("Failed to process the lease granted message [msg={}].", ex, msg);
 
-                                // Just restart the negotiation in case of exception.
-                                return PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse()
-                                        .accepted(false)
-                                        .build();
-                            } else {
-                                throw sneakyThrow(ex);
-                            }
+                            // Just restart the negotiation in case of exception.
+                            return PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse()
+                                    .accepted(false)
+                                    .build();
                         } else {
                             return v;
                         }
@@ -221,8 +215,8 @@ public class Replica {
                 // Replica must wait till storage index reaches the current leader's index to make sure that all updates made on the
                 // group leader are received.
 
-                return sendPrimaryReplicaChangeToReplicationGroup(msg.leaseStartTime().longValue())
-                        .thenCompose(v -> waitForActualState(msg.leaseExpirationTime().getPhysical()))
+                return waitForActualState(msg.leaseExpirationTime().getPhysical())
+                        .thenCompose(v -> sendPrimaryReplicaChangeToReplicationGroup(msg.leaseStartTime().longValue()))
                         .thenCompose(v -> {
                             CompletableFuture<LeaseGrantedMessageResponse> respFut =
                                     acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime());
@@ -236,8 +230,8 @@ public class Replica {
                         });
             } else {
                 if (leader.equals(localNode)) {
-                    return sendPrimaryReplicaChangeToReplicationGroup(msg.leaseStartTime().longValue())
-                            .thenCompose(v -> waitForActualState(msg.leaseExpirationTime().getPhysical()))
+                    return waitForActualState(msg.leaseExpirationTime().getPhysical())
+                            .thenCompose(v -> sendPrimaryReplicaChangeToReplicationGroup(msg.leaseStartTime().longValue()))
                             .thenCompose(v -> acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime()));
                 } else {
                     return proposeLeaseRedirect(leader);

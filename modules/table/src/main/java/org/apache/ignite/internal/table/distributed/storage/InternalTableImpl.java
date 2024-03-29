@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.table.distributed.replicator.action.Req
 import static org.apache.ignite.internal.table.distributed.storage.RowBatch.allResultFutures;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
@@ -71,6 +72,7 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -98,7 +100,6 @@ import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockException;
 import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.internal.tx.exception.TransactionRetriableException;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.CollectionUtils;
@@ -2233,22 +2234,12 @@ public class InternalTableImpl implements InternalTable {
      * @return True if retrying is possible, false otherwise.
      */
     private static boolean isRestartTransactionPossible(Throwable e) {
-        if (e instanceof TransactionRetriableException) {
-            return true;
-        } else if (e instanceof TransactionException && e.getCause() instanceof TransactionRetriableException) {
-            return true;
-        } else if (e instanceof CompletionException && e.getCause() instanceof TransactionRetriableException) {
-            return true;
-        } else if (e instanceof CompletionException
-                && e.getCause() instanceof TransactionException
-                && e.getCause().getCause() instanceof TransactionRetriableException) {
-            return true;
-        } else if (e instanceof CompletionException
-                && e.getCause() instanceof IgniteException
-                && e.getCause().getCause() instanceof TransactionRetriableException) {
-            return true;
+        Throwable ex = unwrapCause(e);
+
+        while (ex instanceof TransactionException && ex.getCause() != null) {
+            ex = ex.getCause();
         }
 
-        return false;
+        return ex instanceof LockException || ex instanceof PrimaryReplicaMissException;
     }
 }

@@ -172,7 +172,6 @@ import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.TxStateMetaFinishing;
 import org.apache.ignite.internal.tx.UpdateCommandResult;
-import org.apache.ignite.internal.tx.exception.FullTransactionPrimaryReplicaMissException;
 import org.apache.ignite.internal.tx.impl.FullyQualifiedResourceId;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
@@ -2656,7 +2655,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     UpdateCommandResult updateCommandResult = (UpdateCommandResult) res;
 
                     if (full && !updateCommandResult.isPrimaryReplicaSuccess()) {
-                        throw new FullTransactionPrimaryReplicaMissException();
+                        throw new PrimaryReplicaMissException(txId, cmd.leaseStartTime());
                     }
 
                     // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Temporary code below
@@ -2802,7 +2801,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                             UpdateCommandResult updateCommandResult = (UpdateCommandResult) res;
 
                             if (full && !updateCommandResult.isPrimaryReplicaSuccess()) {
-                                throw new FullTransactionPrimaryReplicaMissException();
+                                throw new PrimaryReplicaMissException(cmd.txId(), cmd.leaseStartTime());
                             }
 
                             // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Temporary code below
