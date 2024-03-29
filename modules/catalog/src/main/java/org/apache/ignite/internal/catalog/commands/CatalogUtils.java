@@ -420,7 +420,7 @@ public class CatalogUtils {
      * @param schemaId Schema ID.
      * @throws CatalogValidationException If schema does not exist.
      */
-    public static CatalogSchemaDescriptor schemaOrThrow(Catalog catalog, int schemaId) throws IndexNotFoundValidationException {
+    public static CatalogSchemaDescriptor schemaOrThrow(Catalog catalog, int schemaId) throws CatalogValidationException {
         CatalogSchemaDescriptor schema = catalog.schema(schemaId);
 
         if (schema == null) {
@@ -457,7 +457,7 @@ public class CatalogUtils {
      * @param tableId Table ID.
      * @throws TableNotFoundValidationException If table does not exist.
      */
-    public static CatalogTableDescriptor tableOrThrow(Catalog catalog, int tableId) throws IndexNotFoundValidationException {
+    public static CatalogTableDescriptor tableOrThrow(Catalog catalog, int tableId) throws TableNotFoundValidationException {
         CatalogTableDescriptor table = catalog.table(tableId);
 
         if (table == null) {
@@ -473,9 +473,9 @@ public class CatalogUtils {
      * @param catalog Catalog to look up zone in.
      * @param name Name of the zone of interest.
      * @return Zone with given name. Never null.
-     * @throws CatalogValidationException If zone with given name is not exists.
+     * @throws DistributionZoneNotFoundValidationException If zone with given name is not exists.
      */
-    public static CatalogZoneDescriptor zoneOrThrow(Catalog catalog, String name) throws CatalogValidationException {
+    public static CatalogZoneDescriptor zoneOrThrow(Catalog catalog, String name) throws DistributionZoneNotFoundValidationException {
         name = Objects.requireNonNull(name, "zoneName");
 
         CatalogZoneDescriptor zone = catalog.zone(name);
