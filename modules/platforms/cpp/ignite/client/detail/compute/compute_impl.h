@@ -19,6 +19,7 @@
 
 #include "ignite/client/compute/deployment_unit.h"
 #include "ignite/client/compute/job_execution.h"
+#include "ignite/client/compute/job_execution_options.h"
 #include "ignite/client/detail/cluster_connection.h"
 #include "ignite/client/detail/table/tables_impl.h"
 #include "ignite/client/network/cluster_node.h"
@@ -55,10 +56,12 @@ public:
      * @param units Deployment units. Can be empty.
      * @param job_class_name Java class name of the job to submit.
      * @param args Job arguments.
+     * @param options Job execution options.
      * @param callback A callback called on operation completion with job execution result.
      */
     void submit_to_nodes(const std::vector<cluster_node> &nodes, const std::vector<deployment_unit> &units,
-        std::string_view job_class_name, const std::vector<primitive> &args, ignite_callback<job_execution> callback);
+        std::string_view job_class_name, const std::vector<primitive> &args, const job_execution_options &options,
+        ignite_callback<job_execution> callback);
 
     /**
      * Submits a compute job represented by the given class for an execution on one of the nodes where the given key is
@@ -69,11 +72,13 @@ public:
      * @param units Deployment units. Can be empty.
      * @param job_class_name Java class name of the job to submit.
      * @param args Job arguments.
+     * @param options Job execution options.
      * @param callback A callback called on operation completion with job execution result.
      */
     void submit_colocated_async(const std::string &table_name, const ignite_tuple &key,
         const std::vector<deployment_unit> &units, const std::string &job_class_name,
-        const std::vector<primitive> &args, ignite_callback<job_execution> callback);
+        const std::vector<primitive> &args, const job_execution_options &options,
+        ignite_callback<job_execution> callback);
 
     /**
      * Gets the job execution status. Can be @c nullopt if the job status no longer exists due to exceeding the
