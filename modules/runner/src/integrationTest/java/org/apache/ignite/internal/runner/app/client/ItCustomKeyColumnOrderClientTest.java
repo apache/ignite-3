@@ -32,6 +32,7 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -48,6 +49,11 @@ public class ItCustomKeyColumnOrderClientTest extends ItAbstractThinClientTest {
                 + "colocate by (key2, key1)";
 
         client().sql().execute(null, query);
+    }
+
+    @BeforeEach
+    void clearTable() {
+        client().sql().execute(null, "DELETE FROM " + TABLE_NAME2);
     }
 
     protected Ignite ignite() {
