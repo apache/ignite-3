@@ -15,18 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.eventlog.api;
+package org.apache.ignite.internal.eventlog.impl;
 
 import java.util.Set;
+import org.apache.ignite.internal.eventlog.api.EventChannel;
 
-public class ChannelFactory {
-    private final SinkRegistry sinkRegistry;
+interface ChannelRegistry {
+    EventChannel getByName(String name);
 
-    public ChannelFactory(SinkRegistry sinkRegistry) {
-        this.sinkRegistry = sinkRegistry;
-    }
-
-    public EventChannel createChannel(String name, Set<String> types) {
-        return new EventChannelImpl(types, sinkRegistry.findAllByChannel(name));
-    }
+    Set<EventChannel> findAllChannelsByEventType(String igniteEventType);
 }

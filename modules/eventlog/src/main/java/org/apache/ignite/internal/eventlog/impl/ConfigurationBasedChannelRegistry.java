@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.eventlog.api;
+package org.apache.ignite.internal.eventlog.impl;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -29,10 +29,11 @@ import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
+import org.apache.ignite.internal.eventlog.api.EventChannel;
 import org.apache.ignite.internal.eventlog.config.schema.ChannelView;
 import org.apache.ignite.internal.eventlog.config.schema.EventLogConfiguration;
 
-public class ConfigurationBasedChannelRegistry implements ChannelRegistry {
+class ConfigurationBasedChannelRegistry implements ChannelRegistry {
     private final ReadWriteLock guard;
 
     private final Map<String, EventChannel> cache;
@@ -40,7 +41,7 @@ public class ConfigurationBasedChannelRegistry implements ChannelRegistry {
 
     private final SinkRegistry sinkRegistry;
 
-    public ConfigurationBasedChannelRegistry(EventLogConfiguration cfg, SinkRegistry sinkRegistry) {
+    ConfigurationBasedChannelRegistry(EventLogConfiguration cfg, SinkRegistry sinkRegistry) {
         this.guard = new ReentrantReadWriteLock();
         this.cache = new HashMap<>();
         this.typeCache = new HashMap<>();
@@ -104,7 +105,7 @@ public class ConfigurationBasedChannelRegistry implements ChannelRegistry {
                     .map(String::trim)
                     .collect(Collectors.toSet());
 
-            return new EventChannelImpl(types, sinkRegistry.findAllByChannel(view.name())); //todo
+            return new EventChannelImpl(types, sinkRegistry.findAllByChannel(view.name()));
         }
     }
 }

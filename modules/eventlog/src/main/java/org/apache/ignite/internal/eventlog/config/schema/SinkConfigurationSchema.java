@@ -34,6 +34,6 @@ public class SinkConfigurationSchema {
     @InjectedName
     public String name;
 
-    @Value
-    public String channel;
+    @Value(hasDefault = true)
+    public String channel = "";
 }

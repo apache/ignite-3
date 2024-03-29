@@ -17,21 +17,11 @@
 
 package org.apache.ignite.internal.eventlog.api;
 
-import java.util.Set;
-import java.util.function.Supplier;
-
-public class EventLogImpl implements EventLog {
-
-    private final ChannelRegistry channelRegistry;
-
-    public EventLogImpl(ChannelRegistry channelRegistry) {
-        this.channelRegistry = channelRegistry;
-    }
-
-    @Override
-    public void log(Supplier<Event> eventProvider) {
-        Event event = eventProvider.get();
-        Set<EventChannel> channel = channelRegistry.findAllChannelsByEventType(event.type());
-        channel.forEach(c -> c.log(event));
-    }
+/**
+ * Defines a subset of event types that can be created in the system. Note, the event type is a string that is unique within the system. The
+ * event type is used to filter the events in the event log.
+ */
+public enum IgniteEventType {
+    USER_AUTHENTICATED,
+    CONNECTION_CLOSED
 }

@@ -15,8 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.eventlog.sink;
+package org.apache.ignite.internal.eventlog.impl;
 
+import org.apache.ignite.internal.eventlog.api.Sink;
 import org.apache.ignite.internal.eventlog.config.schema.LogSinkView;
 import org.apache.ignite.internal.eventlog.config.schema.SinkView;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -25,14 +26,14 @@ import org.apache.ignite.lang.ErrorGroups.Common;
 /**
  * Factory for creating sink instances.
  */
-public class SinkFactory {
+class SinkFactory {
     /**
      * Creates a sink instance.
      *
      * @param sinkView Sink configuration view.
      * @return Sink instance.
      */
-    public Sink createSink(SinkView sinkView) {
+    Sink createSink(SinkView sinkView) {
         if (sinkView instanceof LogSinkView) {
             return new LogSink((LogSinkView) sinkView);
         }

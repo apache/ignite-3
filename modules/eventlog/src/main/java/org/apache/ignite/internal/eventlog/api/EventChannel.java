@@ -19,8 +19,19 @@ package org.apache.ignite.internal.eventlog.api;
 
 import java.util.Set;
 
+/**
+ * Event channel that groups events by type and sends these events into sinks that are piped into the channel.
+ */
 public interface EventChannel {
+    /**
+     * Returns the set of event types that this channel can handle.
+     */
     Set<String> types();
 
+    /**
+     * Logs the event into the channel. If the event type is not supported by the channel, the exception is thrown.
+     *
+     * @param event Event to log.
+     */
     void log(Event event);
 }

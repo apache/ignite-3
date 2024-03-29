@@ -23,13 +23,13 @@ import org.apache.ignite.internal.eventlog.api.Event;
 import org.apache.ignite.internal.eventlog.ser.JsonEventSerializer;
 
 /**
- * Implementation of the {@link Event} interface. The class is immutable and thread-safe.
- * If you want to create an instance of this class, use the {@link EventBuilder}.
+ * Implementation of the {@link Event} interface. The class is immutable and thread-safe. If you want to create an instance of this class,
+ * use the {@link EventBuilder}.
  *
  * <p>NOTE: If you rename/add any field in this class, you should also update the {@link JsonEventSerializer}.
  */
 public class EventImpl implements Event {
-    private final IgniteEventType type;
+    private final String type;
 
     private final long timestamp;
 
@@ -39,7 +39,7 @@ public class EventImpl implements Event {
 
     private final Map<String, Object> fields;
 
-    EventImpl(IgniteEventType type, long timestamp, String productVersion, EventUser user, Map<String, Object> fields) {
+    EventImpl(String type, long timestamp, String productVersion, EventUser user, Map<String, Object> fields) {
         this.type = type;
         this.timestamp = timestamp;
         this.productVersion = productVersion;
@@ -49,7 +49,7 @@ public class EventImpl implements Event {
 
     @Override
     public String type() {
-        return type.name();
+        return type;
     }
 
     @Override

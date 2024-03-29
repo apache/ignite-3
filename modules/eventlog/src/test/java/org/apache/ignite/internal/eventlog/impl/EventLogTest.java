@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.eventlog.event;
+package org.apache.ignite.internal.eventlog.impl;
 
 import static org.hamcrest.CoreMatchers.hasItem;
 import static org.hamcrest.CoreMatchers.not;
@@ -30,19 +30,17 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.eventlog.api.ChannelFactory;
-import org.apache.ignite.internal.eventlog.api.ChannelRegistry;
 import org.apache.ignite.internal.eventlog.api.Event;
 import org.apache.ignite.internal.eventlog.api.EventChannel;
 import org.apache.ignite.internal.eventlog.api.EventLog;
-import org.apache.ignite.internal.eventlog.api.EventLogImpl;
-import org.apache.ignite.internal.eventlog.api.SinkRegistry;
+import org.apache.ignite.internal.eventlog.api.IgniteEvents;
+import org.apache.ignite.internal.eventlog.api.Sink;
 import org.apache.ignite.internal.eventlog.config.schema.EventLogConfiguration;
-import org.apache.ignite.internal.eventlog.sink.Sink;
+import org.apache.ignite.internal.eventlog.event.EventUser;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-public class EventLogTest {
+class EventLogTest {
     private static final EventUser TEST_USER = EventUser.of("testuser", "basicAuthenticator");
     private static final Event TEST_EVENT = IgniteEvents.USER_AUTHENTICATED.create(TEST_USER);
     private static final String TEST_CHANNEL_NAME = "testChannel";

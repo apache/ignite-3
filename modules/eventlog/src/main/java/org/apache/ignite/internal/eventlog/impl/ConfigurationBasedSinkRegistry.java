@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.eventlog.api;
+package org.apache.ignite.internal.eventlog.impl;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -27,21 +27,20 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
+import org.apache.ignite.internal.eventlog.api.Sink;
 import org.apache.ignite.internal.eventlog.config.schema.EventLogConfiguration;
 import org.apache.ignite.internal.eventlog.config.schema.SinkView;
-import org.apache.ignite.internal.eventlog.sink.Sink;
-import org.apache.ignite.internal.eventlog.sink.SinkFactory;
 
-public class ConfigurationBasedSinkRegistry implements SinkRegistry {
+class ConfigurationBasedSinkRegistry implements SinkRegistry {
     private final ReadWriteLock guard;
     private final Map<String, Sink> cache;
     private final Map<String, Set<Sink>> cacheByChannel;
     private final SinkFactory sinkFactory;
 
-    public ConfigurationBasedSinkRegistry(EventLogConfiguration cfg) {
+    ConfigurationBasedSinkRegistry(EventLogConfiguration cfg) {
         this.guard = new ReentrantReadWriteLock();
         this.cache = new HashMap<>();
-        this.cacheByChannel= new HashMap<>();
+        this.cacheByChannel = new HashMap<>();
         this.sinkFactory = new SinkFactory();
 
         cfg.sinks().listen(new CacheUpdater());

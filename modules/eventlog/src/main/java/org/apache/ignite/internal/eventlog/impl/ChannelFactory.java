@@ -15,28 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.eventlog.api;
+package org.apache.ignite.internal.eventlog.impl;
 
-import java.util.HashSet;
 import java.util.Set;
-import org.apache.ignite.internal.eventlog.sink.Sink;
+import org.apache.ignite.internal.eventlog.api.EventChannel;
 
-public class EventChannelImpl implements EventChannel {
-    private final Set<Sink> sinks;
-    private final Set<String> types;
+class ChannelFactory {
+    private final SinkRegistry sinkRegistry;
 
-    public EventChannelImpl(Set<String> types, Set<Sink> sinks) {
-        this.types = new HashSet<>(types);
-        this.sinks = new HashSet<>(sinks);
+    ChannelFactory(SinkRegistry sinkRegistry) {
+        this.sinkRegistry = sinkRegistry;
     }
 
-    @Override
-    public Set<String> types() {
-        return types;
-    }
-
-    @Override
-    public void log(Event event) {
-        sinks.forEach(s -> s.write(event));
+    EventChannel createChannel(String name, Set<String> types) {
+        return new EventChannelImpl(types, sinkRegistry.findAllByChannel(name));
     }
 }

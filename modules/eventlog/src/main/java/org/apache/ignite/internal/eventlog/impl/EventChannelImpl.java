@@ -15,30 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.eventlog.sink;
+package org.apache.ignite.internal.eventlog.impl;
 
-import java.lang.System.Logger;
-import java.lang.System.Logger.Level;
+import java.util.HashSet;
+import java.util.Set;
 import org.apache.ignite.internal.eventlog.api.Event;
-import org.apache.ignite.internal.eventlog.config.schema.LogSinkView;
-import org.apache.ignite.internal.eventlog.ser.EventSerializer;
-import org.apache.ignite.internal.eventlog.ser.JsonEventSerializer;
+import org.apache.ignite.internal.eventlog.api.EventChannel;
+import org.apache.ignite.internal.eventlog.api.Sink;
 
-/** Sink that writes events to the log using any logging framework the user has configured. */
-public class LogSink implements Sink {
-    private final Logger logger;
-    private final EventSerializer serializer;
-    private final String level;
+class EventChannelImpl implements EventChannel {
+    private final Set<Sink> sinks;
+    private final Set<String> types;
 
-    LogSink(LogSinkView cfg) {
-        this.level = cfg.level();
-        this.logger = System.getLogger(cfg.criteria());
-        this.serializer = new JsonEventSerializer();
+    EventChannelImpl(Set<String> types, Set<Sink> sinks) {
+        this.types = new HashSet<>(types);
+        this.sinks = new HashSet<>(sinks);
     }
 
-    /** {@inheritDoc} */
     @Override
-    public void write(Event event) {
-        logger.log(Level.valueOf(level), serializer.serialize(event));
+    public Set<String> types() {
+        return types;
+    }
+
+    @Override
+    public void log(Event event) {
+        sinks.forEach(s -> s.write(event));
     }
 }

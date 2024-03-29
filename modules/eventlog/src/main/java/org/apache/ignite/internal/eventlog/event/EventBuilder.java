@@ -119,6 +119,6 @@ public class EventBuilder {
             timestamp = System.currentTimeMillis();
         }
 
-        return new EventImpl(IgniteEventType.valueOf(type), timestamp, productVersion, user, fields);
+        return new EventImpl(type, timestamp, productVersion, user, fields);
     }
 }

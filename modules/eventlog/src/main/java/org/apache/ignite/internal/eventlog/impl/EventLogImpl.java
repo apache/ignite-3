@@ -15,28 +15,34 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.eventlog.sink;
+package org.apache.ignite.internal.eventlog.impl;
 
+import java.util.Set;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.eventlog.api.Event;
+import org.apache.ignite.internal.eventlog.api.EventChannel;
+import org.apache.ignite.internal.eventlog.api.EventLog;
 
 /**
- * The endpoint for the event log framework. This is the last step in the event log pipeline.
- * It can be a log file, a webhook, or a Kafka topic, or whatever we develop.
- *
- * <p>The contract of the only method is the following:
- *
- * <p>IT DOES NOT GUARANTEE THAT THE EVENT IS WRITTEN TO THE FINAL DESTINATION.
- * For example, if the sink as a log file, the method does not guarantee that the event is written to the file.
- * Because the logging framework can be asynchronous.
- *
- * <p>IT DOES GUARANTEE THAT THE EVENT IS SENT TO THE SINK.
- * For example, if the sink is a Kafka topic, the method guarantees that the event is sent to the topic.
+ * Implementation of the {@link EventLog} interface.
  */
-public interface Sink {
+public class EventLogImpl implements EventLog {
+
+    private final ChannelRegistry channelRegistry;
+
     /**
-     * Writes the event to the sink.
+     * Creates an instance of EventLogImpl.
      *
-     * @param event The event to write.
+     * @param channelRegistry the channel registry.
      */
-    void write(Event event);
+    public EventLogImpl(ChannelRegistry channelRegistry) {
+        this.channelRegistry = channelRegistry;
+    }
+
+    @Override
+    public void log(Supplier<Event> eventProvider) {
+        Event event = eventProvider.get();
+        Set<EventChannel> channel = channelRegistry.findAllChannelsByEventType(event.type());
+        channel.forEach(c -> c.log(event));
+    }
 }
