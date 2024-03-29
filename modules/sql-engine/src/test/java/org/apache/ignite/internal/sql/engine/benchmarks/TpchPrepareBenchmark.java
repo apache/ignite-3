@@ -23,7 +23,6 @@ import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.framework.TestNode;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
-import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.tpch.TpchHelper;
 import org.apache.ignite.internal.sql.engine.util.tpch.TpchTables;
 import org.openjdk.jmh.annotations.Benchmark;
