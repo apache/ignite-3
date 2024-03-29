@@ -82,6 +82,7 @@ import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -1157,6 +1158,57 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
             assertSame(manager.schema(1), manager.activeSchema(clock.nowLong()));
             assertNotNull(manager.table(TABLE_NAME, clock.nowLong()));
+        } finally {
+            manager.stop();
+        }
+    }
+
+    @Test
+    public void createTableIfNotExistWaitsActivationEvenIfTableExists() throws Exception {
+        long delayDuration = TimeUnit.DAYS.toMillis(365);
+
+        int partitionIdleSafeTimePropagationPeriod = 0;
+
+        CatalogManagerImpl manager = new CatalogManagerImpl(updateLog, clockService, delayDuration,
+                partitionIdleSafeTimePropagationPeriod);
+
+        manager.start();
+
+        try {
+            CatalogCommand createTableCommand = spy(simpleTable(TABLE_NAME));
+
+            CompletableFuture<Integer> createTableFuture1 = manager.execute(createTableCommand);
+
+            assertFalse(createTableFuture1.isDone());
+
+            ArgumentCaptor<VersionedUpdate> appendCapture = ArgumentCaptor.forClass(VersionedUpdate.class);
+
+            verify(updateLog).append(appendCapture.capture());
+
+            int catalogVerAfterTableCreate = appendCapture.getValue().version();
+
+            CompletableFuture<Integer> createTableFuture2 = manager.execute(createTableCommand);
+
+            verify(createTableCommand, times(2)).get(any());
+
+            assertFalse(createTableFuture2.isDone());
+
+            verify(clockWaiter, timeout(10_000).times(2)).waitFor(any());
+
+            Catalog catalog0 = manager.catalog(manager.latestCatalogVersion());
+
+            assertNotNull(catalog0);
+
+            HybridTimestamp activationSkew = CatalogUtils.clusterWideEnsuredActivationTsSafeForRoReads(
+                    catalog0,
+                    () -> partitionIdleSafeTimePropagationPeriod, clockService.maxClockSkewMillis());
+
+            clock.update(activationSkew);
+
+            assertTrue(waitForCondition(createTableFuture1::isDone, 2_000));
+            assertTrue(waitForCondition(createTableFuture2::isDone, 2_000));
+
+            assertSame(manager.schema(catalogVerAfterTableCreate), manager.activeSchema(clock.nowLong()));
         } finally {
             manager.stop();
         }
@@ -2332,6 +2384,26 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertThat(curDescriptor.primaryKeyColumns(), is(prevDescriptor.primaryKeyColumns()));
         assertThat(curDescriptor.primaryKeyIndexId(), is(prevDescriptor.primaryKeyIndexId()));
         assertThat(curDescriptor.schemaId(), is(prevDescriptor.schemaId()));
+    }
+
+    @Test
+    void testTableRenameAndCreateTableWithSameName() {
+        createSomeTable(TABLE_NAME);
+
+        CatalogCommand command = RenameTableCommand.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(TABLE_NAME)
+                .newTableName(TABLE_NAME_2)
+                .build();
+
+        assertThat(manager.execute(command), willCompleteSuccessfully());
+
+        createSomeTable(TABLE_NAME);
+
+        int catalogVersion = manager.latestCatalogVersion();
+
+        assertThat(table(catalogVersion, TABLE_NAME), is(notNullValue()));
+        assertThat(table(catalogVersion, TABLE_NAME_2), is(notNullValue()));
     }
 
     @Test

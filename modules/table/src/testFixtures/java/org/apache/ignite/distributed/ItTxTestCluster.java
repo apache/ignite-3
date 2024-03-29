@@ -96,6 +96,7 @@ import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -277,6 +278,8 @@ public class ItTxTestCluster {
     /** Observable timestamp tracker. */
     private final HybridTimestampTracker timestampTracker;
 
+    private final ReplicationConfiguration replicationConfiguration;
+
     private CatalogService catalogService;
 
     private final AtomicInteger globalCatalogId = new AtomicInteger();
@@ -293,7 +296,8 @@ public class ItTxTestCluster {
             int nodes,
             int replicas,
             boolean startClient,
-            HybridTimestampTracker timestampTracker
+            HybridTimestampTracker timestampTracker,
+            ReplicationConfiguration replicationConfiguration
     ) {
         this.raftConfig = raftConfig;
         this.txConfiguration = txConfiguration;
@@ -304,6 +308,7 @@ public class ItTxTestCluster {
         this.startClient = startClient;
         this.testInfo = testInfo;
         this.timestampTracker = timestampTracker;
+        this.replicationConfiguration = replicationConfiguration;
 
         localAddresses = findLocalAddresses(NODE_PORT_BASE, NODE_PORT_BASE + nodes);
         nodeFinder = new StaticNodeFinder(localAddresses);
@@ -409,7 +414,8 @@ public class ItTxTestCluster {
             ReplicaService replicaSvc = spy(new ReplicaService(
                     clusterService.messagingService(),
                     clock,
-                    partitionOperationsExecutor
+                    partitionOperationsExecutor,
+                    replicationConfiguration
             ));
 
             replicaServices.put(node.name(), replicaSvc);
@@ -562,7 +568,8 @@ public class ItTxTestCluster {
                         new TxMessageSender(
                                 clusterServices.get(assignment).messagingService(),
                                 replicaServices.get(assignment),
-                                clockServices.get(assignment)
+                                clockServices.get(assignment),
+                                txConfiguration
                         );
 
                 var transactionStateResolver = new TransactionStateResolver(
@@ -959,7 +966,8 @@ public class ItTxTestCluster {
         clientReplicaSvc = spy(new ReplicaService(
                 client.messagingService(),
                 clientClock,
-                partitionOperationsExecutor
+                partitionOperationsExecutor,
+                replicationConfiguration
         ));
 
         LOG.info("The client has been started");
@@ -1002,7 +1010,12 @@ public class ItTxTestCluster {
                 nodeResolver,
                 client.messagingService(),
                 placementDriver,
-                new TxMessageSender(client.messagingService(), clientReplicaSvc, clientClockService)
+                new TxMessageSender(
+                        client.messagingService(),
+                        clientReplicaSvc,
+                        clientClockService,
+                        txConfiguration
+                )
         );
 
         clientTxStateResolver.start();

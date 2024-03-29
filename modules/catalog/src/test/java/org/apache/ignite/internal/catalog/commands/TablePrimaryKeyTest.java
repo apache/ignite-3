@@ -23,12 +23,13 @@ import static org.junit.jupiter.api.Named.named;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.commands.TablePrimaryKey.TablePrimaryKeyBuilder;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -44,9 +45,9 @@ public class TablePrimaryKeyTest extends BaseIgniteAbstractTest {
         TablePrimaryKey pk = builder.columns(List.of("C1", "C2", "C1")).build();
 
         assertThrowsWithCause(
-                () -> pk.validate(Set.of("C1", "C2", "C3")),
+                () -> pk.validate(createSimpleColumnParams("C1", "C2", "C3")),
                 CatalogValidationException.class,
-                "PK column 'C1' specified more that once"
+                "PK column 'C1' specified more that once."
         );
     }
 
@@ -56,9 +57,9 @@ public class TablePrimaryKeyTest extends BaseIgniteAbstractTest {
         TablePrimaryKey pk = builder.columns(List.of("C1", "foo")).build();
 
         assertThrowsWithCause(
-                () -> pk.validate(Set.of("C1", "C2", "C3")),
+                () -> pk.validate(createSimpleColumnParams("C1", "C2", "C3")),
                 CatalogValidationException.class,
-                "PK column 'foo' is not part of table"
+                "Primary key constraint contains undefined columns: [cols=[foo]]."
         );
     }
 
@@ -126,7 +127,7 @@ public class TablePrimaryKeyTest extends BaseIgniteAbstractTest {
                 .collations(List.of(collation, otherCollation))
                 .build();
 
-        pk.validate(Set.of("C1", "C2", "C3"));
+        pk.validate(createSimpleColumnParams("C1", "C2", "C3"));
 
         assertEquals(List.of("C1", "C2"), pk.columns());
         assertEquals(List.of(collation, otherCollation), pk.collations(), "collations");
@@ -140,9 +141,14 @@ public class TablePrimaryKeyTest extends BaseIgniteAbstractTest {
                 .build();
 
         assertThrowsWithCause(
-                () -> pk.validate(Set.of("C1", "C2", "C3")),
+                () -> pk.validate(createSimpleColumnParams("C1", "C2", "C3")),
                 CatalogValidationException.class,
-                "Number of collations does not match"
+                "Number of collations does not match."
         );
+    }
+
+    private List<ColumnParams> createSimpleColumnParams(String... columns) {
+        return Arrays.stream(columns).map(col -> ColumnParams.builder().name(col).type(ColumnType.INT8).build())
+                .collect(Collectors.toList());
     }
 }

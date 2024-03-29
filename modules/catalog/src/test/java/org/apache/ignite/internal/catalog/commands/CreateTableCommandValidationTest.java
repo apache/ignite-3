@@ -85,6 +85,40 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
     }
 
     @Test
+    void functionalDefaultNotSupportsForNonPkColumns() {
+        CreateTableCommandBuilder builder = CreateTableCommand.builder();
+
+        builder = fillProperties(builder);
+
+        builder.columns(List.of(
+                ColumnParams.builder().name("ID").type(INT32).defaultValue(DefaultValue.functionCall("function")).build(),
+                ColumnParams.builder().name("C").type(INT32).defaultValue(DefaultValue.constant(1)).build()
+
+        ));
+
+        assertThrowsWithCause(
+                builder::build,
+                CatalogValidationException.class,
+                "Functional defaults are not supported for non-primary key columns [col=ID]."
+        );
+    }
+
+    @Test
+    void functionalDefaultSupportsForPkColumns() {
+        CreateTableCommandBuilder builder = CreateTableCommand.builder();
+
+        builder = fillProperties(builder);
+
+        builder.columns(List.of(
+                ColumnParams.builder().name("C").type(INT32).defaultValue(DefaultValue.functionCall("function")).build(),
+                ColumnParams.builder().name("D").type(INT32).defaultValue(DefaultValue.constant(1)).build()
+
+        )).primaryKey(primaryKey("C", "D"));
+
+        builder.build();
+    }
+
+    @Test
     void columnShouldNotHaveDuplicates() {
         CreateTableCommandBuilder builder = CreateTableCommand.builder();
 
@@ -99,6 +133,54 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
                 builder::build,
                 CatalogValidationException.class,
                 "Column with name 'C' specified more than once"
+        );
+    }
+
+    @Test
+    void primaryKeyColumnsShouldNotHaveDuplicates() {
+        CreateTableCommandBuilder builder = CreateTableCommand.builder();
+
+        builder = fillProperties(builder)
+                .primaryKey(primaryKey("C", "C"));
+
+        assertThrowsWithCause(
+                builder::build,
+                CatalogValidationException.class,
+                "PK column 'C' specified more that once."
+        );
+    }
+
+    @Test
+    void primaryKeyColumnsShouldNotContainNullable() {
+        CreateTableCommandBuilder builder = CreateTableCommand.builder();
+
+        builder = fillProperties(builder)
+                .columns(List.of(
+                        ColumnParams.builder().name("C").type(INT32).nullable(true).build(),
+                        ColumnParams.builder().name("D").type(INT32).build()))
+                .primaryKey(primaryKey("D", "C"));
+
+        assertThrowsWithCause(
+                builder::build,
+                CatalogValidationException.class,
+                "Primary key cannot contain nullable column [col=C]."
+        );
+    }
+
+    @Test
+    void primaryKeyColumnsCanContainOnlyTableColumns() {
+        CreateTableCommandBuilder builder = CreateTableCommand.builder();
+
+        builder = fillProperties(builder)
+                .columns(List.of(
+                        ColumnParams.builder().name("C").type(INT32).build(),
+                        ColumnParams.builder().name("D").type(INT32).build()))
+                .primaryKey(primaryKey("Z", "D", "E"));
+
+        assertThrowsWithCause(
+                builder::build,
+                CatalogValidationException.class,
+                "Primary key constraint contains undefined columns: [cols=[Z, E]]."
         );
     }
 
