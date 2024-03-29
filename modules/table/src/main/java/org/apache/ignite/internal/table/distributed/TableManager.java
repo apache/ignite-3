@@ -503,7 +503,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.executorInclinedSchemaSyncService = new ExecutorInclinedSchemaSyncService(schemaSyncService, partitionOperationsExecutor);
         this.executorInclinedPlacementDriver = new ExecutorInclinedPlacementDriver(placementDriver, partitionOperationsExecutor);
 
-        TxMessageSender txMessageSender = new TxMessageSender(messagingService, replicaSvc, clockService);
+        TxMessageSender txMessageSender = new TxMessageSender(
+                messagingService,
+                replicaSvc,
+                clockService,
+                txCfg
+        );
 
         transactionStateResolver = new TransactionStateResolver(
                 txManager,
