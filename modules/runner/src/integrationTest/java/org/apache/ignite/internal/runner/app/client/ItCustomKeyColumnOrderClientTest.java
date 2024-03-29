@@ -19,7 +19,6 @@ package org.apache.ignite.internal.runner.app.client;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Collection;
@@ -64,11 +63,61 @@ public class ItCustomKeyColumnOrderClientTest extends ItAbstractThinClientTest {
         var recView = table().recordView();
 
         Tuple key = Tuple.create().set("key1", 1).set("key2", "key2");
+        Tuple key2 = Tuple.create().set("key1", 2).set("key2", "key3");
+
         Tuple val = Tuple.create().set("key1", 1).set("key2", "key2").set("val1", "val1").set("val2", 2L);
+        Tuple val2 = Tuple.create().set("key1", 1).set("key2", "key2").set("val1", "val2").set("val2", 3L);
+
+        // put/get.
         recView.insert(null, val);
 
         Tuple res = recView.get(null, key);
         assertEquals(val, res);
+
+        // getAndPut.
+        Tuple putRes = recView.getAndUpsert(null, val2);
+        assertEquals(val, putRes);
+
+        // contains.
+        assertTrue(recView.contains(null, key));
+
+        // getAndRemove.
+        Tuple removeRes = recView.getAndDelete(null, key);
+        assertEquals(val2, removeRes);
+
+        // putIfAbsent.
+        assertTrue(recView.insert(null, val));
+
+        // remove exact.
+        assertTrue(recView.deleteExact(null, val));
+
+        // putAll/getAll.
+        recView.insertAll(null, List.of(val));
+
+        List<Tuple> resMap = recView.getAll(null, Collections.singletonList(key));
+        assertEquals(1, resMap.size());
+        Tuple resEntry = resMap.get(0);
+        assertEquals(val, resEntry);
+
+        // Query mapper.
+        try (Cursor<Tuple> cursor = recView.query(null, null)) {
+            Tuple curEntry = cursor.next();
+            assertEquals(val, curEntry);
+        }
+
+        // removeAll.
+        Collection<Tuple> removeAllRes = recView.deleteAll(null, List.of(key, key2));
+        assertEquals(1, removeAllRes.size());
+        assertEquals(key2, removeAllRes.iterator().next());
+
+        // replace.
+        recView.insert(null, val);
+        assertTrue(recView.replace(null, val2));
+
+        // getAndReplace.
+        Tuple getAndReplaceRes = recView.getAndReplace(null, val);
+        assertNotNull(getAndReplaceRes);
+        assertEquals(val, getAndReplaceRes);
     }
 
     @Test
@@ -111,7 +160,7 @@ public class ItCustomKeyColumnOrderClientTest extends ItAbstractThinClientTest {
         assertTrue(recView.deleteExact(null, val));
 
         // putAll/getAll.
-        recView.insert(null, val);
+        recView.insertAll(null, List.of(val));
 
         List<Pojo> resMap = recView.getAll(null, Collections.singletonList(key));
         assertEquals(1, resMap.size());
