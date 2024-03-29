@@ -355,7 +355,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
         return doOperation(tx, (schemaVersion) -> {
             Collection<BinaryRowEx> rows = marshalKeys(keyRecs, schemaVersion);
 
-            return tbl.deleteAll(rows, (InternalTransaction) tx).thenApply(binaryRows -> unmarshal(binaryRows, schemaVersion, false));
+            return tbl.deleteAll(rows, (InternalTransaction) tx).thenApply(binaryRows -> unmarshalKeys(binaryRows, schemaVersion, false));
         });
     }
 
@@ -374,7 +374,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
             Collection<BinaryRowEx> rows = marshal(recs, schemaVersion);
 
             return tbl.deleteAllExact(rows, (InternalTransaction) tx)
-                    .thenApply(binaryRows -> unmarshal(binaryRows, schemaVersion, false));
+                    .thenApply(binaryRows -> unmarshalKeys(binaryRows, schemaVersion, false));
         });
     }
 
@@ -546,6 +546,38 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
             for (Row row : rowConverter.resolveRows(rows, targetSchemaVersion)) {
                 if (row != null) {
                     recs.add(marsh.unmarshal(row));
+                } else if (addNull) {
+                    recs.add(null);
+                }
+            }
+
+            return recs;
+        } catch (Exception e) {
+            throw new MarshallerException(e);
+        }
+    }
+
+    /**
+     * Unmarshal records.
+     *
+     * @param rows Row collection.
+     * @param addNull {@code true} if {@code null} is added for missing rows.
+     * @param targetSchemaVersion Schema version that should be used.
+     * @return Records collection.
+     */
+    private List<R> unmarshalKeys(Collection<BinaryRow> rows, int targetSchemaVersion, boolean addNull) {
+        if (rows.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        try {
+            RecordMarshaller<R> marsh = marshaller(targetSchemaVersion);
+
+            var recs = new ArrayList<R>(rows.size());
+
+            for (Row row : rowConverter.resolveKeys(rows, targetSchemaVersion)) {
+                if (row != null) {
+                    recs.add(marsh.unmarshalKey(row));
                 } else if (addNull) {
                     recs.add(null);
                 }

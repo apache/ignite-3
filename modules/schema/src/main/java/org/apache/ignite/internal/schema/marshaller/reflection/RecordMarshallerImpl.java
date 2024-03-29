@@ -109,6 +109,16 @@ public class RecordMarshallerImpl<R> implements RecordMarshaller<R> {
 
     /** {@inheritDoc} */
     @Override
+    public R unmarshalKey(Row row) throws MarshallerException {
+        final Object o = keyMarsh.readObject(new RowReader(row), null);
+
+        assert recClass.isInstance(o);
+
+        return (R) o;
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public R unmarshal(Row row) throws MarshallerException {
         Marshaller marsh = row.keyOnly() ? keyMarsh : recMarsh;
         RowReader reader = row.keyOnly() ? new RowReader(row, keyPositions) : new RowReader(row);

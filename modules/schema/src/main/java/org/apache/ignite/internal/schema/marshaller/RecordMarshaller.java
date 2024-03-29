@@ -51,6 +51,15 @@ public interface RecordMarshaller<R> {
     Row marshalKey(R keyRec) throws MarshallerException;
 
     /**
+     * Marshals key-only row into a record object.
+     *
+     * @param keyRec Record to marshal.
+     * @return Table row with key columns set from given object.
+     * @throws MarshallerException If failed to marshal record.
+     */
+    R unmarshalKey(Row keyRec) throws MarshallerException;
+
+    /**
      * Unmarshal given row to a record object.
      *
      * @param row Table row.
