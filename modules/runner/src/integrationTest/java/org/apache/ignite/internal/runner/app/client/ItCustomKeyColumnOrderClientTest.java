@@ -106,7 +106,9 @@ public class ItCustomKeyColumnOrderClientTest extends ItAbstractThinClientTest {
         assertEquals(val.val1, res.val1);
         assertEquals(val.val2, res.val2);
 
-        kvView.remove(null, key);
+        PojoVal removeRes = kvView.getAndRemove(null, key);
+        assertEquals(val.val1, removeRes.val1);
+        assertEquals(val.val2, removeRes.val2);
 
         // putAll/getAll.
         kvView.putAll(null, Map.of(key, val));
