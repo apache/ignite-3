@@ -28,17 +28,25 @@ import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Compute.CLASS_INITIALIZATION_ERR;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.ComputeException;
@@ -54,6 +62,9 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.table.KeyValueView;
+import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -316,6 +327,51 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         assertComputeException(ex, throwable);
     }
 
+    @ParameterizedTest
+    @MethodSource("targetNodeIndexes")
+    void executesSyncKvGetPutFromJob(int targetNodeIndex) {
+        createTestTableWithOneRow();
+
+        int entryNodeIndex = 0;
+
+        IgniteImpl entryNode = node(entryNodeIndex);
+        IgniteImpl targetNode = node(targetNodeIndex);
+
+        assertDoesNotThrow(() -> entryNode.compute().execute(Set.of(targetNode.node()), List.of(), PerformSyncKvGetPutJob.class.getName()));
+    }
+
+    @Test
+    void executesNullReturningJobViaSyncBroadcast() {
+        int entryNodeIndex = 0;
+
+        IgniteImpl entryNode = node(entryNodeIndex);
+
+        Map<ClusterNode, Object> results = entryNode.compute()
+                .executeBroadcast(new HashSet<>(entryNode.clusterNodes()), List.of(), NullReturningJob.class.getName());
+
+        assertThat(results.keySet(), equalTo(new HashSet<>(entryNode.clusterNodes())));
+        assertThat(new HashSet<>(results.values()), contains(nullValue()));
+    }
+
+    @Test
+    void executesNullReturningJobViaAsyncBroadcast() {
+        int entryNodeIndex = 0;
+
+        IgniteImpl entryNode = node(entryNodeIndex);
+
+        CompletableFuture<Map<ClusterNode, Object>> resultsFuture = entryNode.compute()
+                .executeBroadcastAsync(new HashSet<>(entryNode.clusterNodes()), List.of(), NullReturningJob.class.getName());
+        assertThat(resultsFuture, willCompleteSuccessfully());
+        Map<ClusterNode, Object> results = resultsFuture.join();
+
+        assertThat(results.keySet(), equalTo(new HashSet<>(entryNode.clusterNodes())));
+        assertThat(new HashSet<>(results.values()), contains(nullValue()));
+    }
+
+    private Stream<Arguments> targetNodeIndexes() {
+        return IntStream.range(0, initialNodes()).mapToObj(Arguments::of);
+    }
+
     private static class ConcatJob implements ComputeJob<String> {
         /** {@inheritDoc} */
         @Override
@@ -410,6 +466,26 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
+            return null;
+        }
+    }
+
+    private static class PerformSyncKvGetPutJob implements ComputeJob<Void> {
+        @Override
+        public Void execute(JobExecutionContext context, Object... args) {
+            Table table = context.ignite().tables().table("test");
+            KeyValueView<Integer, Integer> view = table.keyValueView(Integer.class, Integer.class);
+
+            view.get(null, 1);
+            view.put(null, 1, 1);
+
+            return null;
+        }
+    }
+
+    private static class NullReturningJob implements ComputeJob<Void> {
+        @Override
+        public Void execute(JobExecutionContext context, Object... args) {
             return null;
         }
     }
