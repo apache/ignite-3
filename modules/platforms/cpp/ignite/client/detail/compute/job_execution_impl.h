@@ -57,7 +57,8 @@ public:
     /**
      * Gets the job execution result asynchronously.
      *
-     * Only one callback can be submitted for this operation at a time.
+     * Only one callback can be submitted for this operation at a time, which means you can not call this method in
+     * parallel.
      * @param callback Callback to be called when the operation is complete. Called with the job execution result.
      */
     void get_result_async(ignite_callback<std::optional<primitive>> callback);

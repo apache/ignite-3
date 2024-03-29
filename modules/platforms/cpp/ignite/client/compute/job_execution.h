@@ -92,6 +92,8 @@ public:
     /**
      * Gets the job execution result asynchronously.
      *
+     * Only one callback can be submitted for this operation at a time, which means you can not call this method in
+     * parallel.
      * @param callback Callback to be called when the operation is complete. Called with the job execution result.
      */
     IGNITE_API void get_result_async(ignite_callback<std::optional<primitive>> callback);
@@ -99,6 +101,8 @@ public:
     /**
      * Gets the job execution result.
      *
+     * Only one thread can wait for result at a time, which means you can not call this method in parallel from
+     * multiple threads.
      * @return The job execution result.
      */
     IGNITE_API std::optional<primitive> get_result() {

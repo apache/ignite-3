@@ -49,7 +49,8 @@ public:
     compute() = delete;
 
     /**
-     * Executes a compute job represented by the given class for an execution on one of the specified nodes.
+     * Submits for execution a compute job represented by the given class for an execution on one of the specified
+     * nodes.
      *
      * @param nodes Nodes to use for the job execution.
      * @param units Deployment units. Can be empty.
@@ -61,7 +62,7 @@ public:
         std::string_view job_class_name, const std::vector<primitive> &args, ignite_callback<job_execution> callback);
 
     /**
-     * Executes a compute job represented by the given class on one of the specified nodes.
+     * Submits for execution a compute job represented by the given class on one of the specified nodes.
      *
      * @param nodes Nodes to use for the job execution.
      * @param units Deployment units. Can be empty.
