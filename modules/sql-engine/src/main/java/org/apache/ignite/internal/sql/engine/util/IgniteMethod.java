@@ -139,6 +139,11 @@ public enum IgniteMethod {
      * Conversion of timestamp to string (precision aware).
      */
     UNIX_TIMESTAMP_TO_STRING_PRECISION_AWARE(DateTimeUtils.class, "unixTimestampToString", long.class, int.class),
+
+    /**
+     * Conversion of time to string (precision aware).
+     */
+    UNIX_TIME_TO_STRING_PRECISION_AWARE(DateTimeUtils.class, "unixTimeToString", int.class, int.class),
     ;
 
     private final Method method;

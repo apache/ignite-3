@@ -484,8 +484,9 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                     case TIME:
                         convert =
                                 RexImpTable.optimize2(operand,
-                                        Expressions.call(BuiltInMethod.UNIX_TIME_TO_STRING.method,
-                                                operand));
+                                        Expressions.call(IgniteMethod.UNIX_TIME_TO_STRING_PRECISION_AWARE.method(),
+                                                operand,
+                                                Expressions.constant(sourceType.getPrecision())));
                         break;
                     case TIME_WITH_LOCAL_TIME_ZONE:
                         convert =
@@ -498,8 +499,10 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                     case TIMESTAMP:
                         convert =
                                 RexImpTable.optimize2(operand,
-                                        Expressions.call(BuiltInMethod.UNIX_TIMESTAMP_TO_STRING.method,
-                                                operand));
+                                        Expressions.call(
+                                                IgniteMethod.UNIX_TIMESTAMP_TO_STRING_PRECISION_AWARE.method(),
+                                                operand,
+                                                Expressions.constant(sourceType.getPrecision())));
                         break;
                     case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
                         convert =
