@@ -1110,7 +1110,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     @Test
     void lookupByPartialKey() {
         assertQuery("SELECT developer_id FROM ASSIGNMENTS WHERE developer_id = 1")
-                .matches(containsTableScan("PUBLIC", "ASSIGNMENTS"))
+                .matches(containsIndexScan("PUBLIC", "ASSIGNMENTS"))
                 .returns(1)
                 .returns(1)
                 .check();

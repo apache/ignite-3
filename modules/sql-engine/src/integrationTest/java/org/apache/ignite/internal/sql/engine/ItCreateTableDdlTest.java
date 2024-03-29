@@ -367,7 +367,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
         sql("CREATE TABLE test3 (id1 INT, id2 INT, val INT, PRIMARY KEY USING HASH (id2, id1))");
 
         assertQuery("SELECT index_name, type, COLUMNS FROM SYSTEM.INDEXES ORDER BY INDEX_ID")
-                .returns("TEST1_PK", "HASH", "ID2, ID1")
+                .returns("TEST1_PK", "SORTED", "ID2 ASC, ID1 ASC")
                 .returns("TEST2_PK", "SORTED", "ID1 DESC, ID2 ASC")
                 .returns("TEST3_PK", "HASH", "ID2, ID1")
                 .check();

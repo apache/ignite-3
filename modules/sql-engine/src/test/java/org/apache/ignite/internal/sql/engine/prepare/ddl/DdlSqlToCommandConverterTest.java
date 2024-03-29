@@ -197,7 +197,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
                 hasItem(Commons.IMPLICIT_PK_COL_NAME)
         );
 
-        assertEquals(createTable.primaryIndexType(), PrimaryKeyIndexType.HASH);
+        assertEquals(createTable.primaryIndexType(), PrimaryKeyIndexType.SORTED);
     }
 
     @ParameterizedTest

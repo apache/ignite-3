@@ -305,7 +305,7 @@ public class DdlSqlToCommandConverter {
             SqlIdentifier colName = new SqlIdentifier(Commons.IMPLICIT_PK_COL_NAME, SqlParserPos.ZERO);
 
             pkConstraints.add(new IgniteSqlPrimaryKeyConstraint(SqlParserPos.ZERO, null, SqlNodeList.of(colName),
-                    IgniteSqlPrimaryKeyIndexType.IMPLICIT_HASH));
+                    IgniteSqlPrimaryKeyIndexType.IMPLICIT_SORTED));
 
             SqlDataTypeSpec type = new SqlDataTypeSpec(new SqlBasicTypeNameSpec(SqlTypeName.VARCHAR, SqlParserPos.ZERO), SqlParserPos.ZERO);
             SqlNode col = SqlDdlNodes.column(SqlParserPos.ZERO, colName, type, null, ColumnStrategy.DEFAULT);
@@ -880,9 +880,9 @@ public class DdlSqlToCommandConverter {
     private PrimaryKeyIndexType convertPrimaryIndexType(IgniteSqlPrimaryKeyIndexType type) {
         switch (type) {
             case SORTED:
+            case IMPLICIT_SORTED:
                 return PrimaryKeyIndexType.SORTED;
             case HASH:
-            case IMPLICIT_HASH:
                 return PrimaryKeyIndexType.HASH;
             default:
                 throw new AssertionError("Unknown index type [type=" + type + "]");

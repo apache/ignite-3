@@ -27,6 +27,6 @@ public enum IgniteSqlPrimaryKeyIndexType {
     /** Hash index. */
     HASH,
 
-    /** The user have omitted USING clause, hence the type is set to {@link #HASH} implicitly. */
-    IMPLICIT_HASH
+    /** The user have omitted USING clause, hence the type is set to {@link #SORTED} implicitly. */
+    IMPLICIT_SORTED
 }

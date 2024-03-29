@@ -99,7 +99,7 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
                 constraint -> hasItem(ofTypeMatching("identifier \"ID\"", SqlIdentifier.class, id -> "ID".equals(id.names.get(0))))
                         .matches(constraint.getOperandList().get(1))
                         && constraint.getOperandList().get(0) == null
-                        && constraint.getIndexType() == IgniteSqlPrimaryKeyIndexType.IMPLICIT_HASH
+                        && constraint.getIndexType() == IgniteSqlPrimaryKeyIndexType.IMPLICIT_SORTED
                         && constraint.isA(singleton(SqlKind.PRIMARY_KEY)))));
 
         expectUnparsed(node, "CREATE TABLE \"MY_TABLE\" ("
@@ -176,7 +176,7 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
                 constraint -> hasItem(ofTypeMatching("identifier \"ID\"", SqlIdentifier.class, id -> "ID".equals(id.names.get(0))))
                         .matches(constraint.getOperandList().get(1))
                         && constraint.getOperandList().get(0) == null
-                        && constraint.getIndexType() == IgniteSqlPrimaryKeyIndexType.IMPLICIT_HASH
+                        && constraint.getIndexType() == IgniteSqlPrimaryKeyIndexType.IMPLICIT_SORTED
                         && constraint.isA(singleton(SqlKind.PRIMARY_KEY)))));
 
         expectUnparsed(node, "CREATE TABLE \"MY_TABLE\" ("
@@ -206,7 +206,7 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
                 constraint -> hasItem(ofTypeMatching("identifier \"ID\"", SqlIdentifier.class, id -> "ID".equals(id.names.get(0))))
                         .matches(constraint.getOperandList().get(1))
                         && constraint.getOperandList().get(0) == null
-                        && constraint.getIndexType() == IgniteSqlPrimaryKeyIndexType.IMPLICIT_HASH
+                        && constraint.getIndexType() == IgniteSqlPrimaryKeyIndexType.IMPLICIT_SORTED
                         && constraint.isA(singleton(SqlKind.PRIMARY_KEY)))));
 
         expectUnparsed(node, "CREATE TABLE \"MY_TABLE\" "
@@ -236,7 +236,7 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
                 constraint -> hasItem(ofTypeMatching("identifier \"ID\"", SqlIdentifier.class, id -> "ID".equals(id.names.get(0))))
                         .matches(constraint.getOperandList().get(1))
                         && "PK_KEY".equals(((SqlIdentifier) constraint.getOperandList().get(0)).names.get(0))
-                        && constraint.getIndexType() == IgniteSqlPrimaryKeyIndexType.IMPLICIT_HASH
+                        && constraint.getIndexType() == IgniteSqlPrimaryKeyIndexType.IMPLICIT_SORTED
                         && constraint.isA(singleton(SqlKind.PRIMARY_KEY)))));
 
         expectUnparsed(node, "CREATE TABLE \"MY_TABLE\" ("
@@ -267,7 +267,7 @@ public class SqlDdlParserTest extends AbstractDdlParserTest {
                         .matches(constraint.getOperandList().get(1))
                         && hasItem(ofTypeMatching("identifier \"ID2\"", SqlIdentifier.class, id -> "ID2".equals(id.names.get(0))))
                         .matches(constraint.getOperandList().get(1))
-                        && constraint.getIndexType() == IgniteSqlPrimaryKeyIndexType.IMPLICIT_HASH
+                        && constraint.getIndexType() == IgniteSqlPrimaryKeyIndexType.IMPLICIT_SORTED
                         && constraint.getOperandList().get(0) == null
                         && constraint.isA(singleton(SqlKind.PRIMARY_KEY)))));
 

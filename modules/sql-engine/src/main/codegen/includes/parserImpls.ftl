@@ -105,7 +105,7 @@ void TableElement(List<SqlNode> list) :
     final SqlNode dflt;
     SqlIdentifier id = null;
     SqlNodeList columnList = new SqlNodeList(s.end(this));
-    IgniteSqlPrimaryKeyIndexType primaryIndexType = IgniteSqlPrimaryKeyIndexType.IMPLICIT_HASH;
+    IgniteSqlPrimaryKeyIndexType primaryIndexType = IgniteSqlPrimaryKeyIndexType.IMPLICIT_SORTED;
 }
 {
     id = SimpleIdentifier() type = DataTypeEx() nullable = NullableOptDefaultNull()
