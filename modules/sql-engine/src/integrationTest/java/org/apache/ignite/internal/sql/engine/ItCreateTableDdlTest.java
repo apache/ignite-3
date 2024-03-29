@@ -59,6 +59,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     @AfterEach
     public void dropTables() {
         dropAllTables();
+        dropAllZonesExceptDefaultOne();
     }
 
     @Test
@@ -376,16 +377,12 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     public void testSuccessfulCreateTableWithZoneIdentifier() {
         sql("CREATE ZONE test_zone");
         sql("CREATE TABLE test_table (id INT PRIMARY KEY, val INT) WITH PRIMARY_ZONE=test_zone");
-        sql("DROP TABLE test_table");
-        sql("DROP ZONE test_zone");
     }
 
     @Test
     public void testSuccessfulCreateTableWithZoneLiteral() {
         sql("CREATE ZONE test_zone");
         sql("CREATE TABLE test_table (id INT PRIMARY KEY, val INT) WITH PRIMARY_ZONE='TEST_ZONE'");
-        sql("DROP TABLE test_table");
-        sql("DROP ZONE test_zone");
     }
 
     @Test
@@ -405,6 +402,5 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
                 STMT_VALIDATION_ERR,
                 "Failed to validate query. Distribution zone with name 'test_zone' not found",
                 () -> sql("CREATE TABLE test_table (id INT PRIMARY KEY, val INT) WITH PRIMARY_ZONE='test_zone'"));
-        sql("DROP ZONE test_zone");
     }
 }

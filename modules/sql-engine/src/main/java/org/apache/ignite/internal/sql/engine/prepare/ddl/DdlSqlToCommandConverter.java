@@ -799,14 +799,14 @@ public class DdlSqlToCommandConverter {
             DdlOptionInfo<S, T> optInfo,
             String query
     ) {
-        var valueKind = value.getKind();
+        SqlKind valueKind = value.getKind();
         switch (valueKind) {
             case IDENTIFIER:
                 return (T) ((SqlIdentifier) value).getSimple();
             case LITERAL:
                 return valueFromLiteralAccordingToOptionType(sqlObjName, optId, optInfo, query, (SqlLiteral) value);
             default:
-                var msg = String.format(
+                String msg = String.format(
                         "Invalid %s value kind [kind=%s, expectedKind=(IDENTIFIER, LITERAL), query=%s]",
                         sqlObjName.toLowerCase(),
                         valueKind,
@@ -823,7 +823,7 @@ public class DdlSqlToCommandConverter {
         try {
             optInfo.validator.accept(expectedValue);
         } catch (Throwable e) {
-            var msg = String.format(
+            String msg = String.format(
                     "%s option validation failed [option=%s, err=%s, query=%s]",
                     sqlObjName,
                     optId,
@@ -842,7 +842,7 @@ public class DdlSqlToCommandConverter {
         try {
             return literalValue.getValueAs(optInfo.type);
         } catch (Throwable cause) {
-            var msg = String.format(
+            String msg = String.format(
                     "Invalid %s option type [option=%s, expectedType=%s, query=%s]",
                     sqlObjName.toLowerCase(),
                     optId,
