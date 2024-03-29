@@ -23,10 +23,10 @@ import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTa
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.asStream;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCode;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
@@ -39,7 +39,6 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.api.ColumnMetadataImpl.ColumnOriginImpl;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.lang.CursorClosedException;
 import org.apache.ignite.lang.ErrorGroups.Common;
@@ -84,7 +83,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    public void ddl() throws Exception {
+    public void ddl() {
         IgniteSql sql = igniteSql();
 
         // CREATE TABLE
@@ -506,7 +505,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
             Thread.sleep(300); // ResultSetImpl fetches next page in background, wait to it to complete to avoid flakiness.
             rs.close();
 
-            IgniteTestUtils.assertThrowsWithCode(
+            assertThrowsWithCode(
                     CursorClosedException.class,
                     Common.CURSOR_ALREADY_CLOSED_ERR,
                     () -> rs.forEachRemaining(Object::hashCode),
@@ -646,16 +645,11 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
                 "Division by zero",
                 () -> execute(tx, sql, dmlQuery, 1).affectedRows());
 
-        IgniteException err = assertThrows(IgniteException.class, () -> {
-            ResultSet<SqlRow> rs = executeForRead(sql, tx, query, 2);
-            if (rs.hasRowSet()) {
-                assertTrue(rs.hasNext());
-            } else {
-                assertTrue(rs.wasApplied());
-            }
-        });
-
-        assertEquals(Transactions.TX_ALREADY_FINISHED_ERR, err.code(), err.toString());
+        assertThrowsWithCode(
+                IgniteException.class,
+                Transactions.TX_ALREADY_FINISHED_ERR,
+                () -> executeForRead(sql, tx, query, 2),
+                "Transaction is already finished");
     }
 
     @ParameterizedTest
@@ -677,16 +671,11 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
                 "Division by zero",
                 () -> execute(tx, sql, "SELECT val/? FROM tst WHERE id=?", 0, 1));
 
-        IgniteException err = assertThrows(IgniteException.class, () -> {
-            ResultSet<SqlRow> rs = executeForRead(sql, tx, query, 2);
-            if (rs.hasRowSet()) {
-                assertTrue(rs.hasNext());
-            } else {
-                assertTrue(rs.wasApplied());
-            }
-        });
-
-        assertEquals(Transactions.TX_ALREADY_FINISHED_ERR, err.code(), err.toString());
+        assertThrowsWithCode(
+                IgniteException.class,
+                Transactions.TX_ALREADY_FINISHED_ERR,
+                () -> executeForRead(sql, tx, query, 2),
+                "Transaction is already finished");
     }
 
     @Test
@@ -698,7 +687,10 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         {
             Transaction tx = igniteTx().begin();
 
-            assertThrows(RuntimeException.class, () -> execute(tx, sql, "SELECT 1/0"));
+            assertThrowsSqlException(
+                    Sql.RUNTIME_ERR,
+                    "Division by zero",
+                    () -> execute(tx, sql, "SELECT 1/0"));
 
             tx.rollback();
 

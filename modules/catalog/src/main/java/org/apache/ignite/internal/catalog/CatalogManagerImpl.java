@@ -70,6 +70,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViewProvider;
 import org.apache.ignite.internal.systemview.api.SystemViews;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.SubscriptionUtils;
@@ -373,18 +374,55 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     }
 
     private CompletableFuture<Integer> saveUpdateAndWaitForActivation(UpdateProducer updateProducer) {
-        return saveUpdate(updateProducer, 0)
+        CompletableFuture<Integer> resultFuture = new CompletableFuture<>();
+
+        saveUpdate(updateProducer, 0)
                 .thenCompose(newVersion -> {
                     Catalog catalog = catalogByVer.get(newVersion);
 
-                    HybridTimestamp tsSafeForRoReadingInPastOptimization = clusterWideEnsuredActivationTsSafeForRoReads(
-                            catalog,
-                            partitionIdleSafeTimePropagationPeriodMsSupplier,
-                            clockService.maxClockSkewMillis()
-                    );
+                    HybridTimestamp tsSafeForRoReadingInPastOptimization = calcClusterWideEnsureActivationTime(catalog);
 
                     return clockService.waitFor(tsSafeForRoReadingInPastOptimization).thenApply(unused -> newVersion);
+                })
+                .whenComplete((newVersion, err) -> {
+                    if (err != null) {
+                        Throwable errUnwrapped = ExceptionUtils.unwrapCause(err);
+
+                        if (errUnwrapped instanceof CatalogVersionAwareValidationException) {
+                            CatalogVersionAwareValidationException err0 = (CatalogVersionAwareValidationException) errUnwrapped;
+                            Catalog catalog = catalogByVer.get(err0.version());
+                            Throwable error = err0.initial();
+
+                            if (catalog.version() == 0) {
+                                resultFuture.completeExceptionally(error);
+                            } else {
+                                HybridTimestamp tsSafeForRoReadingInPastOptimization = calcClusterWideEnsureActivationTime(catalog);
+
+                                clockService.waitFor(tsSafeForRoReadingInPastOptimization)
+                                        .whenComplete((ver, err1) -> {
+                                            if (err1 != null) {
+                                                error.addSuppressed(err1);
+                                            }
+
+                                            resultFuture.completeExceptionally(error);
+                                        });
+                            }
+                        } else {
+                            resultFuture.completeExceptionally(err);
+                        }
+                    } else {
+                        resultFuture.complete(newVersion);
+                    }
                 });
+
+        return resultFuture;
+    }
+
+    private HybridTimestamp calcClusterWideEnsureActivationTime(Catalog catalog) {
+        return clusterWideEnsuredActivationTsSafeForRoReads(
+                catalog,
+                partitionIdleSafeTimePropagationPeriodMsSupplier,
+                clockService.maxClockSkewMillis());
     }
 
     /**
@@ -410,6 +448,8 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
             List<UpdateEntry> updates;
             try {
                 updates = updateProducer.get(catalog);
+            } catch (CatalogValidationException ex) {
+                return failedFuture(new CatalogVersionAwareValidationException(ex, catalog.version()));
             } catch (Exception ex) {
                 return failedFuture(ex);
             }
