@@ -195,8 +195,9 @@ public class DisasterRecoveryManager implements IgniteComponent {
                 .build();
 
         Map<TablePartitionId, Map<String, LocalPartitionState>> result = new ConcurrentHashMap<>();
-        List<CompletableFuture<?>> futures = new ArrayList<>();
+        CompletableFuture<?>[] futures = new CompletableFuture[logicalTopology.size()];
 
+        int i = 0;
         for (NodeWithAttributes node : logicalTopology) {
             CompletableFuture<NetworkMessage> invokeFuture = messagingService.invoke(
                     node.nodeName(),
@@ -204,7 +205,7 @@ public class DisasterRecoveryManager implements IgniteComponent {
                     TimeUnit.SECONDS.toMillis(TIMEOUT)
             );
 
-            futures.add(invokeFuture.thenAccept(networkMessage -> {
+            futures[i++] = invokeFuture.thenAccept(networkMessage -> {
                 assert networkMessage instanceof LocalPartitionStatesResponse : networkMessage;
 
                 var response = (LocalPartitionStatesResponse) networkMessage;
@@ -220,10 +221,10 @@ public class DisasterRecoveryManager implements IgniteComponent {
                         return map;
                     });
                 }
-            }));
+            });
         }
 
-        return CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new)).handle((unused, throwable) -> normalize(result));
+        return CompletableFuture.allOf(futures).handle((unused, throwable) -> normalize(result));
     }
 
     /**
