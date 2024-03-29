@@ -19,6 +19,9 @@ package org.apache.ignite.internal.storage.rocksdb;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.util.VarIntUtils.putVarIntToBuffer;
+import static org.apache.ignite.internal.util.VarIntUtils.readVarInt;
+import static org.apache.ignite.internal.util.VarIntUtils.varIntLength;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -26,6 +29,7 @@ import java.util.Arrays;
 import java.util.List;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.rocksdb.index.RocksDbBinaryTupleComparator;
+import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -52,7 +56,7 @@ public class ColumnFamilyUtils {
     private static final String HASH_INDEX_CF_NAME = "cf-hash";
 
     /** Prefix for SQL indexes column family names. */
-    private static final String SORTED_INDEX_CF_PREFIX = "cf-sorted-";
+    static final String SORTED_INDEX_CF_PREFIX = "cf-sorted-";
 
     /** List of column families names that should always be present in the RocksDB instance. */
     public static final List<byte[]> DEFAULT_CF_NAMES = List.of(
@@ -104,16 +108,31 @@ public class ColumnFamilyUtils {
 
     /**
      * Generates a sorted index column family name by its columns descriptions.
-     * The resulting array has a {@link #SORTED_INDEX_CF_PREFIX} prefix as a UTF8 array, followed by a number of pairs
+     *
+     * <p>The resulting array has a {@link #SORTED_INDEX_CF_PREFIX} prefix as a UTF8 array, followed by a number of pairs
      * {@code {type, flags}}, where type represents ordinal of the corresponding {@link NativeTypeSpec}, and
      * flags store information about column's nullability and comparison order.
+     *
+     * <p>Byte pairs for {@link NativeTypeSpec#DECIMAL} columns are also followed by the corresponding decimal scale encoded as a varint.
      *
      * @see #comparatorFromCfName(byte[])
      */
     public static byte[] sortedIndexCfName(List<StorageSortedIndexColumnDescriptor> columns) {
-        ByteBuffer buf = ByteBuffer.allocate(SORTED_INDEX_CF_PREFIX.length() + columns.size() * 2);
+        byte[] sortedIndexCfPrefixBytes = SORTED_INDEX_CF_PREFIX.getBytes(UTF_8);
 
-        buf.put(SORTED_INDEX_CF_PREFIX.getBytes(UTF_8));
+        int capacity = sortedIndexCfPrefixBytes.length;
+
+        for (StorageSortedIndexColumnDescriptor column : columns) {
+            capacity += 2;
+
+            if (column.type().spec() == NativeTypeSpec.DECIMAL) {
+                capacity += varIntLength(((DecimalNativeType) column.type()).scale());
+            }
+        }
+
+        ByteBuffer buf = ByteBuffer.allocate(capacity);
+
+        buf.put(sortedIndexCfPrefixBytes);
 
         for (StorageSortedIndexColumnDescriptor column : columns) {
             NativeType nativeType = column.type();
@@ -132,6 +151,10 @@ public class ColumnFamilyUtils {
             }
 
             buf.put((byte) flags);
+
+            if (nativeTypeSpec == NativeTypeSpec.DECIMAL) {
+                putVarIntToBuffer(((DecimalNativeType) nativeType).scale(), buf);
+            }
         }
 
         return buf.array();
@@ -187,7 +210,18 @@ public class ColumnFamilyUtils {
                     break;
 
                 case DECIMAL:
-                    nativeType = NativeTypes.decimalOf(-1, 0);
+                    int position = i + 2;
+
+                    ByteBuffer buffer = ByteBuffer.wrap(cfName).position(position);
+
+                    int scale = readVarInt(buffer);
+
+                    int bytesRead = buffer.position() - position;
+
+                    nativeType = NativeTypes.decimalOf(-1, scale);
+
+                    i += bytesRead;
+
                     break;
 
                 case UUID:

@@ -30,6 +30,7 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
+import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeTypeSpec;
 
 /**
@@ -141,10 +142,12 @@ public class BinaryTupleComparator implements Comparator<ByteBuffer> {
                 return tuple1.stringValue(index).compareTo(tuple2.stringValue(index));
 
             case NUMBER:
-            case DECIMAL:
-                // Floating point position is irrelevant during comparison.
-                // The only real requirement is that it matches in both arguments, and it does.
                 return tuple1.numberValue(index).compareTo(tuple2.numberValue(index));
+
+            case DECIMAL:
+                int scale = ((DecimalNativeType) columnDescriptor.type()).scale();
+
+                return tuple1.decimalValue(index, scale).compareTo(tuple2.decimalValue(index, scale));
 
             case TIMESTAMP:
                 return tuple1.timestampValue(index).compareTo(tuple2.timestampValue(index));
