@@ -18,13 +18,10 @@
 package org.apache.ignite.internal.client.sql;
 
 import java.time.ZoneId;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.Statement.StatementBuilder;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Client SQL statement builder.
