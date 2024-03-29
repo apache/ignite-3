@@ -54,10 +54,11 @@ public interface RecordMarshaller<R> {
      * Unmarshal given row to a record object.
      *
      * @param row Table row.
+     * @param keyOnlyRow Whether the row contains only key columns.
      * @return Record object.
      * @throws MarshallerException If failed to unmarshal row.
      */
-    R unmarshal(Row row) throws MarshallerException;
+    R unmarshal(Row row, boolean keyOnlyRow) throws MarshallerException;
 
     /**
      * Reads object field value.

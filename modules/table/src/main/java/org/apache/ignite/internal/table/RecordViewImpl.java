@@ -106,7 +106,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
         return doOperation(tx, (schemaVersion) -> {
             BinaryRowEx keyRow = marshalKey(keyRec, schemaVersion);
 
-            return tbl.get(keyRow, (InternalTransaction) tx).thenApply(binaryRow -> unmarshal(binaryRow, schemaVersion));
+            return tbl.get(keyRow, (InternalTransaction) tx).thenApply(binaryRow -> unmarshal(binaryRow, schemaVersion, false));
         });
     }
 
@@ -121,7 +121,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
 
         return doOperation(tx, (schemaVersion) -> {
             return tbl.getAll(marshalKeys(keyRecs, schemaVersion), (InternalTransaction) tx)
-                    .thenApply(binaryRows -> unmarshal(binaryRows, schemaVersion, true));
+                    .thenApply(binaryRows -> unmarshal(binaryRows, schemaVersion, true, false));
         });
     }
 
@@ -191,7 +191,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
         return doOperation(tx, (schemaVersion) -> {
             BinaryRowEx keyRow = marshal(rec, schemaVersion);
 
-            return tbl.getAndUpsert(keyRow, (InternalTransaction) tx).thenApply(binaryRow -> unmarshal(binaryRow, schemaVersion));
+            return tbl.getAndUpsert(keyRow, (InternalTransaction) tx).thenApply(binaryRow -> unmarshal(binaryRow, schemaVersion, false));
         });
     }
 
@@ -227,7 +227,8 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
         return doOperation(tx, (schemaVersion) -> {
             Collection<BinaryRowEx> rows = marshal(recs, schemaVersion);
 
-            return tbl.insertAll(rows, (InternalTransaction) tx).thenApply(binaryRows -> unmarshal(binaryRows, schemaVersion, false));
+            return tbl.insertAll(rows, (InternalTransaction) tx)
+                    .thenApply(binaryRows -> unmarshal(binaryRows, schemaVersion, false, false));
         });
     }
 
@@ -283,7 +284,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
         return doOperation(tx, (schemaVersion) -> {
             BinaryRowEx row = marshal(rec, schemaVersion);
 
-            return tbl.getAndReplace(row, (InternalTransaction) tx).thenApply(binaryRow -> unmarshal(binaryRow, schemaVersion));
+            return tbl.getAndReplace(row, (InternalTransaction) tx).thenApply(binaryRow -> unmarshal(binaryRow, schemaVersion, false));
         });
     }
 
@@ -337,7 +338,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
         return doOperation(tx, (schemaVersion) -> {
             BinaryRowEx row = marshalKey(keyRec, schemaVersion);
 
-            return tbl.getAndDelete(row, (InternalTransaction) tx).thenApply(binaryRow -> unmarshal(binaryRow, schemaVersion));
+            return tbl.getAndDelete(row, (InternalTransaction) tx).thenApply(binaryRow -> unmarshal(binaryRow, schemaVersion, false));
         });
     }
 
@@ -355,7 +356,8 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
         return doOperation(tx, (schemaVersion) -> {
             Collection<BinaryRowEx> rows = marshalKeys(keyRecs, schemaVersion);
 
-            return tbl.deleteAll(rows, (InternalTransaction) tx).thenApply(binaryRows -> unmarshal(binaryRows, schemaVersion, false));
+            return tbl.deleteAll(rows, (InternalTransaction) tx)
+                    .thenApply(binaryRows -> unmarshal(binaryRows, schemaVersion, false,  true));
         });
     }
 
@@ -374,7 +376,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
             Collection<BinaryRowEx> rows = marshal(recs, schemaVersion);
 
             return tbl.deleteAllExact(rows, (InternalTransaction) tx)
-                    .thenApply(binaryRows -> unmarshal(binaryRows, schemaVersion, false));
+                    .thenApply(binaryRows -> unmarshal(binaryRows, schemaVersion, false, false));
         });
     }
 
@@ -507,9 +509,10 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
      *
      * @param binaryRow Binary row.
      * @param targetSchemaVersion Schema version that should be used.
+     * @param keyOnlyRow {@code true} if the row contains only key columns.
      * @return Value object.
      */
-    private @Nullable R unmarshal(@Nullable BinaryRow binaryRow, int targetSchemaVersion) {
+    private @Nullable R unmarshal(@Nullable BinaryRow binaryRow, int targetSchemaVersion, boolean keyOnlyRow) {
         if (binaryRow == null) {
             return null;
         }
@@ -519,7 +522,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
         try {
             RecordMarshaller<R> marshaller = marshaller(row.schemaVersion());
 
-            return marshaller.unmarshal(row);
+            return marshaller.unmarshal(row, keyOnlyRow);
         } catch (Exception e) {
             throw new MarshallerException(e);
         }
@@ -529,11 +532,12 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
      * Unmarshal records.
      *
      * @param rows Row collection.
-     * @param addNull {@code true} if {@code null} is added for missing rows.
      * @param targetSchemaVersion Schema version that should be used.
+     * @param addNull {@code true} if {@code null} is added for missing rows.
+     * @param keyOnlyRow {@code true} if the row contains only key columns.
      * @return Records collection.
      */
-    private List<R> unmarshal(Collection<BinaryRow> rows, int targetSchemaVersion, boolean addNull) {
+    private List<R> unmarshal(Collection<BinaryRow> rows, int targetSchemaVersion, boolean addNull, boolean keyOnlyRow) {
         if (rows.isEmpty()) {
             return Collections.emptyList();
         }
@@ -545,7 +549,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
 
             for (Row row : rowConverter.resolveRows(rows, targetSchemaVersion)) {
                 if (row != null) {
-                    recs.add(marsh.unmarshal(row));
+                    recs.add(marsh.unmarshal(row, keyOnlyRow));
                 } else if (addNull) {
                     recs.add(null);
                 }

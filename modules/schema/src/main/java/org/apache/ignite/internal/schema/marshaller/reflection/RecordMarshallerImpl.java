@@ -52,6 +52,9 @@ public class RecordMarshallerImpl<R> implements RecordMarshaller<R> {
     /** Record type. */
     private final Class<R> recClass;
 
+    /** Positions of key fields in the schema. */
+    private final int[] keyPositions;
+
     /**
      * Creates KV marshaller.
      *
@@ -71,6 +74,7 @@ public class RecordMarshallerImpl<R> implements RecordMarshaller<R> {
         keyMarsh = marshallers.getKeysMarshaller(marshallerSchema, mapper, true, true);
         valMarsh = marshallers.getValuesMarshaller(marshallerSchema, mapper, false, true);
         recMarsh = marshallers.getRowMarshaller(marshallerSchema, mapper, false, false);
+        keyPositions = schema.keyColumns().stream().mapToInt(Column::positionInKey).toArray();
     }
 
     /** {@inheritDoc} */
@@ -105,8 +109,10 @@ public class RecordMarshallerImpl<R> implements RecordMarshaller<R> {
 
     /** {@inheritDoc} */
     @Override
-    public R unmarshal(Row row) throws MarshallerException {
-        final Object o = recMarsh.readObject(new RowReader(row), null);
+    public R unmarshal(Row row, boolean keyOnlyRow) throws MarshallerException {
+        Marshaller marsh = keyOnlyRow ? keyMarsh : recMarsh;
+        RowReader reader = keyOnlyRow ? new RowReader(row, keyPositions) : new RowReader(row);
+        final Object o = marsh.readObject(reader, null);
 
         assert recClass.isInstance(o);
 
