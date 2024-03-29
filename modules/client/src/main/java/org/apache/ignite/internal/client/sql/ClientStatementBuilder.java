@@ -30,9 +30,6 @@ import org.jetbrains.annotations.Nullable;
  * Client SQL statement builder.
  */
 public class ClientStatementBuilder implements Statement.StatementBuilder {
-    /** Properties. */
-    private final Map<String, Object> properties = new HashMap<>();
-
     /** Query. */
     private String query;
 

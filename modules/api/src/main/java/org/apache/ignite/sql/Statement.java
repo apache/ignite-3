@@ -19,7 +19,6 @@ package org.apache.ignite.sql;
 
 import java.time.ZoneId;
 import java.util.concurrent.TimeUnit;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Object represents an SQL statement.
