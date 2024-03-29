@@ -54,7 +54,7 @@ public class ReflectionMarshallersProvider implements MarshallersProvider {
     ) {
 
         MarshallerCacheKey key = new MarshallerCacheKey(
-                schema.schemaVersion(), MarshallerType.KEY_ONLY, mapper, requireAllFields, allowUnmappedFields
+                schema.schemaVersion(), MarshallerType.KEY_ONLY, schema.keys(), mapper, requireAllFields, allowUnmappedFields
         );
 
         return marshallerCache.getOrAdd(key, k -> {
@@ -71,7 +71,7 @@ public class ReflectionMarshallersProvider implements MarshallersProvider {
             boolean allowUnmappedFields) {
 
         MarshallerCacheKey key = new MarshallerCacheKey(
-                schema.schemaVersion(), MarshallerType.VALUE_ONLY, mapper, requireAllFields, allowUnmappedFields
+                schema.schemaVersion(), MarshallerType.VALUE_ONLY, schema.values(), mapper, requireAllFields, allowUnmappedFields
         );
 
         return marshallerCache.getOrAdd(key, k -> {
@@ -89,7 +89,7 @@ public class ReflectionMarshallersProvider implements MarshallersProvider {
     ) {
 
         MarshallerCacheKey key = new MarshallerCacheKey(
-                schema.schemaVersion(), MarshallerType.FULL_ROW, mapper, requireAllFields, allowUnmappedFields
+                schema.schemaVersion(), MarshallerType.FULL_ROW, schema.row(), mapper, requireAllFields, allowUnmappedFields
         );
 
         return marshallerCache.getOrAdd(key, k -> {
@@ -135,8 +135,6 @@ public class ReflectionMarshallersProvider implements MarshallersProvider {
     }
 
     private static final class MarshallerCacheKey {
-        private static final MarshallerColumn[] NO_COLUMNS = new MarshallerColumn[0];
-
         private final int schemaVersion;
 
         private final Mapper<?> mapper;
@@ -152,12 +150,13 @@ public class ReflectionMarshallersProvider implements MarshallersProvider {
         MarshallerCacheKey(
                 int schemaVersion,
                 MarshallerType type,
+                MarshallerColumn[] columns,
                 Mapper<?> mapper,
                 boolean requireAllFields,
                 boolean allowUnmappedFields
         ) {
             this.schemaVersion = schemaVersion;
-            this.columns = NO_COLUMNS;
+            this.columns = columns;
             this.type = type;
             this.mapper = mapper;
             this.requireAllFields = requireAllFields;

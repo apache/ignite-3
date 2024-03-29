@@ -184,9 +184,11 @@ import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.ThreadAssertingStorageEngine;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.systemview.api.SystemViewManager;
+import org.apache.ignite.internal.table.distributed.AntiHijackIgniteTables;
 import org.apache.ignite.internal.table.distributed.LowWatermarkImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
+import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnActionRequest;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnAppendEntries;
@@ -198,10 +200,11 @@ import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
+import org.apache.ignite.internal.tx.impl.AntiHijackIgniteTransactions;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
-import org.apache.ignite.internal.tx.impl.ResourceCleanupManager;
+import org.apache.ignite.internal.tx.impl.ResourceVacuumManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
@@ -309,6 +312,9 @@ public class IgniteImpl implements Ignite {
     /** Distributed table manager. */
     private final TableManager distributedTblMgr;
 
+    /** Disaster recovery manager. */
+    private final DisasterRecoveryManager disasterRecoveryManager;
+
     private final IndexManager indexManager;
 
     /** Rest module. */
@@ -378,7 +384,7 @@ public class IgniteImpl implements Ignite {
     private final IndexNodeFinishedRwTransactionsChecker indexNodeFinishedRwTransactionsChecker;
 
     /** Cleanup manager for tx resources. */
-    private final ResourceCleanupManager resourceCleanupManager;
+    private final ResourceVacuumManager resourceVacuumManager;
 
     /** Remote triggered resources registry. */
     private final RemotelyTriggeredResourceRegistry resourcesRegistry;
@@ -491,12 +497,6 @@ public class IgniteImpl implements Ignite {
                 message -> threadPoolsManager.partitionOperationsExecutor()
         );
 
-        ReplicaService replicaSvc = new ReplicaService(
-                messagingServiceReturningToStorageOperationsPool,
-                clock,
-                threadPoolsManager.partitionOperationsExecutor()
-        );
-
         // TODO: IGNITE-16841 - use common RocksDB instance to store cluster state as well.
         clusterStateStorage = new RocksDbClusterStateStorage(workDir.resolve(CMG_DB_PATH), name);
 
@@ -595,6 +595,13 @@ public class IgniteImpl implements Ignite {
 
         ReplicationConfiguration replicationConfig = clusterConfigRegistry.getConfiguration(ReplicationConfiguration.KEY);
 
+        ReplicaService replicaSvc = new ReplicaService(
+                messagingServiceReturningToStorageOperationsPool,
+                clock,
+                threadPoolsManager.partitionOperationsExecutor(),
+                replicationConfig
+        );
+
         LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier = partitionIdleSafeTimePropagationPeriodMsSupplier(replicationConfig);
 
         replicaMgr = new ReplicaManager(
@@ -681,14 +688,6 @@ public class IgniteImpl implements Ignite {
 
         TransactionInflights transactionInflights = new TransactionInflights(placementDriverMgr.placementDriver());
 
-        resourceCleanupManager = new ResourceCleanupManager(
-                name,
-                resourcesRegistry,
-                clusterSvc.topologyService(),
-                messagingServiceReturningToStorageOperationsPool,
-                transactionInflights
-        );
-
         // TODO: IGNITE-19344 - use nodeId that is validated on join (and probably generated differently).
         txManager = new TxManagerImpl(
                 name,
@@ -704,8 +703,16 @@ public class IgniteImpl implements Ignite {
                 indexNodeFinishedRwTransactionsChecker,
                 threadPoolsManager.partitionOperationsExecutor(),
                 resourcesRegistry,
-                resourceCleanupManager,
                 transactionInflights
+        );
+
+        resourceVacuumManager = new ResourceVacuumManager(
+                name,
+                resourcesRegistry,
+                clusterSvc.topologyService(),
+                messagingServiceReturningToStorageOperationsPool,
+                transactionInflights,
+                txManager
         );
 
         StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry.getConfiguration(StorageUpdateConfiguration.KEY);
@@ -754,8 +761,16 @@ public class IgniteImpl implements Ignite {
                 resourcesRegistry,
                 rebalanceScheduler,
                 lowWatermark,
-                asyncContinuationExecutor,
                 transactionInflights
+        );
+
+        disasterRecoveryManager = new DisasterRecoveryManager(
+                threadPoolsManager.tableIoExecutor(),
+                messagingServiceReturningToStorageOperationsPool,
+                metaStorageMgr,
+                catalogManager,
+                distributionZoneManager,
+                raftMgr
         );
 
         indexManager = new IndexManager(
@@ -1048,13 +1063,14 @@ public class IgniteImpl implements Ignite {
                                     volatileLogStorageFactoryCreator,
                                     outgoingSnapshotsManager,
                                     distributedTblMgr,
+                                    disasterRecoveryManager,
                                     indexManager,
                                     indexBuildingManager,
                                     qryEngine,
                                     clientHandlerModule,
                                     deploymentManager,
                                     sql,
-                                    resourceCleanupManager
+                                    resourceVacuumManager
                             );
 
                             // The system view manager comes last because other components
@@ -1162,7 +1178,11 @@ public class IgniteImpl implements Ignite {
     /** {@inheritDoc} */
     @Override
     public IgniteTables tables() {
-        return distributedTblMgr;
+        return new AntiHijackIgniteTables(distributedTblMgr, asyncContinuationExecutor);
+    }
+
+    public DisasterRecoveryManager disasterRecoveryManager() {
+        return disasterRecoveryManager;
     }
 
     @TestOnly
@@ -1188,7 +1208,8 @@ public class IgniteImpl implements Ignite {
     /** {@inheritDoc} */
     @Override
     public IgniteTransactions transactions() {
-        return new IgniteTransactionsImpl(txManager, observableTimestampTracker);
+        IgniteTransactionsImpl transactions = new IgniteTransactionsImpl(txManager, observableTimestampTracker);
+        return new AntiHijackIgniteTransactions(transactions, asyncContinuationExecutor);
     }
 
     /** {@inheritDoc} */

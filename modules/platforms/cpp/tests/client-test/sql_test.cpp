@@ -83,7 +83,7 @@ protected:
     ignite_client m_client;
 };
 
-void check_columns(
+static void check_columns(
     const result_set_metadata &meta, std::initializer_list<std::tuple<std::string, ignite_type>> columns) {
 
     ASSERT_EQ(columns.size(), meta.columns().size());

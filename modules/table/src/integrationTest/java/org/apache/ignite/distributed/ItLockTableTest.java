@@ -32,6 +32,7 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
@@ -45,7 +46,6 @@ import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager.LockState;
 import org.apache.ignite.internal.tx.impl.HeapUnboundedLockManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
-import org.apache.ignite.internal.tx.impl.ResourceCleanupManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
@@ -97,6 +97,9 @@ public class ItLockTableTest extends IgniteAbstractTest {
     protected static TransactionConfiguration txConfiguration;
 
     @InjectConfiguration
+    protected static ReplicationConfiguration replicationConfiguration;
+
+    @InjectConfiguration
     protected static StorageUpdateConfiguration storageUpdateConfiguration;
 
     private ItTxTestCluster txTestCluster;
@@ -123,7 +126,8 @@ public class ItLockTableTest extends IgniteAbstractTest {
                 1,
                 1,
                 false,
-                timestampTracker
+                timestampTracker,
+                replicationConfiguration
         ) {
             @Override
             protected TxManagerImpl newTxManager(
@@ -134,7 +138,6 @@ public class ItLockTableTest extends IgniteAbstractTest {
                     ClusterNode node,
                     PlacementDriver placementDriver,
                     RemotelyTriggeredResourceRegistry resourcesRegistry,
-                    ResourceCleanupManager resourceCleanupManager,
                     TransactionInflights transactionInflights
             ) {
                 return new TxManagerImpl(
@@ -152,7 +155,6 @@ public class ItLockTableTest extends IgniteAbstractTest {
                         () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
                         new TestLocalRwTxCounter(),
                         resourcesRegistry,
-                        resourceCleanupManager,
                         transactionInflights
                 );
             }

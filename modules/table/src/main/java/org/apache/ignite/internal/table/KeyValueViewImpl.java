@@ -28,7 +28,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
@@ -87,8 +86,6 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
      * @param schemaVersions Schema versions access.
      * @param sql Ignite SQL facade.
      * @param marshallers Marshallers provider.
-     * @param asyncContinuationExecutor Executor to which execution will be resubmitted when leaving asynchronous public API
-     *         endpoints (so as to prevent the user from stealing Ignite threads).
      * @param keyMapper Key class mapper.
      * @param valueMapper Value class mapper.
      */
@@ -98,11 +95,10 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
             SchemaVersions schemaVersions,
             IgniteSql sql,
             MarshallersProvider marshallers,
-            Executor asyncContinuationExecutor,
             Mapper<K> keyMapper,
             Mapper<V> valueMapper
     ) {
-        super(tbl, schemaVersions, schemaRegistry, sql, marshallers, asyncContinuationExecutor);
+        super(tbl, schemaVersions, schemaRegistry, sql, marshallers);
 
         this.keyMapper = keyMapper;
         this.valueMapper = valueMapper;
@@ -606,7 +602,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
         try {
             for (Row row : rowConverter.resolveKeys(rows, schemaVersion)) {
                 if (row != null) {
-                    keys.add(marsh.unmarshalKey(row));
+                    keys.add(marsh.unmarshalKeyOnly(row));
                 }
             }
 
@@ -710,7 +706,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
                 );
 
         CompletableFuture<Void> future = DataStreamer.streamData(publisher, options, batchSender, partitioner);
-        return convertToPublicFuture(preventThreadHijack(future));
+        return convertToPublicFuture(future);
     }
 
     /** {@inheritDoc} */

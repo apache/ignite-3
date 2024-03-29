@@ -20,6 +20,7 @@ package org.apache.ignite.internal.placementdriver;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
@@ -60,6 +61,7 @@ import org.apache.ignite.internal.testframework.flow.TestFlowUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.apache.ignite.internal.utils.PrimaryReplica;
+import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.TransactionOptions;
@@ -115,7 +117,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
 
     @Test
     public void testPrimaryChangeSubscription() throws Exception {
-        TableViewInternal tbl = (TableViewInternal) node(0).tables().table(TABLE_NAME);
+        TableViewInternal tbl = unwrapTableViewInternal(node(0).tables().table(TABLE_NAME));
 
         var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
 
@@ -197,7 +199,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
     @Test
     @WithSystemProperty(key = IgniteSystemProperties.THREAD_ASSERTIONS_ENABLED, value = "false")
     public void testClearingTransactionResourcesWhenPrimaryChange() throws Exception {
-        TableViewInternal tbl = (TableViewInternal) node(0).tables().table(TABLE_NAME);
+        TableViewInternal tbl = unwrapTableViewInternal(node(0).tables().table(TABLE_NAME));
 
         for (int i = 0; i < 10; i++) {
             assertTrue(tbl.recordView().insert(null, Tuple.create().set("key", i).set("val", "preload val")));
@@ -238,13 +240,14 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
         scanSingleEntryAndLeaveCursorOpen(tbl, roTx, hashIdxId, idxKey);
         scanSingleEntryAndLeaveCursorOpen(tbl, roTx, sortedIdxId, null);
 
-        var partitionStorage = (TestMvPartitionStorage) ((TableViewInternal) ignite.tables().table(TABLE_NAME))
+        TableViewInternal tableViewInternal = unwrapTableViewInternal(ignite.tables().table(TABLE_NAME));
+        var partitionStorage = (TestMvPartitionStorage) tableViewInternal
                 .internalTable().storage().getMvPartition(PART_ID);
 
-        var hashIdxStorage = (TestHashIndexStorage) ((TableViewInternal) ignite.tables().table(TABLE_NAME))
+        var hashIdxStorage = (TestHashIndexStorage) tableViewInternal
                 .internalTable().storage().getIndex(PART_ID, hashIdxId);
 
-        var sortedIdxStorage = (TestSortedIndexStorage) ((TableViewInternal) ignite.tables().table(TABLE_NAME))
+        var sortedIdxStorage = (TestSortedIndexStorage) tableViewInternal
                 .internalTable().storage().getIndex(PART_ID, sortedIdxId);
 
         assertTrue(ignite.txManager().lockManager().locks(rwTx.id()).hasNext());
@@ -302,7 +305,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
         } else if (exactKey == null) {
             publisher = tbl.internalTable().scan(PART_ID, tx, idxId, null, null, 0, null);
         } else {
-            var rwTx = (ReadWriteTransactionImpl) tx;
+            ReadWriteTransactionImpl rwTx = Wrappers.unwrap(tx, ReadWriteTransactionImpl.class);
 
             CompletableFuture<ReplicaMeta> primaryReplicaFut = node(0).placementDriver().getPrimaryReplica(
                     new TablePartitionId(tbl.tableId(), PART_ID),

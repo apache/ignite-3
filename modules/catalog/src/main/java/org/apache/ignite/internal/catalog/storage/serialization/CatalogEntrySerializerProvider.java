@@ -33,6 +33,7 @@ import org.apache.ignite.internal.catalog.storage.NewTableEntry;
 import org.apache.ignite.internal.catalog.storage.NewZoneEntry;
 import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
 import org.apache.ignite.internal.catalog.storage.RemoveIndexEntry;
+import org.apache.ignite.internal.catalog.storage.RenameIndexEntry;
 import org.apache.ignite.internal.catalog.storage.RenameTableEntry;
 import org.apache.ignite.internal.catalog.storage.SnapshotEntry;
 import org.apache.ignite.internal.catalog.storage.StartBuildingIndexEntry;
@@ -75,7 +76,8 @@ public interface CatalogEntrySerializerProvider {
             serializers[MarshallableEntryType.RENAME_TABLE.id()] = RenameTableEntry.SERIALIZER;
             serializers[MarshallableEntryType.ID_GENERATOR.id()] = ObjectIdGenUpdateEntry.SERIALIZER;
             serializers[MarshallableEntryType.SNAPSHOT.id()] = SnapshotEntry.SERIALIZER;
-            // noinspection ThisEscapedInObjectConstruction
+            serializers[MarshallableEntryType.RENAME_INDEX.id()] = RenameIndexEntry.SERIALIZER;
+            //noinspection ThisEscapedInObjectConstruction
             serializers[MarshallableEntryType.VERSIONED_UPDATE.id()] = new VersionedUpdateSerializer(this);
 
             assert Stream.of(serializers).noneMatch(Objects::isNull);

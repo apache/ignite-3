@@ -75,6 +75,7 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
+import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageTestGroup;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
@@ -108,6 +109,9 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
     @InjectConfiguration("mock {retryTimeout=2000, responseTimeout=1000}")
     private RaftConfiguration raftConfiguration;
+
+    @InjectConfiguration
+    private ReplicationConfiguration replicationConfiguration;
 
     private final HybridClock clock = new HybridClockImpl();
 
@@ -294,7 +298,11 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
         replicaListener = (request, sender) -> failedFuture(new IOException("test"));
 
-        new ReplicaService(clusterService.messagingService(), clock).invoke(
+        new ReplicaService(
+                clusterService.messagingService(),
+                clock,
+                replicationConfiguration
+        ).invoke(
                 clusterService.topologyService().getByConsistentId(leaderNodeName),
                 TEST_REPLICA_MESSAGES_FACTORY.primaryReplicaTestRequest()
                         .enlistmentConsistencyToken(1L)
@@ -354,7 +362,11 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
         var clusterService = clusterServices.get(anyNode);
 
-        new ReplicaService(clusterService.messagingService(), clock).invoke(
+        new ReplicaService(
+                clusterService.messagingService(),
+                clock,
+                replicationConfiguration
+        ).invoke(
                 clusterService.topologyService().getByConsistentId(leaderNodeName),
                 TEST_REPLICA_MESSAGES_FACTORY.primaryReplicaTestRequest()
                         .enlistmentConsistencyToken(1L)

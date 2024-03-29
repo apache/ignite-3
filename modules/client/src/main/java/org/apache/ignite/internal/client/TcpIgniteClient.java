@@ -79,6 +79,11 @@ public class TcpIgniteClient implements IgniteClient {
     private final ReflectionMarshallersProvider marshallers = new ReflectionMarshallersProvider();
 
     /**
+     * Cluster name.
+     */
+    private String clusterName;
+
+    /**
      * Constructor.
      *
      * @param cfg Config.
@@ -129,7 +134,11 @@ public class TcpIgniteClient implements IgniteClient {
      * @return Future representing pending completion of the operation.
      */
     private CompletableFuture<ClientChannel> initAsync() {
-        return ch.channelsInitAsync();
+        return ch.channelsInitAsync().whenComplete((channel, throwable) -> {
+            if (throwable == null) {
+                clusterName = channel.protocolContext().clusterName();
+            }
+        });
     }
 
     /**
@@ -141,7 +150,7 @@ public class TcpIgniteClient implements IgniteClient {
     public static CompletableFuture<IgniteClient> startAsync(IgniteClientConfiguration cfg) {
         ErrorGroups.initialize();
 
-        // noinspection resource: returned from method
+        //noinspection resource: returned from method
         var client = new TcpIgniteClient(cfg);
 
         return client.initAsync().thenApply(x -> client);
@@ -229,6 +238,15 @@ public class TcpIgniteClient implements IgniteClient {
     @Override
     public List<ClusterNode> connections() {
         return ch.connections();
+    }
+
+    /**
+     * Returns the name of the cluster to which this client is connected to.
+     *
+     * @return Cluster name.
+     */
+    public String clusterName() {
+        return clusterName;
     }
 
     @TestOnly

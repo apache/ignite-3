@@ -53,4 +53,9 @@ public final class IgniteEvents implements EventFactory {
                 .productVersion("3.0.0")
                 .build();
     }
+
+    @Override
+    public EventBuilder builder() {
+        return new EventBuilder().type(type);
+    }
 }

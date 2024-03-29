@@ -20,9 +20,14 @@ package org.apache.ignite.internal.storage.rocksdb.instance;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementPrefix;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.toStringName;
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage.INDEX_ROW_ID_PREFIX;
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage.PARTITION_CONF_PREFIX;
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage.PARTITION_META_PREFIX;
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.KEY_BYTE_ORDER;
 import static org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstanceCreator.sortedIndexCfOptions;
 import static org.apache.ignite.internal.util.ByteUtils.intToBytes;
 
+import java.nio.ByteBuffer;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -30,6 +35,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -45,7 +51,6 @@ import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.rocksdb.ColumnFamilyDescriptor;
-import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.ReadOptions;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
@@ -70,18 +75,18 @@ public final class SharedRocksDbInstance {
     private static class SortedIndexColumnFamily implements AutoCloseable {
         final ColumnFamily columnFamily;
 
-        final Map<Integer, Integer> indexIdToTableId;
+        final Map<Integer, Integer> indexIdToTableId = new ConcurrentHashMap<>();
 
         SortedIndexColumnFamily(ColumnFamily columnFamily, int indexId, int tableId) {
             this.columnFamily = columnFamily;
-            this.indexIdToTableId = new HashMap<>();
 
             indexIdToTableId.put(indexId, tableId);
         }
 
         SortedIndexColumnFamily(ColumnFamily columnFamily, Map<Integer, Integer> indexIdToTableId) {
             this.columnFamily = columnFamily;
-            this.indexIdToTableId = indexIdToTableId;
+
+            this.indexIdToTableId.putAll(indexIdToTableId);
         }
 
         @Override
@@ -241,13 +246,13 @@ public final class SharedRocksDbInstance {
     /**
      * Returns an "index ID - Column Family" mapping for all sorted indexes that currently exist in the storage.
      */
-    public Map<Integer, ColumnFamily> sortedIndexes(int targetTableId) {
-        var result = new HashMap<Integer, ColumnFamily>();
+    public List<IndexColumnFamily> sortedIndexes(int targetTableId) {
+        var result = new ArrayList<IndexColumnFamily>();
 
         for (SortedIndexColumnFamily indexCf : sortedIndexCfsByName.values()) {
             indexCf.indexIdToTableId.forEach((indexId, tableId) -> {
                 if (tableId == targetTableId) {
-                    result.put(indexId, indexCf.columnFamily);
+                    result.add(new IndexColumnFamily(indexId, indexCf.columnFamily));
                 }
             });
         }
@@ -282,16 +287,25 @@ public final class SharedRocksDbInstance {
     }
 
     /**
-     * Possibly drops the column family after destroying the index.
+     * Schedules a drop of a column family after destroying an index, if it was the last index managed by that CF.
      */
-    public void destroySortedIndexCfIfNeeded(byte[] cfName, int indexId) {
+    public CompletableFuture<Void> scheduleIndexCfsDestroy(List<IndexColumnFamily> indexColumnFamilies) {
+        assert !indexColumnFamilies.isEmpty();
+
+        return flusher.awaitFlush(false)
+                .thenRunAsync(() -> indexColumnFamilies.forEach(this::destroySortedIndexCfIfNeeded), engine.threadPool());
+    }
+
+    void destroySortedIndexCfIfNeeded(IndexColumnFamily indexColumnFamily) {
         if (!busyLock.enterBusy()) {
             throw new StorageClosedException();
         }
 
+        var cfNameBytes = new ByteArray(indexColumnFamily.columnFamily().nameBytes());
+
         try {
-            sortedIndexCfsByName.computeIfPresent(new ByteArray(cfName), (unused, indexCf) -> {
-                indexCf.indexIdToTableId.remove(indexId);
+            sortedIndexCfsByName.computeIfPresent(cfNameBytes, (unused, indexCf) -> {
+                indexCf.indexIdToTableId.remove(indexColumnFamily.indexId());
 
                 if (!indexCf.indexIdToTableId.isEmpty()) {
                     return indexCf;
@@ -306,6 +320,48 @@ public final class SharedRocksDbInstance {
         }
     }
 
+    /**
+     * Removes all data associated with the given table ID in this storage.
+     */
+    public void destroyTable(int tableId) {
+        try (WriteBatch writeBatch = new WriteBatch()) {
+            byte[] tableIdBytes = ByteBuffer.allocate(Integer.BYTES)
+                    .order(KEY_BYTE_ORDER)
+                    .putInt(tableId)
+                    .array();
+
+            deleteByPrefix(writeBatch, partitionCf, tableIdBytes);
+            deleteByPrefix(writeBatch, gcQueueCf, tableIdBytes);
+            deleteByPrefix(writeBatch, hashIndexCf, tableIdBytes);
+
+            List<IndexColumnFamily> sortedIndexCfs = sortedIndexes(tableId);
+
+            for (IndexColumnFamily indexColumnFamily : sortedIndexCfs) {
+                deleteByPrefix(writeBatch, indexColumnFamily.columnFamily(), tableIdBytes);
+            }
+
+            deleteByPrefix(writeBatch, meta.columnFamily(), metaPrefix(PARTITION_META_PREFIX, tableIdBytes));
+            deleteByPrefix(writeBatch, meta.columnFamily(), metaPrefix(PARTITION_CONF_PREFIX, tableIdBytes));
+            deleteByPrefix(writeBatch, meta.columnFamily(), metaPrefix(INDEX_ROW_ID_PREFIX, tableIdBytes));
+
+            db.write(DFLT_WRITE_OPTS, writeBatch);
+
+            if (!sortedIndexCfs.isEmpty()) {
+                scheduleIndexCfsDestroy(sortedIndexCfs);
+            }
+        } catch (RocksDBException e) {
+            throw new StorageException("Failed to destroy table data. [tableId={}]", e, tableId);
+        }
+    }
+
+    private static byte[] metaPrefix(byte[] metaPrefix, byte[] tableIdBytes) {
+        return ByteBuffer.allocate(metaPrefix.length + tableIdBytes.length)
+                .order(KEY_BYTE_ORDER)
+                .put(metaPrefix)
+                .put(tableIdBytes)
+                .array();
+    }
+
     private ColumnFamily createSortedIndexCf(byte[] cfName) {
         ColumnFamilyDescriptor cfDescriptor = new ColumnFamilyDescriptor(cfName, sortedIndexCfOptions(cfName));
 
@@ -313,7 +369,7 @@ public final class SharedRocksDbInstance {
         try {
             columnFamily = ColumnFamily.create(db, cfDescriptor);
         } catch (RocksDBException e) {
-            throw new StorageException("Failed to create new RocksDB column family: " + toStringName(cfDescriptor.getName()), e);
+            throw new StorageException("Failed to create new RocksDB column family: " + toStringName(cfName), e);
         }
 
         flusher.addColumnFamily(columnFamily.handle());
@@ -322,9 +378,7 @@ public final class SharedRocksDbInstance {
     }
 
     private void destroyColumnFamily(ColumnFamily columnFamily) {
-        ColumnFamilyHandle columnFamilyHandle = columnFamily.handle();
-
-        flusher.removeColumnFamily(columnFamilyHandle);
+        flusher.removeColumnFamily(columnFamily.handle());
 
         try {
             columnFamily.destroy();

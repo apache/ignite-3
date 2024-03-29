@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.SYSTEM_SCHEMAS;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
@@ -39,7 +40,6 @@ import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
-import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.lang.ErrorGroups.Sql;
@@ -64,14 +64,23 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     public void pkWithNullableColumns() {
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "Primary key cannot contain nullable column [col=ID0]",
+                "Primary key cannot contain nullable column [col=ID0].",
                 () -> sql("CREATE TABLE T0(ID0 INT NULL, ID1 INT NOT NULL, VAL INT, PRIMARY KEY (ID1, ID0))")
         );
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "Primary key cannot contain nullable column [col=ID]",
+                "Primary key cannot contain nullable column [col=ID].",
                 () -> sql("CREATE TABLE T0(ID INT NULL PRIMARY KEY, VAL INT)")
+        );
+    }
+
+    @Test
+    public void pkWithDuplicatesColumn() {
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "PK column 'ID1' specified more that once.",
+                () -> sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, ID0, ID1))")
         );
     }
 
@@ -79,7 +88,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     public void pkWithInvalidColumns() {
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "Primary key constraint contains undefined columns: [cols=[ID2]]",
+                "Primary key constraint contains undefined columns: [cols=[ID2]].",
                 () -> sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID2, ID0))")
         );
     }
@@ -128,7 +137,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     public void undefinedColumnsInPrimaryKey() {
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "Primary key constraint contains undefined columns: [cols=[ID0, ID2, ID1]]",
+                "Primary key constraint contains undefined columns: [cols=[ID1, ID0, ID2]].",
                 () -> sql("CREATE TABLE T0(ID INT, VAL INT, PRIMARY KEY (ID1, ID0, ID2))")
         );
     }
@@ -158,7 +167,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     public void implicitColocationColumns() {
         sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, ID0))");
 
-        List<Column> colocationColumns = ((TableViewInternal) table("T0")).schemaView().lastKnownSchema().colocationColumns();
+        List<Column> colocationColumns = unwrapTableViewInternal(table("T0")).schemaView().lastKnownSchema().colocationColumns();
 
         assertEquals(2, colocationColumns.size());
         assertEquals("ID1", colocationColumns.get(0).name());
@@ -296,7 +305,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     public void explicitColocationColumns() {
         sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, ID0)) COLOCATE BY (id0)");
 
-        List<Column> colocationColumns = ((TableViewInternal) table("T0")).schemaView().lastKnownSchema().colocationColumns();
+        List<Column> colocationColumns = unwrapTableViewInternal(table("T0")).schemaView().lastKnownSchema().colocationColumns();
 
         assertEquals(1, colocationColumns.size());
         assertEquals("ID0", colocationColumns.get(0).name());
@@ -309,7 +318,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     public void explicitColocationColumnsCaseSensitive() {
         sql("CREATE TABLE T0(\"Id0\" INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, \"Id0\")) COLOCATE BY (\"Id0\")");
 
-        List<Column> colocationColumns = ((TableViewInternal) table("T0")).schemaView().lastKnownSchema().colocationColumns();
+        List<Column> colocationColumns = unwrapTableViewInternal(table("T0")).schemaView().lastKnownSchema().colocationColumns();
 
         assertEquals(1, colocationColumns.size());
         assertEquals("Id0", colocationColumns.get(0).name());

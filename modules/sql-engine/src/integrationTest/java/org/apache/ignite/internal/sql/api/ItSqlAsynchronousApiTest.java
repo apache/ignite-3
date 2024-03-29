@@ -220,7 +220,7 @@ public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
 
         @Override
         public List<SqlRow> result() {
-            // noinspection AssignmentOrReturnOfFieldWithMutableType
+            //noinspection AssignmentOrReturnOfFieldWithMutableType
             if (expectedPages != null) {
                 assertEquals(0, expectedPages, "Expected to be read more pages");
             }

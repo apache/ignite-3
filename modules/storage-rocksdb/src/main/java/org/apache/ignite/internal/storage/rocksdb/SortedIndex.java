@@ -30,12 +30,9 @@ import org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstance
 class SortedIndex extends Index<RocksDbSortedIndexStorage> {
     private final StorageSortedIndexDescriptor descriptor;
 
-    private final SharedRocksDbInstance rocksDb;
-
     private final RocksDbMetaStorage indexMetaStorage;
 
     private SortedIndex(
-            SharedRocksDbInstance rocksDb,
             int tableId,
             ColumnFamily indexCf,
             StorageSortedIndexDescriptor descriptor,
@@ -43,7 +40,6 @@ class SortedIndex extends Index<RocksDbSortedIndexStorage> {
     ) {
         super(tableId, descriptor.id(), indexCf);
 
-        this.rocksDb = rocksDb;
         this.descriptor = descriptor;
         this.indexMetaStorage = indexMetaStorage;
     }
@@ -56,29 +52,20 @@ class SortedIndex extends Index<RocksDbSortedIndexStorage> {
     ) {
         ColumnFamily indexCf = rocksDb.getOrCreateSortedIndexCf(sortedIndexCfName(descriptor.columns()), descriptor.id(), tableId);
 
-        return new SortedIndex(rocksDb, tableId, indexCf, descriptor, indexMetaStorage);
+        return new SortedIndex(tableId, indexCf, descriptor, indexMetaStorage);
     }
 
     static SortedIndex restoreExisting(
-            SharedRocksDbInstance rocksDb,
             int tableId,
             ColumnFamily indexCf,
             StorageSortedIndexDescriptor descriptor,
             RocksDbMetaStorage indexMetaStorage
     ) {
-        return new SortedIndex(rocksDb, tableId, indexCf, descriptor, indexMetaStorage);
+        return new SortedIndex(tableId, indexCf, descriptor, indexMetaStorage);
     }
 
     @Override
     RocksDbSortedIndexStorage createStorage(int partitionId) {
-        return new RocksDbSortedIndexStorage(descriptor, tableId, partitionId, indexCf, indexMetaStorage);
-    }
-
-    /**
-     * Signals the shared RocksDB instance that this index has been destroyed and all shared resources (like the Column Family) can be
-     * de-allocated.
-     */
-    void destroySortedIndexCfIfNeeded() {
-        rocksDb.destroySortedIndexCfIfNeeded(indexCf.nameBytes(), indexId);
+        return new RocksDbSortedIndexStorage(descriptor, tableId, partitionId, indexColumnFamily().columnFamily(), indexMetaStorage);
     }
 }

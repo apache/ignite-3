@@ -187,6 +187,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
+import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
@@ -353,6 +354,9 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @InjectConfiguration
     private StorageUpdateConfiguration storageUpdateConfiguration;
+
+    @InjectConfiguration
+    private TransactionConfiguration transactionConfiguration;
 
     /** Schema descriptor for tests. */
     private SchemaDescriptor schemaDescriptor;
@@ -549,7 +553,12 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 clusterNodeResolver,
                 messagingService,
                 mock(PlacementDriver.class),
-                new TxMessageSender(messagingService, mock(ReplicaService.class), clockService)
+                new TxMessageSender(
+                        messagingService,
+                        mock(ReplicaService.class),
+                        clockService,
+                        transactionConfiguration
+                )
         );
 
         transactionStateResolver.start();
@@ -2708,7 +2717,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     private TestKey key(BinaryRow binaryRow) {
         try {
-            return kvMarshaller.unmarshalKey(Row.wrapKeyOnlyBinaryRow(schemaDescriptor, binaryRow));
+            return kvMarshaller.unmarshalKeyOnly(Row.wrapKeyOnlyBinaryRow(schemaDescriptor, binaryRow));
         } catch (MarshallerException e) {
             throw new AssertionError(e);
         }

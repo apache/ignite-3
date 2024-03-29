@@ -138,6 +138,5 @@ class EventBuilderTest {
                         .user(EventUser.system())
                         .build()
         );
-
     }
 }

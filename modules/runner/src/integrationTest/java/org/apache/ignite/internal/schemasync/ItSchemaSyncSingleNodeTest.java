@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.schemasync;
 
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
@@ -27,7 +28,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.replicator.IncompatibleSchemaException;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxState;
@@ -92,7 +92,7 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
 
         IgniteException ex;
 
-        int tableId = ((TableViewInternal) table).tableId();
+        int tableId = unwrapTableViewInternal(table).tableId();
 
         if (operation.sql()) {
             ex = assertThrows(IgniteException.class, () -> operation.execute(table, tx, cluster));
@@ -240,7 +240,7 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
 
         IgniteException ex;
 
-        int tableId = ((TableViewInternal) table).tableId();
+        int tableId = unwrapTableViewInternal(table).tableId();
 
         if (operation.sql()) {
             ex = assertThrows(IgniteException.class, () -> operation.execute(table, tx, cluster));
