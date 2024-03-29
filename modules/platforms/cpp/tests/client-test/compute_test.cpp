@@ -446,3 +446,68 @@ TEST_F(compute_test, execute_colocated_empty_unit_version) {
         },
         ignite_error);
 }
+
+TEST_F(compute_test, job_execution_status_executing) {
+    const std::int32_t sleep_ms = 3000;
+
+    auto execution = m_client.get_compute().submit({get_node(1)}, {}, SLEEP_JOB, {sleep_ms});
+
+    auto status = execution.get_status();
+
+    ASSERT_TRUE(status.has_value());
+    EXPECT_EQ(job_state::EXECUTING, status->state);
+}
+
+TEST_F(compute_test, job_execution_status_completed) {
+    const std::int32_t sleep_ms = 1;
+
+    auto execution = m_client.get_compute().submit({get_node(1)}, {}, SLEEP_JOB, {sleep_ms});
+    execution.get_result();
+
+    auto status = execution.get_status();
+
+    ASSERT_TRUE(status.has_value());
+    EXPECT_EQ(job_state::COMPLETED, status->state);
+}
+
+TEST_F(compute_test, job_execution_status_failed) {
+    auto execution = m_client.get_compute().submit({get_node(1)}, {}, ERROR_JOB, {"unused"});
+
+    EXPECT_THROW(
+        {
+            try {
+                execution.get_result();
+            } catch (const ignite_error &e) {
+                EXPECT_THAT(e.what_str(), testing::HasSubstr("Custom job error"));
+                throw;
+            }
+        },
+        ignite_error);
+
+    auto status = execution.get_status();
+
+    ASSERT_TRUE(status.has_value());
+    EXPECT_EQ(job_state::FAILED, status->state);
+}
+
+TEST_F(compute_test, job_execution_cancel) {
+    const std::int32_t sleep_ms = 5000;
+
+    auto execution = m_client.get_compute().submit({get_node(1)}, {}, SLEEP_JOB, {sleep_ms});
+    execution.cancel();
+
+    auto status = execution.get_status();
+
+    ASSERT_TRUE(status.has_value());
+    EXPECT_EQ(job_state::CANCELED, status->state);
+}
+
+TEST_F(compute_test, job_execution_change_priority) {
+    const std::int32_t sleep_ms = 5000;
+
+    auto execution = m_client.get_compute().submit({get_node(1)}, {}, SLEEP_JOB, {sleep_ms});
+    auto res = execution.change_priority(123);
+
+    EXPECT_EQ(res, job_execution::operation_result::INVALID_STATE);
+}
+

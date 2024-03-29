@@ -324,7 +324,7 @@ void compute_impl::cancel_async(uuid id, ignite_callback<job_execution::operatio
         if (reader.try_read_nil())
             return operation_result::NOT_FOUND;
 
-        return reader.read_bool() ? operation_result::SUCCESS : operation_result::ALREADY_FINISHED;
+        return reader.read_bool() ? operation_result::SUCCESS : operation_result::INVALID_STATE;
     };
 
     m_connection->perform_request<job_execution::operation_result>(
@@ -343,7 +343,7 @@ void compute_impl::change_priority_async(
         if (reader.try_read_nil())
             return operation_result::NOT_FOUND;
 
-        return reader.read_bool() ? operation_result::SUCCESS : operation_result::ALREADY_FINISHED;
+        return reader.read_bool() ? operation_result::SUCCESS : operation_result::INVALID_STATE;
     };
 
     m_connection->perform_request<job_execution::operation_result>(

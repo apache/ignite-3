@@ -103,7 +103,7 @@ void job_execution_impl::cancel_async(ignite_callback<job_execution::operation_r
     }
 
     if (status_set) {
-        callback(job_execution::operation_result::ALREADY_FINISHED);
+        callback(job_execution::operation_result::INVALID_STATE);
 
         return;
     }
@@ -120,7 +120,7 @@ void job_execution_impl::change_priority_async(
     }
 
     if (status_set) {
-        callback(job_execution::operation_result::ALREADY_FINISHED);
+        callback(job_execution::operation_result::INVALID_STATE);
 
         return;
     }

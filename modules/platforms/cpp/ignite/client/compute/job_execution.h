@@ -44,7 +44,7 @@ public:
         SUCCESS,
 
         /// The job has already finished.
-        ALREADY_FINISHED,
+        INVALID_STATE,
 
         /// The job was not found (no longer exists due to exceeding the retention time limit).
         NOT_FOUND
