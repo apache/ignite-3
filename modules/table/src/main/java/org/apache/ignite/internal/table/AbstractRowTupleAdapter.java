@@ -389,6 +389,6 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
     }
 
     private int correctIndex(Column col) {
-        return row.keyOnly() ?  col.positionInKey() : col.positionInRow();
+        return row.keyOnly() ? col.positionInKey() : col.positionInRow();
     }
 }
