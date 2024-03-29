@@ -29,13 +29,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.eventlog.api.Event;
 import org.apache.ignite.internal.eventlog.api.EventChannel;
 import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.eventlog.api.IgniteEvents;
 import org.apache.ignite.internal.eventlog.api.Sink;
-import org.apache.ignite.internal.eventlog.config.schema.EventLogConfiguration;
 import org.apache.ignite.internal.eventlog.event.EventUser;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -44,9 +42,6 @@ class EventLogTest {
     private static final EventUser TEST_USER = EventUser.of("testuser", "basicAuthenticator");
     private static final Event TEST_EVENT = IgniteEvents.USER_AUTHENTICATED.create(TEST_USER);
     private static final String TEST_CHANNEL_NAME = "testChannel";
-
-    @InjectConfiguration
-    private EventLogConfiguration cfg;
 
     private EventLog eventLog;
 

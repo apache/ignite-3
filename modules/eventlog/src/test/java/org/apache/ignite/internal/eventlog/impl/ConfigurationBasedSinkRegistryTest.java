@@ -23,12 +23,13 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.eventlog.config.schema.EventLogConfiguration;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 @ExtendWith(ConfigurationExtension.class)
-class ConfigurationBasedSinkRegistryTest {
+class ConfigurationBasedSinkRegistryTest extends BaseIgniteAbstractTest {
     private static final String TEST_CHANNEL = "testChannel";
 
     @InjectConfiguration
