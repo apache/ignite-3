@@ -23,6 +23,7 @@ import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.compute.version.VersionParseException;
 import org.apache.ignite.internal.deployunit.DeploymentStatus;
 import org.apache.ignite.internal.deployunit.UnitStatus;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Deployment unit node status.
@@ -94,9 +95,9 @@ public class UnitNodeStatus extends UnitStatus {
      * @param value Serialized deployment unit node status.
      * @return Deserialized deployment unit node status.
      */
-    public static UnitNodeStatus deserialize(byte[] value) {
+    public static UnitNodeStatus deserialize(byte @Nullable [] value) {
         if (value == null || value.length == 0) {
-            return new UnitNodeStatus(null, null, null, 0, null);
+            return new UnitNodeStatus(null, null, null, -1, null);
         }
 
         String[] values = SerializeUtils.deserialize(value);

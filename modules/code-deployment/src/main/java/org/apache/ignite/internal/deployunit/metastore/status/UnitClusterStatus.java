@@ -24,6 +24,7 @@ import java.util.Set;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.deployunit.DeploymentStatus;
 import org.apache.ignite.internal.deployunit.UnitStatus;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Deployment unit cluster status.
@@ -102,9 +103,9 @@ public class UnitClusterStatus extends UnitStatus {
      * @param value Serialized deployment unit cluster status.
      * @return Deserialized deployment unit cluster status.
      */
-    public static UnitClusterStatus deserialize(byte[] value) {
+    public static UnitClusterStatus deserialize(byte @Nullable [] value) {
         if (value == null || value.length == 0) {
-            return new UnitClusterStatus(null, null, null, 0, Set.of());
+            return new UnitClusterStatus(null, null, null, -1, Set.of());
         }
 
         String[] values = SerializeUtils.deserialize(value);

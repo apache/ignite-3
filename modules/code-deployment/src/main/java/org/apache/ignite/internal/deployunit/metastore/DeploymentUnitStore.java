@@ -179,16 +179,18 @@ public interface DeploymentUnitStore {
      *
      * @param id Deployment unit identifier.
      * @param version Deployment version identifier.
+     * @param opId Operation identifier.
      * @return Future with {@code true} result if removed successfully.
      */
-    CompletableFuture<Boolean> removeClusterStatus(String id, Version version);
+    CompletableFuture<Boolean> removeClusterStatus(String id, Version version, long opId);
 
     /**
      * Removes node status.
      *
      * @param id Deployment unit identifier.
      * @param version Deployment version identifier.
+     * @param opId Operation identifier.
      * @return Future with {@code true} result if removed successfully.
      */
-    CompletableFuture<Boolean> removeNodeStatus(String nodeId, String id, Version version);
+    CompletableFuture<Boolean> removeNodeStatus(String nodeId, String id, Version version, long opId);
 }

@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.revision;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
+import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 
 import java.util.List;
@@ -43,7 +44,6 @@ import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitNodeStatus;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.dsl.Operations;
 
 /**
  * Implementation of {@link DeploymentUnitStore} based on {@link MetaStorageManager}.
@@ -208,17 +208,31 @@ public class DeploymentUnitStoreImpl implements DeploymentUnitStore {
     }
 
     @Override
-    public CompletableFuture<Boolean> removeClusterStatus(String id, Version version) {
+    public CompletableFuture<Boolean> removeClusterStatus(String id, Version version, long opId) {
         ByteArray key = ClusterStatusKey.builder().id(id).version(version).build().toByteArray();
 
-        return metaStorage.invoke(exists(key), Operations.remove(key), noop());
+        return metaStorage.get(key).thenCompose(e -> {
+            UnitClusterStatus prev = UnitClusterStatus.deserialize(e.value());
+            if (prev.opId() != -1 && prev.opId() != opId) {
+                return falseCompletedFuture();
+            }
+
+            return metaStorage.invoke(revision(key).eq(e.revision()), remove(key), noop());
+        });
     }
 
     @Override
-    public CompletableFuture<Boolean> removeNodeStatus(String nodeId, String id, Version version) {
+    public CompletableFuture<Boolean> removeNodeStatus(String nodeId, String id, Version version, long opId) {
         ByteArray key = NodeStatusKey.builder().id(id).version(version).nodeId(nodeId).build().toByteArray();
 
-        return metaStorage.invoke(exists(key), Operations.remove(key), noop());
+        return metaStorage.get(key).thenCompose(e -> {
+            UnitNodeStatus prev = UnitNodeStatus.deserialize(e.value());
+            if (prev.opId() != opId) {
+                return falseCompletedFuture();
+            }
+
+            return metaStorage.invoke(revision(key).eq(e.revision()), remove(key), noop());
+        });
     }
 
     /**
@@ -244,7 +258,7 @@ public class DeploymentUnitStoreImpl implements DeploymentUnitStore {
                     }
 
                     return metaStorage.invoke(
-                                    force ? exists(key) : revision(key).le(e.revision()),
+                                    force ? exists(key) : revision(key).eq(e.revision()),
                                     put(key, newValue),
                                     noop())
                             .thenCompose(finished -> {
