@@ -68,36 +68,84 @@ public:
     [[nodiscard]] uuid get_id() const;
 
     /**
-     * Gets the job execution status. Can be @c nullopt if the job status no longer exists due to exceeding the
-     * retention time limit.
+     * Gets the job execution status asynchronously. Can be @c nullopt if the job status no longer exists due to
+     * exceeding the retention time limit.
      *
-     * @param callback Callback to be called when the operation is complete. Contains the job status. Can be @c nullopt
-     *  if the job status no longer exists due to exceeding the retention time limit.
+     * @param callback Callback to be called when the operation is complete. Called with the job status.
+     *  Can be @c nullopt if the job status no longer exists due to exceeding the retention time limit.
      */
     IGNITE_API void get_status_async(ignite_callback<std::optional<job_status>> callback);
 
     /**
+     * Gets the job execution status. Can be @c nullopt if the job status no longer exists due to exceeding the
+     * retention time limit.
+     *
+     * @return The job status. Can be @c nullopt if the job status no longer exists due to exceeding the retention
+     *  time limit.
+     */
+    IGNITE_API std::optional<job_status> get_status() {
+        return sync<std::optional<job_status>>([this](auto callback) mutable {
+            get_status_async(std::move(callback));
+        });
+    }
+
+    /**
      * Gets the job execution result asynchronously.
      *
-     * @param callback Callback to be called when the operation is complete. Contains the job execution result.
+     * @param callback Callback to be called when the operation is complete. Called with the job execution result.
      */
     IGNITE_API void get_result_async(ignite_callback<std::optional<primitive>> callback);
 
     /**
-     * Cancels the job execution.
+     * Gets the job execution result.
      *
-     * @param callback Callback to be called when the operation is complete. Contains cancel result.
+     * @return The job execution result.
+     */
+    IGNITE_API std::optional<primitive> get_result() {
+        return sync<std::optional<primitive>>([this](auto callback) mutable {
+            get_result_async(std::move(callback));
+        });
+    }
+
+    /**
+     * Cancels the job execution asynchronously.
+     *
+     * @param callback Callback to be called when the operation is complete. Called with the cancel result.
      */
     IGNITE_API void cancel_async(ignite_callback<operation_result> callback);
+
+    /**
+     * Cancels the job execution.
+     *
+     * @param return Result of the cancel operation.
+     */
+    IGNITE_API operation_result cancel() {
+        return sync<operation_result>([this](auto callback) mutable {
+            cancel_async(std::move(callback));
+        });
+    }
+
+    /**
+     * Changes the job priority asynchronously. After priority change the job will be the last in the queue of jobs
+     * with the same priority.
+     *
+     * @param priority New priority.
+     * @param callback Callback to be called when the operation is complete. Called with the operation result.
+     */
+    IGNITE_API void change_priority_async(std::int32_t priority, ignite_callback<operation_result> callback);
 
     /**
      * Changes the job priority. After priority change the job will be the last in the queue of jobs with the same
      * priority.
      *
      * @param priority New priority.
-     * @param callback Callback to be called when the operation is complete. Contains operation result.
+     * @param return Result of the operation.
      */
-    IGNITE_API void change_priority_async(std::int32_t priority, ignite_callback<operation_result> callback);
+    IGNITE_API operation_result change_priority(std::int32_t priority) {
+        return sync<operation_result>([this, priority](auto callback) mutable {
+            change_priority_async(priority, std::move(callback));
+        });
+    }
 
 private:
     /** Implementation. */
