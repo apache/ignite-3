@@ -95,7 +95,6 @@ public class ObservableTimestampPropagationTest extends BaseIgniteAbstractTest {
         assertEquals(11, lastObservableTimestamp());
 
         Statement statement = client.sql().statementBuilder()
-                .property("hasMorePages", true)
                 .query("SELECT 1")
                 .build();
 
