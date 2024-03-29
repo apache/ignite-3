@@ -76,7 +76,12 @@ public class ItCustomKeyColumnOrderClientTest extends ItAbstractThinClientTest {
         var recView = table().recordView(Pojo.class);
 
         Pojo key = new Pojo(1, "key2");
+        Pojo key2 = new Pojo(2, "key3");
+
         Pojo val = new Pojo(1, "key2", "val1", 2L);
+        Pojo val2 = new Pojo(2, "key3", "val2", 3L);
+
+        // put/get.
         recView.insert(null, val);
 
         Pojo res = recView.get(null, key);
@@ -84,6 +89,17 @@ public class ItCustomKeyColumnOrderClientTest extends ItAbstractThinClientTest {
         assertEquals(val.key2, res.key2);
         assertEquals(val.val1, res.val1);
         assertEquals(val.val2, res.val2);
+
+        // getAndPut.
+        Pojo putRes = recView.getAndUpsert(null, val2);
+        assertEquals(val.key1, putRes.key1);
+
+        // contains.
+        assertTrue(recView.contains(null, key));
+
+        // getAndRemove.
+        Pojo removeRes = recView.getAndDelete(null, key);
+        assertEquals(val.key1, removeRes.key1);
     }
 
     @Test
