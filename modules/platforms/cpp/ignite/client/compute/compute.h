@@ -93,7 +93,8 @@ public:
      */
     IGNITE_API void submit_broadcast_async(const std::set<cluster_node> &nodes,
         const std::vector<deployment_unit> &units, std::string_view job_class_name, const std::vector<primitive> &args,
-        const job_execution_options &options, ignite_callback<std::map<cluster_node, ignite_result<job_execution>>> callback);
+        const job_execution_options &options,
+        ignite_callback<std::map<cluster_node, ignite_result<job_execution>>> callback);
 
     /**
      * Broadcast a compute job represented by the given class on all of the specified nodes.
@@ -108,10 +109,9 @@ public:
     IGNITE_API std::map<cluster_node, ignite_result<job_execution>> submit_broadcast(
         const std::set<cluster_node> &nodes, const std::vector<deployment_unit> &units, std::string_view job_class_name,
         const std::vector<primitive> &args, const job_execution_options &options) {
-        return sync<std::map<cluster_node, ignite_result<job_execution>>>(
-            [&](auto callback) mutable {
-                submit_broadcast_async(nodes, units, job_class_name, args, options, std::move(callback));
-            });
+        return sync<std::map<cluster_node, ignite_result<job_execution>>>([&](auto callback) mutable {
+            submit_broadcast_async(nodes, units, job_class_name, args, options, std::move(callback));
+        });
     }
 
     /**
@@ -141,8 +141,8 @@ public:
      * @return Job execution result.
      */
     IGNITE_API job_execution submit_colocated(std::string_view table_name, const ignite_tuple &key,
-        const std::vector<deployment_unit> &units, std::string_view job_class_name,
-        const std::vector<primitive> &args, const job_execution_options &options) {
+        const std::vector<deployment_unit> &units, std::string_view job_class_name, const std::vector<primitive> &args,
+        const job_execution_options &options) {
         return sync<job_execution>([&](auto callback) mutable {
             submit_colocated_async(table_name, key, units, job_class_name, args, options, std::move(callback));
         });
