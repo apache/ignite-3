@@ -123,7 +123,7 @@ public class ItCustomKeyColumnOrderClientTest extends ItAbstractThinClientTest {
         // getAndReplace.
         Tuple getAndReplaceRes = recView.getAndReplace(null, val);
         assertNotNull(getAndReplaceRes);
-        assertEquals(val, getAndReplaceRes);
+        assertEquals(val2, getAndReplaceRes);
     }
 
     @Test
