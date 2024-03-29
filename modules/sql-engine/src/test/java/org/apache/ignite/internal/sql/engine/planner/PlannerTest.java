@@ -21,6 +21,7 @@ import static org.apache.calcite.tools.Frameworks.createRootSchema;
 import static org.apache.calcite.tools.Frameworks.newConfigBuilder;
 import static org.apache.ignite.internal.sql.engine.planner.CorrelatedSubqueryPlannerTest.createTestTable;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
+import static org.apache.ignite.internal.sql.engine.util.RexUtils.tryToDnf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -59,7 +60,6 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.sql.engine.util.RexUtils.DnfHelper;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
@@ -344,8 +344,7 @@ public class PlannerTest extends AbstractPlannerTest {
 
         IgniteTableScan scan = findFirstNode(rel, byClass(IgniteTableScan.class));
 
-        DnfHelper helper = new DnfHelper(Commons.rexBuilder(), maxCount);
-        RexNode rex = helper.tryToDnf(scan.condition());
+        RexNode rex = tryToDnf(Commons.rexBuilder(), scan.condition(), maxCount);
 
         if (result) {
             assertNotNull(rex);

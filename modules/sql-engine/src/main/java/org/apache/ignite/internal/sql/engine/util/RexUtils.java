@@ -182,8 +182,25 @@ public class RexUtils {
         return true;
     }
 
+    /** Try to transform expression into DNF form.
+     *
+     * @param rexBuilder Expression builder.
+     * @param node Expression to process.
+     * @param maxOrNodes Max OR nodes in output.
+     * @return DNF expression representation or {@code null} if limit is reached.
+     */
+    public static @Nullable RexNode tryToDnf(RexBuilder rexBuilder, RexNode node, int maxOrNodes) {
+        DnfHelper helper = new DnfHelper(Commons.rexBuilder(), maxOrNodes);
+
+        try {
+            return helper.toDnf(node);
+        } catch (FoundOne e) {
+            return null;
+        }
+    }
+
     /** Calcite based dnf wrapper with OR nodes limitation. */
-    public static class DnfHelper {
+    static class DnfHelper {
         final RexBuilder rexBuilder;
         final int maxOrNodes;
 
@@ -192,18 +209,9 @@ public class RexUtils {
          * @param rexBuilder Rex builder.
          * @param maxOrNodes Limit for OR nodes, if limit is reached further processing will be stopped.
          */
-        public DnfHelper(RexBuilder rexBuilder, int maxOrNodes) {
+        DnfHelper(RexBuilder rexBuilder, int maxOrNodes) {
             this.rexBuilder = rexBuilder;
             this.maxOrNodes = maxOrNodes;
-        }
-
-        /** Return dnf representation or {@code null} if limit is reached. */
-        public @Nullable RexNode tryToDnf(RexNode rex) {
-            try {
-                return toDnf(rex);
-            } catch (FoundOne e) {
-                return null;
-            }
         }
 
         private RexNode toDnf(RexNode rex) {

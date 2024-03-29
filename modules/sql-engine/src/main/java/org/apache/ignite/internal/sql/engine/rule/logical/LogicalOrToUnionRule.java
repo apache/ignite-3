@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.rule.logical;
 
+import static org.apache.ignite.internal.sql.engine.util.RexUtils.tryToDnf;
+
 import java.util.BitSet;
 import java.util.List;
 import java.util.Map;
@@ -41,7 +43,6 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.sql.engine.util.RexUtils.DnfHelper;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.immutables.value.Value;
 import org.jetbrains.annotations.Nullable;
@@ -64,8 +65,7 @@ public class LogicalOrToUnionRule extends RelRule<LogicalOrToUnionRule.Config> {
     }
 
     private static @Nullable List<RexNode> getOrOperands(RexBuilder rexBuilder, RexNode condition) {
-        DnfHelper helper = new DnfHelper(Commons.rexBuilder(), 2);
-        RexNode dnf = helper.tryToDnf(condition);
+        RexNode dnf = tryToDnf(rexBuilder, condition, 2);
 
         if (dnf != null && !dnf.isA(SqlKind.OR)) {
             return null;
