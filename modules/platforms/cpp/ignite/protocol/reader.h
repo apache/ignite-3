@@ -155,6 +155,29 @@ public:
     [[nodiscard]] std::int32_t read_int32() { return read_object<std::int32_t>(); }
 
     /**
+     * Read timestamp.
+     *
+     * @return Timestamp.
+     */
+    [[nodiscard]] ignite_timestamp read_timestamp() {
+        auto seconds = read_int64();
+        auto nanos = read_int32();
+        return {seconds, nanos};
+    }
+
+    /**
+     * Read timestamp or null.
+     *
+     * @return Timestamp or std::nullopt.
+     */
+    [[nodiscard]] std::optional<ignite_timestamp> read_timestamp_opt() {
+        if (try_read_nil())
+            return std::nullopt;
+
+        return {read_timestamp()};
+    }
+
+    /**
      * Read array of int32.
      *
      * @return Value.
