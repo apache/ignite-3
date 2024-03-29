@@ -19,6 +19,7 @@ package org.apache.ignite.internal.table;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.replicator.ReplicaService.REPLICA_SERVICE_RPC_TIMEOUT;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -103,7 +104,7 @@ public class ItTransactionPrimaryChangeTest extends ClusterPerTestIntegrationTes
     @Test
     @WithSystemProperty(key = REPLICA_SERVICE_RPC_TIMEOUT, value = "30000")
     public void testFullTxConsistency() throws InterruptedException {
-        TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
+        TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
         int partId = 0;
 
