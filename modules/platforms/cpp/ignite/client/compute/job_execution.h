@@ -28,7 +28,7 @@
 namespace ignite {
 
 namespace detail {
-    class job_execution_impl;
+class job_execution_impl;
 }
 
 /**
@@ -58,7 +58,8 @@ public:
      *
      * @param impl Implementation.
      */
-    explicit job_execution(std::shared_ptr<detail::job_execution_impl> impl) : m_impl(std::move(impl)) {}
+    explicit job_execution(std::shared_ptr<detail::job_execution_impl> impl)
+        : m_impl(std::move(impl)) {}
 
     /**
      * Gets the job ID.
@@ -84,9 +85,8 @@ public:
      *  time limit.
      */
     IGNITE_API std::optional<job_status> get_status() {
-        return sync<std::optional<job_status>>([this](auto callback) mutable {
-            get_status_async(std::move(callback));
-        });
+        return sync<std::optional<job_status>>(
+            [this](auto callback) mutable { get_status_async(std::move(callback)); });
     }
 
     /**
@@ -102,9 +102,7 @@ public:
      * @return The job execution result.
      */
     IGNITE_API std::optional<primitive> get_result() {
-        return sync<std::optional<primitive>>([this](auto callback) mutable {
-            get_result_async(std::move(callback));
-        });
+        return sync<std::optional<primitive>>([this](auto callback) mutable { get_result_async(std::move(callback)); });
     }
 
     /**
@@ -120,9 +118,7 @@ public:
      * @param return Result of the cancel operation.
      */
     IGNITE_API operation_result cancel() {
-        return sync<operation_result>([this](auto callback) mutable {
-            cancel_async(std::move(callback));
-        });
+        return sync<operation_result>([this](auto callback) mutable { cancel_async(std::move(callback)); });
     }
 
     /**
@@ -142,9 +138,8 @@ public:
      * @param return Result of the operation.
      */
     IGNITE_API operation_result change_priority(std::int32_t priority) {
-        return sync<operation_result>([this, priority](auto callback) mutable {
-            change_priority_async(priority, std::move(callback));
-        });
+        return sync<operation_result>(
+            [this, priority](auto callback) mutable { change_priority_async(priority, std::move(callback)); });
     }
 
 private:

@@ -22,8 +22,7 @@
 namespace ignite {
 
 void compute::submit_async(const std::vector<cluster_node> &nodes, const std::vector<deployment_unit> &units,
-    std::string_view job_class_name, const std::vector<primitive> &args,
-    ignite_callback<job_execution> callback) {
+    std::string_view job_class_name, const std::vector<primitive> &args, ignite_callback<job_execution> callback) {
     detail::arg_check::container_non_empty(nodes, "Nodes container");
     detail::arg_check::container_non_empty(job_class_name, "Job class name");
 

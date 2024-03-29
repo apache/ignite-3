@@ -174,7 +174,7 @@ public:
         if (try_read_nil())
             return std::nullopt;
 
-        return { read_timestamp() };
+        return {read_timestamp()};
     }
 
     /**

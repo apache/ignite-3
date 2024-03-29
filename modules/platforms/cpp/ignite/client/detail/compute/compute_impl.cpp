@@ -16,8 +16,8 @@
  */
 
 #include "ignite/client/detail/compute/compute_impl.h"
-#include "ignite/client/detail/compute/job_execution_impl.h"
 #include "ignite/client/detail/argument_check_utils.h"
+#include "ignite/client/detail/compute/job_execution_impl.h"
 #include "ignite/client/detail/utils.h"
 #include "ignite/protocol/utils.h"
 #include "ignite/tuple/binary_tuple_builder.h"
@@ -302,9 +302,7 @@ void compute_impl::submit_colocated_async(const std::string &table_name, const i
 }
 
 void compute_impl::get_status_async(uuid id, ignite_callback<std::optional<job_status>> callback) {
-    auto writer_func = [id](protocol::writer &writer) {
-        writer.write(id);
-    };
+    auto writer_func = [id](protocol::writer &writer) { writer.write(id); };
 
     auto reader_func = [](protocol::reader &reader) -> std::optional<job_status> {
         return read_job_status_opt(reader);
@@ -315,9 +313,7 @@ void compute_impl::get_status_async(uuid id, ignite_callback<std::optional<job_s
 }
 
 void compute_impl::cancel_async(uuid id, ignite_callback<job_execution::operation_result> callback) {
-    auto writer_func = [id](protocol::writer &writer) {
-        writer.write(id);
-    };
+    auto writer_func = [id](protocol::writer &writer) { writer.write(id); };
 
     auto reader_func = [](protocol::reader &reader) -> job_execution::operation_result {
         typedef job_execution::operation_result operation_result;

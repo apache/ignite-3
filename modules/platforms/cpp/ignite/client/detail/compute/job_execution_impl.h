@@ -45,7 +45,7 @@ public:
      */
     explicit job_execution_impl(uuid id, std::shared_ptr<compute_impl> &&compute)
         : m_id(id)
-        , m_compute(compute) { }
+        , m_compute(compute) {}
 
     /**
      * Gets the job ID.

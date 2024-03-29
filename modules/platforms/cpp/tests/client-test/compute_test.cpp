@@ -510,4 +510,3 @@ TEST_F(compute_test, job_execution_change_priority) {
 
     EXPECT_EQ(res, job_execution::operation_result::INVALID_STATE);
 }
-
