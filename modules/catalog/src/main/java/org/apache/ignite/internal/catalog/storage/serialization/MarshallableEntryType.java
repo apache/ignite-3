@@ -38,7 +38,8 @@ public enum MarshallableEntryType {
     RENAME_TABLE(14),
     ID_GENERATOR(15),
     SNAPSHOT(16),
-    VERSIONED_UPDATE(17);
+    VERSIONED_UPDATE(17),
+    RENAME_INDEX(18);
 
     /** Type ID. */
     private final int id;

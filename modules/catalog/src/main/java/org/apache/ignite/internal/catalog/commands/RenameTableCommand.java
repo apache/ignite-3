@@ -19,6 +19,8 @@ package org.apache.ignite.internal.catalog.commands;
 
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.ensureNoTableIndexOrSysViewExistsWithGivenName;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateIdentifier;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.indexOrThrow;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.schemaOrThrow;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.tableOrThrow;
 
@@ -26,8 +28,10 @@ import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.storage.RenameIndexEntry;
 import org.apache.ignite.internal.catalog.storage.RenameTableEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 
@@ -58,7 +62,16 @@ public class RenameTableCommand extends AbstractTableCommand {
 
         CatalogTableDescriptor table = tableOrThrow(schema, tableName);
 
-        return List.of(new RenameTableEntry(table.id(), newTableName));
+        String newPkIndexName = pkIndexName(newTableName);
+
+        ensureNoTableIndexOrSysViewExistsWithGivenName(schema, newPkIndexName);
+
+        CatalogIndexDescriptor pkIndex = indexOrThrow(catalog, table.primaryKeyIndexId());
+
+        return List.of(
+                new RenameTableEntry(table.id(), newTableName),
+                new RenameIndexEntry(pkIndex.id(), newPkIndexName)
+        );
     }
 
     private static class Builder implements RenameTableCommandBuilder {
