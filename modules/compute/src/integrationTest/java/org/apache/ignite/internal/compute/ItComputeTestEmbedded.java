@@ -17,7 +17,10 @@
 
 package org.apache.ignite.internal.compute;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.IgniteExceptionTestUtils.assertPublicCheckedException;
 import static org.apache.ignite.internal.IgniteExceptionTestUtils.assertPublicException;
 import static org.apache.ignite.internal.IgniteExceptionTestUtils.assertTraceableException;
@@ -36,6 +39,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -366,6 +370,25 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
 
         assertThat(results.keySet(), equalTo(new HashSet<>(entryNode.clusterNodes())));
         assertThat(new HashSet<>(results.values()), contains(nullValue()));
+    }
+
+    @Test
+    void executesNullReturningJobViaSubmitBroadcast() {
+        int entryNodeIndex = 0;
+
+        IgniteImpl entryNode = node(entryNodeIndex);
+
+        Map<ClusterNode, JobExecution<Object>> executionsMap = entryNode.compute()
+                .submitBroadcast(new HashSet<>(entryNode.clusterNodes()), List.of(), NullReturningJob.class.getName());
+        assertThat(executionsMap.keySet(), equalTo(new HashSet<>(entryNode.clusterNodes())));
+
+        List<JobExecution<Object>> executions = new ArrayList<>(executionsMap.values());
+        List<CompletableFuture<Object>> futures = executions.stream()
+                .map(JobExecution::resultAsync)
+                .collect(toList());
+        assertThat(allOf(futures.toArray(CompletableFuture[]::new)), willCompleteSuccessfully());
+
+        assertThat(futures.stream().map(CompletableFuture::join).collect(toSet()), contains(nullValue()));
     }
 
     private Stream<Arguments> targetNodeIndexes() {
