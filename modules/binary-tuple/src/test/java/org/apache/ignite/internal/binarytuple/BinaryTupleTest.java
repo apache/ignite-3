@@ -365,6 +365,21 @@ public class BinaryTupleTest {
         assertEquals(value.doubleValue(), res.doubleValue());
     }
 
+    @Test
+    public void maxDecimalScaleTest() {
+        // Test trailing zeros: should not be stripped when resulting scale goes beyond limit.
+        BigDecimal value = new BigDecimal("123000E32768");
+
+        short schemaScale = Short.MAX_VALUE;
+        BinaryTupleBuilder builder = new BinaryTupleBuilder(1);
+        ByteBuffer bytes = builder.appendDecimal(value, schemaScale).build();
+
+        BinaryTupleReader reader = new BinaryTupleReader(1, bytes);
+        BigDecimal res = reader.decimalValue(0, schemaScale);
+
+        assertEquals(value.setScale(schemaScale, RoundingMode.UNNECESSARY), res);
+    }
+
     /**
      * Test string value encoding.
      */

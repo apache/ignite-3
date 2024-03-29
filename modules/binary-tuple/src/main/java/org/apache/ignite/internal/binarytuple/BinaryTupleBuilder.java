@@ -319,7 +319,11 @@ public class BinaryTupleBuilder {
             value = value.setScale(scale, RoundingMode.HALF_UP);
         }
 
-        value = value.stripTrailingZeros();
+        BigDecimal noZeros = value.stripTrailingZeros();
+        if (noZeros.scale() <= Short.MAX_VALUE && noZeros.scale() >= Short.MIN_VALUE) {
+            // Use more compact representation if possible.
+            value = noZeros;
+        }
 
         // See CatalogUtils.MAX_DECIMAL_SCALE = Short.MAX_VALUE
         if (value.scale() > Short.MAX_VALUE) {
