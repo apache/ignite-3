@@ -17,9 +17,11 @@
 
 package org.apache.ignite.internal.sql.engine.tx;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext.validateStatement;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.calcite.sql.SqlNode;
@@ -33,6 +35,7 @@ import org.apache.ignite.internal.sql.engine.sql.IgniteSqlStartTransactionMode;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
 
 /**
@@ -99,6 +102,10 @@ public class ScriptTransactionContext {
 
             boolean readOnly = ((IgniteSqlStartTransaction) node).getMode() == IgniteSqlStartTransactionMode.READ_ONLY;
             InternalTransaction tx = (InternalTransaction) queryTxCtx.transactions().begin(new TransactionOptions().readOnly(readOnly));
+
+            if (readOnly && !transactionInflights.addInflight(tx.id(), readOnly)) {
+                throw new TransactionException(TX_ALREADY_FINISHED_ERR, format("Transaction is already finished [tx={}]", tx));
+            }
 
             this.wrapper = new ScriptTransactionWrapperImpl(tx, transactionInflights);
 
