@@ -149,7 +149,6 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
         SIMPLE_1a7("t(C2, C1) VALUES (?, ?), ((SELECT 1), (SELECT 1))", TABLE_C1_NULLABLE_C2),
         SIMPLE_1a8("t(C2, C1) VALUES (null, ?), (null, ?)", TABLE_C1_NULLABLE_C2, "[c1=?0]", "[c1=?1]"),
 
-
         SIMPLE_1a9("t(C2, C1) VALUES (?, ?), (?, 1)", TABLE_C1_C2_NULLABLE_C3, "[c1=?1, c2=?0]", "[c1=1, c2=?2]"),
         SIMPLE_1a10("t(C2, C1) VALUES (?, ?), (2, 1)", TABLE_C1_C2_NULLABLE_C3, "[c1=?1, c2=?0]", "[c1=1, c2=2]"),
         SIMPLE_1a11("t(C2, C1) VALUES (?, ?), (2, (SELECT 1))", TABLE_C1_C2_NULLABLE_C3),
@@ -170,7 +169,6 @@ public class PartitionPruningMetadataTest extends AbstractPlannerTest {
 
         SIMPLE_1j1("t(C4, C2, C3, C1) VALUES (1, 2, 3, 4), (2, 3, 4, 5)", TABLE_C1_C2_C3, "[c1=4, c2=2, c3=3]", "[c1=5, c2=3, c3=4]"),
         SIMPLE_1j2("t(C4, C2, C3, C1) VALUES (?, 1, ?, ?), (?, 1, ?, ?)", TABLE_C1_C2_C3, "[c1=?2, c2=1, c3=?1]", "[c1=?5, c2=1, c3=?4]"),
-
         SIMPLE_1j3("t(C4, C2, C3, C1) VALUES (?, ?, ?, ?), (2, 3, 4, 5)", TABLE_C1_C2_C3, "[c1=?3, c2=?1, c3=?2]", "[c1=5, c2=3, c3=4]"),
         ;
 
