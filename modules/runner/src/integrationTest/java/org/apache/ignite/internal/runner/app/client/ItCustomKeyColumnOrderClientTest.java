@@ -18,6 +18,9 @@
 package org.apache.ignite.internal.runner.app.client;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Collection;
 import java.util.Collections;
@@ -116,10 +119,19 @@ public class ItCustomKeyColumnOrderClientTest extends ItAbstractThinClientTest {
         assertEquals(val.val1, putRes.val1);
         assertEquals(val.val2, putRes.val2);
 
+        // contains.
+        assertTrue(kvView.contains(null, key));
+
         // getAndRemove.
         PojoVal removeRes = kvView.getAndRemove(null, key);
         assertEquals(val2.val1, removeRes.val1);
         assertEquals(val2.val2, removeRes.val2);
+
+        // putIfAbsent.
+        assertTrue(kvView.putIfAbsent(null, key, val));
+
+        // remove exact.
+        assertTrue(kvView.remove(null, key, val));
 
         // putAll/getAll.
         kvView.putAll(null, Map.of(key, val));
@@ -143,6 +155,17 @@ public class ItCustomKeyColumnOrderClientTest extends ItAbstractThinClientTest {
         Collection<PojoKey> removeAllRes = kvView.removeAll(null, List.of(key, key2));
         assertEquals(1, removeAllRes.size());
         assertEquals(key2.key1, removeAllRes.iterator().next().key1);
+
+        // replace.
+        kvView.put(null, key, val);
+        assertTrue(kvView.replace(null, key, val2));
+        assertTrue(kvView.replace(null, key, val2, val));
+
+        // getAndReplace.
+        PojoVal getAndReplaceRes = kvView.getAndReplace(null, key, val2);
+        assertNotNull(getAndReplaceRes);
+        assertEquals(val.val1, getAndReplaceRes.val1);
+        assertEquals(val.val2, getAndReplaceRes.val2);
     }
 
     @SuppressWarnings("FieldMayBeFinal")
