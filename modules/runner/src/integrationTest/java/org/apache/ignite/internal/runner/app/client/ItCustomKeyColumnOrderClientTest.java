@@ -19,6 +19,8 @@ package org.apache.ignite.internal.runner.app.client;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.Collections;
+import java.util.Map;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -93,6 +95,7 @@ public class ItCustomKeyColumnOrderClientTest extends ItAbstractThinClientTest {
     void testKeyValueView() {
         var kvView = table().keyValueView(PojoKey.class, PojoVal.class);
 
+        // Put/get.
         PojoKey key = new PojoKey(1, "key2");
         PojoVal val = new PojoVal("val1", 2L);
         kvView.put(null, key, val);
@@ -100,6 +103,16 @@ public class ItCustomKeyColumnOrderClientTest extends ItAbstractThinClientTest {
         PojoVal res = kvView.get(null, key);
         assertEquals(val.val1, res.val1);
         assertEquals(val.val2, res.val2);
+
+        kvView.remove(null, key);
+
+        // putAll/getAll.
+        kvView.putAll(null, Map.of(key, val));
+
+        Map<PojoKey, PojoVal> resMap = kvView.getAll(null, Collections.singletonList(key));
+        assertEquals(1, resMap.size());
+        assertEquals(val.val1, resMap.get(key).val1);
+        assertEquals(val.val2, resMap.get(key).val2);
     }
 
     @SuppressWarnings("FieldMayBeFinal")
