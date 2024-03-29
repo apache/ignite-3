@@ -71,7 +71,8 @@ protected:
     template<typename T>
     void check_argument(T value, const std::string &expected_str) {
         auto cluster_nodes = m_client.get_cluster_nodes();
-        auto result = m_client.get_compute().submit(cluster_nodes, {}, ECHO_JOB, {value, expected_str});
+        auto execution = m_client.get_compute().submit(cluster_nodes, {}, ECHO_JOB, {value, expected_str});
+        auto result = execution.get_result();
 
         ASSERT_TRUE(result.has_value());
         EXPECT_EQ(result.value().template get<T>(), value);
@@ -115,15 +116,19 @@ TEST_F(compute_test, get_cluster_nodes) {
 TEST_F(compute_test, execute_on_random_node) {
     auto cluster_nodes = m_client.get_cluster_nodes();
 
-    auto result = m_client.get_compute().submit(cluster_nodes, {}, NODE_NAME_JOB, {});
+    auto execution = m_client.get_compute().submit(cluster_nodes, {}, NODE_NAME_JOB, {});
+    auto result = execution.get_result();
 
     ASSERT_TRUE(result.has_value());
     EXPECT_THAT(result.value().get<std::string>(), ::testing::StartsWith(PLATFORM_TEST_NODE_RUNNER));
 }
 
 TEST_F(compute_test, execute_on_specific_node) {
-    auto res1 = m_client.get_compute().submit({get_node(0)}, {}, NODE_NAME_JOB, {"-", 11});
-    auto res2 = m_client.get_compute().submit({get_node(1)}, {}, NODE_NAME_JOB, {":", 22});
+    auto execution1 = m_client.get_compute().submit({get_node(0)}, {}, NODE_NAME_JOB, {"-", 11});
+    auto execution2 = m_client.get_compute().submit({get_node(1)}, {}, NODE_NAME_JOB, {":", 22});
+
+    auto res1 = execution1.get_result();
+    auto res2 = execution2.get_result();
 
     ASSERT_TRUE(res1.has_value());
     ASSERT_TRUE(res2.has_value());
@@ -140,7 +145,7 @@ TEST_F(compute_test, execute_broadcast_one_node) {
     EXPECT_EQ(res.begin()->first, get_node(1));
 
     ASSERT_TRUE(res.begin()->second.has_value());
-    EXPECT_EQ(res.begin()->second.value(), PLATFORM_TEST_NODE_RUNNER + "_242");
+    EXPECT_EQ(res.begin()->second.value().get_result(), PLATFORM_TEST_NODE_RUNNER + "_242");
 }
 
 TEST_F(compute_test, execute_broadcast_all_nodes) {
@@ -148,16 +153,17 @@ TEST_F(compute_test, execute_broadcast_all_nodes) {
 
     ASSERT_EQ(res.size(), 4);
 
-    EXPECT_EQ(res[get_node(0)].value(), get_node(0).get_name() + "42");
-    EXPECT_EQ(res[get_node(1)].value(), get_node(1).get_name() + "42");
-    EXPECT_EQ(res[get_node(2)].value(), get_node(2).get_name() + "42");
-    EXPECT_EQ(res[get_node(3)].value(), get_node(3).get_name() + "42");
+    EXPECT_EQ(res[get_node(0)].value().get_result(), get_node(0).get_name() + "42");
+    EXPECT_EQ(res[get_node(1)].value().get_result(), get_node(1).get_name() + "42");
+    EXPECT_EQ(res[get_node(2)].value().get_result(), get_node(2).get_name() + "42");
+    EXPECT_EQ(res[get_node(3)].value().get_result(), get_node(3).get_name() + "42");
 }
 
 TEST_F(compute_test, execute_with_args) {
     auto cluster_nodes = m_client.get_cluster_nodes();
 
-    auto result = m_client.get_compute().submit(cluster_nodes, {}, CONCAT_JOB, {5.3, uuid(), "42", nullptr});
+    auto execution = m_client.get_compute().submit(cluster_nodes, {}, CONCAT_JOB, {5.3, uuid(), "42", nullptr});
+    auto result = execution.get_result();
 
     ASSERT_TRUE(result.has_value());
     EXPECT_EQ(result.value().get<std::string>(), "5.3_00000000-0000-0000-0000-000000000000_42_null");
@@ -263,7 +269,8 @@ TEST_F(compute_test, submit_colocated) {
         SCOPED_TRACE("key=" + std::to_string(var.first) + ", node=" + var.second);
         auto key = get_tuple(var.first);
 
-        auto res_node_name = m_client.get_compute().submit_colocated(TABLE_1, key, {}, NODE_NAME_JOB, {});
+        auto execution = m_client.get_compute().submit_colocated(TABLE_1, key, {}, NODE_NAME_JOB, {});
+        auto res_node_name = execution.get_result();
         auto expected_node_name = PLATFORM_TEST_NODE_RUNNER + var.second;
 
         EXPECT_EQ(expected_node_name, res_node_name.value().get<std::string>());
