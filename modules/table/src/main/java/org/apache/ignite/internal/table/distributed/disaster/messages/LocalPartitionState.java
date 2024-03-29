@@ -29,10 +29,13 @@ import org.apache.ignite.internal.table.distributed.disaster.LocalPartitionState
  */
 @Transferable(DisasterRecoveryMessages.LOCAL_PARTITION_STATE)
 public interface LocalPartitionState extends NetworkMessage {
+    /** Partition ID. */
     TablePartitionIdMessage partitionId();
 
+    /** Calculated state of the partition. */
     @Marshallable
     LocalPartitionStateEnum state();
 
+    /** Index of the last received log entry for this partition. */
     long logIndex();
 }

@@ -21,10 +21,21 @@ package org.apache.ignite.internal.table.distributed.disaster;
  * Enum for states of local partitions.
  */
 public enum LocalPartitionStateEnum {
+    /** This state might be used when partition is not yet started, or it's already stopping, for example. */
     UNAVAILABLE,
+
+    /** Alive partition with a healthy state machine. */
     HEALTHY,
+
+    /** Partition is starting right now. */
     INITIALIZING,
+
+    /** Partition is installing a Raft snapshot from the leader. */
     INSTALLING_SNAPSHOT,
+
+    /** Partition is catching up, meaning that it's not replicated part of the log yet. */
     CATCHING_UP,
+
+    /** Partition is in broken state, usually it means that its state machine thrown an exception. */
     BROKEN
 }

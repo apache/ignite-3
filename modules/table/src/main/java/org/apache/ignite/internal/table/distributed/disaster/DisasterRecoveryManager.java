@@ -138,12 +138,12 @@ public class DisasterRecoveryManager implements IgniteComponent {
                 // No-op.
             }
         };
-
-        messagingService.addMessageHandler(TableMessageGroup.class, this::handleMessage);
     }
 
     @Override
     public CompletableFuture<Void> start() {
+        messagingService.addMessageHandler(TableMessageGroup.class, this::handleMessage);
+
         metaStorageManager.registerExactWatch(RECOVERY_TRIGGER_KEY, watchListener);
 
         return nullCompletedFuture();
