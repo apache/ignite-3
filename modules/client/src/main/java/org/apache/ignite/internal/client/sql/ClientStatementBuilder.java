@@ -105,20 +105,6 @@ public class ClientStatementBuilder implements Statement.StatementBuilder {
         return this;
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public @Nullable Object property(String name) {
-        return properties.get(name);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public StatementBuilder property(String name, @Nullable Object value) {
-        properties.put(name, value);
-
-        return this;
-    }
-
     @Override
     public ZoneId timeZoneId() {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-21568
@@ -138,7 +124,6 @@ public class ClientStatementBuilder implements Statement.StatementBuilder {
                 query,
                 defaultSchema,
                 queryTimeoutMs,
-                pageSize,
-                new HashMap<>(properties));
+                pageSize);
     }
 }

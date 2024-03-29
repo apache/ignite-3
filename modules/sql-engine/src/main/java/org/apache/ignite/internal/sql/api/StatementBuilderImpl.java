@@ -25,15 +25,11 @@ import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.Statement.StatementBuilder;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Statement builder.
  */
 class StatementBuilderImpl implements StatementBuilder {
-    /** Properties. */
-    private final Map<String, Object> properties = new HashMap<>();
-
     /** Query. */
     private String query;
 
@@ -119,20 +115,6 @@ class StatementBuilderImpl implements StatementBuilder {
     @Override
     public StatementBuilder timeZoneId(ZoneId zoneId) {
         this.zoneId = Objects.requireNonNull(zoneId);
-
-        return this;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public @Nullable Object property(String name) {
-        return properties.get(name);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public StatementBuilder property(String name, @Nullable Object value) {
-        properties.put(name, value);
 
         return this;
     }
