@@ -274,7 +274,7 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
 
         List<TestIndexRow> entries = IntStream.range(0, 10)
                 .mapToObj(i -> {
-                    TestIndexRow entry = TestIndexRow.randomRow(indexStorage);
+                    TestIndexRow entry = TestIndexRow.randomRow(indexStorage, TEST_PARTITION);
 
                     put(indexStorage, entry);
 
@@ -401,8 +401,8 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
 
         SortedIndexStorage indexStorage = createIndexStorage(INDEX_NAME, indexSchema);
 
-        TestIndexRow entry1 = TestIndexRow.randomRow(indexStorage);
-        TestIndexRow entry2 = TestIndexRow.randomRow(indexStorage);
+        TestIndexRow entry1 = TestIndexRow.randomRow(indexStorage, TEST_PARTITION);
+        TestIndexRow entry2 = TestIndexRow.randomRow(indexStorage, TEST_PARTITION);
 
         if (entry2.compareTo(entry1) < 0) {
             TestIndexRow t = entry2;
@@ -423,7 +423,7 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
     void testNullValues(ColumnParams columnParams) {
         SortedIndexStorage storage = createIndexStorage(INDEX_NAME, List.of(columnParams));
 
-        TestIndexRow entry1 = TestIndexRow.randomRow(storage);
+        TestIndexRow entry1 = TestIndexRow.randomRow(storage, TEST_PARTITION);
 
         Object[] nullArray = new Object[1];
 
@@ -1411,12 +1411,12 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
     private void testPutGetRemove(List<ColumnParams> indexSchema) {
         SortedIndexStorage indexStorage = createIndexStorage(INDEX_NAME, indexSchema);
 
-        TestIndexRow entry1 = TestIndexRow.randomRow(indexStorage);
+        TestIndexRow entry1 = TestIndexRow.randomRow(indexStorage, TEST_PARTITION);
         TestIndexRow entry2;
 
         // using a cycle here to protect against equal keys being generated
         do {
-            entry2 = TestIndexRow.randomRow(indexStorage);
+            entry2 = TestIndexRow.randomRow(indexStorage, TEST_PARTITION);
         } while (entry1.indexColumns().byteBuffer().equals(entry2.indexColumns().byteBuffer()));
 
         put(indexStorage, entry1);
