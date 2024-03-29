@@ -58,8 +58,7 @@ public:
      * @param callback A callback called on operation completion with job execution result.
      */
     IGNITE_API void submit_async(const std::vector<cluster_node> &nodes, const std::vector<deployment_unit> &units,
-        std::string_view job_class_name, const std::vector<primitive> &args,
-        ignite_callback<std::optional<primitive>> callback);
+        std::string_view job_class_name, const std::vector<primitive> &args, ignite_callback<job_execution> callback);
 
     /**
      * Executes a compute job represented by the given class on one of the specified nodes.
@@ -70,10 +69,10 @@ public:
      * @param args Job arguments.
      * @return Job execution result.
      */
-    IGNITE_API std::optional<primitive> submit(const std::vector<cluster_node> &nodes,
+    IGNITE_API job_execution submit(const std::vector<cluster_node> &nodes,
         const std::vector<deployment_unit> &units, std::string_view job_class_name,
         const std::vector<primitive> &args) {
-        return sync<std::optional<primitive>>([this, &nodes, &units, job_class_name, &args](auto callback) mutable {
+        return sync<job_execution>([this, &nodes, &units, job_class_name, &args](auto callback) mutable {
             submit_async(nodes, units, job_class_name, args, std::move(callback));
         });
     }
@@ -89,7 +88,7 @@ public:
      */
     IGNITE_API void submit_broadcast_async(const std::set<cluster_node> &nodes, const std::vector<deployment_unit> &units,
         std::string_view job_class_name, const std::vector<primitive> &args,
-        ignite_callback<std::map<cluster_node, ignite_result<std::optional<primitive>>>> callback);
+        ignite_callback<std::map<cluster_node, ignite_result<job_execution>>> callback);
 
     /**
      * Broadcast a compute job represented by the given class on all of the specified nodes.
@@ -100,10 +99,10 @@ public:
      * @param args Job arguments.
      * @return Job execution result.
      */
-    IGNITE_API std::map<cluster_node, ignite_result<std::optional<primitive>>> submit_broadcast(
+    IGNITE_API std::map<cluster_node, ignite_result<job_execution>> submit_broadcast(
         const std::set<cluster_node> &nodes, const std::vector<deployment_unit> &units, std::string_view job_class_name,
         const std::vector<primitive> &args) {
-        return sync<std::map<cluster_node, ignite_result<std::optional<primitive>>>>(
+        return sync<std::map<cluster_node, ignite_result<job_execution>>>(
             [this, &nodes, &units, job_class_name, &args](
                 auto callback) mutable { submit_broadcast_async(nodes, units, job_class_name, args, std::move(callback)); });
     }
@@ -120,7 +119,7 @@ public:
      */
     IGNITE_API void submit_colocated_async(std::string_view table_name, const ignite_tuple &key,
         const std::vector<deployment_unit> &units, std::string_view job_class_name, const std::vector<primitive> &args,
-        ignite_callback<std::optional<primitive>> callback);
+        ignite_callback<job_execution> callback);
 
     /**
      * Synchronously executes a job represented by the given class on one node where the given key is located.
@@ -132,10 +131,10 @@ public:
      * @param args Job arguments.
      * @return Job execution result.
      */
-    IGNITE_API std::optional<primitive> submit_colocated(std::string_view table_name, const ignite_tuple &key,
+    IGNITE_API job_execution submit_colocated(std::string_view table_name, const ignite_tuple &key,
         const std::vector<deployment_unit> &units, std::string_view job_class_name,
         const std::vector<primitive> &args) {
-        return sync<std::optional<primitive>>(
+        return sync<job_execution>(
             [this, &table_name, &key, &units, job_class_name, &args](auto callback) mutable {
                 submit_colocated_async(table_name, key, units, job_class_name, args, std::move(callback));
             });

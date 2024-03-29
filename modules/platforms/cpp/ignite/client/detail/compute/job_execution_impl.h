@@ -19,12 +19,15 @@
 
 #include "ignite/client/compute/job_execution.h"
 #include "ignite/client/compute/job_status.h"
+#include "ignite/client/detail/cluster_connection.h"
 #include "ignite/common/config.h"
 #include "ignite/common/ignite_result.h"
 #include "ignite/common/primitive.h"
 #include "ignite/common/uuid.h"
 
 namespace ignite::detail {
+
+class compute_impl;
 
 /**
  * Job control object, provides information about the job execution process and result, allows cancelling the job.
@@ -35,11 +38,36 @@ public:
     job_execution_impl() = delete;
 
     /**
+     * Constructor
+     *
+     * @param id Job ID.
+     * @param compute Compute.
+     */
+    explicit job_execution_impl(uuid id, std::shared_ptr<compute_impl> &&compute)
+        : m_id(id)
+        , m_compute(compute) { }
+
+    /**
      * Gets the job ID.
      *
      * @return Job ID.
      */
     [[nodiscard]] uuid get_id() const { return m_id; }
+
+    /**
+     * Gets the job execution result asynchronously.
+     *
+     * Only one callback can be submitted for this operation at a time.
+     * @param callback Callback to be called when the operation is complete. Called with the job execution result.
+     */
+    void get_result_async(ignite_callback<std::optional<primitive>> callback);
+
+    /**
+     * Set result.
+     *
+     * @param result Result.
+     */
+    void set_result(std::optional<primitive> result);
 
     /**
      * Gets the job execution status. Can be @c nullopt if the job status no longer exists due to exceeding the
@@ -51,11 +79,18 @@ public:
     void get_status_async(ignite_callback<std::optional<job_status>> callback);
 
     /**
-     * Gets the job execution result asynchronously.
+     * Set final status.
      *
-     * @param callback Callback to be called when the operation is complete. Contains the job execution result.
+     * @param status Execution status.
      */
-    void get_result_async(ignite_callback<std::optional<primitive>> callback);
+    void set_final_status(const job_status &status);
+
+    /**
+     * Set error.
+     *
+     * @param error Error.
+     */
+    void set_error(ignite_error error);
 
     /**
      * Cancels the job execution.
@@ -75,7 +110,25 @@ public:
 
 private:
     /** Job ID. */
-    uuid m_id;
+    const uuid m_id;
+
+    /** Compute. */
+    std::shared_ptr<compute_impl> m_compute;
+
+    /** Mutex. Should be held to change any data. */
+    std::mutex m_mutex;
+
+    /** Final status. */
+    std::optional<job_status> m_final_status;
+
+    /** Execution result. First optional to understand if the result is available. */
+    std::optional<std::optional<primitive>> m_result;
+
+    /** Error. */
+    std::optional<ignite_error> m_error;
+
+    /** Result callback. */
+    std::shared_ptr<ignite_callback<std::optional<primitive>>> m_result_callback;
 };
 
 } // namespace ignite::detail

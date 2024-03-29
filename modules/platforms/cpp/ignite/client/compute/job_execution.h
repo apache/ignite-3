@@ -51,7 +51,14 @@ public:
     };
 
     // Delete
-    job_execution() = delete;
+    job_execution() = default;
+
+    /**
+     * Constructor.
+     *
+     * @param impl Implementation.
+     */
+    explicit job_execution(std::shared_ptr<detail::job_execution_impl> impl) : m_impl(std::move(impl)) {}
 
     /**
      * Gets the job ID.
@@ -93,15 +100,8 @@ public:
     IGNITE_API void change_priority_async(std::int32_t priority, ignite_callback<operation_result> callback);
 
 private:
-    /**
-     * Constructor.
-     *
-     * @param impl Implementation.
-     */
-    explicit job_execution(std::shared_ptr<detail::job_execution_impl> impl) : m_impl(std::move(impl)) {}
-
     /** Implementation. */
-    std::shared_ptr<detail::job_execution_impl> m_impl;
+    std::shared_ptr<detail::job_execution_impl> m_impl{};
 };
 
 } // namespace ignite
