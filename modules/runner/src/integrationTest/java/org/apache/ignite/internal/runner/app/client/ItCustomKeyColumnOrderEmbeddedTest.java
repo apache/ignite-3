@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.runner.app.client;
 
 import org.apache.ignite.Ignite;
+
 /**
  * Tests custom key column order table operations with embedded API.
  */

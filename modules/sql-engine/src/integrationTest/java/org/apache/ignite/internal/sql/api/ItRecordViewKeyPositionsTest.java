@@ -21,27 +21,19 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.time.LocalDate;
-import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.sql.ResultSet;
-import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.RecordView;
-import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.table.mapper.Mapper;
-import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Named;
-import org.junit.jupiter.api.Tag;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -55,11 +47,11 @@ public class ItRecordViewKeyPositionsTest extends BaseSqlIntegrationTest {
 
     @BeforeAll
     public void setup() {
-        sql("CREATE TABLE key_val (intCol INT, boolCol VARCHAR, dateCol DATE, strCol VARCHAR, PRIMARY KEY (intCol, strCol))");
-        sql("CREATE TABLE key_val_flip (intCol INT, boolCol VARCHAR, dateCol DATE, strCol VARCHAR, PRIMARY KEY (strCol, intCol))");
+        sql("CREATE TABLE key_val (intCol INT, boolCol BOOLEAN, dateCol DATE, strCol VARCHAR, PRIMARY KEY (intCol, strCol))");
+        sql("CREATE TABLE key_val_flip (intCol INT, boolCol BOOLEAN, dateCol DATE, strCol VARCHAR, PRIMARY KEY (strCol, intCol))");
 
-        sql("CREATE TABLE val_key (boolCol VARCHAR, intCol INT, dateCol DATE, strCol VARCHAR, PRIMARY KEY (intCol, strCol))");
-        sql("CREATE TABLE val_key_flip (boolCol VARCHAR, intCol INT, dateCol DATE, strCol VARCHAR, PRIMARY KEY (strCol, intCol))");
+        sql("CREATE TABLE val_key (boolCol BOOLEAN, intCol INT, dateCol DATE, strCol VARCHAR, PRIMARY KEY (intCol, strCol))");
+        sql("CREATE TABLE val_key_flip (boolCol BOOLEAN, intCol INT, dateCol DATE, strCol VARCHAR, PRIMARY KEY (strCol, intCol))");
     }
 
     @Override
@@ -92,57 +84,6 @@ public class ItRecordViewKeyPositionsTest extends BaseSqlIntegrationTest {
                 .collect(Collectors.toList());
 
         assertEquals(List.of(record1, record2), values);
-    }
-
-    @SuppressWarnings("FieldMayBeFinal")
-    private static class Pojo {
-        private int key1;
-        @Nullable
-        private String key2;
-        @Nullable
-        private String val1;
-        private long val2;
-
-        @SuppressWarnings("unused") // Required by serializer.
-        Pojo() {
-            this(0, null, null, 0L);
-        }
-
-        Pojo(int key1, String key2) {
-            this(key1, key2, null, 0L);
-        }
-
-        Pojo(int key1, @Nullable String key2, @Nullable String val1, long val2) {
-            this.key1 = key1;
-            this.key2 = key2;
-            this.val1 = val1;
-            this.val2 = val2;
-        }
-    }
-
-    @Test
-    public void dddd() {
-        String query = "CREATE TABLE X"
-                + " (val1 VARCHAR, key1 INT, val2 BIGINT, key2 VARCHAR, PRIMARY KEY (key1, key2)) ";
-
-        IgniteImpl ignite = CLUSTER.aliveNode();
-
-        ResultSet<SqlRow> rs = ignite.sql().execute(null, query);
-        rs.close();
-        Table table = ignite.tables().table("X");
-
-        var recView = table.recordView(Pojo.class);
-
-        Pojo key = new Pojo(1, "key2");
-        Pojo key2 = new Pojo(2, "key3");
-
-        Pojo val = new Pojo(1, "key2", "val1", 2L);
-        recView.insert(null, val);
-
-        // removeAll.
-        Collection<Pojo> removeAllRes = recView.deleteAll(null, List.of(key, key2));
-        assertEquals(1, removeAllRes.size());
-        assertEquals(key2.key1, removeAllRes.iterator().next().key1);
     }
 
     @ParameterizedTest
@@ -199,7 +140,7 @@ public class ItRecordViewKeyPositionsTest extends BaseSqlIntegrationTest {
         @IgniteToStringInclude
         int intCol;
         @IgniteToStringInclude
-        String boolCol;
+        boolean boolCol;
         @IgniteToStringInclude
         String strCol;
         @IgniteToStringInclude
@@ -214,7 +155,7 @@ public class ItRecordViewKeyPositionsTest extends BaseSqlIntegrationTest {
                 return false;
             }
             Record rec = (Record) o;
-            return intCol == rec.intCol && Objects.equals(boolCol, rec.boolCol) && Objects.equals(strCol, rec.strCol) && Objects.equals(
+            return intCol == rec.intCol && boolCol == rec.boolCol && Objects.equals(strCol, rec.strCol) && Objects.equals(
                     dateCol, rec.dateCol);
         }
 
@@ -241,7 +182,7 @@ public class ItRecordViewKeyPositionsTest extends BaseSqlIntegrationTest {
 
             Record record = new Record();
             record.intCol = intCol;
-            record.boolCol = String.valueOf(record.intCol*2);
+            record.boolCol = ID_NUM.incrementAndGet() % 2 == 0;
             record.strCol = String.valueOf(record.intCol);
             record.dateCol = LocalDate.now();
             return record;
@@ -269,7 +210,7 @@ public class ItRecordViewKeyPositionsTest extends BaseSqlIntegrationTest {
             int intCol = ID_NUM.incrementAndGet();;
             Tuple record = Tuple.create();
             record.set("intCol", intCol);
-            record.set("boolCol", String.valueOf(intCol*2));
+            record.set("boolCol", ID_NUM.incrementAndGet() % 2 == 0);
             record.set("strCol", String.valueOf(intCol));
             record.set("dateCol", LocalDate.now());
             return record;

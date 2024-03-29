@@ -306,9 +306,9 @@ public class ItKvKeyColumnPositionTest extends BaseSqlIntegrationTest {
 
     static class IntString {
         @IgniteToStringInclude
-        String strCol;
-        @IgniteToStringInclude
         int intCol;
+        @IgniteToStringInclude
+        String strCol;
 
         @Override
         public boolean equals(Object o) {
