@@ -76,6 +76,7 @@ public class ItCustomKeyColumnOrderClientTest extends ItAbstractThinClientTest {
         var recView = table().recordView(Pojo.class);
 
         Pojo key = new Pojo(1, "key2");
+        Pojo key2 = new Pojo(2, "key3");
 
         Pojo val = new Pojo(1, "key2", "val1", 2L);
         Pojo val2 = new Pojo(1, "key2", "val2", 3L);
@@ -105,6 +106,44 @@ public class ItCustomKeyColumnOrderClientTest extends ItAbstractThinClientTest {
 
         // putIfAbsent.
         assertTrue(recView.insert(null, val));
+
+        // remove exact.
+        assertTrue(recView.deleteExact(null, val));
+
+        // putAll/getAll.
+        recView.insert(null, val);
+
+        List<Pojo> resMap = recView.getAll(null, Collections.singletonList(key));
+        assertEquals(1, resMap.size());
+        Pojo resEntry = resMap.get(0);
+        assertEquals(val.key1, resEntry.key1);
+        assertEquals(val.key2, resEntry.key2);
+        assertEquals(val.val1, resEntry.val1);
+        assertEquals(val.val2, resEntry.val2);
+
+        // Query mapper.
+        try (Cursor<Pojo> cursor = recView.query(null, null)) {
+            Pojo curEntry = cursor.next();
+            assertEquals(val.key1, curEntry.key1);
+            assertEquals(val.key2, curEntry.key2);
+            assertEquals(val.val1, curEntry.val1);
+            assertEquals(val.val2, curEntry.val2);
+        }
+
+        // removeAll.
+        Collection<Pojo> removeAllRes = recView.deleteAll(null, List.of(key, key2));
+        assertEquals(1, removeAllRes.size());
+        assertEquals(key2.key1, removeAllRes.iterator().next().key1);
+
+        // replace.
+        recView.insert(null, val);
+        assertTrue(recView.replace(null, val2));
+
+        // getAndReplace.
+        Pojo getAndReplaceRes = recView.getAndReplace(null, val);
+        assertNotNull(getAndReplaceRes);
+        assertEquals(val.key1, getAndReplaceRes.key1);
+        assertEquals(val.key2, getAndReplaceRes.key2);
     }
 
     @Test
