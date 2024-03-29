@@ -65,11 +65,6 @@ void job_execution_impl::get_status_async(ignite_callback<std::optional<job_stat
         guard.unlock();
 
         callback({std::move(copy)});
-    } else if (m_error) {
-        auto copy{*m_error};
-        guard.unlock();
-
-        callback({std::move(copy)});
     } else {
         m_compute->get_status_async(m_id, std::move(callback));
     }
