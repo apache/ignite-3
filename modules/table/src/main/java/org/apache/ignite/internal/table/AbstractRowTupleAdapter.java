@@ -75,7 +75,15 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
 
         Column col = row.schema().column(IgniteNameUtils.parseSimpleName(columnName));
 
-        return col == null ? -1 : col.positionInRow();
+        if (col == null) {
+            return -1;
+        }
+
+        if (row.keyOnly()) {
+            return col.positionInKey();
+        }
+
+        return col.positionInRow();
     }
 
     /** {@inheritDoc} */
