@@ -109,9 +109,9 @@ public class RecordMarshallerImpl<R> implements RecordMarshaller<R> {
 
     /** {@inheritDoc} */
     @Override
-    public R unmarshal(Row row, boolean keyOnlyRow) throws MarshallerException {
-        Marshaller marsh = keyOnlyRow ? keyMarsh : recMarsh;
-        RowReader reader = keyOnlyRow ? new RowReader(row, keyPositions) : new RowReader(row);
+    public R unmarshal(Row row) throws MarshallerException {
+        Marshaller marsh = row.keyOnly() ? keyMarsh : recMarsh;
+        RowReader reader = row.keyOnly() ? new RowReader(row, keyPositions) : new RowReader(row);
         final Object o = marsh.readObject(reader, null);
 
         assert recClass.isInstance(o);
