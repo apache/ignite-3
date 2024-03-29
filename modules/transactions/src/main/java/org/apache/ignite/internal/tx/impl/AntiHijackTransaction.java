@@ -33,7 +33,7 @@ import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Wrapper around {@link Transaction} that adds protection agains thread hijacking by users.
+ * Wrapper around {@link Transaction} that adds protection against thread hijacking by users.
  */
 public class AntiHijackTransaction implements InternalTransaction, Wrapper {
     private final InternalTransaction transaction;
