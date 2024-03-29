@@ -33,8 +33,11 @@ import org.apache.ignite.internal.eventlog.config.schema.SinkView;
 
 class ConfigurationBasedSinkRegistry implements SinkRegistry {
     private final ReadWriteLock guard;
+
     private final Map<String, Sink> cache;
+
     private final Map<String, Set<Sink>> cacheByChannel;
+
     private final SinkFactory sinkFactory;
 
     ConfigurationBasedSinkRegistry(EventLogConfiguration cfg) {

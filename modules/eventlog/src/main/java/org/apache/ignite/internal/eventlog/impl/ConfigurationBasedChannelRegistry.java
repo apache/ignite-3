@@ -37,6 +37,7 @@ class ConfigurationBasedChannelRegistry implements ChannelRegistry {
     private final ReadWriteLock guard;
 
     private final Map<String, EventChannel> cache;
+
     private final Map<String, Set<EventChannel>> typeCache;
 
     private final SinkRegistry sinkRegistry;

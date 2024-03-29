@@ -19,7 +19,7 @@ To start logging events and then read them, you need to configure the event log.
 
 ### Configuration
 
-'''conf
+``` 
 eventlog:
   channels.authenticationChannel: {
       enabled: true,
@@ -30,7 +30,7 @@ eventlog:
       criteria: "authEventLog",
       channel: "authenticationChannel"
     }
-'''
+```
 
 This configuration defines a channel called `authenticationChannel` that will log events of type `USER_AUTHENTICATED` 
 into the sink `authenticationLoggerSink`. The sink has a type `log` that means that the events will be logged into 
@@ -39,4 +39,5 @@ You can configure the logger with a name `authEventLog` in the logger configurat
 
 ## For developers
 
-To log an event, you need to use the `EventLog` class. This class is the only way to do it. 
+To log an event, you need to use the `EventLog` interface. This is the only way to do it. If you want to define your
+own event type, you need to register it in the `EventTypeRegistry` before the first creation of the event of this type.

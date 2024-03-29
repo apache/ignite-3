@@ -22,12 +22,12 @@ import java.util.function.Supplier;
 import org.apache.ignite.internal.eventlog.api.Event;
 import org.apache.ignite.internal.eventlog.api.EventChannel;
 import org.apache.ignite.internal.eventlog.api.EventLog;
+import org.apache.ignite.internal.eventlog.config.schema.EventLogConfiguration;
 
 /**
  * Implementation of the {@link EventLog} interface.
  */
 public class EventLogImpl implements EventLog {
-
     private final ChannelRegistry channelRegistry;
 
     /**
@@ -37,6 +37,15 @@ public class EventLogImpl implements EventLog {
      */
     public EventLogImpl(ChannelRegistry channelRegistry) {
         this.channelRegistry = channelRegistry;
+    }
+
+    /**
+     * Creates an instance of EventLogImpl that is configured via cluster configuration.
+     *
+     * @param cfg the configuration.
+     */
+    public EventLogImpl(EventLogConfiguration cfg) {
+        this(new ConfigurationBasedChannelRegistry(cfg, new ConfigurationBasedSinkRegistry(cfg)));
     }
 
     @Override

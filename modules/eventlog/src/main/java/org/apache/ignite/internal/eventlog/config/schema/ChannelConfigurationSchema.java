@@ -25,7 +25,6 @@ import org.apache.ignite.internal.eventlog.api.IgniteEventType;
 /** Channel configuration schema. */
 @Config
 public class ChannelConfigurationSchema {
-
     /** Channel name. This name is used to reference from sink configuration. */
     @InjectedName
     public String name;

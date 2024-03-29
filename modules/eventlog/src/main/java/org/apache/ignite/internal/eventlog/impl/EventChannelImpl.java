@@ -25,6 +25,7 @@ import org.apache.ignite.internal.eventlog.api.Sink;
 
 class EventChannelImpl implements EventChannel {
     private final Set<Sink> sinks;
+
     private final Set<String> types;
 
     EventChannelImpl(Set<String> types, Set<Sink> sinks) {

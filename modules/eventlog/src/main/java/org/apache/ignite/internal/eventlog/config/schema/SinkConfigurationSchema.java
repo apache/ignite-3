@@ -28,7 +28,7 @@ import org.apache.ignite.configuration.annotation.Value;
 public class SinkConfigurationSchema {
     /** The id of the sink that is used to identify the type: log, webhook, kafka. */
     @PolymorphicId(hasDefault = true)
-    public String id = LogSinkConfigurationSchema.POLYMORPHIC_ID;
+    public String type = LogSinkConfigurationSchema.POLYMORPHIC_ID;
 
     /** The name of the sink. */
     @InjectedName
