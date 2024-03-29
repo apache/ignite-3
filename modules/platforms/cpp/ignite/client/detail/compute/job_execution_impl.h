@@ -34,7 +34,7 @@ class compute_impl;
  */
 class job_execution_impl {
 public:
-    // Delete
+    // Default
     job_execution_impl() = default;
 
     /**

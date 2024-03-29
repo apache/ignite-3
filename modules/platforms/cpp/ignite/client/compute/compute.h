@@ -19,6 +19,7 @@
 
 #include "ignite/client/compute/deployment_unit.h"
 #include "ignite/client/compute/job_execution.h"
+#include "ignite/client/compute/job_execution_options.h"
 #include "ignite/client/network/cluster_node.h"
 #include "ignite/client/table/ignite_tuple.h"
 #include "ignite/client/transaction/transaction.h"
