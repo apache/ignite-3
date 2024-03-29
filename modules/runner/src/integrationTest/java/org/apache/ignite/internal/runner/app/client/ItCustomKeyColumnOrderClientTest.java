@@ -90,12 +90,65 @@ public class ItCustomKeyColumnOrderClientTest extends ItAbstractThinClientTest {
     void testKeyValueBinaryView() {
         var kvView = table().keyValueView();
 
+        // put/get.
         Tuple key = Tuple.create().set("key1", 1).set("key2", "key2");
+        Tuple key2 = Tuple.create().set("key1", 2).set("key2", "key3");
+
         Tuple val = Tuple.create().set("val1", "val1").set("val2", 2L);
+        Tuple val2 = Tuple.create().set("val1", "val2").set("val2", 3L);
+
         kvView.put(null, key, val);
 
         Tuple res = kvView.get(null, key);
         assertEquals(val, res);
+
+        // getAndPut.
+        Tuple putRes = kvView.getAndPut(null, key, val2);
+        assertEquals(val, putRes);
+
+        // contains.
+        assertTrue(kvView.contains(null, key));
+
+        // getAndRemove.
+        Tuple removeRes = kvView.getAndRemove(null, key);
+        assertEquals(val2, removeRes);
+
+        // putIfAbsent.
+        assertTrue(kvView.putIfAbsent(null, key, val));
+
+        // remove exact.
+        assertTrue(kvView.remove(null, key, val));
+
+        // putAll/getAll.
+        kvView.putAll(null, Map.of(key, val));
+
+        Map<Tuple, Tuple> resMap = kvView.getAll(null, Collections.singletonList(key));
+        assertEquals(1, resMap.size());
+        Entry<Tuple, Tuple> resEntry = resMap.entrySet().iterator().next();
+        assertEquals(key, resEntry.getKey());
+        assertEquals(val, resEntry.getValue());
+
+        // Query mapper.
+        try (Cursor<Entry<Tuple, Tuple>> cursor = kvView.query(null, null)) {
+            Entry<Tuple, Tuple> curEntry = cursor.next();
+            assertEquals(key, curEntry.getKey());
+            assertEquals(val, curEntry.getValue());
+        }
+
+        // removeAll.
+        Collection<Tuple> removeAllRes = kvView.removeAll(null, List.of(key, key2));
+        assertEquals(1, removeAllRes.size());
+        assertEquals(key2, removeAllRes.iterator().next());
+
+        // replace.
+        kvView.put(null, key, val);
+        assertTrue(kvView.replace(null, key, val2));
+        assertTrue(kvView.replace(null, key, val2, val));
+
+        // getAndReplace.
+        Tuple getAndReplaceRes = kvView.getAndReplace(null, key, val2);
+        assertNotNull(getAndReplaceRes);
+        assertEquals(val, getAndReplaceRes);
     }
 
     @Test
