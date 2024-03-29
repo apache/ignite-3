@@ -50,7 +50,7 @@ public:
         NOT_FOUND
     };
 
-    // Delete
+    // Default
     job_execution() = default;
 
     /**
