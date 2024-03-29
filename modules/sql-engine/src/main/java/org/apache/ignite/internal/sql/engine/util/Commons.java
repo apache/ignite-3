@@ -368,8 +368,6 @@ public final class Commons {
                 cbe.setDebuggingInformation(true, true, true);
             }
 
-            System.err.println(body);
-
             return (T) cbe.createInstance(new StringReader(body));
         } catch (Exception e) {
             throw new IgniteInternalException(INTERNAL_ERR, "Unable to compile expression", e);

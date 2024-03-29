@@ -137,7 +137,7 @@ public class UnionPlannerTest extends AbstractPlannerTest {
                 + "SELECT * FROM table2";
 
         assertPlan(sql, publicSchema, isInstanceOf(IgniteUnionAll.class)
-                .and(input(0, projectFromTable("TABLE1", "CAST($0):INTEGER", "$1"))
+                .and(input(0, isInstanceOf(IgniteExchange.class).and(input(isTableScan("TABLE1"))))
                         .and(input(1, isInstanceOf(IgniteExchange.class).and(input(isTableScan("TABLE2"))))))
         );
     }

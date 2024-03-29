@@ -758,8 +758,8 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
                 + setOp
                 + " SELECT * FROM table2";
 
-        assertPlan(sql, publicSchema, nodeOrAnyChild(isInstanceOf(setOp.map)
-                        .and(input(0, projectFromTable("TABLE1", "CAST($0):INTEGER", "$1")))
+        assertPlan(sql, publicSchema, nodeOrAnyChild(isInstanceOf(setOp.colocated)
+                        .and(input(0, isTableScan("TABLE1")))
                         .and(input(1, isTableScan("TABLE2")))
                 )
         );
