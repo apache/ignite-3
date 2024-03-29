@@ -19,7 +19,9 @@ package org.apache.ignite.internal.runner.app.client;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import org.apache.ignite.Ignite;
@@ -99,16 +101,25 @@ public class ItCustomKeyColumnOrderClientTest extends ItAbstractThinClientTest {
 
         // put/get.
         PojoKey key = new PojoKey(1, "key2");
+        PojoKey key2 = new PojoKey(2, "key3");
+
         PojoVal val = new PojoVal("val1", 2L);
+        PojoVal val2 = new PojoVal("val2", 3L);
         kvView.put(null, key, val);
 
         PojoVal res = kvView.get(null, key);
         assertEquals(val.val1, res.val1);
         assertEquals(val.val2, res.val2);
 
+        // getAndPut.
+        PojoVal putRes = kvView.getAndPut(null, key, val2);
+        assertEquals(val.val1, putRes.val1);
+        assertEquals(val.val2, putRes.val2);
+
+        // getAndRemove.
         PojoVal removeRes = kvView.getAndRemove(null, key);
-        assertEquals(val.val1, removeRes.val1);
-        assertEquals(val.val2, removeRes.val2);
+        assertEquals(val2.val1, removeRes.val1);
+        assertEquals(val2.val2, removeRes.val2);
 
         // putAll/getAll.
         kvView.putAll(null, Map.of(key, val));
@@ -127,6 +138,11 @@ public class ItCustomKeyColumnOrderClientTest extends ItAbstractThinClientTest {
             assertEquals(val.val1, curEntry.getValue().val1);
             assertEquals(val.val2, curEntry.getValue().val2);
         }
+
+        // removeAll.
+        Collection<PojoKey> removeAllRes = kvView.removeAll(null, List.of(key, key2));
+        assertEquals(1, removeAllRes.size());
+        assertEquals(key2.key1, removeAllRes.iterator().next().key1);
     }
 
     @SuppressWarnings("FieldMayBeFinal")
