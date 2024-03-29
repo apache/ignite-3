@@ -130,6 +130,10 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
                 snapshotEntry();
                 break;
 
+            case RENAME_INDEX:
+                renameIndexEntry();
+                break;
+
             default:
                 throw new UnsupportedOperationException("Test not implemented " + type);
         }
@@ -335,6 +339,14 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         SnapshotEntry deserialized = (SnapshotEntry) marshaller.unmarshall(marshaller.marshall(entry));
 
         BDDAssertions.assertThat(deserialized).usingRecursiveComparison().isEqualTo(entry);
+    }
+
+    private void renameIndexEntry() {
+        var entry = new RenameIndexEntry(1, "newName");
+
+        VersionedUpdate update = newVersionedUpdate(entry);
+
+        assertVersionedUpdate(update, serialize(update));
     }
 
     private VersionedUpdate serialize(VersionedUpdate update) {

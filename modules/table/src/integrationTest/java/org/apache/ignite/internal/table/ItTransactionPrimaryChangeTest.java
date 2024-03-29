@@ -19,8 +19,8 @@ package org.apache.ignite.internal.table;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteTransaction;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
-import static org.apache.ignite.internal.replicator.ReplicaService.REPLICA_SERVICE_RPC_TIMEOUT;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -35,7 +35,6 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
 import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
 import org.apache.ignite.table.RecordView;
@@ -88,6 +87,9 @@ public class ItTransactionPrimaryChangeTest extends ClusterPerTestIntegrationTes
                 + "  transaction: {"
                 + "      implicitTransactionTimeout: 30000"
                 + "  },"
+                + "  replication: {"
+                + "      rpcTimeout: 30000"
+                + "  },"
                 + "}");
     }
 
@@ -102,7 +104,6 @@ public class ItTransactionPrimaryChangeTest extends ClusterPerTestIntegrationTes
     }
 
     @Test
-    @WithSystemProperty(key = REPLICA_SERVICE_RPC_TIMEOUT, value = "30000")
     public void testFullTxConsistency() throws InterruptedException {
         TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
@@ -124,7 +125,7 @@ public class ItTransactionPrimaryChangeTest extends ClusterPerTestIntegrationTes
 
         // Put some value into the table.
         Transaction txPreload = txCrdNode.transactions().begin();
-        log.info("Test: Preloading the data [tx={}].", ((ReadWriteTransactionImpl) txPreload).id());
+        log.info("Test: Preloading the data [tx={}].", ((ReadWriteTransactionImpl) unwrapIgniteTransaction(txPreload)).id());
         view.upsert(txPreload, Tuple.create().set("key", 1).set("val", "1"));
         txPreload.commit();
 
@@ -166,7 +167,7 @@ public class ItTransactionPrimaryChangeTest extends ClusterPerTestIntegrationTes
             // Start a regular transaction that increments the value. It should see the initially inserted value and its commit should
             // succeed.
             Transaction tx = txCrdNode.transactions().begin();
-            log.info("Test: Started the regular transaction [txId={}].", ((ReadWriteTransactionImpl) tx).id());
+            log.info("Test: Started the regular transaction [txId={}].", ((ReadWriteTransactionImpl) unwrapIgniteTransaction(tx)).id());
 
             Tuple t = view.get(tx, Tuple.create().set("key", 1));
             assertEquals("1", t.value(1));
@@ -174,7 +175,7 @@ public class ItTransactionPrimaryChangeTest extends ClusterPerTestIntegrationTes
 
             tx.commit();
 
-            log.info("Test: Completed the regular transaction [txId={}].", ((ReadWriteTransactionImpl) tx).id());
+            log.info("Test: Completed the regular transaction [txId={}].", ((ReadWriteTransactionImpl) unwrapIgniteTransaction(tx)).id());
         } finally {
             regularTxComplete.complete(null);
         }

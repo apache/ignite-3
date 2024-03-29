@@ -32,6 +32,7 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
@@ -96,6 +97,9 @@ public class ItLockTableTest extends IgniteAbstractTest {
     protected static TransactionConfiguration txConfiguration;
 
     @InjectConfiguration
+    protected static ReplicationConfiguration replicationConfiguration;
+
+    @InjectConfiguration
     protected static StorageUpdateConfiguration storageUpdateConfiguration;
 
     private ItTxTestCluster txTestCluster;
@@ -122,7 +126,8 @@ public class ItLockTableTest extends IgniteAbstractTest {
                 1,
                 1,
                 false,
-                timestampTracker
+                timestampTracker,
+                replicationConfiguration
         ) {
             @Override
             protected TxManagerImpl newTxManager(
