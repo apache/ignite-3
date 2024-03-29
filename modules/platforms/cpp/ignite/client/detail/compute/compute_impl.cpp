@@ -149,6 +149,24 @@ public:
         , m_compute(compute) {}
 
     /**
+     * Set error.
+     *
+     * @param err Error to set.
+     */
+    [[nodiscard]] ignite_result<void> set_error(ignite_error err) override {
+        auto res = result_of_operation<void>([&]() {
+            if (!m_execution) {
+                m_callback({std::move(err)});
+            } else {
+                m_execution->set_error(err);
+            }
+        });
+
+        m_handling_complete = true;
+        return res;
+    }
+
+    /**
      * Handle response.
      *
      * @param msg Message.
@@ -185,6 +203,11 @@ public:
                 status = read_job_status(reader);
             });
 
+            if (!m_execution) {
+                m_execution = std::make_shared<job_execution_impl>(status.id, std::move(m_compute));
+                result_of_operation<void>([&]() { this->m_callback(job_execution{m_execution}); });
+            }
+
             if (read_res.has_error()) {
                 m_execution->set_error(read_res.error());
 
@@ -202,13 +225,13 @@ public:
 
 private:
     /** Skip schema flag. */
-    bool m_skip_schema{true};
-
-    /** Execution. */
-    std::shared_ptr<job_execution_impl> m_execution{};
+    const bool m_skip_schema{true};
 
     /** Compute. */
     std::shared_ptr<compute_impl> m_compute;
+
+    /** Execution. */
+    std::shared_ptr<job_execution_impl> m_execution{};
 };
 
 void compute_impl::submit_to_nodes(const std::vector<cluster_node> &nodes, const std::vector<deployment_unit> &units,

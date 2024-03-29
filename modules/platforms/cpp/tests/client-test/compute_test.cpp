@@ -175,7 +175,7 @@ TEST_F(compute_test, job_error_propagates_to_client) {
     EXPECT_THROW(
         {
             try {
-                m_client.get_compute().submit(cluster_nodes, {}, ERROR_JOB, {"unused"});
+                m_client.get_compute().submit(cluster_nodes, {}, ERROR_JOB, {"unused"}).get_result();
             } catch (const ignite_error &e) {
                 EXPECT_THAT(e.what_str(), testing::HasSubstr("Custom job error"));
                 // TODO https://issues.apache.org/jira/browse/IGNITE-19603
@@ -304,19 +304,6 @@ TEST_F(compute_test, execute_colocated_throws_when_key_column_is_missing) {
 }
 
 TEST_F(compute_test, execute_colocated_throws_when_key_is_empty) {
-    EXPECT_THROW(
-        {
-            try {
-                (void) m_client.get_compute().submit_colocated(TABLE_1, {}, {}, ECHO_JOB, {});
-            } catch (const ignite_error &e) {
-                EXPECT_EQ("Key tuple can not be empty", e.what_str());
-                throw;
-            }
-        },
-        ignite_error);
-}
-
-TEST_F(compute_test, exception_in_server_job_propogates_to_client) {
     EXPECT_THROW(
         {
             try {

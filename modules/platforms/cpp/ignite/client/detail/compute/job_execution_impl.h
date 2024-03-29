@@ -35,7 +35,7 @@ class compute_impl;
 class job_execution_impl {
 public:
     // Delete
-    job_execution_impl() = delete;
+    job_execution_impl() = default;
 
     /**
      * Constructor

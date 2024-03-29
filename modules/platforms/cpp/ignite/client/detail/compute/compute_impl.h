@@ -34,7 +34,7 @@ namespace ignite::detail {
 /**
  * Ignite Compute implementation.
  */
-class compute_impl : std::enable_shared_from_this<compute_impl> {
+class compute_impl : public std::enable_shared_from_this<compute_impl> {
     friend class ignite_client;
 
 public:
