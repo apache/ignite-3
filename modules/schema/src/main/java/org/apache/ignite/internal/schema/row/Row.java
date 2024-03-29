@@ -92,6 +92,8 @@ public class Row extends BinaryTupleReader implements BinaryRowEx, SchemaAware, 
     }
 
     /**
+     * Gets a value indicating whether the row contains only key columns.
+     *
      * @return {@code true} if the row contains only key columns.
      */
     public boolean keyOnly() {
