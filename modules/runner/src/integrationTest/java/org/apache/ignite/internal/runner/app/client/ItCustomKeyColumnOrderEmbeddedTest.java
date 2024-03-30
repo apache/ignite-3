@@ -18,8 +18,6 @@
 package org.apache.ignite.internal.runner.app.client;
 
 import org.apache.ignite.Ignite;
-import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.Test;
 
 /**
  * Tests custom key column order table operations with embedded API.
@@ -28,19 +26,5 @@ public class ItCustomKeyColumnOrderEmbeddedTest extends ItCustomKeyColumnOrderCl
     @Override
     protected Ignite ignite() {
         return server();
-    }
-
-    @Override
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21891")
-    void testRecordView() {
-        super.testRecordView();
-    }
-
-    @Override
-    @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21891")
-    void testKeyValueBinaryView() {
-        super.testKeyValueBinaryView();
     }
 }
