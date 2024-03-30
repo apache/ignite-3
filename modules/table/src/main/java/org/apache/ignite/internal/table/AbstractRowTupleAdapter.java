@@ -80,10 +80,6 @@ public abstract class AbstractRowTupleAdapter implements Tuple, SchemaAware {
             return -1;
         }
 
-        if (row.keyOnly()) {
-            return col.positionInKey();
-        }
-
         return correctIndex(col);
     }
 
