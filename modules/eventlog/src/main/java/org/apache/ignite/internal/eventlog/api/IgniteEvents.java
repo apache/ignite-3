@@ -15,11 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.eventlog.event;
+package org.apache.ignite.internal.eventlog.api;
 
 import java.util.Arrays;
-import org.apache.ignite.internal.eventlog.api.Event;
-import org.apache.ignite.internal.eventlog.api.EventFactory;
+import org.apache.ignite.internal.eventlog.event.EventBuilder;
+import org.apache.ignite.internal.eventlog.event.EventTypeRegistry;
+import org.apache.ignite.internal.eventlog.event.EventUser;
 
 /**
  * The main class for creating all Ignite events.
@@ -30,12 +31,14 @@ import org.apache.ignite.internal.eventlog.api.EventFactory;
  * <pre>{@code IgniteEvents.USER_AUTHENTICATED.create(EventUser.system());}</pre>
  */
 public final class IgniteEvents implements EventFactory {
-    public static final IgniteEvents USER_AUTHENTICATED = new IgniteEvents(IgniteEventTypes.USER_AUTHENTICATED.name());
+    public static final IgniteEvents USER_AUTHENTICATED = new IgniteEvents(IgniteEventType.USER_AUTHENTICATED.name());
 
-    public static final IgniteEvents CONNECTION_CLOSED = new IgniteEvents(IgniteEventTypes.CONNECTION_CLOSED.name());
+    public static final IgniteEvents CONNECTION_CLOSED = new IgniteEvents(IgniteEventType.CONNECTION_CLOSED.name());
 
     static {
-        Arrays.stream(IgniteEventTypes.values()).forEach(type -> EventTypeRegistry.register(type.name()));
+        // Without the following line, the IgniteEventType enum will not be registered in the EventTypeRegistry
+        // and the EventTypeRegistry will not be able to validate the event types.
+        Arrays.stream(IgniteEventType.values()).forEach(type -> EventTypeRegistry.register(type.name()));
     }
 
     private final String type;

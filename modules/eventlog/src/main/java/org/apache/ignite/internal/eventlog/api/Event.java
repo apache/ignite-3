@@ -24,6 +24,11 @@ import org.apache.ignite.internal.eventlog.event.EventUser;
 
 /** Represents an event object that can be logged to the event log. */
 public interface Event {
+    /** Default builder for the event object. */
+    static EventBuilder builder() {
+        return new EventBuilder();
+    }
+
     /** The type of the event. The type must be registered in the {@link EventTypeRegistry}. */
     String type();
 
@@ -38,9 +43,4 @@ public interface Event {
 
     /** The event-specific fields of the event. */
     Map<String, Object> fields();
-
-    /** Default builder for the event object. */
-    static EventBuilder builder() {
-        return new EventBuilder();
-    }
 }

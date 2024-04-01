@@ -15,19 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.eventlog.config.schema;
+package org.apache.ignite.internal.eventlog.impl;
 
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.annotation.NamedConfigValue;
+import java.util.Set;
+import org.apache.ignite.internal.eventlog.api.EventChannel;
 
-/** Configuration schema for event log. */
-@ConfigurationRoot(rootName = "eventlog", type = ConfigurationType.DISTRIBUTED)
-public class EventLogConfigurationSchema {
-    /** The configuration schema for sinks. */
-    @NamedConfigValue
-    public SinkConfigurationSchema sinks;
+/**
+ * Channel registry. The only way to send an event into channel is to get the channel from this registry.
+ * The channel can not be cached for a long time because it can be removed from the registry due to configuration changes.
+ */
+interface ChannelRegistry {
+    /**
+     * Get channel by name.
+     *
+     * @param name Channel name.
+     * @return Channel instance.
+     */
+    EventChannel getByName(String name);
 
-    @NamedConfigValue
-    public ChannelConfigurationSchema channels;
+    /**
+     * Get all channels that can handle the given event type.
+     *
+     * @param igniteEventType Ignite event type.
+     * @return Set of channels.
+     */
+    Set<EventChannel> findAllChannelsByEventType(String igniteEventType);
 }
