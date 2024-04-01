@@ -115,6 +115,7 @@ import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.tx.ScriptTransactionContext;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
@@ -481,7 +482,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<AsyncSqlCursor<InternalSqlRow>> querySingleAsync(
+    public CompletableFuture<AsyncSqlCursor<InternalSqlRow>> queryAsync(
             SqlProperties properties,
             IgniteTransactions transactions,
             @Nullable InternalTransaction transaction,
@@ -493,27 +494,13 @@ public class SqlQueryProcessor implements QueryProcessor {
         }
 
         try {
-            return querySingle0(properties, new QueryTransactionContext(transactions, transaction), qry, params);
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
+            SqlProperties properties0 = SqlPropertiesHelper.chain(properties, DEFAULT_PROPERTIES);
 
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<AsyncSqlCursor<InternalSqlRow>> queryScriptAsync(
-            SqlProperties properties,
-            IgniteTransactions transactions,
-            @Nullable InternalTransaction transaction,
-            String qry,
-            Object... params
-    ) {
-        if (!busyLock.enterBusy()) {
-            throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
-        }
-
-        try {
-            return queryScript0(properties, new QueryTransactionContext(transactions, transaction), qry, params);
+            if (Commons.isMultiStatementQuery(properties0)) {
+                return queryScript(properties0, new QueryTransactionContext(transactions, transaction), qry, params);
+            } else {
+                return querySingle(properties0, new QueryTransactionContext(transactions, transaction), qry, params);
+            }
         } finally {
             busyLock.leaveBusy();
         }
@@ -562,15 +549,14 @@ public class SqlQueryProcessor implements QueryProcessor {
         return stage;
     }
 
-    private CompletableFuture<AsyncSqlCursor<InternalSqlRow>> querySingle0(
+    private CompletableFuture<AsyncSqlCursor<InternalSqlRow>> querySingle(
             SqlProperties properties,
             QueryTransactionContext txCtx,
             String sql,
             Object... params
     ) {
-        SqlProperties properties0 = SqlPropertiesHelper.chain(properties, DEFAULT_PROPERTIES);
-        String schemaName = properties0.get(QueryProperty.DEFAULT_SCHEMA);
-        ZoneId timeZoneId = properties0.get(QueryProperty.TIME_ZONE_ID);
+        String schemaName = properties.get(QueryProperty.DEFAULT_SCHEMA);
+        ZoneId timeZoneId = properties.get(QueryProperty.TIME_ZONE_ID);
 
         QueryCancel queryCancel = new QueryCancel();
 
@@ -579,7 +565,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         CompletableFuture<AsyncSqlCursor<InternalSqlRow>> stage = start.thenCompose(ignored -> {
             ParsedResult result = parserService.parse(sql);
 
-            validateParsedStatement(properties0, result);
+            validateParsedStatement(properties, result);
             validateDynamicParameters(result.dynamicParamsCount(), params, true);
 
             QueryTransactionWrapper txWrapper = txCtx.getOrStartImplicit(result.queryType());
@@ -619,15 +605,14 @@ public class SqlQueryProcessor implements QueryProcessor {
         return stage;
     }
 
-    private CompletableFuture<AsyncSqlCursor<InternalSqlRow>> queryScript0(
+    private CompletableFuture<AsyncSqlCursor<InternalSqlRow>> queryScript(
             SqlProperties properties,
             QueryTransactionContext txCtx,
             String sql,
             Object... params
     ) {
-        SqlProperties properties0 = SqlPropertiesHelper.chain(properties, DEFAULT_PROPERTIES);
-        String schemaName = properties0.get(QueryProperty.DEFAULT_SCHEMA);
-        ZoneId timeZoneId = properties0.get(QueryProperty.TIME_ZONE_ID);
+        String schemaName = properties.get(QueryProperty.DEFAULT_SCHEMA);
+        ZoneId timeZoneId = properties.get(QueryProperty.TIME_ZONE_ID);
 
         CompletableFuture<?> start = new CompletableFuture<>();
 
