@@ -520,13 +520,10 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
         Predicate<IgniteReduceSortAggregate> inputAgg = isInstanceOf(IgniteReduceSortAggregate.class)
                 .and(hasGroupSets(IgniteReduceSortAggregate::getGroupSets, 0))
                 .and(hasCollation(RelCollations.of(0)))
-                .and(input(isInstanceOf(IgniteExchange.class)
-                        .and(hasCollation(RelCollations.of(0)))
-                        .and(hasDistribution(single()))
-                        .and(input(isInstanceOf(IgniteMapSortAggregate.class)
-                                .and(hasCollation(RelCollations.of(1)))
-                                .and(hasGroupSets(Aggregate::getGroupSets, 1))
-                ))));
+                .and(input(isInstanceOf(IgniteMapSortAggregate.class)
+                        .and(hasCollation(RelCollations.of(1)))
+                        .and(hasGroupSets(Aggregate::getGroupSets, 1))
+                ));
 
         assertPlan(TestCase.CASE_24_1, nodeOrAnyChild(isInstanceOf(IgniteReduceSortAggregate.class)
                         .and(hasNoGroupSets(IgniteReduceSortAggregate::getGroupSets))
@@ -815,8 +812,6 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
         assertPlan(testCase,
                 nodeOrAnyChild(isInstanceOf(IgniteReduceSortAggregate.class)
                         .and(input(isInstanceOf(IgniteMapSortAggregate.class)
-                                // TODO: https://issues.apache.org/jira/browse/IGNITE-20095
-                                // Why can't Map be pushed down to under 'exchange'.
                                 .and(input(isInstanceOf(IgniteSort.class)
                                         .and(s -> s.collation().equals(collation))
                                         .and(input(isTableScan("TEST")))
