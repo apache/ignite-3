@@ -42,6 +42,7 @@ import org.apache.ignite.internal.network.DefaultMessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeException;
@@ -232,6 +233,9 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
 
     @Test
     void testChangePrimaryOnCleanup() throws ExecutionException, InterruptedException {
+        node(0).clusterConfiguration().getConfiguration(ReplicationConfiguration.KEY).change(replicationChange ->
+                replicationChange.changeRpcTimeout(3000));
+
         Context context = prepareTransactionData();
 
         // The transaction is committed but the primary expires right before applying the cleanup message.

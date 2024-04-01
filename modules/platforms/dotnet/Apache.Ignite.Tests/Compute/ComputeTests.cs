@@ -20,6 +20,7 @@ namespace Apache.Ignite.Tests.Compute
     using System;
     using System.Collections;
     using System.Collections.Generic;
+    using System.Globalization;
     using System.Linq;
     using System.Net;
     using System.Numerics;
@@ -50,6 +51,8 @@ namespace Apache.Ignite.Tests.Compute
         private const string EchoJob = ItThinClientComputeTest + "$EchoJob";
 
         private const string SleepJob = ItThinClientComputeTest + "$SleepJob";
+
+        private const string DecimalJob = ItThinClientComputeTest + "$DecimalJob";
 
         private const string PlatformTestNodeRunner = "org.apache.ignite.internal.runner.app.PlatformTestNodeRunner";
 
@@ -637,6 +640,26 @@ namespace Apache.Ignite.Tests.Compute
                 FakeServer.ExistingTableName, keyTuple, units, FakeServer.GetDetailsJob, options);
 
             StringAssert.Contains("priority = 999, maxRetries = 66", await colocatedRes.GetResultAsync());
+        }
+
+        [Test]
+        [TestCase("1E3", -3)]
+        [TestCase("1.12E5", 0)]
+        [TestCase("1.123456789", 10)]
+        [TestCase("1.123456789", 5)]
+        public async Task TestBigDecimalPropagation(string number, int scale)
+        {
+            var res = await Client.Compute.SubmitAsync<decimal>(await GetNodeAsync(1), Units, DecimalJob, number, scale);
+            var resVal = await res.GetResultAsync();
+
+            var expected = decimal.Parse(number, NumberStyles.Float);
+
+            if (scale > 0)
+            {
+                expected = decimal.Round(expected, scale);
+            }
+
+            Assert.AreEqual(expected, resVal);
         }
 
         private static async Task AssertJobStatus<T>(IJobExecution<T> jobExecution, JobState state, Instant beforeStart)

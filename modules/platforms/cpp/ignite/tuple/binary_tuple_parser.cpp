@@ -124,7 +124,7 @@ bytes_view binary_tuple_parser::get_next() {
     element_index++;
 
     if (std::size_t length = next_value - value) {
-        return bytes_view(value, length);
+        return {value, length};
     }
 
     return {};
@@ -223,9 +223,22 @@ big_integer binary_tuple_parser::get_number(bytes_view bytes) {
     return {bytes.data(), bytes.size()};
 }
 
-big_decimal binary_tuple_parser::get_decimal(bytes_view bytes, std::int32_t scale) {
-    big_integer mag(bytes.data(), bytes.size());
-    return {std::move(mag), scale};
+big_decimal binary_tuple_parser::get_decimal(bytes_view bytes) {
+    auto val_scale = load_little<std::int16_t>(bytes);
+
+    big_integer mag(bytes.data() + 2, bytes.size() - 2);
+    return {std::move(mag), val_scale};
+}
+
+big_decimal binary_tuple_parser::get_decimal(bytes_view bytes, std::int16_t scale) {
+    auto val = get_decimal(bytes);
+
+    if (val.get_scale() > scale)
+        throw std::out_of_range("Invalid scale, expected less than or equal to " + std::to_string(scale) + ", but was "
+            + std::to_string(val.get_scale()));
+
+    val.set_scale(scale, val);
+    return val;
 }
 
 uuid binary_tuple_parser::get_uuid(bytes_view bytes) {
@@ -271,7 +284,7 @@ ignite_date_time binary_tuple_parser::get_date_time(bytes_view bytes) {
 ignite_timestamp binary_tuple_parser::get_timestamp(bytes_view bytes) {
     switch (bytes.size()) {
         case 8: {
-            std::int64_t seconds = load_little<std::int64_t>(bytes);
+            auto seconds = load_little<std::int64_t>(bytes);
             return {seconds, 0};
         }
         case 12: {

@@ -67,6 +67,7 @@ import org.apache.ignite.internal.sql.engine.rule.ValuesConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.logical.ExposeIndexRule;
 import org.apache.ignite.internal.sql.engine.rule.logical.FilterScanMergeRule;
 import org.apache.ignite.internal.sql.engine.rule.logical.IgniteJoinConditionPushRule;
+import org.apache.ignite.internal.sql.engine.rule.logical.LogicalOrToUnionRule;
 import org.apache.ignite.internal.sql.engine.rule.logical.ProjectScanMergeRule;
 
 /**
@@ -216,8 +217,7 @@ public enum PlannerPhase {
             FilterScanMergeRule.INDEX_SCAN,
             FilterScanMergeRule.SYSTEM_VIEW_SCAN,
 
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-21287
-            // LogicalOrToUnionRule.INSTANCE,
+            LogicalOrToUnionRule.INSTANCE,
 
             // TODO: https://issues.apache.org/jira/browse/IGNITE-16334 join rules ordering is significant here.
             MergeJoinConverterRule.INSTANCE,

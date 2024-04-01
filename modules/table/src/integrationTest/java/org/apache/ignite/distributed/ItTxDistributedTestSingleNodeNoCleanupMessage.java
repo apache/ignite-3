@@ -105,7 +105,8 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                 nodes(),
                 replicas(),
                 startClient(),
-                timestampTracker
+                timestampTracker,
+                replicationConfiguration
         ) {
             @Override
             protected TxManagerImpl newTxManager(

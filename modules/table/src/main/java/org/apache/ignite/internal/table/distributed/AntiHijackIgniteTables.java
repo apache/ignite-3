@@ -29,7 +29,7 @@ import org.apache.ignite.table.manager.IgniteTables;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Wrapper around {@link IgniteTables} that adds protection agains thread hijacking by users.
+ * Wrapper around {@link IgniteTables} that adds protection against thread hijacking by users.
  */
 public class AntiHijackIgniteTables implements IgniteTables, Wrapper {
     private final IgniteTables tables;
@@ -47,16 +47,16 @@ public class AntiHijackIgniteTables implements IgniteTables, Wrapper {
 
     @Override
     public List<Table> tables() {
-        return wrapInPublicProxies(tables.tables());
+        return applyAntiHijackProtection(tables.tables());
     }
 
-    private List<Table> wrapInPublicProxies(List<Table> tablesToWrap) {
+    private List<Table> applyAntiHijackProtection(List<Table> tablesToWrap) {
         return tablesToWrap.stream()
-                .map(this::wrapInPublicProxy)
+                .map(this::applyAntiHijackProtection)
                 .collect(toList());
     }
 
-    private @Nullable Table wrapInPublicProxy(@Nullable Table table) {
+    private @Nullable Table applyAntiHijackProtection(@Nullable Table table) {
         if (table == null) {
             return null;
         }
@@ -67,18 +67,18 @@ public class AntiHijackIgniteTables implements IgniteTables, Wrapper {
     @Override
     public CompletableFuture<List<Table>> tablesAsync() {
         return preventThreadHijack(tables.tablesAsync())
-                .thenApply(this::wrapInPublicProxies);
+                .thenApply(this::applyAntiHijackProtection);
     }
 
     @Override
     public Table table(String name) {
-        return wrapInPublicProxy(tables.table(name));
+        return applyAntiHijackProtection(tables.table(name));
     }
 
     @Override
     public CompletableFuture<Table> tableAsync(String name) {
         return preventThreadHijack(tables.tableAsync(name))
-                .thenApply(this::wrapInPublicProxy);
+                .thenApply(this::applyAntiHijackProtection);
     }
 
     private <T> CompletableFuture<T> preventThreadHijack(CompletableFuture<T> originalFuture) {
