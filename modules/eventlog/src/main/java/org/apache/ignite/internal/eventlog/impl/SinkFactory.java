@@ -38,6 +38,6 @@ class SinkFactory {
             return new LogSink((LogSinkView) sinkView);
         }
 
-        throw new IgniteInternalException(Common.INTERNAL_ERR, "Unsupported sink type: " + sinkView.id());
+        throw new IgniteInternalException(Common.INTERNAL_ERR, "Unsupported sink type: " + sinkView.type());
     }
 }
