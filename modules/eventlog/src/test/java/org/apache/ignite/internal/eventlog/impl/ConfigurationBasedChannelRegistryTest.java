@@ -17,13 +17,15 @@
 
 package org.apache.ignite.internal.eventlog.impl;
 
-import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.not;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
-import java.util.Objects;
+import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.eventlog.api.EventChannel;
@@ -54,57 +56,44 @@ class ConfigurationBasedChannelRegistryTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void addNewConfigurationEntry() {
+    void addNewConfigurationEntry() throws Exception {
         // Given configuration with a channel.
         cfg.channels().change(c -> c.create(TEST_CHANNEL, s -> {
             s.changeEnabled(true);
             s.changeEvents(IgniteEventType.USER_AUTHENTICATED.name());
-        }));
+        })).get();
 
         // When get channel from registry.
-        EventChannel channel = await().until(
-                () -> registry.getByName(TEST_CHANNEL),
-                Objects::nonNull
-        );
+        EventChannel channel = registry.getByName(TEST_CHANNEL);
 
         // Then it is configured correctly.
         assertThat(channel.types(), hasItem(IgniteEventType.USER_AUTHENTICATED.name()));
     }
 
     @Test
-    void removeConfigurationEntry() {
+    void removeConfigurationEntry() throws Exception {
         // Given configuration with a channel.
         cfg.channels().change(c -> c.create(TEST_CHANNEL, s -> {
             s.changeEnabled(true);
             s.changeEvents(IgniteEventType.USER_AUTHENTICATED.name());
-        }));
-        // And registry returns not null.
-        await().until(
-                () -> registry.getByName(TEST_CHANNEL),
-                Objects::nonNull
-        );
+        })).get();
 
         // When remove configuration entry.
-        cfg.change(c -> c.changeChannels().delete(TEST_CHANNEL));
+        cfg.change(c -> c.changeChannels().delete(TEST_CHANNEL)).get();
 
         // Then channel is removed from registry.
-        await().until(
-                () -> registry.getByName(TEST_CHANNEL) == null
-        );
+        assertThat(registry.getByName(TEST_CHANNEL), nullValue());
     }
 
     @Test
-    void updateConfigurationEntry() {
+    void updateConfigurationEntry() throws ExecutionException, InterruptedException {
         // Given configuration with a channel.
         cfg.channels().change(c -> c.create(TEST_CHANNEL, s -> {
             s.changeEnabled(true);
             s.changeEvents(IgniteEventType.USER_AUTHENTICATED.name());
-        }));
-        // And registry returns not null.
-        EventChannel channel = await().until(
-                () -> registry.getByName(TEST_CHANNEL),
-                Objects::nonNull
-        );
+        })).get();
+
+        assertThat(registry.getByName(TEST_CHANNEL).types(), hasSize(1));
 
         // When update configuration entry.
         cfg.channels().change(c -> c.update(TEST_CHANNEL, s -> {
@@ -113,21 +102,19 @@ class ConfigurationBasedChannelRegistryTest extends BaseIgniteAbstractTest {
         }));
 
         // Then channel is updated in registry and types are not the same as the were before the update.
-        await().until(() -> !registry.getByName(TEST_CHANNEL).types().equals(channel.types()));
+        assertThat(registry.getByName(TEST_CHANNEL).types(), hasSize(2));
     }
 
     @Test
-    void findAllChannelsByEventType() {
+    void findAllChannelsByEventType() throws ExecutionException, InterruptedException {
         // Given configuration with a channel.
         cfg.channels().change(c -> c.create(TEST_CHANNEL, s -> {
             s.changeEnabled(true);
             s.changeEvents(IgniteEventType.USER_AUTHENTICATED.name());
-        }));
+        })).get();
 
         // Then registry returns the channel by type.
-        await().untilAsserted(
-                () -> assertThat(registry.findAllChannelsByEventType(IgniteEventType.USER_AUTHENTICATED.name()).size(), is(1))
-        );
+        assertThat(registry.findAllChannelsByEventType(IgniteEventType.USER_AUTHENTICATED.name()).size(), is(1));
         // But for another type it returns empty set.
         assertThat(registry.findAllChannelsByEventType(IgniteEventType.CONNECTION_CLOSED.name()).size(), is(0));
 
@@ -135,45 +122,36 @@ class ConfigurationBasedChannelRegistryTest extends BaseIgniteAbstractTest {
         cfg.channels().change(c -> c.update(TEST_CHANNEL, s -> {
             s.changeEnabled(true);
             s.changeEvents(IgniteEventType.USER_AUTHENTICATED.name(), IgniteEventType.CONNECTION_CLOSED.name());
-        }));
+        })).get();
 
         // Then registry returns the channel by type.
-        await().untilAsserted(
-                () -> assertThat(registry.findAllChannelsByEventType(IgniteEventType.USER_AUTHENTICATED.name()).size(), is(1))
-        );
-        await().untilAsserted(
-                () -> assertThat(registry.findAllChannelsByEventType(IgniteEventType.CONNECTION_CLOSED.name()).size(), is(1))
-        );
+        assertThat(registry.findAllChannelsByEventType(IgniteEventType.USER_AUTHENTICATED.name()).size(), is(1));
+        assertThat(registry.findAllChannelsByEventType(IgniteEventType.CONNECTION_CLOSED.name()).size(), is(1));
 
         // When add new channel.
         cfg.channels().change(c -> c.create("newChannel", s -> {
             s.changeEnabled(true);
             s.changeEvents(IgniteEventType.USER_AUTHENTICATED.name());
-        }));
+        })).get();
 
         // Then.
-        await().untilAsserted(
-                () -> assertThat(registry.findAllChannelsByEventType(IgniteEventType.USER_AUTHENTICATED.name()).size(), is(2))
-        );
-        await().untilAsserted(
-                () -> assertThat(registry.findAllChannelsByEventType(IgniteEventType.CONNECTION_CLOSED.name()).size(), is(1))
-        );
+        assertThat(registry.findAllChannelsByEventType(IgniteEventType.USER_AUTHENTICATED.name()).size(), is(2));
+        assertThat(registry.findAllChannelsByEventType(IgniteEventType.CONNECTION_CLOSED.name()).size(), is(1));
     }
 
     @Test
-    void enableDisable() {
+    void enableDisable() throws Exception {
         // Given configuration with a channel.
         cfg.channels().change(c -> c.create(TEST_CHANNEL, s -> {
             s.changeEvents(IgniteEventType.USER_AUTHENTICATED.name());
-        }));
+        })).get();
 
-        // Then can get channel from registry.
-        await().until(() -> registry.getByName(TEST_CHANNEL) != null);
+        assertThat(registry.getByName(TEST_CHANNEL), not(nullValue()));
 
         // When disable channel.
-        cfg.channels().change(c -> c.update(TEST_CHANNEL, s -> s.changeEnabled(false)));
+        cfg.channels().change(c -> c.update(TEST_CHANNEL, s -> s.changeEnabled(false))).get();
 
         // Then channel is removed from registry.
-        await().until(() -> registry.getByName(TEST_CHANNEL) == null);
+        assertThat(registry.getByName(TEST_CHANNEL), nullValue());
     }
 }

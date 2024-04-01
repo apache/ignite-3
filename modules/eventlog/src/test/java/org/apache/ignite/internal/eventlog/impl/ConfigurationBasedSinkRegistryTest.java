@@ -18,6 +18,10 @@
 package org.apache.ignite.internal.eventlog.impl;
 
 import static org.awaitility.Awaitility.await;
+import static org.hamcrest.CoreMatchers.not;
+import static org.hamcrest.CoreMatchers.nullValue;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -31,6 +35,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(ConfigurationExtension.class)
 class ConfigurationBasedSinkRegistryTest extends BaseIgniteAbstractTest {
     private static final String TEST_CHANNEL = "testChannel";
+    private static final String TEST_SINK = "testSink";
 
     @InjectConfiguration
     private EventLogConfiguration cfg;
@@ -48,54 +53,53 @@ class ConfigurationBasedSinkRegistryTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void addNewConfigurationEntry() {
+    void addNewConfigurationEntry() throws Exception {
         // Given configuration with a sink.
-        cfg.sinks().change(c -> c.create(TEST_CHANNEL, s -> {
+        cfg.sinks().change(c -> c.create(TEST_SINK, s -> {
             s.changeChannel(TEST_CHANNEL);
-        }));
+        })).get();
 
         // Then configuration is updated.
-        await().until(() -> registry.getByName(TEST_CHANNEL) != null);
+        assertThat(registry.getByName(TEST_SINK), not(nullValue()));
     }
 
     @Test
-    void removeConfigurationEntry() {
+    void removeConfigurationEntry() throws Exception {
         // Given configuration with a sink.
-        cfg.sinks().change(c -> c.create(TEST_CHANNEL, s -> {
+        cfg.sinks().change(c -> c.create(TEST_SINK, s -> {
             s.changeChannel(TEST_CHANNEL);
-        }));
+        })).get();
 
-        // Then configuration is updated.
-        await().until(() -> registry.getByName(TEST_CHANNEL) != null);
+        assertThat(registry.getByName(TEST_SINK), not(nullValue()));
 
         // When configuration is removed.
-        cfg.sinks().change(c -> c.delete(TEST_CHANNEL));
+        cfg.sinks().change(c -> c.delete(TEST_SINK)).get();
 
         // Then sink is removed from registry .
-        await().until(() -> registry.getByName(TEST_CHANNEL) == null);
+        assertThat(registry.getByName(TEST_SINK), nullValue());
     }
 
     @Test
-    void updateConfigurationEntry() {
+    void updateConfigurationEntry() throws Exception  {
         // Given configuration with a sink.
-        cfg.sinks().change(c -> c.create(TEST_CHANNEL, s -> {
+        cfg.sinks().change(c -> c.create(TEST_SINK, s -> {
             s.changeChannel("some");
-        }));
+        })).get();
 
-        // Then configuration is updated.
-        await().until(() -> registry.getByName(TEST_CHANNEL) != null);
+        assertThat(registry.getByName(TEST_SINK), not(nullValue()));
+
         // And sink can be found by channel.
-        await().until(() -> registry.findAllByChannel("some").size() == 1);
+        assertThat(registry.findAllByChannel("some"), hasSize(1));
 
         // When the channel is updated.
-        cfg.sinks().change(c -> c.update(TEST_CHANNEL, s -> {
+        cfg.sinks().change(c -> c.update(TEST_SINK, s -> {
             s.changeChannel(TEST_CHANNEL);
-        }));
+        })).get();
 
         // Then then the sink can not be found by previous channel.
-        await().until(() -> registry.findAllByChannel("some").isEmpty());
+        assertThat(registry.findAllByChannel("some"), hasSize(0));
         // And the sink can be found by new channel.
-        await().until(() -> registry.findAllByChannel(TEST_CHANNEL).size() == 1);
+        assertThat(registry.findAllByChannel(TEST_CHANNEL), hasSize(1));
 
         // When add one more sink with the same channel.
         cfg.sinks().change(c -> c.create("newSink", s -> {
