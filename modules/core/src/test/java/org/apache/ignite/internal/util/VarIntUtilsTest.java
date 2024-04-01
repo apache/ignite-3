@@ -43,36 +43,10 @@ class VarIntUtilsTest {
 
     @ParameterizedTest
     @MethodSource("sampleInts")
-    void readingAndWritingVarintsToByteBufferIsCompatible(int intVal) {
-        ByteBuffer buffer = ByteBuffer.allocate(10);
-
-        buffer.position(1);
-
-        VarIntUtils.putVarIntToBuffer(intVal, buffer);
-
-        buffer.position(1);
-
-        assertThat(VarIntUtils.readVarInt(buffer), is(intVal));
-    }
-
-    @ParameterizedTest
-    @MethodSource("sampleInts")
     void writingVarIntReturnsNumberOfBytesInItsRepresentation(int intVal) {
         byte[] array = new byte[10];
 
         int len = VarIntUtils.putVarIntToBytes(intVal, array, 0);
-
-        assertThat(VarIntUtils.varIntLength(intVal), is(len));
-    }
-
-    @ParameterizedTest
-    @MethodSource("sampleInts")
-    void writingVarIntToByteBufferReturnsNumberOfBytesInItsRepresentation(int intVal) {
-        ByteBuffer buffer = ByteBuffer.allocate(10);
-
-        int len = VarIntUtils.putVarIntToBuffer(intVal, buffer);
-
-        buffer.rewind();
 
         assertThat(VarIntUtils.varIntLength(intVal), is(len));
     }
@@ -89,20 +63,6 @@ class VarIntUtilsTest {
         VarIntUtils.readVarInt(buf);
 
         assertThat(buf.position(), is(len));
-    }
-
-    @ParameterizedTest
-    @MethodSource("sampleInts")
-    void readingVarIntFromByteBufferConsumesExactlyItsBytes(int intVal) {
-        ByteBuffer buffer = ByteBuffer.allocate(10);
-
-        int len = VarIntUtils.putVarIntToBuffer(intVal, buffer);
-
-        buffer.rewind();
-
-        VarIntUtils.readVarInt(buffer);
-
-        assertThat(buffer.position(), is(len));
     }
 
     private static Stream<Arguments> sampleInts() {

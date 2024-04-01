@@ -17,28 +17,23 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
-import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.SORTED_INDEX_CF_PREFIX;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.comparatorFromCfName;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.sortedIndexCfName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.getFieldValue;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.rocksdb.index.RocksDbBinaryTupleComparator;
 import org.apache.ignite.internal.testframework.VariableSource;
-import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.internal.util.VarIntUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 
@@ -54,72 +49,51 @@ public class ColumnFamilyUtilsTest {
     void testSortedIndexCfNameSingleType(NativeType nativeType) {
         var descriptor = new StorageSortedIndexColumnDescriptor("<unused>", nativeType, false, false);
 
-        ByteBuffer nameBytes;
-
-        if (nativeType.spec() == NativeTypeSpec.DECIMAL) {
-            int scale = ((DecimalNativeType) nativeType).scale();
-
-            int scaleLength = VarIntUtils.varIntLength(scale);
-
-            nameBytes = ByteBuffer.allocate(2 + scaleLength)
-                    .put((byte) nativeType.spec().ordinal())
-                    .put((byte) 0);
-
-            VarIntUtils.putVarIntToBuffer(scale, nameBytes);
-        } else {
-            nameBytes = ByteBuffer.allocate(2)
-                    .put((byte) nativeType.spec().ordinal())
-                    .put((byte) 0);
-        }
-
-        assertThat(name(nameBytes.array()), is(sortedIndexCfName(List.of(descriptor))));
+        assertArrayEquals(name(nativeType.spec().ordinal(), 0), sortedIndexCfName(List.of(descriptor)));
     }
 
     @Test
     void testSortedIndexCfNameFlags() {
         List<StorageSortedIndexColumnDescriptor> descriptors = List.of(
-                new StorageSortedIndexColumnDescriptor("<unused>", NativeTypes.decimalOf(5, 4), false, false),
                 new StorageSortedIndexColumnDescriptor("<unused>", NativeTypes.INT64, false, false),
                 new StorageSortedIndexColumnDescriptor("<unused>", NativeTypes.INT32, true, false),
                 new StorageSortedIndexColumnDescriptor("<unused>", NativeTypes.INT16, false, true),
                 new StorageSortedIndexColumnDescriptor("<unused>", NativeTypes.INT8, true, true)
         );
 
-        assertThat(name(new byte[] {6, 0, 5, 3, 0, 2, 1, 1, 2, 0, 3}), is(sortedIndexCfName(descriptors)));
+        assertArrayEquals(name(3, 0, 2, 1, 1, 2, 0, 3), sortedIndexCfName(descriptors));
     }
 
     @Test
     void testComparatorFromCfName() {
-        RocksDbBinaryTupleComparator comparator = comparatorFromCfName(name(new byte[] {6, 0, 5, 3, 0, 2, 1, 1, 2, 0, 3}));
+        RocksDbBinaryTupleComparator comparator = comparatorFromCfName(name(3, 0, 2, 1, 1, 2, 0, 3));
 
         // I am sorry, this is for a single test only.
         List<StorageSortedIndexColumnDescriptor> columns = getFieldValue(comparator, "comparator", "columns");
 
-        assertEquals(NativeTypes.decimalOf(-1, 4), columns.get(0).type());
-        assertEquals(NativeTypes.INT64, columns.get(1).type());
-        assertEquals(NativeTypes.INT32, columns.get(2).type());
-        assertEquals(NativeTypes.INT16, columns.get(3).type());
-        assertEquals(NativeTypes.INT8, columns.get(4).type());
+        assertEquals(NativeTypes.INT64, columns.get(0).type());
+        assertEquals(NativeTypes.INT32, columns.get(1).type());
+        assertEquals(NativeTypes.INT16, columns.get(2).type());
+        assertEquals(NativeTypes.INT8, columns.get(3).type());
 
         assertFalse(columns.get(0).nullable());
-        assertFalse(columns.get(1).nullable());
-        assertTrue(columns.get(2).nullable());
-        assertFalse(columns.get(3).nullable());
-        assertTrue(columns.get(4).nullable());
+        assertTrue(columns.get(1).nullable());
+        assertFalse(columns.get(2).nullable());
+        assertTrue(columns.get(3).nullable());
 
         assertFalse(columns.get(0).asc());
         assertFalse(columns.get(1).asc());
-        assertFalse(columns.get(2).asc());
+        assertTrue(columns.get(2).asc());
         assertTrue(columns.get(3).asc());
-        assertTrue(columns.get(4).asc());
     }
 
-    private static byte[] name(byte[] bytes) {
-        byte[] prefix = SORTED_INDEX_CF_PREFIX.getBytes(UTF_8);
+    private static byte[] name(int... bytes) {
+        var buf = ByteBuffer.allocate("cf-sorted-".length() + bytes.length).put("cf-sorted-".getBytes(StandardCharsets.UTF_8));
 
-        return ByteBuffer.allocate(prefix.length + bytes.length)
-                .put(prefix)
-                .put(bytes)
-                .array();
+        for (int val : bytes) {
+            buf.put((byte) val);
+        }
+
+        return buf.array();
     }
 }

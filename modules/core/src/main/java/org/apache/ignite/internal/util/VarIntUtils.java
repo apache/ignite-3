@@ -80,31 +80,6 @@ public class VarIntUtils {
     }
 
     /**
-     * Writes a primitive {@code int} value as a varint to the provided byte buffer.
-     *
-     * @param val Int value.
-     * @param buffer Byte buffer to write result to.
-     * @return Number of bytes written to {@code buffer}.
-     */
-    public static int putVarIntToBuffer(int val, ByteBuffer buffer) {
-        int originalPos = buffer.position();
-
-        val++;
-
-        while ((val & 0xFFFF_FF80) != 0) {
-            byte b = (byte) (val | 0x80);
-
-            buffer.put(b);
-
-            val >>>= 7;
-        }
-
-        buffer.put((byte) val);
-
-        return buffer.position() - originalPos;
-    }
-
-    /**
      * Reads a varint from a buffer.
      *
      * @param buf Buffer from which to read.
