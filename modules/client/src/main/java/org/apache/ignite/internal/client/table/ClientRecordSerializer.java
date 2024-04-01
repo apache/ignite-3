@@ -219,7 +219,7 @@ public class ClientRecordSerializer<R> {
                 } else {
                     ClientColumn[] columns = schema.columns(part);
                     var tupleReader = new BinaryTupleReader(columns.length, in.readBinaryUnsafe());
-                    var reader = new ClientMarshallerReader(tupleReader, columns);
+                    var reader = new ClientMarshallerReader(tupleReader, columns, part);
                     res.add((R) marshaller.readObject(reader, null));
                 }
             }
@@ -230,11 +230,11 @@ public class ClientRecordSerializer<R> {
         return res;
     }
 
-    R readRec(ClientSchema schema, ClientMessageUnpacker in, TuplePart part) {
-        Marshaller marshaller = schema.getMarshaller(mapper, part);
+    R readRec(ClientSchema schema, ClientMessageUnpacker in, TuplePart partToRead, TuplePart dataPart) {
+        Marshaller marshaller = schema.getMarshaller(mapper, partToRead);
 
         var tupleReader = new BinaryTupleReader(schema.columns().length, in.readBinaryUnsafe());
-        ClientMarshallerReader reader = new ClientMarshallerReader(tupleReader, schema.columns(part));
+        ClientMarshallerReader reader = new ClientMarshallerReader(tupleReader, schema.columns(partToRead), dataPart);
 
         try {
             return (R) marshaller.readObject(reader, null);
@@ -251,7 +251,7 @@ public class ClientRecordSerializer<R> {
         Marshaller valMarshaller = schema.getMarshaller(mapper, TuplePart.KEY_AND_VAL);
 
         var tupleReader = new BinaryTupleReader(schema.columns().length, in.readBinaryUnsafe());
-        ClientMarshallerReader reader = new ClientMarshallerReader(tupleReader, schema.columns());
+        ClientMarshallerReader reader = new ClientMarshallerReader(tupleReader, schema.columns(), TuplePart.KEY_AND_VAL);
 
         try {
             return (R) valMarshaller.readObject(reader, null);

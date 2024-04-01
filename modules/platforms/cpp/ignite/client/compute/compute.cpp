@@ -22,15 +22,16 @@
 namespace ignite {
 
 void compute::submit_async(const std::vector<cluster_node> &nodes, const std::vector<deployment_unit> &units,
-    std::string_view job_class_name, const std::vector<primitive> &args, ignite_callback<job_execution> callback) {
+    std::string_view job_class_name, const std::vector<primitive> &args, const job_execution_options &options,
+    ignite_callback<job_execution> callback) {
     detail::arg_check::container_non_empty(nodes, "Nodes container");
     detail::arg_check::container_non_empty(job_class_name, "Job class name");
 
-    m_impl->submit_to_nodes(nodes, units, job_class_name, args, std::move(callback));
+    m_impl->submit_to_nodes(nodes, units, job_class_name, args, options, std::move(callback));
 }
 
 void compute::submit_broadcast_async(const std::set<cluster_node> &nodes, const std::vector<deployment_unit> &units,
-    std::string_view job_class_name, const std::vector<primitive> &args,
+    std::string_view job_class_name, const std::vector<primitive> &args, const job_execution_options &options,
     ignite_callback<std::map<cluster_node, ignite_result<job_execution>>> callback) {
     typedef std::map<cluster_node, ignite_result<job_execution>> result_type;
 
@@ -52,7 +53,7 @@ void compute::submit_broadcast_async(const std::set<cluster_node> &nodes, const 
 
     for (const auto &node : nodes) {
         std::vector<cluster_node> candidates = {node};
-        m_impl->submit_to_nodes(candidates, units, job_class_name, args, [node, shared_res](auto &&res) {
+        m_impl->submit_to_nodes(candidates, units, job_class_name, args, options, [node, shared_res](auto &&res) {
             auto &val = *shared_res;
 
             std::lock_guard<std::mutex> lock(val.m_mutex);
@@ -66,13 +67,13 @@ void compute::submit_broadcast_async(const std::set<cluster_node> &nodes, const 
 
 void compute::submit_colocated_async(std::string_view table_name, const ignite_tuple &key,
     const std::vector<deployment_unit> &units, std::string_view job_class_name, const std::vector<primitive> &args,
-    ignite_callback<job_execution> callback) {
+    const job_execution_options &options, ignite_callback<job_execution> callback) {
     detail::arg_check::container_non_empty(table_name, "Table name");
     detail::arg_check::tuple_non_empty(key, "Key tuple");
     detail::arg_check::container_non_empty(job_class_name, "Job class name");
 
     m_impl->submit_colocated_async(
-        std::string(table_name), key, units, std::string(job_class_name), args, std::move(callback));
+        std::string(table_name), key, units, std::string(job_class_name), args, options, std::move(callback));
 }
 
 } // namespace ignite

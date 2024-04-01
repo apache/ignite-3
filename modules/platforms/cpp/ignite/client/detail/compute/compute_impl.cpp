@@ -235,9 +235,10 @@ private:
 };
 
 void compute_impl::submit_to_nodes(const std::vector<cluster_node> &nodes, const std::vector<deployment_unit> &units,
-    std::string_view job_class_name, const std::vector<primitive> &args, ignite_callback<job_execution> callback) {
+    std::string_view job_class_name, const std::vector<primitive> &args, const job_execution_options &options,
+    ignite_callback<job_execution> callback) {
 
-    auto writer_func = [&nodes, job_class_name, &units, args](protocol::writer &writer) {
+    auto writer_func = [&nodes, job_class_name, &units, args, options](protocol::writer &writer) {
         auto nodes_num = std::int32_t(nodes.size());
         writer.write(nodes_num);
         for (const auto &node : nodes) {
@@ -246,9 +247,8 @@ void compute_impl::submit_to_nodes(const std::vector<cluster_node> &nodes, const
         write_units(writer, units);
         writer.write(job_class_name);
 
-        // TODO: IGNITE-21335
-        writer.write(0); // Priority.
-        writer.write(0); // Max retries.
+        writer.write(options.get_priority());
+        writer.write(options.get_max_retries());
 
         write_primitives_as_binary_tuple(writer, args);
     };
@@ -261,9 +261,10 @@ void compute_impl::submit_to_nodes(const std::vector<cluster_node> &nodes, const
 
 void compute_impl::submit_colocated_async(const std::string &table_name, const ignite_tuple &key,
     const std::vector<deployment_unit> &units, const std::string &job, const std::vector<primitive> &args,
-    ignite_callback<job_execution> callback) {
+    const job_execution_options &options, ignite_callback<job_execution> callback) {
     auto self = shared_from_this();
-    auto on_table_get = [self, table_name, key, units, job, args, conn = m_connection, callback](auto &&res) mutable {
+    auto conn = m_connection;
+    auto on_table_get = [self, table_name, key, units, job, args, conn, options, callback](auto &&res) mutable {
         if (res.has_error()) {
             callback({std::move(res.error())});
             return;
@@ -276,17 +277,16 @@ void compute_impl::submit_colocated_async(const std::string &table_name, const i
 
         auto table = table_impl::from_facade(*table_opt);
         table->template with_proper_schema_async<job_execution>(
-            callback, [self, table, key, units, job, args, conn](const schema &sch, auto callback) mutable {
-                auto writer_func = [&key, &units, &sch, &table, &job, &args](protocol::writer &writer) {
+            callback, [self, table, key, units, job, args, conn, options](const schema &sch, auto callback) mutable {
+                auto writer_func = [&key, &units, &sch, &table, &job, &args, &options](protocol::writer &writer) {
                     writer.write(table->get_id());
                     writer.write(sch.version);
                     write_tuple(writer, sch, key, true);
                     write_units(writer, units);
                     writer.write(job);
 
-                    // TODO: IGNITE-21335
-                    writer.write(0); // Priority.
-                    writer.write(0); // Max retries.
+                    writer.write(options.get_priority());
+                    writer.write(options.get_max_retries());
 
                     write_primitives_as_binary_tuple(writer, args);
                 };

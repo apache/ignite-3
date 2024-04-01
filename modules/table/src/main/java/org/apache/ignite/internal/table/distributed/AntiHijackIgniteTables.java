@@ -29,7 +29,7 @@ import org.apache.ignite.table.manager.IgniteTables;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Wrapper around {@link IgniteTables} that adds protection agains thread hijacking by users.
+ * Wrapper around {@link IgniteTables} that adds protection against thread hijacking by users.
  */
 public class AntiHijackIgniteTables implements IgniteTables, Wrapper {
     private final IgniteTables tables;

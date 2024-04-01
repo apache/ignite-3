@@ -121,7 +121,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
 
         return doOperation(tx, (schemaVersion) -> {
             return tbl.getAll(marshalKeys(keyRecs, schemaVersion), (InternalTransaction) tx)
-                    .thenApply(binaryRows -> unmarshal(binaryRows, schemaVersion, true));
+                    .thenApply(binaryRows -> unmarshal(binaryRows, false, schemaVersion, true));
         });
     }
 
@@ -227,7 +227,8 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
         return doOperation(tx, (schemaVersion) -> {
             Collection<BinaryRowEx> rows = marshal(recs, schemaVersion);
 
-            return tbl.insertAll(rows, (InternalTransaction) tx).thenApply(binaryRows -> unmarshal(binaryRows, schemaVersion, false));
+            return tbl.insertAll(rows, (InternalTransaction) tx)
+                    .thenApply(binaryRows -> unmarshal(binaryRows, false, schemaVersion, false));
         });
     }
 
@@ -355,7 +356,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
         return doOperation(tx, (schemaVersion) -> {
             Collection<BinaryRowEx> rows = marshalKeys(keyRecs, schemaVersion);
 
-            return tbl.deleteAll(rows, (InternalTransaction) tx).thenApply(binaryRows -> unmarshal(binaryRows, schemaVersion, false));
+            return tbl.deleteAll(rows, (InternalTransaction) tx).thenApply(binaryRows -> unmarshal(binaryRows, true, schemaVersion, false));
         });
     }
 
@@ -374,7 +375,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
             Collection<BinaryRowEx> rows = marshal(recs, schemaVersion);
 
             return tbl.deleteAllExact(rows, (InternalTransaction) tx)
-                    .thenApply(binaryRows -> unmarshal(binaryRows, schemaVersion, false));
+                    .thenApply(binaryRows -> unmarshal(binaryRows, true, schemaVersion, false));
         });
     }
 
@@ -530,10 +531,11 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
      *
      * @param rows Row collection.
      * @param addNull {@code true} if {@code null} is added for missing rows.
+     * @param keyOnly If rows are key-only.
      * @param targetSchemaVersion Schema version that should be used.
      * @return Records collection.
      */
-    private List<R> unmarshal(Collection<BinaryRow> rows, int targetSchemaVersion, boolean addNull) {
+    private List<R> unmarshal(Collection<BinaryRow> rows, boolean keyOnly, int targetSchemaVersion, boolean addNull) {
         if (rows.isEmpty()) {
             return Collections.emptyList();
         }
@@ -542,8 +544,11 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
             RecordMarshaller<R> marsh = marshaller(targetSchemaVersion);
 
             var recs = new ArrayList<R>(rows.size());
+            List<Row> resolvedRows = keyOnly
+                    ? rowConverter.resolveKeys(rows, targetSchemaVersion)
+                    : rowConverter.resolveRows(rows, targetSchemaVersion);
 
-            for (Row row : rowConverter.resolveRows(rows, targetSchemaVersion)) {
+            for (Row row : resolvedRows) {
                 if (row != null) {
                     recs.add(marsh.unmarshal(row));
                 } else if (addNull) {
