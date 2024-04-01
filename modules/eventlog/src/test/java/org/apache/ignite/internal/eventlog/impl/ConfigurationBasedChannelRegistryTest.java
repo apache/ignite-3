@@ -24,7 +24,6 @@ import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
-import java.util.concurrent.ExecutionException;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.eventlog.api.EventChannel;
@@ -85,7 +84,7 @@ class ConfigurationBasedChannelRegistryTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void updateConfigurationEntry() throws ExecutionException, InterruptedException {
+    void updateConfigurationEntry() throws Exception {
         // Given configuration with a channel.
         cfg.channels().change(c -> c.create(TEST_CHANNEL, s -> {
             s.changeEnabled(true);
@@ -105,7 +104,7 @@ class ConfigurationBasedChannelRegistryTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void findAllChannelsByEventType() throws ExecutionException, InterruptedException {
+    void findAllChannelsByEventType() throws Exception {
         // Given configuration with a channel.
         cfg.channels().change(c -> c.create(TEST_CHANNEL, s -> {
             s.changeEnabled(true);

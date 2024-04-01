@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.eventlog.impl;
 
-import static org.awaitility.Awaitility.await;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.CoreMatchers.nullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -104,9 +103,9 @@ class ConfigurationBasedSinkRegistryTest extends BaseIgniteAbstractTest {
         // When add one more sink with the same channel.
         cfg.sinks().change(c -> c.create("newSink", s -> {
             s.changeChannel(TEST_CHANNEL);
-        }));
+        })).get();
 
         // Then the sink can be found by new channel.
-        await().until(() -> registry.findAllByChannel(TEST_CHANNEL).size() == 2);
+       assertThat(registry.findAllByChannel(TEST_CHANNEL), hasSize(2));
     }
 }
