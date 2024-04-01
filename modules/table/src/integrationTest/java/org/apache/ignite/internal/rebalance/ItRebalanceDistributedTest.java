@@ -156,6 +156,7 @@ import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.rest.configuration.RestConfiguration;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
@@ -261,6 +262,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
     @InjectConfiguration
     private static MetaStorageConfiguration metaStorageConfiguration;
+
+    @InjectConfiguration
+    private ReplicationConfiguration replicationConfiguration;
 
     @Target(ElementType.METHOD)
     @Retention(RetentionPolicy.RUNTIME)
@@ -1083,7 +1087,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             ReplicaService replicaSvc = new ReplicaService(
                     clusterService.messagingService(),
                     hybridClock,
-                    threadPoolsManager.partitionOperationsExecutor()
+                    threadPoolsManager.partitionOperationsExecutor(),
+                    replicationConfiguration
             );
 
             var resourcesRegistry = new RemotelyTriggeredResourceRegistry();

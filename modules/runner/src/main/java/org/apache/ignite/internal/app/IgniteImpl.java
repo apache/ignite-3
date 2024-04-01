@@ -80,6 +80,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.component.RestAddressReporter;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
+import org.apache.ignite.internal.compute.AntiHijackIgniteCompute;
 import org.apache.ignite.internal.compute.ComputeComponent;
 import org.apache.ignite.internal.compute.ComputeComponentImpl;
 import org.apache.ignite.internal.compute.IgniteComputeImpl;
@@ -188,6 +189,7 @@ import org.apache.ignite.internal.table.distributed.AntiHijackIgniteTables;
 import org.apache.ignite.internal.table.distributed.LowWatermarkImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
+import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnActionRequest;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnAppendEntries;
@@ -310,6 +312,9 @@ public class IgniteImpl implements Ignite {
 
     /** Distributed table manager. */
     private final TableManager distributedTblMgr;
+
+    /** Disaster recovery manager. */
+    private final DisasterRecoveryManager disasterRecoveryManager;
 
     private final IndexManager indexManager;
 
@@ -494,12 +499,6 @@ public class IgniteImpl implements Ignite {
                 message -> threadPoolsManager.partitionOperationsExecutor()
         );
 
-        ReplicaService replicaSvc = new ReplicaService(
-                messagingServiceReturningToStorageOperationsPool,
-                clock,
-                threadPoolsManager.partitionOperationsExecutor()
-        );
-
         // TODO: IGNITE-16841 - use common RocksDB instance to store cluster state as well.
         clusterStateStorage = new RocksDbClusterStateStorage(workDir.resolve(CMG_DB_PATH), name);
 
@@ -597,6 +596,13 @@ public class IgniteImpl implements Ignite {
         );
 
         ReplicationConfiguration replicationConfig = clusterConfigRegistry.getConfiguration(ReplicationConfiguration.KEY);
+
+        ReplicaService replicaSvc = new ReplicaService(
+                messagingServiceReturningToStorageOperationsPool,
+                clock,
+                threadPoolsManager.partitionOperationsExecutor(),
+                replicationConfig
+        );
 
         LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier = partitionIdleSafeTimePropagationPeriodMsSupplier(replicationConfig);
 
@@ -761,6 +767,15 @@ public class IgniteImpl implements Ignite {
                 rebalanceScheduler,
                 lowWatermark,
                 transactionInflights
+        );
+
+        disasterRecoveryManager = new DisasterRecoveryManager(
+                threadPoolsManager.tableIoExecutor(),
+                messagingServiceReturningToStorageOperationsPool,
+                metaStorageMgr,
+                catalogManager,
+                distributionZoneManager,
+                raftMgr
         );
 
         indexManager = new IndexManager(
@@ -1052,6 +1067,7 @@ public class IgniteImpl implements Ignite {
                                     volatileLogStorageFactoryCreator,
                                     outgoingSnapshotsManager,
                                     distributedTblMgr,
+                                    disasterRecoveryManager,
                                     indexManager,
                                     indexBuildingManager,
                                     qryEngine,
@@ -1169,6 +1185,10 @@ public class IgniteImpl implements Ignite {
         return new AntiHijackIgniteTables(distributedTblMgr, asyncContinuationExecutor);
     }
 
+    public DisasterRecoveryManager disasterRecoveryManager() {
+        return disasterRecoveryManager;
+    }
+
     @TestOnly
     public QueryProcessor queryEngine() {
         return qryEngine;
@@ -1217,7 +1237,7 @@ public class IgniteImpl implements Ignite {
     /** {@inheritDoc} */
     @Override
     public IgniteCompute compute() {
-        return compute;
+        return new AntiHijackIgniteCompute(compute, asyncContinuationExecutor);
     }
 
     /** {@inheritDoc} */

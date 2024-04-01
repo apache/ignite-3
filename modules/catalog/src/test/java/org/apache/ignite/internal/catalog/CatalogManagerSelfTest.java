@@ -2399,6 +2399,26 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     }
 
     @Test
+    void testTableRenameAndCreateTableWithSameName() {
+        createSomeTable(TABLE_NAME);
+
+        CatalogCommand command = RenameTableCommand.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(TABLE_NAME)
+                .newTableName(TABLE_NAME_2)
+                .build();
+
+        assertThat(manager.execute(command), willCompleteSuccessfully());
+
+        createSomeTable(TABLE_NAME);
+
+        int catalogVersion = manager.latestCatalogVersion();
+
+        assertThat(table(catalogVersion, TABLE_NAME), is(notNullValue()));
+        assertThat(table(catalogVersion, TABLE_NAME_2), is(notNullValue()));
+    }
+
+    @Test
     void testTableRenameFiresEvent() {
         createSomeTable(TABLE_NAME);
 

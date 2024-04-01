@@ -15,8 +15,18 @@
  * limitations under the License.
  */
 
-/**
- * SQL API for reactive SQL query execution.
- */
+package org.apache.ignite.internal.table.distributed.disaster.messages;
 
-package org.apache.ignite.sql.reactive;
+import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.annotations.Transferable;
+import org.apache.ignite.internal.table.distributed.TableMessageGroup.DisasterRecoveryMessages;
+
+/**
+ * Request for reading all partition states from the node.
+ */
+@Transferable(DisasterRecoveryMessages.LOCAL_PARTITION_STATE_REQUEST)
+public interface LocalPartitionStatesRequest extends NetworkMessage {
+    int zoneId();
+
+    int catalogVersion();
+}

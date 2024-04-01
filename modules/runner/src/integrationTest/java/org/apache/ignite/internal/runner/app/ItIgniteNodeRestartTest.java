@@ -155,6 +155,7 @@ import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
@@ -255,6 +256,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
     @InjectConfiguration
     private CriticalWorkersConfiguration workersConfiguration;
+
+    @InjectConfiguration
+    private ReplicationConfiguration replicationConfiguration;
 
     /**
      * Interceptor of {@link MetaStorageManager#invoke(Condition, Collection, Collection)}.
@@ -381,7 +385,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         var replicaService = new ReplicaService(
                 messagingServiceReturningToStorageOperationsPool,
                 hybridClock,
-                threadPoolsManager.partitionOperationsExecutor()
+                threadPoolsManager.partitionOperationsExecutor(),
+                replicationConfiguration
         );
 
         var lockManager = new HeapLockManager();

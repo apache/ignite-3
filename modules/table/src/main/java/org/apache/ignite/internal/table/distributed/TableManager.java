@@ -44,7 +44,6 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tablesCounterKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.union;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
-import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.revision;
@@ -133,6 +132,7 @@ import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
+import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -502,7 +502,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.executorInclinedSchemaSyncService = new ExecutorInclinedSchemaSyncService(schemaSyncService, partitionOperationsExecutor);
         this.executorInclinedPlacementDriver = new ExecutorInclinedPlacementDriver(placementDriver, partitionOperationsExecutor);
 
-        TxMessageSender txMessageSender = new TxMessageSender(messagingService, replicaSvc, clockService);
+        TxMessageSender txMessageSender = new TxMessageSender(
+                messagingService,
+                replicaSvc,
+                clockService,
+                txCfg
+        );
 
         transactionStateResolver = new TransactionStateResolver(
                 txManager,
@@ -1781,7 +1786,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                 ? emptySet()
                                 : Assignments.fromBytes(stableAssignmentsEntry.value()).nodes();
 
-                        return setTablesPartitionCountersForRebalance(replicaGrpId, revision)
+                        return setTablesPartitionCountersForRebalance(replicaGrpId, revision, pendingAssignments.force())
                                 .thenCompose(r ->
                                         handleChangePendingAssignmentEvent(
                                                 replicaGrpId,
@@ -1895,7 +1900,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }, ioExecutor);
     }
 
-    private CompletableFuture<Void> setTablesPartitionCountersForRebalance(TablePartitionId replicaGrpId, long revision) {
+    private CompletableFuture<Void> setTablesPartitionCountersForRebalance(TablePartitionId replicaGrpId, long revision, boolean force) {
         int catalogVersion = catalogService.latestCatalogVersion();
 
         int tableId = replicaGrpId.tableId();
@@ -1906,12 +1911,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         int partId = replicaGrpId.partitionId();
 
+        SimpleCondition revisionMatches = revision(tablesCounterKey(zoneId, partId)).lt(revision);
+        SimpleCondition counterIsEmpty = value(tablesCounterKey(zoneId, partId)).eq(toBytes(Set.of()));
+
         Condition condition = or(
                 notExists(tablesCounterKey(zoneId, partId)),
-                and(
-                        revision(tablesCounterKey(zoneId, partId)).lt(revision),
-                        value(tablesCounterKey(zoneId, partId)).eq(toBytes(Set.of()))
-                )
+                force ? revisionMatches : revisionMatches.and(counterIsEmpty)
         );
 
         Set<Integer> tablesInZone = findTablesByZoneId(zoneId, catalogVersion, catalogService).stream()

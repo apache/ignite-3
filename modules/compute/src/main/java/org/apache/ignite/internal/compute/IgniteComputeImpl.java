@@ -75,8 +75,6 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
 
     private final ComputeComponent computeComponent;
 
-    private final ThreadLocalRandom random = ThreadLocalRandom.current();
-
     private final PlacementDriver placementDriver;
 
     private final HybridClock clock;
@@ -166,8 +164,8 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
         }
     }
 
-    private ClusterNode randomNode(Set<ClusterNode> nodes) {
-        int nodesToSkip = random.nextInt(nodes.size());
+    private static ClusterNode randomNode(Set<ClusterNode> nodes) {
+        int nodesToSkip = ThreadLocalRandom.current().nextInt(nodes.size());
 
         Iterator<ClusterNode> iterator = nodes.iterator();
         for (int i = 0; i < nodesToSkip; i++) {

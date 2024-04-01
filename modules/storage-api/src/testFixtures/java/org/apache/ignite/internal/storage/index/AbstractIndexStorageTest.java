@@ -77,7 +77,7 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
     @SuppressWarnings("WeakerAccess") // May be used in "@VariableSource", that's why it's public.
     public static final List<ColumnParams> ALL_TYPES_COLUMN_PARAMS = allTypesColumnParams();
 
-    protected static final int TEST_PARTITION = 0;
+    protected static final int TEST_PARTITION = 12;
 
     protected static final String INDEX_NAME = "TEST_IDX";
 

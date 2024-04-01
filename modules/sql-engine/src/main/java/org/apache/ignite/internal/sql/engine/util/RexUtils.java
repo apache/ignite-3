@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
+import static org.apache.calcite.rex.RexUtil.composeConjunction;
+import static org.apache.calcite.rex.RexUtil.composeDisjunction;
+import static org.apache.calcite.rex.RexUtil.flattenAnd;
+import static org.apache.calcite.rex.RexUtil.flattenOr;
 import static org.apache.calcite.rex.RexUtil.removeCast;
 import static org.apache.calcite.rex.RexUtil.sargRef;
 import static org.apache.calcite.sql.SqlKind.BINARY_COMPARISON;
@@ -33,6 +37,7 @@ import static org.apache.calcite.sql.SqlKind.OR;
 import static org.apache.calcite.sql.SqlKind.SEARCH;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
+import com.google.common.collect.ImmutableList;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap.Entry;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
@@ -87,6 +92,7 @@ import org.apache.calcite.util.Litmus;
 import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.Sarg;
 import org.apache.calcite.util.Util;
+import org.apache.calcite.util.Util.FoundOne;
 import org.apache.calcite.util.mapping.MappingType;
 import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.ExactBounds;
@@ -174,6 +180,112 @@ public class RexUtils {
         }
 
         return true;
+    }
+
+    /** Try to transform expression into DNF form.
+     *
+     * @param rexBuilder Expression builder.
+     * @param node Expression to process.
+     * @param maxOrNodes Max OR nodes in output.
+     * @return DNF expression representation or {@code null} if limit is reached.
+     */
+    public static @Nullable RexNode tryToDnf(RexBuilder rexBuilder, RexNode node, int maxOrNodes) {
+        DnfHelper helper = new DnfHelper(Commons.rexBuilder(), maxOrNodes);
+
+        try {
+            return helper.toDnf(node);
+        } catch (FoundOne e) {
+            return null;
+        }
+    }
+
+    /** Calcite based dnf wrapper with OR nodes limitation. */
+    static class DnfHelper {
+        final RexBuilder rexBuilder;
+        final int maxOrNodes;
+
+        /** Constructor.
+         *
+         * @param rexBuilder Rex builder.
+         * @param maxOrNodes Limit for OR nodes, if limit is reached further processing will be stopped.
+         */
+        DnfHelper(RexBuilder rexBuilder, int maxOrNodes) {
+            this.rexBuilder = rexBuilder;
+            this.maxOrNodes = maxOrNodes;
+        }
+
+        private RexNode toDnf(RexNode rex) {
+            List<RexNode> operands;
+            switch (rex.getKind()) {
+                case AND:
+                    operands = flattenAnd(((RexCall) rex).getOperands());
+                    RexNode head = operands.get(0);
+                    RexNode headDnf = toDnf(head);
+                    List<RexNode> headDnfs = RelOptUtil.disjunctions(headDnf);
+                    RexNode tail = and(Util.skip(operands));
+                    RexNode tailDnf = toDnf(tail);
+                    List<RexNode> tailDnfs = RelOptUtil.disjunctions(tailDnf);
+                    List<RexNode> list = new ArrayList<>(headDnfs.size() * tailDnfs.size());
+                    for (RexNode h : headDnfs) {
+                        for (RexNode t : tailDnfs) {
+                            list.add(and(ImmutableList.of(h, t)));
+                        }
+                    }
+                    return or(list);
+                case OR:
+                    operands = flattenOr(((RexCall) rex).getOperands());
+                    List<RexNode> processed = toDnfs(operands);
+                    return or(processed);
+                case NOT:
+                    RexNode arg = ((RexCall) rex).getOperands().get(0);
+                    switch (arg.getKind()) {
+                        case NOT:
+                            return toDnf(((RexCall) arg).getOperands().get(0));
+                        case OR:
+                            operands = ((RexCall) arg).getOperands();
+                            return toDnf(
+                                    and(Util.transform(flattenOr(operands), RexUtil::not)));
+                        case AND:
+                            operands = ((RexCall) arg).getOperands();
+                            return toDnf(
+                                    or(Util.transform(flattenAnd(operands), RexUtil::not)));
+                        default:
+                            return rex;
+                    }
+                default:
+                    return rex;
+            }
+        }
+
+        private List<RexNode> toDnfs(List<RexNode> nodes) {
+            List<RexNode> list = new ArrayList<>();
+            for (RexNode node : nodes) {
+                RexNode dnf = toDnf(node);
+                switch (dnf.getKind()) {
+                    case OR:
+                        list.addAll(((RexCall) dnf).getOperands());
+                        break;
+                    default:
+                        list.add(dnf);
+                }
+            }
+            return list;
+        }
+
+        private RexNode and(Iterable<? extends RexNode> nodes) {
+            return composeConjunction(rexBuilder, nodes);
+        }
+
+        private RexNode or(Iterable<? extends RexNode> nodes) {
+            RexNode res = composeDisjunction(rexBuilder, nodes);
+            if (res instanceof RexCall) {
+                RexCall res0 = (RexCall) res;
+                if (res0.getOperands().size() > maxOrNodes) {
+                    throw FoundOne.NULL;
+                }
+            }
+            return res;
+        }
     }
 
     /** Supported index operations. */
