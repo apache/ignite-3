@@ -24,17 +24,21 @@ import org.apache.ignite.internal.eventlog.config.schema.EventLogConfiguration;
 import org.apache.ignite.internal.eventlog.config.schema.LogSinkChange;
 import org.junit.jupiter.api.Test;
 
-class ItEventLogTest extends ClusterPerClassIntegrationTest {
+class ItEventLogConfigurationTest extends ClusterPerClassIntegrationTest {
     @Test
-    void eventLog() {
+    void correctConfiguration() {
         assertDoesNotThrow(() -> CLUSTER.aliveNode().clusterConfiguration().change(c ->
                 c.changeRoot(EventLogConfiguration.KEY).changeSinks().create("logSink", s -> {
+                    // Configure the channel.
+                    s.changeChannel("testChannel");
+
+                    // Configure the log sink.
                     var logSinkChange = (LogSinkChange) s.convert("log");
                     logSinkChange.changeCriteria("EventLog");
                     logSinkChange.changeLevel("info");
                     logSinkChange.changeFormat("json");
+                    logSinkChange.changeChannel("testChannel");
                 })).get()
         );
     }
 }
-
