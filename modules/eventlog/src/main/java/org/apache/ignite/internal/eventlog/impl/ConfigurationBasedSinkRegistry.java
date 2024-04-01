@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.eventlog.impl;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -64,7 +66,7 @@ class ConfigurationBasedSinkRegistry implements SinkRegistry {
         guard.readLock().lock();
         try {
             Set<Sink> sinks = cacheByChannel.get(channel);
-            return new HashSet<>(sinks != null ? sinks : Set.of());
+            return sinks == null ? Set.of() : new HashSet<>(sinks);
         } finally {
             guard.readLock().unlock();
         }
@@ -80,10 +82,11 @@ class ConfigurationBasedSinkRegistry implements SinkRegistry {
                 cache.clear();
                 cacheByChannel.clear();
                 for (SinkView sinkView : newListValue) {
-                    cache.put(sinkView.name(), sinkFactory.createSink(sinkView));
-                    cacheByChannel.computeIfAbsent(sinkView.channel(), k -> new HashSet<>()).add(cache.get(sinkView.name()));
+                    Sink sink = sinkFactory.createSink(sinkView);
+                    cache.put(sinkView.name(), sink);
+                    cacheByChannel.computeIfAbsent(sinkView.channel(), k -> new HashSet<>()).add(sink);
                 }
-                return CompletableFuture.completedFuture(null);
+                return completedFuture(null);
             } finally {
                 guard.writeLock().unlock();
             }

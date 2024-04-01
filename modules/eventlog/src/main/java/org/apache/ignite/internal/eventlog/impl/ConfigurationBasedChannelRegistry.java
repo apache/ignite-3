@@ -17,12 +17,14 @@
 
 package org.apache.ignite.internal.eventlog.impl;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.stream.Collectors;
@@ -66,7 +68,7 @@ class ConfigurationBasedChannelRegistry implements ChannelRegistry {
         guard.readLock().lock();
         try {
             Set<EventChannel> result = typeCache.get(igniteEventType);
-            return result == null ? Set.of() : result;
+            return result == null ? Set.of() : new HashSet<>(result);
         } finally {
             guard.readLock().unlock();
         }
@@ -85,17 +87,18 @@ class ConfigurationBasedChannelRegistry implements ChannelRegistry {
 
                 newListValue.forEach(view -> {
                     if (view.enabled()) {
-                        cache.put(view.name(), createChannel(view));
+                        EventChannel channel = createChannel(view);
+                        cache.put(view.name(), channel);
                         for (String eventType : view.events()) {
                             typeCache.computeIfAbsent(
                                     eventType.trim(),
-                                    t -> ConcurrentHashMap.newKeySet()
-                            ).add(cache.get(view.name()));
+                                    t -> new HashSet<>()
+                            ).add(channel);
                         }
                     }
                 });
 
-                return CompletableFuture.completedFuture(null);
+                return completedFuture(null);
             } finally {
                 guard.writeLock().unlock();
             }

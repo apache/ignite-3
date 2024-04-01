@@ -26,7 +26,7 @@ import org.apache.ignite.configuration.annotation.Value;
 /** Configuration schema for sink. */
 @PolymorphicConfig
 public class SinkConfigurationSchema {
-    /** The id of the sink that is used to identify the type: log, webhook, kafka. */
+    /** The type of the sink that is used to identify the type: log, webhook, kafka. */
     @PolymorphicId(hasDefault = true)
     public String type = LogSinkConfigurationSchema.POLYMORPHIC_ID;
 
@@ -34,6 +34,7 @@ public class SinkConfigurationSchema {
     @InjectedName
     public String name;
 
+    /** The channel to which the sink is connected. Should be one of existing channels. */
     @Value(hasDefault = true)
     public String channel = "";
 }
