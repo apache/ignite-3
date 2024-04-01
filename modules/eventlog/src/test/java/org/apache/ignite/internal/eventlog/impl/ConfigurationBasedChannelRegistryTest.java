@@ -99,7 +99,7 @@ class ConfigurationBasedChannelRegistryTest extends BaseIgniteAbstractTest {
         cfg.channels().change(c -> c.update(TEST_CHANNEL, s -> {
             s.changeEnabled(true);
             s.changeEvents(IgniteEventType.USER_AUTHENTICATED.name(), IgniteEventType.CONNECTION_CLOSED.name());
-        }));
+        })).get();
 
         // Then channel is updated in registry and types are not the same as the were before the update.
         assertThat(registry.getByName(TEST_CHANNEL).types(), hasSize(2));
