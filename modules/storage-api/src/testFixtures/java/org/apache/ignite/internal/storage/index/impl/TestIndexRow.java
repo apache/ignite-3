@@ -24,7 +24,7 @@ import java.lang.reflect.Array;
 import java.util.Arrays;
 import java.util.BitSet;
 import java.util.Comparator;
-import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -39,8 +39,6 @@ import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.Sto
  * Convenience wrapper over an Index row.
  */
 public class TestIndexRow implements IndexRow, Comparable<TestIndexRow> {
-    private static final Random RANDOM = new Random();
-
     /**
      * Values used to create the Index row.
      */
@@ -66,7 +64,7 @@ public class TestIndexRow implements IndexRow, Comparable<TestIndexRow> {
     public static TestIndexRow randomRow(SortedIndexStorage indexStorage, int partitionId) {
         Object[] columns = indexStorage.indexDescriptor().columns().stream()
                 .map(StorageSortedIndexColumnDescriptor::type)
-                .map(type -> generateRandomValue(RANDOM, type))
+                .map(type -> generateRandomValue(ThreadLocalRandom.current(), type))
                 .toArray();
 
         var rowId = new RowId(partitionId);
