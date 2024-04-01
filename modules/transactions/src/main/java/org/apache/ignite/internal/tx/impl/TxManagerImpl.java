@@ -717,6 +717,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         orphanDetector.start(txStateVolatileStorage, txConfig.abandonedCheckTs());
 
+        txCleanupRequestSender.start();
+
         txCleanupRequestHandler.start();
 
         placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, primaryReplicaEventListener);

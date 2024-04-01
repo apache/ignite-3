@@ -20,6 +20,7 @@ package org.apache.ignite.internal.tx.message;
 import java.io.Serializable;
 import java.util.UUID;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.tostring.S;
 
 /**
  * The result of a replicated write intent switch request.
@@ -43,5 +44,10 @@ public class WriteIntentSwitchReplicatedInfo implements Serializable {
 
     public TablePartitionId partitionId() {
         return partitionId;
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(WriteIntentSwitchReplicatedInfo.class, this);
     }
 }

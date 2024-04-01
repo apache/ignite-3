@@ -208,6 +208,10 @@ public class TxCleanupRequestHandler {
      * @param response Write intent replication response.
      */
     private void processWriteIntentSwitchResponse(ReplicaResponse response) {
+        if (response == null) {
+            return;
+        }
+
         Object result = response.result();
 
         if (result instanceof WriteIntentSwitchReplicatedInfo) {
