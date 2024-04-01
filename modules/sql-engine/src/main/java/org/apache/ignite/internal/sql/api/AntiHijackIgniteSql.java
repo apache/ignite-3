@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.api;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.wrapper.Wrapper;
 import org.apache.ignite.sql.BatchedArguments;
@@ -29,7 +28,6 @@ import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.Statement.StatementBuilder;
 import org.apache.ignite.sql.async.AsyncResultSet;
-import org.apache.ignite.sql.reactive.ReactiveResultSet;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -125,16 +123,6 @@ public class AntiHijackIgniteSql implements IgniteSql, Wrapper {
     }
 
     @Override
-    public ReactiveResultSet executeReactive(@Nullable Transaction transaction, String query, @Nullable Object... arguments) {
-        return sql.executeReactive(transaction, query, arguments);
-    }
-
-    @Override
-    public ReactiveResultSet executeReactive(@Nullable Transaction transaction, Statement statement, @Nullable Object... arguments) {
-        return sql.executeReactive(transaction, statement, arguments);
-    }
-
-    @Override
     public long[] executeBatch(@Nullable Transaction transaction, String dmlQuery, BatchedArguments batch) {
         return sql.executeBatch(transaction, dmlQuery, batch);
     }
@@ -152,16 +140,6 @@ public class AntiHijackIgniteSql implements IgniteSql, Wrapper {
     @Override
     public CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, Statement statement, BatchedArguments batch) {
         return preventThreadHijack(sql.executeBatchAsync(transaction, statement, batch));
-    }
-
-    @Override
-    public Publisher<Long> executeBatchReactive(@Nullable Transaction transaction, String query, BatchedArguments batch) {
-        return sql.executeBatchReactive(transaction, query, batch);
-    }
-
-    @Override
-    public Publisher<Long> executeBatchReactive(@Nullable Transaction transaction, Statement statement, BatchedArguments batch) {
-        return sql.executeBatchReactive(transaction, statement, batch);
     }
 
     @Override
