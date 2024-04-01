@@ -20,7 +20,6 @@ package org.apache.ignite.internal.eventlog.impl;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasSize;
-import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -114,9 +113,9 @@ class ConfigurationBasedChannelRegistryTest extends BaseIgniteAbstractTest {
         })).get();
 
         // Then registry returns the channel by type.
-        assertThat(registry.findAllChannelsByEventType(IgniteEventType.USER_AUTHENTICATED.name()).size(), is(1));
+        assertThat(registry.findAllChannelsByEventType(IgniteEventType.USER_AUTHENTICATED.name()), hasSize(1));
         // But for another type it returns empty set.
-        assertThat(registry.findAllChannelsByEventType(IgniteEventType.CONNECTION_CLOSED.name()).size(), is(0));
+        assertThat(registry.findAllChannelsByEventType(IgniteEventType.CONNECTION_CLOSED.name()), hasSize(0));
 
         // When update configuration entry.
         cfg.channels().change(c -> c.update(TEST_CHANNEL, s -> {
@@ -125,8 +124,8 @@ class ConfigurationBasedChannelRegistryTest extends BaseIgniteAbstractTest {
         })).get();
 
         // Then registry returns the channel by type.
-        assertThat(registry.findAllChannelsByEventType(IgniteEventType.USER_AUTHENTICATED.name()).size(), is(1));
-        assertThat(registry.findAllChannelsByEventType(IgniteEventType.CONNECTION_CLOSED.name()).size(), is(1));
+        assertThat(registry.findAllChannelsByEventType(IgniteEventType.USER_AUTHENTICATED.name()), hasSize(1));
+        assertThat(registry.findAllChannelsByEventType(IgniteEventType.CONNECTION_CLOSED.name()), hasSize(1));
 
         // When add new channel.
         cfg.channels().change(c -> c.create("newChannel", s -> {
@@ -135,8 +134,8 @@ class ConfigurationBasedChannelRegistryTest extends BaseIgniteAbstractTest {
         })).get();
 
         // Then.
-        assertThat(registry.findAllChannelsByEventType(IgniteEventType.USER_AUTHENTICATED.name()).size(), is(2));
-        assertThat(registry.findAllChannelsByEventType(IgniteEventType.CONNECTION_CLOSED.name()).size(), is(1));
+        assertThat(registry.findAllChannelsByEventType(IgniteEventType.USER_AUTHENTICATED.name()), hasSize(2));
+        assertThat(registry.findAllChannelsByEventType(IgniteEventType.CONNECTION_CLOSED.name()), hasSize(1));
     }
 
     @Test
