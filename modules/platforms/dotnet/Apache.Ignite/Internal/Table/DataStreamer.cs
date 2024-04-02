@@ -189,8 +189,10 @@ internal static class DataStreamer
             writer.Handler.Write(ref tupleBuilder, item, schema0, keyOnly: false, noValueSetRef);
 
             // ReSharper disable once AccessToModifiedClosure (reviewed)
-            var partitionId = Math.Abs(tupleBuilder.GetHash() % partitionAssignment.Length);
-            var batch = GetOrCreateBatch(partitionId);
+            var partitionAssignment0 = partitionAssignment;
+            var partition = partitionAssignment0[Math.Abs(tupleBuilder.GetHash() % partitionAssignment0.Length)] ?? string.Empty;
+
+            var batch = GetOrCreateBatch(partition);
 
             lock (batch)
             {
