@@ -18,11 +18,13 @@
 package org.apache.ignite.internal.sql.engine.planner;
 
 import static java.util.function.Predicate.not;
+import static org.apache.ignite.internal.sql.engine.trait.IgniteDistributions.single;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Predicate;
 import org.apache.calcite.rel.RelCollation;
+import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
@@ -32,6 +34,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteMergeJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSort;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteColocatedHashAggregate;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.util.ArrayUtils;
@@ -494,6 +497,27 @@ public class ColocatedHashAggregatePlannerTest extends AbstractAggregatePlannerT
         assertPlan(TestCase.CASE_24_1E, colocated2, disableRules);
     }
 
+
+    /**
+     * Validates a plan for a query with aggregate and with groups and sorting by the same column set in descending order.
+     */
+    @Test
+    public void groupsWithOrderByGroupColumnDescending() throws Exception {
+        checkDerivedCollationWithOrderByGroupColumnSingle(TestCase.CASE_25);
+
+        checkDerivedCollationWithOrderByGroupColumnHash(TestCase.CASE_25A);
+    }
+
+    /**
+     * Validates a plan for a query with aggregate and with sorting in descending order by a subset of grouping column.
+     */
+    @Test
+    public void groupsWithOrderBySubsetOfGroupColumnDescending() throws Exception {
+        checkDerivedCollationWithOrderBySubsetOfGroupColumnsSingle(TestCase.CASE_26);
+
+        checkDerivedCollationWithOrderBySubsetOfGroupColumnsHash(TestCase.CASE_26A);
+    }
+
     private void checkSimpleAggSingle(TestCase testCase) throws Exception {
         assertPlan(testCase,
                 nodeOrAnyChild(isInstanceOf(IgniteColocatedHashAggregate.class)
@@ -733,5 +757,55 @@ public class ColocatedHashAggregatePlannerTest extends AbstractAggregatePlannerT
                         .and(hasDistribution(IgniteDistributions.single()))
                         .and(input(isInstanceOf(IgniteTableScan.class))))
                 ), disableRules);
+    }
+
+    private void checkDerivedCollationWithOrderByGroupColumnSingle(TestCase testCase) throws Exception {
+        RelCollation requiredCollation = RelCollations.of(TraitUtils.createFieldCollation(0, Collation.DESC_NULLS_FIRST));
+
+        assertPlan(testCase,
+                isInstanceOf(IgniteSort.class)
+                        .and(hasCollation(requiredCollation))
+                        .and(input(isInstanceOf(IgniteColocatedHashAggregate.class))),
+                disableRules);
+    }
+
+    private void checkDerivedCollationWithOrderByGroupColumnHash(TestCase testCase) throws Exception {
+        RelCollation requiredCollation = RelCollations.of(TraitUtils.createFieldCollation(0, Collation.DESC_NULLS_FIRST));
+
+        assertPlan(testCase,
+                isInstanceOf(IgniteSort.class)
+                        .and(hasCollation(requiredCollation))
+                        .and(input(isInstanceOf(IgniteColocatedHashAggregate.class)
+                                .and(hasAggregate())
+                        )),
+                disableRules);
+    }
+
+    private void checkDerivedCollationWithOrderBySubsetOfGroupColumnsSingle(TestCase testCase) throws Exception {
+        RelCollation outputCollation = RelCollations.of(
+                TraitUtils.createFieldCollation(1, Collation.DESC_NULLS_FIRST)
+        );
+
+        assertPlan(testCase,
+                isInstanceOf(IgniteSort.class)
+                        .and(hasCollation(outputCollation))
+                        .and(input(isInstanceOf(IgniteColocatedHashAggregate.class))),
+                disableRules);
+    }
+
+    private void checkDerivedCollationWithOrderBySubsetOfGroupColumnsHash(TestCase testCase) throws Exception {
+        RelCollation outputCollation = RelCollations.of(
+                TraitUtils.createFieldCollation(1, Collation.DESC_NULLS_FIRST)
+        );
+
+        assertPlan(testCase,
+                isInstanceOf(IgniteSort.class)
+                        .and(hasCollation(outputCollation))
+                        .and(input(isInstanceOf(IgniteColocatedHashAggregate.class)
+                                .and(input(isInstanceOf(IgniteExchange.class)
+                                        .and(hasDistribution(single()))
+                                ))
+                        )),
+                disableRules);
     }
 }
