@@ -118,8 +118,10 @@ public interface AllTypesMessage extends NetworkMessage, Serializable {
     ByteBuffer byteBufferZ();
 
     @IgniteToStringExclude
+    @Nullable
     String excludedString();
 
     @IgniteToStringInclude(sensitive = true)
+    @Nullable
     String sensitiveString();
 }

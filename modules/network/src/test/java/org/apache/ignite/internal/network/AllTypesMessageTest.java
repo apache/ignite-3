@@ -25,6 +25,8 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import org.apache.ignite.internal.network.messages.AllTypesMessage;
+import org.apache.ignite.internal.tostring.IgniteToStringExclude;
+import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -68,6 +70,9 @@ public class AllTypesMessageTest {
     }
 
     @Test
+    /**
+     * Tests that {@link IgniteToStringInclude} and {@link IgniteToStringExclude} are processed correctly.
+     */
     public void testIgniteToStringAnnotations() {
         AllTypesMessage msg = AllTypesMessageGenerator.generate(0, false);
 
