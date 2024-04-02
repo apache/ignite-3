@@ -166,7 +166,7 @@ public class ClientPrimaryReplicaTracker {
         }
 
         // Request primary for all partitions.
-        CompletableFuture<Void> partitionsFut = partitionsAsync(tableId, timestamp).thenCompose(partitions -> {
+        CompletableFuture<Integer> partitionsFut = partitionsAsync(tableId, timestamp).thenCompose(partitions -> {
             CompletableFuture<?>[] futures = new CompletableFuture<?>[partitions];
 
             for (int partition = 0; partition < partitions; partition++) {
@@ -179,13 +179,13 @@ public class ClientPrimaryReplicaTracker {
                 });
             }
 
-            return CompletableFuture.allOf(futures);
+            return CompletableFuture.allOf(futures).thenApply(v -> partitions);
         });
 
         // Wait for all futures, check condition again.
         // Give up (return null) if we don't have replicas with specified maxStartTime - the client will retry later.
         long maxStartTime0 = maxStartTime;
-        return partitionsFut.handle((v, err) -> {
+        return partitionsFut.handle((partitions, err) -> {
             if (err != null) {
                 var cause = ExceptionUtils.unwrapCause(err);
 
@@ -196,7 +196,13 @@ public class ClientPrimaryReplicaTracker {
                 assert false : "Unexpected error: " + err;
             }
 
-            return primaryReplicasNoWait(tableId, maxStartTime0, timestamp, true);
+            PrimaryReplicasResult res = primaryReplicasNoWait(tableId, maxStartTime0, timestamp, true);
+            if (res != null) {
+                return res;
+            }
+
+            // Return partition count to the client so that batching can be initialized.
+            return new PrimaryReplicasResult(partitions);
         });
     }
 
@@ -371,21 +377,35 @@ public class ClientPrimaryReplicaTracker {
      * Primary replicas per partition with timestamp.
      */
     public static class PrimaryReplicasResult {
+        private final int partitions;
+
+        @Nullable
         private final List<String> nodeNames;
 
         private final long timestamp;
 
+        PrimaryReplicasResult(int partitions) {
+            this.partitions = partitions;
+            this.nodeNames = null;
+            this.timestamp = 0;
+        }
+
         PrimaryReplicasResult(List<String> nodeNames, long timestamp) {
+            this.partitions = nodeNames.size();
             this.nodeNames = nodeNames;
             this.timestamp = timestamp;
         }
 
-        public List<String> nodeNames() {
+        public @Nullable List<String> nodeNames() {
             return nodeNames;
         }
 
         public long timestamp() {
             return timestamp;
+        }
+
+        public int partitions() {
+            return partitions;
         }
     }
 
