@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tx;
 
 import java.io.Serializable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Result for both update and update all commands.
@@ -27,13 +28,30 @@ public class UpdateCommandResult implements Serializable {
 
     private final boolean primaryReplicaSuccess;
 
+    /** Should be {@code null} if {@link #primaryReplicaSuccess} is {@code true}. */
+    @Nullable
+    private final Long currentLeaseStartTime;
+
     /**
      * Constructor.
      *
      * @param primaryReplicaSuccess Whether the command should be successfully applied on primary replica.
      */
     public UpdateCommandResult(boolean primaryReplicaSuccess) {
+        this(primaryReplicaSuccess, null);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param primaryReplicaSuccess Whether the command should be successfully applied on primary replica.
+     * @param currentLeaseStartTime Actual lease start time.
+     */
+    public UpdateCommandResult(boolean primaryReplicaSuccess, @Nullable Long currentLeaseStartTime) {
+        assert primaryReplicaSuccess || currentLeaseStartTime != null : "Incorrect UpdateCommandResult.";
+
         this.primaryReplicaSuccess = primaryReplicaSuccess;
+        this.currentLeaseStartTime = currentLeaseStartTime;
     }
 
     /**
@@ -43,6 +61,16 @@ public class UpdateCommandResult implements Serializable {
      */
     public boolean isPrimaryReplicaSuccess() {
         return primaryReplicaSuccess;
+    }
+
+    /**
+     * Should be {@code null} if {@link #primaryReplicaSuccess} is {@code true}.
+     *
+     * @return Actual lease start time.
+     */
+    @Nullable
+    public Long currentLeaseStartTime() {
+        return currentLeaseStartTime;
     }
 
     @Override

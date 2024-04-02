@@ -2655,7 +2655,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     UpdateCommandResult updateCommandResult = (UpdateCommandResult) res;
 
                     if (full && !updateCommandResult.isPrimaryReplicaSuccess()) {
-                        throw new PrimaryReplicaMissException(txId, cmd.leaseStartTime());
+                        throw new PrimaryReplicaMissException(txId, cmd.leaseStartTime(), updateCommandResult.currentLeaseStartTime());
                     }
 
                     // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Temporary code below
@@ -2801,7 +2801,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                             UpdateCommandResult updateCommandResult = (UpdateCommandResult) res;
 
                             if (full && !updateCommandResult.isPrimaryReplicaSuccess()) {
-                                throw new PrimaryReplicaMissException(cmd.txId(), cmd.leaseStartTime());
+                                throw new PrimaryReplicaMissException(cmd.txId(), cmd.leaseStartTime(),
+                                        updateCommandResult.currentLeaseStartTime());
                             }
 
                             // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Temporary code below
