@@ -17,18 +17,20 @@
 
 package org.apache.ignite.internal.sql.engine.rel.agg;
 
-import static java.util.function.Predicate.not;
 import static org.apache.ignite.internal.sql.engine.util.Commons.maxPrefix;
 
 import it.unimi.dsi.fastutil.ints.IntList;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.IntPredicate;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelFieldCollation;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.mapping.Mapping;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
@@ -82,42 +84,47 @@ interface IgniteSortAggregateBase extends TraitsAwareIgniteRel {
         RelCollation required = TraitUtils.collation(nodeTraits);
 
         if (getGroupSet().isEmpty()) {
-            return passThroughCollation(nodeTraits, inputTraits, RelCollations.EMPTY); // Erase collation for a single group.
+            return Pair.of(nodeTraits.replace(RelCollations.EMPTY),
+                    List.of(inputTraits.get(0).replace(RelCollations.EMPTY))); // Erase collation for a single group.
         } else if (required.getFieldCollations().isEmpty()) {
-            return passThroughCollation(nodeTraits, inputTraits, TraitUtils.createCollation(getGroupSet().asList())); // No match.
-        }
-
-        ImmutableBitSet groupingColumns = ImmutableBitSet.range(getGroupSet().cardinality());
-        IntList prefix = maxPrefix(required.getKeys(), groupingColumns.asSet());
-
-        if (prefix.isEmpty()) {
-            return passThroughCollation(nodeTraits, inputTraits, TraitUtils.createCollation(getGroupSet().asList())); // No match.
+            return passThroughDefaultCollation(nodeTraits, inputTraits);
         }
 
         // Rearrange grouping columns to satisfy required collation (as much as possible).
-        List<RelFieldCollation> newCollationColumns = new ArrayList<>(getGroupSet().cardinality());
-        Mapping mapping = Commons.trimmingMapping(groupingColumns.cardinality(), groupingColumns);
+        int groupingColumnsSize = getGroupSet().cardinality();
+        IntList prefix = maxPrefix(required.getKeys(), ImmutableIntList.range(0, groupingColumnsSize));
 
-        // Add required columns first.
-        prefix.intStream().map(mapping::getTarget)
-                .forEach(fieldIdx -> newCollationColumns.add(TraitUtils.createFieldCollation(fieldIdx)));
+        if (prefix.isEmpty()) {
+            return passThroughDefaultCollation(nodeTraits, inputTraits); // No grouping column match required collation.
+        }
+
+        // Make output collation match with required collation prefix.
+        List<RelFieldCollation> outputCollationColumns = new ArrayList<>(groupingColumnsSize);
+        outputCollationColumns.addAll(required.getFieldCollations().subList(0, prefix.size()));
 
         // Then add missed grouping columns.
-        groupingColumns.asList().stream()
-                .filter(not(prefix::contains))
-                .map(mapping::getTarget)
-                .forEach(fieldIdx -> newCollationColumns.add(TraitUtils.createFieldCollation(fieldIdx)));
+        IntPredicate isPrefixColumn = prefix::contains;
+        IntStream.range(0, groupingColumnsSize)
+                .filter(isPrefixColumn.negate())
+                .mapToObj(TraitUtils::createFieldCollation)
+                .forEachOrdered(outputCollationColumns::add);
 
-        return passThroughCollation(nodeTraits, inputTraits, RelCollations.of(newCollationColumns));
+        // Create mapping.
+        Mapping mapping = Commons.trimmingMapping(getGroupSet().length(), getGroupSet()).inverse();
+
+        RelCollation outputCollation = RelCollations.of(outputCollationColumns);
+        RelCollation inputCollation = RelCollations.permute(outputCollation, mapping);
+
+        return Pair.of(nodeTraits.replace(outputCollation),
+                List.of(inputTraits.get(0).replace(inputCollation)));
     }
 
-    private static Pair<RelTraitSet, List<RelTraitSet>> passThroughCollation(
-            RelTraitSet nodeTraits,
-            List<RelTraitSet> inputTraits,
-            RelCollation collation
-    ) {
-        return Pair.of(nodeTraits.replace(collation),
-                List.of(inputTraits.get(0).replace(collation)));
+    private Pair<RelTraitSet, List<RelTraitSet>> passThroughDefaultCollation(RelTraitSet nodeTraits, List<RelTraitSet> inputTraits) {
+        RelCollation inputCollation = TraitUtils.createCollation(getGroupSet().asList());
+        RelCollation outputCollation = TraitUtils.createCollation(ImmutableIntList.range(0, getGroupSet().cardinality()));
+
+        return Pair.of(nodeTraits.replace(outputCollation),
+                List.of(inputTraits.get(0).replace(inputCollation)));
     }
 
     /** {@inheritDoc} */
