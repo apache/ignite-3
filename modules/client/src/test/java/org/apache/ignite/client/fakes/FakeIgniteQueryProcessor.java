@@ -60,7 +60,7 @@ public class FakeIgniteQueryProcessor implements QueryProcessor {
             return CompletableFuture.failedFuture(new SqlException(STMT_VALIDATION_ERR, "Query failed"));
         }
 
-        if (Commons.isMultiStatementQuery(properties)) {
+        if (Commons.isMultiStatementQueryAllowed(properties)) {
             var sb = new StringBuilder(qry);
 
             sb.append(", arguments: [");

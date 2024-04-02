@@ -496,7 +496,7 @@ public class SqlQueryProcessor implements QueryProcessor {
         try {
             SqlProperties properties0 = SqlPropertiesHelper.chain(properties, DEFAULT_PROPERTIES);
 
-            if (Commons.isMultiStatementQuery(properties0)) {
+            if (Commons.isMultiStatementQueryAllowed(properties0)) {
                 return queryScript(properties0, new QueryTransactionContext(transactions, transaction), qry, params);
             } else {
                 return querySingle(properties0, new QueryTransactionContext(transactions, transaction), qry, params);

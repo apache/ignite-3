@@ -901,7 +901,7 @@ public final class Commons {
     }
 
     /** Returns {@code true} if the specified properties allow multi-statement query execution. */
-    public static boolean isMultiStatementQuery(SqlProperties properties) {
+    public static boolean isMultiStatementQueryAllowed(SqlProperties properties) {
         Set<SqlQueryType> allowedTypes = properties.get(ALLOWED_QUERY_TYPES);
 
         return allowedTypes.contains(SqlQueryType.TX_CONTROL);
