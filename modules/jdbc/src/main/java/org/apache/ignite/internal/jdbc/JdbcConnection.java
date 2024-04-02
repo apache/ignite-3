@@ -190,13 +190,15 @@ public class JdbcConnection implements Connection {
      *
      * @param handler Handler.
      * @param props Properties.
+     * @param channel Client channel.
      * @param connectionId Identifier of the connection.
      */
     @TestOnly
-    public JdbcConnection(JdbcQueryEventHandler handler, ConnectionProperties props, long connectionId) {
+    public JdbcConnection(JdbcQueryEventHandler handler, ConnectionProperties props, ClientChannel channel, long connectionId) {
         this.connProps = props;
         this.handler = handler;
         this.connectionId = connectionId;
+        this.channel = channel;
 
         netTimeout = connProps.getConnectionTimeout();
         qryTimeout = connProps.getQueryTimeout();
@@ -204,7 +206,6 @@ public class JdbcConnection implements Connection {
         schema = normalizeSchema(connProps.getSchema());
 
         client = null;
-        channel = null;
     }
 
     private static @Nullable SslConfiguration extractSslConfiguration(ConnectionProperties connProps) {

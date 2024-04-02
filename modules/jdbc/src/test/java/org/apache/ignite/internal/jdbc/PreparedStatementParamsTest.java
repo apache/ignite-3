@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.mockito.Mockito.mock;
 
 import java.lang.reflect.Array;
 import java.math.BigDecimal;
@@ -45,6 +46,7 @@ import java.util.Objects;
 import java.util.TreeSet;
 import java.util.UUID;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Assertions;
@@ -53,7 +55,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.mockito.Mockito;
 
 /**
  * Unit tests for PreparedStatement methods.
@@ -88,7 +89,7 @@ public class PreparedStatementParamsTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     public void initConnection() {
-        conn = new JdbcConnection(Mockito.mock(JdbcQueryEventHandler.class), new ConnectionPropertiesImpl(), 1);
+        conn = new JdbcConnection(mock(JdbcQueryEventHandler.class), new ConnectionPropertiesImpl(), mock(ClientChannel.class), 1);
     }
 
     /** {@link PreparedStatement#clearParameters()} clears parameter list. */
@@ -257,7 +258,7 @@ public class PreparedStatementParamsTest extends BaseIgniteAbstractTest {
     @Test
     public void testSetObjectWitSqlTypeIsNotSupported() {
         UUID uuid = new UUID(0, 0);
-        SQLType sqlType = Mockito.mock(SQLType.class);
+        SQLType sqlType = mock(SQLType.class);
 
         SQLException err = checkSetParameterFails("setObject not implemented", (s) -> s.setObject(1, uuid, sqlType, 1));
         assertInstanceOf(SQLFeatureNotSupportedException.class, err);
