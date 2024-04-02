@@ -15,28 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.eventlog.sink;
+package org.apache.ignite.internal.eventlog.api;
 
-import org.apache.ignite.internal.eventlog.config.schema.LogSinkView;
-import org.apache.ignite.internal.eventlog.config.schema.SinkView;
-import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.lang.ErrorGroups.Common;
+import java.util.Set;
 
 /**
- * Factory for creating sink instances.
+ * Event channel that groups events by type and sends these events into sinks that are piped into the channel.
  */
-public class SinkFactory {
+public interface EventChannel {
     /**
-     * Creates a sink instance.
-     *
-     * @param sinkView Sink configuration view.
-     * @return Sink instance.
+     * Returns the set of event types that this channel can handle.
      */
-    public Sink createSink(SinkView sinkView) {
-        if (sinkView instanceof LogSinkView) {
-            return new LogSink((LogSinkView) sinkView);
-        }
+    Set<String> types();
 
-        throw new IgniteInternalException(Common.INTERNAL_ERR, "Unsupported sink type: " + sinkView.id());
-    }
+    /**
+     * Logs the event into the channel. If the event type is not supported by the channel, the exception is thrown.
+     *
+     * @param event Event to log.
+     */
+    void log(Event event);
 }

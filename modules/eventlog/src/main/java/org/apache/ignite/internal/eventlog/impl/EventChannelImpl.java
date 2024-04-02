@@ -15,19 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.eventlog.config.schema;
+package org.apache.ignite.internal.eventlog.impl;
 
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.annotation.NamedConfigValue;
+import java.util.HashSet;
+import java.util.Set;
+import org.apache.ignite.internal.eventlog.api.Event;
+import org.apache.ignite.internal.eventlog.api.EventChannel;
+import org.apache.ignite.internal.eventlog.api.Sink;
 
-/** Configuration schema for event log. */
-@ConfigurationRoot(rootName = "eventlog", type = ConfigurationType.DISTRIBUTED)
-public class EventLogConfigurationSchema {
-    /** The configuration schema for sinks. */
-    @NamedConfigValue
-    public SinkConfigurationSchema sinks;
+class EventChannelImpl implements EventChannel {
+    private final Set<Sink> sinks;
 
-    @NamedConfigValue
-    public ChannelConfigurationSchema channels;
+    private final Set<String> types;
+
+    EventChannelImpl(Set<String> types, Set<Sink> sinks) {
+        this.types = new HashSet<>(types);
+        this.sinks = new HashSet<>(sinks);
+    }
+
+    @Override
+    public Set<String> types() {
+        return types;
+    }
+
+    @Override
+    public void log(Event event) {
+        sinks.forEach(s -> s.write(event));
+    }
 }
