@@ -32,8 +32,8 @@ public class ClientTablePartitionPrimaryReplicasGetRequest {
     /**
      * Processes the request.
      *
-     * @param in      Unpacker.
-     * @param out     Packer.
+     * @param in Unpacker.
+     * @param out Packer.
      * @param tracker Replica tracker.
      * @return Future.
      * @throws IgniteException When schema registry is no initialized.
@@ -47,15 +47,19 @@ public class ClientTablePartitionPrimaryReplicasGetRequest {
         long timestamp = in.unpackLong();
 
         return tracker.primaryReplicasAsync(tableId, timestamp).thenAccept(primaryReplicas -> {
-            if (primaryReplicas == null) {
-                out.packInt(0);
-            } else {
-                out.packInt(primaryReplicas.nodeNames().size());
-                out.packLong(primaryReplicas.timestamp());
+            assert primaryReplicas != null : "Primary replicas == null";
 
-                for (String nodeName : primaryReplicas.nodeNames()) {
-                    out.packString(nodeName);
-                }
+            if (primaryReplicas.nodeNames() == null) {
+                // Special case: assignment is not yet available, but we return the partition count.
+                out.packInt(primaryReplicas.partitions());
+                out.packInt(0);
+            }
+
+            out.packInt(primaryReplicas.nodeNames().size());
+            out.packLong(primaryReplicas.timestamp());
+
+            for (String nodeName : primaryReplicas.nodeNames()) {
+                out.packString(nodeName);
             }
         });
     }
