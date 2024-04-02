@@ -119,9 +119,12 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         this.igniteTransactions = igniteTransactions;
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<JdbcConnectResult> connect() {
+    /**
+     * Create connection context on a server and returns connection identity.
+     *
+     * @return A future representing result of the operation.
+     */
+    public CompletableFuture<JdbcConnectResult> initConnectionContext() {
         try {
             JdbcConnectionContext connectionContext = new JdbcConnectionContext(
                     igniteTransactions

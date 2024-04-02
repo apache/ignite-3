@@ -139,9 +139,9 @@ public class JdbcStatement implements Statement {
         JdbcQueryExecuteRequest req = new JdbcQueryExecuteRequest(stmtType, schema, pageSize, maxRows, sql, args,
                 conn.getAutoCommit(), multiStatement);
 
-        JdbcQueryExecuteResponse res;
+        JdbcQuerySingleResult res;
         try {
-            res = (JdbcQueryExecuteResponse) conn.handler().queryAsync(conn.connectionId(), req).get();
+            res = (JdbcQuerySingleResult) conn.handler().queryAsync(conn.connectionId(), req).get();
         } catch (InterruptedException e) {
             throw new SQLException("Thread was interrupted.", e);
         } catch (ExecutionException e) {
@@ -150,19 +150,19 @@ public class JdbcStatement implements Statement {
             throw new SQLException("Query execution canceled.", SqlStateCode.QUERY_CANCELLED, e);
         }
 
-        if (!res.hasResult()) {
+        if (!res.resultAvailable()) {
             throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
         }
 
-        JdbcQuerySingleResult executeResult = res.result();
+        JdbcQuerySingleResult executeResult = res;
 
-        if (!executeResult.resultAvailable()) {
-            throw IgniteQueryErrorCode.createJdbcSqlException(executeResult.err(), executeResult.status());
+        if (!res.resultAvailable()) {
+            throw IgniteQueryErrorCode.createJdbcSqlException(res.err(), res.status());
         }
 
         resSets = new ArrayList<>();
 
-        JdbcQueryCursorHandler handler = new JdbcClientQueryCursorHandler(res.getChannel());
+        JdbcQueryCursorHandler handler = new JdbcClientQueryCursorHandler(conn.channel());
 
         List<ColumnType> columnTypes = executeResult.columnTypes();
         columnTypes = columnTypes == null ? List.of() : columnTypes;

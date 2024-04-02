@@ -15,30 +15,39 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.client.handler.requests.jdbc;
+package org.apache.ignite.internal.jdbc;
 
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.client.handler.JdbcQueryEventHandlerImpl;
-import org.apache.ignite.internal.client.proto.ClientMessagePacker;
+import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.jdbc.proto.event.JdbcConnectResult;
+import org.apache.ignite.internal.jdbc.proto.event.Response;
 
 /**
- * Client jdbc request handler.
+ * JDBC query connection response.
  */
-public class ClientJdbcConnectRequest {
-    /**
-     * Processes remote {@code JdbcQueryExecuteRequest}.
-     *
-     * @param in Client message unpacker.
-     * @param out Client message packer.
-     * @param handler Query event handler.
-     * @return Operation future.
-     */
-    public static CompletableFuture<Void> execute(
-            ClientMessageUnpacker in,
-            ClientMessagePacker out,
-            JdbcQueryEventHandlerImpl handler
-    ) {
-        return handler.initConnectionContext().thenAccept(res -> res.writeBinary(out));
+public class JdbcConnectResponse extends Response {
+    /** Client channel. */
+    private final ClientChannel channel;
+
+    private JdbcConnectResult result;
+
+    public JdbcConnectResponse(ClientChannel channel) {
+        this.channel = channel;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void readBinary(ClientMessageUnpacker unpacker) {
+        result = new JdbcConnectResult();
+
+        result.readBinary(unpacker);
+    }
+
+    public JdbcConnectResult result() {
+        return result;
+    }
+
+    public ClientChannel channel() {
+        return channel;
     }
 }

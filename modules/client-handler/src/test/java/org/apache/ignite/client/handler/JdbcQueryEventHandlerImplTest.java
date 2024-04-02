@@ -39,7 +39,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.client.handler.JdbcQueryEventHandlerImpl.JdbcConnectionContext;
 import org.apache.ignite.client.handler.requests.jdbc.JdbcMetadataCatalog;
-import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.jdbc.proto.JdbcStatementType;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteResult;
@@ -74,7 +73,7 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
 
     private ClientResourceRegistry resourceRegistry;
 
-    private JdbcQueryEventHandler eventHandler;
+    private JdbcQueryEventHandlerImpl eventHandler;
 
     @BeforeEach
     public void setUp() {
@@ -102,7 +101,7 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
     void connectOnStoppingNode() {
         resourceRegistry.close();
 
-        JdbcConnectResult result = await(eventHandler.connect());
+        JdbcConnectResult result = await(eventHandler.initConnectionContext());
 
         assertThat(result, notNullValue());
         assertThat(result.status(), is(STATUS_FAILED));
@@ -198,7 +197,7 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
     }
 
     private long acquireConnectionId() {
-        JdbcConnectResult result = await(eventHandler.connect());
+        JdbcConnectResult result = await(eventHandler.initConnectionContext());
 
         assertThat(result, notNullValue());
         assertThat(result.status(), is(STATUS_SUCCESS));

@@ -56,8 +56,10 @@ import org.apache.ignite.client.BasicAuthenticator;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.IgniteClientAuthenticator;
 import org.apache.ignite.client.SslConfiguration;
+import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.HostAndPort;
 import org.apache.ignite.internal.client.TcpIgniteClient;
+import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.jdbc.proto.IgniteQueryErrorCode;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.jdbc.proto.SqlStateCode;
@@ -65,6 +67,7 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcConnectResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcFinishTxResult;
 import org.apache.ignite.internal.jdbc.proto.event.Response;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * JDBC connection implementation.
@@ -81,6 +84,8 @@ public class JdbcConnection implements Connection {
     /** Handler. */
     private final JdbcQueryEventHandler handler;
 
+    private final ClientChannel channel;
+
     private final long connectionId;
 
     /** Schema name. */
@@ -90,16 +95,16 @@ public class JdbcConnection implements Connection {
     private volatile boolean closed;
 
     /** Current transaction isolation. */
-    private int txIsolation;
+    private int txIsolation = Connection.TRANSACTION_NONE;
 
     /** Auto-commit flag. */
-    private boolean autoCommit;
+    private boolean autoCommit = true;
 
     /** Read-only flag. */
     private boolean readOnly;
 
     /** Current transaction holdability. */
-    private int holdability;
+    private int holdability = HOLD_CURSORS_OVER_COMMIT;
 
     /** Connection properties. */
     private final ConnectionProperties connProps;
@@ -120,51 +125,12 @@ public class JdbcConnection implements Connection {
     private JdbcDatabaseMetadata metadata;
 
     /**
-     * Constructor.
-     *
-     * @param handler Handler.
-     * @param props   Properties.
-     */
-    public JdbcConnection(JdbcQueryEventHandler handler, ConnectionProperties props) throws SQLException {
-        this.connProps = props;
-        this.handler = handler;
-
-        try {
-            JdbcConnectResult result = handler.connect().get();
-
-            if (!result.hasResults()) {
-                throw IgniteQueryErrorCode.createJdbcSqlException(result.err(), result.status());
-            }
-
-            connectionId = result.connectionId();
-        } catch (InterruptedException e) {
-            throw new SQLException("Thread was interrupted.", e);
-        } catch (ExecutionException e) {
-            throw new SQLException("Failed to initialize connection.", e);
-        } catch (CancellationException e) {
-            throw new SQLException("Connection initialization canceled.", e);
-        }
-
-        autoCommit = true;
-
-        netTimeout = connProps.getConnectionTimeout();
-        qryTimeout = connProps.getQueryTimeout();
-
-        holdability = HOLD_CURSORS_OVER_COMMIT;
-
-        schema = DEFAULT_SCHEMA_NAME;
-
-        client = null;
-    }
-
-    /**
      * Creates new connection.
      *
      * @param props Connection properties.
      */
     public JdbcConnection(ConnectionProperties props) throws SQLException {
         this.connProps = props;
-        autoCommit = true;
 
         String[] addrs = Arrays.stream(props.getAddresses()).map(this::createStrAddress)
                 .toArray(String[]::new);
@@ -189,14 +155,23 @@ public class JdbcConnection implements Connection {
             throw new SQLException("Failed to connect to server", CLIENT_CONNECTION_FAILED, e);
         }
 
-        this.handler = new JdbcClientQueryEventHandler(client);
-
         try {
-            JdbcConnectResult result = handler.connect().get();
+            JdbcConnectResponse connResponse = client.sendRequestAsync(ClientOp.JDBC_CONNECT, w -> {}, r -> {
+                JdbcConnectResponse response = new JdbcConnectResponse(r.clientChannel());
+
+                response.readBinary(r.in());
+
+                return response;
+            }).get();
+
+            JdbcConnectResult result = connResponse.result();
 
             if (!result.hasResults()) {
                 throw IgniteQueryErrorCode.createJdbcSqlException(result.err(), result.status());
             }
+
+            this.handler = new JdbcClientQueryEventHandler(connResponse.channel());
+            this.channel = connResponse.channel();
 
             connectionId = result.connectionId();
         } catch (InterruptedException e) {
@@ -207,11 +182,29 @@ public class JdbcConnection implements Connection {
             throw new SQLException("Connection initialization canceled.", e);
         }
 
-        txIsolation = Connection.TRANSACTION_NONE;
+        schema = normalizeSchema(connProps.getSchema());
+    }
+
+    /**
+     * Constructor for testing purposes.
+     *
+     * @param handler Handler.
+     * @param props Properties.
+     * @param connectionId Identifier of the connection.
+     */
+    @TestOnly
+    public JdbcConnection(JdbcQueryEventHandler handler, ConnectionProperties props, long connectionId) {
+        this.connProps = props;
+        this.handler = handler;
+        this.connectionId = connectionId;
+
+        netTimeout = connProps.getConnectionTimeout();
+        qryTimeout = connProps.getQueryTimeout();
 
         schema = normalizeSchema(connProps.getSchema());
 
-        holdability = HOLD_CURSORS_OVER_COMMIT;
+        client = null;
+        channel = null;
     }
 
     private static @Nullable SslConfiguration extractSslConfiguration(ConnectionProperties connProps) {
@@ -422,7 +415,7 @@ public class JdbcConnection implements Connection {
         } catch (CancellationException e) {
             throw new SQLException("Request to " + (commit ? "commit" : "rollback") + " the transaction has been canceled.", e);
         } catch (ExecutionException e) {
-            throw new SQLException("The transaction " + (commit ? "commit" : "rollback") + " request failed.", e);
+            throw new SQLException("The transaction " + (commit ? "commit" : "rollback") + " request failed.", e.getCause());
         } catch (InterruptedException e) {
             throw new SQLException("Thread was interrupted.", e);
         }
@@ -437,7 +430,7 @@ public class JdbcConnection implements Connection {
 
         closed = true;
 
-        if (!autoCommit) {
+        if (!autoCommit && !channel.closed()) {
             finishTx(false);
         }
 
@@ -462,6 +455,10 @@ public class JdbcConnection implements Connection {
      * @throws SQLException If connection is closed.
      */
     public void ensureNotClosed() throws SQLException {
+        if (channel.closed() && !closed) {
+            close();
+        }
+
         if (closed) {
             throw new SQLException("Connection is closed.", CONNECTION_CLOSED);
         }
@@ -865,6 +862,10 @@ public class JdbcConnection implements Connection {
      */
     public JdbcQueryEventHandler handler() {
         return handler;
+    }
+
+    ClientChannel channel() {
+        return channel;
     }
 
     /** Returns an identifier of the connection. */

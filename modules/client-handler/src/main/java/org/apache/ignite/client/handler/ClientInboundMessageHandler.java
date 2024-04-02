@@ -106,7 +106,6 @@ import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
-import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
 import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -152,7 +151,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     private final IgniteTransactionsImpl igniteTransactions;
 
     /** JDBC Handler. */
-    private final JdbcQueryEventHandler jdbcQueryEventHandler;
+    private final JdbcQueryEventHandlerImpl jdbcQueryEventHandler;
 
     /** Connection resources. */
     private final ClientResourceRegistry resources = new ClientResourceRegistry();
