@@ -57,7 +57,7 @@ public class TestTxStateStorage implements TxStateStorage {
 
     public TestTxStateStorage() {
         // Write a timestamp of default start time of TestReplicaMetaImpl to the storage, in order to use it with TestPlacementDriver.
-        updateLease(MIN_VALUE.longValue(), 1, 1);
+        updateLease(MIN_VALUE.longValue(), 0, 0);
     }
 
     @Override
