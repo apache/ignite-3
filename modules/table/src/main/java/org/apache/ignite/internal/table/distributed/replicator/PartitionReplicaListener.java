@@ -177,6 +177,7 @@ import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxRecoveryMessage;
 import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequest;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
+import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicatedInfo;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.Cursor;
@@ -1711,9 +1712,9 @@ public class PartitionReplicaListener implements ReplicaListener {
      * This operation is idempotent, so it's safe to retry it.
      *
      * @param request Transaction cleanup request.
-     * @return CompletableFuture of void.
+     * @return CompletableFuture of ReplicaResult.
      */
-    private CompletableFuture<Void> processWriteIntentSwitchAction(WriteIntentSwitchReplicaRequest request) {
+    private CompletableFuture<ReplicaResult> processWriteIntentSwitchAction(WriteIntentSwitchReplicaRequest request) {
         markFinished(request.txId(), request.commit() ? COMMITTED : ABORTED, request.commitTimestamp());
 
         return awaitCleanupReadyFutures(request.txId(), request.commit())
@@ -1722,19 +1723,22 @@ public class PartitionReplicaListener implements ReplicaListener {
                         HybridTimestamp commandTimestamp = clockService.now();
 
                         return reliableCatalogVersionFor(commandTimestamp)
-                                .thenCompose(catalogVersion -> {
-                                    applyWriteIntentSwitchCommand(
-                                            request.txId(),
-                                            request.commit(),
-                                            request.commitTimestamp(),
-                                            request.commitTimestampLong(),
-                                            catalogVersion
-                                    );
+                                .thenApply(catalogVersion -> {
+                                    CompletableFuture<WriteIntentSwitchReplicatedInfo> commandReplicatedFuture =
+                                            applyWriteIntentSwitchCommand(
+                                                    request.txId(),
+                                                    request.commit(),
+                                                    request.commitTimestamp(),
+                                                    request.commitTimestampLong(),
+                                                    catalogVersion
+                                            );
 
-                                    return nullCompletedFuture();
+                                    return new ReplicaResult(null, commandReplicatedFuture);
                                 });
                     } else {
-                        return nullCompletedFuture();
+                        return completedFuture(
+                                new ReplicaResult(new WriteIntentSwitchReplicatedInfo(request.txId(), replicationGroupId), null)
+                        );
                     }
                 });
     }
@@ -1766,7 +1770,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .thenApply(v -> new FuturesCleanupResult(!txReadFutures.isEmpty(), !txUpdateFutures.isEmpty()));
     }
 
-    private CompletableFuture<Void> applyWriteIntentSwitchCommand(
+    private CompletableFuture<WriteIntentSwitchReplicatedInfo> applyWriteIntentSwitchCommand(
             UUID transactionId,
             boolean commit,
             HybridTimestamp commitTimestamp,
@@ -1798,7 +1802,7 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                     return nullCompletedFuture();
                 })
-                .thenApply(res -> null);
+                .thenApply(res -> new WriteIntentSwitchReplicatedInfo(transactionId, replicationGroupId));
     }
 
     /**
@@ -1934,7 +1938,14 @@ public class PartitionReplicaListener implements ReplicaListener {
         });
 
         if (cleanupReadyFut.isCompletedExceptionally()) {
-            return failedFuture(new TransactionException(TX_ALREADY_FINISHED_ERR, "Transaction is already finished."));
+            TxStateMeta txStateMeta = txManager.stateMeta(txId);
+
+            TxState txState = txStateMeta == null ? null : txStateMeta.txState();
+
+            return failedFuture(new TransactionException(
+                    TX_ALREADY_FINISHED_ERR,
+                    "Transaction is already finished txId=[" + txId + ", txState=" + txState + "]."
+            ));
         }
 
         CompletableFuture<T> fut = op.get();
