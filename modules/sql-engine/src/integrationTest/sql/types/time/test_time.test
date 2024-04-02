@@ -15,8 +15,8 @@ INSERT INTO times VALUES ('00:01:20'), ('20:08:10.998'), ('20:08:10.33'), ('20:0
 statement ok
 INSERT INTO times VALUES (NULL)
 
-query T
-SELECT * FROM times order by i
+query T rowsort
+SELECT * FROM times
 ----
 00:01:20
 20:08:10.001
@@ -24,8 +24,8 @@ SELECT * FROM times order by i
 20:08:10.998
 NULL
 
-query T
-SELECT cast(i AS VARCHAR) FROM times order by i
+query T rowsort
+SELECT cast(i AS VARCHAR) FROM times
 ----
 00:01:20.000
 20:08:10.001

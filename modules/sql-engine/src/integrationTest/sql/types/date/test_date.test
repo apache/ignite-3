@@ -17,22 +17,22 @@ statement ok
 INSERT INTO dates VALUES (NULL)
 
 # check that we can select dates
-query T
-SELECT * FROM dates order by i
+query T rowsort
+SELECT * FROM dates
 ----
 1993-08-14
 NULL
 
 # YEAR function
-query I
-SELECT year(i) FROM dates order by i
+query I rowsort
+SELECT year(i) FROM dates
 ----
 1993
 NULL
 
 # check that we can convert dates to string
-query T
-SELECT cast(i AS VARCHAR) FROM dates order by i
+query T rowsort
+SELECT cast(i AS VARCHAR) FROM dates
 ----
 1993-08-14
 NULL

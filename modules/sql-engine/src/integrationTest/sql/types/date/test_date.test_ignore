@@ -15,6 +15,27 @@ CREATE TABLE dates(i DATE)
 statement ok
 INSERT INTO dates VALUES ('1993-08-14'), (NULL)
 
+# check that we can select dates
+query T
+SELECT * FROM dates
+----
+1993-08-14
+NULL
+
+# YEAR function
+query I
+SELECT year(i) FROM dates
+----
+1993
+NULL
+
+# check that we can convert dates to string
+query T
+SELECT cast(i AS VARCHAR) FROM dates
+----
+1993-08-14
+NULL
+
 # check that we can add days to a date
 query T
 SELECT i + 5 FROM dates
