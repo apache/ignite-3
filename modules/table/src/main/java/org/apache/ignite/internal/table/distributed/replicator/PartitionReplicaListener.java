@@ -1938,7 +1938,14 @@ public class PartitionReplicaListener implements ReplicaListener {
         });
 
         if (cleanupReadyFut.isCompletedExceptionally()) {
-            return failedFuture(new TransactionException(TX_ALREADY_FINISHED_ERR, "Transaction is already finished."));
+            TxStateMeta txStateMeta = txManager.stateMeta(txId);
+
+            TxState txState = txStateMeta == null ? null : txStateMeta.txState();
+
+            return failedFuture(new TransactionException(
+                    TX_ALREADY_FINISHED_ERR,
+                    "Transaction is already finished txId=[" + txId + ", txState=" + txState + "]."
+            ));
         }
 
         CompletableFuture<T> fut = op.get();
