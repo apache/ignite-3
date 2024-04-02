@@ -614,7 +614,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
             return;
         }
 
-        txStateStorage.updateLease(cmd.leaseStartTime());
+        txStateStorage.updateLease(cmd.leaseStartTime(), commandIndex, commandTerm);
     }
 
     private static void onTxStateStorageCasFail(UUID txId, TxMeta txMetaBeforeCas, TxMeta txMetaToSet) {

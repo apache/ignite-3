@@ -417,15 +417,20 @@ public abstract class AbstractTxStateStorageTest {
 
         long lst1 = 2000;
 
-        storage0.updateLease(lst0);
+        storage0.updateLease(lst0, 1, 1);
 
         assertEquals(lst0, storage0.leaseStartTime());
+        assertEquals(1, storage0.lastAppliedIndex());
+        assertEquals(1, storage0.lastAppliedTerm());
 
-        storage0.updateLease(lst1);
+        storage0.updateLease(lst1, 2, 2);
 
         assertEquals(lst1, storage0.leaseStartTime());
+        assertEquals(2, storage0.lastAppliedIndex());
+        assertEquals(2, storage0.lastAppliedTerm());
 
-        assertThrows(AssertionError.class, () -> storage0.updateLease(100));
+        assertThrows(AssertionError.class, () -> storage0.updateLease(100, 3, 2));
+        assertThrows(AssertionError.class, () -> storage0.updateLease(100, 1, 1));
     }
 
     private static void checkStorageIsEmpty(TxStateStorage storage) {

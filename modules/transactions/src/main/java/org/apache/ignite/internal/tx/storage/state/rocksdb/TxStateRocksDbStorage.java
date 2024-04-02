@@ -572,7 +572,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     }
 
     @Override
-    public void updateLease(long leaseStartTime) {
+    public void updateLease(long leaseStartTime, long commandIndex, long commandTerm) {
         busy(() -> {
             if (leaseStartTime == this.leaseStartTime) {
                 return null;
@@ -589,6 +589,13 @@ public class TxStateRocksDbStorage implements TxStateStorage {
                 writeBatch.put(leaseKey, leaseBytes);
 
                 this.leaseStartTime = leaseStartTime;
+
+                // If the store is in the process of rebalancing, then there is no need to update lastAppliedIndex and lastAppliedTerm.
+                // This is necessary to prevent a situation where, in the middle of the rebalance, the node will be restarted and we will
+                // have non-consistent storage. They will be updated by either #abortRebalance() or #finishRebalance(long, long).
+                if (state.get() != StorageState.REBALANCE) {
+                    updateLastApplied(writeBatch, commandIndex, commandTerm);
+                }
 
                 sharedStorage.db().write(sharedStorage.writeOptions, writeBatch);
             } catch (RocksDBException e) {

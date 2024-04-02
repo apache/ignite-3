@@ -57,7 +57,7 @@ public class TestTxStateStorage implements TxStateStorage {
 
     public TestTxStateStorage() {
         // Write a timestamp of default start time of TestReplicaMetaImpl to the storage, in order to use it with TestPlacementDriver.
-        updateLease(MIN_VALUE.longValue());
+        updateLease(MIN_VALUE.longValue(), 1, 1);
     }
 
     @Override
@@ -252,11 +252,13 @@ public class TestTxStateStorage implements TxStateStorage {
     }
 
     @Override
-    public void updateLease(long leaseStartTime) {
+    public void updateLease(long leaseStartTime, long commandIndex, long commandTerm) {
         assert leaseStartTime > this.leaseStartTime : format("Updated lease start time should be greater than current [current={}, "
                 + "updated={}]", this.leaseStartTime, leaseStartTime);
 
         this.leaseStartTime = leaseStartTime;
+        this.lastAppliedIndex = commandIndex;
+        this.lastAppliedTerm = commandTerm;
     }
 
     @Override
