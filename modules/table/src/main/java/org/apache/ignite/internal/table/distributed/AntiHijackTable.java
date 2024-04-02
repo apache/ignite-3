@@ -30,7 +30,7 @@ import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 
 /**
- * Wrapper around {@link Table} that adds protection agains thread hijacking by users.
+ * Wrapper around {@link Table} that adds protection against thread hijacking by users.
  *
  * @see PublicApiThreading#preventThreadHijack(CompletableFuture, Executor)
  */

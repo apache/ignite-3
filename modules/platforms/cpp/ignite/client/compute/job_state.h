@@ -15,8 +15,31 @@
  * limitations under the License.
  */
 
-/**
- * SQL API for reactive SQL query execution.
- */
+#pragma once
 
-package org.apache.ignite.sql.reactive;
+namespace ignite {
+
+/**
+ * Compute job state.
+ */
+enum class job_state {
+    /// The job is submitted and waiting for an execution start.
+    QUEUED,
+
+    /// The job is being executed.
+    EXECUTING,
+
+    /// The job was unexpectedly terminated during execution.
+    FAILED,
+
+    /// The job was executed successfully and the execution result was returned.
+    COMPLETED,
+
+    /// The job has received the cancel command, but is still running.
+    CANCELING,
+
+    /// The job was successfully cancelled.
+    CANCELED
+};
+
+} // namespace ignite

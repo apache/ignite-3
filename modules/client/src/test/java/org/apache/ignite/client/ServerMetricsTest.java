@@ -71,7 +71,6 @@ public class ServerMetricsTest extends AbstractClientTest {
     @Test
     public void testSqlMetrics() {
         Statement statement = client.sql().statementBuilder()
-                .property("hasMorePages", true)
                 .query("select 1")
                 .build();
 

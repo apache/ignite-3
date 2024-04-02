@@ -19,7 +19,6 @@ package org.apache.ignite.sql;
 
 import java.time.ZoneId;
 import java.util.concurrent.TimeUnit;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Object represents an SQL statement.
@@ -66,14 +65,6 @@ public interface Statement extends AutoCloseable {
      * @return Time zone used for this statement.
      */
     ZoneId timeZoneId();
-
-    /**
-     * Returns statement property value that overrides the session property value or {@code null} if session property value should be used.
-     *
-     * @param name Property name.
-     * @return Property value or {@code null} if not set.
-     */
-    @Nullable Object property(String name);
 
     /**
      * Creates a statement builder from the current statement.
@@ -159,25 +150,6 @@ public interface Statement extends AutoCloseable {
          * @return {@code this} for chaining.
          */
         StatementBuilder timeZoneId(ZoneId timeZoneId);
-
-        /**
-         * Returns a statement property value that overrides the session property value; returns {@code null} if the session
-         * property value should be used.
-         *
-         * @param name Property name.
-         * @return Property value or {@code null} if not set.
-         */
-        @Nullable Object property(String name);
-
-        /**
-         * Sets a statement property value that overrides the session property value.
-         * If {@code null} is passed, the session property value is used.
-         *
-         * @param name Property name.
-         * @param value Property value or {@code null} to use the value defined for the session.
-         * @return {@code this} for chaining.
-         */
-        StatementBuilder property(String name, @Nullable Object value);
 
         /**
          * Creates an SQL statement abject.

@@ -35,6 +35,7 @@ import static org.hamcrest.CoreMatchers.nullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.sameInstance;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -70,6 +71,7 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.index.impl.BinaryTupleRowSerializer;
 import org.apache.ignite.internal.storage.index.impl.TestIndexRow;
+import org.apache.ignite.internal.storage.index.impl.TestIndexRow.TestIndexPrefix;
 import org.apache.ignite.internal.testframework.VariableSource;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.sql.ColumnType;
@@ -274,7 +276,7 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
 
         List<TestIndexRow> entries = IntStream.range(0, 10)
                 .mapToObj(i -> {
-                    TestIndexRow entry = TestIndexRow.randomRow(indexStorage);
+                    TestIndexRow entry = TestIndexRow.randomRow(indexStorage, TEST_PARTITION);
 
                     put(indexStorage, entry);
 
@@ -286,18 +288,19 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
         int firstIndex = 3;
         int lastIndex = 8;
 
+        TestIndexPrefix first = entries.get(firstIndex).prefix(3);
+        TestIndexPrefix last = entries.get(lastIndex).prefix(5);
+
         List<IndexRow> expected = entries.stream()
-                .skip(firstIndex)
-                .limit(lastIndex - firstIndex + 1)
+                .filter(row -> row.compareTo(first) >= 0 && row.compareTo(last) <= 0)
                 .collect(toList());
 
-        BinaryTuplePrefix first = entries.get(firstIndex).prefix(3);
-        BinaryTuplePrefix last = entries.get(lastIndex).prefix(5);
+        assertThat(expected, hasSize(greaterThanOrEqualTo(lastIndex - firstIndex + 1)));
 
-        try (Cursor<IndexRow> cursor = indexStorage.scan(first, last, GREATER_OR_EQUAL | LESS_OR_EQUAL)) {
+        try (Cursor<IndexRow> cursor = indexStorage.scan(first.prefix(), last.prefix(), GREATER_OR_EQUAL | LESS_OR_EQUAL)) {
             List<IndexRow> actual = cursor.stream().collect(toList());
 
-            assertThat(actual, hasSize(lastIndex - firstIndex + 1));
+            assertThat(actual, hasSize(expected.size()));
 
             for (int i = firstIndex; i < actual.size(); ++i) {
                 assertThat(actual.get(i).rowId(), is(equalTo(expected.get(i).rowId())));
@@ -401,8 +404,8 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
 
         SortedIndexStorage indexStorage = createIndexStorage(INDEX_NAME, indexSchema);
 
-        TestIndexRow entry1 = TestIndexRow.randomRow(indexStorage);
-        TestIndexRow entry2 = TestIndexRow.randomRow(indexStorage);
+        TestIndexRow entry1 = TestIndexRow.randomRow(indexStorage, TEST_PARTITION);
+        TestIndexRow entry2 = TestIndexRow.randomRow(indexStorage, TEST_PARTITION);
 
         if (entry2.compareTo(entry1) < 0) {
             TestIndexRow t = entry2;
@@ -413,7 +416,11 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
         put(indexStorage, entry1);
         put(indexStorage, entry2);
 
-        try (Cursor<IndexRow> cursor = indexStorage.scan(entry2.prefix(indexSchema.size()), entry1.prefix(indexSchema.size()), 0)) {
+        try (Cursor<IndexRow> cursor = indexStorage.scan(
+                entry2.prefix(indexSchema.size()).prefix(),
+                entry1.prefix(indexSchema.size()).prefix(),
+                0
+        )) {
             assertThat(cursor.stream().collect(toList()), is(empty()));
         }
     }
@@ -423,7 +430,7 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
     void testNullValues(ColumnParams columnParams) {
         SortedIndexStorage storage = createIndexStorage(INDEX_NAME, List.of(columnParams));
 
-        TestIndexRow entry1 = TestIndexRow.randomRow(storage);
+        TestIndexRow entry1 = TestIndexRow.randomRow(storage, TEST_PARTITION);
 
         Object[] nullArray = new Object[1];
 
@@ -442,7 +449,11 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
             entry1 = t;
         }
 
-        try (Cursor<IndexRow> cursor = storage.scan(entry1.prefix(1), entry2.prefix(1), GREATER_OR_EQUAL | LESS_OR_EQUAL)) {
+        try (Cursor<IndexRow> cursor = storage.scan(
+                entry1.prefix(1).prefix(),
+                entry2.prefix(1).prefix(),
+                GREATER_OR_EQUAL | LESS_OR_EQUAL
+        )) {
             assertThat(
                     cursor.stream().map(row -> row.indexColumns().byteBuffer()).collect(toList()),
                     contains(entry1.indexColumns().byteBuffer(), entry2.indexColumns().byteBuffer())
@@ -1411,12 +1422,12 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
     private void testPutGetRemove(List<ColumnParams> indexSchema) {
         SortedIndexStorage indexStorage = createIndexStorage(INDEX_NAME, indexSchema);
 
-        TestIndexRow entry1 = TestIndexRow.randomRow(indexStorage);
+        TestIndexRow entry1 = TestIndexRow.randomRow(indexStorage, TEST_PARTITION);
         TestIndexRow entry2;
 
         // using a cycle here to protect against equal keys being generated
         do {
-            entry2 = TestIndexRow.randomRow(indexStorage);
+            entry2 = TestIndexRow.randomRow(indexStorage, TEST_PARTITION);
         } while (entry1.indexColumns().byteBuffer().equals(entry2.indexColumns().byteBuffer()));
 
         put(indexStorage, entry1);

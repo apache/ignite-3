@@ -19,6 +19,7 @@ package org.apache.ignite.internal.binarytuple;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.time.Duration;
@@ -254,12 +255,21 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      * Reads value of specified element.
      *
      * @param index Element index.
-     * @param scale Decimal scale.
+     * @param scale Decimal scale. If equal to {@link Integer#MIN_VALUE}, then the value will be returned with whatever scale it is
+     *         stored in.
      * @return Element value.
      */
     public @Nullable BigDecimal decimalValue(int index, int scale) {
         seek(index);
-        return begin == end ? null : new BigDecimal(numberValue(begin, end), scale);
+        if (begin == end) {
+            return null;
+        }
+
+        short valScale = shortValue(begin, begin + 2);
+
+        BigDecimal decimalValue = new BigDecimal(numberValue(begin + 2, end), valScale);
+
+        return scale < 0 ? decimalValue : decimalValue.setScale(scale, RoundingMode.UNNECESSARY);
     }
 
     /**
