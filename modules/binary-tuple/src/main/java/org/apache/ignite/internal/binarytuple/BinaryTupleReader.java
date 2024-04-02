@@ -255,7 +255,8 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      * Reads value of specified element.
      *
      * @param index Element index.
-     * @param scale Decimal scale.
+     * @param scale Decimal scale. If equal to {@link Integer#MIN_VALUE}, then the value will be returned with whatever scale it is
+     *         stored in.
      * @return Element value.
      */
     public @Nullable BigDecimal decimalValue(int index, int scale) {
@@ -266,7 +267,9 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
 
         short valScale = shortValue(begin, begin + 2);
 
-        return new BigDecimal(numberValue(begin + 2, end), valScale).setScale(scale, RoundingMode.UNNECESSARY);
+        BigDecimal decimalValue = new BigDecimal(numberValue(begin + 2, end), valScale);
+
+        return scale < 0 ? decimalValue : decimalValue.setScale(scale, RoundingMode.UNNECESSARY);
     }
 
     /**
