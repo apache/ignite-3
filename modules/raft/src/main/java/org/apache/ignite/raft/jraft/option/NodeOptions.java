@@ -49,7 +49,10 @@ import org.apache.ignite.raft.jraft.util.timer.Timer;
  */
 public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     /** This value is used by default to determine the count of stripes in the striped queue. */
-    private static final int DEFAULT_STRIPES = Utils.cpus() * 2;
+    private static final int DEFAULT_STRIPES = Utils.cpus();
+
+    /** This value is used by default to determine the count of stripes for log manager. */
+    private static final int DEFAULT_LOG_STRIPES_COUNT = 4;
 
     // A follower would become a candidate if it doesn't receive any message
     // from the leader in |election_timeout_ms| milliseconds
@@ -247,7 +250,7 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
     /**
      * Amount of log manager Disruptors stripes.
      */
-    private int logStripesCount = DEFAULT_STRIPES;
+    private int logStripesCount = DEFAULT_LOG_STRIPES_COUNT;
 
     /**
      * Set true to use the non-blocking strategy in the log manager.
