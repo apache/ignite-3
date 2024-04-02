@@ -69,10 +69,10 @@ public class AllTypesMessageTest {
         fail("All generated messages had the same hash code");
     }
 
-    @Test
     /**
      * Tests that {@link IgniteToStringInclude} and {@link IgniteToStringExclude} are processed correctly.
      */
+    @Test
     public void testIgniteToStringAnnotations() {
         AllTypesMessage msg = AllTypesMessageGenerator.generate(0, false);
 
