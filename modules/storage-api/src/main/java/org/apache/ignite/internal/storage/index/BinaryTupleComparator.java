@@ -144,7 +144,7 @@ public class BinaryTupleComparator implements Comparator<ByteBuffer> {
                 return tuple1.numberValue(index).compareTo(tuple2.numberValue(index));
 
             case DECIMAL:
-                return tuple1.decimalValue(index, -1).compareTo(tuple2.decimalValue(index, -1));
+                return tuple1.decimalValue(index, Integer.MIN_VALUE).compareTo(tuple2.decimalValue(index, Integer.MIN_VALUE));
 
             case TIMESTAMP:
                 return tuple1.timestampValue(index).compareTo(tuple2.timestampValue(index));
