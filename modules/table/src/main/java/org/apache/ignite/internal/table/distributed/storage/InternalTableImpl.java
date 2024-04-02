@@ -358,7 +358,7 @@ public class InternalTableImpl implements InternalTable {
                 if (implicit) {
                     long ts = (txStartTs == null) ? actualTx.startTimestamp().getPhysical() : txStartTs;
 
-                    if (isRestartTransactionPossible(e) && coarseCurrentTimeMillis() - ts < implicitTransactionTimeout) {
+                    if (exceptionAllowsTxRetry(e) && coarseCurrentTimeMillis() - ts < implicitTransactionTimeout) {
                         return enlistInTx(row, null, fac, noWriteChecker, ts);
                     }
                 }
@@ -477,7 +477,7 @@ public class InternalTableImpl implements InternalTable {
                 if (implicit) {
                     long ts = (txStartTs == null) ? actualTx.startTimestamp().getPhysical() : txStartTs;
 
-                    if (isRestartTransactionPossible(e) && coarseCurrentTimeMillis() - ts < implicitTransactionTimeout) {
+                    if (exceptionAllowsTxRetry(e) && coarseCurrentTimeMillis() - ts < implicitTransactionTimeout) {
                         return enlistInTx(keyRows, null, fac, reducer, noOpChecker, ts);
                     }
                 }
@@ -2233,7 +2233,7 @@ public class InternalTableImpl implements InternalTable {
      * @param e Exception to check.
      * @return True if retrying is possible, false otherwise.
      */
-    private static boolean isRestartTransactionPossible(Throwable e) {
+    private static boolean exceptionAllowsTxRetry(Throwable e) {
         Throwable ex = unwrapCause(e);
 
         while (ex instanceof TransactionException && ex.getCause() != null) {

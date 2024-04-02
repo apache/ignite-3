@@ -26,31 +26,31 @@ import org.jetbrains.annotations.Nullable;
 public class UpdateCommandResult implements Serializable {
     private static final long serialVersionUID = 2213057546590681613L;
 
-    private final boolean primaryReplicaSuccess;
+    private final boolean primaryReplicaMatch;
 
-    /** Should be {@code null} if {@link #primaryReplicaSuccess} is {@code true}. */
+    /** Should be {@code null} if {@link #primaryReplicaMatch} is {@code true}. */
     @Nullable
     private final Long currentLeaseStartTime;
 
     /**
      * Constructor.
      *
-     * @param primaryReplicaSuccess Whether the command should be successfully applied on primary replica.
+     * @param primaryReplicaMatch Whether the command should be successfully applied on primary replica.
      */
-    public UpdateCommandResult(boolean primaryReplicaSuccess) {
-        this(primaryReplicaSuccess, null);
+    public UpdateCommandResult(boolean primaryReplicaMatch) {
+        this(primaryReplicaMatch, null);
     }
 
     /**
      * Constructor.
      *
-     * @param primaryReplicaSuccess Whether the command should be successfully applied on primary replica.
+     * @param primaryReplicaMatch Whether the command should be successfully applied on primary replica.
      * @param currentLeaseStartTime Actual lease start time.
      */
-    public UpdateCommandResult(boolean primaryReplicaSuccess, @Nullable Long currentLeaseStartTime) {
-        assert primaryReplicaSuccess || currentLeaseStartTime != null : "Incorrect UpdateCommandResult.";
+    public UpdateCommandResult(boolean primaryReplicaMatch, @Nullable Long currentLeaseStartTime) {
+        assert primaryReplicaMatch || currentLeaseStartTime != null : "Incorrect UpdateCommandResult.";
 
-        this.primaryReplicaSuccess = primaryReplicaSuccess;
+        this.primaryReplicaMatch = primaryReplicaMatch;
         this.currentLeaseStartTime = currentLeaseStartTime;
     }
 
@@ -59,12 +59,12 @@ public class UpdateCommandResult implements Serializable {
      *
      * @return Whether the command should be successfully applied on primary replica.
      */
-    public boolean isPrimaryReplicaSuccess() {
-        return primaryReplicaSuccess;
+    public boolean isPrimaryReplicaMatch() {
+        return primaryReplicaMatch;
     }
 
     /**
-     * Should be {@code null} if {@link #primaryReplicaSuccess} is {@code true}.
+     * Should be {@code null} if {@link #primaryReplicaMatch} is {@code true}.
      *
      * @return Actual lease start time.
      */
@@ -84,11 +84,17 @@ public class UpdateCommandResult implements Serializable {
 
         UpdateCommandResult that = (UpdateCommandResult) o;
 
-        return primaryReplicaSuccess == that.primaryReplicaSuccess;
+        if (primaryReplicaMatch != that.primaryReplicaMatch) {
+            return false;
+        }
+        return currentLeaseStartTime != null ? currentLeaseStartTime.equals(that.currentLeaseStartTime)
+                : that.currentLeaseStartTime == null;
     }
 
     @Override
     public int hashCode() {
-        return (primaryReplicaSuccess ? 1 : 0);
+        int result = (primaryReplicaMatch ? 1 : 0);
+        result = 31 * result + (currentLeaseStartTime != null ? currentLeaseStartTime.hashCode() : 0);
+        return result;
     }
 }
