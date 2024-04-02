@@ -124,15 +124,6 @@ public class ClientTable implements Table {
         return ch;
     }
 
-    /**
-     * Gets the marshallers provider.
-     *
-     * @return Marshallers provider.
-     */
-    MarshallersProvider marshallers() {
-        return marshallers;
-    }
-
     /** {@inheritDoc} */
     @Override
     public String name() {
@@ -579,7 +570,8 @@ public class ClientTable implements Table {
                 return partitionAssignment.partitionsFut;
             }
 
-            partitionAssignment = new PartitionAssignment();
+            PartitionAssignment newAssignment = new PartitionAssignment();
+            partitionAssignment = newAssignment;
             partitionAssignment.timestamp = timestamp;
             partitionAssignment.partitionsFut = ch.serviceAsync(ClientOp.PARTITION_ASSIGNMENT_GET,
                     w -> {
@@ -588,15 +580,18 @@ public class ClientTable implements Table {
                     },
                     r -> {
                         int cnt = r.in().unpackInt();
-                        if (cnt == 0) {
-                            return List.of();
-                        }
+                        assert cnt >= 0 : "Invalid partition count: " + cnt;
 
                         // Returned timestamp can be newer than requested.
                         long ts = r.in().unpackLong();
+                        if (ts == 0) {
+                            // Special case: assignment is not yet available.
+                            return new ArrayList<>(cnt);
+                        }
+
                         assert ts >= timestamp : "Returned timestamp is older than requested: " + ts + " < " + timestamp;
 
-                        partitionAssignment.timestamp = ts;
+                        newAssignment.timestamp = ts;
 
                         List<String> res = new ArrayList<>(cnt);
                         for (int i = 0; i < cnt; i++) {
