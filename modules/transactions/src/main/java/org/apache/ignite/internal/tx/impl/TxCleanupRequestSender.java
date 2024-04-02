@@ -81,10 +81,10 @@ public class TxCleanupRequestSender {
     public void start() {
         txMessageSender.messagingService().addMessageHandler(TxMessageGroup.class, (msg, sender, correlationId) -> {
             if (msg instanceof TxCleanupMessageResponse && correlationId == null) {
-                Object result = ((TxCleanupMessageResponse) msg).result();
+                CleanupReplicatedInfo result = ((TxCleanupMessageResponse) msg).result();
 
-                if (result instanceof CleanupReplicatedInfo) {
-                    onCleanupReplicated((CleanupReplicatedInfo) result);
+                if (result != null) {
+                    onCleanupReplicated(result);
                 }
             }
         });

@@ -30,5 +30,5 @@ public interface TxCleanupMessageResponse extends TimestampAware {
 
     @Nullable
     @Marshallable
-    Object result();
+    CleanupReplicatedInfo result();
 }

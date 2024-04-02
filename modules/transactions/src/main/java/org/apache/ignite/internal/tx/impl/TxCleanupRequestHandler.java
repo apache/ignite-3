@@ -170,7 +170,7 @@ public class TxCleanupRequestHandler {
                 .build();
     }
 
-    private NetworkMessage prepareResponse(Object result) {
+    private NetworkMessage prepareResponse(CleanupReplicatedInfo result) {
         return FACTORY
                 .txCleanupMessageResponse()
                 .result(result)
@@ -214,9 +214,10 @@ public class TxCleanupRequestHandler {
 
         Object result = response.result();
 
-        if (result instanceof WriteIntentSwitchReplicatedInfo) {
-            writeIntentSwitchReplicated((WriteIntentSwitchReplicatedInfo) result);
-        }
+        assert (result instanceof WriteIntentSwitchReplicatedInfo) :
+                "Unexpected type of cleanup replication response: [result=" + result + "].";
+
+        writeIntentSwitchReplicated((WriteIntentSwitchReplicatedInfo) result);
     }
 
     /**

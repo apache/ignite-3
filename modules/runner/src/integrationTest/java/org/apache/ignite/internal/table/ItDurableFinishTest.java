@@ -50,6 +50,7 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeException;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxStateMeta;
+import org.apache.ignite.internal.tx.message.CleanupReplicatedInfo;
 import org.apache.ignite.internal.tx.message.TxCleanupMessage;
 import org.apache.ignite.internal.tx.message.TxCleanupMessageErrorResponse;
 import org.apache.ignite.internal.tx.message.TxCleanupMessageResponse;
@@ -324,7 +325,6 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
     void testCleanupReplicatedMessage() throws ExecutionException, InterruptedException {
         Context context = prepareTransactionData();
 
-
         DefaultMessagingService primaryMessaging = messaging(context.primaryNode);
 
         CompletableFuture<Void> cleanupReplicatedFuture = new CompletableFuture<>();
@@ -343,7 +343,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
                     return false;
                 }
 
-                Object result = message.result();
+                CleanupReplicatedInfo result = message.result();
 
                 if (result != null) {
                     cleanupReplicatedFuture.complete(null);
@@ -354,10 +354,6 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
         });
 
         commitAndValidate(context.tx, context.tbl, context.keyTpl);
-
-        for (CompletableFuture<?> future : futures) {
-            assertThat(future, willCompleteSuccessfully());
-        }
 
         assertThat(cleanupReplicatedFuture, willCompleteSuccessfully());
 
