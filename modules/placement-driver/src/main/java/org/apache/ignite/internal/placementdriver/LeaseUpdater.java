@@ -358,7 +358,7 @@ public class LeaseUpdater {
                         publishLease(grpId, lease, renewedLeases);
 
                         continue;
-                    } else if (agreement.ready()) {
+                    } else if (agreement.isDeclined()) {
                         // Here we initiate negotiations for UNDEFINED_AGREEMENT and retry them on newly started active actor as well.
                         ClusterNode candidate = nextLeaseHolder(assignments, agreement.getRedirectTo());
 
@@ -368,8 +368,11 @@ public class LeaseUpdater {
                             continue;
                         }
 
-                        // New lease is granting.
-                        writeNewLease(grpId, lease, candidate, renewedLeases, toBeNegotiated);
+                        // New lease is granted.
+                        writeNewLease(grpId, candidate, renewedLeases);
+
+                        boolean force = Objects.equals(lease.getLeaseholder(), candidate.name());
+                        toBeNegotiated.put(grpId, force);
 
                         continue;
                     }
@@ -393,10 +396,13 @@ public class LeaseUpdater {
                     // so we must start a negotiation round from the beginning; the same we do for the groups that don't have
                     // leaseholders at all.
                     if (isLeaseOutdated(lease)) {
-                        // New lease is granting.
-                        writeNewLease(grpId, lease, candidate, renewedLeases, toBeNegotiated);
+                        // New lease is granted.
+                        writeNewLease(grpId, candidate, renewedLeases);
+
+                        boolean force = !lease.isProlongable() && lease.proposedCandidate() != null;
+                        toBeNegotiated.put(grpId, force);
                     } else if (lease.isProlongable() && candidate.id().equals(lease.getLeaseholderId())) {
-                        // Old lease is renewing.
+                        // Old lease is renewed.
                         prolongLease(grpId, lease, renewedLeases);
                     }
                 }
@@ -445,13 +451,14 @@ public class LeaseUpdater {
          * Writes a new lease.
          *
          * @param grpId Replication group id.
-         * @param lease Old lease to apply CAS in Meta storage.
          * @param candidate Lease candidate.
          * @param renewedLeases Leases to renew.
-         * @param toBeNegotiated Leases that are required to be negotiated.
          */
-        private void writeNewLease(ReplicationGroupId grpId, Lease lease, ClusterNode candidate,
-                Map<ReplicationGroupId, Lease> renewedLeases, Map<ReplicationGroupId, Boolean> toBeNegotiated) {
+        private void writeNewLease(
+                ReplicationGroupId grpId,
+                ClusterNode candidate,
+                Map<ReplicationGroupId, Lease> renewedLeases
+        ) {
             HybridTimestamp startTs = clockService.now();
 
             var expirationTs = new HybridTimestamp(startTs.getPhysical() + longLeaseInterval, 0);
@@ -459,8 +466,6 @@ public class LeaseUpdater {
             Lease renewedLease = new Lease(candidate.name(), candidate.id(), startTs, expirationTs, grpId);
 
             renewedLeases.put(grpId, renewedLease);
-
-            toBeNegotiated.put(grpId, !lease.isAccepted() && Objects.equals(lease.getLeaseholder(), candidate.name()));
 
             leaseUpdateStatistics.onLeaseCreate();
         }

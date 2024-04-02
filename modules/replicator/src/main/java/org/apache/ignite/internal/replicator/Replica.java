@@ -197,7 +197,17 @@ public class Replica {
                 // group leader are received.
 
                 return waitForActualState(msg.leaseExpirationTime().getPhysical())
-                        .thenCompose(v -> acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime()));
+                        .thenCompose(v -> {
+                            CompletableFuture<LeaseGrantedMessageResponse> respFut =
+                                    acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime());
+
+                            if (leader.equals(localNode)) {
+                                return respFut;
+                            } else {
+                                return raftClient.transferLeadership(new Peer(localNode.name()))
+                                        .thenCompose(ignored -> respFut);
+                            }
+                        });
             } else {
                 if (leader.equals(localNode)) {
                     return waitForActualState(msg.leaseExpirationTime().getPhysical())
