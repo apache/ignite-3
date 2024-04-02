@@ -959,7 +959,6 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
                                 ))
                         ))
                 ))
-
         ), disableRules);
     }
 
