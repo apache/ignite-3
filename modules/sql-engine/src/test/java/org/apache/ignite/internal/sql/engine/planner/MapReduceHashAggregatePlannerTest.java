@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine.planner;
 
 import static java.util.function.Predicate.not;
-import static org.apache.ignite.internal.sql.engine.trait.IgniteDistributions.single;
 
 import java.util.List;
 import java.util.Objects;
@@ -844,7 +843,7 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
                 .and(nodeOrAnyChild(isInstanceOf(IgniteReduceHashAggregate.class)
                         .and(hasAggregate())
                         .and(input(isInstanceOf(IgniteExchange.class)
-                                .and(hasDistribution(single()))
+                                .and(hasDistribution(IgniteDistributions.single()))
                                 .and(input(isInstanceOf(IgniteMapHashAggregate.class)
                                         .and(hasAggregate())
                                 ))
@@ -883,7 +882,7 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
                                                 // TODO: https://issues.apache.org/jira/browse/IGNITE-20095
                                                 // Why can't Map be pushed down to under 'exchange'.
                                                 .and(input(isInstanceOf(IgniteExchange.class)
-                                                        .and(hasDistribution(single()))
+                                                        .and(hasDistribution(IgniteDistributions.single()))
                                                 ))
                                         ))
                                 ))
