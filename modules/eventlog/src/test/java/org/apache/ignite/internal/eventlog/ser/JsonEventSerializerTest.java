@@ -23,15 +23,15 @@ import static uk.co.datumedge.hamcrest.json.SameJSONAs.sameJSONAs;
 import java.util.Map;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.eventlog.api.Event;
+import org.apache.ignite.internal.eventlog.api.IgniteEvents;
 import org.apache.ignite.internal.eventlog.event.EventUser;
-import org.apache.ignite.internal.eventlog.event.IgniteEvents;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 class JsonEventSerializerTest {
-    public static Stream<Arguments> events() {
+    private static Stream<Arguments> events() {
         return Stream.of(
                 Arguments.of(
                         IgniteEvents.CONNECTION_CLOSED.builder()

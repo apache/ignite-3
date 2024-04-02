@@ -15,19 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.eventlog.config.schema;
+package org.apache.ignite.internal.eventlog.api;
 
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.annotation.NamedConfigValue;
-
-/** Configuration schema for event log. */
-@ConfigurationRoot(rootName = "eventlog", type = ConfigurationType.DISTRIBUTED)
-public class EventLogConfigurationSchema {
-    /** The configuration schema for sinks. */
-    @NamedConfigValue
-    public SinkConfigurationSchema sinks;
-
-    @NamedConfigValue
-    public ChannelConfigurationSchema channels;
+/**
+ * Defines a subset of event types that can be created in the system. Note, the event type is a string that is unique within the system. The
+ * event type is used to filter the events in the event log.
+ */
+public enum IgniteEventType {
+    USER_AUTHENTICATED,
+    CONNECTION_CLOSED
 }

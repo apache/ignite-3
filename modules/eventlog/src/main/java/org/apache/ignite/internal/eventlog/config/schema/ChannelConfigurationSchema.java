@@ -17,17 +17,23 @@
 
 package org.apache.ignite.internal.eventlog.config.schema;
 
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
-import org.apache.ignite.configuration.annotation.NamedConfigValue;
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.InjectedName;
+import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.internal.eventlog.api.IgniteEventType;
 
-/** Configuration schema for event log. */
-@ConfigurationRoot(rootName = "eventlog", type = ConfigurationType.DISTRIBUTED)
-public class EventLogConfigurationSchema {
-    /** The configuration schema for sinks. */
-    @NamedConfigValue
-    public SinkConfigurationSchema sinks;
+/** Channel configuration schema. */
+@Config
+public class ChannelConfigurationSchema {
+    /** Channel name. This name is used to reference from sink configuration. */
+    @InjectedName
+    public String name;
 
-    @NamedConfigValue
-    public ChannelConfigurationSchema channels;
+    /** Channel enabled flag. */
+    @Value(hasDefault = true)
+    public boolean enabled = true;
+
+    /** Event types that this channel should handle. Should be the types from {@link IgniteEventType}. */
+    @Value(hasDefault = true)
+    public String[] events = {};
 }
