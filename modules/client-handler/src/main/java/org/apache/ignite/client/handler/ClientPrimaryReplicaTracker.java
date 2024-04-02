@@ -384,7 +384,7 @@ public class ClientPrimaryReplicaTracker {
 
         private final long timestamp;
 
-        public PrimaryReplicasResult(int partitions) {
+        PrimaryReplicasResult(int partitions) {
             this.partitions = partitions;
             this.nodeNames = null;
             this.timestamp = 0;
