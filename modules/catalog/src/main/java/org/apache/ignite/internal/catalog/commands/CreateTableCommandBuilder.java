@@ -32,14 +32,13 @@ public interface CreateTableCommandBuilder extends AbstractTableCommandBuilder<C
     CreateTableCommandBuilder columns(List<ColumnParams> columns);
 
     /**
-     * List of columns representing primary key. There must be at list one column. All columns must
-     * be presented in {@link #columns(List) list of columns}.
+     * Primary key. All columns of a primary key must be present in {@link #columns(List) list of columns}.
      */
-    CreateTableCommandBuilder primaryKeyColumns(List<String> primaryKeyColumns);
+    CreateTableCommandBuilder primaryKey(TablePrimaryKey primaryKey);
 
     /**
      * List of colocation columns. Must not be empty, but may be null. All columns, if any,
-     * must be presented in {@link #primaryKeyColumns(List) list of PK columns}.
+     * must be presented in {@link #primaryKey(TablePrimaryKey) primary key}.
      */
     CreateTableCommandBuilder colocationColumns(@Nullable List<String> colocationColumns);
 

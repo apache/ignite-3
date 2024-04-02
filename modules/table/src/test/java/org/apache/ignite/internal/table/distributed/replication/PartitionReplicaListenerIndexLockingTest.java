@@ -50,9 +50,11 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
@@ -127,6 +129,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
     private static final int SORTED_INDEX_ID = 3;
     private static final UUID TRANSACTION_ID = TestTransactionIds.newTransactionId();
     private static final HybridClock CLOCK = new HybridClockImpl();
+    private static final ClockService CLOCK_SERVICE = new TestClockService(CLOCK);
     private static final LockManager LOCK_MANAGER = new HeapLockManager();
     private static final TablePartitionId PARTITION_ID = new TablePartitionId(TABLE_ID, PART_ID);
     private static final TableMessagesFactory TABLE_MESSAGES_FACTORY = new TableMessagesFactory();
@@ -175,9 +178,9 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
         IndexLocker hashIndexLocker = new HashIndexLocker(HASH_INDEX_ID, false, LOCK_MANAGER, row2HashKeyConverter);
 
         BinaryTupleSchema rowSchema = BinaryTupleSchema.createRowSchema(schemaDescriptor);
-        BinaryTupleSchema valueSchema = BinaryTupleSchema.createValueSchema(schemaDescriptor);
+        BinaryTupleSchema keySchema = BinaryTupleSchema.createKeySchema(schemaDescriptor);
 
-        row2SortKeyConverter = new BinaryRowConverter(rowSchema, valueSchema);
+        row2SortKeyConverter = new BinaryRowConverter(rowSchema, keySchema);
 
         TableSchemaAwareIndexStorage sortedIndexStorage = new TableSchemaAwareIndexStorage(
                 SORTED_INDEX_ID,
@@ -241,7 +244,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                         sortedIndexLocker.id(), sortedIndexStorage,
                         hashIndexLocker.id(), hashIndexStorage
                 ),
-                CLOCK,
+                CLOCK_SERVICE,
                 safeTime,
                 new TestTxStateStorage(),
                 mock(TransactionStateResolver.class),

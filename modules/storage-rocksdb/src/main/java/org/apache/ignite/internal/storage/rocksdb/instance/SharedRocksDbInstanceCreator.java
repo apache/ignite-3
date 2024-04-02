@@ -27,9 +27,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.flush.RocksDbFlusher;
 import org.apache.ignite.internal.storage.StorageException;
@@ -39,6 +36,7 @@ import org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbDataRegion;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
+import org.apache.ignite.internal.storage.rocksdb.index.AbstractRocksDbIndexStorage;
 import org.apache.ignite.internal.storage.rocksdb.index.RocksDbHashIndexStorage;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -100,7 +98,7 @@ public class SharedRocksDbInstanceCreator {
             ColumnFamily partitionCf = null;
             ColumnFamily gcQueueCf = null;
             ColumnFamily hashIndexCf = null;
-            ConcurrentMap<ByteArray, ColumnFamily> sortedIndexCfs = new ConcurrentHashMap<>();
+            var sortedIndexCfs = new ArrayList<ColumnFamily>();
 
             // Read all existing Column Families from the db and parse them according to type: meta, partition data or index.
             for (ColumnFamilyHandle cfHandle : cfHandles) {
@@ -128,7 +126,7 @@ public class SharedRocksDbInstanceCreator {
                         break;
 
                     case SORTED_INDEX:
-                        sortedIndexCfs.put(new ByteArray(cf.handle().getName()), cf);
+                        sortedIndexCfs.add(cf);
 
                         break;
 
@@ -211,6 +209,7 @@ public class SharedRocksDbInstanceCreator {
         }
     }
 
+    @SuppressWarnings("resource")
     private static ColumnFamilyOptions defaultCfOptions() {
         return new ColumnFamilyOptions()
                 .setMemtablePrefixBloomSizeRatio(0.125)
@@ -221,7 +220,7 @@ public class SharedRocksDbInstanceCreator {
     static ColumnFamilyOptions sortedIndexCfOptions(byte[] cfName) {
         return new ColumnFamilyOptions()
                 .setComparator(ColumnFamilyUtils.comparatorFromCfName(cfName))
-                .useFixedLengthPrefixExtractor(7);
+                .useCappedPrefixExtractor(AbstractRocksDbIndexStorage.PREFIX_WITH_IDS_LENGTH);
     }
 
     private <T extends AutoCloseable> T add(T value) {

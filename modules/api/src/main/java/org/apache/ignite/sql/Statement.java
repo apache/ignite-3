@@ -17,8 +17,8 @@
 
 package org.apache.ignite.sql;
 
+import java.time.ZoneId;
 import java.util.concurrent.TimeUnit;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Object represents an SQL statement.
@@ -60,12 +60,11 @@ public interface Statement extends AutoCloseable {
     int pageSize();
 
     /**
-     * Returns statement property value that overrides the session property value or {@code null} if session property value should be used.
+     * Returns time zone used for this statement.
      *
-     * @param name Property name.
-     * @return Property value or {@code null} if not set.
+     * @return Time zone used for this statement.
      */
-    @Nullable Object property(String name);
+    ZoneId timeZoneId();
 
     /**
      * Creates a statement builder from the current statement.
@@ -141,24 +140,16 @@ public interface Statement extends AutoCloseable {
          */
         StatementBuilder pageSize(int pageSize);
 
-        /**
-         * Returns a statement property value that overrides the session property value; returns {@code null} if the session
-         * property value should be used.
-         *
-         * @param name Property name.
-         * @return Property value or {@code null} if not set.
-         */
-        @Nullable Object property(String name);
+        /** Returns a statement time zone. */
+        ZoneId timeZoneId();
 
         /**
-         * Sets a statement property value that overrides the session property value.
-         * If {@code null} is passed, the session property value is used.
+         * Sets a time zone for this statement.
          *
-         * @param name Property name.
-         * @param value Property value or {@code null} to use the value defined for the session.
+         * @param timeZoneId Time zone ID.
          * @return {@code this} for chaining.
          */
-        StatementBuilder property(String name, @Nullable Object value);
+        StatementBuilder timeZoneId(ZoneId timeZoneId);
 
         /**
          * Creates an SQL statement abject.

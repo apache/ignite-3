@@ -267,6 +267,18 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
+    public void executesColocatedWithNonConsecutiveKeyColumnOrder() {
+        sql("DROP TABLE IF EXISTS test");
+        sql("CREATE TABLE test (k int, key_int int, v int, key_str VARCHAR, CONSTRAINT PK PRIMARY KEY (key_int, key_str))");
+        sql("INSERT INTO test VALUES (1, 2, 3, '4')");
+
+        IgniteImpl entryNode = node(0);
+        String actualNodeName = entryNode.compute()
+                .executeColocated("test", Tuple.create(Map.of("key_int", 2, "key_str", "4")), units(), getNodeNameJobClassName());
+        assertThat(actualNodeName, in(allNodeNames()));
+    }
+
+    @Test
     void executeColocatedThrowsTableNotFoundExceptionWhenTableDoesNotExist() {
         IgniteImpl entryNode = node(0);
 
@@ -278,7 +290,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         assertThat(ex.getCause().getMessage(), containsString("The table does not exist [name=\"PUBLIC\".\"bad-table\"]"));
     }
 
-    private static void createTestTableWithOneRow() {
+    static void createTestTableWithOneRow() {
         sql("DROP TABLE IF EXISTS test");
         sql("CREATE TABLE test (k int, v int, CONSTRAINT PK PRIMARY KEY (k))");
         sql("INSERT INTO test(k, v) VALUES (1, 101)");

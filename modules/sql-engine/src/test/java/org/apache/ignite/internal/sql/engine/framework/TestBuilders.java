@@ -37,14 +37,15 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.calcite.util.ImmutableIntList;
-import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
@@ -57,12 +58,22 @@ import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
 import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
+import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
+import org.apache.ignite.internal.catalog.commands.TablePrimaryKey;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
+import org.apache.ignite.internal.catalog.events.CatalogEvent;
+import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
+import org.apache.ignite.internal.catalog.events.MakeIndexAvailableEventParameters;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.event.EventListener;
+import org.apache.ignite.internal.hlc.ClockWaiter;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.TestClockService;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTable;
@@ -129,6 +140,8 @@ import org.jetbrains.annotations.Nullable;
  */
 public class TestBuilders {
     private static final AtomicInteger TABLE_ID_GEN = new AtomicInteger();
+
+    private static final IgniteLogger LOG = Loggers.forClass(TestBuilders.class);
 
     /** Returns a builder of the test cluster object. */
     public static ClusterBuilder cluster() {
@@ -301,6 +314,17 @@ public class TestBuilders {
          * @return {@code this} for chaining.
          */
         ClusterBuilder nodes(String firstNodeName, String... otherNodeNames);
+
+        /**
+         * Sets desired names for the cluster nodes.
+         *
+         * @param firstNodeName A name of the first node. There is no difference in what node should be first. This parameter was
+         *         introduced to force user to provide at least one node name.
+         * @param useTablePartitions If {@code true} map table partitions to whole defined nodes.
+         * @param otherNodeNames An array of rest of the names to create cluster from.
+         * @return {@code this} for chaining.
+         */
+        public ClusterBuilder nodes(String firstNodeName, boolean useTablePartitions, String... otherNodeNames);
 
         /**
          * Creates a table builder to add to the cluster.
@@ -529,6 +553,7 @@ public class TestBuilders {
     private static class ClusterBuilderImpl implements ClusterBuilder {
         private final List<ClusterTableBuilderImpl> tableBuilders = new ArrayList<>();
         private List<String> nodeNames;
+        private boolean useTablePartitions;
         private final Map<String, Map<String, ScannableTable>> nodeName2tableName2table = new HashMap<>();
         private final List<SystemView<?>> systemViews = new ArrayList<>();
         private final Map<String, Set<String>> nodeName2SystemView = new HashMap<>();
@@ -537,6 +562,18 @@ public class TestBuilders {
         @Override
         public ClusterBuilder nodes(String firstNodeName, String... otherNodeNames) {
             this.nodeNames = new ArrayList<>();
+
+            nodeNames.add(firstNodeName);
+            nodeNames.addAll(Arrays.asList(otherNodeNames));
+
+            return this;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public ClusterBuilder nodes(String firstNodeName, boolean useTablePartitions, String... otherNodeNames) {
+            this.nodeNames = new ArrayList<>();
+            this.useTablePartitions = useTablePartitions;
 
             nodeNames.add(firstNodeName);
             nodeNames.addAll(Arrays.asList(otherNodeNames));
@@ -579,7 +616,8 @@ public class TestBuilders {
 
             var clusterName = "test_cluster";
 
-            CatalogManager catalogManager = CatalogTestUtils.createCatalogManagerWithTestUpdateLog(clusterName, new HybridClockImpl());
+            HybridClock clock = new HybridClockImpl();
+            CatalogManager catalogManager = CatalogTestUtils.createCatalogManagerWithTestUpdateLog(clusterName, clock);
 
             var parserService = new ParserServiceImpl(0, EmptyCacheFactory.INSTANCE);
             var prepareService = new PrepareServiceImpl(clusterName, 0, CaffeineCacheFactory.INSTANCE,
@@ -602,10 +640,15 @@ public class TestBuilders {
                 }
             }
 
-            Runnable initClosure = () -> initAction(catalogManager);
-
-            var ddlHandler = new DdlCommandHandler(catalogManager);
+            ClockWaiter clockWaiter = new ClockWaiter("test", clock);
+            var ddlHandler = new DdlCommandHandler(catalogManager, new TestClockService(clock, clockWaiter), () -> 100);
             var schemaManager = new SqlSchemaManagerImpl(catalogManager, CaffeineCacheFactory.INSTANCE, 0);
+
+            Runnable initClosure = () -> {
+                clockWaiter.start();
+
+                initAction(catalogManager);
+            };
 
             List<LogicalNode> logicalNodes = nodeNames.stream()
                     .map(name -> {
@@ -631,7 +674,7 @@ public class TestBuilders {
                         var targetProvider = new TestNodeExecutionTargetProvider(
                                 systemViewManager::owningNodes,
                                 owningNodesByTableName,
-                                false
+                                useTablePartitions
                         );
                         var partitionPruner = new PartitionPrunerImpl();
                         var mappingService = new MappingServiceImpl(
@@ -667,6 +710,7 @@ public class TestBuilders {
                     nodes,
                     catalogManager,
                     prepareService,
+                    clockWaiter,
                     initClosure
             );
         }
@@ -699,35 +743,56 @@ public class TestBuilders {
                     .flatMap(builder -> builder.build().stream())
                     .collect(Collectors.toList());
 
-            // Init schema
-            await(catalogManager.execute(initialSchema));
+            CompletableFuture<Boolean> indicesReadyFut = new CompletableFuture<>();
+            CopyOnWriteArraySet<Integer> initialIndices = new CopyOnWriteArraySet<>();
 
-            // Make indexes available
-            List<CatalogCommand> makeIndexesAvailable = new ArrayList<>();
+            // Make indices registered via builder API available on startup.
+            if (!tableBuilders.isEmpty()) {
+                Consumer<MakeIndexAvailableEventParameters> indexAvailableHandler = params -> {
+                    initialIndices.remove(params.indexId());
 
-            Catalog catalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
+                    if (initialIndices.isEmpty()) {
+                        indicesReadyFut.complete(true);
+                    }
+                };
 
-            for (ClusterTableBuilderImpl tableBuilder : tableBuilders) {
-                String schemaName = tableBuilder.schemaName;
-                CatalogSchemaDescriptor schema = catalog.schema(schemaName);
-                assert schema != null : "SchemaDescriptor does not exist: " + schemaName;
+                EventListener<MakeIndexAvailableEventParameters> listener = EventListener.fromConsumer(indexAvailableHandler);
+                catalogManager.listen(CatalogEvent.INDEX_AVAILABLE, listener);
 
-                for (AbstractClusterTableIndexBuilderImpl<?> indexBuilder : tableBuilder.indexBuilders) {
-                    String indexName = indexBuilder.name;
-                    CatalogIndexDescriptor index = Arrays.stream(schema.indexes())
-                            .filter(idx -> idx.name().equals(indexName))
-                            .findAny()
-                            .orElseThrow(() -> new AssertionError("IndexDescriptor does not exist: " + indexName));
-
-                    CatalogCommand startBuildIndexCommand = StartBuildingIndexCommand.builder().indexId(index.id()).build();
-                    CatalogCommand makeIndexAvailableCommand = MakeIndexAvailableCommand.builder().indexId(index.id()).build();
-
-                    makeIndexesAvailable.add(startBuildIndexCommand);
-                    makeIndexesAvailable.add(makeIndexAvailableCommand);
-                }
+                // Remove listener, when all indices become available.
+                indicesReadyFut.whenComplete((r, t) -> {
+                    catalogManager.removeListener(CatalogEvent.INDEX_AVAILABLE, listener);
+                });
+            } else {
+                indicesReadyFut.complete(true);
             }
 
-            await(catalogManager.execute(makeIndexesAvailable));
+            // Every time an index is created add `start building `and `make available` commands
+            // to make that index accessible to the SQL engine.
+            Consumer<CreateIndexEventParameters> createIndexHandler = (params) -> {
+                CatalogIndexDescriptor index = params.indexDescriptor();
+                int indexId = index.id();
+
+                CatalogCommand startBuildIndexCommand = StartBuildingIndexCommand.builder().indexId(indexId).build();
+                CatalogCommand makeIndexAvailableCommand = MakeIndexAvailableCommand.builder().indexId(indexId).build();
+
+                // Collect initial indexes only if catalog init future has not completed.
+                if (!indicesReadyFut.isDone()) {
+                    initialIndices.add(indexId);
+                }
+
+                LOG.info("Index has been created. Sending commands to make index available. id: {}, name: {}, status: {}",
+                        indexId, index.name(), index.status());
+
+                catalogManager.execute(List.of(startBuildIndexCommand, makeIndexAvailableCommand));
+            };
+            catalogManager.listen(CatalogEvent.INDEX_CREATE, EventListener.fromConsumer(createIndexHandler));
+
+            // Init schema.
+            await(catalogManager.execute(initialSchema));
+
+            // Wait until all indices become available.
+            await(indicesReadyFut);
         }
     }
 
@@ -961,12 +1026,19 @@ public class TestBuilders {
         private List<CatalogCommand> build() {
             List<CatalogCommand> commands = new ArrayList<>(1 + indexBuilders.size());
 
+            // TODO https://issues.apache.org/jira/browse/IGNITE-21715 Update after TestFramework provides API
+            //  to specify type of a primary key index.
+            // Use sorted index by default.
+            TablePrimaryKey primaryKey = TableHashPrimaryKey.builder()
+                    .columns(keyColumns)
+                    .build();
+
             commands.add(
                     CreateTableCommand.builder()
                             .schemaName(schemaName)
                             .tableName(name)
                             .columns(columns)
-                            .primaryKeyColumns(keyColumns)
+                            .primaryKey(primaryKey)
                             .build()
             );
 
@@ -1308,7 +1380,7 @@ public class TestBuilders {
 
                 @Override
                 public Supplier<PartitionCalculator> partitionCalculator() {
-                    throw new UnsupportedOperationException();
+                    return table.partitionCalculator();
                 }
             });
         }

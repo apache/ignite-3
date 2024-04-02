@@ -1770,6 +1770,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21457")
     public void testSetPeer2() throws Exception {
         List<TestPeer> peers = TestUtils.generatePeers(testInfo, 3);
 
@@ -2524,7 +2525,6 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21391")
     public void testAppendEntriesWhenFollowerIsInErrorState() throws Exception {
         // start five nodes
         List<TestPeer> peers = TestUtils.generatePeers(testInfo, 5);
@@ -2573,6 +2573,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21792")
     public void testFollowerStartStopFollowing() throws Exception {
         // start five nodes
         List<TestPeer> peers = TestUtils.generatePeers(testInfo, 5);
@@ -3831,6 +3832,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
      */
     private RaftGroupService createService(String groupId, TestPeer peer, NodeOptions nodeOptions, Collection<TestPeer> peers) {
         nodeOptions.setStripes(1);
+        nodeOptions.setLogStripesCount(1);
 
         List<NetworkAddress> addressList = peers.stream()
             .map(p -> new NetworkAddress(TestUtils.getLocalAddress(), p.getPort()))

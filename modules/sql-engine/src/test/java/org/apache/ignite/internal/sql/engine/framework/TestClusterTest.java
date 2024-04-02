@@ -19,6 +19,8 @@ package org.apache.ignite.internal.sql.engine.framework;
 
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.convertSqlRows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -269,7 +271,7 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
 
         initiatorClock.update(initiatorClock.now().addPhysicalTime(ChronoUnit.YEARS.getDuration().toMillis()));
 
-        assertTrue(initiatorClock.now().after(otherNodeClock.now()));
+        assertTrue(initiator.clockService().after(initiatorClock.now(), otherNodeClock.now()));
 
         QueryPlan plan = initiator.prepare("SELECT * FROM t1");
 
@@ -288,13 +290,14 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
         cluster.start();
 
         TestNode initiator = cluster.node("N1");
+        TestNode otherNode = cluster.node("N2");
 
         HybridClock initiatorClock = initiator.clock();
-        HybridClock otherNodeClock = cluster.node("N2").clock();
+        HybridClock otherNodeClock = otherNode.clock();
 
         otherNodeClock.update(otherNodeClock.now().addPhysicalTime(ChronoUnit.YEARS.getDuration().toMillis()));
 
-        assertTrue(otherNodeClock.now().after(initiatorClock.now()));
+        assertTrue(otherNode.clockService().after(otherNodeClock.now(), initiatorClock.now()));
 
         QueryPlan plan = initiator.prepare("SELECT * FROM t1");
 
@@ -326,5 +329,17 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
         List<List<Object>> rows = convertSqlRows(results.items());
 
         assertEquals(List.of(List.of(42L, "mango", "N2", 42)), rows);
+    }
+
+    @Test
+    public void testNodeInitSchema() {
+        cluster.start();
+
+        TestNode gatewayNode = cluster.node("N1");
+
+        gatewayNode.initSchema("CREATE INDEX T1_NEW_HASH_VAK_IDX ON T1 USING HASH (VAL)");
+
+        MultiStepPlan plan = (MultiStepPlan) gatewayNode.prepare("SELECT * FROM t1 WHERE val = ?");
+        assertThat(plan.explain(), containsString("index=[T1_NEW_HASH_VAK_IDX], type=[HASH]"));
     }
 }

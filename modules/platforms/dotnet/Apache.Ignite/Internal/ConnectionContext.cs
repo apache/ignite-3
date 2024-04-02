@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal
 {
     using System;
     using Ignite.Network;
+    using Network;
 
     /// <summary>
     /// Socket connection context.
@@ -31,7 +32,7 @@ namespace Apache.Ignite.Internal
     internal record ConnectionContext(
         ClientProtocolVersion Version,
         TimeSpan IdleTimeout,
-        IClusterNode ClusterNode,
+        ClusterNode ClusterNode,
         Guid ClusterId,
         ISslInfo? SslInfo);
 }

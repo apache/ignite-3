@@ -345,7 +345,7 @@ class BuiltInMarshalling {
             MarshallingContext context,
             List<T> list
     ) throws IOException, MarshalException {
-        // noinspection ForLoopReplaceableByForEach
+        //noinspection ForLoopReplaceableByForEach
         for (int i = 0; i < list.size(); i++) {
             valueWriter.write(list.get(i), output, context);
         }
@@ -365,7 +365,7 @@ class BuiltInMarshalling {
     }
 
     static <T, C extends Collection<T>> C preInstantiateCollection(DataInput input, IntFunction<C> collectionFactory) throws IOException {
-        int length = ProtocolMarshalling.readLength(input);
+        int length = readLength(input);
         return collectionFactory.apply(length);
     }
 
@@ -414,7 +414,7 @@ class BuiltInMarshalling {
     }
 
     static <K, V, M extends Map<K, V>> M preInstantiateMap(DataInput input, IntFunction<M> mapFactory) throws IOException {
-        int length = ProtocolMarshalling.readLength(input);
+        int length = readLength(input);
         return mapFactory.apply(length);
     }
 

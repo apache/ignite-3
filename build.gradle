@@ -21,7 +21,6 @@ plugins {
     id('idea')
     alias(libs.plugins.ideaext)
     alias(libs.plugins.javacc) apply false
-    alias(libs.plugins.modernizer) apply false
     alias(libs.plugins.aggregateJavadoc)
     alias(libs.plugins.spotbugs) apply false
 }

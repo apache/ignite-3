@@ -21,6 +21,9 @@ import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.alterZone;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
@@ -58,7 +61,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -80,11 +82,12 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.app.ThreadPoolsManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
-import org.apache.ignite.internal.catalog.ClockWaiter;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
+import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
+import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationConfiguration;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.MakeIndexAvailableEventParameters;
@@ -112,6 +115,9 @@ import org.apache.ignite.internal.configuration.validation.ConfigurationValidato
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.hlc.ClockServiceImpl;
+import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -149,6 +155,7 @@ import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
@@ -162,7 +169,7 @@ import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.TableViewInternal;
-import org.apache.ignite.internal.table.distributed.LowWatermark;
+import org.apache.ignite.internal.table.distributed.LowWatermarkImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
@@ -176,8 +183,9 @@ import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
-import org.apache.ignite.internal.tx.impl.ResourceCleanupManager;
+import org.apache.ignite.internal.tx.impl.ResourceVacuumManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
+import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxMessageGroup;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
@@ -188,8 +196,8 @@ import org.apache.ignite.internal.worker.configuration.CriticalWorkersConfigurat
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -248,15 +256,18 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     @InjectConfiguration
     private CriticalWorkersConfiguration workersConfiguration;
 
+    @InjectConfiguration
+    private ReplicationConfiguration replicationConfiguration;
+
     /**
      * Interceptor of {@link MetaStorageManager#invoke(Condition, Collection, Collection)}.
      */
-    private Map<Integer, InvokeInterceptor> metaStorageInvokeInterceptorByNode = new ConcurrentHashMap<>();
+    private final Map<Integer, InvokeInterceptor> metaStorageInvokeInterceptorByNode = new ConcurrentHashMap<>();
 
     /**
      * Mocks the data nodes returned by {@link DistributionZoneManager#dataNodes(long, int, int)} method on different nodes.
      */
-    private Map<Integer, Supplier<CompletableFuture<Set<String>>>> dataNodesMockByNode = new ConcurrentHashMap<>();
+    private final Map<Integer, Supplier<CompletableFuture<Set<String>>>> dataNodesMockByNode = new ConcurrentHashMap<>();
 
     @BeforeEach
     public void beforeTest() {
@@ -339,7 +350,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var raftMgr = new Loza(clusterSvc, raftConfiguration, dir, hybridClock, raftGroupEventsClientListener);
 
-        var clusterStateStorage = new RocksDbClusterStateStorage(dir.resolve("cmg"));
+        var clusterStateStorage = new RocksDbClusterStateStorage(dir.resolve("cmg"), name);
 
         var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
 
@@ -372,7 +383,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         var replicaService = new ReplicaService(
                 messagingServiceReturningToStorageOperationsPool,
                 hybridClock,
-                threadPoolsManager.partitionOperationsExecutor()
+                threadPoolsManager.partitionOperationsExecutor(),
+                replicationConfiguration
         );
 
         var lockManager = new HeapLockManager();
@@ -429,6 +441,19 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 ConfigurationValidatorImpl.withDefaultValidators(distributedConfigurationGenerator, modules.distributed().validators())
         );
 
+        ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
+
+        var clockWaiter = new ClockWaiter(name, hybridClock);
+
+        SchemaSynchronizationConfiguration schemaSyncConfiguration = clusterConfigRegistry.getConfiguration(
+                SchemaSynchronizationConfiguration.KEY
+        );
+        ClockService clockService = new ClockServiceImpl(
+                hybridClock,
+                clockWaiter,
+                () -> schemaSyncConfiguration.maxClockSkew().value()
+        );
+
         var placementDriverManager = new PlacementDriverManager(
                 name,
                 metaStorageMgr,
@@ -438,14 +463,14 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 logicalTopologyService,
                 raftMgr,
                 topologyAwareRaftGroupServiceFactory,
-                hybridClock
+                clockService
         );
 
         ReplicaManager replicaMgr = new ReplicaManager(
                 name,
                 clusterSvc,
                 cmgManager,
-                hybridClock,
+                clockService,
                 Set.of(TableMessageGroup.class, TxMessageGroup.class),
                 placementDriverManager.placementDriver(),
                 threadPoolsManager.partitionOperationsExecutor(),
@@ -454,12 +479,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var resourcesRegistry = new RemotelyTriggeredResourceRegistry();
 
-        ResourceCleanupManager resourceCleanupManager = new ResourceCleanupManager(
-                name,
-                resourcesRegistry,
-                clusterSvc.topologyService(),
-                clusterSvc.messagingService()
-        );
+        TransactionInflights transactionInflights = new TransactionInflights(placementDriverManager.placementDriver());
 
         var txManager = new TxManagerImpl(
                 name,
@@ -468,17 +488,24 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 clusterSvc.topologyService(),
                 replicaService,
                 lockManager,
-                hybridClock,
+                clockService,
                 new TransactionIdGenerator(idx),
                 placementDriverManager.placementDriver(),
                 partitionIdleSafeTimePropagationPeriodMsSupplier,
                 new TestLocalRwTxCounter(),
                 threadPoolsManager.partitionOperationsExecutor(),
                 resourcesRegistry,
-                resourceCleanupManager
+                transactionInflights
         );
 
-        ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
+        ResourceVacuumManager resourceVacuumManager = new ResourceVacuumManager(
+                name,
+                resourcesRegistry,
+                clusterSvc.topologyService(),
+                clusterSvc.messagingService(),
+                transactionInflights,
+                txManager
+        );
 
         Consumer<LongFunction<CompletableFuture<?>>> registry = (c) -> metaStorageMgr.registerRevisionUpdateListener(c::apply);
 
@@ -497,15 +524,13 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         );
 
         GcConfiguration gcConfig = clusterConfigRegistry.getConfiguration(GcConfiguration.KEY);
-
-        var clockWaiter = new ClockWaiter(name, hybridClock);
+        TransactionConfiguration txConfiguration = clusterConfigRegistry.getConfiguration(TransactionConfiguration.KEY);
 
         LongSupplier delayDurationMsSupplier = () -> TestIgnitionManager.DEFAULT_DELAY_DURATION_MS;
 
         var catalogManager = new CatalogManagerImpl(
                 new UpdateLogImpl(metaStorageMgr),
-                clockWaiter,
-                hybridClock,
+                clockService,
                 delayDurationMsSupplier,
                 partitionIdleSafeTimePropagationPeriodMsSupplier
         );
@@ -539,12 +564,21 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         var sqlRef = new AtomicReference<IgniteSqlImpl>();
 
-        LowWatermark lowWatermark = new LowWatermark(name, gcConfig.lowWatermark(), hybridClock, txManager, vault, failureProcessor);
+        var lowWatermark = new LowWatermarkImpl(
+                name,
+                gcConfig.lowWatermark(),
+                clockService,
+                txManager,
+                vault,
+                failureProcessor,
+                clusterSvc.messagingService()
+        );
 
         TableManager tableManager = new TableManager(
                 name,
                 registry,
                 gcConfig,
+                txConfiguration,
                 storageUpdateConfiguration,
                 messagingServiceReturningToStorageOperationsPool,
                 clusterSvc.topologyService(),
@@ -562,6 +596,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 threadPoolsManager.tableIoExecutor(),
                 threadPoolsManager.partitionOperationsExecutor(),
                 hybridClock,
+                clockService,
                 new OutgoingSnapshotsManager(clusterSvc.messagingService()),
                 topologyAwareRaftGroupServiceFactory,
                 distributionZoneManager,
@@ -573,7 +608,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 resourcesRegistry,
                 rebalanceScheduler,
                 lowWatermark,
-                ForkJoinPool.commonPool()
+                transactionInflights
         );
 
         var indexManager = new IndexManager(
@@ -581,7 +616,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 tableManager,
                 catalogManager,
                 threadPoolsManager.tableIoExecutor(),
-                registry
+                registry,
+                lowWatermark
         );
 
         var metricManager = new MetricManager();
@@ -595,18 +631,20 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 dataStorageManager,
                 () -> dataStorageModules.collectSchemasFields(modules.local().polymorphicSchemaExtensions()),
                 replicaService,
-                hybridClock,
+                clockService,
                 schemaSyncService,
                 catalogManager,
                 metricManager,
                 new SystemViewManagerImpl(name, catalogManager),
                 failureProcessor,
+                partitionIdleSafeTimePropagationPeriodMsSupplier,
                 placementDriverManager.placementDriver(),
                 clusterConfigRegistry.getConfiguration(SqlDistributedConfiguration.KEY),
-                nodeCfgMgr.configurationRegistry().getConfiguration(SqlLocalConfiguration.KEY)
+                nodeCfgMgr.configurationRegistry().getConfiguration(SqlLocalConfiguration.KEY),
+                transactionInflights
         );
 
-        sqlRef.set(new IgniteSqlImpl(name, qryEngine, new IgniteTransactionsImpl(txManager, new HybridTimestampTracker())));
+        sqlRef.set(new IgniteSqlImpl(qryEngine, new IgniteTransactionsImpl(txManager, new HybridTimestampTracker())));
 
         // Preparing the result map.
 
@@ -633,6 +671,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 cmgManager,
                 replicaMgr,
                 txManager,
+                resourceVacuumManager,
                 lowWatermark,
                 metaStorageMgr,
                 clusterCfgMgr,
@@ -766,41 +805,42 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         int intRes;
 
-        try (Session session1 = ignite1.sql().createSession(); Session session2 = ignite2.sql().createSession()) {
-            createTableWithData(List.of(ignite1), TABLE_NAME, 2, 1);
+        IgniteSql sql1 = ignite1.sql();
+        IgniteSql sql2 = ignite2.sql();
 
-            session1.execute(null, "CREATE INDEX idx1 ON " + TABLE_NAME + "(id)");
+        createTableWithData(List.of(ignite1), TABLE_NAME, 2, 1);
 
-            waitForIndexToBecomeAvailable(List.of(ignite1, ignite2), "idx1");
+        sql1.execute(null, "CREATE INDEX idx1 ON " + TABLE_NAME + "(id)");
 
-            ResultSet<SqlRow> plan = session1.execute(null, "EXPLAIN PLAN FOR " + sql);
+        waitForIndexToBecomeAvailable(List.of(ignite1, ignite2), "idx1");
 
-            String planStr = plan.next().stringValue(0);
+        ResultSet<SqlRow> plan = sql1.execute(null, "EXPLAIN PLAN FOR " + sql);
 
-            assertTrue(planStr.contains("IndexScan"));
+        String planStr = plan.next().stringValue(0);
 
-            ResultSet<SqlRow> res1 = session1.execute(null, sql);
+        assertTrue(planStr.contains("IndexScan"));
 
-            ResultSet<SqlRow> res2 = session2.execute(null, sql);
+        ResultSet<SqlRow> res1 = sql1.execute(null, sql);
 
-            intRes = res1.next().intValue(0);
+        ResultSet<SqlRow> res2 = sql2.execute(null, sql);
 
-            assertEquals(intRes, res2.next().intValue(0));
+        intRes = res1.next().intValue(0);
 
-            res1.close();
+        assertEquals(intRes, res2.next().intValue(0));
 
-            res2.close();
-        }
+        res1.close();
+
+        res2.close();
 
         stopNode(0);
 
         ignite1 = startNode(0);
 
-        try (Session session1 = ignite1.sql().createSession()) {
-            ResultSet<SqlRow> res3 = session1.execute(null, sql);
+        sql1 = ignite1.sql();
 
-            assertEquals(intRes, res3.next().intValue(0));
-        }
+        ResultSet<SqlRow> res3 = sql1.execute(null, sql);
+
+        assertEquals(intRes, res3.next().intValue(0));
     }
 
     /**
@@ -949,6 +989,27 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         }
     }
 
+    /**
+     * Checks that logical topology version is maintained after nodes restart.
+     */
+    @Test
+    public void logicalTopologyVersionMaintainedTest() {
+        IgniteImpl main = startNodes(3).get(0);
+
+        stopNode(1);
+        IgniteImpl restarted = startNode(1);
+
+        stopNode(2);
+        IgniteImpl secondRestarted = startNode(2);
+
+        long mainVersion = main.logicalTopologyService().localLogicalTopology().version();
+        long restartedVersion = restarted.logicalTopologyService().localLogicalTopology().version();
+        long secondRestartedVersion = secondRestarted.logicalTopologyService().localLogicalTopology().version();
+
+        assertEquals(mainVersion, restartedVersion);
+        assertEquals(mainVersion, secondRestartedVersion);
+    }
+
     private static void forceSnapshotUsageOnRestart(IgniteImpl main) throws InterruptedException {
         // Force log truncation, so that restarting node would request a snapshot.
         JraftServerImpl server = (JraftServerImpl) main.raftManager().server();
@@ -987,7 +1048,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         createTableWithData(List.of(ignite), TABLE_NAME, 1, partitions);
 
-        TableViewInternal table = (TableViewInternal) ignite.tables().table(TABLE_NAME);
+        TableViewInternal table = unwrapTableViewInternal(ignite.tables().table(TABLE_NAME));
 
         InternalTableImpl internalTable = (InternalTableImpl) table.internalTable();
 
@@ -1001,11 +1062,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         assertThat(CompletableFuture.allOf(flushFuts), willCompleteSuccessfully());
 
         // Add more data, so that on restart there will be a index rebuilding operation.
-        try (Session session = ignite.sql().createSession()) {
-            for (int i = 0; i < 100; i++) {
-                session.execute(null, "INSERT INTO " + TABLE_NAME + "(id, name) VALUES (?, ?)",
-                        i + 500, VALUE_PRODUCER.apply(i + 500));
-            }
+        for (int i = 0; i < 100; i++) {
+            ignite.sql().execute(null, "INSERT INTO " + TABLE_NAME + "(id, name) VALUES (?, ?)",
+                    i + 500, VALUE_PRODUCER.apply(i + 500));
         }
 
         stopNode(0);
@@ -1014,7 +1073,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         checkTableWithData(ignite, TABLE_NAME);
 
-        table = (TableViewInternal) ignite.tables().table(TABLE_NAME);
+        table = unwrapTableViewInternal(ignite.tables().table(TABLE_NAME));
 
         // Check data that was added after flush.
         for (int i = 0; i < 100; i++) {
@@ -1147,7 +1206,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         node = startNode(1);
 
-        TableManager tableManager = (TableManager) node.tables();
+        TableManager tableManager = unwrapTableManager(node.tables());
 
         assertNotNull(tableManager);
 
@@ -1180,7 +1239,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         IgniteImpl node1 = startNode(1, cfgString);
 
-        TableManager tableManager = (TableManager) node1.tables();
+        TableManager tableManager = unwrapTableManager(node1.tables());
 
         assertTablePresent(tableManager, TABLE_NAME.toUpperCase());
     }
@@ -1189,7 +1248,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * The test for node restart when there is a gap between the node local configuration and distributed configuration.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21354")
     public void testCfgGapWithoutData() {
         List<IgniteImpl> nodes = startNodes(3);
 
@@ -1210,7 +1268,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         log.info("After starting the node.");
 
-        TableManager tableManager = (TableManager) node.tables();
+        TableManager tableManager = unwrapTableManager(node.tables());
 
         assertTablePresent(tableManager, TABLE_NAME.toUpperCase());
         assertTablePresent(tableManager, TABLE_NAME_2.toUpperCase());
@@ -1327,7 +1385,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         IgniteImpl restartedNode = startNode(restartedNodeIndex);
 
-        TableImpl table = (TableImpl) restartedNode.tables().table(TABLE_NAME);
+        TableImpl table = unwrapTableImpl(restartedNode.tables().table(TABLE_NAME));
 
         assertTrue(waitForCondition(() -> {
             // Check that only storage for 1 partition left on the restarted node.
@@ -1363,7 +1421,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         IgniteImpl restartedNode = startNode(restartedNodeIndex);
 
-        TableImpl table = (TableImpl) restartedNode.tables().table(TABLE_NAME);
+        TableImpl table = unwrapTableImpl(restartedNode.tables().table(TABLE_NAME));
 
         long recoveryRevision = restartedNode.metaStorageManager().recoveryFinishedFuture().join();
 
@@ -1451,12 +1509,12 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
             stopNode(nodesCount - 2);
         }
 
-        try (Session session = node.sql().createSession()) {
-            session.execute(null, String.format("CREATE ZONE IF NOT EXISTS %s WITH REPLICAS=%d, PARTITIONS=%d", zoneName, nodesCount, 1));
+        IgniteSql sql = node.sql();
 
-            session.execute(null, "CREATE TABLE " + TABLE_NAME
-                    + "(id INT PRIMARY KEY, name VARCHAR) WITH PRIMARY_ZONE='" + zoneName + "';");
-        }
+        sql.execute(null, String.format("CREATE ZONE IF NOT EXISTS %s WITH REPLICAS=%d, PARTITIONS=%d", zoneName, nodesCount, 1));
+
+        sql.execute(null, "CREATE TABLE " + TABLE_NAME
+                + "(id INT PRIMARY KEY, name VARCHAR) WITH PRIMARY_ZONE='" + zoneName + "';");
 
         assertEquals(TABLE_ID, tableId(node, TABLE_NAME));
 
@@ -1561,16 +1619,16 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         WatchListenerInhibitor nodeInhibitor2 = WatchListenerInhibitor.metastorageEventsInhibitor(msManager2);
 
         // Create table, all nodes are lagging.
-        try (Session session = node0.sql().createSession()) {
-            session.execute(null, String.format("CREATE ZONE IF NOT EXISTS %s WITH REPLICAS=%d, PARTITIONS=%d", zoneName, 2, 1));
+        IgniteSql sql = node0.sql();
 
-            nodeInhibitor0.startInhibit();
-            nodeInhibitor1.startInhibit();
-            nodeInhibitor2.startInhibit();
+        sql.execute(null, String.format("CREATE ZONE IF NOT EXISTS %s WITH REPLICAS=%d, PARTITIONS=%d", zoneName, 2, 1));
 
-            session.executeAsync(null, "CREATE TABLE " + tableName
-                    + "(id INT PRIMARY KEY, name VARCHAR) WITH PRIMARY_ZONE='" + zoneName + "';");
-        }
+        nodeInhibitor0.startInhibit();
+        nodeInhibitor1.startInhibit();
+        nodeInhibitor2.startInhibit();
+
+        sql.executeAsync(null, "CREATE TABLE " + tableName
+                + "(id INT PRIMARY KEY, name VARCHAR) WITH PRIMARY_ZONE='" + zoneName + "';");
 
         // Stopping 2 of 3 nodes.
         node1.stop();
@@ -1629,9 +1687,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         String tableName = "TEST";
         String zoneName = "ZONE_TEST";
 
-        try (Session session = node0.sql().createSession()) {
-            session.execute(null, String.format("CREATE ZONE IF NOT EXISTS %s WITH REPLICAS=%d, PARTITIONS=%d", zoneName, 2, 1));
-        }
+        node0.sql().execute(null, String.format("CREATE ZONE IF NOT EXISTS %s WITH REPLICAS=%d, PARTITIONS=%d", zoneName, 2, 1));
 
         int catalogVersionBeforeTable = node0.catalogManager().latestCatalogVersion();
 
@@ -1702,21 +1758,25 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         return ByteUtils.bytesToInt(e.value());
     }
 
-    private static CompletableFuture<Void> createTableInCatalog(CatalogManager catalogManager, String tableName, String zoneName) {
+    private static CompletableFuture<?> createTableInCatalog(CatalogManager catalogManager, String tableName, String zoneName) {
         var tableColumn = ColumnParams.builder().name("id").type(INT32).build();
+
+        TableHashPrimaryKey primaryKey = TableHashPrimaryKey.builder()
+                .columns(List.of("id"))
+                .build();
 
         var createTableCommand = CreateTableCommand.builder()
                 .schemaName("PUBLIC")
                 .tableName(tableName)
                 .columns(List.of(tableColumn))
-                .primaryKeyColumns(List.of("id"))
+                .primaryKey(primaryKey)
                 .zone(zoneName)
                 .build();
 
         return catalogManager.execute(createTableCommand);
     }
 
-    private static CompletableFuture<Void> alterZoneAsync(
+    private static CompletableFuture<?> alterZoneAsync(
             CatalogManager catalogManager,
             String zoneName,
             @Nullable Integer replicas
@@ -1757,7 +1817,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     }
 
     private int tableId(Ignite node, String tableName) {
-        return ((TableImpl) node.tables().table(tableName)).tableId();
+        return (unwrapTableImpl(node.tables().table(tableName))).tableId();
     }
 
     /**
@@ -1817,16 +1877,16 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * @param partitions Partitions count.
      */
     private void createTableWithData(List<IgniteImpl> nodes, String name, int replicas, int partitions) {
-        try (Session session = nodes.get(0).sql().createSession()) {
-            session.execute(null,
-                    String.format("CREATE ZONE IF NOT EXISTS ZONE_%s WITH REPLICAS=%d, PARTITIONS=%d", name, replicas, partitions));
-            session.execute(null, "CREATE TABLE IF NOT EXISTS " + name
-                    + "(id INT PRIMARY KEY, name VARCHAR) WITH PRIMARY_ZONE='ZONE_" + name.toUpperCase() + "';");
+        IgniteSql sql = nodes.get(0).sql();
 
-            for (int i = 0; i < 100; i++) {
-                session.execute(null, "INSERT INTO " + name + "(id, name) VALUES (?, ?)",
-                        i, VALUE_PRODUCER.apply(i));
-            }
+        sql.execute(null,
+                String.format("CREATE ZONE IF NOT EXISTS ZONE_%s WITH REPLICAS=%d, PARTITIONS=%d", name, replicas, partitions));
+        sql.execute(null, "CREATE TABLE IF NOT EXISTS " + name
+                + "(id INT PRIMARY KEY, name VARCHAR) WITH PRIMARY_ZONE='ZONE_" + name.toUpperCase() + "';");
+
+        for (int i = 0; i < 100; i++) {
+            sql.execute(null, "INSERT INTO " + name + "(id, name) VALUES (?, ?)",
+                    i, VALUE_PRODUCER.apply(i));
         }
     }
 
@@ -1862,12 +1922,12 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * @param partitions Partitions count.
      */
     private static Table createTableWithoutData(Ignite ignite, String name, int replicas, int partitions) {
-        try (Session session = ignite.sql().createSession()) {
-            session.execute(null,
-                    String.format("CREATE ZONE IF NOT EXISTS ZONE_%s WITH REPLICAS=%d, PARTITIONS=%d", name, replicas, partitions));
-            session.execute(null, "CREATE TABLE " + name
-                    + "(id INT PRIMARY KEY, name VARCHAR) WITH PRIMARY_ZONE='ZONE_" + name.toUpperCase() + "';");
-        }
+        IgniteSql sql = ignite.sql();
+
+        sql.execute(null,
+                String.format("CREATE ZONE IF NOT EXISTS ZONE_%s WITH REPLICAS=%d, PARTITIONS=%d", name, replicas, partitions));
+        sql.execute(null, "CREATE TABLE " + name
+                + "(id INT PRIMARY KEY, name VARCHAR) WITH PRIMARY_ZONE='ZONE_" + name.toUpperCase() + "';");
 
         return ignite.tables().table(name);
     }

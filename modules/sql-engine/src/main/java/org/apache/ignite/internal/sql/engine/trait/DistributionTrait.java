@@ -197,7 +197,7 @@ public final class DistributionTrait implements IgniteDistribution {
     /** {@inheritDoc} */
     @Override
     public boolean isTop() {
-        return getType() == Type.ANY;
+        return getType() == ANY;
     }
 
     /** {@inheritDoc} */
@@ -205,7 +205,7 @@ public final class DistributionTrait implements IgniteDistribution {
     public int compareTo(RelMultipleTrait o) {
         final IgniteDistribution distribution = (IgniteDistribution) o;
 
-        if (getType() == distribution.getType() && getType() == Type.HASH_DISTRIBUTED) {
+        if (getType() == distribution.getType() && getType() == HASH_DISTRIBUTED) {
             int cmp = ORDERING.compare(getKeys(), distribution.getKeys());
 
             if (cmp == 0) {

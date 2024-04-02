@@ -27,7 +27,6 @@ import java.util.concurrent.CountDownLatch;
 import org.apache.ignite.client.fakes.FakeCompute;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.sql.ResultSet;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.tx.Transaction;
@@ -72,19 +71,16 @@ public class ServerMetricsTest extends AbstractClientTest {
     @Test
     public void testSqlMetrics() {
         Statement statement = client.sql().statementBuilder()
-                .property("hasMorePages", true)
                 .query("select 1")
                 .build();
 
         assertEquals(0, testServer.metrics().cursorsActive());
 
-        try (Session session = client.sql().createSession()) {
-            ResultSet<SqlRow> resultSet = session.execute(null, statement);
-            assertEquals(1, testServer.metrics().cursorsActive());
+        ResultSet<SqlRow> resultSet = client.sql().execute(null, statement);
+        assertEquals(1, testServer.metrics().cursorsActive());
 
-            resultSet.close();
-            assertEquals(0, testServer.metrics().cursorsActive());
-        }
+        resultSet.close();
+        assertEquals(0, testServer.metrics().cursorsActive());
     }
 
     @Test

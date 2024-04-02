@@ -20,7 +20,6 @@ apply plugin: 'jacoco'
 apply plugin: 'checkstyle'
 apply plugin: 'pmd'
 apply plugin: 'java-library'
-apply plugin: libs.plugins.modernizer.get().pluginId
 apply plugin: libs.plugins.spotbugs.get().pluginId
 
 java {
@@ -66,7 +65,7 @@ checkstyle {
     configFile = file("$rootDir/check-rules/checkstyle-rules.xml")
     configProperties = [
             "checkstyle.header.file" : file("$rootDir/check-rules/LICENSE.txt"),
-            "org.checkstyle.google.suppressionfilter.config" : file("$rootDir/check-rules/checkstyle-suppressions.txt")
+            "org.checkstyle.google.suppressionfilter.config" : file("$rootDir/check-rules/checkstyle-suppressions.xml")
     ]
 }
 
@@ -83,15 +82,6 @@ tasks.withType(Checkstyle) {
         }
 
     }
-}
-
-modernizer {
-    failOnViolations = true
-    includeTestClasses = false
-    violationsFile = "${rootDir}/check-rules/modernizer-rules.xml"
-    ignorePackages = ["org.apache.ignite.internal.sql.engine",
-                      "org.apache.ignite.internal.generated",
-                      "org.apache.ignite.rest.client"]
 }
 
 javadoc {

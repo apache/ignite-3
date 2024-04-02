@@ -21,11 +21,14 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThr
 import static org.apache.ignite.sql.ColumnType.INT32;
 
 import java.util.List;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
@@ -82,6 +85,40 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
     }
 
     @Test
+    void functionalDefaultNotSupportsForNonPkColumns() {
+        CreateTableCommandBuilder builder = CreateTableCommand.builder();
+
+        builder = fillProperties(builder);
+
+        builder.columns(List.of(
+                ColumnParams.builder().name("ID").type(INT32).defaultValue(DefaultValue.functionCall("function")).build(),
+                ColumnParams.builder().name("C").type(INT32).defaultValue(DefaultValue.constant(1)).build()
+
+        ));
+
+        assertThrowsWithCause(
+                builder::build,
+                CatalogValidationException.class,
+                "Functional defaults are not supported for non-primary key columns [col=ID]."
+        );
+    }
+
+    @Test
+    void functionalDefaultSupportsForPkColumns() {
+        CreateTableCommandBuilder builder = CreateTableCommand.builder();
+
+        builder = fillProperties(builder);
+
+        builder.columns(List.of(
+                ColumnParams.builder().name("C").type(INT32).defaultValue(DefaultValue.functionCall("function")).build(),
+                ColumnParams.builder().name("D").type(INT32).defaultValue(DefaultValue.constant(1)).build()
+
+        )).primaryKey(primaryKey("C", "D"));
+
+        builder.build();
+    }
+
+    @Test
     void columnShouldNotHaveDuplicates() {
         CreateTableCommandBuilder builder = CreateTableCommand.builder();
 
@@ -99,14 +136,60 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
         );
     }
 
-    @ParameterizedTest(name = "[{index}] {argumentsWithNames}")
-    @MethodSource("nullAndEmptyLists")
-    void tableShouldHaveAtLeastOnePrimaryKeyColumn(List<String> columns) {
+    @Test
+    void primaryKeyColumnsShouldNotHaveDuplicates() {
         CreateTableCommandBuilder builder = CreateTableCommand.builder();
 
-        builder = fillProperties(builder);
+        builder = fillProperties(builder)
+                .primaryKey(primaryKey("C", "C"));
 
-        builder.primaryKeyColumns(columns);
+        assertThrowsWithCause(
+                builder::build,
+                CatalogValidationException.class,
+                "PK column 'C' specified more that once."
+        );
+    }
+
+    @Test
+    void primaryKeyColumnsShouldNotContainNullable() {
+        CreateTableCommandBuilder builder = CreateTableCommand.builder();
+
+        builder = fillProperties(builder)
+                .columns(List.of(
+                        ColumnParams.builder().name("C").type(INT32).nullable(true).build(),
+                        ColumnParams.builder().name("D").type(INT32).build()))
+                .primaryKey(primaryKey("D", "C"));
+
+        assertThrowsWithCause(
+                builder::build,
+                CatalogValidationException.class,
+                "Primary key cannot contain nullable column [col=C]."
+        );
+    }
+
+    @Test
+    void primaryKeyColumnsCanContainOnlyTableColumns() {
+        CreateTableCommandBuilder builder = CreateTableCommand.builder();
+
+        builder = fillProperties(builder)
+                .columns(List.of(
+                        ColumnParams.builder().name("C").type(INT32).build(),
+                        ColumnParams.builder().name("D").type(INT32).build()))
+                .primaryKey(primaryKey("Z", "D", "E"));
+
+        assertThrowsWithCause(
+                builder::build,
+                CatalogValidationException.class,
+                "Primary key constraint contains undefined columns: [cols=[Z, E]]."
+        );
+    }
+
+    @ParameterizedTest(name = "[{index}] {arguments}")
+    @MethodSource("nullAndEmptyPrimaryKeys")
+    void tableShouldHaveAtLeastOnePrimaryKeyColumn(TablePrimaryKey pk) {
+        CreateTableCommandBuilder builder = CreateTableCommand.builder();
+
+        builder = fillProperties(builder).primaryKey(pk);
 
         assertThrowsWithCause(
                 builder::build,
@@ -115,31 +198,50 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
         );
     }
 
-    @Test
-    void pkColumnShouldNotHaveDuplicates() {
-        CreateTableCommandBuilder builder = CreateTableCommand.builder();
-
-        builder = fillProperties(builder)
-                .primaryKeyColumns(List.of("C", "C"));
-
-        assertThrowsWithCause(
-                builder::build,
-                CatalogValidationException.class,
-                "PK column 'C' specified more that once"
+    private static Stream<TablePrimaryKey> nullAndEmptyPrimaryKeys() {
+        return Stream.of(
+                null,
+                TableSortedPrimaryKey.builder().build(),
+                TableHashPrimaryKey.builder().build()
         );
     }
 
-    @Test
-    void pkColumnShouldBePresentedInColumnsList() {
+    @ParameterizedTest
+    @MethodSource("notMatchingNumberOfColumnsAndCollations")
+    void tableWithSortedPrimaryKeyWithNotMatchColumnsCollations(List<String> columns, List<CatalogColumnCollation> collations) {
         CreateTableCommandBuilder builder = CreateTableCommand.builder();
 
+        TableSortedPrimaryKey primaryKey = TableSortedPrimaryKey.builder()
+                .columns(columns)
+                .collations(collations)
+                .build();
+
         builder = fillProperties(builder)
-                .primaryKeyColumns(List.of("foo"));
+                .columns(List.of(
+                        ColumnParams.builder()
+                                .name("C1")
+                                .type(INT32)
+                                .build(),
+                        ColumnParams.builder()
+                                .name("C2")
+                                .type(INT32)
+                                .build()
+                ))
+                .colocationColumns(primaryKey.columns())
+                .primaryKey(primaryKey);
 
         assertThrowsWithCause(
                 builder::build,
                 CatalogValidationException.class,
-                "PK column 'foo' is not part of table"
+                "Number of collations does not match"
+        );
+    }
+
+    private static Stream<Arguments> notMatchingNumberOfColumnsAndCollations() {
+        return Stream.of(
+                Arguments.of(List.of("C1"), List.of()),
+                Arguments.of(List.of("C1"), List.of(CatalogColumnCollation.ASC_NULLS_LAST, CatalogColumnCollation.ASC_NULLS_LAST)),
+                Arguments.of(List.of("C1", "C2"), List.of(CatalogColumnCollation.ASC_NULLS_LAST))
         );
     }
 
@@ -187,7 +289,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
 
         builder = fillProperties(builder)
                 .columns(List.of(c1, c2))
-                .primaryKeyColumns(List.of("C1"))
+                .primaryKey(primaryKey("C1"))
                 .colocationColumns(List.of("C2"));
 
         assertThrowsWithCause(
@@ -208,7 +310,7 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
                                 .type(INT32)
                                 .build()
                 ))
-                .primaryKeyColumns(List.of("C"))
+                .primaryKey(primaryKey("C"))
                 .colocationColumns(List.of("C"));
     }
 

@@ -42,7 +42,6 @@ import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -94,7 +93,7 @@ public class DataStorageModulesTest extends BaseIgniteAbstractTest {
                 ))
         );
 
-        assertThat(exception.getMessage(), Matchers.startsWith("Duplicate name"));
+        assertThat(exception.getMessage(), startsWith("Duplicate name"));
     }
 
     @Test

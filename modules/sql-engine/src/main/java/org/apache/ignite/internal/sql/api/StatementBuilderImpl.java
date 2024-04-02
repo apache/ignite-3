@@ -17,21 +17,17 @@
 
 package org.apache.ignite.internal.sql.api;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.Statement.StatementBuilder;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Statement builder.
  */
 class StatementBuilderImpl implements StatementBuilder {
-    /** Properties. */
-    private final Map<String, Object> properties = new HashMap<>();
-
     /** Query. */
     private String query;
 
@@ -43,6 +39,8 @@ class StatementBuilderImpl implements StatementBuilder {
 
     /** Page size. */
     private Integer pageSize;
+
+    private ZoneId zoneId = ZoneOffset.UTC;
 
     /** {@inheritDoc} */
     @Override
@@ -104,16 +102,17 @@ class StatementBuilderImpl implements StatementBuilder {
         return this;
     }
 
+
     /** {@inheritDoc} */
     @Override
-    public @Nullable Object property(String name) {
-        return properties.get(name);
+    public ZoneId timeZoneId() {
+        return zoneId;
     }
 
     /** {@inheritDoc} */
     @Override
-    public StatementBuilder property(String name, @Nullable Object value) {
-        properties.put(name, value);
+    public StatementBuilder timeZoneId(ZoneId zoneId) {
+        this.zoneId = Objects.requireNonNull(zoneId);
 
         return this;
     }

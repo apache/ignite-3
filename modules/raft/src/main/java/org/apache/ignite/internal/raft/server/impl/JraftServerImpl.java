@@ -39,6 +39,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
+import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -299,6 +300,7 @@ public class JraftServerImpl implements RaftServer {
                     opts.getRaftOptions().getDisruptorBufferSize(),
                     ApplyTask::new,
                     opts.getStripes(),
+                    false,
                     false
             ));
         }
@@ -310,6 +312,7 @@ public class JraftServerImpl implements RaftServer {
                     opts.getRaftOptions().getDisruptorBufferSize(),
                     LogEntryAndClosure::new,
                     opts.getStripes(),
+                    false,
                     false
             ));
         }
@@ -321,6 +324,7 @@ public class JraftServerImpl implements RaftServer {
                     opts.getRaftOptions().getDisruptorBufferSize(),
                     ReadIndexEvent::new,
                     opts.getStripes(),
+                    false,
                     false
             ));
         }
@@ -331,11 +335,12 @@ public class JraftServerImpl implements RaftServer {
                     "JRaft-LogManager-Disruptor",
                     opts.getRaftOptions().getDisruptorBufferSize(),
                     StableClosureEvent::new,
-                    opts.getStripes(),
-                    true
+                    opts.getLogStripesCount(),
+                    true,
+                    opts.isLogYieldStrategy()
             ));
 
-            opts.setLogStripes(IntStream.range(0, opts.getStripes()).mapToObj(i -> new Stripe()).collect(toList()));
+            opts.setLogStripes(IntStream.range(0, opts.getLogStripesCount()).mapToObj(i -> new Stripe()).collect(toList()));
         }
 
         logStorageFactory.start();
@@ -579,6 +584,16 @@ public class JraftServerImpl implements RaftServer {
         List<PeerId> learnerIds = peersAndLearners.learners().stream().map(PeerId::fromPeer).collect(toList());
 
         raftGroupService.getRaftNode().resetPeers(new Configuration(peerIds, learnerIds));
+    }
+
+    /**
+     * Iterates over all currently started raft services. Doesn't block the starting or stopping of other services, so consumer may
+     * accidentally receive stopped service.
+     *
+     * @param consumer Closure to process each service.
+     */
+    public void forEach(BiConsumer<RaftNodeId, RaftGroupService> consumer) {
+        nodes.forEach(consumer);
     }
 
     /** {@inheritDoc} */

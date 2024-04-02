@@ -299,15 +299,20 @@ namespace Apache.Ignite.Internal.Table
             CancellationToken cancellationToken = default) =>
             await DataStreamer.StreamDataAsync(
                 data,
-                sender: async (batch, preferredNode, retryPolicy) =>
+                sender: async (batch, count, preferredNode, retryPolicy) =>
                 {
-                    using var resBuf = await DoOutInOpAsync(
+                    var (resBuf, socket) = await _table.Socket.DoOutInOpAndGetSocketAsync(
                             ClientOp.StreamerBatchSend,
                             tx: null,
                             batch,
                             PreferredNode.FromName(preferredNode),
                             retryPolicy)
                         .ConfigureAwait(false);
+
+                    resBuf.Dispose();
+
+                    Metrics.StreamerBatchesSent.Add(1, socket.MetricsContext.Tags);
+                    Metrics.StreamerItemsSent.Add(count, socket.MetricsContext.Tags);
                 },
                 writer: _ser,
                 schemaProvider: _table.GetSchemaAsync,

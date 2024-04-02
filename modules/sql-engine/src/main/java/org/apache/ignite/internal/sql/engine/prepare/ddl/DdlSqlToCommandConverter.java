@@ -77,7 +77,6 @@ import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.SqlNumericLiteral;
 import org.apache.calcite.sql.ddl.SqlColumnDeclaration;
 import org.apache.calcite.sql.ddl.SqlDdlNodes;
-import org.apache.calcite.sql.ddl.SqlKeyConstraint;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.parser.SqlParserUtil;
 import org.apache.calcite.sql.type.SqlTypeName;
@@ -88,6 +87,7 @@ import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateIndexCommand.Type;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateTableCommand.PrimaryKeyIndexType;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterColumn;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterTableAddColumn;
@@ -102,6 +102,8 @@ import org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropIndex;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropTable;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlDropZone;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlIndexType;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlPrimaryKeyConstraint;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlPrimaryKeyIndexType;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOption;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
@@ -294,15 +296,16 @@ public class DdlSqlToCommandConverter {
             }
         }
 
-        List<SqlKeyConstraint> pkConstraints = createTblNode.columnList().getList().stream()
-                .filter(SqlKeyConstraint.class::isInstance)
-                .map(SqlKeyConstraint.class::cast)
+        List<IgniteSqlPrimaryKeyConstraint> pkConstraints = createTblNode.columnList().getList().stream()
+                .filter(IgniteSqlPrimaryKeyConstraint.class::isInstance)
+                .map(IgniteSqlPrimaryKeyConstraint.class::cast)
                 .collect(Collectors.toList());
 
         if (pkConstraints.isEmpty() && Commons.implicitPkEnabled()) {
             SqlIdentifier colName = new SqlIdentifier(Commons.IMPLICIT_PK_COL_NAME, SqlParserPos.ZERO);
 
-            pkConstraints.add(SqlKeyConstraint.primary(SqlParserPos.ZERO, null, SqlNodeList.of(colName)));
+            pkConstraints.add(new IgniteSqlPrimaryKeyConstraint(SqlParserPos.ZERO, null, SqlNodeList.of(colName),
+                    IgniteSqlPrimaryKeyIndexType.IMPLICIT_HASH));
 
             SqlDataTypeSpec type = new SqlDataTypeSpec(new SqlBasicTypeNameSpec(SqlTypeName.VARCHAR, SqlParserPos.ZERO), SqlParserPos.ZERO);
             SqlNode col = SqlDdlNodes.column(SqlParserPos.ZERO, colName, type, null, ColumnStrategy.DEFAULT);
@@ -313,23 +316,25 @@ public class DdlSqlToCommandConverter {
         if (nullOrEmpty(pkConstraints)) {
             throw new SqlException(STMT_VALIDATION_ERR, "Table without PRIMARY KEY is not supported");
         } else if (pkConstraints.size() > 1) {
-            throw new SqlException(STMT_VALIDATION_ERR, "Unexpected amount of primary key constraints ["
+            throw new SqlException(STMT_VALIDATION_ERR, "Unexpected number of primary key constraints ["
                     + "expected at most one, but was " + pkConstraints.size() + "; "
                     + "querySql=\"" + ctx.query() + "\"]");
         }
 
-        Set<String> dedupSetPk = new HashSet<>();
+        IgniteSqlPrimaryKeyConstraint pkConstraint = pkConstraints.get(0);
+        SqlNodeList columnNodes = pkConstraint.getColumnList();
 
-        List<String> pkCols = pkConstraints.stream()
-                .map(pk -> pk.getOperandList().get(1))
-                .map(SqlNodeList.class::cast)
-                .flatMap(l -> l.getList().stream())
-                .map(SqlIdentifier.class::cast)
-                .map(SqlIdentifier::getSimple)
-                .filter(dedupSetPk::add)
-                .collect(Collectors.toList());
+        List<String> pkColumns = new ArrayList<>(columnNodes.size());
+        List<Collation> pkCollations = new ArrayList<>(columnNodes.size());
 
-        createTblCmd.primaryKeyColumns(pkCols);
+        PrimaryKeyIndexType pkIndexType = convertPrimaryIndexType(pkConstraint.getIndexType());
+        boolean supportCollation = pkIndexType == PrimaryKeyIndexType.SORTED;
+
+        parseColumnList(pkConstraint.getColumnList(), pkColumns, pkCollations, supportCollation);
+
+        createTblCmd.primaryIndexType(pkIndexType);
+        createTblCmd.primaryKeyColumns(pkColumns);
+        createTblCmd.primaryKeyCollations(pkCollations);
 
         List<String> colocationCols = createTblNode.colocationColumns() == null
                 ? null
@@ -358,25 +363,10 @@ public class DdlSqlToCommandConverter {
 
             String name = col.name.getSimple();
 
-            if (col.dataType.getNullable() != null && col.dataType.getNullable() && dedupSetPk.contains(name)) {
-                throw new SqlException(STMT_VALIDATION_ERR, "Primary key cannot contain nullable column [col=" + name + "]");
-            }
-
-            RelDataType relType = planner.convert(col.dataType, !dedupSetPk.contains(name));
-
-            dedupSetPk.remove(name);
+            RelDataType relType = planner.convert(col.dataType, !pkColumns.contains(name));
 
             DefaultValueDefinition dflt = convertDefault(col.expression, relType, name);
-            if (dflt.type() == DefaultValueDefinition.Type.FUNCTION_CALL && !pkCols.contains(name)) {
-                throw new SqlException(STMT_VALIDATION_ERR,
-                        "Functional defaults are not supported for non-primary key columns [col=" + name + "]");
-            }
-
             cols.add(new ColumnDefinition(name, relType, dflt));
-        }
-
-        if (!dedupSetPk.isEmpty()) {
-            throw new SqlException(STMT_VALIDATION_ERR, "Primary key constraint contains undefined columns: [cols=" + dedupSetPk + "]");
         }
 
         createTblCmd.columns(cols);
@@ -522,10 +512,28 @@ public class DdlSqlToCommandConverter {
         createIdxCmd.indexName(sqlCmd.indexName().getSimple());
         createIdxCmd.type(convertIndexType(sqlCmd.type()));
 
-        List<String> columns = new ArrayList<>(sqlCmd.columnList().size());
-        List<Collation> collations = new ArrayList<>(sqlCmd.columnList().size());
+        SqlNodeList columnList = sqlCmd.columnList();
+        List<String> columns = new ArrayList<>(columnList.size());
+        List<Collation> collations = new ArrayList<>(columnList.size());
+        boolean supportCollation = createIdxCmd.type() == Type.SORTED;
 
-        for (SqlNode col : sqlCmd.columnList().getList()) {
+        parseColumnList(columnList, columns, collations, supportCollation);
+
+        createIdxCmd.columns(columns);
+        createIdxCmd.collations(collations);
+
+        createIdxCmd.ifNotExists(sqlCmd.ifNotExists());
+
+        return createIdxCmd;
+    }
+
+    private static void parseColumnList(
+            SqlNodeList columnList,
+            List<String> columns,
+            List<Collation> collations,
+            boolean supportCollation
+    ) {
+        for (SqlNode col : columnList.getList()) {
             boolean desc = false;
 
             if (col.getKind() == SqlKind.DESCENDING) {
@@ -534,19 +542,12 @@ public class DdlSqlToCommandConverter {
                 desc = true;
             }
 
-            columns.add(((SqlIdentifier) col).getSimple());
-            collations.add(desc ? Collation.DESC_NULLS_FIRST : Collation.ASC_NULLS_LAST);
+            String columnName = ((SqlIdentifier) col).getSimple();
+            columns.add(columnName);
+            if (supportCollation) {
+                collations.add(desc ? Collation.DESC_NULLS_FIRST : Collation.ASC_NULLS_LAST);
+            }
         }
-
-        createIdxCmd.columns(columns);
-
-        if (createIdxCmd.type() == Type.SORTED) {
-            createIdxCmd.collations(collations);
-        }
-
-        createIdxCmd.ifNotExists(sqlCmd.ifNotExists());
-
-        return createIdxCmd;
     }
 
     /**
@@ -837,6 +838,18 @@ public class DdlSqlToCommandConverter {
                 return Type.SORTED;
             case HASH:
                 return Type.HASH;
+            default:
+                throw new AssertionError("Unknown index type [type=" + type + "]");
+        }
+    }
+
+    private PrimaryKeyIndexType convertPrimaryIndexType(IgniteSqlPrimaryKeyIndexType type) {
+        switch (type) {
+            case SORTED:
+                return PrimaryKeyIndexType.SORTED;
+            case HASH:
+            case IMPLICIT_HASH:
+                return PrimaryKeyIndexType.HASH;
             default:
                 throw new AssertionError("Unknown index type [type=" + type + "]");
         }

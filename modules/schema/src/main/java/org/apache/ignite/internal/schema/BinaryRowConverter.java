@@ -32,6 +32,7 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleParser;
 import org.apache.ignite.internal.binarytuple.BinaryTupleParser.Sink;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Utility to convert {@link BinaryRow} to {@link BinaryTuple} with specified columns set.
@@ -154,18 +155,26 @@ public class BinaryRowConverter implements ColumnsExtractor {
         throw new InvalidTypeException("Unexpected type value: " + element.typeSpec());
     }
 
+    /**
+     * Returns destination tuple schema.
+     */
+    @TestOnly
+    public BinaryTupleSchema dstSchema() {
+        return dstSchema;
+    }
+
     /** Helper method to convert from a full row or key-only row to the key-only tuple. */
-    public static ColumnsExtractor keyExtractor(SchemaDescriptor schema) {
+    public static BinaryRowConverter keyExtractor(SchemaDescriptor schema) {
         BinaryTupleSchema rowSchema = BinaryTupleSchema.createRowSchema(schema);
-        BinaryTupleSchema keySchema = BinaryTupleSchema.createKeySchema(schema);
+        BinaryTupleSchema keySchema = BinaryTupleSchema.createDestinationKeySchema(schema);
 
         return new BinaryRowConverter(rowSchema, keySchema);
     }
 
     /** Helper method to convert from a full row or key-only row to the tuple with specified columns. */
-    public static ColumnsExtractor columnsExtractor(SchemaDescriptor schema, int... columns) {
-        BinaryTupleSchema trimmedSchema = BinaryTupleSchema.createSchema(schema, columns);
+    public static BinaryRowConverter columnsExtractor(SchemaDescriptor schema, int... columns) {
         BinaryTupleSchema rowSchema = BinaryTupleSchema.createRowSchema(schema);
+        BinaryTupleSchema trimmedSchema = BinaryTupleSchema.createSchema(schema, columns);
 
         return new BinaryRowConverter(rowSchema, trimmedSchema);
     }

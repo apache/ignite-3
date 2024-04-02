@@ -52,6 +52,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteTriConsumer;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.network.ClusterService;
@@ -71,6 +72,7 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
+import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.replicator.message.ReplicaMessageTestGroup;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.TestReplicaMessagesFactory;
@@ -103,6 +105,9 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
     @InjectConfiguration("mock {retryTimeout=2000, responseTimeout=1000}")
     private RaftConfiguration raftConfiguration;
+
+    @InjectConfiguration
+    private ReplicationConfiguration replicationConfiguration;
 
     private final HybridClock clock = new HybridClockImpl();
 
@@ -174,7 +179,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                     nodeName,
                     clusterService,
                     cmgManager,
-                    clock,
+                    new TestClockService(clock),
                     Set.of(ReplicaMessageTestGroup.class),
                     new TestPlacementDriver(primaryReplicaSupplier),
                     partitionOperationsExecutor
@@ -289,7 +294,11 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
         var clusterService = clusterServices.get(anyNode);
 
-        new ReplicaService(clusterService.messagingService(), clock).invoke(
+        new ReplicaService(
+                clusterService.messagingService(),
+                clock,
+                replicationConfiguration
+        ).invoke(
                 clusterService.topologyService().getByConsistentId(leaderNodeName),
                 TEST_REPLICA_MESSAGES_FACTORY.primaryReplicaTestRequest()
                         .enlistmentConsistencyToken(1L)
@@ -349,7 +358,11 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
         var clusterService = clusterServices.get(anyNode);
 
-        new ReplicaService(clusterService.messagingService(), clock).invoke(
+        new ReplicaService(
+                clusterService.messagingService(),
+                clock,
+                replicationConfiguration
+        ).invoke(
                 clusterService.topologyService().getByConsistentId(leaderNodeName),
                 TEST_REPLICA_MESSAGES_FACTORY.primaryReplicaTestRequest()
                         .enlistmentConsistencyToken(1L)

@@ -64,7 +64,7 @@ internal static class DataStreamer
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
     internal static async Task StreamDataAsync<T>(
         IAsyncEnumerable<T> data,
-        Func<PooledArrayBuffer, string, IRetryPolicy, Task> sender,
+        Func<PooledArrayBuffer, int, string, IRetryPolicy, Task> sender,
         RecordSerializer<T> writer,
         Func<int?, Task<Schema>> schemaProvider, // Not a ValueTask because Tasks are cached.
         Func<ValueTask<string?[]>> partitionAssignmentProvider,
@@ -309,10 +309,7 @@ internal static class DataStreamer
 
                         // Wait for the previous batch for this node to preserve item order.
                         await oldTask.ConfigureAwait(false);
-                        await sender(buf, partition, retryPolicy).ConfigureAwait(false);
-
-                        Metrics.StreamerBatchesSent.Add(1);
-                        Metrics.StreamerItemsSent.Add(count);
+                        await sender(buf, count, partition, retryPolicy).ConfigureAwait(false);
 
                         return;
                     }

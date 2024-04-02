@@ -28,8 +28,10 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
@@ -61,11 +63,13 @@ import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserService;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.systemview.api.SystemViewManager;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.network.TopologyService;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * An object representing a node in test cluster.
@@ -84,6 +88,7 @@ public class TestNode implements LifecycleAware {
     volatile boolean exceptionRaised;
     private final IgniteSpinBusyLock holdLock;
     private final HybridClock clock = new HybridClockImpl();
+    private final ClockService clockService = new TestClockService(clock);
 
     /**
      * Constructs the object.
@@ -122,10 +127,10 @@ public class TestNode implements LifecycleAware {
         holdLock = new IgniteSpinBusyLock();
 
         messageService = registerService(new MessageServiceImpl(
-                nodeName, messagingService, taskExecutor, holdLock, clock
+                nodeName, messagingService, taskExecutor, holdLock, clockService
         ));
         ExchangeService exchangeService = registerService(new ExchangeServiceImpl(
-                mailboxRegistry, messageService, clock
+                mailboxRegistry, messageService, clockService
         ));
         ExecutionDependencyResolver dependencyResolver = new ExecutionDependencyResolverImpl(
                 tableRegistry, view -> () -> systemViewManager.scanView(view.name())
@@ -143,7 +148,7 @@ public class TestNode implements LifecycleAware {
                 mappingService,
                 tableRegistry,
                 dependencyResolver,
-                clock,
+                clockService,
                 5_000
         ));
 
@@ -186,6 +191,22 @@ public class TestNode implements LifecycleAware {
         return clock;
     }
 
+    ClockService clockService() {
+        return clockService;
+    }
+
+    /**
+     * Executes given plan on a cluster this node belongs to
+     * and returns an async cursor representing the result.
+     *
+     * @param plan A plan to execute.
+     * @param transaction External transaction.
+     * @return A cursor representing the result.
+     */
+    public AsyncCursor<InternalSqlRow> executePlan(QueryPlan plan, @Nullable InternalTransaction transaction) {
+        return executionService.executePlan(transaction == null ? new NoOpTransaction(nodeName) : transaction, plan, createContext());
+    }
+
     /**
      * Executes given plan on a cluster this node belongs to
      * and returns an async cursor representing the result.
@@ -194,7 +215,7 @@ public class TestNode implements LifecycleAware {
      * @return A cursor representing the result.
      */
     public AsyncCursor<InternalSqlRow> executePlan(QueryPlan plan) {
-        return executionService.executePlan(new NoOpTransaction(nodeName), plan, createContext());
+        return executePlan(plan, null);
     }
 
     /**

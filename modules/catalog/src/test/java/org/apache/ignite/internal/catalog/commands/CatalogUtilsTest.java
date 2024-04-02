@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.collectIn
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceIndex;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.replaceTable;
+import static org.apache.ignite.internal.hlc.TestClockService.TEST_MAX_CLOCK_SKEW_MILLIS;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -396,10 +397,10 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
         Catalog catalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
 
         HybridTimestamp expClusterWideActivationTs = HybridTimestamp.hybridTimestamp(catalog.time())
-                .addPhysicalTime(HybridTimestamp.maxClockSkew())
+                .addPhysicalTime(TEST_MAX_CLOCK_SKEW_MILLIS)
                 .roundUpToPhysicalTick();
 
-        assertEquals(expClusterWideActivationTs, clusterWideEnsuredActivationTimestamp(catalog));
+        assertEquals(expClusterWideActivationTs, clusterWideEnsuredActivationTimestamp(catalog, TEST_MAX_CLOCK_SKEW_MILLIS));
     }
 
     private void createTable(String tableName) {
@@ -408,7 +409,11 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
                 .zone(DEFAULT_ZONE_NAME)
                 .tableName(tableName)
                 .columns(List.of(ColumnParams.builder().name(COLUMN_NAME).type(INT32).build()))
-                .primaryKeyColumns(List.of(COLUMN_NAME))
+                // Any type of a primary key index can be used.
+                .primaryKey(TableHashPrimaryKey.builder()
+                        .columns(List.of(COLUMN_NAME))
+                        .build()
+                )
                 .colocationColumns(List.of(COLUMN_NAME))
                 .build();
 

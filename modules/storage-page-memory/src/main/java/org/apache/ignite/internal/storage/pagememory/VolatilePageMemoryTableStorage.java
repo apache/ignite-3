@@ -182,9 +182,14 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
     CompletableFuture<Void> destroyMvPartitionStorage(AbstractPageMemoryMvPartitionStorage mvPartitionStorage) {
         VolatilePageMemoryMvPartitionStorage volatilePartitionStorage = (VolatilePageMemoryMvPartitionStorage) mvPartitionStorage;
 
-        volatilePartitionStorage.transitionToDestroyingState();
+        boolean transitioned = volatilePartitionStorage.transitionToDestroyedState();
+        if (!transitioned) {
+            // Someone has already started destruction (in which case we don't need to do anything), or closed the storage
+            // (which means the node is going down, so the volatile storage does not need to be destroyed).
+            return nullCompletedFuture();
+        }
 
         return volatilePartitionStorage.destroyStructures()
-                .whenComplete((v, e) -> volatilePartitionStorage.close());
+                .whenComplete((v, e) -> volatilePartitionStorage.closeResources());
     }
 }

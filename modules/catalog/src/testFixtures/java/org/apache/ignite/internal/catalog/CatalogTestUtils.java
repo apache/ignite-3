@@ -19,12 +19,10 @@ package org.apache.ignite.internal.catalog;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.List;
 import java.util.Set;
@@ -46,8 +44,11 @@ import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
 import org.apache.ignite.internal.catalog.storage.UpdateLogEvent;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
+import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
@@ -71,7 +72,9 @@ public class CatalogTestUtils {
 
         var clockWaiter = new ClockWaiter(nodeName, clock);
 
-        return new CatalogManagerImpl(new UpdateLogImpl(metastore), clockWaiter, clock) {
+        ClockService clockService = new TestClockService(clock, clockWaiter);
+
+        return new CatalogManagerImpl(new UpdateLogImpl(metastore), clockService) {
             @Override
             public CompletableFuture<Void> start() {
                 return allOf(metastore.start(), clockWaiter.start(), super.start()).thenCompose(unused -> metastore.deployWatches());
@@ -107,7 +110,7 @@ public class CatalogTestUtils {
     public static CatalogManager createTestCatalogManager(String nodeName, ClockWaiter clockWaiter, HybridClock clock) {
         StandaloneMetaStorageManager metastore = StandaloneMetaStorageManager.create(new SimpleInMemoryKeyValueStorage(nodeName));
 
-        return new CatalogManagerImpl(new UpdateLogImpl(metastore), clockWaiter, clock) {
+        return new CatalogManagerImpl(new UpdateLogImpl(metastore), new TestClockService(clock, clockWaiter)) {
             @Override
             public CompletableFuture<Void> start() {
                 return allOf(metastore.start(), super.start()).thenCompose(unused -> metastore.deployWatches());
@@ -141,7 +144,7 @@ public class CatalogTestUtils {
     public static CatalogManager createTestCatalogManager(String nodeName, HybridClock clock, MetaStorageManager metastore) {
         var clockWaiter = new ClockWaiter(nodeName, clock);
 
-        return new CatalogManagerImpl(new UpdateLogImpl(metastore), clockWaiter, clock) {
+        return new CatalogManagerImpl(new UpdateLogImpl(metastore), new TestClockService(clock, clockWaiter)) {
             @Override
             public CompletableFuture<Void> start() {
                 return allOf(clockWaiter.start(), super.start());
@@ -189,8 +192,7 @@ public class CatalogTestUtils {
             }
         };
 
-
-        return new CatalogManagerImpl(updateLog, clockWaiter, clock) {
+        return new CatalogManagerImpl(updateLog, new TestClockService(clock, clockWaiter)) {
             @Override
             public CompletableFuture<Void> start() {
                 return allOf(clockWaiter.start(), super.start());
@@ -228,7 +230,7 @@ public class CatalogTestUtils {
     public static CatalogManager createCatalogManagerWithTestUpdateLog(String nodeName, HybridClock clock) {
         var clockWaiter = new ClockWaiter(nodeName, clock);
 
-        return new CatalogManagerImpl(new TestUpdateLog(clock), clockWaiter, clock) {
+        return new CatalogManagerImpl(new TestUpdateLog(clock), new TestClockService(clock, clockWaiter)) {
             @Override
             public CompletableFuture<Void> start() {
                 return allOf(clockWaiter.start(), super.start());
@@ -342,31 +344,6 @@ public class CatalogTestUtils {
 
     public static AlterZoneCommandBuilder alterZoneBuilder(String zoneName) {
         return AlterZoneCommand.builder().zoneName(zoneName);
-    }
-
-    /**
-     * Starts catalog compaction and waits it finished locally.
-     *
-     * @param catalogManager Catalog manager.
-     * @param timestamp Timestamp catalog should be compacted up to.
-     * @return {@code True} if a new snapshot has been successfully written, {@code false} otherwise.
-     */
-    public static boolean waitCatalogCompaction(CatalogManager catalogManager, long timestamp) {
-        int version = catalogManager.activeCatalogVersion(timestamp);
-
-        CompletableFuture<Boolean> operationFuture = ((CatalogManagerImpl) catalogManager).compactCatalog(timestamp);
-
-        try {
-            boolean result = operationFuture.get();
-
-            if (result) {
-                waitForCondition(() -> catalogManager.earliestCatalogVersion() == version, 3_000);
-            }
-        } catch (Exception e) {
-            fail(e);
-        }
-
-        return operationFuture.join();
     }
 
     private static class TestUpdateLog implements UpdateLog {

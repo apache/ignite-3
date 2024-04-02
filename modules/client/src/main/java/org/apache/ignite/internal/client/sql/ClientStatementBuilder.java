@@ -17,21 +17,16 @@
 
 package org.apache.ignite.internal.client.sql;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.time.ZoneId;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.Statement.StatementBuilder;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Client SQL statement builder.
  */
 public class ClientStatementBuilder implements Statement.StatementBuilder {
-    /** Properties. */
-    private final Map<String, Object> properties = new HashMap<>();
-
     /** Query. */
     private String query;
 
@@ -104,18 +99,16 @@ public class ClientStatementBuilder implements Statement.StatementBuilder {
         return this;
     }
 
-    /** {@inheritDoc} */
     @Override
-    public @Nullable Object property(String name) {
-        return properties.get(name);
+    public ZoneId timeZoneId() {
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-21568
+        throw new UnsupportedOperationException("Not implemented yet");
     }
 
-    /** {@inheritDoc} */
     @Override
-    public StatementBuilder property(String name, @Nullable Object value) {
-        properties.put(name, value);
-
-        return this;
+    public StatementBuilder timeZoneId(ZoneId timeZoneId) {
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-21568
+        throw new UnsupportedOperationException("Not implemented yet");
     }
 
     /** {@inheritDoc} */
@@ -125,7 +118,6 @@ public class ClientStatementBuilder implements Statement.StatementBuilder {
                 query,
                 defaultSchema,
                 queryTimeoutMs,
-                pageSize,
-                new HashMap<>(properties));
+                pageSize);
     }
 }

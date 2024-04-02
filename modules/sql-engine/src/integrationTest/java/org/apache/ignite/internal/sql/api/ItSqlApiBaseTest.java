@@ -23,12 +23,10 @@ import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTa
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.asStream;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsString;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCode;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
@@ -41,7 +39,6 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.api.ColumnMetadataImpl.ColumnOriginImpl;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.lang.CursorClosedException;
 import org.apache.ignite.lang.ErrorGroups.Common;
@@ -55,10 +52,10 @@ import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.ResultSetMetadata;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlBatchException;
 import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.sql.Statement;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
@@ -86,119 +83,118 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    public void ddl() throws Exception {
+    public void ddl() {
         IgniteSql sql = igniteSql();
-        Session ses = sql.createSession();
 
         // CREATE TABLE
-        checkDdl(true, ses, "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
+        checkDdl(true, sql, "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
         checkSqlError(
                 Sql.STMT_VALIDATION_ERR,
                 "Table with name 'PUBLIC.TEST' already exists",
-                ses,
+                sql,
                 "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)"
         );
         checkSqlError(
                 Sql.STMT_VALIDATION_ERR,
                 "Column with name 'VAL' specified more than once",
-                ses,
+                sql,
                 "CREATE TABLE TEST1(ID INT PRIMARY KEY, VAL INT, VAL INT)"
         );
-        checkDdl(false, ses, "CREATE TABLE IF NOT EXISTS TEST(ID INT PRIMARY KEY, VAL VARCHAR)");
+        checkDdl(false, sql, "CREATE TABLE IF NOT EXISTS TEST(ID INT PRIMARY KEY, VAL VARCHAR)");
 
         // ADD COLUMN
-        checkDdl(true, ses, "ALTER TABLE TEST ADD COLUMN VAL1 VARCHAR");
+        checkDdl(true, sql, "ALTER TABLE TEST ADD COLUMN VAL1 VARCHAR");
         checkSqlError(
                 Sql.STMT_VALIDATION_ERR,
                 "Table with name 'PUBLIC.NOT_EXISTS_TABLE' not found",
-                ses,
+                sql,
                 "ALTER TABLE NOT_EXISTS_TABLE ADD COLUMN VAL1 VARCHAR"
         );
-        checkDdl(false, ses, "ALTER TABLE IF EXISTS NOT_EXISTS_TABLE ADD COLUMN VAL1 VARCHAR");
+        checkDdl(false, sql, "ALTER TABLE IF EXISTS NOT_EXISTS_TABLE ADD COLUMN VAL1 VARCHAR");
         checkSqlError(
                 Sql.STMT_VALIDATION_ERR,
                 "Column with name 'VAL1' already exists",
-                ses,
+                sql,
                 "ALTER TABLE TEST ADD COLUMN VAL1 INT"
         );
 
         // CREATE INDEX
-        checkDdl(true, ses, "CREATE INDEX TEST_IDX ON TEST(VAL0)");
+        checkDdl(true, sql, "CREATE INDEX TEST_IDX ON TEST(VAL0)");
         checkSqlError(
                 Sql.STMT_VALIDATION_ERR,
                 "Index with name 'PUBLIC.TEST_IDX' already exists",
-                ses,
+                sql,
                 "CREATE INDEX TEST_IDX ON TEST(VAL1)"
         );
-        checkDdl(false, ses, "CREATE INDEX IF NOT EXISTS TEST_IDX ON TEST(VAL1)");
+        checkDdl(false, sql, "CREATE INDEX IF NOT EXISTS TEST_IDX ON TEST(VAL1)");
 
-        checkDdl(true, ses, "DROP INDEX TESt_iDX");
-        checkDdl(true, ses, "CREATE INDEX TEST_IDX1 ON TEST(VAL0)");
-        checkDdl(true, ses, "CREATE INDEX TEST_IDX2 ON TEST(VAL0)");
-        checkDdl(true, ses, "CREATE INDEX TEST_IDX3 ON TEST(ID, VAL0, VAL1)");
+        checkDdl(true, sql, "DROP INDEX TESt_iDX");
+        checkDdl(true, sql, "CREATE INDEX TEST_IDX1 ON TEST(VAL0)");
+        checkDdl(true, sql, "CREATE INDEX TEST_IDX2 ON TEST(VAL0)");
+        checkDdl(true, sql, "CREATE INDEX TEST_IDX3 ON TEST(ID, VAL0, VAL1)");
         checkSqlError(
                 Sql.STMT_VALIDATION_ERR,
                 "Column with name 'VAL0' specified more than once",
-                ses,
+                sql,
                 "CREATE INDEX TEST_IDX4 ON TEST(VAL0, VAL0)"
         );
 
         checkSqlError(
                 Sql.STMT_VALIDATION_ERR,
                 "Deleting column 'VAL1' used by index(es) [TEST_IDX3], it is not allowed",
-                ses,
+                sql,
                 "ALTER TABLE TEST DROP COLUMN val1"
         );
 
         checkSqlError(
                 Sql.STMT_VALIDATION_ERR,
                 "Deleting column 'VAL0' used by index(es) [TEST_IDX1, TEST_IDX2, TEST_IDX3], it is not allowed",
-                ses,
+                sql,
                 "ALTER TABLE TEST DROP COLUMN (val0, val1)"
         );
 
         checkSqlError(
                 Sql.STMT_VALIDATION_ERR,
                 "Deleting column `ID` belonging to primary key is not allowed",
-                ses,
+                sql,
                 "ALTER TABLE TEST DROP COLUMN id"
         );
 
-        checkDdl(true, ses, "DROP INDEX TESt_iDX3");
+        checkDdl(true, sql, "DROP INDEX TESt_iDX3");
 
         // DROP COLUMNS
-        checkDdl(true, ses, "ALTER TABLE TEST DROP COLUMN VAL1");
+        checkDdl(true, sql, "ALTER TABLE TEST DROP COLUMN VAL1");
         checkSqlError(
                 Sql.STMT_VALIDATION_ERR,
                 "Table with name 'PUBLIC.NOT_EXISTS_TABLE' not found",
-                ses,
+                sql,
                 "ALTER TABLE NOT_EXISTS_TABLE DROP COLUMN VAL1"
         );
-        checkDdl(false, ses, "ALTER TABLE IF EXISTS NOT_EXISTS_TABLE DROP COLUMN VAL1");
+        checkDdl(false, sql, "ALTER TABLE IF EXISTS NOT_EXISTS_TABLE DROP COLUMN VAL1");
         checkSqlError(
                 Sql.STMT_VALIDATION_ERR,
                 "Column with name 'VAL1' not found in table 'PUBLIC.TEST'",
-                ses,
+                sql,
                 "ALTER TABLE TEST DROP COLUMN VAL1"
         );
 
         // DROP TABLE
-        checkDdl(false, ses, "DROP TABLE IF EXISTS NOT_EXISTS_TABLE");
+        checkDdl(false, sql, "DROP TABLE IF EXISTS NOT_EXISTS_TABLE");
 
-        checkDdl(true, ses, "DROP TABLE TEST");
+        checkDdl(true, sql, "DROP TABLE TEST");
         checkSqlError(
                 Sql.STMT_VALIDATION_ERR,
                 "Table with name 'PUBLIC.TEST' not found",
-                ses,
+                sql,
                 "DROP TABLE TEST"
         );
 
-        checkDdl(false, ses, "DROP INDEX IF EXISTS TEST_IDX");
+        checkDdl(false, sql, "DROP INDEX IF EXISTS TEST_IDX");
 
         checkSqlError(
                 Sql.STMT_VALIDATION_ERR,
                 "Index with name 'PUBLIC.TEST_IDX' not found",
-                ses,
+                sql,
                 "DROP INDEX TEST_IDX"
         );
     }
@@ -210,15 +206,13 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
 
-        Session ses = sql.createSession();
-
         TxManager txManager = txManager();
 
         for (int i = 0; i < ROW_COUNT; ++i) {
             assertThrowsSqlException(
                     Sql.STMT_VALIDATION_ERR,
                     "Table with name 'PUBLIC.TEST' already exists",
-                    () -> execute(ses, "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)")
+                    () -> execute(sql, "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)")
             );
         }
 
@@ -233,21 +227,19 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
 
-        Session ses = sql.createSession();
-
         TxManager txManagerInternal = txManager();
 
         int txPrevCnt = txManagerInternal.finished();
 
         for (int i = 0; i < ROW_COUNT; ++i) {
-            checkDml(1, ses, "INSERT INTO TEST VALUES (?, ?)", i, i);
+            checkDml(1, sql, "INSERT INTO TEST VALUES (?, ?)", i, i);
         }
 
         // Outer tx with further commit.
         Transaction outerTx = igniteTx().begin();
 
         for (int i = ROW_COUNT; i < 2 * ROW_COUNT; ++i) {
-            checkDml(1, outerTx, ses, "INSERT INTO TEST VALUES (?, ?)", i, i);
+            checkDml(1, outerTx, sql, "INSERT INTO TEST VALUES (?, ?)", i, i);
         }
 
         commit(outerTx);
@@ -257,14 +249,14 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         assertThrowsSqlException(
                 Transactions.TX_ALREADY_FINISHED_ERR,
                 "Transaction is already finished",
-                () -> checkDml(1, outerTx0, ses, "INSERT INTO TEST VALUES (?, ?)", ROW_COUNT, Integer.MAX_VALUE));
+                () -> checkDml(1, outerTx0, sql, "INSERT INTO TEST VALUES (?, ?)", ROW_COUNT, Integer.MAX_VALUE));
 
         assertThrowsSqlException(
                 Sql.CONSTRAINT_VIOLATION_ERR,
                 "PK unique constraint is violated",
-                () -> checkDml(1, ses, "INSERT INTO TEST VALUES (?, ?)", ROW_COUNT, Integer.MAX_VALUE));
+                () -> checkDml(1, sql, "INSERT INTO TEST VALUES (?, ?)", ROW_COUNT, Integer.MAX_VALUE));
 
-        ResultSet<SqlRow> rs = executeForRead(ses, "SELECT VAL0 FROM TEST ORDER BY VAL0");
+        ResultSet<SqlRow> rs = executeForRead(sql, "SELECT VAL0 FROM TEST ORDER BY VAL0");
 
         assertEquals(2 * ROW_COUNT, asStream(rs).count());
 
@@ -272,7 +264,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         outerTx = igniteTx().begin();
 
-        rs = executeForRead(ses, outerTx, "SELECT VAL0 FROM TEST ORDER BY VAL0");
+        rs = executeForRead(sql, outerTx, "SELECT VAL0 FROM TEST ORDER BY VAL0");
 
         assertEquals(2 * ROW_COUNT, asStream(rs).count());
 
@@ -280,9 +272,9 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         outerTx.commit();
 
-        checkDml(2 * ROW_COUNT, ses, "UPDATE TEST SET VAL0 = VAL0 + ?", 1);
+        checkDml(2 * ROW_COUNT, sql, "UPDATE TEST SET VAL0 = VAL0 + ?", 1);
 
-        checkDml(2 * ROW_COUNT, ses, "DELETE FROM TEST WHERE VAL0 >= 0");
+        checkDml(2 * ROW_COUNT, sql, "DELETE FROM TEST WHERE VAL0 >= 0");
 
         assertEquals(ROW_COUNT + 1 + 1 + 1 + 1 + 1 + 1, txManagerInternal.finished() - txPrevCnt);
 
@@ -296,18 +288,16 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
 
-        Session ses = sql.createSession();
-
         // Outer tx with further commit.
         Transaction outerTx = igniteTx().begin();
 
         for (int i = 0; i < ROW_COUNT; ++i) {
-            checkDml(1, outerTx, ses, "INSERT INTO TEST VALUES (?, ?)", i, i);
+            checkDml(1, outerTx, sql, "INSERT INTO TEST VALUES (?, ?)", i, i);
         }
 
         rollback(outerTx);
 
-        ResultSet<SqlRow> rs = executeForRead(ses, "SELECT VAL0 FROM TEST ORDER BY VAL0");
+        ResultSet<SqlRow> rs = executeForRead(sql, "SELECT VAL0 FROM TEST ORDER BY VAL0");
 
         asStream(rs);
         assertEquals(0, asStream(rs).count());
@@ -340,30 +330,28 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
     private void checkMixedTransactions(Matcher<String> planMatcher) {
         IgniteSql sql = igniteSql();
 
-        Session ses = sql.createSession();
-
         for (int i = 0; i < ROW_COUNT; ++i) {
-            executeForRead(ses, "INSERT INTO TEST VALUES (?, ?)", i, i);
+            executeForRead(sql, "INSERT INTO TEST VALUES (?, ?)", i, i);
         }
 
         List<Boolean> booleanList = List.of(Boolean.TRUE, Boolean.FALSE);
         for (boolean roTx : booleanList) {
             for (boolean commit : booleanList) {
                 for (boolean explicit : booleanList) {
-                    checkTx(ses, roTx, commit, explicit, planMatcher);
+                    checkTx(sql, roTx, commit, explicit, planMatcher);
                 }
             }
         }
     }
 
-    private void checkTx(Session ses, boolean readOnly, boolean commit, boolean explicit, Matcher<String> planMatcher) {
+    private void checkTx(IgniteSql sql, boolean readOnly, boolean commit, boolean explicit, Matcher<String> planMatcher) {
         Transaction outerTx = explicit ? igniteTx().begin(new TransactionOptions().readOnly(readOnly)) : null;
 
         String queryRo = "SELECT VAL0 FROM TEST ORDER BY VAL0";
 
         assertQuery(queryRo).matches(planMatcher).check();
 
-        ResultSet<SqlRow> rs = executeForRead(ses, outerTx, queryRo);
+        ResultSet<SqlRow> rs = executeForRead(sql, outerTx, queryRo);
 
         assertEquals(ROW_COUNT, asStream(rs).count());
 
@@ -372,9 +360,9 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         String queryRw = "UPDATE TEST SET VAL0=VAL0+1";
         if (explicit && readOnly) {
             assertThrowsSqlException(Sql.RUNTIME_ERR, "DML query cannot be started by using read only transactions.",
-                    () -> execute(outerTx, ses, queryRw));
+                    () -> execute(outerTx, sql, queryRw));
         } else {
-            checkDml(ROW_COUNT, outerTx, ses, queryRw);
+            checkDml(ROW_COUNT, outerTx, sql, queryRw);
         }
 
         if (outerTx != null) {
@@ -391,11 +379,10 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         sql("CREATE TABLE TEST(COL0 BIGINT PRIMARY KEY, COL1 VARCHAR NOT NULL)");
 
         IgniteSql sql = igniteSql();
-        Session ses = sql.sessionBuilder().build();
 
-        execute(ses, "INSERT INTO TEST VALUES (?, ?)", 1L, "some string");
+        execute(sql, "INSERT INTO TEST VALUES (?, ?)", 1L, "some string");
 
-        ResultSet<SqlRow> rs = executeForRead(ses, "SELECT COL1, COL0 FROM TEST");
+        ResultSet<SqlRow> rs = executeForRead(sql, "SELECT COL1, COL0 FROM TEST");
 
         // Validate columns metadata.
         ResultSetMetadata meta = rs.metadata();
@@ -436,9 +423,8 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
     @Test
     public void sqlRow() {
         IgniteSql sql = igniteSql();
-        Session ses = sql.sessionBuilder().build();
 
-        ResultSet<SqlRow> rs = executeForRead(ses, "SELECT 1 as COL_A, 2 as COL_B");
+        ResultSet<SqlRow> rs = executeForRead(sql, "SELECT 1 as COL_A, 2 as COL_B");
 
         SqlRow r = rs.next();
 
@@ -467,66 +453,41 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    public void closeSession() {
-        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
-
-        IgniteSql sql = igniteSql();
-        Session ses = sql.sessionBuilder().defaultPageSize(2).build();
-
-        for (int i = 0; i < ROW_COUNT; ++i) {
-            execute(ses, "INSERT INTO TEST VALUES (?, ?)", i, i);
-        }
-
-        ResultSet rs = executeForRead(ses, "SELECT ID FROM TEST");
-
-        ses.close();
-
-        IgniteTestUtils.assertThrowsWithCode(
-                CursorClosedException.class,
-                Common.CURSOR_ALREADY_CLOSED_ERR,
-                () -> rs.forEachRemaining(System.out::println),
-                "Cursor is closed");
-
-        assertThrowsSqlException(Sql.SESSION_CLOSED_ERR, "Session is closed", () -> execute(ses, "SELECT ID FROM TEST"));
-    }
-
-    @Test
     public void errors() throws InterruptedException {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT NOT NULL)");
 
         IgniteSql sql = igniteSql();
-        Session ses = sql.sessionBuilder().defaultPageSize(2).build();
 
         for (int i = 0; i < ROW_COUNT; ++i) {
-            execute(ses, "INSERT INTO TEST VALUES (?, ?)", i, i);
+            execute(sql, "INSERT INTO TEST VALUES (?, ?)", i, i);
         }
 
         // Parse error.
-        checkSqlError(Sql.STMT_PARSE_ERR, "Failed to parse query", ses, "SELECT ID FROM");
+        checkSqlError(Sql.STMT_PARSE_ERR, "Failed to parse query", sql, "SELECT ID FROM");
 
         // Validation errors.
-        checkSqlError(Sql.STMT_VALIDATION_ERR, "Column 'VAL0' does not allow NULLs", ses,
+        checkSqlError(Sql.STMT_VALIDATION_ERR, "Column 'VAL0' does not allow NULLs", sql,
                 "INSERT INTO TEST VALUES (2, NULL)");
 
-        checkSqlError(Sql.STMT_VALIDATION_ERR, "Object 'NOT_EXISTING_TABLE' not found", ses,
+        checkSqlError(Sql.STMT_VALIDATION_ERR, "Object 'NOT_EXISTING_TABLE' not found", sql,
                 "SELECT * FROM NOT_EXISTING_TABLE");
 
-        checkSqlError(Sql.STMT_VALIDATION_ERR, "Column 'NOT_EXISTING_COLUMN' not found", ses,
+        checkSqlError(Sql.STMT_VALIDATION_ERR, "Column 'NOT_EXISTING_COLUMN' not found", sql,
                 "SELECT NOT_EXISTING_COLUMN FROM TEST");
 
-        checkSqlError(Sql.STMT_VALIDATION_ERR, "Multiple statements are not allowed", ses, "SELECT 1; SELECT 2");
+        checkSqlError(Sql.STMT_VALIDATION_ERR, "Multiple statements are not allowed", sql, "SELECT 1; SELECT 2");
 
-        checkSqlError(Sql.STMT_VALIDATION_ERR, "Table without PRIMARY KEY is not supported", ses,
+        checkSqlError(Sql.STMT_VALIDATION_ERR, "Table without PRIMARY KEY is not supported", sql,
                 "CREATE TABLE TEST2 (VAL INT)");
 
         // Execute error.
-        checkSqlError(Sql.RUNTIME_ERR, "Division by zero", ses, "SELECT 1 / ?", 0);
-        checkSqlError(Sql.RUNTIME_ERR, "Division by zero", ses, "UPDATE TEST SET val0 = val0/(val0 - ?) + " + ROW_COUNT, 0);
-        checkSqlError(Sql.RUNTIME_ERR, "negative substring length not allowed", ses, "SELECT SUBSTRING('foo', 1, -3)");
+        checkSqlError(Sql.RUNTIME_ERR, "Division by zero", sql, "SELECT 1 / ?", 0);
+        checkSqlError(Sql.RUNTIME_ERR, "Division by zero", sql, "UPDATE TEST SET val0 = val0/(val0 - ?) + " + ROW_COUNT, 0);
+        checkSqlError(Sql.RUNTIME_ERR, "negative substring length not allowed", sql, "SELECT SUBSTRING('foo', 1, -3)");
 
         // No result set error.
         {
-            ResultSet rs = executeForRead(ses, "CREATE TABLE TEST3 (ID INT PRIMARY KEY)");
+            ResultSet rs = executeForRead(sql, "CREATE TABLE TEST3 (ID INT PRIMARY KEY)");
             assertThrowsSqlException(
                     NoRowSetExpectedException.class,
                     Sql.QUERY_NO_RESULT_SET_ERR, "Query has no result set",
@@ -535,11 +496,16 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         // Cursor closed error.
         {
-            ResultSet rs = executeForRead(ses, "SELECT * FROM TEST");
+            Statement statement = sql.statementBuilder()
+                    .query("SELECT * FROM TEST")
+                    .pageSize(2)
+                    .build();
+
+            ResultSet rs = executeForRead(sql, statement);
             Thread.sleep(300); // ResultSetImpl fetches next page in background, wait to it to complete to avoid flakiness.
             rs.close();
 
-            IgniteTestUtils.assertThrowsWithCode(
+            assertThrowsWithCode(
                     CursorClosedException.class,
                     Common.CURSOR_ALREADY_CLOSED_ERR,
                     () -> rs.forEachRemaining(Object::hashCode),
@@ -552,23 +518,22 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
 
         IgniteSql sql = igniteSql();
-        Session ses = sql.createSession();
 
         TxManager txManager = txManager();
 
         int txPrevCnt = txManager.finished();
 
         for (int i = 0; i < ROW_COUNT; ++i) {
-            checkDml(1, ses, "INSERT INTO TEST VALUES (?, ?)", i, i);
+            checkDml(1, sql, "INSERT INTO TEST VALUES (?, ?)", i, i);
         }
 
         assertEquals(ROW_COUNT, txManager.finished() - txPrevCnt);
         // No new transactions through ddl.
         assertEquals(0, txManager.pending());
 
-        checkDml(ROW_COUNT, ses, "UPDATE TEST SET VAL0 = VAL0 + ?", 1);
+        checkDml(ROW_COUNT, sql, "UPDATE TEST SET VAL0 = VAL0 + ?", 1);
 
-        checkDml(ROW_COUNT, ses, "DELETE FROM TEST WHERE VAL0 >= 0");
+        checkDml(ROW_COUNT, sql, "DELETE FROM TEST WHERE VAL0 >= 0");
     }
 
     @Test
@@ -576,13 +541,17 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
 
         IgniteSql sql = igniteSql();
-        Session ses = sql.sessionBuilder().defaultPageSize(ROW_COUNT / 4).build();
 
         for (int i = 0; i < ROW_COUNT; ++i) {
-            ses.execute(null, "INSERT INTO TEST VALUES (?, ?)", i, i);
+            sql.execute(null, "INSERT INTO TEST VALUES (?, ?)", i, i);
         }
 
-        ResultProcessor resultProcessor = execute(4, ses, "SELECT ID FROM TEST");
+        Statement statement = sql.statementBuilder()
+                .query("SELECT ID FROM TEST")
+                .pageSize(ROW_COUNT / 4)
+                .build();
+
+        ResultProcessor resultProcessor = execute(4, null, sql, statement);
 
         Set<Integer> rs = resultProcessor.result().stream().map(r -> r.intValue(0)).collect(Collectors.toSet());
 
@@ -598,7 +567,6 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
 
         IgniteSql sql = CLUSTER.aliveNode().sql();
-        Session ses = sql.sessionBuilder().defaultPageSize(ROW_COUNT / 2).build();
 
         BatchedArguments args = BatchedArguments.of(0, 0);
 
@@ -606,7 +574,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
             args.add(i, i);
         }
 
-        long[] batchRes = executeBatch(ses, "INSERT INTO TEST VALUES (?, ?)", args);
+        long[] batchRes = executeBatch(sql, "INSERT INTO TEST VALUES (?, ?)", args);
 
         Arrays.stream(batchRes).forEach(r -> assertEquals(1L, r));
 
@@ -619,13 +587,13 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
                 SqlBatchException.class,
                 Sql.STMT_VALIDATION_ERR,
                 "Invalid SQL statement type",
-                () -> executeBatch(ses, "SELECT * FROM TEST", args));
+                () -> executeBatch(sql, "SELECT * FROM TEST", args));
 
         assertThrowsSqlException(
                 SqlBatchException.class,
                 Sql.STMT_VALIDATION_ERR,
                 "Invalid SQL statement type",
-                () -> executeBatch(ses, "CREATE TABLE TEST1(ID INT PRIMARY KEY, VAL0 INT)", args));
+                () -> executeBatch(sql, "CREATE TABLE TEST1(ID INT PRIMARY KEY, VAL0 INT)", args));
     }
 
     @Test
@@ -635,7 +603,6 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
 
         IgniteSql sql = CLUSTER.aliveNode().sql();
-        Session ses = sql.sessionBuilder().defaultPageSize(ROW_COUNT / 2).build();
 
         BatchedArguments args = BatchedArguments.of(0, 0);
 
@@ -651,7 +618,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
                 SqlBatchException.class,
                 Sql.CONSTRAINT_VIOLATION_ERR,
                 "PK unique constraint is violated",
-                () -> executeBatch(ses, "INSERT INTO TEST VALUES (?, ?)", args)
+                () -> executeBatch(sql, "INSERT INTO TEST VALUES (?, ?)", args)
         );
 
         assertEquals(err, ex.updateCounters().length);
@@ -668,26 +635,21 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         sql("INSERT INTO tst VALUES (?,?)", 1, 1);
 
-        try (Session ses = igniteSql().createSession()) {
-            Transaction tx = igniteTx().begin();
-            String dmlQuery = "UPDATE tst SET val = val/(val - ?) + 1";
+        IgniteSql sql = igniteSql();
 
-            assertThrowsSqlException(
-                    Sql.RUNTIME_ERR,
-                    "Division by zero",
-                    () -> execute(tx, ses, dmlQuery, 1).affectedRows());
+        Transaction tx = igniteTx().begin();
+        String dmlQuery = "UPDATE tst SET val = val/(val - ?) + 1";
 
-            IgniteException err = assertThrows(IgniteException.class, () -> {
-                ResultSet<SqlRow> rs = executeForRead(ses, tx, query, 2);
-                if (rs.hasRowSet()) {
-                    assertTrue(rs.hasNext());
-                } else {
-                    assertTrue(rs.wasApplied());
-                }
-            });
+        assertThrowsSqlException(
+                Sql.RUNTIME_ERR,
+                "Division by zero",
+                () -> execute(tx, sql, dmlQuery, 1).affectedRows());
 
-            assertEquals(Transactions.TX_ALREADY_FINISHED_ERR, err.code(), err.toString());
-        }
+        assertThrowsWithCode(
+                IgniteException.class,
+                Transactions.TX_ALREADY_FINISHED_ERR,
+                () -> executeForRead(sql, tx, query, 2),
+                "Transaction is already finished");
     }
 
     @ParameterizedTest
@@ -700,53 +662,49 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
         sql("INSERT INTO tst VALUES (?,?)", 1, 1);
 
-        try (Session ses = igniteSql().createSession()) {
-            Transaction tx = igniteTx().begin();
+        IgniteSql sql = igniteSql();
 
-            assertThrowsSqlException(
-                    Sql.RUNTIME_ERR,
-                    "Division by zero",
-                    () -> execute(tx, ses, "SELECT val/? FROM tst WHERE id=?", 0, 1));
+        Transaction tx = igniteTx().begin();
 
-            IgniteException err = assertThrows(IgniteException.class, () -> {
-                ResultSet<SqlRow> rs = executeForRead(ses, tx, query, 2);
-                if (rs.hasRowSet()) {
-                    assertTrue(rs.hasNext());
-                } else {
-                    assertTrue(rs.wasApplied());
-                }
-            });
+        assertThrowsSqlException(
+                Sql.RUNTIME_ERR,
+                "Division by zero",
+                () -> execute(tx, sql, "SELECT val/? FROM tst WHERE id=?", 0, 1));
 
-            assertEquals(Transactions.TX_ALREADY_FINISHED_ERR, err.code(), err.toString());
-        }
+        assertThrowsWithCode(
+                IgniteException.class,
+                Transactions.TX_ALREADY_FINISHED_ERR,
+                () -> executeForRead(sql, tx, query, 2),
+                "Transaction is already finished");
     }
 
     @Test
     public void testLockIsNotReleasedAfterTxRollback() {
         IgniteSql sql = igniteSql();
 
-        try (Session ses = sql.createSession()) {
-            checkDdl(true, ses, "CREATE TABLE IF NOT EXISTS tst(id INTEGER PRIMARY KEY, val INTEGER)");
-        }
+        checkDdl(true, sql, "CREATE TABLE IF NOT EXISTS tst(id INTEGER PRIMARY KEY, val INTEGER)");
 
-        try (Session session = sql.createSession()) {
+        {
             Transaction tx = igniteTx().begin();
 
-            assertThrows(RuntimeException.class, () -> execute(tx, session, "SELECT 1/0"));
+            assertThrowsSqlException(
+                    Sql.RUNTIME_ERR,
+                    "Division by zero",
+                    () -> execute(tx, sql, "SELECT 1/0"));
 
             tx.rollback();
 
             assertThrowsSqlException(
                     Transactions.TX_ALREADY_FINISHED_ERR,
                     "Transaction is already finished",
-                    () -> session.execute(tx, "INSERT INTO tst VALUES (1, 1)")
+                    () -> sql.execute(tx, "INSERT INTO tst VALUES (1, 1)")
             );
         }
 
-        try (Session session = sql.createSession()) {
+        {
             Transaction tx = igniteTx().begin(new TransactionOptions().readOnly(false));
 
-            execute(tx, session, "INSERT INTO tst VALUES (1, 1)");
+            execute(tx, sql, "INSERT INTO tst VALUES (1, 1)");
             tx.commit();
         }
     }
@@ -756,13 +714,12 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
 
         IgniteSql sql = igniteSql();
-        // Fetch all data in one read.
-        Session ses = sql.sessionBuilder().defaultPageSize(100).build();
+
         for (int i = 0; i < ROW_COUNT; ++i) {
-            execute(ses, "INSERT INTO TEST VALUES (?, ?)", i, i);
+            execute(sql, "INSERT INTO TEST VALUES (?, ?)", i, i);
         }
 
-        execute(1, ses, "SELECT * FROM TEST");
+        execute(1, sql, "SELECT * FROM TEST");
 
         assertEquals(0, txManager().pending(), "Expected no pending transactions");
     }
@@ -772,7 +729,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
      */
     @Test
     public void ddlInTransaction() {
-        Session ses = igniteSql().createSession();
+        IgniteSql sql = igniteSql();
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
 
         {
@@ -781,7 +738,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
                 assertThrowsSqlException(
                         Sql.RUNTIME_ERR,
                         "DDL doesn't support transactions.",
-                        () -> execute(tx, ses, "CREATE TABLE TEST2(ID INT PRIMARY KEY, VAL0 INT)")
+                        () -> execute(tx, sql, "CREATE TABLE TEST2(ID INT PRIMARY KEY, VAL0 INT)")
                 );
             } finally {
                 tx.rollback();
@@ -789,17 +746,17 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         }
         {
             Transaction tx = igniteTx().begin();
-            ResultProcessor result = execute(tx, ses, "INSERT INTO TEST VALUES (?, ?)", -1, -1);
+            ResultProcessor result = execute(tx, sql, "INSERT INTO TEST VALUES (?, ?)", -1, -1);
             assertEquals(1, result.affectedRows());
 
             assertThrowsSqlException(
                     Sql.RUNTIME_ERR,
                     "DDL doesn't support transactions.",
-                    () -> ses.execute(tx, "CREATE TABLE TEST2(ID INT PRIMARY KEY, VAL0 INT)")
+                    () -> sql.execute(tx, "CREATE TABLE TEST2(ID INT PRIMARY KEY, VAL0 INT)")
             );
             tx.commit();
 
-            assertEquals(1, execute(ses, "SELECT ID FROM TEST WHERE ID = -1").result().size());
+            assertEquals(1, execute(sql, "SELECT ID FROM TEST WHERE ID = -1").result().size());
         }
 
         assertEquals(0, txManager().pending());
@@ -810,13 +767,17 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
 
         IgniteSql sql = igniteSql();
-        Session ses = sql.sessionBuilder().defaultPageSize(2).build();
 
         for (int i = 0; i < ROW_COUNT; ++i) {
-            execute(ses, "INSERT INTO TEST VALUES (?, ?)", i, i);
+            execute(sql, "INSERT INTO TEST VALUES (?, ?)", i, i);
         }
 
-        ResultSet<?> rs = executeForRead(ses, "SELECT * FROM TEST");
+        Statement statement = sql.statementBuilder()
+                .query("SELECT * FROM TEST")
+                .pageSize(2)
+                .build();
+
+        ResultSet<?> rs = executeForRead(sql, statement);
         assertEquals(1, txManager().pending());
         rs.close();
         assertEquals(0, txManager().pending(), "Expected no pending transactions");
@@ -826,131 +787,122 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
     public void runScriptThatCompletesSuccessfully() {
         IgniteSql sql = igniteSql();
 
-        try (Session session = sql.createSession()) {
-            executeScript(session,
-                    "CREATE TABLE test (id INT PRIMARY KEY, step INTEGER); "
-                            + "INSERT INTO test VALUES(1, 0); "
-                            + "UPDATE test SET step = 1; "
-                            + "SELECT * FROM test; "
-                            + "UPDATE test SET step = 2; ");
+        executeScript(sql,
+                "CREATE TABLE test (id INT PRIMARY KEY, step INTEGER); "
+                        + "INSERT INTO test VALUES(1, 0); "
+                        + "UPDATE test SET step = 1; "
+                        + "SELECT * FROM test; "
+                        + "UPDATE test SET step = 2; ");
 
-            ResultProcessor result = execute(session, "SELECT step FROM test");
-            assertEquals(1, result.result().size());
-            assertEquals(2, result.result().get(0).intValue(0));
-        }
+        ResultProcessor result = execute(sql, "SELECT step FROM test");
+        assertEquals(1, result.result().size());
+        assertEquals(2, result.result().get(0).intValue(0));
     }
 
     @Test
     public void runScriptWithTransactionThatCompletesSuccessfully() {
         IgniteSql sql = igniteSql();
 
-        try (Session session = sql.createSession()) {
-            executeScript(session,
-                    "CREATE TABLE test (id INT PRIMARY KEY, step INTEGER); "
-                            + "START TRANSACTION; "
-                            + "INSERT INTO test VALUES(1, 0); "
-                            + "INSERT INTO test VALUES(2, 0); "
-                            + "UPDATE test SET step = 1; "
-                            + "SELECT * FROM test; "
-                            + "UPDATE test SET step = 2; "
-                            + "COMMIT; "
-                            + "DELETE FROM test WHERE id = 2");
+        executeScript(sql,
+                "CREATE TABLE test (id INT PRIMARY KEY, step INTEGER); "
+                        + "START TRANSACTION; "
+                        + "INSERT INTO test VALUES(1, 0); "
+                        + "INSERT INTO test VALUES(2, 0); "
+                        + "UPDATE test SET step = 1; "
+                        + "SELECT * FROM test; "
+                        + "UPDATE test SET step = 2; "
+                        + "COMMIT; "
+                        + "DELETE FROM test WHERE id = 2");
 
-            ResultProcessor result = execute(session, "SELECT step FROM test");
-            assertEquals(1, result.result().size());
-            assertEquals(2, result.result().get(0).intValue(0));
-        }
+        ResultProcessor result = execute(sql, "SELECT step FROM test");
+        assertEquals(1, result.result().size());
+        assertEquals(2, result.result().get(0).intValue(0));
     }
 
     @Test
     public void runScriptThatFails() {
         IgniteSql sql = igniteSql();
 
-        try (Session session = sql.createSession()) {
-            assertThrowsSqlException(
-                    Sql.RUNTIME_ERR,
-                    "Division by zero",
-                    () -> executeScript(session,
-                            "CREATE TABLE test (id INT PRIMARY KEY, step INTEGER); "
-                                    + "INSERT INTO test VALUES(1, 0); "
-                                    + "UPDATE test SET step = 1; "
-                                    + "UPDATE test SET step = 3 WHERE step > 1/0; "
-                                    + "UPDATE test SET step = 2; "
-                    )
-            );
+        assertThrowsSqlException(
+                Sql.RUNTIME_ERR,
+                "Division by zero",
+                () -> executeScript(sql,
+                        "CREATE TABLE test (id INT PRIMARY KEY, step INTEGER); "
+                                + "INSERT INTO test VALUES(1, 0); "
+                                + "UPDATE test SET step = 1; "
+                                + "UPDATE test SET step = 3 WHERE step > 1/0; "
+                                + "UPDATE test SET step = 2; "
+                )
+        );
 
-            ResultProcessor result = execute(session, "SELECT step FROM test");
-            assertEquals(1, result.result().size());
-            assertEquals(1, result.result().get(0).intValue(0));
-        }
+        ResultProcessor result = execute(sql, "SELECT step FROM test");
+        assertEquals(1, result.result().size());
+        assertEquals(1, result.result().get(0).intValue(0));
     }
 
-    protected ResultSet<SqlRow> executeForRead(Session ses, String query, Object... args) {
-        return executeForRead(ses, null, query, args);
+    protected ResultSet<SqlRow> executeForRead(IgniteSql sql, String query, Object... args) {
+        return executeForRead(sql, null, query, args);
     }
 
-    protected abstract ResultSet<SqlRow> executeForRead(Session ses, @Nullable Transaction tx, String query, Object... args);
-
-    protected <T extends IgniteException> T checkError(Class<T> expCls, Integer code, String msg, Session ses, String sql,
-            Object... args) {
-        T ex = assertThrows(expCls, () -> execute(ses, sql, args));
-
-        if (code != null) {
-            assertEquals(new IgniteException(code).codeAsString(), ex.codeAsString());
-        }
-
-        if (msg != null) {
-            assertThat(ex.getMessage(), containsString(msg));
-        }
-
-        return ex;
+    protected ResultSet<SqlRow> executeForRead(IgniteSql sql, Statement query, Object... args) {
+        return executeForRead(sql, null, query, args);
     }
+
+    protected ResultSet<SqlRow> executeForRead(IgniteSql sql, @Nullable Transaction tx, String query, Object... args) {
+        return executeForRead(sql, tx, igniteSql().createStatement(query), args);
+    }
+
+    protected abstract ResultSet<SqlRow> executeForRead(IgniteSql sql, @Nullable Transaction tx, Statement statement, Object... args);
 
     protected SqlException checkSqlError(
             int code,
             String msg,
-            Session ses,
-            String sql,
+            IgniteSql sql,
+            String query,
             Object... args
     ) {
-        return assertThrowsSqlException(code, msg, () -> execute(ses, sql, args));
+        return assertThrowsSqlException(code, msg, () -> execute(sql, query, args));
     }
 
-    protected abstract long[] executeBatch(Session ses, String sql, BatchedArguments args);
+    protected abstract long[] executeBatch(IgniteSql sql, String query, BatchedArguments args);
 
-    protected abstract ResultProcessor execute(Integer expectedPages, Transaction tx, Session ses, String sql, Object... args);
-
-    protected ResultProcessor execute(int expectedPages, Session ses, String sql, Object... args) {
-        return execute(expectedPages, null, ses, sql, args);
+    protected ResultProcessor execute(Integer expectedPages, Transaction tx, IgniteSql sql, String query, Object... args) {
+        return execute(expectedPages, tx, sql, sql.createStatement(query), args);
     }
 
-    protected ResultProcessor execute(Transaction tx, Session ses, String sql, Object... args) {
-        return execute(null, tx, ses, sql, args);
+    protected abstract ResultProcessor execute(Integer expectedPages, Transaction tx, IgniteSql sql, Statement statement, Object... args);
+
+    protected ResultProcessor execute(int expectedPages, IgniteSql sql, String query, Object... args) {
+        return execute(expectedPages, null, sql, query, args);
     }
 
-    protected ResultProcessor execute(Session ses, String sql, Object... args) {
-        return execute(null, null, ses, sql, args);
+    protected ResultProcessor execute(Transaction tx, IgniteSql sql, String query, Object... args) {
+        return execute(null, tx, sql, query, args);
     }
 
-    protected abstract void executeScript(Session ses, String sql, Object... args);
+    protected ResultProcessor execute(IgniteSql sql, String query, Object... args) {
+        return execute(null, null, sql, query, args);
+    }
+
+    protected abstract void executeScript(IgniteSql sql, String query, Object... args);
 
     protected abstract void rollback(Transaction outerTx);
 
     protected abstract void commit(Transaction outerTx);
 
-    protected void checkDml(int expectedAffectedRows, Transaction tx, Session ses, String sql, Object... args) {
+    protected void checkDml(int expectedAffectedRows, Transaction tx, IgniteSql sql, String query, Object... args) {
 
     }
 
-    protected void checkDml(int expectedAffectedRows, Session ses, String sql, Object... args) {
-        checkDml(expectedAffectedRows, null, ses, sql, args);
+    protected void checkDml(int expectedAffectedRows, IgniteSql sql, String query, Object... args) {
+        checkDml(expectedAffectedRows, null, sql, query, args);
     }
 
-    protected void checkDdl(boolean expectedApplied, Session ses, String sql) {
-        checkDdl(expectedApplied, ses, sql, null);
+    protected void checkDdl(boolean expectedApplied, IgniteSql sql, String query) {
+        checkDdl(expectedApplied, sql, query, null);
     }
 
-    protected abstract void checkDdl(boolean expectedApplied, Session ses, String sql, Transaction tx);
+    protected abstract void checkDdl(boolean expectedApplied, IgniteSql sql, String query, Transaction tx);
 
     /** Represent result of running SQL query to hide implementation specific for different version of tests. */
     protected interface ResultProcessor {

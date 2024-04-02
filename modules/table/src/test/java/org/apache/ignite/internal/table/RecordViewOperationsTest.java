@@ -55,7 +55,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
-import java.util.concurrent.ForkJoinPool;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.internal.marshaller.testobjects.TestObjectWithAllTypes;
@@ -117,7 +116,7 @@ public class RecordViewOperationsTest extends TableKvOperationsTestBase {
 
     private final SchemaDescriptor schema = new SchemaDescriptor(
             SCHEMA_VERSION,
-            new Column[]{new Column("primitiveLongCol".toUpperCase(), NativeTypes.INT64, false)},
+            new Column[]{new Column("primitiveLongCol".toUpperCase(), INT64, false)},
             valCols
     );
 
@@ -412,7 +411,6 @@ public class RecordViewOperationsTest extends TableKvOperationsTestBase {
                 schemaVersions,
                 mock(IgniteSql.class),
                 marshallers,
-                ForkJoinPool.commonPool(),
                 recMapper
         );
     }

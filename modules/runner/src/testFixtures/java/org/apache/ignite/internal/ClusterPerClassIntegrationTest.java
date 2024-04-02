@@ -29,11 +29,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParametersBuilder;
@@ -41,27 +37,26 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.sql.Statement;
+import org.apache.ignite.sql.Statement.StatementBuilder;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.TestInstance;
 
 /**
  * Abstract basic integration test that starts a cluster once for all the tests it runs.
  */
+@SuppressWarnings("resource")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTest {
     /** Test default table name. */
@@ -83,21 +78,9 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     /** Cluster nodes. */
     protected static Cluster CLUSTER;
 
-    private static final boolean DEFAULT_WAIT_FOR_INDEX_AVAILABLE = true;
-
-    /** Whether to wait for indexes to become available or not. Default is {@code true}. */
-    private static final AtomicBoolean AWAIT_INDEX_AVAILABILITY = new AtomicBoolean(DEFAULT_WAIT_FOR_INDEX_AVAILABLE);
-
     /** Work directory. */
     @WorkDirectory
     protected static Path WORK_DIR;
-
-    /** Reset {@link #AWAIT_INDEX_AVAILABILITY}. */
-    @BeforeEach
-    @AfterEach
-    void resetIndexAvailabilityFlag() {
-        setAwaitIndexAvailability(DEFAULT_WAIT_FOR_INDEX_AVAILABLE);
-    }
 
     /**
      * Before all.
@@ -318,15 +301,6 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
         sql(format("DROP INDEX {}", indexName));
     }
 
-    /**
-     * Sets whether to wait for indexes to become available.
-     *
-     * @param value Whether to wait for indexes to become available.
-     */
-    protected static void setAwaitIndexAvailability(boolean value) {
-        AWAIT_INDEX_AVAILABILITY.set(value);
-    }
-
     protected static void insertData(String tblName, List<String> columnNames, Object[]... tuples) {
         Transaction tx = CLUSTER.node(0).transactions().begin();
 
@@ -358,15 +332,21 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      * @param node Ignite instance to run a query.
      * @param tx Transaction to run a given query. Can be {@code null} to run within implicit transaction.
      * @param zoneId Client time zone.
-     * @param sql Query to be run.
+     * @param query Query to be run.
      * @param args Dynamic parameters for a given query.
      * @return List of lists, where outer list represents a rows, internal lists represents a columns.
      */
-    public static List<List<Object>> sql(Ignite node, @Nullable Transaction tx, @Nullable ZoneId zoneId, String sql, Object... args) {
-        try (
-                Session session = node.sql().sessionBuilder().timeZoneId(zoneId).build();
-                ResultSet<SqlRow> rs = session.execute(tx, sql, args)
-        ) {
+    public static List<List<Object>> sql(Ignite node, @Nullable Transaction tx, @Nullable ZoneId zoneId, String query, Object... args) {
+        IgniteSql sql = node.sql();
+        StatementBuilder builder = sql.statementBuilder()
+                .query(query);
+
+        if (zoneId != null) {
+            builder.timeZoneId(zoneId);
+        }
+
+        Statement statement = builder.build();
+        try (ResultSet<SqlRow> rs = sql.execute(tx, statement, args)) {
             return getAllResultSet(rs);
         }
     }
@@ -380,13 +360,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     }
 
     protected static List<List<Object>> sql(int nodeIndex, @Nullable Transaction tx, @Nullable ZoneId zoneId, String sql, Object[] args) {
-        IgniteImpl node = CLUSTER.node(nodeIndex);
-
-        if (!AWAIT_INDEX_AVAILABILITY.get()) {
-            return sql(node, tx, zoneId, sql, args);
-        } else {
-            return executeAwaitingIndexes(node, (n) -> sql(n, tx, zoneId, sql, args));
-        }
+        return sql(CLUSTER.node(nodeIndex), tx, zoneId, sql, args);
     }
 
     private static List<List<Object>> getAllResultSet(ResultSet<SqlRow> resultSet) {
@@ -447,63 +421,12 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      */
     protected static void waitForReadTimestampThatObservesMostRecentCatalog()  {
         // See TxManagerImpl::currentReadTimestamp.
-        long delay = HybridTimestamp.CLOCK_SKEW + TestIgnitionManager.DEFAULT_PARTITION_IDLE_SYNC_TIME_INTERVAL_MS;
+        long delay = TestIgnitionManager.DEFAULT_MAX_CLOCK_SKEW_MS + TestIgnitionManager.DEFAULT_PARTITION_IDLE_SYNC_TIME_INTERVAL_MS;
 
         try {
             TimeUnit.MILLISECONDS.sleep(delay);
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
-        }
-    }
-
-    private static List<List<Object>> executeAwaitingIndexes(IgniteImpl node, Function<IgniteImpl, List<List<Object>>> statement) {
-        CatalogManager catalogManager = node.catalogManager();
-
-        // Get existing indexes
-        Set<Integer> existing = catalogManager.indexes(catalogManager.latestCatalogVersion()).stream()
-                .map(CatalogObjectDescriptor::id)
-                .collect(Collectors.toSet());
-
-        List<List<Object>> result = statement.apply(node);
-
-        // Get indexes after a statement and compute the difference
-        List<Integer> difference = catalogManager.indexes(catalogManager.latestCatalogVersion()).stream()
-                .map(CatalogObjectDescriptor::id)
-                .filter(id -> !existing.contains(id))
-                .collect(Collectors.toList());
-
-        if (difference.isEmpty()) {
-            return result;
-        }
-
-        // If there are new indexes, wait for them to become available.
-        HybridClock clock = node.clock();
-
-        try {
-            assertTrue(waitForCondition(
-                    () -> {
-                        // Using the timestamp instead of the latest Catalog version, because the index update is set in the future and
-                        // we must wait for the activation delay to pass.
-                        long now = clock.nowLong();
-
-                        return difference.stream()
-                                .map(id -> catalogManager.index(id, now))
-                                .allMatch(indexDescriptor -> indexDescriptor != null && indexDescriptor.status() == AVAILABLE);
-                    },
-                    10_000L
-            ));
-
-            // We have no knowledge whether the next transaction is readonly or not,
-            // so we have to assume that the next transaction is read only transaction.
-            // otherwise the statements in that transaction may not observe
-            // the latest catalog version.
-            waitForReadTimestampThatObservesMostRecentCatalog();
-
-            return result;
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-
-            throw new IllegalStateException(e);
         }
     }
 

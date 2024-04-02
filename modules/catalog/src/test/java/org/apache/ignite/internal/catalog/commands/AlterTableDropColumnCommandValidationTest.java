@@ -154,7 +154,7 @@ public class AlterTableDropColumnCommandValidationTest extends AbstractCommandVa
                 .schemaName(SCHEMA_NAME)
                 .tableName(tableName)
                 .columns(List.of(ColumnParams.builder().name(columnName).type(INT32).build()))
-                .primaryKeyColumns(List.of(columnName))
+                .primaryKey(primaryKey(columnName))
         );
 
         AlterTableDropColumnCommandBuilder builder = AlterTableDropColumnCommand.builder()
@@ -181,7 +181,7 @@ public class AlterTableDropColumnCommandValidationTest extends AbstractCommandVa
                         ColumnParams.builder().name(columnName1).type(INT32).build(),
                         ColumnParams.builder().name(columnName2).type(INT32).build()
                 ))
-                .primaryKeyColumns(List.of(columnName1, columnName2))
+                .primaryKey(primaryKey(columnName1, columnName2))
         );
 
         AlterTableDropColumnCommandBuilder builder = AlterTableDropColumnCommand.builder()

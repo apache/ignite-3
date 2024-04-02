@@ -207,7 +207,7 @@ public abstract class CreateAbstractIndexCommandValidationTest extends AbstractC
                 .schemaName(SCHEMA_NAME)
                 .tableName(tableName)
                 .columns(List.of(c1, c2))
-                .primaryKeyColumns(List.of(c1.name(), c2.name()))
+                .primaryKey(primaryKey(c1.name(), c2.name()))
         );
 
         CatalogCommand command = prefilledBuilder()

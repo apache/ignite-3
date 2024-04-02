@@ -22,7 +22,7 @@ package org.apache.ignite.internal.cluster.management.raft;
  */
 public class RocksDbClusterStateStorageManagerTest extends AbstractClusterStateStorageManagerTest {
     @Override
-    ClusterStateStorage clusterStateStorage() {
-        return new RocksDbClusterStateStorage(workDir);
+    ClusterStateStorage clusterStateStorage(String nodeName) {
+        return new RocksDbClusterStateStorage(workDir, nodeName);
     }
 }

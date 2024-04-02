@@ -183,7 +183,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                 .columns(List.of(
                         ColumnParams.builder().name(columnName).type(ColumnType.DECIMAL).precision(10).scale(0).build())
                 )
-                .primaryKeyColumns(List.of(columnName))
+                .primaryKey(primaryKey(columnName))
         );
 
         AlterTableAlterColumnCommandBuilder builder = AlterTableAlterColumnCommand.builder();
@@ -217,7 +217,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                                 .scale(2)
                                 .build())
                 )
-                .primaryKeyColumns(List.of(columnName))
+                .primaryKey(primaryKey(columnName))
         );
 
         AlterTableAlterColumnCommandBuilder builder = AlterTableAlterColumnCommand.builder();
@@ -249,7 +249,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                                 .type(ColumnType.INT64)
                                 .build())
                 )
-                .primaryKeyColumns(List.of(columnName))
+                .primaryKey(primaryKey(columnName))
         );
 
         AlterTableAlterColumnCommandBuilder builder = AlterTableAlterColumnCommand.builder();
@@ -286,7 +286,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                                 .type(from))
                                 .build())
                 )
-                .primaryKeyColumns(List.of("ID"))
+                .primaryKey(primaryKey("ID"))
         );
 
         AlterTableAlterColumnCommandBuilder builder = AlterTableAlterColumnCommand.builder();
@@ -323,7 +323,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                                 .type(type))
                                 .build())
                 )
-                .primaryKeyColumns(List.of("ID"))
+                .primaryKey(primaryKey("ID"))
         );
 
         AlterTableAlterColumnCommandBuilder builder = AlterTableAlterColumnCommand.builder();
@@ -361,7 +361,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                                 .precision(10)
                                 .build())
                 )
-                .primaryKeyColumns(List.of("ID"))
+                .primaryKey(primaryKey("ID"))
         );
 
         AlterTableAlterColumnCommandBuilder builder = AlterTableAlterColumnCommand.builder();
@@ -399,7 +399,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                                 .scale(6)
                                 .build())
                 )
-                .primaryKeyColumns(List.of("ID"))
+                .primaryKey(primaryKey("ID"))
         );
 
         AlterTableAlterColumnCommandBuilder builder = AlterTableAlterColumnCommand.builder()
@@ -438,7 +438,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                                 .type(type))
                                 .build())
                 )
-                .primaryKeyColumns(List.of("ID"))
+                .primaryKey(primaryKey("ID"))
         );
 
         AlterTableAlterColumnCommandBuilder builder = AlterTableAlterColumnCommand.builder();
@@ -475,7 +475,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                                 .length(10)
                                 .build())
                 )
-                .primaryKeyColumns(List.of("ID"))
+                .primaryKey(primaryKey("ID"))
         );
 
         AlterTableAlterColumnCommandBuilder builder = AlterTableAlterColumnCommand.builder();
@@ -512,7 +512,7 @@ public class AlterTableAlterColumnCommandValidationTest extends AbstractCommandV
                                 .nullable(true)
                                 .build())
                 )
-                .primaryKeyColumns(List.of("ID"))
+                .primaryKey(primaryKey("ID"))
         );
 
         AlterTableAlterColumnCommandBuilder builder = AlterTableAlterColumnCommand.builder();

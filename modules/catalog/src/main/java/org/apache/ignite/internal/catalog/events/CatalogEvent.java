@@ -33,9 +33,6 @@ public enum CatalogEvent implements Event {
     /** This event is fired when a table has been renamed or a column has been modified, added to, or removed from a table. */
     TABLE_ALTER,
 
-    /** This event is fired when a table has been dropped from all catalog versions and can be destroyed. */
-    TABLE_DESTROY,
-
     /** This event is fired, when an index was created in Catalog. */
     INDEX_CREATE,
 
@@ -57,9 +54,6 @@ public enum CatalogEvent implements Event {
      *  the Catalog anymore, or when an index gets dropped because its table gets dropped.
      */
     INDEX_REMOVED,
-
-    /** This event is fired when an index has been dropped from all catalog versions and can be destroyed. */
-    INDEX_DESTROY,
 
     /** This event is fired, when a distribution zone was created in Catalog. */
     ZONE_CREATE,

@@ -21,7 +21,6 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
-import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -165,6 +164,9 @@ public interface TxManager extends IgniteComponent {
      */
     CompletableFuture<Void> cleanup(String node, UUID txId);
 
+    /** Locally vacuums no longer needed transactional resources, like txnState both persistent and volatile. */
+    void vacuum();
+
     /**
      * Returns a number of finished transactions.
      *
@@ -190,22 +192,4 @@ public interface TxManager extends IgniteComponent {
      * @return Future of all read-only transactions with read timestamp less or equals the given new low watermark.
      */
     CompletableFuture<Void> updateLowWatermark(HybridTimestamp newLowWatermark);
-
-    /**
-     * Registers the infligh update for a transaction.
-     *
-     * @param txId The transaction id.
-     * @return {@code True} if the inflight was registered. The update must be failed on false.
-     */
-    boolean addInflight(UUID txId);
-
-    /**
-     * Unregisters the inflight for a transaction.
-     *
-     * @param txId The transction id
-     */
-    void removeInflight(UUID txId);
-
-    /** Returns the node's hybrid clock. */
-    HybridClock clock();
 }

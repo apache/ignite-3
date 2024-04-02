@@ -92,9 +92,9 @@ namespace Apache.Ignite.Internal
                     Debug.Assert(fieldCount == 4, "fieldCount == 4");
 
                     res.Add(new ClusterNode(
-                        Id: r.ReadString(),
-                        Name: r.ReadString(),
-                        Address: new IPEndPoint(IPAddress.Parse(r.ReadString()), r.ReadInt32())));
+                        id: r.ReadString(),
+                        name: r.ReadString(),
+                        endpoint: new IPEndPoint(IPAddress.Parse(r.ReadString()), r.ReadInt32())));
                 }
 
                 return res;

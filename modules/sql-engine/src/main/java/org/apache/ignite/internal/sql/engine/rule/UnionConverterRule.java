@@ -48,16 +48,18 @@ public class UnionConverterRule extends RelRule<UnionConverterRule.Config> {
     /** {@inheritDoc} */
     @Override
     public void onMatch(RelOptRuleCall call) {
-        final LogicalUnion union = call.rel(0);
+        LogicalUnion union = call.rel(0);
 
         RelOptCluster cluster = union.getCluster();
         RelTraitSet traits = cluster.traitSetOf(IgniteConvention.INSTANCE);
-        List<RelNode> inputs = Commons.transform(union.getInputs(), input -> convert(input, traits));
 
-        RelNode res = new IgniteUnionAll(cluster, traits, inputs);
+        List<RelNode> inputs = Commons.transform(union.getInputs(), input -> convert(input, traits));
+        List<RelNode> convertedInputs = Commons.castInputsToLeastRestrictiveTypeIfNeeded(inputs, cluster, traits);
+
+        RelNode res = new IgniteUnionAll(cluster, traits, convertedInputs);
 
         if (!union.all) {
-            final RelBuilder relBuilder = relBuilderFactory.create(union.getCluster(), null);
+            RelBuilder relBuilder = relBuilderFactory.create(union.getCluster(), null);
 
             relBuilder
                     .push(res)

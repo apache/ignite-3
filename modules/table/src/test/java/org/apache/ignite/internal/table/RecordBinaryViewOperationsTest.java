@@ -40,7 +40,6 @@ import static org.mockito.Mockito.verify;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.concurrent.ForkJoinPool;
 import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
@@ -616,8 +615,7 @@ public class RecordBinaryViewOperationsTest extends TableKvOperationsTestBase {
                 new DummySchemaManagerImpl(schema),
                 schemaVersions,
                 mock(IgniteSql.class),
-                marshallers,
-                ForkJoinPool.commonPool()
+                marshallers
         );
 
         BinaryRow resultRow = new TupleMarshallerImpl(schema).marshal(Tuple.create().set("id", 1L).set("val", 2L));
@@ -661,7 +659,7 @@ public class RecordBinaryViewOperationsTest extends TableKvOperationsTestBase {
             final Object val1 = expected.value(col.name());
             final Object val2 = actual.value(col.name());
 
-            Assertions.assertEquals(val1, val2, "Value columns equality check failed: " + col);
+            assertEquals(val1, val2, "Value columns equality check failed: " + col);
 
             if (col.positionInKey() != -1 && val1 != null) {
                 nonNullKey++;
@@ -688,7 +686,7 @@ public class RecordBinaryViewOperationsTest extends TableKvOperationsTestBase {
             if (val1 instanceof byte[] && val2 instanceof byte[]) {
                 Assertions.assertArrayEquals((byte[]) val1, (byte[]) val2, "Equality check failed: colIdx=" + col.positionInRow());
             } else {
-                Assertions.assertEquals(val1, val2, "Equality check failed: colIdx=" + col.positionInRow());
+                assertEquals(val1, val2, "Equality check failed: colIdx=" + col.positionInRow());
             }
         }
     }

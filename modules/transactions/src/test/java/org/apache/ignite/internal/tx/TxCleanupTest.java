@@ -40,9 +40,13 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -50,6 +54,7 @@ import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.PlacementDriverHelper;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TxCleanupRequestSender;
@@ -67,7 +72,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 /**
  * Tests for a transaction cleanup.
  */
-@ExtendWith(MockitoExtension.class)
+@ExtendWith({MockitoExtension.class, ConfigurationExtension.class})
 public class TxCleanupTest extends IgniteAbstractTest {
 
     private static final ClusterNode LOCAL_NODE =
@@ -75,6 +80,9 @@ public class TxCleanupTest extends IgniteAbstractTest {
 
     private static final ClusterNode REMOTE_NODE =
             new ClusterNodeImpl("remote_id", "remote", new NetworkAddress("127.1.1.1", 2024), null);
+
+    @InjectConfiguration
+    private TransactionConfiguration transactionConfiguration;
 
     @Mock(answer = RETURNS_DEEP_STUBS)
     private MessagingService messagingService;
@@ -89,6 +97,8 @@ public class TxCleanupTest extends IgniteAbstractTest {
     private PlacementDriver placementDriver;
 
     private final HybridClock clock = new HybridClockImpl();
+
+    private final ClockService clockService = new TestClockService(clock);
 
     private TxCleanupRequestSender cleanupRequestSender;
 
@@ -107,9 +117,16 @@ public class TxCleanupTest extends IgniteAbstractTest {
 
         idGenerator = new TransactionIdGenerator(LOCAL_NODE.name().hashCode());
 
-        txMessageSender = spy(new TxMessageSender(messagingService, replicaService, clock));
+        txMessageSender = spy(
+                new TxMessageSender(
+                        messagingService,
+                        replicaService,
+                        clockService,
+                        transactionConfiguration
+                )
+        );
 
-        PlacementDriverHelper placementDriverHelper = new PlacementDriverHelper(placementDriver, clock);
+        PlacementDriverHelper placementDriverHelper = new PlacementDriverHelper(placementDriver, clockService);
 
         writeIntentSwitchProcessor = spy(new WriteIntentSwitchProcessor(placementDriverHelper, txMessageSender, topologyService));
 
