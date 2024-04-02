@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.network;
 
+import static org.hamcrest.CoreMatchers.not;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.core.StringContains.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -62,5 +65,14 @@ public class AllTypesMessageTest {
         }
 
         fail("All generated messages had the same hash code");
+    }
+
+    @Test
+    public void testIgniteToStringAnnotations() {
+        AllTypesMessage msg = AllTypesMessageGenerator.generate(0, false);
+
+        assertThat(msg.toString(), containsString("strQ"));
+        assertThat(msg.toString(), not(containsString("excludedString")));
+        assertThat(msg.toString(), not(containsString("sensitiveString")));
     }
 }
