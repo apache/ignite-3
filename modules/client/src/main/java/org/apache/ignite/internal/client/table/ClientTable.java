@@ -552,28 +552,31 @@ public class ClientTable implements Table {
         }
     }
 
-    private boolean isPartitionAssignmentValid(long timestamp) {
-        return partitionAssignment != null
-                && partitionAssignment.timestamp >= timestamp
-                && !partitionAssignment.partitionsFut.isCompletedExceptionally();
+    private static boolean isPartitionAssignmentValid(PartitionAssignment pa, long timestamp) {
+        return pa != null
+                && pa.timestamp >= timestamp
+                && !pa.partitionsFut.isCompletedExceptionally();
     }
 
     synchronized CompletableFuture<List<String>> getPartitionAssignment() {
         long timestamp = ch.partitionAssignmentTimestamp();
+        PartitionAssignment pa = partitionAssignment;
 
-        if (isPartitionAssignmentValid(timestamp)) {
-            return partitionAssignment.partitionsFut;
+        if (isPartitionAssignmentValid(pa, timestamp)) {
+            return pa.partitionsFut;
         }
 
         synchronized (partitionAssignmentLock) {
-            if (isPartitionAssignmentValid(timestamp)) {
-                return partitionAssignment.partitionsFut;
+            pa = partitionAssignment;
+            if (isPartitionAssignmentValid(pa, timestamp)) {
+                return pa.partitionsFut;
             }
 
+            // Request assignment, save requested timestamp and future.
+            // This way multiple calls to getPartitionAssignment() will return the same future and won't send multiple requests.
             PartitionAssignment newAssignment = new PartitionAssignment();
-            partitionAssignment = newAssignment;
-            partitionAssignment.timestamp = timestamp;
-            partitionAssignment.partitionsFut = ch.serviceAsync(ClientOp.PARTITION_ASSIGNMENT_GET,
+            newAssignment.timestamp = timestamp;
+            newAssignment.partitionsFut = ch.serviceAsync(ClientOp.PARTITION_ASSIGNMENT_GET,
                     w -> {
                         w.out().packInt(id);
                         w.out().packLong(timestamp);
@@ -582,13 +585,18 @@ public class ClientTable implements Table {
                         int cnt = r.in().unpackInt();
                         assert cnt >= 0 : "Invalid partition count: " + cnt;
 
-                        // Returned timestamp can be newer than requested.
-                        long ts = r.in().unpackLong();
-                        if (ts == 0) {
-                            // Special case: assignment is not yet available.
+                        boolean assignmentAvailable = r.in().unpackBoolean();
+                        if (!assignmentAvailable) {
+                            // Invalidate current assignment so that we can retry on the next call.
+                            newAssignment.timestamp = HybridTimestamp.NULL_HYBRID_TIMESTAMP;
+
+                            // Return empty array so that per-partition batches can be initialized.
+                            // We'll get the actual assignment on the next call.
                             return new ArrayList<>(cnt);
                         }
 
+                        // Returned timestamp can be newer than requested.
+                        long ts = r.in().unpackLong();
                         assert ts >= timestamp : "Returned timestamp is older than requested: " + ts + " < " + timestamp;
 
                         newAssignment.timestamp = ts;
@@ -601,7 +609,9 @@ public class ClientTable implements Table {
                         return res;
                     });
 
-            return partitionAssignment.partitionsFut;
+            partitionAssignment = newAssignment;
+
+            return newAssignment.partitionsFut;
         }
     }
 
