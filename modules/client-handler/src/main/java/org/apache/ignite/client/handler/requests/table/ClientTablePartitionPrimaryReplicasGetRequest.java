@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientPrimaryReplicaTracker;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
@@ -49,17 +50,19 @@ public class ClientTablePartitionPrimaryReplicasGetRequest {
         return tracker.primaryReplicasAsync(tableId, timestamp).thenAccept(primaryReplicas -> {
             assert primaryReplicas != null : "Primary replicas == null";
 
-            if (primaryReplicas.nodeNames() == null) {
+            List<String> nodeNames = primaryReplicas.nodeNames();
+            if (nodeNames == null) {
                 // Special case: assignment is not yet available, but we return the partition count.
                 out.packInt(primaryReplicas.partitions());
-                out.packInt(0);
-            }
+                out.packBoolean(false);
+            } else {
+                out.packInt(nodeNames.size());
+                out.packBoolean(true); // Assignment available.
+                out.packLong(primaryReplicas.timestamp());
 
-            out.packInt(primaryReplicas.nodeNames().size());
-            out.packLong(primaryReplicas.timestamp());
-
-            for (String nodeName : primaryReplicas.nodeNames()) {
-                out.packString(nodeName);
+                for (String nodeName : nodeNames) {
+                    out.packString(nodeName);
+                }
             }
         });
     }
