@@ -141,7 +141,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
         }
     }
 
-    /** Drops all visible tables. */
+    /** Drops all visible zones. */
     protected static void dropAllZonesExceptDefaultOne() {
         CatalogManager catalogManager = CLUSTER.aliveNode().catalogManager();
         int latestCatalogVersion = catalogManager.latestCatalogVersion();
