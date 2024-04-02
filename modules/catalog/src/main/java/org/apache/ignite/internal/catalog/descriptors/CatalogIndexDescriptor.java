@@ -39,14 +39,17 @@ public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor {
     /** Index descriptor type. */
     private final CatalogIndexDescriptorType indexType;
 
+    private final int zoneId;
+
     CatalogIndexDescriptor(CatalogIndexDescriptorType indexType, int id, String name, int tableId, boolean unique,
-            CatalogIndexStatus status, int txWaitCatalogVersion, long causalityToken) {
+            CatalogIndexStatus status, int txWaitCatalogVersion, int zoneId, long causalityToken) {
         super(id, Type.INDEX, name, causalityToken);
         this.indexType = indexType;
         this.tableId = tableId;
         this.unique = unique;
         this.status = Objects.requireNonNull(status, "status");
         this.txWaitCatalogVersion = txWaitCatalogVersion;
+        this.zoneId = zoneId;
     }
 
     /** Gets table ID. */
@@ -70,6 +73,10 @@ public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor {
      */
     public int txWaitCatalogVersion() {
         return txWaitCatalogVersion;
+    }
+
+    public int zoneId() {
+        return zoneId;
     }
 
     /** Returns catalog index descriptor type. */

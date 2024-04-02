@@ -282,6 +282,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
         intTable = new InternalTableImpl(
                 "PUBLIC.TEST",
                 tblId,
+                0,
                 PARTS,
                 new SingleClusterNodeResolver(clusterNode),
                 txManager,

@@ -42,13 +42,16 @@ import org.apache.ignite.internal.catalog.events.StartBuildingIndexEventParamete
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitTimeoutException;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
+import org.apache.ignite.internal.placementdriver.leases.ReplicaAwareLeaseTracker;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
@@ -89,7 +92,7 @@ class IndexBuildController implements ManuallyCloseable {
 
     private final AtomicBoolean closeGuard = new AtomicBoolean();
 
-    private final Set<TablePartitionId> primaryReplicaIds = ConcurrentHashMap.newKeySet();
+    private final Set<IgniteBiTuple<ZonePartitionId, Integer>> primaryReplicaIds = ConcurrentHashMap.newKeySet();
 
     /** Constructor. */
     IndexBuildController(
@@ -141,12 +144,18 @@ class IndexBuildController implements ManuallyCloseable {
 
             var startBuildIndexFutures = new ArrayList<CompletableFuture<?>>();
 
-            for (TablePartitionId primaryReplicaId : primaryReplicaIds) {
-                if (primaryReplicaId.tableId() == indexDescriptor.tableId()) {
-                    CompletableFuture<?> startBuildIndexFuture = getMvTableStorageFuture(parameters.causalityToken(), primaryReplicaId)
-                            .thenCompose(mvTableStorage -> awaitPrimaryReplica(primaryReplicaId, clockService.now())
+            for (IgniteBiTuple<ZonePartitionId, Integer> primaryReplicaId : primaryReplicaIds) {
+                ZonePartitionId zonePartitionId = primaryReplicaId.get1();
+
+                int tableId = primaryReplicaId.get2().intValue();
+
+                TablePartitionId tablePartId = new TablePartitionId(tableId, zonePartitionId.partitionId());
+
+                if (tableId == indexDescriptor.tableId()) {
+                    CompletableFuture<?> startBuildIndexFuture = getMvTableStorageFuture(parameters.causalityToken(), tablePartId)
+                            .thenCompose(mvTableStorage -> awaitPrimaryReplica(zonePartitionId, tableId, clockService.now())
                                     .thenAccept(replicaMeta -> tryScheduleBuildIndex(
-                                            primaryReplicaId,
+                                            tablePartId,
                                             indexDescriptor,
                                             mvTableStorage,
                                             replicaMeta
@@ -171,26 +180,33 @@ class IndexBuildController implements ManuallyCloseable {
 
     private CompletableFuture<?> onPrimaryReplicaElected(PrimaryReplicaEventParameters parameters) {
         return inBusyLockAsync(busyLock, () -> {
-            TablePartitionId primaryReplicaId = (TablePartitionId) parameters.groupId();
+            TablePartitionId tablePartitionId = (TablePartitionId) parameters.groupId();
 
             if (isLocalNode(clusterService, parameters.leaseholderId())) {
-                primaryReplicaIds.add(primaryReplicaId);
 
                 // It is safe to get the latest version of the catalog because the PRIMARY_REPLICA_ELECTED event is handled on the
                 // metastore thread.
                 int catalogVersion = catalogService.latestCatalogVersion();
 
-                return getMvTableStorageFuture(parameters.causalityToken(), primaryReplicaId)
-                        .thenCompose(mvTableStorage -> awaitPrimaryReplica(primaryReplicaId, parameters.startTime())
+                int tableId = tablePartitionId.tableId();
+
+                int zoneId = catalogService.table(tableId, catalogVersion).zoneId();
+
+                ZonePartitionId zonePartitionId = new ZonePartitionId(zoneId, tablePartitionId.partitionId());
+
+                primaryReplicaIds.add(new IgniteBiTuple<>(zonePartitionId, tableId));
+
+                return getMvTableStorageFuture(parameters.causalityToken(), tablePartitionId)
+                        .thenCompose(mvTableStorage -> awaitPrimaryReplica(zonePartitionId, tableId, parameters.startTime())
                                 .thenAccept(replicaMeta -> tryScheduleBuildIndexesForNewPrimaryReplica(
                                         catalogVersion,
-                                        primaryReplicaId,
+                                        tablePartitionId,
                                         mvTableStorage,
                                         replicaMeta
                                 ))
                         );
             } else {
-                stopBuildingIndexesIfPrimaryExpired(primaryReplicaId);
+                stopBuildingIndexesIfPrimaryExpired(tablePartitionId);
 
                 return nullCompletedFuture();
             }
@@ -244,7 +260,7 @@ class IndexBuildController implements ManuallyCloseable {
      * @param replicaId Replica ID.
      */
     private void stopBuildingIndexesIfPrimaryExpired(TablePartitionId replicaId) {
-        if (primaryReplicaIds.remove(replicaId)) {
+        if (primaryReplicaIds.removeIf(t -> t.get2().equals(replicaId.tableId()))) {
             // Primary replica is no longer current, we need to stop building indexes for it.
             indexBuilder.stopBuildingIndexes(replicaId.tableId(), replicaId.partitionId());
         }
@@ -254,15 +270,15 @@ class IndexBuildController implements ManuallyCloseable {
         return indexManager.getMvTableStorage(causalityToken, replicaId.tableId());
     }
 
-    private CompletableFuture<ReplicaMeta> awaitPrimaryReplica(TablePartitionId replicaId, HybridTimestamp timestamp) {
-        return placementDriver
-                .awaitPrimaryReplica(replicaId, timestamp, AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC, SECONDS)
+    private CompletableFuture<ReplicaMeta> awaitPrimaryReplica(ZonePartitionId replicaId, int tableId, HybridTimestamp timestamp) {
+        return ((ReplicaAwareLeaseTracker) placementDriver)
+                .awaitPrimaryReplica(replicaId, tableId, timestamp, AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC, SECONDS)
                 .handle((replicaMeta, throwable) -> {
                     if (throwable != null) {
                         Throwable unwrapThrowable = ExceptionUtils.unwrapCause(throwable);
 
                         if (unwrapThrowable instanceof PrimaryReplicaAwaitTimeoutException) {
-                            return awaitPrimaryReplica(replicaId, timestamp);
+                            return awaitPrimaryReplica(replicaId, tableId, timestamp);
                         } else {
                             return CompletableFuture.<ReplicaMeta>failedFuture(unwrapThrowable);
                         }

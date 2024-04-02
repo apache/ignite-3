@@ -62,7 +62,9 @@ import org.apache.ignite.internal.network.RecipientLeftException;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitTimeoutException;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
+import org.apache.ignite.internal.placementdriver.leases.ReplicaAwareLeaseTracker;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
 /**
@@ -235,9 +237,15 @@ abstract class ChangeIndexStatusTask {
 
     private CompletableFuture<ReplicaMeta> awaitPrimaryReplica() {
         return inBusyLocks(() -> {
-            TablePartitionId groupId = new TablePartitionId(indexDescriptor.tableId(), 0);
+            ZonePartitionId groupId = new ZonePartitionId(indexDescriptor.zoneId(), 0);
 
-            return placementDriver.awaitPrimaryReplica(groupId, clockService.now(), AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC, SECONDS)
+            return ((ReplicaAwareLeaseTracker) placementDriver).awaitPrimaryReplica(
+                            groupId,
+                            indexDescriptor.tableId(),
+                            clockService.now(),
+                            AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC,
+                            SECONDS
+                    )
                     .handle((replicaMeta, throwable) -> {
                         if (throwable != null) {
                             Throwable cause = unwrapCause(throwable);

@@ -38,6 +38,7 @@ dependencies {
     implementation project(':ignite-placement-driver-api')
     implementation project(':ignite-replicator')
     implementation project(':ignite-cluster-management')
+    implementation project(':ignite-placement-driver')
     implementation libs.jetbrains.annotations
 
     testImplementation(testFixtures(project(':ignite-configuration')))
