@@ -51,6 +51,16 @@ internal static class DataStreamer
     private static readonly TimeSpan PartitionAssignmentUpdateFrequency = TimeSpan.FromSeconds(15);
 
     /// <summary>
+    /// Sends the batch.
+    /// </summary>
+    /// <param name="buf">Buffer.</param>
+    /// <param name="count">Buffer element count.</param>
+    /// <param name="preferredNode">Preferred node.</param>
+    /// <param name="retryPolicy">Retry policy.</param>
+    /// <returns>Task.</returns>
+    public delegate Task Sender(PooledArrayBuffer buf, int count, PreferredNode preferredNode, IRetryPolicy retryPolicy);
+
+    /// <summary>
     /// Streams the data.
     /// </summary>
     /// <param name="data">Data.</param>
@@ -64,7 +74,7 @@ internal static class DataStreamer
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
     internal static async Task StreamDataAsync<T>(
         IAsyncEnumerable<T> data,
-        Func<PooledArrayBuffer, int, string, IRetryPolicy, Task> sender,
+        Sender sender,
         RecordSerializer<T> writer,
         Func<int?, Task<Schema>> schemaProvider, // Not a ValueTask because Tasks are cached.
         Func<ValueTask<string?[]>> partitionAssignmentProvider,
@@ -255,7 +265,7 @@ internal static class DataStreamer
                 buf.WriteIntBigEndian(batch.Count, batch.CountPos + 1);
 
                 // ReSharper disable once AccessToModifiedClosure
-                var preferredNode = partitionAssignment[partitionId] ?? string.Empty;
+                var preferredNode = PreferredNode.FromName(partitionAssignment[partitionId] ?? string.Empty);
                 batch.Task = SendAndDisposeBufAsync(buf, preferredNode, batch.Task, batch.Items, batch.Count, batch.SchemaOutdated);
 
                 batch.Items = ArrayPool<T>.Shared.Rent(options.PageSize);
@@ -272,7 +282,7 @@ internal static class DataStreamer
 
         async Task SendAndDisposeBufAsync(
             PooledArrayBuffer buf,
-            string partition,
+            PreferredNode preferredNode,
             Task oldTask,
             T[] items,
             int count,
@@ -309,7 +319,7 @@ internal static class DataStreamer
 
                         // Wait for the previous batch for this node to preserve item order.
                         await oldTask.ConfigureAwait(false);
-                        await sender(buf, count, partition, retryPolicy).ConfigureAwait(false);
+                        await sender(buf, count, preferredNode, retryPolicy).ConfigureAwait(false);
 
                         return;
                     }
@@ -359,6 +369,8 @@ internal static class DataStreamer
             var w = buf.MessageWriter;
             w.Write(schema.TableId);
             w.Write(partitionId);
+
+            // TODO: Assume we don't have deleted rows, but reserve space for the bitset and move the header if necessary.
             w.WriteNil(); // TODO: Deleted bit set.
             w.Write(schema.Version);
 

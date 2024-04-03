@@ -305,7 +305,7 @@ namespace Apache.Ignite.Internal.Table
                             ClientOp.StreamerBatchSend,
                             tx: null,
                             batch,
-                            PreferredNode.FromName(preferredNode),
+                            preferredNode,
                             retryPolicy)
                         .ConfigureAwait(false);
 
