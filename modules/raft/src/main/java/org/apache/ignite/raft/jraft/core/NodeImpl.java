@@ -2725,6 +2725,28 @@ public class NodeImpl implements Node, RaftServerService {
         }
     }
 
+    @Override
+    public boolean isInstallingSnapshot() {
+        this.readLock.lock();
+        try {
+            return snapshotExecutor.isInstallingSnapshot();
+        }
+        finally {
+            this.readLock.unlock();
+        }
+    }
+
+    @Override
+    public long lastLogIndex() {
+        this.readLock.lock();
+        try {
+            return logManager.getLastLogIndex();
+        }
+        finally {
+            this.readLock.unlock();
+        }
+    }
+
     @OnlyForTest
     ConfigurationEntry getConf() {
         this.readLock.lock();

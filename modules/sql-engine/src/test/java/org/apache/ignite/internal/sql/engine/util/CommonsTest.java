@@ -133,8 +133,8 @@ public class CommonsTest extends BaseIgniteAbstractTest {
         // Node 2 has the same type as leastRestrictive(row1, row2)
         assertSame(node2, relNodes.get(1), "Invalid types in projection for node2");
 
-        IgniteProject project3 = assertInstanceOf(IgniteProject.class, relNodes.get(2), "node2");
-        assertEquals(lt, project3.getRowType(), "Invalid types in projection for node3");
+        // Nullability is ignored
+        assertSame(node3, relNodes.get(2));
 
         IgniteProject project4 = assertInstanceOf(IgniteProject.class, relNodes.get(3), "node4");
         assertEquals(lt, project4.getRowType(), "Invalid types in projection for node4");

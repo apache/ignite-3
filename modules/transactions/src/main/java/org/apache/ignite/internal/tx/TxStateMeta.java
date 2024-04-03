@@ -60,7 +60,7 @@ public class TxStateMeta implements TransactionMeta {
             @Nullable TablePartitionId commitPartitionId,
             @Nullable HybridTimestamp commitTimestamp
     ) {
-        this(txState, txCoordinatorId, commitPartitionId, commitTimestamp, null);
+        this(txState, txCoordinatorId, commitPartitionId, commitTimestamp, null, null);
     }
 
     /**
@@ -150,8 +150,7 @@ public class TxStateMeta implements TransactionMeta {
         return initialVacuumObservationTimestamp;
     }
 
-    @Nullable
-    public Long cleanupCompletionTimestamp() {
+    public @Nullable Long cleanupCompletionTimestamp() {
         return cleanupCompletionTimestamp;
     }
 
@@ -163,26 +162,33 @@ public class TxStateMeta implements TransactionMeta {
         if (o == null || getClass() != o.getClass()) {
             return false;
         }
-
         TxStateMeta that = (TxStateMeta) o;
 
         if (txState != that.txState) {
             return false;
         }
+
         if (txCoordinatorId != null ? !txCoordinatorId.equals(that.txCoordinatorId) : that.txCoordinatorId != null) {
             return false;
         }
+
         if (commitPartitionId != null ? !commitPartitionId.equals(that.commitPartitionId) : that.commitPartitionId != null) {
             return false;
         }
+
         if (commitTimestamp != null ? !commitTimestamp.equals(that.commitTimestamp) : that.commitTimestamp != null) {
             return false;
         }
-        if (initialVacuumObservationTimestamp != null ? !initialVacuumObservationTimestamp.equals(that.initialVacuumObservationTimestamp)
-                : that.initialVacuumObservationTimestamp != null) {
+
+        if (initialVacuumObservationTimestamp != null
+                ? !initialVacuumObservationTimestamp.equals(that.initialVacuumObservationTimestamp)
+                : that.initialVacuumObservationTimestamp != null
+        ) {
             return false;
         }
-        return cleanupCompletionTimestamp != null ? cleanupCompletionTimestamp.equals(that.cleanupCompletionTimestamp)
+
+        return cleanupCompletionTimestamp != null
+                ? cleanupCompletionTimestamp.equals(that.cleanupCompletionTimestamp)
                 : that.cleanupCompletionTimestamp == null;
     }
 

@@ -119,7 +119,7 @@ public class BinaryTupleParser {
      */
     public void fetch(int index, Sink sink) {
         assert index >= 0;
-        assert index < numElements;
+        assert index < numElements : "Index out of bounds: " + index + " >= " + numElements;
 
         int entry = entryBase + index * entrySize;
 

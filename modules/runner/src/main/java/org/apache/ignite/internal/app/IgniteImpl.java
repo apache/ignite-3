@@ -81,6 +81,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.component.RestAddressReporter;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
+import org.apache.ignite.internal.compute.AntiHijackIgniteCompute;
 import org.apache.ignite.internal.compute.ComputeComponent;
 import org.apache.ignite.internal.compute.ComputeComponentImpl;
 import org.apache.ignite.internal.compute.IgniteComputeImpl;
@@ -109,6 +110,8 @@ import org.apache.ignite.internal.deployunit.IgniteDeployment;
 import org.apache.ignite.internal.deployunit.configuration.DeploymentConfiguration;
 import org.apache.ignite.internal.deployunit.metastore.DeploymentUnitStoreImpl;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.eventlog.config.schema.EventLogConfiguration;
+import org.apache.ignite.internal.eventlog.impl.EventLogImpl;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.ClockServiceImpl;
@@ -172,6 +175,7 @@ import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguratio
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
 import org.apache.ignite.internal.security.configuration.SecurityConfiguration;
+import org.apache.ignite.internal.sql.api.AntiHijackIgniteSql;
 import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
 import org.apache.ignite.internal.sql.configuration.distributed.SqlDistributedConfiguration;
 import org.apache.ignite.internal.sql.configuration.local.SqlLocalConfiguration;
@@ -188,6 +192,7 @@ import org.apache.ignite.internal.table.distributed.AntiHijackIgniteTables;
 import org.apache.ignite.internal.table.distributed.LowWatermarkImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
+import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnActionRequest;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnAppendEntries;
@@ -199,6 +204,7 @@ import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
+import org.apache.ignite.internal.tx.impl.AntiHijackIgniteTransactions;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
@@ -309,6 +315,9 @@ public class IgniteImpl implements Ignite {
 
     /** Distributed table manager. */
     private final TableManager distributedTblMgr;
+
+    /** Disaster recovery manager. */
+    private final DisasterRecoveryManager disasterRecoveryManager;
 
     private final IndexManager indexManager;
 
@@ -492,12 +501,6 @@ public class IgniteImpl implements Ignite {
                 message -> threadPoolsManager.partitionOperationsExecutor()
         );
 
-        ReplicaService replicaSvc = new ReplicaService(
-                messagingServiceReturningToStorageOperationsPool,
-                clock,
-                threadPoolsManager.partitionOperationsExecutor()
-        );
-
         // TODO: IGNITE-16841 - use common RocksDB instance to store cluster state as well.
         clusterStateStorage = new RocksDbClusterStateStorage(workDir.resolve(CMG_DB_PATH), name);
 
@@ -595,6 +598,13 @@ public class IgniteImpl implements Ignite {
         );
 
         ReplicationConfiguration replicationConfig = clusterConfigRegistry.getConfiguration(ReplicationConfiguration.KEY);
+
+        ReplicaService replicaSvc = new ReplicaService(
+                messagingServiceReturningToStorageOperationsPool,
+                clock,
+                threadPoolsManager.partitionOperationsExecutor(),
+                replicationConfig
+        );
 
         LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier = partitionIdleSafeTimePropagationPeriodMsSupplier(replicationConfig);
 
@@ -751,11 +761,20 @@ public class IgniteImpl implements Ignite {
                 catalogManager,
                 observableTimestampTracker,
                 placementDriverMgr.placementDriver(),
-                this::sql,
+                this::bareSql,
                 resourcesRegistry,
                 rebalanceScheduler,
                 lowWatermark,
                 transactionInflights
+        );
+
+        disasterRecoveryManager = new DisasterRecoveryManager(
+                threadPoolsManager.tableIoExecutor(),
+                messagingServiceReturningToStorageOperationsPool,
+                metaStorageMgr,
+                catalogManager,
+                distributionZoneManager,
+                raftMgr
         );
 
         indexManager = new IndexManager(
@@ -890,8 +909,10 @@ public class IgniteImpl implements Ignite {
     private AuthenticationManager createAuthenticationManager() {
         SecurityConfiguration securityConfiguration = clusterCfgMgr.configurationRegistry()
                 .getConfiguration(SecurityConfiguration.KEY);
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-21665
-        return new AuthenticationManagerImpl(securityConfiguration, (ign) -> {});
+        EventLogConfiguration eventLogConfiguration = clusterCfgMgr.configurationRegistry()
+                .getConfiguration(EventLogConfiguration.KEY);
+
+        return new AuthenticationManagerImpl(securityConfiguration, new EventLogImpl(eventLogConfiguration));
     }
 
     private RestComponent createRestComponent(String name) {
@@ -1048,6 +1069,7 @@ public class IgniteImpl implements Ignite {
                                     volatileLogStorageFactoryCreator,
                                     outgoingSnapshotsManager,
                                     distributedTblMgr,
+                                    disasterRecoveryManager,
                                     indexManager,
                                     indexBuildingManager,
                                     qryEngine,
@@ -1165,6 +1187,10 @@ public class IgniteImpl implements Ignite {
         return new AntiHijackIgniteTables(distributedTblMgr, asyncContinuationExecutor);
     }
 
+    public DisasterRecoveryManager disasterRecoveryManager() {
+        return disasterRecoveryManager;
+    }
+
     @TestOnly
     public QueryProcessor queryEngine() {
         return qryEngine;
@@ -1188,13 +1214,18 @@ public class IgniteImpl implements Ignite {
     /** {@inheritDoc} */
     @Override
     public IgniteTransactions transactions() {
-        return new IgniteTransactionsImpl(txManager, observableTimestampTracker);
+        IgniteTransactionsImpl transactions = new IgniteTransactionsImpl(txManager, observableTimestampTracker);
+        return new AntiHijackIgniteTransactions(transactions, asyncContinuationExecutor);
+    }
+
+    private IgniteSql bareSql() {
+        return sql;
     }
 
     /** {@inheritDoc} */
     @Override
     public IgniteSql sql() {
-        return sql;
+        return new AntiHijackIgniteSql(sql, asyncContinuationExecutor);
     }
 
     /** {@inheritDoc} */
@@ -1212,7 +1243,7 @@ public class IgniteImpl implements Ignite {
     /** {@inheritDoc} */
     @Override
     public IgniteCompute compute() {
-        return compute;
+        return new AntiHijackIgniteCompute(compute, asyncContinuationExecutor);
     }
 
     /** {@inheritDoc} */
@@ -1229,7 +1260,7 @@ public class IgniteImpl implements Ignite {
 
     @Override
     public IgniteCatalog catalog(Options options) {
-        return new IgniteCatalogSqlImpl(sql(), options);
+        return new IgniteCatalogSqlImpl(sql, options);
     }
 
     /**

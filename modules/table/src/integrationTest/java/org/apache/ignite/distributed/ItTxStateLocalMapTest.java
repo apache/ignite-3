@@ -33,6 +33,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
@@ -71,6 +72,9 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
     @InjectConfiguration
     private StorageUpdateConfiguration storageUpdateConfiguration;
 
+    @InjectConfiguration
+    private ReplicationConfiguration replicationConfiguration;
+
     private final TestInfo testInfo;
 
     private ItTxTestCluster testCluster;
@@ -103,7 +107,8 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
                 NODES,
                 NODES,
                 false,
-                new HybridTimestampTracker()
+                new HybridTimestampTracker(),
+                replicationConfiguration
         );
 
         testCluster.prepareCluster();

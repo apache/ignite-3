@@ -89,6 +89,7 @@ import org.apache.ignite.internal.sql.engine.prepare.PlannerHelper;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
+import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSystemViewScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
@@ -755,6 +756,16 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         rel.getInputs().forEach(this::clearHints);
     }
 
+    protected Predicate<? extends RelNode> projectFromTable(String tableName, String... exprs) {
+        return isInstanceOf(IgniteProject.class)
+                .and(projection -> {
+                    String actualProjStr = projection.getProjects().toString();
+                    String expectedProjStr = Arrays.asList(exprs).toString();
+                    return actualProjStr.equals(expectedProjStr);
+                })
+                .and(hasChildThat(isTableScan(tableName)));
+    }
+
     /**
      * TestTableDescriptor.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
@@ -1026,6 +1037,15 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
             return indexBuilder.name(nameBuilder.toString()).end();
         };
+    }
+
+    /** Creates a function, which builds sorted index with given column names and with desired collation. */
+    protected static UnaryOperator<TableBuilder> addSortIndex(String col1, Collation col1Collation, String col2, Collation col2Collation) {
+        return tableBuilder -> tableBuilder.sortedIndex()
+                .name("IDX" + '_' + col1 + '_' + col2)
+                .addColumn(col1.toUpperCase(), col1Collation)
+                .addColumn(col2.toUpperCase(), col2Collation)
+                .end();
     }
 
     /** Creates a function, which builds hash index with given column names. */

@@ -35,8 +35,10 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -136,6 +138,19 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     protected static void dropAllTables() {
         for (Table t : CLUSTER.aliveNode().tables().tables()) {
             sql("DROP TABLE " + t.name());
+        }
+    }
+
+    /** Drops all visible zones. */
+    protected static void dropAllZonesExceptDefaultOne() {
+        CatalogManager catalogManager = CLUSTER.aliveNode().catalogManager();
+        int latestCatalogVersion = catalogManager.latestCatalogVersion();
+        for (CatalogZoneDescriptor z : catalogManager.zones(latestCatalogVersion)) {
+            String zoneName = z.name();
+            if (CatalogService.DEFAULT_ZONE_NAME.equals(zoneName)) {
+                continue;
+            }
+            sql("DROP ZONE " + zoneName);
         }
     }
 

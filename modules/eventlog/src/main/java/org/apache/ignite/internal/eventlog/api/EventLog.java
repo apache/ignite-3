@@ -20,9 +20,31 @@ package org.apache.ignite.internal.eventlog.api;
 import java.util.function.Supplier;
 
 /**
- * Logs events into specified sinks.
- * TODO: https://issues.apache.org/jira/browse/IGNITE-21665.
+ * The main interface for logging events.
+ *
+ * <p>Example of usage. Let it be configured in the cluster configuration:
+ * <pre>
+ *     eventlog.channels.exampleChannel: {
+ *       types: [USER_AUTHENTICATED],
+ *       enabled: true
+ *     }
+ *     eventlog.sinks.exampleSink: {
+ *       channel: "exampleChannel",
+ *       type: "log",
+ *       criteria: "exampleLog"
+ *     }
+ * </pre>
+ *
+ * <p>Here is how to fire an event that will be logged into the log file defined by "exampleLog":
+ * <pre>
+ *     eventLog.log(() -> IgniteEvents.USER_AUTHENTICATED.create(EventUser.of("user1", "basicAuthenticationProvider"));
+ * </pre>
  */
 public interface EventLog {
+    /**
+     * Writes event into every channel this event relates to.
+     *
+     * @param eventProvider Event provider.
+     */
     void log(Supplier<Event> eventProvider);
 }
