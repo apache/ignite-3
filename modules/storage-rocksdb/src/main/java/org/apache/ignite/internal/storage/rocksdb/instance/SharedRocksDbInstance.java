@@ -301,7 +301,7 @@ public final class SharedRocksDbInstance {
     /**
      * Schedules a drop of a column family after destroying an index, if it was the last index managed by that CF.
      */
-    public CompletableFuture<Void> scheduleIndexCfsDestroy(List<ColumnFamily> columnFamilies) {
+    public CompletableFuture<Void> scheduleIndexCfsDestroyIfNeeded(List<ColumnFamily> columnFamilies) {
         assert !columnFamilies.isEmpty();
 
         return flusher.awaitFlush(false)
@@ -371,7 +371,7 @@ public final class SharedRocksDbInstance {
             db.write(DFLT_WRITE_OPTS, writeBatch);
 
             if (!cfsToRemove.isEmpty()) {
-                scheduleIndexCfsDestroy(cfsToRemove);
+                scheduleIndexCfsDestroyIfNeeded(cfsToRemove);
             }
         } catch (RocksDBException e) {
             throw new StorageException("Failed to destroy table data. [tableId={}]", e, targetTableId);

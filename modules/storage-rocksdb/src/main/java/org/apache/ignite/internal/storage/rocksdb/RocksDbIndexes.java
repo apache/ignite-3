@@ -96,7 +96,7 @@ class RocksDbIndexes {
             rocksDb.db.write(DFLT_WRITE_OPTS, writeBatch);
 
             if (!indexCfsToDestroy.isEmpty()) {
-                rocksDb.scheduleIndexCfsDestroy(indexCfsToDestroy);
+                rocksDb.scheduleIndexCfsDestroyIfNeeded(indexCfsToDestroy);
             }
         }
     }
@@ -185,7 +185,7 @@ class RocksDbIndexes {
         }
 
         if (sortedIdx != null) {
-            rocksDb.scheduleIndexCfsDestroy(List.of(sortedIdx.columnFamily()));
+            rocksDb.scheduleIndexCfsDestroyIfNeeded(List.of(sortedIdx.columnFamily()));
         }
     }
 

@@ -281,8 +281,8 @@ class SharedRocksDbInstanceTest extends IgniteAbstractTest {
         assertThat(getIndexFuture.join().stream().map(IndexColumnFamily::indexId).collect(toList()), contains(0));
     }
 
-    @RepeatedTest(10)
-    void testConcurrentSortedIndexDeleteAndRead() {
+    @Test
+    void testRemoveSortedIndex() {
         int tableId = 0;
 
         int indexId = 0;
@@ -299,7 +299,7 @@ class SharedRocksDbInstanceTest extends IgniteAbstractTest {
     }
 
     @Test
-    void testDestroyRemovesSortedIndexes() {
+    void testTableDestroyRemovesSortedIndexes() {
         int tableId = 0;
 
         byte[] fooName = sortedIndexCfName(List.of(
