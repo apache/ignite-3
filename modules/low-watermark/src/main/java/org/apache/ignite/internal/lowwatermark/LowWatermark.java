@@ -22,9 +22,10 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Low watermark is the node's local time, which ensures that read-only transactions have completed by this time, and new read-only
- * transactions will only be created after this time, and we can safely delete obsolete/garbage data such as: obsolete versions of table
- * rows, remote indexes, remote tables, etc.
+ * Low watermark is the node's local time, meaning that data (obsolete versions of table rows, remote indexes, remote tables, etc) that was
+ * deleted before (less than or equal to) this time will be destroyed on the node, i.e. not available for reading.
+ *
+ * <p>Low watermark increases monotonically only after all {@link LowWatermarkChangedListener} have completed processing the new value.</p>
  *
  * @see <a href="https://cwiki.apache.org/confluence/display/IGNITE/IEP-91%3A+Transaction+protocol">IEP-91</a>
  */

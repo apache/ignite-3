@@ -75,8 +75,6 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>Algorithm for updating a new low watermark:</p>
  * <ul>
- *     <li>Wait for all RO transactions up to the new value to complete locally, while new RO transactions with read timestamp below
- *     the new low watermark will be rejected.</li>
  *     <li>Write the new value in vault by {@link #LOW_WATERMARK_VAULT_KEY}.</li>
  *     <li>Notify all {@link LowWatermarkChangedListener}s that the new watermark has changed and wait until they complete processing the
  *     event.</li>
