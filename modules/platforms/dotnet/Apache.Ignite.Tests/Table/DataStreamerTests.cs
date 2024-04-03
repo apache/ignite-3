@@ -149,7 +149,7 @@ public class DataStreamerTests : IgniteTestsBase
     public async Task TestRetryLimitExhausted()
     {
         using var server = new FakeServer(
-            shouldDropConnection: ctx => ctx is { OpCode: ClientOp.TupleUpsertAll, RequestCount: > 7 });
+            shouldDropConnection: ctx => ctx is { OpCode: ClientOp.StreamerBatchSend, RequestCount: > 7 });
 
         using var client = await server.ConnectClientAsync();
         var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
@@ -157,7 +157,7 @@ public class DataStreamerTests : IgniteTestsBase
         var ex = Assert.ThrowsAsync<IgniteClientConnectionException>(
             async () => await table!.RecordBinaryView.StreamDataAsync(GetFakeServerData(10_000)));
 
-        StringAssert.StartsWith("Operation TupleUpsertAll failed after 16 retries", ex!.Message);
+        StringAssert.StartsWith("Operation StreamerBatchSend failed after 16 retries", ex!.Message);
     }
 
     [Test]
@@ -167,7 +167,7 @@ public class DataStreamerTests : IgniteTestsBase
         int upsertIdx = 0;
 
         using var server = new FakeServer(
-            shouldDropConnection: ctx => ctx.OpCode == ClientOp.TupleUpsertAll && Interlocked.Increment(ref upsertIdx) % 2 == 1);
+            shouldDropConnection: ctx => ctx.OpCode == ClientOp.StreamerBatchSend && Interlocked.Increment(ref upsertIdx) % 2 == 1);
 
         // Streamer has it's own retry policy, so we can disable retries on the client.
         using var client = await server.ConnectClientAsync(new IgniteClientConfiguration
@@ -178,7 +178,7 @@ public class DataStreamerTests : IgniteTestsBase
         var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
         await table!.RecordBinaryView.StreamDataAsync(GetFakeServerData(count));
 
-        Assert.AreEqual(count, server.UpsertAllRowCount);
+        Assert.AreEqual(count, server.StreamerRowCount);
         Assert.That(server.DroppedConnectionCount, Is.GreaterThanOrEqualTo(count / DataStreamerOptions.Default.PageSize));
     }
 
