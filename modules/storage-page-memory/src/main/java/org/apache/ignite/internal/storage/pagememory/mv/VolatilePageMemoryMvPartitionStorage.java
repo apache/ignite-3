@@ -243,6 +243,7 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
         lastAppliedIndex = 0;
         lastAppliedTerm = 0;
         groupConfig = null;
+        leaseStartTime = HybridTimestamp.MIN_VALUE.longValue();
 
         return destroyFuture;
     }

@@ -205,6 +205,13 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             lastAppliedTerm = buf == null ? 0 : buf.getLong();
 
             lastGroupConfig = db.get(meta, readOpts, lastGroupConfigKey);
+
+            byte[] leaseStartTimeBytes = db.get(meta, readOpts, leaseKey);
+            ByteBuffer leaseStartTimeBuf = leaseStartTimeBytes == null
+                    ? null
+                    : ByteBuffer.wrap(leaseStartTimeBytes).order(ByteOrder.LITTLE_ENDIAN);
+
+            leaseStartTime = leaseStartTimeBuf == null ? HybridTimestamp.MIN_VALUE.longValue() : leaseStartTimeBuf.getLong();
         } catch (RocksDBException e) {
             throw new StorageException(e);
         }
@@ -1004,12 +1011,14 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             assert leaseStartTime > this.leaseStartTime : format("Updated lease start time should be greater than current [current={}, "
                     + "updated={}]", this.leaseStartTime, leaseStartTime);
 
-            try (WriteBatch writeBatch = new WriteBatch()) {
+            AbstractWriteBatch writeBatch = PartitionDataHelper.requireWriteBatch();
+
+            try {
                 byte[] leaseBytes = new byte[Long.BYTES];
 
                 putLongToBytes(leaseStartTime, leaseBytes, 0);
 
-                writeBatch.put(leaseKey, leaseBytes);
+                writeBatch.put(meta, leaseKey, leaseBytes);
 
                 this.leaseStartTime = leaseStartTime;
             } catch (RocksDBException e) {

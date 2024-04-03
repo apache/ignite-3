@@ -96,7 +96,8 @@ public class PartitionMeta {
             long versionChainTreeRootPageId,
             long indexTreeMetaPageId,
             long gcQueueMetaPageId,
-            int pageCount
+            int pageCount,
+            long leaseStartTime
     ) {
         this.lastAppliedIndex = lastAppliedIndex;
         this.lastAppliedTerm = lastAppliedTerm;
@@ -107,6 +108,7 @@ public class PartitionMeta {
         this.indexTreeMetaPageId = indexTreeMetaPageId;
         this.gcQueueMetaPageId = gcQueueMetaPageId;
         this.pageCount = pageCount;
+        this.leaseStartTime = leaseStartTime;
 
         metaSnapshot = new PartitionMetaSnapshot(checkpointId, this);
     }
@@ -129,7 +131,8 @@ public class PartitionMeta {
                 metaIo.getVersionChainTreeRootPageId(pageAddr),
                 metaIo.getIndexTreeMetaPageId(pageAddr),
                 metaIo.getGcQueueMetaPageId(pageAddr),
-                metaIo.getPageCount(pageAddr)
+                metaIo.getPageCount(pageAddr),
+                metaIo.getLeaseStartTime(pageAddr)
         );
     }
 
@@ -373,6 +376,8 @@ public class PartitionMeta {
 
         private final int pageCount;
 
+        private final long leaseStartTime;
+
         /**
          * Private constructor.
          *
@@ -390,6 +395,7 @@ public class PartitionMeta {
             indexTreeMetaPageId = partitionMeta.indexTreeMetaPageId;
             gcQueueMetaPageId = partitionMeta.gcQueueMetaPageId;
             pageCount = partitionMeta.pageCount;
+            leaseStartTime = partitionMeta.leaseStartTime;
         }
 
         /**
@@ -456,6 +462,15 @@ public class PartitionMeta {
         }
 
         /**
+         * Returns the lease start time.
+         *
+         * @return Lease start time.
+         */
+        public long leaseStartTime() {
+            return leaseStartTime;
+        }
+
+        /**
          * Writes the contents of the snapshot to a page of type {@link PartitionMetaIo}.
          *
          * @param metaIo Partition meta IO.
@@ -471,6 +486,7 @@ public class PartitionMeta {
             metaIo.setIndexTreeMetaPageId(pageAddr, indexTreeMetaPageId);
             metaIo.setGcQueueMetaPageId(pageAddr, gcQueueMetaPageId);
             metaIo.setPageCount(pageAddr, pageCount);
+            metaIo.setLeaseStartTime(pageAddr, leaseStartTime);
         }
 
         @Override

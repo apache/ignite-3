@@ -674,6 +674,8 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         lastAppliedIndex = 0;
         lastAppliedTerm = 0;
         groupConfig = null;
+
+        leaseStartTime = HybridTimestamp.MIN_VALUE.longValue();
     }
 
     private void checkStorageClosed() {
