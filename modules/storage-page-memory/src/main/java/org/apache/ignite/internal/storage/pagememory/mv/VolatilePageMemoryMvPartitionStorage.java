@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInCleanupOrRebalancedState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInProgressOfRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInRunnableOrRebalanceState;
@@ -60,6 +61,9 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
 
     /** Last applied term value. */
     private volatile long lastAppliedTerm;
+
+    /** Lease start time. */
+    private volatile long leaseStartTime;
 
     /** Last group configuration. */
     private volatile byte @Nullable [] groupConfig;
@@ -185,6 +189,33 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
             groupConfig = Arrays.copyOf(config, config.length);
 
             return null;
+        });
+    }
+
+    @Override
+    public void updateLease(long leaseStartTime) {
+        busy(() -> {
+            throwExceptionIfStorageNotInRunnableState();
+
+            if (leaseStartTime == this.leaseStartTime) {
+                return null;
+            }
+
+            assert leaseStartTime > this.leaseStartTime : format("Updated lease start time should be greater than current [current={}, "
+                    + "updated={}]", this.leaseStartTime, leaseStartTime);
+
+            this.leaseStartTime = leaseStartTime;
+
+            return null;
+        });
+    }
+
+    @Override
+    public long leaseStartTime() {
+        return busy(() -> {
+            throwExceptionIfStorageNotInRunnableState();
+
+            return leaseStartTime;
         });
     }
 

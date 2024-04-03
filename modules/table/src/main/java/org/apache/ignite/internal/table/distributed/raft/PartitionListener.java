@@ -271,8 +271,10 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         if (cmd.leaseStartTime() != null) {
             long leaseStartTime = requireNonNull(cmd.leaseStartTime(), "Inconsistent lease information in command [cmd=" + cmd + "].");
 
-            if (leaseStartTime != txStateStorage.leaseStartTime()) {
-                return new UpdateCommandResult(false, txStateStorage.leaseStartTime());
+            long storageLeaseStartTime = storage.leaseStartTime();
+
+            if (leaseStartTime != storageLeaseStartTime) {
+                return new UpdateCommandResult(false, storageLeaseStartTime);
             }
         }
 
@@ -322,8 +324,10 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         if (cmd.leaseStartTime() != null) {
             long leaseStartTime = requireNonNull(cmd.leaseStartTime(), "Inconsistent lease information in command [cmd=" + cmd + "].");
 
-            if (leaseStartTime != txStateStorage.leaseStartTime()) {
-                return new UpdateCommandResult(false, txStateStorage.leaseStartTime());
+            long storageLeaseStartTime = storage.leaseStartTime();
+
+            if (leaseStartTime != storageLeaseStartTime) {
+                return new UpdateCommandResult(false, storageLeaseStartTime);
             }
         }
 
@@ -614,7 +618,13 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
             return;
         }
 
-        txStateStorage.updateLease(cmd.leaseStartTime(), commandIndex, commandTerm);
+        storage.runConsistently(locker -> {
+            storage.updateLease(cmd.leaseStartTime());
+
+            storage.lastApplied(commandIndex, commandTerm);
+
+            return null;
+        });
     }
 
     private static void onTxStateStorageCasFail(UUID txId, TxMeta txMetaBeforeCas, TxMeta txMetaToSet) {

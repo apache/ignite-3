@@ -42,11 +42,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.stream.IntStream;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.util.Cursor;
@@ -116,12 +114,6 @@ public abstract class AbstractTxStateStorageTest {
                 assertEquals(txMetaExpected, txMeta);
             }
         }
-    }
-
-    private List<TablePartitionId> generateEnlistedPartitions(int c) {
-        return IntStream.range(0, c)
-                .mapToObj(partitionNumber -> new TablePartitionId(TABLE_ID, partitionNumber))
-                .collect(toList());
     }
 
     private HybridTimestamp generateTimestamp(UUID uuid) {
@@ -407,30 +399,6 @@ public abstract class AbstractTxStateStorageTest {
         } finally {
             assertThat(storage2.abortRebalance(), willCompleteSuccessfully());
         }
-    }
-
-    @Test
-    void testLeases() {
-        TxStateStorage storage0 = tableStorage.getOrCreateTxStateStorage(0);
-
-        long lst0 = 1000;
-
-        long lst1 = 2000;
-
-        storage0.updateLease(lst0, 1, 1);
-
-        assertEquals(lst0, storage0.leaseStartTime());
-        assertEquals(1, storage0.lastAppliedIndex());
-        assertEquals(1, storage0.lastAppliedTerm());
-
-        storage0.updateLease(lst1, 2, 2);
-
-        assertEquals(lst1, storage0.leaseStartTime());
-        assertEquals(2, storage0.lastAppliedIndex());
-        assertEquals(2, storage0.lastAppliedTerm());
-
-        assertThrows(AssertionError.class, () -> storage0.updateLease(100, 3, 2));
-        assertThrows(AssertionError.class, () -> storage0.updateLease(100, 1, 1));
     }
 
     private static void checkStorageIsEmpty(TxStateStorage storage) {

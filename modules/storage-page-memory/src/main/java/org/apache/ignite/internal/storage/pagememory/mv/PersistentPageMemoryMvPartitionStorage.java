@@ -299,6 +299,26 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         });
     }
 
+    @Override
+    public void updateLease(long leaseStartTime) {
+        busy(() -> {
+            throwExceptionIfStorageNotInRunnableState();
+
+            updateMeta((lastCheckpointId, meta) -> meta.updateLease(lastCheckpointId, leaseStartTime));
+
+            return null;
+        });
+    }
+
+    @Override
+    public long leaseStartTime() {
+        return busy(() -> {
+            throwExceptionIfStorageNotInRunnableState();
+
+            return meta.leaseStartTime();
+        });
+    }
+
     private void committedGroupConfigurationBusy(byte[] groupConfigBytes) {
         updateMeta((lastCheckpointId, meta) -> {
             replicationProtocolGroupConfigReadWriteLock.writeLock().lock();

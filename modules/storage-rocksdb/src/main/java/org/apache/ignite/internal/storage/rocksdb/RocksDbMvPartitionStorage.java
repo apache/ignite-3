@@ -22,6 +22,7 @@ import static java.nio.ByteBuffer.allocate;
 import static java.nio.ByteBuffer.allocateDirect;
 import static java.util.Arrays.copyOf;
 import static java.util.Arrays.copyOfRange;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.MAX_KEY_SIZE;
 import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.MV_KEY_BUFFER;
 import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.ROW_ID_OFFSET;
@@ -32,6 +33,7 @@ import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.VAL
 import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.deserializeRow;
 import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.putTimestampDesc;
 import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.readTimestampDesc;
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage.LEASE_PREFIX;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage.PARTITION_CONF_PREFIX;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage.PARTITION_META_PREFIX;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.KEY_BYTE_ORDER;
@@ -43,9 +45,12 @@ import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptio
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.transitionToTerminalState;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
+import static org.apache.ignite.internal.util.ByteUtils.putLongToBytes;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_ERR;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.UUID;
@@ -53,6 +58,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
@@ -67,6 +73,7 @@ import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.storage.gc.GcEntry;
 import org.apache.ignite.internal.storage.util.LocalLocker;
 import org.apache.ignite.internal.storage.util.StorageState;
+import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.jetbrains.annotations.Nullable;
@@ -147,11 +154,17 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     /** Key to store group config in meta. */
     private final byte[] lastGroupConfigKey;
 
+    /** Key to store the lease start time. */
+    private final byte[] leaseKey;
+
     /** On-heap-cached last applied index value. */
     private volatile long lastAppliedIndex;
 
     /** On-heap-cached last applied term value. */
     private volatile long lastAppliedTerm;
+
+    /** On-heap-cached lease start time value. */
+    private volatile long leaseStartTime;
 
     /** On-heap-cached last committed group configuration. */
     private volatile byte @Nullable [] lastGroupConfig;
@@ -182,6 +195,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
         lastAppliedIndexAndTermKey = createKey(PARTITION_META_PREFIX, tableId, partitionId);
         lastGroupConfigKey = createKey(PARTITION_CONF_PREFIX, tableId, partitionId);
+        leaseKey = createKey(LEASE_PREFIX, tableId, partitionId);
 
         try {
             byte[] indexAndTerm = db.get(meta, readOpts, lastAppliedIndexAndTermKey);
@@ -978,6 +992,37 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 return size;
             }
         });
+    }
+
+    @Override
+    public void updateLease(long leaseStartTime) {
+        busy(() -> {
+            if (leaseStartTime == this.leaseStartTime) {
+                return null;
+            }
+
+            assert leaseStartTime > this.leaseStartTime : format("Updated lease start time should be greater than current [current={}, "
+                    + "updated={}]", this.leaseStartTime, leaseStartTime);
+
+            try (WriteBatch writeBatch = new WriteBatch()) {
+                byte[] leaseBytes = new byte[Long.BYTES];
+
+                putLongToBytes(leaseStartTime, leaseBytes, 0);
+
+                writeBatch.put(leaseKey, leaseBytes);
+
+                this.leaseStartTime = leaseStartTime;
+            } catch (RocksDBException e) {
+                throw new StorageException(e);
+            }
+
+            return null;
+        });
+    }
+
+    @Override
+    public long leaseStartTime() {
+        return busy(() -> leaseStartTime);
     }
 
     /**

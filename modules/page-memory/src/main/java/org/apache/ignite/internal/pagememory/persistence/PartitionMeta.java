@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.pagememory.persistence;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 
@@ -49,6 +50,8 @@ public class PartitionMeta {
     private volatile long lastAppliedIndex;
 
     private volatile long lastAppliedTerm;
+
+    private volatile long leaseStartTime;
 
     private volatile long lastReplicationProtocolGroupConfigFirstPageId;
 
@@ -316,6 +319,34 @@ public class PartitionMeta {
     @Override
     public String toString() {
         return S.toString(PartitionMeta.class, this);
+    }
+
+    /**
+     * Updates the current lease start time in the storage.
+     *
+     * @param checkpointId Checkpoint ID.
+     * @param leaseStartTime Lease start time.
+     */
+    public void updateLease(@Nullable UUID checkpointId, long leaseStartTime) {
+        updateSnapshot(checkpointId);
+
+        if (leaseStartTime == this.leaseStartTime) {
+            return;
+        }
+
+        assert leaseStartTime > this.leaseStartTime : format("Updated lease start time should be greater than current [current={}, "
+                + "updated={}]", this.leaseStartTime, leaseStartTime);
+
+        this.leaseStartTime = leaseStartTime;
+    }
+
+    /**
+     * Return the start time of the known lease for this replication group.
+     *
+     * @return Lease start time.
+     */
+    public long leaseStartTime() {
+        return leaseStartTime;
     }
 
     /**

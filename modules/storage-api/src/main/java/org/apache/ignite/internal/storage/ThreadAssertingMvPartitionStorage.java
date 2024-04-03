@@ -161,6 +161,18 @@ public class ThreadAssertingMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
+    public void updateLease(long leaseStartTime) {
+        assertThreadAllowsToWrite();
+
+        partitionStorage.updateLease(leaseStartTime);
+    }
+
+    @Override
+    public long leaseStartTime() {
+        return partitionStorage.leaseStartTime();
+    }
+
+    @Override
     public void close() {
         partitionStorage.close();
     }

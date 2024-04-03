@@ -1353,6 +1353,27 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         assertThat(returnedConfig, is(equalTo(secondConfig)));
     }
 
+    @Test
+    public void testLease() {
+        storage.runConsistently(locker -> {
+            long lst0 = 1000;
+
+            long lst1 = 2000;
+
+            storage.updateLease(lst0);
+
+            assertEquals(lst0, storage.leaseStartTime());
+
+            storage.updateLease(lst1);
+
+            assertEquals(lst1, storage.leaseStartTime());
+
+            assertThrows(AssertionError.class, () -> storage.updateLease(0));
+
+            return null;
+        });
+    }
+
     /**
      * Returns row id that is lexicographically smaller (by the value of one) than the argument.
      *
