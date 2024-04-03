@@ -54,7 +54,10 @@ public class RocksDbMetaStorage {
      */
     public static final byte[] INDEX_ROW_ID_PREFIX = {2};
 
-    public static final byte[] LEASE_PREFIX = {3};
+    /**
+     * Prefix to store lease start time. Key format is {@code [prefix, tableId, partitionId]} in BE.
+     */
+    static final byte[] LEASE_PREFIX = {3};
 
     private final ColumnFamily metaColumnFamily;
 
