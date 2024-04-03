@@ -96,7 +96,8 @@ internal static class DataStreamer
         var schema = await schemaProvider(null).ConfigureAwait(false);
 
         var partitionAssignment = await partitionAssignmentProvider().ConfigureAwait(false);
-        Debug.Assert(partitionAssignment.Length > 0, "partitionAssignment.Length > 0");
+        var partitionCount = partitionAssignment.Length; // Can't be changed.
+        Debug.Assert(partitionCount > 0, "partitionCount > 0");
         var lastPartitionsAssignmentCheck = Stopwatch.StartNew();
 
         using var flushCts = new CancellationTokenSource();
@@ -188,11 +189,8 @@ internal static class DataStreamer
 
             writer.Handler.Write(ref tupleBuilder, item, schema0, keyOnly: false, noValueSetRef);
 
-            // ReSharper disable once AccessToModifiedClosure (reviewed)
-            var partitionAssignment0 = partitionAssignment;
-            var partition = partitionAssignment0[Math.Abs(tupleBuilder.GetHash() % partitionAssignment0.Length)] ?? string.Empty;
-
-            var batch = GetOrCreateBatch(partition);
+            var partitionId = Math.Abs(tupleBuilder.GetHash() % partitionCount);
+            var batch = GetOrCreateBatch(partitionId);
 
             lock (batch)
             {
