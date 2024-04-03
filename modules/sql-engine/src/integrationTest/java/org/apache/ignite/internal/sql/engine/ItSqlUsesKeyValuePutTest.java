@@ -30,7 +30,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests to verify e2e cases of optimized insert.
  */
-public class ItKeyValuePutTest extends BaseSqlIntegrationTest {
+public class ItSqlUsesKeyValuePutTest extends BaseSqlIntegrationTest {
     private static final int TABLE_SIZE = 10;
 
     @BeforeAll

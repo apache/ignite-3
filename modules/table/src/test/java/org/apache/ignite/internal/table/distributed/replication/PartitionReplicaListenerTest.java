@@ -149,6 +149,7 @@ import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
 import org.apache.ignite.internal.table.distributed.command.CatalogVersionAware;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
+import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommandImpl;
 import org.apache.ignite.internal.table.distributed.command.WriteIntentSwitchCommand;
@@ -187,6 +188,7 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
+import org.apache.ignite.internal.tx.UpdateCommandResult;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
@@ -290,6 +292,10 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
                 return v;
             });
+
+            return completedFuture(new UpdateCommandResult(true));
+        } else if (cmd instanceof UpdateAllCommand) {
+            return completedFuture(new UpdateCommandResult(true));
         } else if (cmd instanceof FinishTxCommand) {
             FinishTxCommand command = (FinishTxCommand) cmd;
 
@@ -1441,7 +1447,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         checkAfterFirstOperation.run();
 
         // Check that cleanup request processing awaits all write requests.
-        CompletableFuture<?> writeFut = new CompletableFuture<>();
+        CompletableFuture<UpdateCommandResult> writeFut = new CompletableFuture<>();
 
         raftClientFutureClosure = cmd -> writeFut;
 
@@ -1471,7 +1477,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
             assertFalse(replicaCleanupFut.isDone());
 
-            writeFut.complete(null);
+            writeFut.complete(new UpdateCommandResult(true));
 
             assertThat(replicaCleanupFut, willSucceedFast());
         } finally {

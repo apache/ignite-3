@@ -15,21 +15,34 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tostring;
+package org.apache.ignite.internal.tx.message;
 
-import java.lang.annotation.Documented;
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
+import java.io.Serializable;
+import java.util.Collection;
+import java.util.UUID;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 
 /**
- * Class, field or method annotated with IgniteToStringInclude claims the element <b>must be</b> excluded from {@code toString()} output.
- * This annotation is used to override the default exclusion policy.
+ * The result of a replicated cleanup request.
  */
-@Documented
-@Retention(RetentionPolicy.RUNTIME)
-@Target({ElementType.FIELD, ElementType.TYPE, ElementType.METHOD})
-public @interface IgniteToStringExclude {
-    // No-op.
+public class CleanupReplicatedInfo implements Serializable {
+
+    private static final long serialVersionUID = -975001033274630774L;
+
+    private final UUID txId;
+
+    private final Collection<TablePartitionId> partitions;
+
+    public CleanupReplicatedInfo(UUID txId, Collection<TablePartitionId> partitions) {
+        this.txId = txId;
+        this.partitions = partitions;
+    }
+
+    public UUID txId() {
+        return txId;
+    }
+
+    public Collection<TablePartitionId> partitions() {
+        return partitions;
+    }
 }
