@@ -47,7 +47,6 @@ import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserService;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
-import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -69,7 +68,7 @@ public class PlannerTimeoutTest extends AbstractPlannerTest {
                 CaffeineCacheFactory.INSTANCE, null, plannerTimeout, 1, new MetricManager());
         prepareService.start();
         try {
-            ParserService parserService = new ParserServiceImpl(0, EmptyCacheFactory.INSTANCE);
+            ParserService parserService = new ParserServiceImpl();
 
             ParsedResult parsedResult = parserService.parse("SELECT * FROM T1 t, T1 t1, T1 t2, T1 t3");
 

@@ -45,7 +45,6 @@ import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
-import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -246,7 +245,7 @@ public class PrepareServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     private static ParsedResult parse(String query) {
-        return new ParserServiceImpl(0, EmptyCacheFactory.INSTANCE).parse(query);
+        return new ParserServiceImpl().parse(query);
     }
 
     private static BaseQueryContext createContext(Object... params) {

@@ -45,7 +45,6 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -117,6 +116,7 @@ import org.apache.ignite.internal.sql.engine.tx.ScriptTransactionContext;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.sql.engine.util.cache.Cache;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.sql.metrics.SqlClientMetricSource;
@@ -171,9 +171,8 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private static final long EXECUTION_SERVICE_SHUTDOWN_TIMEOUT = 60_000;
 
-    private final ParserService parserService = new ParserServiceImpl(
-            PARSED_RESULT_CACHE_SIZE, CACHE_FACTORY
-    );
+    private final ParserService parserService = new ParserServiceImpl();
+    private final Cache<String, ParsedResult> queryToParsedResultCache = CACHE_FACTORY.create(PARSED_RESULT_CACHE_SIZE);
 
     private static final ResultSetMetadata EMPTY_RESULT_SET_METADATA =
             new ResultSetMetadataImpl(Collections.emptyList());
@@ -523,11 +522,13 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         QueryCancel queryCancel = new QueryCancel();
 
-        CompletableFuture<Void> start = new CompletableFuture<>();
+        ParsedResult parsedResult = queryToParsedResultCache.get(sql);
 
-        CompletableFuture<QueryMetadata> stage = start.thenCompose(ignored -> {
-            ParsedResult result = parserService.parse(sql);
+        CompletableFuture<ParsedResult> start = parsedResult != null
+                ? completedFuture(parsedResult)
+                : CompletableFuture.supplyAsync(() -> parseAndCache(sql), taskExecutor);
 
+        return start.thenCompose(result -> {
             validateParsedStatement(properties0, result);
             validateDynamicParameters(result.dynamicParamsCount(), params, false);
 
@@ -536,17 +537,6 @@ public class SqlQueryProcessor implements QueryProcessor {
             return prepareParsedStatement(schemaName, result, timestamp, queryCancel, params)
                     .thenApply(plan -> new QueryMetadata(plan.metadata(), plan.parameterMetadata()));
         });
-
-        // TODO IGNITE-20078 Improve (or remove) CancellationException handling.
-        stage.whenComplete((cur, ex) -> {
-            if (ex instanceof CancellationException) {
-                queryCancel.cancel();
-            }
-        });
-
-        start.completeAsync(() -> null, taskExecutor);
-
-        return stage;
     }
 
     private CompletableFuture<AsyncSqlCursor<InternalSqlRow>> querySingle(
@@ -560,11 +550,13 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         QueryCancel queryCancel = new QueryCancel();
 
-        CompletableFuture<Void> start = new CompletableFuture<>();
+        ParsedResult parsedResult = queryToParsedResultCache.get(sql);
 
-        CompletableFuture<AsyncSqlCursor<InternalSqlRow>> stage = start.thenCompose(ignored -> {
-            ParsedResult result = parserService.parse(sql);
+        CompletableFuture<ParsedResult> start = parsedResult != null
+                ? completedFuture(parsedResult)
+                : CompletableFuture.supplyAsync(() -> parseAndCache(sql), taskExecutor);
 
+        return start.thenCompose(result -> {
             validateParsedStatement(properties, result);
             validateDynamicParameters(result.dynamicParamsCount(), params, true);
 
@@ -592,17 +584,6 @@ public class SqlQueryProcessor implements QueryProcessor {
                         return executionResult;
                     });
         });
-
-        // TODO IGNITE-20078 Improve (or remove) CancellationException handling.
-        stage.whenComplete((cur, ex) -> {
-            if (ex instanceof CancellationException) {
-                queryCancel.cancel();
-            }
-        });
-
-        start.completeAsync(() -> null, taskExecutor);
-
-        return stage;
     }
 
     private CompletableFuture<AsyncSqlCursor<InternalSqlRow>> queryScript(
@@ -795,6 +776,20 @@ public class SqlQueryProcessor implements QueryProcessor {
                 throw new SqlException(STMT_VALIDATION_ERR, message);
             }
         }
+    }
+
+    private static boolean shouldBeCached(SqlQueryType queryType) {
+        return queryType == SqlQueryType.QUERY || queryType == SqlQueryType.DML;
+    }
+
+    private ParsedResult parseAndCache(String sql) {
+        ParsedResult result = parserService.parse(sql);
+
+        if (shouldBeCached(result.queryType())) {
+            queryToParsedResultCache.put(sql, result);
+        }
+
+        return result;
     }
 
     /** Returns count of opened cursors. */

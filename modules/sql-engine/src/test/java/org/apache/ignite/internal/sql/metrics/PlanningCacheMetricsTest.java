@@ -34,7 +34,6 @@ import org.apache.ignite.internal.sql.engine.sql.ParserService;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
-import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -87,7 +86,7 @@ public class PlanningCacheMetricsTest extends AbstractPlannerTest {
         IgniteSchema schema = createSchema(table);
         BaseQueryContext ctx = baseQueryContext(Collections.singletonList(schema), null);
 
-        ParserService parserService = new ParserServiceImpl(0, EmptyCacheFactory.INSTANCE);
+        ParserService parserService = new ParserServiceImpl();
         ParsedResult parsedResult = parserService.parse(qry);
 
         await(prepareService.prepareAsync(parsedResult, ctx));
