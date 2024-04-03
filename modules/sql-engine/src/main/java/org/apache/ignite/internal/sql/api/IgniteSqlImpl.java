@@ -344,7 +344,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
                     .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.SINGLE_STMT_TYPES)
                     .build();
 
-            result = queryProcessor.querySingleAsync(properties, transactions, (InternalTransaction) transaction, query, arguments)
+            result = queryProcessor.queryAsync(properties, transactions, (InternalTransaction) transaction, query, arguments)
                     .thenCompose(cur -> {
                                 if (!busyLock.enterBusy()) {
                                     cur.closeAsync();
@@ -461,7 +461,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
                 }
 
                 try {
-                    return queryProcessor.querySingleAsync(properties, transactions, transaction, query, args)
+                    return queryProcessor.queryAsync(properties, transactions, transaction, query, args)
                             .thenCompose(cursor -> {
                                 if (!enterBusy.get()) {
                                     cursor.closeAsync();
@@ -538,10 +538,6 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
             return CompletableFuture.failedFuture(nodeIsStoppingException());
         }
 
-        SqlProperties properties = SqlPropertiesHelper.newBuilder()
-                .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.ALL)
-                .build();
-
         try {
             return executeScriptCore(
                     queryProcessor,
@@ -550,7 +546,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
                     busyLock::leaveBusy,
                     query,
                     arguments,
-                    properties);
+                    SqlPropertiesHelper.emptyProperties());
         } finally {
             busyLock.leaveBusy();
         }
@@ -576,8 +572,13 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
             String query,
             @Nullable Object[] arguments,
             SqlProperties properties) {
+
+        SqlProperties properties0 = SqlPropertiesHelper.chain(properties, SqlPropertiesHelper.newBuilder()
+                .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.ALL)
+                .build());
+
         CompletableFuture<AsyncSqlCursor<InternalSqlRow>> f =
-                queryProcessor.queryScriptAsync(properties, transactions, null, query, arguments);
+                queryProcessor.queryAsync(properties0, transactions, null, query, arguments);
 
         CompletableFuture<Void> resFut = new CompletableFuture<>();
         ScriptHandler handler = new ScriptHandler(resFut, enterBusy, leaveBusy);
