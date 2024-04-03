@@ -193,7 +193,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         executionServices = nodeNames.stream().map(this::create).collect(Collectors.toList());
         prepareService = new PrepareServiceImpl("test", 0, CaffeineCacheFactory.INSTANCE, null, PLANNING_TIMEOUT, PLANNING_THREAD_COUNT,
                 new MetricManager());
-        parserService = new ParserServiceImpl(0, EmptyCacheFactory.INSTANCE);
+        parserService = new ParserServiceImpl();
 
         prepareService.start();
     }

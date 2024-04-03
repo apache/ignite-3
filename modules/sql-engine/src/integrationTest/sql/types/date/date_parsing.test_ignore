@@ -1,6 +1,7 @@
 # name: test/sql/types/date/date_parsing.test
 # description: Test date parsing
 # group: [date]
+# Ignore https://issues.apache.org/jira/browse/IGNITE-14602
 # Ignore https://issues.apache.org/jira/browse/IGNITE-15619
 
 statement ok

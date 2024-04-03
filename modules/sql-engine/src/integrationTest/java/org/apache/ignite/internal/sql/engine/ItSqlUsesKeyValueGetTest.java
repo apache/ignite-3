@@ -28,7 +28,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests to verify e2e cases of optimized lookup by primary key.
  */
-public class ItKeyValueGetTest extends BaseSqlIntegrationTest {
+public class ItSqlUsesKeyValueGetTest extends BaseSqlIntegrationTest {
     private static final int TABLE_SIZE = 10;
 
     @BeforeAll

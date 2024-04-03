@@ -15,21 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tostring;
+package org.apache.ignite.internal.replicator.message;
 
-import java.lang.annotation.Documented;
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageGroup.PRIMARY_REPLICA_CHANGE_COMMAND;
+
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.network.annotations.Transferable;
+import org.apache.ignite.internal.raft.WriteCommand;
 
 /**
- * Class, field or method annotated with IgniteToStringInclude claims the element <b>must be</b> excluded from {@code toString()} output.
- * This annotation is used to override the default exclusion policy.
+ * Command to write the primary replica change to the replication group.
  */
-@Documented
-@Retention(RetentionPolicy.RUNTIME)
-@Target({ElementType.FIELD, ElementType.TYPE, ElementType.METHOD})
-public @interface IgniteToStringExclude {
-    // No-op.
+@Transferable(PRIMARY_REPLICA_CHANGE_COMMAND)
+public interface PrimaryReplicaChangeCommand extends WriteCommand {
+    /** Lease start time, hybrid timestamp as long, see {@link HybridTimestamp#longValue()}. */
+    long leaseStartTime();
 }
