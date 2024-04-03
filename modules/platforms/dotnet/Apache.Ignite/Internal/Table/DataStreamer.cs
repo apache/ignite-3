@@ -355,9 +355,7 @@ internal static class DataStreamer
             var w = buf.MessageWriter;
             w.Write(schema.TableId);
             w.Write(partitionId);
-
-            // TODO: Assume we don't have deleted rows, but reserve space for the bitset and move the header if necessary.
-            w.WriteNil(); // TODO: Deleted bit set.
+            w.WriteNil(); // Deleted rows bit set.
             w.Write(schema.Version);
 
             batch.CountPos = buf.Position;
