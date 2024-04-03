@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table;
+package org.apache.ignite.internal.lowwatermark;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
@@ -33,8 +33,6 @@ import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.table.distributed.LowWatermark;
-import org.apache.ignite.internal.table.distributed.LowWatermarkChangedListener;
 import org.jetbrains.annotations.Nullable;
 
 /**

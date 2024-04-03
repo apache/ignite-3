@@ -15,10 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed;
+package org.apache.ignite.internal.lowwatermark;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.table.distributed.LowWatermarkImpl.LOW_WATERMARK_VAULT_KEY;
+import static org.apache.ignite.internal.lowwatermark.LowWatermarkImpl.LOW_WATERMARK_VAULT_KEY;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -55,13 +55,13 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
+import org.apache.ignite.internal.lowwatermark.configuration.LowWatermarkConfiguration;
+import org.apache.ignite.internal.lowwatermark.message.GetLowWatermarkRequest;
+import org.apache.ignite.internal.lowwatermark.message.GetLowWatermarkResponse;
+import org.apache.ignite.internal.lowwatermark.message.LowWatermarkMessageGroup;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.schema.configuration.LowWatermarkConfiguration;
-import org.apache.ignite.internal.table.distributed.message.GetLowWatermarkRequest;
-import org.apache.ignite.internal.table.distributed.message.GetLowWatermarkResponse;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.vault.VaultEntry;
 import org.apache.ignite.internal.vault.VaultManager;
@@ -81,8 +81,6 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
 
     private final ClockService clockService = spy(new TestClockService(new HybridClockImpl()));
 
-    private final TxManager txManager = mock(TxManager.class);
-
     private final VaultManager vaultManager = mock(VaultManager.class);
 
     private LowWatermarkChangedListener listener;
@@ -100,7 +98,6 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
                 "test",
                 lowWatermarkConfig,
                 clockService,
-                txManager,
                 vaultManager,
                 mock(FailureProcessor.class),
                 messagingService
@@ -126,20 +123,26 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void testStartWithNotEmptyVault() {
-        HybridTimestamp lowWatermark = new HybridTimestamp(10, 10);
+        var lowWatermark = new HybridTimestamp(10, 10);
 
         when(vaultManager.get(LOW_WATERMARK_VAULT_KEY))
                 .thenReturn(new VaultEntry(LOW_WATERMARK_VAULT_KEY, ByteUtils.toBytes(lowWatermark)));
-
-        when(txManager.updateLowWatermark(any(HybridTimestamp.class))).thenReturn(nullCompletedFuture());
 
         assertThat(this.lowWatermark.start(), willCompleteSuccessfully());
 
         assertEquals(lowWatermark, this.lowWatermark.getLowWatermark());
 
+        var startOnLwnChangedFuture = new CompletableFuture<Void>();
+
+        when(listener.onLwmChanged(any())).then(invocation -> {
+            startOnLwnChangedFuture.complete(null);
+
+            return nullCompletedFuture();
+        });
+
         this.lowWatermark.scheduleUpdates();
 
-        verify(listener, timeout(1_000)).onLwmChanged(lowWatermark);
+        assertThat(startOnLwnChangedFuture, willTimeoutFast());
         assertEquals(lowWatermark, this.lowWatermark.getLowWatermark());
     }
 
@@ -161,16 +164,12 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
 
         when(clockService.now()).thenReturn(now);
 
-        when(txManager.updateLowWatermark(any(HybridTimestamp.class))).thenReturn(nullCompletedFuture());
-
         // Make a predictable candidate to make it easier to test.
         HybridTimestamp newLowWatermarkCandidate = lowWatermark.createNewLowWatermarkCandidate();
 
         assertThat(lowWatermark.updateAndNotify(newLowWatermarkCandidate), willCompleteSuccessfully());
 
-        InOrder inOrder = inOrder(txManager, vaultManager, listener);
-
-        inOrder.verify(txManager).updateLowWatermark(newLowWatermarkCandidate);
+        InOrder inOrder = inOrder(vaultManager, listener);
 
         inOrder.verify(vaultManager, timeout(1000)).put(LOW_WATERMARK_VAULT_KEY, ByteUtils.toBytes(newLowWatermarkCandidate));
 
@@ -179,56 +178,52 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
         assertEquals(newLowWatermarkCandidate, lowWatermark.getLowWatermark());
     }
 
-    /**
-     * Let's make sure that the low watermark update happens one by one and not in parallel.
-     */
+    /** Let's make sure that the low watermark update happens one by one and not in parallel. */
     @Test
     void testUpdateWatermarkSequentially() throws Exception {
         assertThat(lowWatermarkConfig.updateFrequency().update(10L), willSucceedFast());
 
-        CountDownLatch startGetAllReadOnlyTransactions = new CountDownLatch(3);
+        var onLwmChangedLatch = new CountDownLatch(3);
 
-        CompletableFuture<Void> finishGetAllReadOnlyTransactions = new CompletableFuture<>();
-
-        assertThat(lowWatermarkConfig.updateFrequency().update(100L), willSucceedFast());
+        var onLwmChangedFinishFuture = new CompletableFuture<>();
 
         try {
-            when(txManager.updateLowWatermark(any(HybridTimestamp.class))).then(invocation -> {
-                startGetAllReadOnlyTransactions.countDown();
+            assertThat(lowWatermarkConfig.updateFrequency().update(100L), willSucceedFast());
 
-                return finishGetAllReadOnlyTransactions;
+            when(listener.onLwmChanged(any(HybridTimestamp.class))).then(invocation -> {
+                onLwmChangedLatch.countDown();
+
+                return onLwmChangedFinishFuture;
             });
 
             assertThat(lowWatermark.start(), willCompleteSuccessfully());
             lowWatermark.scheduleUpdates();
 
             // Let's check that it hasn't been called more than once.
-            assertFalse(startGetAllReadOnlyTransactions.await(1, TimeUnit.SECONDS));
+            assertFalse(onLwmChangedLatch.await(1, TimeUnit.SECONDS));
 
             // Let's check that it was called only once.
-            assertEquals(2, startGetAllReadOnlyTransactions.getCount());
-            verify(txManager).updateLowWatermark(any(HybridTimestamp.class));
+            assertEquals(2, onLwmChangedLatch.getCount());
+            verify(listener).onLwmChanged(any(HybridTimestamp.class));
 
-            finishGetAllReadOnlyTransactions.complete(null);
+            onLwmChangedFinishFuture.complete(null);
 
             // Let's make sure that the second time we also went to update the low watermark.
-            assertTrue(startGetAllReadOnlyTransactions.await(1, TimeUnit.SECONDS));
+            assertTrue(onLwmChangedLatch.await(1, TimeUnit.SECONDS));
 
             assertNotNull(lowWatermark.getLowWatermark());
         } finally {
-            finishGetAllReadOnlyTransactions.complete(null);
+            onLwmChangedFinishFuture.complete(null);
         }
     }
 
     @Test
     void testHandleGetLowWatermarkMessage() {
-        when(txManager.updateLowWatermark(any())).thenReturn(nullCompletedFuture());
-
-        verify(messagingService, never()).addMessageHandler(eq(TableMessageGroup.class), any());
+        verify(messagingService, never()).addMessageHandler(eq(LowWatermarkMessageGroup.class), any());
 
         assertThat(lowWatermark.start(), willCompleteSuccessfully());
 
-        verify(messagingService).addMessageHandler(eq(TableMessageGroup.class), any());
+        verify(messagingService).addMessageHandler(eq(LowWatermarkMessageGroup.class), any());
 
         ClusterNode sender = mock(ClusterNode.class);
         long correlationId = 0;
@@ -259,8 +254,6 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void testUpdateLowWatermark() {
-        when(txManager.updateLowWatermark(any())).thenReturn(nullCompletedFuture());
-
         assertThat(lowWatermark.start(), willCompleteSuccessfully());
 
         CompletableFuture<HybridTimestamp> updateLowWatermarkFuture0 = listenUpdateLowWatermark();

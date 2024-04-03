@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed;
+package org.apache.ignite.internal.lowwatermark;
 
 import java.util.function.Consumer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;

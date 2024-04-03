@@ -21,6 +21,7 @@ import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.internal.lowwatermark.configuration.LowWatermarkConfigurationSchema;
 
 /**
  * Garbage collector configuration schema.
