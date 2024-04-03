@@ -221,7 +221,7 @@ internal static class DataStreamer
             if (batchRef == null)
             {
                 batchRef = new Batch<T>(options.PageSize, schema);
-                InitBuffer(batchRef, partitionId);
+                InitBuffer(batchRef, partitionId, schema);
 
                 Metrics.StreamerBatchesActiveIncrement();
             }
@@ -250,14 +250,12 @@ internal static class DataStreamer
                 buf.WriteByte(MsgPackCode.Int32, batch.CountPos);
                 buf.WriteIntBigEndian(batch.Count, batch.CountPos + 1);
 
-                // ReSharper disable once AccessToModifiedClosure
-                var preferredNode = PreferredNode.FromName(partitionAssignment[partitionId] ?? string.Empty);
-                batch.Task = SendAndDisposeBufAsync(buf, preferredNode, batch.Task, batch.Items, batch.Count, batch.SchemaOutdated);
+                batch.Task = SendAndDisposeBufAsync(buf, partitionId, batch.Task, batch.Items, batch.Count, batch.SchemaOutdated);
 
                 batch.Items = ArrayPool<T>.Shared.Rent(options.PageSize);
                 batch.Count = 0;
                 batch.Buffer = ProtoCommon.GetMessageWriter(); // Prev buf will be disposed in SendAndDisposeBufAsync.
-                InitBuffer(batch, partitionId);
+                InitBuffer(batch, partitionId, schema);
                 batch.LastFlush = Stopwatch.GetTimestamp();
                 batch.Schema = schema;
                 batch.SchemaOutdated = false;
@@ -268,7 +266,7 @@ internal static class DataStreamer
 
         async Task SendAndDisposeBufAsync(
             PooledArrayBuffer buf,
-            PreferredNode preferredNode,
+            int partitionId,
             Task oldTask,
             T[] items,
             int count,
@@ -279,9 +277,14 @@ internal static class DataStreamer
             if (batchSchemaOutdated)
             {
                 // Schema update was detected while the batch was being filled.
+                // Re-serialize the whole batch.
                 buf.Reset();
-                writer.WriteMultiple(buf, null, schema, items.Take(count));
+
+                WriteBatch(buf, partitionId, schema, items.AsSpan(0, count), writer);
             }
+
+            // ReSharper disable once AccessToModifiedClosure
+            var preferredNode = PreferredNode.FromName(partitionAssignment[partitionId] ?? string.Empty);
 
             try
             {
@@ -348,20 +351,6 @@ internal static class DataStreamer
             }
         }
 
-        void InitBuffer(Batch<T> batch, int partitionId)
-        {
-            var buf = batch.Buffer;
-
-            var w = buf.MessageWriter;
-            w.Write(schema.TableId);
-            w.Write(partitionId);
-            w.WriteNil(); // Deleted rows bit set.
-            w.Write(schema.Version);
-
-            batch.CountPos = buf.Position;
-            buf.Advance(5); // Reserve count.
-        }
-
         async Task Drain()
         {
             foreach (var (partition, batch) in batches)
@@ -373,6 +362,42 @@ internal static class DataStreamer
 
                 await batch.Task.ConfigureAwait(false);
             }
+        }
+    }
+
+    private static void InitBuffer<T>(Batch<T> batch, int partitionId, Schema schema)
+    {
+        var buf = batch.Buffer;
+        WriteBatchHeader(buf, partitionId, schema);
+
+        batch.CountPos = buf.Position;
+        buf.Advance(5); // Reserve count.
+    }
+
+    private static void WriteBatchHeader(PooledArrayBuffer buf, int partitionId, Schema schema)
+    {
+        var w = buf.MessageWriter;
+        w.Write(schema.TableId);
+        w.Write(partitionId);
+        w.WriteNil(); // Deleted rows bit set.
+        w.Write(schema.Version);
+    }
+
+    private static void WriteBatch<T>(
+        PooledArrayBuffer buf,
+        int partitionId,
+        Schema schema,
+        ReadOnlySpan<T> items,
+        RecordSerializer<T> writer)
+    {
+        WriteBatchHeader(buf, partitionId, schema);
+
+        var w = buf.MessageWriter;
+        w.Write(items.Length);
+
+        foreach (var item in items)
+        {
+            writer.Handler.Write(ref w, schema, item, keyOnly: false, computeHash: false);
         }
     }
 
