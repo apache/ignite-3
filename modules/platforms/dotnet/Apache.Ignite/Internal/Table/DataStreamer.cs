@@ -51,33 +51,19 @@ internal static class DataStreamer
     private static readonly TimeSpan PartitionAssignmentUpdateFrequency = TimeSpan.FromSeconds(15);
 
     /// <summary>
-    /// Sends the batch.
-    /// </summary>
-    /// <param name="buf">Buffer.</param>
-    /// <param name="count">Buffer element count.</param>
-    /// <param name="preferredNode">Preferred node.</param>
-    /// <param name="retryPolicy">Retry policy.</param>
-    /// <returns>Task.</returns>
-    public delegate Task Sender(PooledArrayBuffer buf, int count, PreferredNode preferredNode, IRetryPolicy retryPolicy);
-
-    /// <summary>
     /// Streams the data.
     /// </summary>
     /// <param name="data">Data.</param>
     /// <param name="sender">Batch sender.</param>
     /// <param name="writer">Item writer.</param>
-    /// <param name="schemaProvider">Schema provider.</param>
-    /// <param name="partitionAssignmentProvider">Partitioner.</param>
     /// <param name="options">Options.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <typeparam name="T">Element type.</typeparam>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
     internal static async Task StreamDataAsync<T>(
         IAsyncEnumerable<T> data,
-        Sender sender,
+        IDataStreamerSender sender,
         RecordSerializer<T> writer,
-        Func<int?, Task<Schema>> schemaProvider, // Not a ValueTask because Tasks are cached.
-        Func<ValueTask<string?[]>> partitionAssignmentProvider,
         DataStreamerOptions options,
         CancellationToken cancellationToken)
     {
@@ -103,9 +89,9 @@ internal static class DataStreamer
         var batches = new Dictionary<int, Batch<T>>();
         var retryPolicy = new RetryLimitPolicy { RetryLimit = options.RetryLimit };
 
-        var schema = await schemaProvider(null).ConfigureAwait(false);
+        var schema = await sender.GetSchemaAsync(null).ConfigureAwait(false);
 
-        var partitionAssignment = await partitionAssignmentProvider().ConfigureAwait(false);
+        var partitionAssignment = await sender.GetPartitionAssignmentAsync().ConfigureAwait(false);
         var partitionCount = partitionAssignment.Length; // Can't be changed.
         Debug.Assert(partitionCount > 0, "partitionCount > 0");
         var lastPartitionsAssignmentCheck = Stopwatch.StartNew();
@@ -130,7 +116,7 @@ internal static class DataStreamer
 
                 if (lastPartitionsAssignmentCheck.Elapsed > PartitionAssignmentUpdateFrequency)
                 {
-                    var newAssignment = await partitionAssignmentProvider().ConfigureAwait(false);
+                    var newAssignment = await sender.GetPartitionAssignmentAsync().ConfigureAwait(false);
 
                     if (newAssignment != partitionAssignment)
                     {
@@ -168,7 +154,7 @@ internal static class DataStreamer
             }
             catch (Exception e) when (e.CausedByUnmappedColumns())
             {
-                schema = await schemaProvider(Table.SchemaVersionForceLatest).ConfigureAwait(false);
+                schema = await sender.GetSchemaAsync(Table.SchemaVersionForceLatest).ConfigureAwait(false);
                 return Add(item);
             }
         }
@@ -309,7 +295,7 @@ internal static class DataStreamer
                             // Might be updated by another batch.
                             if (schema.Version != schemaVersion)
                             {
-                                schema = await schemaProvider(schemaVersion).ConfigureAwait(false);
+                                schema = await sender.GetSchemaAsync(schemaVersion).ConfigureAwait(false);
                             }
 
                             // Serialize again with the new schema.
@@ -319,7 +305,7 @@ internal static class DataStreamer
 
                         // Wait for the previous batch for this node to preserve item order.
                         await oldTask.ConfigureAwait(false);
-                        await sender(buf, count, preferredNode, retryPolicy).ConfigureAwait(false);
+                        await sender.SendBatchAsync(buf, count, preferredNode, retryPolicy).ConfigureAwait(false);
 
                         return;
                     }
