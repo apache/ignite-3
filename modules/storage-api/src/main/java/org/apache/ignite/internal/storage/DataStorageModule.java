@@ -45,6 +45,7 @@ public interface DataStorageModule {
      * @param storagePath Storage path.
      * @param longJvmPauseDetector Long JVM pause detector.
      * @param failureProcessor Failure processor that is used to handle critical errors.
+     * @param logSyncer Write-ahead log synchronizer.
      * @throws StorageException If there is an error when creating the storage engine.
      */
     StorageEngine createEngine(

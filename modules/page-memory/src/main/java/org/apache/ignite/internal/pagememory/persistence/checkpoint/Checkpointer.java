@@ -349,7 +349,7 @@ public class Checkpointer extends IgniteWorker {
                 try {
                     logSyncer.sync();
                 } catch (Exception e) {
-                    log.error("Failed to sync raft log during checkpoint processing ", e);
+                    log.error("Failed to sync Write-ahead log during checkpoint processing ", e);
 
                     throw new IgniteInternalCheckedException(e);
                 }

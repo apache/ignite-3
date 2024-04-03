@@ -112,6 +112,7 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
      * @param storagePath Storage path.
      * @param failureProcessor Failure processor that is used to handle critical errors.
      * @param longJvmPauseDetector Long JVM pause detector.
+     * @param logSyncer Write-ahead log synchronizer.
      */
     public PersistentPageMemoryStorageEngine(
             String igniteInstanceName,

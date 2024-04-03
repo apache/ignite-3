@@ -192,16 +192,6 @@ public class RocksDbFlusher {
             future = flushFuturesBySequenceNumber.computeIfAbsent(dbSequenceNumber, s -> new CompletableFuture<>());
         }
 
-        try {
-            db.syncWal();
-        } catch (RocksDBException e) {
-            LOG.error("Couldn't sync WAL log before flushing", e);
-
-            future.completeExceptionally(e);
-
-            return future;
-        }
-
         if (schedule) {
             scheduleFlush();
         }

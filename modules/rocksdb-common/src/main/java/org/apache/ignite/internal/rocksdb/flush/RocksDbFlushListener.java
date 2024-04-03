@@ -23,14 +23,20 @@ import static org.rocksdb.AbstractEventListener.EnabledEventCallback.ON_FLUSH_CO
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.rocksdb.AbstractEventListener;
 import org.rocksdb.FlushJobInfo;
 import org.rocksdb.RocksDB;
+import org.rocksdb.RocksDBException;
 
 /**
  * Represents a listener of RocksDB flush events.
  */
 class RocksDbFlushListener extends AbstractEventListener {
+    /** Logger. */
+    private static final IgniteLogger LOG = Loggers.forClass(RocksDbFlushListener.class);
+
     /** Flusher instance. */
     private final RocksDbFlusher flusher;
 
@@ -59,6 +65,12 @@ class RocksDbFlushListener extends AbstractEventListener {
     /** {@inheritDoc} */
     @Override
     public void onFlushBegin(RocksDB db, FlushJobInfo flushJobInfo) {
+        try {
+            db.syncWal();
+        } catch (RocksDBException e) {
+            LOG.error("Couldn't sync RocksDB WAL on flush begin", e);
+        }
+
         if (lastEventType.compareAndSet(ON_FLUSH_COMPLETED, ON_FLUSH_BEGIN)) {
             lastFlushProcessed.join();
         }
