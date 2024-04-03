@@ -41,8 +41,10 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.table.Table;
@@ -58,6 +60,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  * Tests for the data colocation.
  */
 @ExtendWith(WorkDirectoryExtension.class)
+@WithSystemProperty(key = IgniteSystemProperties.THREAD_ASSERTIONS_THREAD_WHITELISTING_ENABLED, value = "true")
 public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
     /** Rows count ot test. */
     private static final int ROWS = 10;

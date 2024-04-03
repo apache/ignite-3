@@ -137,7 +137,7 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
     }
 
     private static <T> T forcingSwitchFromUserThread(Supplier<? extends T> action) {
-        return PublicApiThreadingTests.forcingSwitchFromUserThread(CLUSTER.aliveNode(), action);
+        return PublicApiThreadingTests.tryToSwitchFromUserThreadWithDelayedSchemaSync(CLUSTER.aliveNode(), action);
     }
 
     private static KeyValueContext<Integer, String> plainKeyValueContext() {

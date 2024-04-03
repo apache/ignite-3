@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.index;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.executeWithEverythingAllowed;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -224,11 +225,13 @@ public class ItIndexNodeFinishedRwTransactionsCheckerTest extends ClusterPerClas
     }
 
     private static long[] partitionSizes() {
-        InternalTable table = tableImpl().internalTable();
+        return executeWithEverythingAllowed(() -> {
+            InternalTable table = tableImpl().internalTable();
 
-        return IntStream.range(0, table.partitions())
-                .mapToLong(partitionId -> table.storage().getMvPartition(partitionId).rowsCount())
-                .toArray();
+            return IntStream.range(0, table.partitions())
+                    .mapToLong(partitionId -> table.storage().getMvPartition(partitionId).rowsCount())
+                    .toArray();
+        });
     }
 
     private static int differences(long[] partitionSizes0, long[] partitionsSizes1) {

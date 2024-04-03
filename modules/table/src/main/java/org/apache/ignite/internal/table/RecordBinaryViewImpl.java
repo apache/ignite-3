@@ -77,7 +77,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
     /** {@inheritDoc} */
     @Override
     public Tuple get(@Nullable Transaction tx, Tuple keyRec) {
-        return sync(() -> getAsync(tx, keyRec));
+        return sync(getAsync(tx, keyRec));
     }
 
     /** {@inheritDoc} */
@@ -103,7 +103,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
 
     @Override
     public List<Tuple> getAll(@Nullable Transaction tx, Collection<Tuple> keyRecs) {
-        return sync(() -> getAllAsync(tx, keyRecs));
+        return sync(getAllAsync(tx, keyRecs));
     }
 
     @Override
@@ -119,7 +119,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
     /** {@inheritDoc} */
     @Override
     public boolean contains(@Nullable Transaction tx, Tuple keyRec) {
-        return sync(() -> containsAsync(tx, keyRec));
+        return sync(containsAsync(tx, keyRec));
     }
 
     /** {@inheritDoc} */
@@ -137,7 +137,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
     /** {@inheritDoc} */
     @Override
     public void upsert(@Nullable Transaction tx, Tuple rec) {
-        sync(() -> upsertAsync(tx, rec));
+        sync(upsertAsync(tx, rec));
     }
 
     /** {@inheritDoc} */
@@ -155,7 +155,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
     /** {@inheritDoc} */
     @Override
     public void upsertAll(@Nullable Transaction tx, Collection<Tuple> recs) {
-        sync(() -> upsertAllAsync(tx, recs));
+        sync(upsertAllAsync(tx, recs));
     }
 
     /** {@inheritDoc} */
@@ -171,7 +171,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
     /** {@inheritDoc} */
     @Override
     public Tuple getAndUpsert(@Nullable Transaction tx, Tuple rec) {
-        return sync(() -> getAndUpsertAsync(tx, rec));
+        return sync(getAndUpsertAsync(tx, rec));
     }
 
     /** {@inheritDoc} */
@@ -189,7 +189,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
     /** {@inheritDoc} */
     @Override
     public boolean insert(@Nullable Transaction tx, Tuple rec) {
-        return sync(() -> insertAsync(tx, rec));
+        return sync(insertAsync(tx, rec));
     }
 
     /** {@inheritDoc} */
@@ -207,7 +207,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
     /** {@inheritDoc} */
     @Override
     public List<Tuple> insertAll(@Nullable Transaction tx, Collection<Tuple> recs) {
-        return sync(() -> insertAllAsync(tx, recs));
+        return sync(insertAllAsync(tx, recs));
     }
 
     /** {@inheritDoc} */
@@ -224,13 +224,13 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
     /** {@inheritDoc} */
     @Override
     public boolean replace(@Nullable Transaction tx, Tuple rec) {
-        return sync(() -> replaceAsync(tx, rec));
+        return sync(replaceAsync(tx, rec));
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean replace(@Nullable Transaction tx, Tuple oldRec, Tuple newRec) {
-        return sync(() -> replaceAsync(tx, oldRec, newRec));
+        return sync(replaceAsync(tx, oldRec, newRec));
     }
 
     /** {@inheritDoc} */
@@ -262,7 +262,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
     /** {@inheritDoc} */
     @Override
     public Tuple getAndReplace(@Nullable Transaction tx, Tuple rec) {
-        return sync(() -> getAndReplaceAsync(tx, rec));
+        return sync(getAndReplaceAsync(tx, rec));
     }
 
     /** {@inheritDoc} */
@@ -280,7 +280,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
     /** {@inheritDoc} */
     @Override
     public boolean delete(@Nullable Transaction tx, Tuple keyRec) {
-        return sync(() -> deleteAsync(tx, keyRec));
+        return sync(deleteAsync(tx, keyRec));
     }
 
     /** {@inheritDoc} */
@@ -298,7 +298,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
     /** {@inheritDoc} */
     @Override
     public boolean deleteExact(@Nullable Transaction tx, Tuple rec) {
-        return sync(() -> deleteExactAsync(tx, rec));
+        return sync(deleteExactAsync(tx, rec));
     }
 
     /** {@inheritDoc} */
@@ -316,7 +316,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
     /** {@inheritDoc} */
     @Override
     public Tuple getAndDelete(@Nullable Transaction tx, Tuple keyRec) {
-        return sync(() -> getAndDeleteAsync(tx, keyRec));
+        return sync(getAndDeleteAsync(tx, keyRec));
     }
 
     /** {@inheritDoc} */
@@ -334,7 +334,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
     /** {@inheritDoc} */
     @Override
     public List<Tuple> deleteAll(@Nullable Transaction tx, Collection<Tuple> keyRecs) {
-        return sync(() -> deleteAllAsync(tx, keyRecs));
+        return sync(deleteAllAsync(tx, keyRecs));
     }
 
     /** {@inheritDoc} */
@@ -351,7 +351,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
     /** {@inheritDoc} */
     @Override
     public List<Tuple> deleteAllExact(@Nullable Transaction tx, Collection<Tuple> recs) {
-        return sync(() -> deleteAllExactAsync(tx, recs));
+        return sync(deleteAllExactAsync(tx, recs));
     }
 
     /** {@inheritDoc} */

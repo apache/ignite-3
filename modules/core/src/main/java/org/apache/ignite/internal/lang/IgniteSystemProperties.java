@@ -70,6 +70,9 @@ public final class IgniteSystemProperties {
     /** Name of the property controlling whether thread assertions are enabled. */
     public static final String THREAD_ASSERTIONS_ENABLED = "IGNITE_THREAD_ASSERTIONS_ENABLED";
 
+    /** Name of the property controlling whether thread whitelisting is enabled for thread assertions. */
+    public static final String THREAD_ASSERTIONS_THREAD_WHITELISTING_ENABLED = "THREAD_ASSERTIONS_THREAD_WHITELISTING_ENABLED";
+
     /**
      * Enforces singleton.
      */

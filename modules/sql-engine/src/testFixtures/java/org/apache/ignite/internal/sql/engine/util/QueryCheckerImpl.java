@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.util;
 import static org.apache.ignite.internal.sql.engine.util.CursorUtils.getAllFromCursor;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.convertSqlRows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.executeAsyncWithEverythingAllowed;
 import static org.apache.ignite.internal.util.ArrayUtils.OBJECT_EMPTY_ARRAY;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -333,7 +334,7 @@ abstract class QueryCheckerImpl implements QueryChecker {
 
         // Check result.
         CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursors =
-                qryProc.queryAsync(properties, transactions(), tx, qry, params);
+                executeAsyncWithEverythingAllowed(() -> qryProc.queryAsync(properties, transactions(), tx, qry, params));
 
         AsyncSqlCursor<InternalSqlRow> cur = await(cursors);
 

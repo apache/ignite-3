@@ -39,7 +39,7 @@ public class AntiHijackAsyncResultSet<T> extends AntiHijackAsyncCursor<T> implem
     /**
      * Constructor.
      */
-    public AntiHijackAsyncResultSet(AsyncResultSet<T> resultSet, Executor asyncContinuationExecutor) {
+    AntiHijackAsyncResultSet(AsyncResultSet<T> resultSet, Executor asyncContinuationExecutor) {
         super(resultSet, asyncContinuationExecutor);
 
         this.resultSet = resultSet;

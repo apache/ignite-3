@@ -18,11 +18,13 @@
 package org.apache.ignite.internal.worker;
 
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.THREAD_ASSERTIONS_ENABLED;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.THREAD_ASSERTIONS_THREAD_WHITELISTING_ENABLED;
 
 import java.util.regex.Pattern;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.thread.ThreadAttributes;
 import org.apache.ignite.internal.thread.ThreadOperation;
 
@@ -33,8 +35,8 @@ public class ThreadAssertions {
     private static final IgniteLogger LOG = Loggers.forClass(ThreadAssertions.class);
 
     /** Names of threads on which the assertions are skipped. */
-    private static final Pattern BLACKLISTED_THREAD_NAMES = Pattern.compile(
-            "(^main$|^Test worker$|^junit-timeout-thread.*|^awaitility-thread$)"
+    private static final Pattern WHITELISTED_THREAD_NAMES = Pattern.compile(
+            "(^main$|^Test worker$|^junit-timeout-thread.*)"
     );
 
     /**
@@ -62,9 +64,15 @@ public class ThreadAssertions {
      * Asserts that the current thread allows to perform the requested operation.
      */
     public static void assertThreadAllowsTo(ThreadOperation requestedOperation) {
+        if (PublicApiThreading.executingSyncPublicApi()) {
+            // Allow everything if we ride a user thread while executing a public API call.
+
+            return;
+        }
+
         Thread currentThread = Thread.currentThread();
 
-        if (BLACKLISTED_THREAD_NAMES.matcher(currentThread.getName()).matches()) {
+        if (threadWhiteListingEnabled() && whiteListed(currentThread)) {
             return;
         }
 
@@ -79,6 +87,14 @@ public class ThreadAssertions {
 
             throw new AssertionError("Thread is not allowed to do " + requestedOperation);
         }
+    }
+
+    private static boolean threadWhiteListingEnabled() {
+        return IgniteSystemProperties.getBoolean(THREAD_ASSERTIONS_THREAD_WHITELISTING_ENABLED, false);
+    }
+
+    private static boolean whiteListed(Thread currentThread) {
+        return WHITELISTED_THREAD_NAMES.matcher(currentThread.getName()).matches();
     }
 
     private static Exception trackerException() {
