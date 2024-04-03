@@ -372,6 +372,7 @@ public class LeaseUpdater {
                         writeNewLease(grpId, candidate, renewedLeases);
 
                         boolean force = Objects.equals(lease.getLeaseholder(), candidate.name());
+
                         toBeNegotiated.put(grpId, force);
 
                         continue;
@@ -400,6 +401,7 @@ public class LeaseUpdater {
                         writeNewLease(grpId, candidate, renewedLeases);
 
                         boolean force = !lease.isProlongable() && lease.proposedCandidate() != null;
+
                         toBeNegotiated.put(grpId, force);
                     } else if (lease.isProlongable() && candidate.id().equals(lease.getLeaseholderId())) {
                         // Old lease is renewed.
@@ -442,7 +444,9 @@ public class LeaseUpdater {
 
                 for (Map.Entry<ReplicationGroupId, Boolean> entry : toBeNegotiated.entrySet()) {
                     Lease lease = renewedLeases.get(entry.getKey());
-                    leaseNegotiator.negotiate(lease, true);
+                    boolean force = entry.getValue();
+
+                    leaseNegotiator.negotiate(lease, force);
                 }
             });
         }
