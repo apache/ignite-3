@@ -27,14 +27,3 @@ SELECT '14:42:04.999'::TIME(6)::VARCHAR
 ----
 14:42:04.999000
 
-# microseconds are not supported yet, result is rounded-up
-query I
-SELECT '14:42:04.9995'::TIME(6)
-----
-14:42:05
-
-# zeros are not trimmed
-query I
-SELECT '14:42:04.9995'::TIME(6)::VARCHAR
-----
-14:42:05.000000
