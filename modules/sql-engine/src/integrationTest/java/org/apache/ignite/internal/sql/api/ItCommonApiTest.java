@@ -24,12 +24,16 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.Test;
 
 /** Test common SQL API. */
@@ -37,6 +41,27 @@ public class ItCommonApiTest extends BaseSqlIntegrationTest {
     @Override
     protected int initialNodes() {
         return 1;
+    }
+
+    @Test
+    public void rollbackAsync() {
+        Ignite node = CLUSTER.aliveNode();
+
+        sql("CREATE TABLE IF NOT EXISTS TEST(ID INT PRIMARY KEY, VAL0 INT)");
+
+        KeyValueView<Tuple, Tuple> view1 = node.tables().table("TEST").keyValueView();
+
+        AtomicReference<CompletableFuture<Void>> rollbackFut = new AtomicReference<>();
+
+        Transaction tx = node.transactions().begin();
+        view1.getAsync(tx, Tuple.create().set("id", 101))
+                .handle((unused, err) -> {
+                    rollbackFut.set(tx.rollbackAsync()); // unconditional roll back
+
+                    return null;
+                }).join();
+
+        rollbackFut.get().join(); // <- FAILS
     }
 
     /** Check timestamp type operations correctness using sql and kv api. */
