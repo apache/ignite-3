@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage;
 
 import java.nio.file.Path;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -51,6 +52,7 @@ public interface DataStorageModule {
             ConfigurationRegistry configRegistry,
             Path storagePath,
             @Nullable LongJvmPauseDetector longJvmPauseDetector,
-            FailureProcessor failureProcessor
+            FailureProcessor failureProcessor,
+            LogSyncer logSyncer
     ) throws StorageException;
 }

@@ -40,7 +40,6 @@ import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -59,6 +58,7 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -389,7 +389,14 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         DataStorageModules dataStorageModules = new DataStorageModules(List.of(dataStorageModule));
 
         DataStorageManager manager = new DataStorageManager(
-                dataStorageModules.createStorageEngines(NODE_NAME, mockedRegistry, storagePath, null, mock(FailureProcessor.class))
+                dataStorageModules.createStorageEngines(
+                        NODE_NAME,
+                        mockedRegistry,
+                        storagePath,
+                        null,
+                        mock(FailureProcessor.class),
+                        mock(LogSyncer.class)
+                )
         );
 
         assertThat(manager.start(), willCompleteSuccessfully());
@@ -435,9 +442,16 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                     ConfigurationRegistry configRegistry,
                     Path storagePath,
                     @Nullable LongJvmPauseDetector longJvmPauseDetector,
-                    FailureProcessor failureProcessor
+                    FailureProcessor failureProcessor,
+                    LogSyncer logSyncer
             ) throws StorageException {
-                return spy(super.createEngine(igniteInstanceName, configRegistry, storagePath, longJvmPauseDetector, failureProcessor));
+                return spy(super.createEngine(igniteInstanceName,
+                        configRegistry,
+                        storagePath,
+                        longJvmPauseDetector,
+                        failureProcessor,
+                        logSyncer
+                ));
             }
         };
     }

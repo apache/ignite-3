@@ -42,6 +42,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
@@ -219,6 +220,10 @@ public class JraftServerImpl implements RaftServer {
 
     private StoreOptions getLogOptions() {
         return new StoreOptions();
+    }
+
+    public LogSyncer getLogSyncer() {
+        return logStorageFactory;
     }
 
     /**

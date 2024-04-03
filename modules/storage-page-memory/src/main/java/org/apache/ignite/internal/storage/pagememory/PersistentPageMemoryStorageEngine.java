@@ -34,6 +34,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.fileio.AsyncFileIoFactory;
@@ -100,6 +101,8 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
 
     private final FailureProcessor failureProcessor;
 
+    private final LogSyncer logSyncer;
+
     /**
      * Constructor.
      *
@@ -116,7 +119,8 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
             PageIoRegistry ioRegistry,
             Path storagePath,
             @Nullable LongJvmPauseDetector longJvmPauseDetector,
-            FailureProcessor failureProcessor
+            FailureProcessor failureProcessor,
+            LogSyncer logSyncer
     ) {
         this.igniteInstanceName = igniteInstanceName;
         this.engineConfig = engineConfig;
@@ -124,6 +128,7 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
         this.storagePath = storagePath;
         this.longJvmPauseDetector = longJvmPauseDetector;
         this.failureProcessor = failureProcessor;
+        this.logSyncer = logSyncer;
     }
 
     /**
@@ -173,6 +178,7 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
                     partitionMetaManager,
                     regions.values(),
                     ioRegistry,
+                    logSyncer,
                     pageSize
             );
 

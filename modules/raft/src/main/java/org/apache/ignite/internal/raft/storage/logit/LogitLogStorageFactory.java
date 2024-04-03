@@ -92,6 +92,11 @@ public class LogitLogStorageFactory implements LogStorageFactory {
         ExecutorServiceHelper.shutdownAndAwaitTermination(checkpointExecutor);
     }
 
+    @Override
+    public void sync() {
+        // No-op.
+    }
+
     private Path resolveLogStoragePath(String groupId) {
         return baseLogStoragesPath.resolve(LOG_DIR_PREFIX + groupId);
     }
