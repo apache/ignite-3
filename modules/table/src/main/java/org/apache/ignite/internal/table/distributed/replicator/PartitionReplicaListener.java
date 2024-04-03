@@ -428,8 +428,12 @@ public class PartitionReplicaListener implements ReplicaListener {
                 assert !txMeta.enlistedPartitions().isEmpty();
 
                 if (isFinalState(txMeta.txState())) {
-                    txManager.cleanup(txMeta.enlistedPartitions(), txMeta.txState() == COMMITTED,
-                            txMeta.commitTimestamp(), txId);
+                    txManager.cleanup(
+                            txMeta.enlistedPartitions(),
+                            txMeta.txState() == COMMITTED,
+                            txMeta.commitTimestamp(),
+                            txId
+                    );
                 }
             }
         } catch (IgniteInternalException e) {
