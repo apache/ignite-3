@@ -198,6 +198,8 @@ public class RocksDbFlusher {
             LOG.error("Couldn't sync WAL log before flushing", e);
 
             future.completeExceptionally(e);
+
+            return future;
         }
 
         if (schedule) {
