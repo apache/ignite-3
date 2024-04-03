@@ -218,14 +218,14 @@ internal static class DataStreamer
             return (batch, partitionId);
         }
 
-        Batch<T> GetOrCreateBatch(int partition)
+        Batch<T> GetOrCreateBatch(int partitionId)
         {
-            ref var batchRef = ref CollectionsMarshal.GetValueRefOrAddDefault(batches, partition, out _);
+            ref var batchRef = ref CollectionsMarshal.GetValueRefOrAddDefault(batches, partitionId, out _);
 
             if (batchRef == null)
             {
                 batchRef = new Batch<T>(options.PageSize, schema);
-                InitBuffer(batchRef);
+                InitBuffer(batchRef, partitionId);
 
                 Metrics.StreamerBatchesActiveIncrement();
             }
@@ -233,7 +233,7 @@ internal static class DataStreamer
             return batchRef;
         }
 
-        async Task SendAsync(Batch<T> batch, int partition)
+        async Task SendAsync(Batch<T> batch, int partitionId)
         {
             var expectedSize = batch.Count;
 
@@ -255,13 +255,13 @@ internal static class DataStreamer
                 buf.WriteIntBigEndian(batch.Count, batch.CountPos + 1);
 
                 // ReSharper disable once AccessToModifiedClosure
-                var preferredNode = partitionAssignment[partition] ?? string.Empty;
+                var preferredNode = partitionAssignment[partitionId] ?? string.Empty;
                 batch.Task = SendAndDisposeBufAsync(buf, preferredNode, batch.Task, batch.Items, batch.Count, batch.SchemaOutdated);
 
                 batch.Items = ArrayPool<T>.Shared.Rent(options.PageSize);
                 batch.Count = 0;
                 batch.Buffer = ProtoCommon.GetMessageWriter(); // Prev buf will be disposed in SendAndDisposeBufAsync.
-                InitBuffer(batch);
+                InitBuffer(batch, partitionId);
                 batch.LastFlush = Stopwatch.GetTimestamp();
                 batch.Schema = schema;
                 batch.SchemaOutdated = false;
@@ -352,13 +352,14 @@ internal static class DataStreamer
             }
         }
 
-        void InitBuffer(Batch<T> batch)
+        void InitBuffer(Batch<T> batch, int partitionId)
         {
             var buf = batch.Buffer;
 
             var w = buf.MessageWriter;
             w.Write(schema.TableId);
-            w.WriteTx(null);
+            w.Write(partitionId);
+            w.WriteNil(); // TODO: Deleted bit set.
             w.Write(schema.Version);
 
             batch.CountPos = buf.Position;
