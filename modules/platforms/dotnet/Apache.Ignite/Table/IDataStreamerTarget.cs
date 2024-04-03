@@ -35,5 +35,8 @@ public interface IDataStreamerTarget<T>
     /// <param name="options">Streamer options.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-    Task StreamDataAsync(IAsyncEnumerable<T> data, DataStreamerOptions? options = null, CancellationToken cancellationToken = default);
+    Task StreamDataAsync(
+        IAsyncEnumerable<DataStreamerItem<T>> data,
+        DataStreamerOptions? options = null,
+        CancellationToken cancellationToken = default);
 }

@@ -60,7 +60,7 @@ internal static class DataStreamer
     /// <typeparam name="T">Element type.</typeparam>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
     internal static async Task StreamDataAsync<T>(
-        IAsyncEnumerable<T> data,
+        IAsyncEnumerable<DataStreamerItem<T>> data,
         Table table,
         RecordSerializer<T> writer,
         DataStreamerOptions options,
@@ -136,7 +136,7 @@ internal static class DataStreamer
             foreach (var batch in batches.Values)
             {
                 batch.Buffer.Dispose();
-                ArrayPool<T>.Shared.Return(batch.Items);
+                GetPool<T>().Return(batch.Items);
 
                 Metrics.StreamerItemsQueuedDecrement(batch.Count);
                 Metrics.StreamerBatchesActiveDecrement();
@@ -145,7 +145,7 @@ internal static class DataStreamer
 
         return;
 
-        async ValueTask<(Batch<T> Batch, int Partition)> AddWithRetryUnmapped(T item)
+        async ValueTask<(Batch<T> Batch, int Partition)> AddWithRetryUnmapped(DataStreamerItem<T> item)
         {
             try
             {
@@ -158,7 +158,7 @@ internal static class DataStreamer
             }
         }
 
-        (Batch<T> Batch, int Partition) Add(T item)
+        (Batch<T> Batch, int Partition) Add(DataStreamerItem<T> item)
         {
             var schema0 = schema;
             var tupleBuilder = new BinaryTupleBuilder(schema0.Columns.Length, hashedColumnsPredicate: schema0.HashedColumnIndexProvider);
@@ -173,7 +173,7 @@ internal static class DataStreamer
             }
         }
 
-        (Batch<T> Batch, int Partition) Add0(T item, ref BinaryTupleBuilder tupleBuilder, Schema schema0)
+        (Batch<T> Batch, int Partition) Add0(DataStreamerItem<T> item, ref BinaryTupleBuilder tupleBuilder, Schema schema0)
         {
             var columnCount = schema0.Columns.Length;
 
@@ -182,7 +182,8 @@ internal static class DataStreamer
             Span<byte> noValueSet = stackalloc byte[columnCount / 8 + 1];
             Span<byte> noValueSetRef = MemoryMarshal.CreateSpan(ref MemoryMarshal.GetReference(noValueSet), columnCount);
 
-            writer.Handler.Write(ref tupleBuilder, item, schema0, keyOnly: false, noValueSetRef);
+            var keyOnly = item.OperationType == DataStreamerOperationType.Remove;
+            writer.Handler.Write(ref tupleBuilder, item.Item, schema0, keyOnly: keyOnly, noValueSetRef);
 
             var partitionId = Math.Abs(tupleBuilder.GetHash() % partitionCount);
             var batch = GetOrCreateBatch(partitionId);
@@ -251,7 +252,7 @@ internal static class DataStreamer
 
                 batch.Task = SendAndDisposeBufAsync(buf, partitionId, batch.Task, batch.Items, batch.Count, batch.SchemaOutdated);
 
-                batch.Items = ArrayPool<T>.Shared.Rent(options.PageSize);
+                batch.Items = GetPool<T>().Rent(options.PageSize);
                 batch.Count = 0;
                 batch.Buffer = ProtoCommon.GetMessageWriter(); // Prev buf will be disposed in SendAndDisposeBufAsync.
                 InitBuffer(batch, partitionId, schema);
@@ -267,7 +268,7 @@ internal static class DataStreamer
             PooledArrayBuffer buf,
             int partitionId,
             Task oldTask,
-            T[] items,
+            DataStreamerItem<T>[] items,
             int count,
             bool batchSchemaOutdated)
         {
@@ -419,18 +420,20 @@ internal static class DataStreamer
         Metrics.StreamerItemsSent.Add(count, socket.MetricsContext.Tags);
     }
 
+    private static ArrayPool<DataStreamerItem<T>> GetPool<T>() => ArrayPool<DataStreamerItem<T>>.Shared;
+
     private sealed record Batch<T>
     {
         public Batch(int capacity, Schema schema)
         {
-            Items = ArrayPool<T>.Shared.Rent(capacity);
+            Items = GetPool<T>().Rent(capacity);
             Schema = schema;
         }
 
         public PooledArrayBuffer Buffer { get; set; } = ProtoCommon.GetMessageWriter();
 
         [SuppressMessage("Performance", "CA1819:Properties should not return arrays", Justification = "Private record")]
-        public T[] Items { get; set; }
+        public DataStreamerItem<T>[] Items { get; set; }
 
         public Schema Schema { get; set; }
 
