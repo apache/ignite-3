@@ -19,7 +19,7 @@ package org.apache.ignite.internal.worker;
 
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.THREAD_ASSERTIONS_ENABLED;
 
-import java.util.Set;
+import java.util.regex.Pattern;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -32,13 +32,9 @@ import org.apache.ignite.internal.thread.ThreadOperation;
 public class ThreadAssertions {
     private static final IgniteLogger LOG = Loggers.forClass(ThreadAssertions.class);
 
-    /** Names of theads on which the assertions are skipped. */
-    private static final Set<String> BLACKLISTED_THREAD_NAMES = Set.of(
-            "main",
-            // JUnit worker thread name
-            "Test worker",
-            // Awaitility
-            "awaitility-thread"
+    /** Names of threads on which the assertions are skipped. */
+    private static final Pattern BLACKLISTED_THREAD_NAMES = Pattern.compile(
+            "(^main$|^Test worker$|^junit-timeout-thread.*|^awaitility-thread$)"
     );
 
     /**
@@ -68,7 +64,7 @@ public class ThreadAssertions {
     public static void assertThreadAllowsTo(ThreadOperation requestedOperation) {
         Thread currentThread = Thread.currentThread();
 
-        if (BLACKLISTED_THREAD_NAMES.contains(currentThread.getName())) {
+        if (BLACKLISTED_THREAD_NAMES.matcher(currentThread.getName()).matches()) {
             return;
         }
 
