@@ -180,6 +180,7 @@ public class TxStateRocksDbSharedStorage implements ManuallyCloseable {
 
         List<AutoCloseable> resources = new ArrayList<>();
 
+        resources.add(flusher::stop);
         resources.add(readOptions);
         resources.add(writeOptions);
         resources.add(dbOptions);

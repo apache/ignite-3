@@ -417,6 +417,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, Statement statement, BatchedArguments batch) {
+        // TODO: IGNITE-21872 - implement.
         throw new UnsupportedOperationException("Not implemented yet.");
     }
 
