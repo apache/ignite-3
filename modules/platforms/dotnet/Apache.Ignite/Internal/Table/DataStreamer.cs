@@ -22,7 +22,6 @@ using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -278,9 +277,7 @@ internal static class DataStreamer
             {
                 // Schema update was detected while the batch was being filled.
                 // Re-serialize the whole batch.
-                buf.Reset();
-
-                WriteBatch(buf, partitionId, schema, items.AsSpan(0, count), writer);
+                ReWriteBatch(buf, partitionId, schema, items.AsSpan(0, count), writer);
             }
 
             // ReSharper disable once AccessToModifiedClosure
@@ -302,8 +299,7 @@ internal static class DataStreamer
                             }
 
                             // Serialize again with the new schema.
-                            buf.Reset();
-                            writer.WriteMultiple(buf, null, schema, items.Take(count));
+                            ReWriteBatch(buf, partitionId, schema, items.AsSpan(0, count), writer);
                         }
 
                         // Wait for the previous batch for this node to preserve item order.
@@ -383,13 +379,14 @@ internal static class DataStreamer
         w.Write(schema.Version);
     }
 
-    private static void WriteBatch<T>(
+    private static void ReWriteBatch<T>(
         PooledArrayBuffer buf,
         int partitionId,
         Schema schema,
         ReadOnlySpan<T> items,
         RecordSerializer<T> writer)
     {
+        buf.Reset();
         WriteBatchHeader(buf, partitionId, schema);
 
         var w = buf.MessageWriter;
