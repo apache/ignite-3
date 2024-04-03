@@ -690,7 +690,16 @@ public class IgniteImpl implements Ignite {
 
         resourcesRegistry = new RemotelyTriggeredResourceRegistry();
 
-        TransactionInflights transactionInflights = new TransactionInflights(placementDriverMgr.placementDriver());
+        lowWatermark = new LowWatermarkImpl(
+                name,
+                gcConfig.lowWatermark(),
+                clockService,
+                vaultMgr,
+                failureProcessor,
+                clusterSvc.messagingService()
+        );
+
+        var transactionInflights = new TransactionInflights(placementDriverMgr.placementDriver());
 
         // TODO: IGNITE-19344 - use nodeId that is validated on join (and probably generated differently).
         txManager = new TxManagerImpl(
@@ -707,7 +716,8 @@ public class IgniteImpl implements Ignite {
                 indexNodeFinishedRwTransactionsChecker,
                 threadPoolsManager.partitionOperationsExecutor(),
                 resourcesRegistry,
-                transactionInflights
+                transactionInflights,
+                lowWatermark
         );
 
         resourceVacuumManager = new ResourceVacuumManager(
@@ -720,15 +730,6 @@ public class IgniteImpl implements Ignite {
         );
 
         StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry.getConfiguration(StorageUpdateConfiguration.KEY);
-
-        lowWatermark = new LowWatermarkImpl(
-                name,
-                gcConfig.lowWatermark(),
-                clockService,
-                vaultMgr,
-                failureProcessor,
-                clusterSvc.messagingService()
-        );
 
         distributedTblMgr = new TableManager(
                 name,

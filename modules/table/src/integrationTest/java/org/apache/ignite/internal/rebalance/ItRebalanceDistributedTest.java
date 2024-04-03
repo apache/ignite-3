@@ -1135,6 +1135,15 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     () -> TestIgnitionManager.DEFAULT_MAX_CLOCK_SKEW_MS
             );
 
+            lowWatermark = new LowWatermarkImpl(
+                    name,
+                    gcConfig.lowWatermark(),
+                    clockService,
+                    vaultManager,
+                    failureProcessor,
+                    clusterService.messagingService()
+            );
+
             txManager = new TxManagerImpl(
                     txConfiguration,
                     clusterService,
@@ -1146,7 +1155,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     partitionIdleSafeTimePropagationPeriodMsSupplier,
                     new TestLocalRwTxCounter(),
                     resourcesRegistry,
-                    transactionInflights
+                    transactionInflights,
+                    lowWatermark
             );
 
             replicaManager = spy(new ReplicaManager(
@@ -1188,15 +1198,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry.getConfiguration(StorageUpdateConfiguration.KEY);
 
             HybridClockImpl clock = new HybridClockImpl();
-
-            lowWatermark = new LowWatermarkImpl(
-                    name,
-                    gcConfig.lowWatermark(),
-                    clockService,
-                    vaultManager,
-                    failureProcessor,
-                    clusterService.messagingService()
-            );
 
             tableManager = new TableManager(
                     name,
