@@ -48,7 +48,9 @@ import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitTimeoutExce
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
+import org.apache.ignite.internal.placementdriver.leases.ReplicaAwareLeaseTracker;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
@@ -89,7 +91,7 @@ class IndexBuildController implements ManuallyCloseable {
 
     private final AtomicBoolean closeGuard = new AtomicBoolean();
 
-    private final Set<TablePartitionId> primaryReplicaIds = ConcurrentHashMap.newKeySet();
+    private final Set<ZonePartitionId> primaryReplicaIds = ConcurrentHashMap.newKeySet();
 
     /** Constructor. */
     IndexBuildController(
@@ -141,12 +143,17 @@ class IndexBuildController implements ManuallyCloseable {
 
             var startBuildIndexFutures = new ArrayList<CompletableFuture<?>>();
 
-            for (TablePartitionId primaryReplicaId : primaryReplicaIds) {
-                if (primaryReplicaId.tableId() == indexDescriptor.tableId()) {
-                    CompletableFuture<?> startBuildIndexFuture = getMvTableStorageFuture(parameters.causalityToken(), primaryReplicaId)
-                            .thenCompose(mvTableStorage -> awaitPrimaryReplica(primaryReplicaId, clockService.now())
+            for (ZonePartitionId zonePartitionId : primaryReplicaIds) {
+
+                int tableId = zonePartitionId.tableId();
+
+                TablePartitionId tablePartId = new TablePartitionId(tableId, zonePartitionId.partitionId());
+
+                if (tableId == indexDescriptor.tableId()) {
+                    CompletableFuture<?> startBuildIndexFuture = getMvTableStorageFuture(parameters.causalityToken(), tablePartId)
+                            .thenCompose(mvTableStorage -> awaitPrimaryReplica(zonePartitionId, clockService.now())
                                     .thenAccept(replicaMeta -> tryScheduleBuildIndex(
-                                            primaryReplicaId,
+                                            tablePartId,
                                             indexDescriptor,
                                             mvTableStorage,
                                             replicaMeta
@@ -171,26 +178,33 @@ class IndexBuildController implements ManuallyCloseable {
 
     private CompletableFuture<?> onPrimaryReplicaElected(PrimaryReplicaEventParameters parameters) {
         return inBusyLockAsync(busyLock, () -> {
-            TablePartitionId primaryReplicaId = (TablePartitionId) parameters.groupId();
+            TablePartitionId tablePartitionId = (TablePartitionId) parameters.groupId();
 
             if (isLocalNode(clusterService, parameters.leaseholderId())) {
-                primaryReplicaIds.add(primaryReplicaId);
 
                 // It is safe to get the latest version of the catalog because the PRIMARY_REPLICA_ELECTED event is handled on the
                 // metastore thread.
                 int catalogVersion = catalogService.latestCatalogVersion();
 
-                return getMvTableStorageFuture(parameters.causalityToken(), primaryReplicaId)
-                        .thenCompose(mvTableStorage -> awaitPrimaryReplica(primaryReplicaId, parameters.startTime())
+                int tableId = tablePartitionId.tableId();
+
+                int zoneId = catalogService.table(tableId, catalogVersion).zoneId();
+
+                ZonePartitionId zonePartitionId = new ZonePartitionId(zoneId, tablePartitionId.partitionId(), tableId);
+
+                primaryReplicaIds.add(zonePartitionId);
+
+                return getMvTableStorageFuture(parameters.causalityToken(), tablePartitionId)
+                        .thenCompose(mvTableStorage -> awaitPrimaryReplica(zonePartitionId, parameters.startTime())
                                 .thenAccept(replicaMeta -> tryScheduleBuildIndexesForNewPrimaryReplica(
                                         catalogVersion,
-                                        primaryReplicaId,
+                                        tablePartitionId,
                                         mvTableStorage,
                                         replicaMeta
                                 ))
                         );
             } else {
-                stopBuildingIndexesIfPrimaryExpired(primaryReplicaId);
+                stopBuildingIndexesIfPrimaryExpired(tablePartitionId);
 
                 return nullCompletedFuture();
             }
@@ -244,7 +258,7 @@ class IndexBuildController implements ManuallyCloseable {
      * @param replicaId Replica ID.
      */
     private void stopBuildingIndexesIfPrimaryExpired(TablePartitionId replicaId) {
-        if (primaryReplicaIds.remove(replicaId)) {
+        if (primaryReplicaIds.removeIf(z -> z.tableId() == replicaId.tableId() && z.partitionId() == replicaId.partitionId())) {
             // Primary replica is no longer current, we need to stop building indexes for it.
             indexBuilder.stopBuildingIndexes(replicaId.tableId(), replicaId.partitionId());
         }
@@ -254,8 +268,8 @@ class IndexBuildController implements ManuallyCloseable {
         return indexManager.getMvTableStorage(causalityToken, replicaId.tableId());
     }
 
-    private CompletableFuture<ReplicaMeta> awaitPrimaryReplica(TablePartitionId replicaId, HybridTimestamp timestamp) {
-        return placementDriver
+    private CompletableFuture<ReplicaMeta> awaitPrimaryReplica(ZonePartitionId replicaId, HybridTimestamp timestamp) {
+        return ((ReplicaAwareLeaseTracker) placementDriver)
                 .awaitPrimaryReplica(replicaId, timestamp, AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC, SECONDS)
                 .handle((replicaMeta, throwable) -> {
                     if (throwable != null) {

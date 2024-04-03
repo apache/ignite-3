@@ -39,6 +39,7 @@ import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessage;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
+import org.apache.ignite.internal.replicator.message.WaitReplicaStateMessage;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
@@ -141,6 +142,11 @@ public class Replica {
                 request.groupId(),
                 replicaGrpId);
 
+        if (request instanceof WaitReplicaStateMessage) {
+            return processWaitReplicaStateMessage((WaitReplicaStateMessage) request)
+                    .thenApply(ignored -> new ReplicaResult(null, null));
+        }
+
         return listener.invoke(request, senderId);
     }
 
@@ -238,6 +244,18 @@ public class Replica {
                 }
             }
         }));
+    }
+
+    /**
+     *
+     *
+     * @param msg Message to process.
+     * @return Future that contains a result.
+     */
+    private CompletableFuture<Void> processWaitReplicaStateMessage(WaitReplicaStateMessage msg) {
+        LOG.info("Received LeaseGrantedMessage for replica belonging to group=" + groupId());
+
+        return waitForActualState(msg.syncTime().getPhysical());
     }
 
     private CompletableFuture<Void> sendPrimaryReplicaChangeToReplicationGroup(long leaseStartTime) {
