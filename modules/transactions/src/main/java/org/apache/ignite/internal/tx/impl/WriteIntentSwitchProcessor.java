@@ -24,6 +24,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl.TransactionFailureHandler;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -65,7 +66,7 @@ public class WriteIntentSwitchProcessor {
     /**
      * Run switch write intent on the provided node.
      */
-    public CompletableFuture<Void> switchLocalWriteIntents(
+    public CompletableFuture<ReplicaResponse> switchLocalWriteIntents(
             TablePartitionId tablePartitionId,
             UUID txId,
             boolean commit,
@@ -79,7 +80,7 @@ public class WriteIntentSwitchProcessor {
     /**
      * Run switch write intent on the primary node of the provided partition in a durable manner.
      */
-    public CompletableFuture<Void> switchWriteIntentsWithRetry(
+    public CompletableFuture<ReplicaResponse> switchWriteIntentsWithRetry(
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId,
@@ -100,10 +101,10 @@ public class WriteIntentSwitchProcessor {
 
                         LOG.info("Failed to switch write intents for Tx [txId={}].", txId, ex);
 
-                        return CompletableFuture.<Void>failedFuture(ex);
+                        return CompletableFuture.<ReplicaResponse>failedFuture(ex);
                     }
 
-                    return CompletableFutures.<Void>nullCompletedFuture();
+                    return CompletableFutures.<ReplicaResponse>nullCompletedFuture();
                 })
                 .thenCompose(Function.identity());
     }

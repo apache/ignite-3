@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.table.distributed.replicator.action.Req
 import static org.apache.ignite.internal.table.distributed.storage.RowBatch.allResultFutures;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
@@ -71,6 +72,7 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -356,7 +358,7 @@ public class InternalTableImpl implements InternalTable {
                 if (implicit) {
                     long ts = (txStartTs == null) ? actualTx.startTimestamp().getPhysical() : txStartTs;
 
-                    if (isRestartTransactionPossible(e) && coarseCurrentTimeMillis() - ts < implicitTransactionTimeout) {
+                    if (exceptionAllowsTxRetry(e) && coarseCurrentTimeMillis() - ts < implicitTransactionTimeout) {
                         return enlistInTx(row, null, fac, noWriteChecker, ts);
                     }
                 }
@@ -475,7 +477,7 @@ public class InternalTableImpl implements InternalTable {
                 if (implicit) {
                     long ts = (txStartTs == null) ? actualTx.startTimestamp().getPhysical() : txStartTs;
 
-                    if (isRestartTransactionPossible(e) && coarseCurrentTimeMillis() - ts < implicitTransactionTimeout) {
+                    if (exceptionAllowsTxRetry(e) && coarseCurrentTimeMillis() - ts < implicitTransactionTimeout) {
                         return enlistInTx(keyRows, null, fac, reducer, noOpChecker, ts);
                     }
                 }
@@ -2231,19 +2233,13 @@ public class InternalTableImpl implements InternalTable {
      * @param e Exception to check.
      * @return True if retrying is possible, false otherwise.
      */
-    private boolean isRestartTransactionPossible(Throwable e) {
-        if (e instanceof LockException) {
-            return true;
-        } else if (e instanceof TransactionException && e.getCause() instanceof LockException) {
-            return true;
-        } else if (e instanceof CompletionException && e.getCause() instanceof LockException) {
-            return true;
-        } else if (e instanceof CompletionException
-                && e.getCause() instanceof TransactionException
-                && e.getCause().getCause() instanceof LockException) {
-            return true;
+    private static boolean exceptionAllowsTxRetry(Throwable e) {
+        Throwable ex = unwrapCause(e);
+
+        while (ex instanceof TransactionException && ex.getCause() != null) {
+            ex = ex.getCause();
         }
 
-        return false;
+        return ex instanceof LockException || ex instanceof PrimaryReplicaMissException;
     }
 }

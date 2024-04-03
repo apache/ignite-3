@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -314,13 +315,36 @@ public class BinaryTupleTest {
      */
     @Test
     public void decimalTest() {
-        BigDecimal value = new BigDecimal(BigInteger.valueOf(12345), 100);
+        int[] scales = {0, 1, 2, 3, 63, 64, 255, 256, 16383, 16384, Short.MAX_VALUE - 1, Short.MAX_VALUE};
+
+        for (int schemaScale : scales) {
+            for (int valueScale : scales) {
+                BigDecimal value = new BigDecimal(BigInteger.valueOf(12345), valueScale);
+                BigDecimal expectedValue = value.setScale(schemaScale, RoundingMode.HALF_UP);
+
+                BinaryTupleBuilder builder = new BinaryTupleBuilder(1);
+                ByteBuffer bytes = builder.appendDecimal(value, schemaScale).build();
+
+                BinaryTupleReader reader = new BinaryTupleReader(1, bytes);
+                BigDecimal actual = reader.decimalValue(0, schemaScale);
+                assertEquals(expectedValue, actual, "Schema scale: " + schemaScale + ", value scale: " + valueScale);
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"0", "1", "10", "100", "1000", "100000", "-1", "-100", "-1000000"})
+    public void decimalSizeTest(String val) {
+        short scale = Short.MAX_VALUE;
+        BigDecimal value = new BigDecimal(val);
 
         BinaryTupleBuilder builder = new BinaryTupleBuilder(1);
-        ByteBuffer bytes = builder.appendDecimal(value, 100).build();
+        ByteBuffer bytes = builder.appendDecimal(value, scale).build();
 
-        BinaryTupleReader reader = new BinaryTupleReader(1, bytes);
-        assertEquals(value, reader.decimalValue(0, 100));
+        assertEquals(5, bytes.limit());
+
+        // noinspection DataFlowIssue
+        assertEquals(value.longValue(), new BinaryTupleReader(1, bytes).decimalValue(0, scale).longValue());
     }
 
     /**
@@ -339,6 +363,21 @@ public class BinaryTupleTest {
         BigDecimal res = reader.decimalValue(0, schemaScale);
 
         assertEquals(value.doubleValue(), res.doubleValue());
+    }
+
+    @Test
+    public void maxDecimalScaleTest() {
+        // Test trailing zeros: should not be stripped when resulting scale goes beyond limit.
+        BigDecimal value = new BigDecimal("123000E32768");
+
+        short schemaScale = Short.MAX_VALUE;
+        BinaryTupleBuilder builder = new BinaryTupleBuilder(1);
+        ByteBuffer bytes = builder.appendDecimal(value, schemaScale).build();
+
+        BinaryTupleReader reader = new BinaryTupleReader(1, bytes);
+        BigDecimal res = reader.decimalValue(0, schemaScale);
+
+        assertEquals(value.setScale(schemaScale, RoundingMode.UNNECESSARY), res);
     }
 
     /**

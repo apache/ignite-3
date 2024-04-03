@@ -28,7 +28,7 @@ import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Wrapper around {@link IgniteTransactions} that adds protection agains thread hijacking by users.
+ * Wrapper around {@link IgniteTransactions} that adds protection against thread hijacking by users.
  */
 public class AntiHijackIgniteTransactions implements IgniteTransactions, Wrapper {
     private final IgniteTransactions transactions;

@@ -15,19 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.eventlog.sink;
-
-import org.apache.ignite.internal.eventlog.api.Event;
+package org.apache.ignite.internal.eventlog.api;
 
 /**
- * The endpoint for the event log framework. This is the last step in the event log pipeline.
- * It can be a log file, a webhook, or a Kafka topic, or whatever we develop.
+ * The endpoint for the event log framework. This is the last step in the event log pipeline. It can be a log file, a webhook, a Kafka
+ * topic, or whatever we develop.
  *
  * <p>The contract of the only method is the following:
  *
  * <p>IT DOES NOT GUARANTEE THAT THE EVENT IS WRITTEN TO THE FINAL DESTINATION.
- * For example, if the sink as a log file, the method does not guarantee that the event is written to the file.
- * Because the logging framework can be asynchronous.
+ * For example, if the sink as a log file, the method does not guarantee that the event is written to the file. Because the logging
+ * framework can be asynchronous.
  *
  * <p>IT DOES GUARANTEE THAT THE EVENT IS SENT TO THE SINK.
  * For example, if the sink is a Kafka topic, the method guarantees that the event is sent to the topic.

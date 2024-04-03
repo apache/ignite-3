@@ -27,4 +27,7 @@ public class EventLogConfigurationSchema {
     /** The configuration schema for sinks. */
     @NamedConfigValue
     public SinkConfigurationSchema sinks;
+
+    @NamedConfigValue
+    public ChannelConfigurationSchema channels;
 }

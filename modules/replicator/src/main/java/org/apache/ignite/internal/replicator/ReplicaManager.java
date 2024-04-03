@@ -345,8 +345,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 }
 
                 if (ex == null && res.replicationFuture() != null) {
-                    assert request instanceof PrimaryReplicaRequest;
-
                     res.replicationFuture().whenComplete((res0, ex0) -> {
                         NetworkMessage msg0;
 

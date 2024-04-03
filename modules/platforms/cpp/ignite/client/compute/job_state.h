@@ -15,13 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.eventlog.event;
+#pragma once
+
+namespace ignite {
 
 /**
- * Defines a subset of event types that can be created in the system. Note, the event type is a string that is unique
- * within the system. The event type is used to filter the events in the event log.
+ * Compute job state.
  */
-public enum IgniteEventTypes {
-    USER_AUTHENTICATED,
-    CONNECTION_CLOSED
-}
+enum class job_state {
+    /// The job is submitted and waiting for an execution start.
+    QUEUED,
+
+    /// The job is being executed.
+    EXECUTING,
+
+    /// The job was unexpectedly terminated during execution.
+    FAILED,
+
+    /// The job was executed successfully and the execution result was returned.
+    COMPLETED,
+
+    /// The job has received the cancel command, but is still running.
+    CANCELING,
+
+    /// The job was successfully cancelled.
+    CANCELED
+};
+
+} // namespace ignite

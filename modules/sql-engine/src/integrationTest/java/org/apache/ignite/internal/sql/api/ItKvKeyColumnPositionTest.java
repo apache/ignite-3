@@ -67,22 +67,16 @@ public class ItKvKeyColumnPositionTest extends BaseSqlIntegrationTest {
     private KeyValueView<String, IntBoolDate> serverSimpleValKey;
 
     // client
-    // TODO https://issues.apache.org/jira/browse/IGNITE-21768
-    @SuppressWarnings("unused")
     private KeyValueView<IntString, BoolInt> clientValKey;
 
-    @SuppressWarnings("unused")
     private KeyValueView<IntString, BoolInt> clientKeyVal;
 
-    @SuppressWarnings("unused")
     private KeyValueView<IntString, BoolInt> clientValKeyFlipped;
 
-    @SuppressWarnings("unused")
     private KeyValueView<IntString, BoolInt> clientKeyValFlipped;
 
     private KeyValueView<String, IntBoolDate> clientSimpleKeyVal;
 
-    @SuppressWarnings("unused")
     private KeyValueView<String, IntBoolDate> clientSimpleValKey;
 
     private IgniteClient client;
@@ -111,7 +105,6 @@ public class ItKvKeyColumnPositionTest extends BaseSqlIntegrationTest {
         serverSimpleValKey = serverTables.table("simple_val_key").keyValueView(Mapper.of(String.class), Mapper.of(IntBoolDate.class));
 
         // CLIENT
-
         String addressString = "127.0.0.1:" + igniteImpl.clientAddress().port();
 
         client = IgniteClient.builder().addresses(addressString).build();
@@ -137,28 +130,24 @@ public class ItKvKeyColumnPositionTest extends BaseSqlIntegrationTest {
     }
 
     private List<Arguments> complexKeyKvs() {
-        // TODO https://issues.apache.org/jira/browse/IGNITE-21768
-        // Arguments.of(Named.named("client key_val_key", clientKeyVal)),
-        // Arguments.of(Named.named("client key_val_key_flipped", clientKeyValFlipped)),
-        // Arguments.of(Named.named("client val_key_val_key", clientValKey)),
-        // Arguments.of(Named.named("client val_key_val_key", clientValKeyFlipped))
-
         return List.of(
                 Arguments.of(Named.named("server key_val_key", serverKeyVal)),
                 Arguments.of(Named.named("server key_val_key_flipped", serverKeyValFlipped)),
                 Arguments.of(Named.named("server val_key_val_key", serverValKey)),
-                Arguments.of(Named.named("server val_key_val_key_flipped", serverValKeyFlipped))
+                Arguments.of(Named.named("server val_key_val_key_flipped", serverValKeyFlipped)),
+                Arguments.of(Named.named("client key_val_key", clientKeyVal)),
+                Arguments.of(Named.named("client key_val_key_flipped", clientKeyValFlipped)),
+                Arguments.of(Named.named("client val_key_val_key", clientValKey)),
+                Arguments.of(Named.named("client val_key_val_key", clientValKeyFlipped))
         );
     }
 
     private List<Arguments> simpleKeyKvs() {
-        // TODO https://issues.apache.org/jira/browse/IGNITE-21768
-        // Arguments.of(Named.named("client simple val key", clientSimpleValKey))
-
         return List.of(
                 Arguments.of(Named.named("server simple key val", serverSimpleKeyVal)),
                 Arguments.of(Named.named("server simple val key", serverSimpleValKey)),
-                Arguments.of(Named.named("client simple key val", clientSimpleKeyVal))
+                Arguments.of(Named.named("client simple key val", clientSimpleKeyVal)),
+                Arguments.of(Named.named("client simple val key", clientSimpleValKey))
         );
     }
 
@@ -203,11 +192,9 @@ public class ItKvKeyColumnPositionTest extends BaseSqlIntegrationTest {
     }
 
     private List<Arguments> nullableKvsSimple() {
-        // TODO https://issues.apache.org/jira/browse/IGNITE-21768
-        // Arguments.of(Named.named("client", clientSimpleKeyVal))
-
         return List.of(
-                Arguments.of(Named.named("server", serverSimpleValKey))
+                Arguments.of(Named.named("server", serverSimpleValKey)),
+                Arguments.of(Named.named("client", clientSimpleKeyVal))
         );
     }
 
