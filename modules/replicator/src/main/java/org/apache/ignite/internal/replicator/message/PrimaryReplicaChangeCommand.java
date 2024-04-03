@@ -15,20 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx.message;
+package org.apache.ignite.internal.replicator.message;
 
-import org.apache.ignite.internal.network.annotations.Marshallable;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageGroup.PRIMARY_REPLICA_CHANGE_COMMAND;
+
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.replicator.message.TimestampAware;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.raft.WriteCommand;
 
 /**
- * Cleanup transaction message response.
+ * Command to write the primary replica change to the replication group.
  */
-@Transferable(TxMessageGroup.TX_CLEANUP_MSG_RESPONSE)
-public interface TxCleanupMessageResponse extends TimestampAware {
-
-    @Nullable
-    @Marshallable
-    CleanupReplicatedInfo result();
+@Transferable(PRIMARY_REPLICA_CHANGE_COMMAND)
+public interface PrimaryReplicaChangeCommand extends WriteCommand {
+    /** Lease start time, hybrid timestamp as long, see {@link HybridTimestamp#longValue()}. */
+    long leaseStartTime();
 }

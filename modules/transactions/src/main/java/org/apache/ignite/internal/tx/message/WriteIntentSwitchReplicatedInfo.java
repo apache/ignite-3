@@ -17,18 +17,37 @@
 
 package org.apache.ignite.internal.tx.message;
 
-import org.apache.ignite.internal.network.annotations.Marshallable;
-import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.replicator.message.TimestampAware;
-import org.jetbrains.annotations.Nullable;
+import java.io.Serializable;
+import java.util.UUID;
+import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.tostring.S;
 
 /**
- * Cleanup transaction message response.
+ * The result of a replicated write intent switch request.
  */
-@Transferable(TxMessageGroup.TX_CLEANUP_MSG_RESPONSE)
-public interface TxCleanupMessageResponse extends TimestampAware {
+public class WriteIntentSwitchReplicatedInfo implements Serializable {
 
-    @Nullable
-    @Marshallable
-    CleanupReplicatedInfo result();
+    private static final long serialVersionUID = 8130171618503063413L;
+
+    private final UUID txId;
+
+    private final TablePartitionId partitionId;
+
+    public WriteIntentSwitchReplicatedInfo(UUID txId, TablePartitionId partitionId) {
+        this.txId = txId;
+        this.partitionId = partitionId;
+    }
+
+    public UUID txId() {
+        return txId;
+    }
+
+    public TablePartitionId partitionId() {
+        return partitionId;
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(WriteIntentSwitchReplicatedInfo.class, this);
+    }
 }

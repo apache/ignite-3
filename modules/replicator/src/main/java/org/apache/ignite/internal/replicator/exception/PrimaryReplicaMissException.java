@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.replicator.exception;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_MISS_ERR;
 
+import java.util.UUID;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.jetbrains.annotations.Nullable;
 
@@ -27,6 +29,18 @@ import org.jetbrains.annotations.Nullable;
  */
 public class PrimaryReplicaMissException extends IgniteInternalException implements ExpectedReplicationException {
     private static final long serialVersionUID = 8755220779942651494L;
+
+    /**
+     * Constructor.
+     *
+     * @param txId Transaction id.
+     * @param expectedEnlistmentConsistencyToken Expected enlistment consistency token, {@code null} if absent.
+     */
+    public PrimaryReplicaMissException(UUID txId, Long expectedEnlistmentConsistencyToken, Long currentEnlistmentConsistencyToken) {
+        super(REPLICA_MISS_ERR, format("The primary replica has changed [txId={}, expectedEnlistmentConsistencyToken={}, "
+                + "currentEnlistmentConsistencyToken={}].", txId, expectedEnlistmentConsistencyToken,
+                currentEnlistmentConsistencyToken));
+    }
 
     /**
      * Constructor.

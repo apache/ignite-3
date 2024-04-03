@@ -43,6 +43,8 @@ public class TxStateMeta implements TransactionMeta {
 
     private final Long initialVacuumObservationTimestamp;
 
+    private final Long cleanupCompletionTimestamp;
+
     /**
      * Constructor.
      *
@@ -57,7 +59,25 @@ public class TxStateMeta implements TransactionMeta {
             @Nullable TablePartitionId commitPartitionId,
             @Nullable HybridTimestamp commitTimestamp
     ) {
-        this(txState, txCoordinatorId, commitPartitionId, commitTimestamp, null);
+        this(txState, txCoordinatorId, commitPartitionId, commitTimestamp, null, null);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param txState Transaction state.
+     * @param txCoordinatorId Transaction coordinator id.
+     * @param commitPartitionId Commit partition replication group id.
+     * @param commitTimestamp Commit timestamp.
+     */
+    public TxStateMeta(
+            TxState txState,
+            @Nullable String txCoordinatorId,
+            @Nullable TablePartitionId commitPartitionId,
+            @Nullable HybridTimestamp commitTimestamp,
+            @Nullable Long initialVacuumObservationTimestamp
+    ) {
+        this(txState, txCoordinatorId, commitPartitionId, commitTimestamp, initialVacuumObservationTimestamp, null);
     }
 
     /**
@@ -68,19 +88,22 @@ public class TxStateMeta implements TransactionMeta {
      * @param commitPartitionId Commit partition replication group id.
      * @param commitTimestamp Commit timestamp.
      * @param initialVacuumObservationTimestamp Initial vacuum observation timestamp.
+     * @param cleanupCompletionTimestamp Cleanup completion timestamp.
      */
     public TxStateMeta(
             TxState txState,
             @Nullable String txCoordinatorId,
             @Nullable TablePartitionId commitPartitionId,
             @Nullable HybridTimestamp commitTimestamp,
-            @Nullable Long initialVacuumObservationTimestamp
+            @Nullable Long initialVacuumObservationTimestamp,
+            @Nullable Long cleanupCompletionTimestamp
     ) {
         this.txState = txState;
         this.txCoordinatorId = txCoordinatorId;
         this.commitPartitionId = commitPartitionId;
         this.commitTimestamp = commitTimestamp;
         this.initialVacuumObservationTimestamp = initialVacuumObservationTimestamp;
+        this.cleanupCompletionTimestamp = cleanupCompletionTimestamp;
     }
 
     /**
@@ -125,6 +148,10 @@ public class TxStateMeta implements TransactionMeta {
         return initialVacuumObservationTimestamp;
     }
 
+    public @Nullable Long cleanupCompletionTimestamp() {
+        return cleanupCompletionTimestamp;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -147,12 +174,26 @@ public class TxStateMeta implements TransactionMeta {
             return false;
         }
 
-        return commitTimestamp != null ? commitTimestamp.equals(that.commitTimestamp) : that.commitTimestamp == null;
+        if (commitTimestamp != null ? !commitTimestamp.equals(that.commitTimestamp) : that.commitTimestamp != null) {
+            return false;
+        }
+
+        if (initialVacuumObservationTimestamp != null
+                ? !initialVacuumObservationTimestamp.equals(that.initialVacuumObservationTimestamp)
+                : that.initialVacuumObservationTimestamp != null
+        ) {
+            return false;
+        }
+
+        return cleanupCompletionTimestamp != null
+                ? cleanupCompletionTimestamp.equals(that.cleanupCompletionTimestamp)
+                : that.cleanupCompletionTimestamp == null;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(txState, txCoordinatorId, commitPartitionId, commitTimestamp);
+        return Objects.hash(txState, txCoordinatorId, commitPartitionId, commitTimestamp, initialVacuumObservationTimestamp,
+                cleanupCompletionTimestamp);
     }
 
     @Override
