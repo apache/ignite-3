@@ -54,7 +54,7 @@ internal static class DataStreamer
     /// Streams the data.
     /// </summary>
     /// <param name="data">Data.</param>
-    /// <param name="sender">Batch sender.</param>
+    /// <param name="table">Table.</param>
     /// <param name="writer">Item writer.</param>
     /// <param name="options">Options.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
@@ -62,7 +62,7 @@ internal static class DataStreamer
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
     internal static async Task StreamDataAsync<T>(
         IAsyncEnumerable<T> data,
-        IDataStreamerSender sender,
+        Table table,
         RecordSerializer<T> writer,
         DataStreamerOptions options,
         CancellationToken cancellationToken)
@@ -89,9 +89,9 @@ internal static class DataStreamer
         var batches = new Dictionary<int, Batch<T>>();
         var retryPolicy = new RetryLimitPolicy { RetryLimit = options.RetryLimit };
 
-        var schema = await sender.GetSchemaAsync(null).ConfigureAwait(false);
+        var schema = await table.GetSchemaAsync(null).ConfigureAwait(false);
 
-        var partitionAssignment = await sender.GetPartitionAssignmentAsync().ConfigureAwait(false);
+        var partitionAssignment = await table.GetPartitionAssignmentAsync().ConfigureAwait(false);
         var partitionCount = partitionAssignment.Length; // Can't be changed.
         Debug.Assert(partitionCount > 0, "partitionCount > 0");
         var lastPartitionsAssignmentCheck = Stopwatch.StartNew();
@@ -116,7 +116,7 @@ internal static class DataStreamer
 
                 if (lastPartitionsAssignmentCheck.Elapsed > PartitionAssignmentUpdateFrequency)
                 {
-                    var newAssignment = await sender.GetPartitionAssignmentAsync().ConfigureAwait(false);
+                    var newAssignment = await table.GetPartitionAssignmentAsync().ConfigureAwait(false);
 
                     if (newAssignment != partitionAssignment)
                     {
@@ -154,7 +154,7 @@ internal static class DataStreamer
             }
             catch (Exception e) when (e.CausedByUnmappedColumns())
             {
-                schema = await sender.GetSchemaAsync(Table.SchemaVersionForceLatest).ConfigureAwait(false);
+                schema = await table.GetSchemaAsync(Table.SchemaVersionForceLatest).ConfigureAwait(false);
                 return Add(item);
             }
         }
@@ -295,7 +295,7 @@ internal static class DataStreamer
                             // Might be updated by another batch.
                             if (schema.Version != schemaVersion)
                             {
-                                schema = await sender.GetSchemaAsync(schemaVersion).ConfigureAwait(false);
+                                schema = await table.GetSchemaAsync(schemaVersion).ConfigureAwait(false);
                             }
 
                             // Serialize again with the new schema.
@@ -305,7 +305,7 @@ internal static class DataStreamer
 
                         // Wait for the previous batch for this node to preserve item order.
                         await oldTask.ConfigureAwait(false);
-                        await sender.SendBatchAsync(buf, count, preferredNode, retryPolicy).ConfigureAwait(false);
+                        await SendBatchAsync(table, buf, count, preferredNode, retryPolicy).ConfigureAwait(false);
 
                         return;
                     }
@@ -376,6 +376,27 @@ internal static class DataStreamer
                 await batch.Task.ConfigureAwait(false);
             }
         }
+    }
+
+    private static async Task SendBatchAsync(
+        Table table,
+        PooledArrayBuffer buf,
+        int count,
+        PreferredNode preferredNode,
+        IRetryPolicy retryPolicy)
+    {
+        var (resBuf, socket) = await table.Socket.DoOutInOpAndGetSocketAsync(
+                ClientOp.StreamerBatchSend,
+                tx: null,
+                buf,
+                preferredNode,
+                retryPolicy)
+            .ConfigureAwait(false);
+
+        resBuf.Dispose();
+
+        Metrics.StreamerBatchesSent.Add(1, socket.MetricsContext.Tags);
+        Metrics.StreamerItemsSent.Add(count, socket.MetricsContext.Tags);
     }
 
     private sealed record Batch<T>
