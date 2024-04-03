@@ -45,7 +45,6 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -115,7 +114,9 @@ import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.tx.ScriptTransactionContext;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.sql.engine.util.cache.Cache;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.sql.metrics.SqlClientMetricSource;
@@ -170,9 +171,8 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private static final long EXECUTION_SERVICE_SHUTDOWN_TIMEOUT = 60_000;
 
-    private final ParserService parserService = new ParserServiceImpl(
-            PARSED_RESULT_CACHE_SIZE, CACHE_FACTORY
-    );
+    private final ParserService parserService = new ParserServiceImpl();
+    private final Cache<String, ParsedResult> queryToParsedResultCache = CACHE_FACTORY.create(PARSED_RESULT_CACHE_SIZE);
 
     private static final ResultSetMetadata EMPTY_RESULT_SET_METADATA =
             new ResultSetMetadataImpl(Collections.emptyList());
@@ -481,7 +481,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<AsyncSqlCursor<InternalSqlRow>> querySingleAsync(
+    public CompletableFuture<AsyncSqlCursor<InternalSqlRow>> queryAsync(
             SqlProperties properties,
             IgniteTransactions transactions,
             @Nullable InternalTransaction transaction,
@@ -493,27 +493,13 @@ public class SqlQueryProcessor implements QueryProcessor {
         }
 
         try {
-            return querySingle0(properties, new QueryTransactionContext(transactions, transaction), qry, params);
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
+            SqlProperties properties0 = SqlPropertiesHelper.chain(properties, DEFAULT_PROPERTIES);
 
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<AsyncSqlCursor<InternalSqlRow>> queryScriptAsync(
-            SqlProperties properties,
-            IgniteTransactions transactions,
-            @Nullable InternalTransaction transaction,
-            String qry,
-            Object... params
-    ) {
-        if (!busyLock.enterBusy()) {
-            throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
-        }
-
-        try {
-            return queryScript0(properties, new QueryTransactionContext(transactions, transaction), qry, params);
+            if (Commons.isMultiStatementQueryAllowed(properties0)) {
+                return queryScript(properties0, new QueryTransactionContext(transactions, transaction), qry, params);
+            } else {
+                return querySingle(properties0, new QueryTransactionContext(transactions, transaction), qry, params);
+            }
         } finally {
             busyLock.leaveBusy();
         }
@@ -536,11 +522,13 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         QueryCancel queryCancel = new QueryCancel();
 
-        CompletableFuture<Void> start = new CompletableFuture<>();
+        ParsedResult parsedResult = queryToParsedResultCache.get(sql);
 
-        CompletableFuture<QueryMetadata> stage = start.thenCompose(ignored -> {
-            ParsedResult result = parserService.parse(sql);
+        CompletableFuture<ParsedResult> start = parsedResult != null
+                ? completedFuture(parsedResult)
+                : CompletableFuture.supplyAsync(() -> parseAndCache(sql), taskExecutor);
 
+        return start.thenCompose(result -> {
             validateParsedStatement(properties0, result);
             validateDynamicParameters(result.dynamicParamsCount(), params, false);
 
@@ -549,37 +537,27 @@ public class SqlQueryProcessor implements QueryProcessor {
             return prepareParsedStatement(schemaName, result, timestamp, queryCancel, params)
                     .thenApply(plan -> new QueryMetadata(plan.metadata(), plan.parameterMetadata()));
         });
-
-        // TODO IGNITE-20078 Improve (or remove) CancellationException handling.
-        stage.whenComplete((cur, ex) -> {
-            if (ex instanceof CancellationException) {
-                queryCancel.cancel();
-            }
-        });
-
-        start.completeAsync(() -> null, taskExecutor);
-
-        return stage;
     }
 
-    private CompletableFuture<AsyncSqlCursor<InternalSqlRow>> querySingle0(
+    private CompletableFuture<AsyncSqlCursor<InternalSqlRow>> querySingle(
             SqlProperties properties,
             QueryTransactionContext txCtx,
             String sql,
             Object... params
     ) {
-        SqlProperties properties0 = SqlPropertiesHelper.chain(properties, DEFAULT_PROPERTIES);
-        String schemaName = properties0.get(QueryProperty.DEFAULT_SCHEMA);
-        ZoneId timeZoneId = properties0.get(QueryProperty.TIME_ZONE_ID);
+        String schemaName = properties.get(QueryProperty.DEFAULT_SCHEMA);
+        ZoneId timeZoneId = properties.get(QueryProperty.TIME_ZONE_ID);
 
         QueryCancel queryCancel = new QueryCancel();
 
-        CompletableFuture<Void> start = new CompletableFuture<>();
+        ParsedResult parsedResult = queryToParsedResultCache.get(sql);
 
-        CompletableFuture<AsyncSqlCursor<InternalSqlRow>> stage = start.thenCompose(ignored -> {
-            ParsedResult result = parserService.parse(sql);
+        CompletableFuture<ParsedResult> start = parsedResult != null
+                ? completedFuture(parsedResult)
+                : CompletableFuture.supplyAsync(() -> parseAndCache(sql), taskExecutor);
 
-            validateParsedStatement(properties0, result);
+        return start.thenCompose(result -> {
+            validateParsedStatement(properties, result);
             validateDynamicParameters(result.dynamicParamsCount(), params, true);
 
             QueryTransactionWrapper txWrapper = txCtx.getOrStartImplicit(result.queryType());
@@ -606,28 +584,16 @@ public class SqlQueryProcessor implements QueryProcessor {
                         return executionResult;
                     });
         });
-
-        // TODO IGNITE-20078 Improve (or remove) CancellationException handling.
-        stage.whenComplete((cur, ex) -> {
-            if (ex instanceof CancellationException) {
-                queryCancel.cancel();
-            }
-        });
-
-        start.completeAsync(() -> null, taskExecutor);
-
-        return stage;
     }
 
-    private CompletableFuture<AsyncSqlCursor<InternalSqlRow>> queryScript0(
+    private CompletableFuture<AsyncSqlCursor<InternalSqlRow>> queryScript(
             SqlProperties properties,
             QueryTransactionContext txCtx,
             String sql,
             Object... params
     ) {
-        SqlProperties properties0 = SqlPropertiesHelper.chain(properties, DEFAULT_PROPERTIES);
-        String schemaName = properties0.get(QueryProperty.DEFAULT_SCHEMA);
-        ZoneId timeZoneId = properties0.get(QueryProperty.TIME_ZONE_ID);
+        String schemaName = properties.get(QueryProperty.DEFAULT_SCHEMA);
+        ZoneId timeZoneId = properties.get(QueryProperty.TIME_ZONE_ID);
 
         CompletableFuture<?> start = new CompletableFuture<>();
 
@@ -810,6 +776,20 @@ public class SqlQueryProcessor implements QueryProcessor {
                 throw new SqlException(STMT_VALIDATION_ERR, message);
             }
         }
+    }
+
+    private static boolean shouldBeCached(SqlQueryType queryType) {
+        return queryType == SqlQueryType.QUERY || queryType == SqlQueryType.DML;
+    }
+
+    private ParsedResult parseAndCache(String sql) {
+        ParsedResult result = parserService.parse(sql);
+
+        if (shouldBeCached(result.queryType())) {
+            queryToParsedResultCache.put(sql, result);
+        }
+
+        return result;
     }
 
     /** Returns count of opened cursors. */

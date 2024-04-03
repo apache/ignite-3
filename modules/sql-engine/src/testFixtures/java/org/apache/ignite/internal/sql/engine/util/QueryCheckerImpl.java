@@ -306,7 +306,7 @@ abstract class QueryCheckerImpl implements QueryChecker {
         LOG.info("Executing query: [nodeName={}, query={}]", nodeName(), qry);
 
         if (!CollectionUtils.nullOrEmpty(planMatchers)) {
-            CompletableFuture<AsyncSqlCursor<InternalSqlRow>> explainCursors = qryProc.querySingleAsync(
+            CompletableFuture<AsyncSqlCursor<InternalSqlRow>> explainCursors = qryProc.queryAsync(
                     properties, transactions(), tx, "EXPLAIN PLAN FOR " + qry, params);
             AsyncSqlCursor<InternalSqlRow> explainCursor = await(explainCursors);
             List<InternalSqlRow> explainRes = getAllFromCursor(explainCursor);
@@ -333,7 +333,7 @@ abstract class QueryCheckerImpl implements QueryChecker {
 
         // Check result.
         CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursors =
-                qryProc.querySingleAsync(properties, transactions(), tx, qry, params);
+                qryProc.queryAsync(properties, transactions(), tx, qry, params);
 
         AsyncSqlCursor<InternalSqlRow> cur = await(cursors);
 
