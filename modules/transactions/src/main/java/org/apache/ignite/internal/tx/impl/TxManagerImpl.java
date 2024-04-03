@@ -433,7 +433,13 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             finalState = ABORTED;
         }
 
-        updateTxMeta(txId, old -> new TxStateMeta(finalState, old.txCoordinatorId(), old.commitPartitionId(), old.commitTimestamp()));
+        updateTxMeta(txId, old ->
+                new TxStateMeta(
+                        finalState,
+                        old == null ? null : old.txCoordinatorId(),
+                        old == null ? null : old.commitPartitionId(),
+                        old == null ? null : old.commitTimestamp()
+                ));
 
         decrementRwTxCount(txId);
     }
@@ -667,7 +673,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                             new TxStateMeta(
                                     txResult.transactionState(),
                                     localNodeId,
-                                    old.commitPartitionId(),
+                                    old == null ? null : old.commitPartitionId(),
                                     txResult.commitTimestamp()
                             ));
 
