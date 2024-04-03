@@ -356,7 +356,7 @@ public class SchemaSynchronizationTest : IgniteTestsBase
         async IAsyncEnumerable<IIgniteTuple> GetData()
         {
             // First set of batches uses old schema.
-            for (int i = 0; i < 10; i++)
+            for (int i = 0; i < 20; i++)
             {
                 yield return GetTuple(i);
             }
