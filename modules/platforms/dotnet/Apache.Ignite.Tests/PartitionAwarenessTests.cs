@@ -111,7 +111,7 @@ public class PartitionAwarenessTests
     [Test]
     public async Task TestDataStreamerReceivesPartitionAssignmentUpdates() =>
         await TestClientReceivesPartitionAssignmentUpdates(
-            view => view.StreamDataAsync(new[] { DataStreamerItem.Create(1) }.ToAsyncEnumerable()),
+            view => view.StreamDataAsync(new[] { 1 }.ToAsyncEnumerable()),
             ClientOp.StreamerBatchSend);
 
     [Test]
@@ -122,7 +122,7 @@ public class PartitionAwarenessTests
         var recordView = (await client.Tables.GetTableAsync(FakeServer.ExistingTableName))!.RecordBinaryView;
 
         // Warm up (retrieve assignment).
-        IIgniteTuple key = new IgniteTuple { ["ID"] = keyId };
+        var key = new IgniteTuple { ["ID"] = keyId };
         await recordView.UpsertAsync(null, key);
 
         // Single-key operations.
@@ -138,7 +138,7 @@ public class PartitionAwarenessTests
         await AssertOpOnNode(() => recordView.ReplaceAsync(null, key, key), ClientOp.TupleReplaceExact, expectedNode);
         await AssertOpOnNode(() => recordView.DeleteAsync(null, key), ClientOp.TupleDelete, expectedNode);
         await AssertOpOnNode(() => recordView.DeleteExactAsync(null, key), ClientOp.TupleDeleteExact, expectedNode);
-        await AssertOpOnNode(() => recordView.StreamDataAsync(new[] { DataStreamerItem.Create(key) }.ToAsyncEnumerable()), ClientOp.StreamerBatchSend, expectedNode);
+        await AssertOpOnNode(() => recordView.StreamDataAsync(new[] { key }.ToAsyncEnumerable()), ClientOp.StreamerBatchSend, expectedNode);
 
         // Multi-key operations use the first key for colocation.
         var keys = new[] { key, new IgniteTuple { ["ID"] = keyId - 1 }, new IgniteTuple { ["ID"] = keyId + 1 } };
@@ -172,7 +172,7 @@ public class PartitionAwarenessTests
         await AssertOpOnNode(() => recordView.ReplaceAsync(null, key, key), ClientOp.TupleReplaceExact, expectedNode);
         await AssertOpOnNode(() => recordView.DeleteAsync(null, key), ClientOp.TupleDelete, expectedNode);
         await AssertOpOnNode(() => recordView.DeleteExactAsync(null, key), ClientOp.TupleDeleteExact, expectedNode);
-        await AssertOpOnNode(() => recordView.StreamDataAsync(new[] { DataStreamerItem.Create(key) }.ToAsyncEnumerable()), ClientOp.StreamerBatchSend, expectedNode);
+        await AssertOpOnNode(() => recordView.StreamDataAsync(new[] { key }.ToAsyncEnumerable()), ClientOp.StreamerBatchSend, expectedNode);
 
         // Multi-key operations use the first key for colocation.
         var keys = new[] { key, key - 1, key + 1 };
@@ -213,13 +213,12 @@ public class PartitionAwarenessTests
         // Multi-key operations use the first key for colocation.
         var keys = new[] { key, new IgniteTuple { ["ID"] = keyId - 1 }, new IgniteTuple { ["ID"] = keyId + 1 } };
         var pairs = keys.ToDictionary(x => (IIgniteTuple)x, _ => (IIgniteTuple)val);
-        var streamerPairs = pairs.Select(DataStreamerItem.Create).ToArray();
 
         await AssertOpOnNode(() => kvView.GetAllAsync(null, keys), ClientOp.TupleGetAll, expectedNode);
         await AssertOpOnNode(() => kvView.PutAllAsync(null, pairs), ClientOp.TupleUpsertAll, expectedNode);
         await AssertOpOnNode(() => kvView.RemoveAllAsync(null, keys), ClientOp.TupleDeleteAll, expectedNode);
         await AssertOpOnNode(() => kvView.RemoveAllAsync(null, pairs), ClientOp.TupleDeleteAllExact, expectedNode);
-        await AssertOpOnNode(() => kvView.StreamDataAsync(streamerPairs.ToAsyncEnumerable()), ClientOp.StreamerBatchSend, expectedNode);
+        await AssertOpOnNode(() => kvView.StreamDataAsync(pairs.ToAsyncEnumerable()), ClientOp.StreamerBatchSend, expectedNode);
     }
 
     [Test]
@@ -248,7 +247,7 @@ public class PartitionAwarenessTests
         await AssertOpOnNode(() => kvView.RemoveAsync(null, key, val), ClientOp.TupleDeleteExact, expectedNode);
         await AssertOpOnNode(() => kvView.ContainsAsync(null, key), ClientOp.TupleContainsKey, expectedNode);
         await AssertOpOnNode(
-            () => kvView.StreamDataAsync(new[] { DataStreamerItem.Create(KeyValuePair.Create(key, val)) }.ToAsyncEnumerable()),
+            () => kvView.StreamDataAsync(new[] { new KeyValuePair<int, int>(key, val) }.ToAsyncEnumerable()),
             ClientOp.StreamerBatchSend,
             expectedNode);
 
