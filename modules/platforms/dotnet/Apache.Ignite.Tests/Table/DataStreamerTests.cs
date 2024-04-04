@@ -69,9 +69,11 @@ public class DataStreamerTests : IgniteTestsBase
     public async Task TestBasicStreamingRecordView()
     {
         var options = DataStreamerOptions.Default with { PageSize = 5 };
-        var data = Enumerable.Range(0, Count).Select(x => GetPoco(x, "t" + x)).ToList();
+        var data = Enumerable.Range(0, Count)
+            .Select(x => DataStreamerItem.Create(GetPoco(x, "t" + x)))
+            .Concat(new[] { DataStreamerItem.Create(GetPoco(DeletedKey), DataStreamerOperationType.Remove) })
+            .ToList();
 
-        // TODO: Here and below, update/remove test.
         await Table.GetRecordView<Poco>().StreamDataAsync(data.ToAsyncEnumerable(), options);
         await CheckData();
     }
@@ -81,7 +83,8 @@ public class DataStreamerTests : IgniteTestsBase
     {
         var options = DataStreamerOptions.Default with { PageSize = 10_000 };
         var data = Enumerable.Range(0, Count)
-            .Select(x => new KeyValuePair<IIgniteTuple, IIgniteTuple>(GetTuple(x), GetTuple("t" + x)))
+            .Select(x => DataStreamerItem.Create(KeyValuePair.Create(GetTuple(x), GetTuple("t" + x))))
+            .Concat(new[] { DataStreamerItem.Create(KeyValuePair.Create(GetTuple(DeletedKey), default(IIgniteTuple)!), DataStreamerOperationType.Remove) })
             .ToList();
 
         await Table.KeyValueBinaryView.StreamDataAsync(data.ToAsyncEnumerable(), options);
@@ -93,7 +96,8 @@ public class DataStreamerTests : IgniteTestsBase
     {
         var options = DataStreamerOptions.Default with { PageSize = 1 };
         var data = Enumerable.Range(0, Count)
-            .Select(x => new KeyValuePair<long, Poco>(x, GetPoco(x, "t" + x)))
+            .Select(x => DataStreamerItem.Create(KeyValuePair.Create((long)x, GetPoco(x, "t" + x))))
+            .Concat(new[] { DataStreamerItem.Create(KeyValuePair.Create((long)DeletedKey, default(Poco)!), DataStreamerOperationType.Remove) })
             .ToList();
 
         await Table.GetKeyValueView<long, Poco>().StreamDataAsync(data.ToAsyncEnumerable(), options);
