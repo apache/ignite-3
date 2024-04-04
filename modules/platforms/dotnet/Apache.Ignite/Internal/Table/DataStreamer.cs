@@ -372,7 +372,7 @@ internal static class DataStreamer
     {
         var w = buf.MessageWriter;
 
-        // Reserve space for deleted set - we don't know if we need it or not.
+        // Reserve space for deleted set - we don't know if we need it or not, and which size.
         w.WriteBitSet(deletedSetReserveSize);
         buf.Offset = buf.Position;
 
@@ -389,17 +389,22 @@ internal static class DataStreamer
 
         if (HasDeletedItems<T>(batch.Items.AsSpan(0, batch.Count)))
         {
-            // Re-write entire header with the deleted set.
-            // Skip one byte used for null bit set before.
+            // Re-write the entire header with the deleted set of actual size.
+            var reservedBitSetSize = buf.Offset;
             var oldPos = buf.Position;
-            buf.Offset = 1;
-            buf.Position = 1;
+
+            buf.Position = 0;
+            buf.MessageWriter.WriteBitSet(batch.Count);
+            var actualBitSetSize = buf.Position;
+
+            buf.Offset = 1 + reservedBitSetSize - actualBitSetSize; // 1 byte for null bit set used before.
+            buf.Position = buf.Offset;
 
             var w = buf.MessageWriter;
             w.Write(batch.Schema.TableId);
             w.Write(batch.PartitionId);
 
-            var deletedSet = w.WriteBitSet(batch.Items.Length);
+            var deletedSet = w.WriteBitSet(batch.Count);
 
             for (var i = 0; i < batch.Count; i++)
             {
