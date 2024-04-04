@@ -36,6 +36,8 @@ public class DataStreamerTests : IgniteTestsBase
 {
     private const int Count = 100;
 
+    private const int DeletedKey = Count + 1;
+
     [SetUp]
     public async Task DeleteAll() =>
         await TupleView.DeleteAllAsync(null, Enumerable.Range(0, Count).Select(x => GetTuple(x)));
@@ -49,9 +51,8 @@ public class DataStreamerTests : IgniteTestsBase
         var data = Enumerable.Range(0, Count).Select(x => GetTuple(x, "t" + x)).ToList();
         await TupleView.StreamDataAsync(data.ToAsyncEnumerable(), options);
 
-        var toRemoveKey = Count + 1;
-        await TupleView.UpsertAsync(null, GetTuple(toRemoveKey, "t" + toRemoveKey));
-        await TupleView.StreamDataAsync(new[] { DataStreamerItem.Create(GetTuple(toRemoveKey), DataStreamerOperationType.Remove) }.ToAsyncEnumerable());
+        await TupleView.UpsertAsync(null, GetTuple(DeletedKey, "t" + DeletedKey));
+        await TupleView.StreamDataAsync(new[] { DataStreamerItem.Create(GetTuple(DeletedKey), DataStreamerOperationType.Remove) }.ToAsyncEnumerable());
 
         await CheckData();
     }
@@ -225,5 +226,8 @@ public class DataStreamerTests : IgniteTestsBase
         {
             Assert.IsTrue(hasVal);
         }
+
+        var deletedExists = await TupleView.ContainsKeyAsync(null, GetTuple(DeletedKey));
+        Assert.IsFalse(deletedExists);
     }
 }

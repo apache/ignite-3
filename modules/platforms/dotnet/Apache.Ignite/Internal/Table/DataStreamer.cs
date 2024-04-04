@@ -161,7 +161,12 @@ internal static class DataStreamer
         Batch<T> Add(DataStreamerItem<T> item)
         {
             var schema0 = schema;
-            var tupleBuilder = new BinaryTupleBuilder(schema0.Columns.Length, hashedColumnsPredicate: schema0.HashedColumnIndexProvider);
+
+            var columnCount = item.OperationType == DataStreamerOperationType.Remove
+                ? schema0.KeyColumns.Length
+                : schema0.Columns.Length;
+
+            var tupleBuilder = new BinaryTupleBuilder(columnCount, hashedColumnsPredicate: schema0.HashedColumnIndexProvider);
 
             try
             {
