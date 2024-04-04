@@ -44,8 +44,6 @@ import org.apache.ignite.internal.deployunit.metastore.status.NodeStatusKey;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitNodeStatus;
 import org.apache.ignite.internal.lang.ByteArray;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 
 /**
@@ -53,7 +51,6 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
  */
 public class DeploymentUnitStoreImpl implements DeploymentUnitStore {
     private final MetaStorageManager metaStorage;
-    private final IgniteLogger LOG = Loggers.forClass(DeploymentUnitStoreImpl.class);
 
     /**
      * Constructor.
