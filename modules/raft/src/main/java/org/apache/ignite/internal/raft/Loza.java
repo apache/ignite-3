@@ -538,6 +538,7 @@ public class Loza implements RaftManager {
         return raftServer;
     }
 
+    @Override
     public LogSyncer getLogSyncer() {
         return raftServer.getLogSyncer();
     }

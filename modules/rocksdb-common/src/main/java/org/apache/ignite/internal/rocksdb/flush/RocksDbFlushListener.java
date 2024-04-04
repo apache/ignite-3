@@ -23,12 +23,12 @@ import static org.rocksdb.AbstractEventListener.EnabledEventCallback.ON_FLUSH_CO
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.rocksdb.AbstractEventListener;
 import org.rocksdb.FlushJobInfo;
 import org.rocksdb.RocksDB;
-import org.rocksdb.RocksDBException;
 
 /**
  * Represents a listener of RocksDB flush events.
@@ -46,6 +46,8 @@ class RocksDbFlushListener extends AbstractEventListener {
      */
     private final AtomicReference<EnabledEventCallback> lastEventType = new AtomicReference<>(ON_FLUSH_COMPLETED);
 
+    private final LogSyncer logSyncer;
+
     /**
      * Future that guarantees that last flush was fully processed and the new flush can safely begin.
      */
@@ -56,18 +58,19 @@ class RocksDbFlushListener extends AbstractEventListener {
      *
      * @param flusher Flusher instance to delegate events processing to.
      */
-    RocksDbFlushListener(RocksDbFlusher flusher) {
+    RocksDbFlushListener(RocksDbFlusher flusher, LogSyncer logSyncer) {
         super(ON_FLUSH_BEGIN, ON_FLUSH_COMPLETED);
 
         this.flusher = flusher;
+        this.logSyncer = logSyncer;
     }
 
     /** {@inheritDoc} */
     @Override
     public void onFlushBegin(RocksDB db, FlushJobInfo flushJobInfo) {
         try {
-            db.syncWal();
-        } catch (RocksDBException e) {
+            logSyncer.sync();
+        } catch (Exception e) {
             LOG.error("Couldn't sync RocksDB WAL on flush begin", e);
         }
 

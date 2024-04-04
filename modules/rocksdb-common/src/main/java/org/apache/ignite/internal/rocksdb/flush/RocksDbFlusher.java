@@ -28,6 +28,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.IntSupplier;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -66,6 +67,8 @@ public class RocksDbFlusher {
 
     /** Flush completion callback. */
     private final Runnable onFlushCompleted;
+
+    private final LogSyncer logSyncer;
 
     /**
      * Flush options to be used to asynchronously flush the Rocks DB memtable. It needs to be cached, because
@@ -112,12 +115,14 @@ public class RocksDbFlusher {
             ScheduledExecutorService scheduledPool,
             ExecutorService threadPool,
             IntSupplier delaySupplier,
+            LogSyncer logSyncer,
             Runnable onFlushCompleted
     ) {
         this.busyLock = busyLock;
         this.scheduledPool = scheduledPool;
         this.threadPool = threadPool;
         this.delaySupplier = delaySupplier;
+        this.logSyncer = logSyncer;
         this.onFlushCompleted = onFlushCompleted;
     }
 
@@ -126,7 +131,7 @@ public class RocksDbFlusher {
      * {@link Options#setListeners(List)} before database is started. Otherwise, no events would occur.
      */
     public AbstractEventListener listener() {
-        return new RocksDbFlushListener(this);
+        return new RocksDbFlushListener(this, logSyncer);
     }
 
     /**
@@ -273,4 +278,5 @@ public class RocksDbFlusher {
     CompletableFuture<Void> onFlushCompleted() {
         return CompletableFuture.runAsync(onFlushCompleted, threadPool);
     }
+
 }

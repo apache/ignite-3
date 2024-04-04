@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.components;
 
-/**  Interface to synchronize write-ahead log. Operates only for persistent physical memory log storages. */
+/** Interface to synchronize write-ahead log. Operates only for persistent log storages. */
 public interface LogSyncer {
     /**
      * Synchronizes write-ahead log.

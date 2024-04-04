@@ -349,7 +349,7 @@ public class Checkpointer extends IgniteWorker {
                 try {
                     logSyncer.sync();
                 } catch (Exception e) {
-                    log.error("Failed to sync write-ahead log during checkpoint processing ", e);
+                    log.error("Failed to sync write-ahead log during checkpoint", e);
 
                     throw new IgniteInternalCheckedException(e);
                 }

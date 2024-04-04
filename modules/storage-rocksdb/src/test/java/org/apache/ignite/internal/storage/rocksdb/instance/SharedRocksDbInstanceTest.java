@@ -33,6 +33,7 @@ import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.sameInstance;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
 
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -42,6 +43,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
@@ -72,7 +74,7 @@ class SharedRocksDbInstanceTest extends IgniteAbstractTest {
 
     @BeforeEach
     void setUp(@InjectConfiguration RocksDbStorageEngineConfiguration engineConfig) throws Exception {
-        engine = new RocksDbStorageEngine("test", engineConfig, workDir);
+        engine = new RocksDbStorageEngine("test", engineConfig, workDir, mock(LogSyncer.class));
 
         engine.start();
 
