@@ -205,11 +205,15 @@ public class DataStreamerTests : IgniteTestsBase
     }
 
     [Test]
-    public async Task TestAddUpdateRemoveMixed()
+    public async Task TestAddUpdateRemoveMixed(
+        [Values(1, 2, 100)] int pageSize,
+        [Values(true, false)] bool existingMinKey)
     {
         // TODO: Bug in PartitionReplicaListener - when we delete recently created row, the delete op is ignored - we should check newKeyMap
-        const int minKey = 33000;
-        await Table.GetRecordView<Poco>().StreamDataAsync(GetData());
+        var minKey = existingMinKey ? UpdatedKey : 33000;
+        await Table.GetRecordView<Poco>().StreamDataAsync(
+            GetData(),
+            DataStreamerOptions.Default with { PageSize = pageSize });
 
         IList<Option<Poco>> res = await PocoView.GetAllAsync(null, Enumerable.Range(minKey, 4).Select(x => GetPoco(x)));
         Assert.AreEqual(4, res.Count);
@@ -225,7 +229,7 @@ public class DataStreamerTests : IgniteTestsBase
         Assert.IsTrue(res[3].HasValue);
         Assert.AreEqual("created", res[3].Value.Val);
 
-        static async IAsyncEnumerable<DataStreamerItem<Poco>> GetData()
+        async IAsyncEnumerable<DataStreamerItem<Poco>> GetData()
         {
             await Task.Yield();
             yield return DataStreamerItem.Create(GetPoco(minKey, "created"));
