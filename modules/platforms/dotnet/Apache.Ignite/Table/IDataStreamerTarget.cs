@@ -39,7 +39,7 @@ public interface IDataStreamerTarget<T>
     Task StreamDataAsync(
         IAsyncEnumerable<DataStreamerItem<T>> data,
         DataStreamerOptions? options = null,
-        CancellationToken cancellationToken = default); // TODO: Covariance for easier usage, especially with tuples?
+        CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Streams data into the underlying table.
