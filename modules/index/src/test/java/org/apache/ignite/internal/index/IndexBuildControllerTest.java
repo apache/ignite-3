@@ -58,6 +58,7 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
@@ -301,8 +302,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         return getIndexIdStrict(catalogManager, indexName, clock.nowLong());
     }
 
-    private TablePartitionId replicaId(int partitionId) {
-        return new TablePartitionId(tableId(), partitionId);
+    private ZonePartitionId replicaId(int partitionId) {
+        return new ZonePartitionId(0, partitionId, tableId());
     }
 
     private ReplicaMeta replicaMetaForOneSecond(String leaseholder, String leaseholderId, HybridTimestamp startTime) {

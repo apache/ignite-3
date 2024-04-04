@@ -238,12 +238,7 @@ abstract class ChangeIndexStatusTask {
         return inBusyLocks(() -> {
             ZonePartitionId groupId = new ZonePartitionId(indexDescriptor.zoneId(), 0, indexDescriptor.tableId());
 
-            return ((ReplicaAwareLeaseTracker) placementDriver).awaitPrimaryReplica(
-                            groupId,
-                            clockService.now(),
-                            AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC,
-                            SECONDS
-                    )
+            return placementDriver.awaitPrimaryReplicaTmp(groupId, clockService.now(), AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC, SECONDS)
                     .handle((replicaMeta, throwable) -> {
                         if (throwable != null) {
                             Throwable cause = unwrapCause(throwable);

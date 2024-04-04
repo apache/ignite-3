@@ -57,7 +57,8 @@ public class ReplicaAwareLeaseTracker extends AbstractEventProducer<PrimaryRepli
         return delegate.awaitPrimaryReplica(groupId, timestamp, timeout, unit);
     }
 
-    public CompletableFuture<ReplicaMeta> awaitPrimaryReplica(
+    @Override
+    public CompletableFuture<ReplicaMeta> awaitPrimaryReplicaTmp(
             ZonePartitionId groupId,
             HybridTimestamp timestamp,
             long timeout,

@@ -188,7 +188,8 @@ class IndexBuildController implements ManuallyCloseable {
 
                 int tableId = tablePartitionId.tableId();
 
-                int zoneId = catalogService.table(tableId, catalogVersion).zoneId();
+                // TODO: temporary solution, zone id is not used, will be used after https://issues.apache.org/jira/browse/IGNITE-18991
+                int zoneId = 0;
 
                 ZonePartitionId zonePartitionId = new ZonePartitionId(zoneId, tablePartitionId.partitionId(), tableId);
 
@@ -269,8 +270,8 @@ class IndexBuildController implements ManuallyCloseable {
     }
 
     private CompletableFuture<ReplicaMeta> awaitPrimaryReplica(ZonePartitionId replicaId, HybridTimestamp timestamp) {
-        return ((ReplicaAwareLeaseTracker) placementDriver)
-                .awaitPrimaryReplica(replicaId, timestamp, AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC, SECONDS)
+        return placementDriver
+                .awaitPrimaryReplicaTmp(replicaId, timestamp, AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC, SECONDS)
                 .handle((replicaMeta, throwable) -> {
                     if (throwable != null) {
                         Throwable unwrapThrowable = ExceptionUtils.unwrapCause(throwable);

@@ -24,6 +24,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -59,6 +60,15 @@ public interface PlacementDriver extends EventProducer<PrimaryReplicaEvent, Prim
             long timeout,
             TimeUnit unit
     );
+
+    default CompletableFuture<ReplicaMeta> awaitPrimaryReplicaTmp(
+            ZonePartitionId groupId,
+            HybridTimestamp timestamp,
+            long timeout,
+            TimeUnit unit
+    ) {
+        return awaitPrimaryReplica(groupId, timestamp, timeout, unit);
+    }
 
     /**
      * Same as {@link #awaitPrimaryReplica(ReplicationGroupId, HybridTimestamp, long, TimeUnit)} despite the fact that given method await
