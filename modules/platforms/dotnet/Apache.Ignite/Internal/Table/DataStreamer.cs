@@ -361,23 +361,25 @@ internal static class DataStreamer
     {
         var buf = batch.Buffer;
 
-        batch.DeletedSetPos = WriteBatchHeader(buf, partitionId, schema, maxBatchSize: batch.Items.Length);
+        WriteBatchHeader(buf, partitionId, schema, maxBatchSize: batch.Items.Length);
 
         batch.CountPos = buf.Position;
         buf.Advance(5); // Reserve count.
     }
 
-    private static int WriteBatchHeader(PooledArrayBuffer buf, int partitionId, Schema schema, int maxBatchSize)
+    private static void WriteBatchHeader(PooledArrayBuffer buf, int partitionId, Schema schema, int maxBatchSize)
     {
         var w = buf.MessageWriter;
+
+        // Reserve space for deleted set - we don't know if we need it or not.
+        w.WriteBitSet(maxBatchSize);
+        buf.Offset = buf.Position;
+
+        // Write header.
         w.Write(schema.TableId);
         w.Write(partitionId);
-
-        var deletedSetPos = buf.Position;
-        w.WriteBitSet(maxBatchSize);
+        w.WriteNil(); // Deleted set. We assume there are no deleted items in the beginning.
         w.Write(schema.Version);
-
-        return deletedSetPos;
     }
 
     private static void FinalizeBatchHeader<T>(Batch<T> batch)
@@ -390,14 +392,14 @@ internal static class DataStreamer
 
         // Deleted set.
         // TODO: This is wrong span, we should preserve deleted set as memory.
-        var deletedSet = buf.GetSpan(batch.DeletedSetPos, batch.Items.Length);
-        for (var i = 0; i < batch.Items.Length; i++)
-        {
-            if (batch.Items[i].OperationType == DataStreamerOperationType.Remove)
-            {
-                deletedSet.SetBit(i);
-            }
-        }
+        // var deletedSet = buf.GetSpan(batch.DeletedSetPos, batch.Items.Length);
+        // for (var i = 0; i < batch.Items.Length; i++)
+        // {
+        //     if (batch.Items[i].OperationType == DataStreamerOperationType.Remove)
+        //     {
+        //         deletedSet.SetBit(i);
+        //     }
+        // }
     }
 
     private static void ReWriteBatch<T>(
@@ -410,8 +412,7 @@ internal static class DataStreamer
         buf.Reset();
 
         // TODO: If there are no deleted items, write null bit set.
-        var deletedSetPos = WriteBatchHeader(buf, partitionId, schema, items.Length);
-        var deletedSet = buf.GetSpan(deletedSetPos, items.Length);
+        WriteBatchHeader(buf, partitionId, schema, items.Length);
 
         var w = buf.MessageWriter;
         w.Write(items.Length);
@@ -423,7 +424,8 @@ internal static class DataStreamer
             var remove = item.OperationType == DataStreamerOperationType.Remove;
             if (remove)
             {
-                deletedSet.SetBit(i);
+                // TODO
+                // deletedSet.SetBit(i);
             }
 
             writer.Handler.Write(ref w, schema, item.Data, keyOnly: remove, computeHash: false);
@@ -473,8 +475,6 @@ internal static class DataStreamer
         public int Count { get; set; }
 
         public int CountPos { get; set; }
-
-        public int DeletedSetPos { get; set; }
 
         public Task Task { get; set; } = Task.CompletedTask; // Task for the previous buffer.
 
