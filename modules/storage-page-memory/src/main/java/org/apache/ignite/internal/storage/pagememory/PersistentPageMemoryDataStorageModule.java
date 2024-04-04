@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.storage.pagememory.PersistentPageMemory
 
 import com.google.auto.service.AutoService;
 import java.nio.file.Path;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -49,7 +50,8 @@ public class PersistentPageMemoryDataStorageModule implements DataStorageModule 
             ConfigurationRegistry configRegistry,
             Path storagePath,
             @Nullable LongJvmPauseDetector longJvmPauseDetector,
-            FailureProcessor failureProcessor
+            FailureProcessor failureProcessor,
+            LogSyncer logSyncer
     ) throws StorageException {
         PersistentPageMemoryStorageEngineConfiguration engineConfig = configRegistry.getConfiguration(
                 PersistentPageMemoryStorageEngineConfiguration.KEY
@@ -67,6 +69,7 @@ public class PersistentPageMemoryDataStorageModule implements DataStorageModule 
                 ioRegistry,
                 storagePath,
                 longJvmPauseDetector,
-                failureProcessor);
+                failureProcessor,
+                logSyncer);
     }
 }

@@ -43,7 +43,8 @@ public class RocksDbStorageEngineTest extends AbstractStorageEngineTest {
         return new RocksDbStorageEngine(
                 "test",
                 engineConfiguration,
-                workDir
+                workDir,
+                logSyncer
         );
     }
 }
