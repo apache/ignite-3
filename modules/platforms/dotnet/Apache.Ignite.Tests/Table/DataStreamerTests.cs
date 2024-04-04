@@ -189,6 +189,13 @@ public class DataStreamerTests : IgniteTestsBase
         Assert.That(server.DroppedConnectionCount, Is.GreaterThanOrEqualTo(count / DataStreamerOptions.Default.PageSize));
     }
 
+    [Test]
+    public async Task TestAddUpdateRemoveMixed()
+    {
+        // TODO: Single streamer, different operations.
+        await Task.Yield();
+    }
+
     private static async IAsyncEnumerable<IIgniteTuple> GetFakeServerData(int count)
     {
         for (var i = 0; i < count; i++)
