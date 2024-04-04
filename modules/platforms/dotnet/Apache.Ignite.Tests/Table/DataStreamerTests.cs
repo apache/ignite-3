@@ -207,6 +207,7 @@ public class DataStreamerTests : IgniteTestsBase
     [Test]
     public async Task TestAddUpdateRemoveMixed()
     {
+        // TODO: Bug in PartitionReplicaListener - when we delete recently created row, the delete op is ignored - we should check newKeyMap
         await Table.GetRecordView<Poco>().StreamDataAsync(GetData());
 
         IList<Option<Poco>> res = await PocoView.GetAllAsync(null, Enumerable.Range(1, 4).Select(x => GetPoco(x)));
