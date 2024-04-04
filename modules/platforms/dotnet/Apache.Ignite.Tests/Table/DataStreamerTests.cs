@@ -205,8 +205,39 @@ public class DataStreamerTests : IgniteTestsBase
     [Test]
     public async Task TestAddUpdateRemoveMixed()
     {
-        // TODO: Single streamer, different operations.
-        await Task.Yield();
+        await Table.GetRecordView<Poco>().StreamDataAsync(GetData());
+
+        IList<Option<IIgniteTuple>> res = await TupleView.GetAllAsync(null, Enumerable.Range(1, 4).Select(x => GetTuple(x)));
+        Assert.AreEqual(4, res.Count);
+
+        Assert.IsFalse(res[0].HasValue, "Deleted key should not exist: " + res[0]);
+
+        Assert.IsTrue(res[1].HasValue);
+        Assert.AreEqual("created2", res[1].Value["Value"]);
+
+        Assert.IsTrue(res[2].HasValue);
+        Assert.AreEqual("updated", res[2].Value["Value"]);
+
+        Assert.IsTrue(res[3].HasValue);
+        Assert.AreEqual("created", res[3].Value["Value"]);
+
+        static async IAsyncEnumerable<DataStreamerItem<Poco>> GetData()
+        {
+            await Task.Yield();
+            yield return DataStreamerItem.Create(GetPoco(1, "created"));
+            yield return DataStreamerItem.Create(GetPoco(1, "updated"));
+            yield return DataStreamerItem.Create(GetPoco(1, "deleted"), DataStreamerOperationType.Remove);
+
+            yield return DataStreamerItem.Create(GetPoco(2, "created"));
+            yield return DataStreamerItem.Create(GetPoco(2, "updated"));
+            yield return DataStreamerItem.Create(GetPoco(2, "deleted"), DataStreamerOperationType.Remove);
+            yield return DataStreamerItem.Create(GetPoco(2, "created2"));
+
+            yield return DataStreamerItem.Create(GetPoco(3, "created"));
+            yield return DataStreamerItem.Create(GetPoco(3, "updated"));
+
+            yield return DataStreamerItem.Create(GetPoco(4, "created"));
+        }
     }
 
     private static async IAsyncEnumerable<IIgniteTuple> GetFakeServerData(int count)
