@@ -28,7 +28,7 @@ using Internal.Proto;
 using NUnit.Framework;
 
 /// <summary>
-/// Tests for <see cref="IDataStreamerTarget{T}.StreamDataAsync"/>.
+/// Tests for <see cref="IDataStreamerTarget{T}"/>.
 /// <para />
 /// See DataStreamer partition awareness tests in <see cref="PartitionAwarenessTests"/>.
 /// </summary>
