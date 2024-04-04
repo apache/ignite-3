@@ -98,7 +98,7 @@ public class DataStreamerBenchmark
 
     [Benchmark(Baseline = true)]
     public async Task DataStreamer() => await _table.RecordBinaryView.StreamDataAsync(
-        _data.Select(x => DataStreamerItem.Create(x)).ToAsyncEnumerable());
+        _data.Select(DataStreamerItem.Create).ToAsyncEnumerable());
 
     [Benchmark]
     public async Task UpsertAll() => await _table.RecordBinaryView.UpsertAllAsync(null, _data);

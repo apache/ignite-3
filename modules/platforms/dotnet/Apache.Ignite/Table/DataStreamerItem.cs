@@ -33,12 +33,21 @@ public record struct DataStreamerItem<T>(
 public static class DataStreamerItem
 {
     /// <summary>
+    /// Creates a new data streamer item with the <see cref="DataStreamerOperationType.Put"/> operation type.
+    /// </summary>
+    /// <param name="data">Data.</param>
+    /// <typeparam name="T">Data type.</typeparam>
+    /// <returns>Data streamer item.</returns>
+    public static DataStreamerItem<T> Create<T>(T data) =>
+        new(data, DataStreamerOperationType.Put);
+
+    /// <summary>
     /// Creates a new data streamer item instance using provided values.
     /// </summary>
     /// <param name="data">Data.</param>
     /// <param name="operationType">Operation type.</param>
     /// <typeparam name="T">Data type.</typeparam>
     /// <returns>Data streamer item.</returns>
-    public static DataStreamerItem<T> Create<T>(T data, DataStreamerOperationType operationType = DataStreamerOperationType.Put) =>
+    public static DataStreamerItem<T> Create<T>(T data, DataStreamerOperationType operationType) =>
         new(data, operationType);
 }
