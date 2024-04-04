@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.jdbc;
 
 import java.sql.SQLException;
+import java.time.ZoneId;
 import org.apache.ignite.client.ClientAuthenticationMode;
 import org.apache.ignite.internal.client.HostAndPort;
 
@@ -253,4 +254,18 @@ public interface ConnectionProperties {
      * @param password Password.
      */
     void setPassword(String password);
+
+    /**
+     * TODO BLah-blah.
+     *
+     * @return Time zone ID.
+     */
+    ZoneId getConnectionTimeZone();
+
+    /**
+     * TODO Blah-nlah.
+     *
+     * @param timeZoneId Time zone ID.
+     */
+    void setConnectionTimeZone(ZoneId timeZoneId);
 }

@@ -38,6 +38,7 @@ import java.sql.SQLType;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -92,7 +93,7 @@ public class PreparedStatementParamsTest extends BaseIgniteAbstractTest {
     @BeforeEach
     public void initConnection() throws SQLException {
         JdbcQueryEventHandler handler = Mockito.mock(JdbcQueryEventHandler.class);
-        when(handler.connect()).thenReturn(CompletableFuture.completedFuture(new JdbcConnectResult(1)));
+        when(handler.connect(ZoneId.systemDefault())).thenReturn(CompletableFuture.completedFuture(new JdbcConnectResult(1)));
 
         conn = new JdbcConnection(handler, new ConnectionPropertiesImpl());
     }

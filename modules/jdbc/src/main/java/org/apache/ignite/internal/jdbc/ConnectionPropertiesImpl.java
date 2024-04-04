@@ -20,9 +20,11 @@ package org.apache.ignite.internal.jdbc;
 import java.io.Serializable;
 import java.sql.DriverPropertyInfo;
 import java.sql.SQLException;
+import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.Properties;
 import java.util.StringTokenizer;
+import java.util.TimeZone;
 import java.util.stream.Collectors;
 import org.apache.ignite.client.ClientAuthenticationMode;
 import org.apache.ignite.client.IgniteClientConfiguration;
@@ -124,11 +126,15 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     private final StringProperty password = new StringProperty("password",
             "Password", null, null, false, null);
 
+    /** Client connection time zone ID. */
+    private final StringProperty connectionTimeZone = new StringProperty("connectionTimeZone",
+            "Client connection time zone ID", TimeZone.getDefault().getID(), null, false, null);
+
     /** Properties array. */
     private final ConnectionProperty[] propsArray = {
             qryTimeout, connTimeout, trustStorePath, trustStorePassword,
             sslEnabled, clientAuth, ciphers, keyStorePath, keyStorePassword,
-            username, password
+            username, password, connectionTimeZone
     };
 
     /** {@inheritDoc} */
@@ -342,6 +348,16 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     @Override
     public void setPassword(String password) {
         this.password.setValue(password);
+    }
+
+    @Override
+    public ZoneId getConnectionTimeZone() {
+        return ZoneId.of(connectionTimeZone.value());
+    }
+
+    @Override
+    public void setConnectionTimeZone(ZoneId timeZoneId) {
+        connectionTimeZone.setValue(timeZoneId.getId());
     }
 
     /**

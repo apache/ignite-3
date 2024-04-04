@@ -42,6 +42,7 @@ import java.sql.Savepoint;
 import java.sql.ShardingKey;
 import java.sql.Statement;
 import java.sql.Struct;
+import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.IdentityHashMap;
@@ -130,7 +131,7 @@ public class JdbcConnection implements Connection {
         this.handler = handler;
 
         try {
-            JdbcConnectResult result = handler.connect().get();
+            JdbcConnectResult result = handler.connect(ZoneId.systemDefault()).get();
 
             if (!result.hasResults()) {
                 throw IgniteQueryErrorCode.createJdbcSqlException(result.err(), result.status());
@@ -192,7 +193,7 @@ public class JdbcConnection implements Connection {
         this.handler = new JdbcClientQueryEventHandler(client);
 
         try {
-            JdbcConnectResult result = handler.connect().get();
+            JdbcConnectResult result = handler.connect(connProps.getConnectionTimeZone()).get();
 
             if (!result.hasResults()) {
                 throw IgniteQueryErrorCode.createJdbcSqlException(result.err(), result.status());
