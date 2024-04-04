@@ -120,7 +120,7 @@ public abstract class AbstractStorageEngineTest extends BaseMvStoragesTest {
      * Tests that write-ahead log is synced before flush.
      */
     @Test
-    void testSyncWALBeforeFlush() throws Exception {
+    void testSyncWalBeforeFlush() throws Exception {
         assumeFalse(storageEngine.isVolatile());
 
         int tableId = 1;
