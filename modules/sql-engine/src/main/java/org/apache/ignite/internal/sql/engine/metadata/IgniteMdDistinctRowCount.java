@@ -21,6 +21,7 @@ import org.apache.calcite.plan.Convention;
 import org.apache.calcite.plan.volcano.RelSubset;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Aggregate;
+import org.apache.calcite.rel.metadata.CyclicMetadataException;
 import org.apache.calcite.rel.metadata.ReflectiveRelMetadataProvider;
 import org.apache.calcite.rel.metadata.RelMdDistinctRowCount;
 import org.apache.calcite.rel.metadata.RelMetadataProvider;
@@ -28,6 +29,7 @@ import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.BuiltInMethod;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.NumberUtil;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
@@ -62,13 +64,16 @@ public class IgniteMdDistinctRowCount extends RelMdDistinctRowCount {
             return null;
         }
 
-        int groupSize = groupKey.cardinality();
-        if (groupSize == 0) {
-            return 1.0;
-        } else {
-            double rowCount = mq.getRowCount(rel);
-            rowCount *= (1.0 - Math.pow(.8, groupSize));
-            return rowCount;
+        Double d = null;
+        for (RelNode r2 : rel.getRels()) {
+            try {
+                Double d2 = mq.getDistinctRowCount(r2, groupKey, predicate);
+                d = NumberUtil.min(d, d2);
+            } catch (CyclicMetadataException e) {
+                // Ignore this relational expression; there will be non-cyclic ones
+                // in this set.
+            }
         }
+        return d;
     }
 }
