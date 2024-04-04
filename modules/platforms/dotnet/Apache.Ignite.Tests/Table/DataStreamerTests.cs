@@ -42,10 +42,12 @@ public class DataStreamerTests : IgniteTestsBase
     [SetUp]
     public async Task PrepareData()
     {
-        await TupleView.DeleteAllAsync(null, Enumerable.Range(0, Count).Select(x => GetTuple(x)));
         await TupleView.UpsertAsync(null, GetTuple(UpdatedKey, "update me"));
         await TupleView.UpsertAsync(null, GetTuple(DeletedKey, "delete me"));
     }
+
+    [TearDown]
+    public async Task DeleteAll() => await Client.Sql.ExecuteAsync(null, $"DELETE FROM {TableName}");
 
     [Test]
     public async Task TestBasicStreamingRecordBinaryView()
@@ -207,19 +209,19 @@ public class DataStreamerTests : IgniteTestsBase
     {
         await Table.GetRecordView<Poco>().StreamDataAsync(GetData());
 
-        IList<Option<IIgniteTuple>> res = await TupleView.GetAllAsync(null, Enumerable.Range(1, 4).Select(x => GetTuple(x)));
+        IList<Option<Poco>> res = await PocoView.GetAllAsync(null, Enumerable.Range(1, 4).Select(x => GetPoco(x)));
         Assert.AreEqual(4, res.Count);
 
         Assert.IsFalse(res[0].HasValue, "Deleted key should not exist: " + res[0]);
 
         Assert.IsTrue(res[1].HasValue);
-        Assert.AreEqual("created2", res[1].Value["Value"]);
+        Assert.AreEqual("created2", res[1].Value.Val);
 
         Assert.IsTrue(res[2].HasValue);
-        Assert.AreEqual("updated", res[2].Value["Value"]);
+        Assert.AreEqual("updated", res[2].Value.Val);
 
         Assert.IsTrue(res[3].HasValue);
-        Assert.AreEqual("created", res[3].Value["Value"]);
+        Assert.AreEqual("created", res[3].Value.Val);
 
         static async IAsyncEnumerable<DataStreamerItem<Poco>> GetData()
         {
