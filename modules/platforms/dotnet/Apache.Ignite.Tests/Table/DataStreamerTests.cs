@@ -36,7 +36,7 @@ public class DataStreamerTests : IgniteTestsBase
 {
     private const int Count = 100;
 
-    private const int UpdatedKey = 0;
+    private const int UpdatedKey = Count / 2;
     private const int DeletedKey = Count + 1;
 
     [SetUp]
