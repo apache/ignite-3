@@ -36,6 +36,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -98,18 +99,23 @@ public class WatchProcessor implements ManuallyCloseable {
     /** Meta Storage revision update listeners. */
     private final List<RevisionUpdateListener> revisionUpdateListeners = new CopyOnWriteArrayList<>();
 
+    /** Failure processor that is used to handle critical errors. */
+    private final FailureProcessor failureProcessor;
+
     /**
      * Creates a new instance.
      *
      * @param entryReader Function for reading an entry from the storage using a given key and revision.
      */
-    public WatchProcessor(String nodeName, EntryReader entryReader) {
+    public WatchProcessor(String nodeName, EntryReader entryReader, FailureProcessor failureProcessor) {
         this.entryReader = entryReader;
 
         this.watchExecutor = Executors.newFixedThreadPool(
                 4,
                 IgniteThreadFactory.create(nodeName, "metastorage-watch-executor", LOG, NOTHING_ALLOWED)
         );
+
+        this.failureProcessor = failureProcessor;
     }
 
     /** Adds a watch. */

@@ -15,17 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.impl;
+package org.apache.ignite.internal.failure;
 
-import java.nio.file.Path;
-import org.apache.ignite.internal.failure.NoopFailureProcessor;
-import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
-import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
+import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 
-/** {@link ItMetaStorageMultipleNodesAbstractTest} with {@link RocksDbKeyValueStorage} implementation. */
-public class ItMetaStorageMultipleNodesRocksDbTest extends ItMetaStorageMultipleNodesAbstractTest {
-    @Override
-    public KeyValueStorage createStorage(String nodeName, Path path) {
-        return new RocksDbKeyValueStorage(nodeName, path.resolve("ms"), new NoopFailureProcessor(nodeName));
+/**
+ * This class represents a no-op failure processor.
+ */
+public class NoopFailureProcessor extends FailureProcessor {
+    /**
+     * Creates a new instance of no-op failure processor.
+     *
+     * @param nodeName Name of the node.
+     */
+    public NoopFailureProcessor(String nodeName) {
+        super(nodeName, new NoOpFailureHandler());
+    }
+
+    /**
+     * Creates a new instance of no-op failure processor.
+     */
+    public NoopFailureProcessor() {
+        super("ignored-node-name", new NoOpFailureHandler());
     }
 }

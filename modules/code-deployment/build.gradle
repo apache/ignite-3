@@ -55,4 +55,5 @@ dependencies {
     integrationTestImplementation project(':ignite-configuration')
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-runner'))
+    integrationTestImplementation testFixtures(project(':ignite-failure-handler'))
 }

@@ -44,6 +44,7 @@ import org.apache.ignite.internal.deployunit.metastore.NodeEventCallback;
 import org.apache.ignite.internal.deployunit.metastore.NodeStatusWatchListener;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitNodeStatus;
+import org.apache.ignite.internal.failure.NoopFailureProcessor;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
@@ -92,7 +93,7 @@ public class DeploymentUnitStoreImplTest extends BaseIgniteAbstractTest {
     public void setup() {
         nodeHistory.clear();
         clusterHistory.clear();
-        KeyValueStorage storage = new RocksDbKeyValueStorage("test", workDir);
+        KeyValueStorage storage = new RocksDbKeyValueStorage("test", workDir, new NoopFailureProcessor("test"));
 
         MetaStorageManager metaStorageManager = StandaloneMetaStorageManager.create(storage);
         metastore = new DeploymentUnitStoreImpl(metaStorageManager);
