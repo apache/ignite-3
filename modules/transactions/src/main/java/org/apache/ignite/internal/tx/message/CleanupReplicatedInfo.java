@@ -15,13 +15,34 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.eventlog.event;
+package org.apache.ignite.internal.tx.message;
+
+import java.io.Serializable;
+import java.util.Collection;
+import java.util.UUID;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 
 /**
- * Defines a subset of event types that can be created in the system. Note, the event type is a string that is unique
- * within the system. The event type is used to filter the events in the event log.
+ * The result of a replicated cleanup request.
  */
-public enum IgniteEventTypes {
-    USER_AUTHENTICATED,
-    CONNECTION_CLOSED
+public class CleanupReplicatedInfo implements Serializable {
+
+    private static final long serialVersionUID = -975001033274630774L;
+
+    private final UUID txId;
+
+    private final Collection<TablePartitionId> partitions;
+
+    public CleanupReplicatedInfo(UUID txId, Collection<TablePartitionId> partitions) {
+        this.txId = txId;
+        this.partitions = partitions;
+    }
+
+    public UUID txId() {
+        return txId;
+    }
+
+    public Collection<TablePartitionId> partitions() {
+        return partitions;
+    }
 }

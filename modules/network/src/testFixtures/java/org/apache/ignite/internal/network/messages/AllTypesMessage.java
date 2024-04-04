@@ -28,6 +28,8 @@ import java.util.UUID;
 import org.apache.ignite.internal.lang.IgniteUuid;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
+import org.apache.ignite.internal.tostring.IgniteToStringExclude;
+import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -114,4 +116,12 @@ public interface AllTypesMessage extends NetworkMessage, Serializable {
 
     @Nullable
     ByteBuffer byteBufferZ();
+
+    @IgniteToStringExclude
+    @Nullable
+    String excludedString();
+
+    @IgniteToStringInclude(sensitive = true)
+    @Nullable
+    String sensitiveString();
 }

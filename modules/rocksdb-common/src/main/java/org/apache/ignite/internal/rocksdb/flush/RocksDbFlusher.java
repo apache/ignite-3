@@ -31,6 +31,7 @@ import java.util.function.IntSupplier;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.rocksdb.AbstractEventListener;
 import org.rocksdb.ColumnFamilyHandle;
@@ -88,6 +89,8 @@ public class RocksDbFlusher {
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock;
 
+    private final RocksDbFlushListener flushListener = new RocksDbFlushListener(this);
+
     /**
      * Instance of the latest scheduled flush closure.
      *
@@ -131,7 +134,7 @@ public class RocksDbFlusher {
      * {@link Options#setListeners(List)} before database is started. Otherwise, no events would occur.
      */
     public AbstractEventListener listener() {
-        return new RocksDbFlushListener(this, logSyncer);
+        return flushListener;
     }
 
     /**
@@ -267,7 +270,7 @@ public class RocksDbFlusher {
             future.cancel(false);
         }
 
-        flushOptions.close();
+        RocksUtils.closeAll(flushListener, flushOptions);
     }
 
     /**
@@ -278,5 +281,4 @@ public class RocksDbFlusher {
     CompletableFuture<Void> onFlushCompleted() {
         return CompletableFuture.runAsync(onFlushCompleted, threadPool);
     }
-
 }

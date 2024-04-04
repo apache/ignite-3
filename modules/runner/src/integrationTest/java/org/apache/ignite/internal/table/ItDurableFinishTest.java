@@ -21,6 +21,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -28,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -47,7 +49,11 @@ import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeException;
 import org.apache.ignite.internal.tx.TxMeta;
+import org.apache.ignite.internal.tx.TxStateMeta;
+import org.apache.ignite.internal.tx.message.CleanupReplicatedInfo;
 import org.apache.ignite.internal.tx.message.TxCleanupMessage;
+import org.apache.ignite.internal.tx.message.TxCleanupMessageErrorResponse;
+import org.apache.ignite.internal.tx.message.TxCleanupMessageResponse;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -312,6 +318,53 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
                 null
         );
         storage.put(tx.id(), txMetaToSet);
+    }
+
+
+    @Test
+    void testCleanupReplicatedMessage() throws ExecutionException, InterruptedException {
+        Context context = prepareTransactionData();
+
+        DefaultMessagingService primaryMessaging = messaging(context.primaryNode);
+
+        CompletableFuture<Void> cleanupReplicatedFuture = new CompletableFuture<>();
+
+        primaryMessaging.dropMessages((s, networkMessage) -> {
+            if (networkMessage instanceof TxCleanupMessageResponse) {
+                logger().info("Received message: {}.", networkMessage);
+
+                TxCleanupMessageResponse message = (TxCleanupMessageResponse) networkMessage;
+
+                if (message instanceof TxCleanupMessageErrorResponse) {
+                    TxCleanupMessageErrorResponse error = (TxCleanupMessageErrorResponse) message;
+
+                    logger().error("Cleanup Error: ", error);
+
+                    return false;
+                }
+
+                CleanupReplicatedInfo result = message.result();
+
+                if (result != null) {
+                    cleanupReplicatedFuture.complete(null);
+                }
+            }
+
+            return false;
+        });
+
+        commitAndValidate(context.tx, context.tbl, context.keyTpl);
+
+        assertThat(cleanupReplicatedFuture, willCompleteSuccessfully());
+
+        assertTrue(waitForCondition(
+                () -> {
+                    TxStateMeta stateMeta = context.primaryNode.txManager().stateMeta(context.tx.id());
+
+                    return stateMeta != null && stateMeta.cleanupCompletionTimestamp() != null;
+                },
+                10_000)
+        );
     }
 
     private @Nullable Integer nodeIndex(String name) {

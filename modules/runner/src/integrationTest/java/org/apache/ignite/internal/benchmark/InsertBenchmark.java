@@ -55,7 +55,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
  * Benchmark for insertion operation, comparing KV, JDBC and SQL APIs.
  */
 @State(Scope.Benchmark)
-@Fork(3)
+@Fork(1)
 @Threads(1)
 @Warmup(iterations = 10, time = 2)
 @Measurement(iterations = 20, time = 2)

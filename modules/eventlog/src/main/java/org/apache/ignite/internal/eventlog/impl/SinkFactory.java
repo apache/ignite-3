@@ -15,30 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.eventlog.sink;
+package org.apache.ignite.internal.eventlog.impl;
 
-import java.lang.System.Logger;
-import java.lang.System.Logger.Level;
-import org.apache.ignite.internal.eventlog.api.Event;
+import org.apache.ignite.internal.eventlog.api.Sink;
 import org.apache.ignite.internal.eventlog.config.schema.LogSinkView;
-import org.apache.ignite.internal.eventlog.ser.EventSerializer;
-import org.apache.ignite.internal.eventlog.ser.JsonEventSerializer;
+import org.apache.ignite.internal.eventlog.config.schema.SinkView;
+import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.lang.ErrorGroups.Common;
 
-/** Sink that writes events to the log using any logging framework the user has configured. */
-public class LogSink implements Sink {
-    private final Logger logger;
-    private final EventSerializer serializer;
-    private final String level;
+/**
+ * Factory for creating sink instances.
+ */
+class SinkFactory {
+    /**
+     * Creates a sink instance.
+     *
+     * @param sinkView Sink configuration view.
+     * @return Sink instance.
+     */
+    Sink createSink(SinkView sinkView) {
+        if (sinkView instanceof LogSinkView) {
+            return new LogSink((LogSinkView) sinkView);
+        }
 
-    LogSink(LogSinkView cfg) {
-        this.level = cfg.level();
-        this.logger = System.getLogger(cfg.criteria());
-        this.serializer = new JsonEventSerializer();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void write(Event event) {
-        logger.log(Level.valueOf(level), serializer.serialize(event));
+        throw new IgniteInternalException(Common.INTERNAL_ERR, "Unsupported sink type: " + sinkView.type());
     }
 }

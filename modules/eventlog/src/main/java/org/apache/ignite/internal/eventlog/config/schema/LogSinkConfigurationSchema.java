@@ -27,8 +27,8 @@ public class LogSinkConfigurationSchema extends SinkConfigurationSchema {
     public static final String POLYMORPHIC_ID = "log";
 
     /**
-     * The criteria for the logger. In other words, the name of the logger.
-     * This name should be used to configure the logger in the logging framework.
+     * The criteria for the logger. In other words, the name of the logger. This name should be used to configure the logger in the logging
+     * framework.
      */
     @Value(hasDefault = true)
     public String criteria = "EventLog";
