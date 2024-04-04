@@ -389,6 +389,7 @@ internal static class DataStreamer
         buf.WriteIntBigEndian(batch.Count, batch.CountPos + 1);
 
         // Deleted set.
+        // TODO: This is wrong span, we should preserve deleted set as memory.
         var deletedSet = buf.GetSpan(batch.DeletedSetPos, batch.Items.Length);
         for (var i = 0; i < batch.Items.Length; i++)
         {
