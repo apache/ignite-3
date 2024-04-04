@@ -222,6 +222,7 @@ public class JraftServerImpl implements RaftServer {
         return new StoreOptions();
     }
 
+    /** Returns write-ahead log synchronizer. */
     public LogSyncer getLogSyncer() {
         return logStorageFactory;
     }

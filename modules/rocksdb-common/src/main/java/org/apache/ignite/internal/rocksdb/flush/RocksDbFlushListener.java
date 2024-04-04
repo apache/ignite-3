@@ -46,6 +46,7 @@ class RocksDbFlushListener extends AbstractEventListener {
      */
     private final AtomicReference<EnabledEventCallback> lastEventType = new AtomicReference<>(ON_FLUSH_COMPLETED);
 
+    /** Write-ahead log synchronizer. */
     private final LogSyncer logSyncer;
 
     /**
@@ -57,6 +58,7 @@ class RocksDbFlushListener extends AbstractEventListener {
      * Constructor.
      *
      * @param flusher Flusher instance to delegate events processing to.
+     * @param logSyncer Write-ahead log synchronizer.
      */
     RocksDbFlushListener(RocksDbFlusher flusher, LogSyncer logSyncer) {
         super(ON_FLUSH_BEGIN, ON_FLUSH_COMPLETED);

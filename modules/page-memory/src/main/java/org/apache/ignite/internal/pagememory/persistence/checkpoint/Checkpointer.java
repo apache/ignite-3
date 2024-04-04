@@ -164,7 +164,7 @@ public class Checkpointer extends IgniteWorker {
      * @param filePageStoreManager File page store manager.
      * @param compactor Delta file compactor.
      * @param checkpointConfig Checkpoint configuration.
-     * @param logSyncer write-ahead log synchronizer.
+     * @param logSyncer Write-ahead log synchronizer.
      */
     Checkpointer(
             String igniteInstanceName,

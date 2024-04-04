@@ -97,6 +97,7 @@ public class RocksDbStorageEngine implements StorageEngine {
      * @param nodeName Node name.
      * @param engineConfig RocksDB storage engine configuration.
      * @param storagePath Storage path.
+     * @param logSyncer Write-ahead log synchronizer.
      */
     public RocksDbStorageEngine(String nodeName, RocksDbStorageEngineConfiguration engineConfig, Path storagePath, LogSyncer logSyncer) {
         this.engineConfig = engineConfig;
