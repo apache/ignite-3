@@ -76,7 +76,7 @@ public class ZonePartitionId implements ReplicationGroupId {
         String[] parts = str.split("_part_");
 
         // TODO:
-        return new ZonePartitionId(Integer.valueOf(parts[0]), Integer.valueOf(parts[1]), 0);
+        return new ZonePartitionId(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]), 0);
     }
 
     @Override

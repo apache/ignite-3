@@ -189,7 +189,7 @@ public class ChangeIndexStatusTaskControllerTest extends BaseIgniteAbstractTest 
     }
 
     private void setPrimaryReplica(ClusterNode clusterNode) {
-        ZonePartitionId zonePartId = new ZonePartitionId(0,0, tableId());
+        ZonePartitionId zonePartId = new ZonePartitionId(0, 0, tableId());
 
         TablePartitionId tablePartId = new TablePartitionId(tableId(), 0);
 
