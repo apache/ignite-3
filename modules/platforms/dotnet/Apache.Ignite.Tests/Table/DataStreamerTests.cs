@@ -37,7 +37,10 @@ public class DataStreamerTests : IgniteTestsBase
     private const int Count = 100;
 
     private const int UpdatedKey = Count / 2;
+
     private const int DeletedKey = Count + 1;
+
+    private static int _unknownKey = 333000;
 
     [SetUp]
     public async Task PrepareData()
@@ -210,7 +213,7 @@ public class DataStreamerTests : IgniteTestsBase
         [Values(true, false)] bool existingMinKey)
     {
         // TODO: Bug in PartitionReplicaListener - when we delete recently created row, the delete op is ignored - we should check newKeyMap
-        var minKey = existingMinKey ? UpdatedKey : 33000;
+        var minKey = existingMinKey ? UpdatedKey : Interlocked.Add(ref _unknownKey, 10);
         await Table.GetRecordView<Poco>().StreamDataAsync(
             GetData(),
             DataStreamerOptions.Default with { PageSize = pageSize });
