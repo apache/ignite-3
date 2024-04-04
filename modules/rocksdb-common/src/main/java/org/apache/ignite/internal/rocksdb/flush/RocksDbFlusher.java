@@ -89,7 +89,7 @@ public class RocksDbFlusher {
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock;
 
-    private final RocksDbFlushListener flushListener = new RocksDbFlushListener(this);
+    private final RocksDbFlushListener flushListener;
 
     /**
      * Instance of the latest scheduled flush closure.
@@ -127,6 +127,7 @@ public class RocksDbFlusher {
         this.delaySupplier = delaySupplier;
         this.logSyncer = logSyncer;
         this.onFlushCompleted = onFlushCompleted;
+        this.flushListener = new RocksDbFlushListener(this, logSyncer);
     }
 
     /**
@@ -182,8 +183,8 @@ public class RocksDbFlusher {
      * enabled.
      *
      * @param schedule {@code true} if {@link RocksDB#flush(FlushOptions)} should be explicitly triggerred in the near future. Please refer
-     *      to {@link RocksDbFlusher#RocksDbFlusher(IgniteSpinBusyLock, ScheduledExecutorService, ExecutorService, IntSupplier, Runnable)}
-     *      parameters description to see what's really happening in this case.
+     *      to {@link RocksDbFlusher#RocksDbFlusher(IgniteSpinBusyLock, ScheduledExecutorService, ExecutorService, IntSupplier, LogSyncer,
+     *      Runnable)} parameters description to see what's really happening in this case.
      *
      * @see #scheduleFlush()
      */
