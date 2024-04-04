@@ -39,6 +39,8 @@ public class VolatileTxStateMetaStorage {
     /** The local map for tx states. */
     private ConcurrentHashMap<UUID, TxStateMeta> txStateMap;
 
+    private final PersistentTxStateVacuumizer persistentTxStateVacuumizer = new PersistentTxStateVacuumizer();
+
     /**
      * Starts the storage.
      */
@@ -129,10 +131,14 @@ public class VolatileTxStateMetaStorage {
         txStateMap.forEach((txId, meta) -> {
             txStateMap.computeIfPresent(txId, (txId0, meta0) -> {
                 if (TxState.isFinalState(meta0.txState())) {
+                    Long initialVacuumObservationTimestamp = meta0.initialVacuumObservationTimestamp();
+                    Long cleanupCompletionTimestamp = meta0.cleanupCompletionTimestamp();
+                    long
+
                     if (txnResourceTtl == 0) {
                         vacuumizedTxnsCount.incrementAndGet();
                         return null;
-                    } else if (meta0.initialVacuumObservationTimestamp() == null) {
+                    } else if (initialVacuumObservationTimestamp == null) {
                         markedAsInitiallyDetectedTxnsCount.incrementAndGet();
                         return new TxStateMeta(
                                 meta0.txState(),
@@ -141,8 +147,11 @@ public class VolatileTxStateMetaStorage {
                                 meta0.commitTimestamp(),
                                 vacuumObservationTimestamp
                         );
-                    } else if (meta0.initialVacuumObservationTimestamp() + txnResourceTtl < vacuumObservationTimestamp) {
+                    } else if (initialVacuumObservationTimestamp + txnResourceTtl < vacuumObservationTimestamp) {
                         vacuumizedTxnsCount.incrementAndGet();
+
+                        persistentTxStateVacuumizer.vacuumPersistentTxState(txId, meta0.commitPartitionId());
+
                         return null;
                     } else {
                         alreadyMarkedTxnsCount.incrementAndGet();

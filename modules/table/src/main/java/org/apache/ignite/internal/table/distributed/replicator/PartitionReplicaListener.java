@@ -488,7 +488,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                         new HybridTimestampTracker(),
                         replicationGroupId,
                         false,
-                        // term is not required for the rollback.
+                        // Enlistment consistency token is not required for the rollback, so it is 0L.
                         Map.of(replicationGroupId, new IgniteBiTuple<>(clusterNodeResolver.getById(senderId), 0L)),
                         txId
                 )

@@ -128,7 +128,7 @@ public interface TxManager extends IgniteComponent {
      *         should pass its own tracker to provide linearizability between read-write and read-only transactions started by this client.
      * @param commitPartition Partition to store a transaction state.
      * @param commit {@code true} if a commit requested.
-     * @param enlistedGroups Enlisted partition groups with consistency token.
+     * @param enlistedGroups Enlisted partition groups with consistency tokens.
      * @param txId Transaction id.
      */
     CompletableFuture<Void> finish(

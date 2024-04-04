@@ -666,7 +666,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                             new TxStateMeta(
                                     txResult.transactionState(),
                                     localNodeId,
-                                    old.commitPartitionId(),
+                                    commitPartition,
                                     txResult.commitTimestamp()
                             ));
 

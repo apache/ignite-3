@@ -54,6 +54,7 @@ import org.apache.ignite.internal.raft.service.BeforeApplyHandler;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.CommittedConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
@@ -390,7 +391,10 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                 commandTerm
         );
 
-        markFinished(txId, cmd.commit(), cmd.commitTimestamp());
+        // Assume that we handle the finish command only on the commit partition.
+        TablePartitionId commitPartitionId = new TablePartitionId(storage.tableId(), storage.partitionId());
+
+        markFinished(txId, cmd.commit(), cmd.commitTimestamp(), commitPartitionId);
 
         LOG.debug("Finish the transaction txId = {}, state = {}, txStateChangeRes = {}", txId, txMetaToSet, txStateChangeRes);
 
@@ -417,7 +421,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
         UUID txId = cmd.txId();
 
-        markFinished(txId, cmd.commit(), cmd.commitTimestamp());
+        markFinished(txId, cmd.commit(), cmd.commitTimestamp(), null);
 
         storageUpdateHandler.switchWriteIntents(
                 txId,
@@ -675,11 +679,11 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         ));
     }
 
-    private void markFinished(UUID txId, boolean commit, @Nullable HybridTimestamp commitTimestamp) {
+    private void markFinished(UUID txId, boolean commit, @Nullable HybridTimestamp commitTimestamp, @Nullable TablePartitionId partId) {
         txManager.updateTxMeta(txId, old -> new TxStateMeta(
                 commit ? COMMITTED : ABORTED,
                 old == null ? null : old.txCoordinatorId(),
-                old == null ? null : old.commitPartitionId(),
+                old == null ? partId : old.commitPartitionId(),
                 commit ? commitTimestamp : null
         ));
     }
