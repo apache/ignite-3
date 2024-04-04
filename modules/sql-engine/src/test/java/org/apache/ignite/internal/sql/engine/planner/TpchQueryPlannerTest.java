@@ -38,6 +38,7 @@ import org.junit.jupiter.api.Test;
  *
  * @see org.apache.ignite.internal.sql.engine.benchmarks.TpchParseBenchmark
  */
+// TODO https://issues.apache.org/jira/browse/IGNITE-21986 validate other query plans and make test parameterized.
 public class TpchQueryPlannerTest extends AbstractPlannerTest {
     private static TestCluster CLUSTER;
 
@@ -57,7 +58,6 @@ public class TpchQueryPlannerTest extends AbstractPlannerTest {
         CLUSTER = null;
     }
 
-    // TODO: validate other query plans and make test parameterized.
     @Test
     public void tpchTest_q1() {
         validateQueryPlan("1");
