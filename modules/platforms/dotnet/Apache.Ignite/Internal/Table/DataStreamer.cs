@@ -361,18 +361,18 @@ internal static class DataStreamer
     {
         var buf = batch.Buffer;
 
-        WriteBatchHeader(buf, partitionId, schema, maxBatchSize: batch.Items.Length);
+        WriteBatchHeader(buf, partitionId, schema, deletedSetReserveSize: batch.Items.Length);
 
         batch.CountPos = buf.Position;
         buf.Advance(5); // Reserve count.
     }
 
-    private static void WriteBatchHeader(PooledArrayBuffer buf, int partitionId, Schema schema, int maxBatchSize)
+    private static void WriteBatchHeader(PooledArrayBuffer buf, int partitionId, Schema schema, int deletedSetReserveSize)
     {
         var w = buf.MessageWriter;
 
         // Reserve space for deleted set - we don't know if we need it or not.
-        w.WriteBitSet(maxBatchSize);
+        w.WriteBitSet(deletedSetReserveSize);
         buf.Offset = buf.Position;
 
         // Write header.
@@ -411,24 +411,47 @@ internal static class DataStreamer
     {
         buf.Reset();
 
-        // TODO: If there are no deleted items, write null bit set.
-        WriteBatchHeader(buf, partitionId, schema, items.Length);
-
         var w = buf.MessageWriter;
+        w.Write(schema.TableId);
+        w.Write(partitionId);
+
+        if (HasDeletedItems(items))
+        {
+            var deletedSet = w.WriteBitSet(items.Length);
+
+            for (var i = 0; i < items.Length; i++)
+            {
+                if (items[i].OperationType == DataStreamerOperationType.Remove)
+                {
+                    deletedSet.SetBit(i);
+                }
+            }
+        }
+        else
+        {
+            w.WriteNil();
+        }
+
+        w.Write(schema.Version);
         w.Write(items.Length);
 
-        for (var i = 0; i < items.Length; i++)
+        foreach (var item in items)
         {
-            var item = items[i];
-
             var remove = item.OperationType == DataStreamerOperationType.Remove;
-            if (remove)
+            writer.Handler.Write(ref w, schema, item.Data, keyOnly: remove, computeHash: false);
+        }
+
+        static bool HasDeletedItems(ReadOnlySpan<DataStreamerItem<T>> items)
+        {
+            foreach (var t in items)
             {
-                // TODO
-                // deletedSet.SetBit(i);
+                if (t.OperationType == DataStreamerOperationType.Remove)
+                {
+                    return true;
+                }
             }
 
-            writer.Handler.Write(ref w, schema, item.Data, keyOnly: remove, computeHash: false);
+            return false;
         }
     }
 
