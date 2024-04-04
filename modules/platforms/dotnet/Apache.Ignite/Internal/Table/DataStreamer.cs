@@ -183,7 +183,7 @@ internal static class DataStreamer
             Span<byte> noValueSetRef = MemoryMarshal.CreateSpan(ref MemoryMarshal.GetReference(noValueSet), columnCount);
 
             var keyOnly = item.OperationType == DataStreamerOperationType.Remove;
-            writer.Handler.Write(ref tupleBuilder, item.Item, schema0, keyOnly: keyOnly, noValueSetRef);
+            writer.Handler.Write(ref tupleBuilder, item.Data, schema0, keyOnly: keyOnly, noValueSetRef);
 
             var partitionId = Math.Abs(tupleBuilder.GetHash() % partitionCount);
             var batch = GetOrCreateBatch(partitionId);
@@ -324,7 +324,7 @@ internal static class DataStreamer
             finally
             {
                 buf.Dispose();
-                ArrayPool<T>.Shared.Return(items);
+                GetPool<T>().Return(items);
 
                 Metrics.StreamerItemsQueuedDecrement(count);
                 Metrics.StreamerBatchesActiveDecrement();
@@ -384,7 +384,7 @@ internal static class DataStreamer
         PooledArrayBuffer buf,
         int partitionId,
         Schema schema,
-        ReadOnlySpan<T> items,
+        ReadOnlySpan<DataStreamerItem<T>> items,
         RecordSerializer<T> writer)
     {
         buf.Reset();
@@ -395,7 +395,8 @@ internal static class DataStreamer
 
         foreach (var item in items)
         {
-            writer.Handler.Write(ref w, schema, item, keyOnly: false, computeHash: false);
+            var keyOnly = item.OperationType == DataStreamerOperationType.Remove;
+            writer.Handler.Write(ref w, schema, item.Data, keyOnly, computeHash: false);
         }
     }
 

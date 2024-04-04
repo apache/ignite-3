@@ -20,7 +20,25 @@ namespace Apache.Ignite.Table;
 /// <summary>
 /// Data streamer item.
 /// </summary>
-/// <param name="Item">Data item.</param>
+/// <param name="Data">Data item.</param>
 /// <param name="OperationType">Operation type.</param>
 /// <typeparam name="T">Data type.</typeparam>
-public record struct DataStreamerItem<T>(T Item, DataStreamerOperationType OperationType = DataStreamerOperationType.Put);
+public record struct DataStreamerItem<T>(
+    T Data,
+    DataStreamerOperationType OperationType);
+
+/// <summary>
+/// Creates instances of the <see cref="DataStreamerItem{T}"/> struct.
+/// </summary>
+public static class DataStreamerItem
+{
+    /// <summary>
+    /// Creates a new data streamer item instance using provided values.
+    /// </summary>
+    /// <param name="data">Data.</param>
+    /// <param name="operationType">Operation type.</param>
+    /// <typeparam name="T">Data type.</typeparam>
+    /// <returns>Data streamer item.</returns>
+    public static DataStreamerItem<T> Create<T>(T data, DataStreamerOperationType operationType = DataStreamerOperationType.Put) =>
+        new(data, operationType);
+}
