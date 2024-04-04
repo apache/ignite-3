@@ -91,7 +91,7 @@ public class TxStateRocksDbSharedStorage implements ManuallyCloseable {
     private final IntSupplier flushDelaySupplier;
 
     /** Write-ahead log synchronizer. */
-     private final LogSyncer logSyncer;
+    private final LogSyncer logSyncer;
 
     /**
      * Constructor.
