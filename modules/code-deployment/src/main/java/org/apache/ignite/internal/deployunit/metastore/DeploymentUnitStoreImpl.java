@@ -227,7 +227,7 @@ public class DeploymentUnitStoreImpl implements DeploymentUnitStore {
 
         return metaStorage.get(key).thenCompose(e -> {
             UnitNodeStatus prev = UnitNodeStatus.deserialize(e.value());
-            if (prev.opId() != opId) {
+            if (prev.opId() != -1 && prev.opId() != opId) {
                 return falseCompletedFuture();
             }
 

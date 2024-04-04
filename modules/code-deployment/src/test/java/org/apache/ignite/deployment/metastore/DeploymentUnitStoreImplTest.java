@@ -148,18 +148,24 @@ public class DeploymentUnitStoreImplTest extends BaseIgniteAbstractTest {
         String id = "id1";
         Version version = Version.parseVersion("1.1.1");
 
-        CompletableFuture<UnitClusterStatus> clusterStatusFuture = metastore.createClusterStatus(id, version, Set.of());
-        assertThat(clusterStatusFuture, willCompleteSuccessfully());
+        CompletableFuture<UnitClusterStatus> clusterStatusFuture1 = metastore.createClusterStatus(id, version, Set.of());
+        assertThat(clusterStatusFuture1, willCompleteSuccessfully());
 
-        long opId = clusterStatusFuture.join().opId();
+        long opId1 = clusterStatusFuture1.join().opId();
 
-        assertThat(metastore.removeClusterStatus(id, version, opId), willBe(true));
+        assertThat(metastore.removeClusterStatus(id, version, opId1), willBe(true));
 
         // Create new cluster status with the same id and version
-        assertThat(metastore.createClusterStatus(id, version, Set.of()), willCompleteSuccessfully());
+        CompletableFuture<UnitClusterStatus> clusterStatusFuture2 = metastore.createClusterStatus(id, version, Set.of());
+        assertThat(clusterStatusFuture2, willCompleteSuccessfully());
+
+        long opId2 = clusterStatusFuture2.join().opId();
 
         // Remove with the initial operation ID should fail
-        assertThat(metastore.removeClusterStatus(id, version, opId), willBe(false));
+        assertThat(metastore.removeClusterStatus(id, version, opId1), willBe(false));
+
+        // Remove with the correct operation ID should succeed
+        assertThat(metastore.removeClusterStatus(id, version, opId2), willBe(true));
     }
 
     @Test
@@ -180,6 +186,9 @@ public class DeploymentUnitStoreImplTest extends BaseIgniteAbstractTest {
 
         // Remove with the initial operation ID should fail
         assertThat(metastore.removeNodeStatus(node1, id, version, opId1), willBe(false));
+
+        // Remove with the correct operation ID should succeed
+        assertThat(metastore.removeNodeStatus(node1, id, version, opId2), willBe(true));
     }
 
     @Test
