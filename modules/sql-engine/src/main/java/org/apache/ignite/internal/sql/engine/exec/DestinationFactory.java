@@ -92,9 +92,9 @@ class DestinationFactory<RowT> {
                     return new Identity<>(rowHandler, keys.get(0), group.nodeNames());
                 }
 
-                assert !nullOrEmpty(group.assignments()) && !nullOrEmpty(keys);
-
                 if (function.affinity()) {
+                    assert !nullOrEmpty(group.assignments()) && !nullOrEmpty(keys);
+
                     int tableId = ((AffinityDistribution) function).tableId();
                     Supplier<PartitionCalculator> calculator = dependencies.partitionCalculator(tableId);
                     TableDescriptor tableDescriptor = dependencies.tableDescriptor(tableId);
