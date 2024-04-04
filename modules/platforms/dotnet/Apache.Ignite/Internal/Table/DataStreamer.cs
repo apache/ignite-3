@@ -390,12 +390,16 @@ internal static class DataStreamer
         if (HasDeletedItems<T>(batch.Items.AsSpan(0, batch.Count)))
         {
             // Re-write entire header with the deleted set.
-            buf.Offset = 0;
+            // Skip one byte used for null bit set before.
+            var oldPos = buf.Position;
+            buf.Offset = 1;
+            buf.Position = 1;
+
             var w = buf.MessageWriter;
             w.Write(batch.Schema.TableId);
             w.Write(batch.PartitionId);
 
-            var deletedSet = w.WriteBitSet(batch.Count);
+            var deletedSet = w.WriteBitSet(batch.Items.Length);
 
             for (var i = 0; i < batch.Count; i++)
             {
@@ -409,6 +413,7 @@ internal static class DataStreamer
 
             // Count position should not change - we only rearrange the header above it.
             Debug.Assert(buf.Position == batch.CountPos, $"buf.Position = {buf.Position}, batch.CountPos = {batch.CountPos}");
+            buf.Position = oldPos;
         }
 
         // Update count.

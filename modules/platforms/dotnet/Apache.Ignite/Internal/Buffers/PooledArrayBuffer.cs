@@ -60,9 +60,19 @@ namespace Apache.Ignite.Internal.Buffers
         public MsgPackWriter MessageWriter => new(this);
 
         /// <summary>
-        /// Gets the current position.
+        /// Gets or sets the current position.
         /// </summary>
-        public int Position => _index - _prefixSize;
+        public int Position
+        {
+            get => _index - _prefixSize;
+            set
+            {
+                Debug.Assert(value >= 0, "value >= 0");
+                Debug.Assert(value <= _buffer.Length - _prefixSize, "value <= _buffer.Length - _prefixSize");
+
+                _index = value + _prefixSize;
+            }
+        }
 
         /// <summary>
         /// Gets or sets the data offset from the start of the buffer.
