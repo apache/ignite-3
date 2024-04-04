@@ -76,6 +76,7 @@ public class SharedRocksDbInstanceCreator {
                     engine.scheduledPool(),
                     engine.threadPool(),
                     engine.configuration().flushDelayMillis()::value,
+                    engine.logSyncer(),
                     () -> {} // No-op.
             );
 

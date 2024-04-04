@@ -24,10 +24,12 @@ import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.nullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.storage.AbstractMvTableStorageTest;
@@ -57,7 +59,7 @@ public class RocksDbMvTableStorageTest extends AbstractMvTableStorageTest {
             @InjectConfiguration("mock {flushDelayMillis = 0, defaultRegion {size = 16536, writeBufferSize = 16536}}")
             RocksDbStorageEngineConfiguration rocksDbEngineConfig
     ) {
-        engine = new RocksDbStorageEngine("test", rocksDbEngineConfig, workDir);
+        engine = new RocksDbStorageEngine("test", rocksDbEngineConfig, workDir, mock(LogSyncer.class));
 
         engine.start();
 

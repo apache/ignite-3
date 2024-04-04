@@ -570,6 +570,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 storagePath.resolve(TX_STATE_DIR),
                 txStateStorageScheduledPool,
                 txStateStoragePool,
+                raftMgr.getLogSyncer(),
                 TX_STATE_STORAGE_FLUSH_DELAY_SUPPLIER
         );
 

@@ -54,7 +54,8 @@ public class PersistentPageMemoryStorageEngineTest extends AbstractStorageEngine
                 ioRegistry,
                 workDir,
                 null,
-                mock(FailureProcessor.class)
+                mock(FailureProcessor.class),
+                logSyncer
         );
     }
 }

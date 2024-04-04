@@ -47,6 +47,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.util.Cursor;
@@ -58,7 +59,7 @@ import org.junit.jupiter.api.function.Executable;
 /**
  * Abstract tx storage test.
  */
-public abstract class AbstractTxStateStorageTest {
+public abstract class AbstractTxStateStorageTest extends BaseIgniteAbstractTest {
     protected static final int TABLE_ID = 1;
 
     protected TxStateTableStorage tableStorage;
