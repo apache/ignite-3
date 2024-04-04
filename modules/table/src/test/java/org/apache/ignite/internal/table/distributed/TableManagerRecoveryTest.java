@@ -267,6 +267,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         when(raftGrpSrvcMock.leader()).thenReturn(new Peer("node0"));
         when(rm.startRaftGroupService(any(), any(), any(), any())).thenAnswer(mock -> completedFuture(raftGrpSrvcMock));
 
+        when(rm.getLogSyncer()).thenReturn(mock(LogSyncer.class));
         when(clusterService.messagingService()).thenReturn(mock(MessagingService.class));
         when(clusterService.topologyService()).thenReturn(topologyService);
         when(topologyService.localMember()).thenReturn(node);

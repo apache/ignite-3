@@ -122,7 +122,8 @@ public class RocksDbFlusher {
         this.busyLock = busyLock;
         this.scheduledPool = scheduledPool;
         this.threadPool = threadPool;
-        this.delaySupplier = delaySupplier;this.onFlushCompleted = onFlushCompleted;
+        this.delaySupplier = delaySupplier;
+        this.onFlushCompleted = onFlushCompleted;
         this.flushListener = new RocksDbFlushListener(this, logSyncer);
     }
 
