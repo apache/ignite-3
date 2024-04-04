@@ -244,13 +244,8 @@ internal static class DataStreamer
                     return;
                 }
 
-                var buf = batch.Buffer;
-
-                // See RecordSerializer.WriteMultiple.
-                buf.WriteByte(MsgPackCode.Int32, batch.CountPos);
-                buf.WriteIntBigEndian(batch.Count, batch.CountPos + 1);
-
-                batch.Task = SendAndDisposeBufAsync(buf, partitionId, batch.Task, batch.Items, batch.Count, batch.SchemaOutdated);
+                FinalizeBatchHeader(batch);
+                batch.Task = SendAndDisposeBufAsync(batch.Buffer, partitionId, batch.Task, batch.Items, batch.Count, batch.SchemaOutdated);
 
                 batch.Items = GetPool<T>().Rent(options.PageSize);
                 batch.Count = 0;
@@ -365,19 +360,43 @@ internal static class DataStreamer
     private static void InitBuffer<T>(Batch<T> batch, int partitionId, Schema schema)
     {
         var buf = batch.Buffer;
-        WriteBatchHeader(buf, partitionId, schema);
+
+        batch.DeletedSetPos = WriteBatchHeader(buf, partitionId, schema, maxBatchSize: batch.Items.Length);
 
         batch.CountPos = buf.Position;
         buf.Advance(5); // Reserve count.
     }
 
-    private static void WriteBatchHeader(PooledArrayBuffer buf, int partitionId, Schema schema)
+    private static int WriteBatchHeader(PooledArrayBuffer buf, int partitionId, Schema schema, int maxBatchSize)
     {
         var w = buf.MessageWriter;
         w.Write(schema.TableId);
         w.Write(partitionId);
-        w.WriteNil(); // Deleted rows bit set.
+
+        var deletedSetPos = buf.Position;
+        w.WriteBitSet(maxBatchSize);
         w.Write(schema.Version);
+
+        return deletedSetPos;
+    }
+
+    private static void FinalizeBatchHeader<T>(Batch<T> batch)
+    {
+        var buf = batch.Buffer;
+
+        // Actual count.
+        buf.WriteByte(MsgPackCode.Int32, batch.CountPos);
+        buf.WriteIntBigEndian(batch.Count, batch.CountPos + 1);
+
+        // Deleted set.
+        var deletedSet = buf.GetSpan(batch.DeletedSetPos, batch.Items.Length);
+        for (var i = 0; i < batch.Items.Length; i++)
+        {
+            if (batch.Items[i].OperationType == DataStreamerOperationType.Remove)
+            {
+                deletedSet.SetBit(i);
+            }
+        }
     }
 
     private static void ReWriteBatch<T>(
@@ -388,15 +407,25 @@ internal static class DataStreamer
         RecordSerializer<T> writer)
     {
         buf.Reset();
-        WriteBatchHeader(buf, partitionId, schema);
+
+        // TODO: If there are no deleted items, write null bit set.
+        var deletedSetPos = WriteBatchHeader(buf, partitionId, schema, items.Length);
+        var deletedSet = buf.GetSpan(deletedSetPos, items.Length);
 
         var w = buf.MessageWriter;
         w.Write(items.Length);
 
-        foreach (var item in items)
+        for (var i = 0; i < items.Length; i++)
         {
-            var keyOnly = item.OperationType == DataStreamerOperationType.Remove;
-            writer.Handler.Write(ref w, schema, item.Data, keyOnly, computeHash: false);
+            var item = items[i];
+
+            var remove = item.OperationType == DataStreamerOperationType.Remove;
+            if (remove)
+            {
+                deletedSet.SetBit(i);
+            }
+
+            writer.Handler.Write(ref w, schema, item.Data, keyOnly: remove, computeHash: false);
         }
     }
 
@@ -443,6 +472,8 @@ internal static class DataStreamer
         public int Count { get; set; }
 
         public int CountPos { get; set; }
+
+        public int DeletedSetPos { get; set; }
 
         public Task Task { get; set; } = Task.CompletedTask; // Task for the previous buffer.
 
