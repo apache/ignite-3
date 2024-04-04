@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.deployunit.DeploymentStatus.REMOVING;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.UPLOADING;
 
 import java.util.Objects;
+import java.util.UUID;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
@@ -126,7 +127,7 @@ public class DeploymentUnitFailover {
         }
     }
 
-    private void undeploy(String id, Version version, long opId) {
+    private void undeploy(String id, Version version, UUID opId) {
         deployer.undeploy(id, version)
                 .thenAccept(success -> {
                     if (success) {
@@ -138,8 +139,8 @@ public class DeploymentUnitFailover {
     private boolean checkAbaProblem(UnitClusterStatus clusterStatus, UnitNodeStatus nodeStatus) {
         String id = nodeStatus.id();
         Version version = nodeStatus.version();
-        long opId = nodeStatus.opId();
-        if (clusterStatus.opId() != opId) {
+        UUID opId = nodeStatus.opId();
+        if (!Objects.equals(clusterStatus.opId(), opId)) {
             if (nodeStatus.status() == DEPLOYED) {
                 undeploy(id, version, opId);
             } else {

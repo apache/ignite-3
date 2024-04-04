@@ -20,6 +20,7 @@ package org.apache.ignite.internal.deployunit.metastore;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.REMOVING;
 
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -70,7 +71,7 @@ public class ClusterEventCallbackImpl extends ClusterEventCallback {
         });
     }
 
-    private void undeploy(String id, Version version, long opId) {
+    private void undeploy(String id, Version version, UUID opId) {
         deployerService.undeploy(id, version).thenAccept(success -> {
             if (success) {
                 deploymentUnitStore.removeNodeStatus(nodeName, id, version, opId).thenAccept(successRemove -> {
@@ -82,7 +83,7 @@ public class ClusterEventCallbackImpl extends ClusterEventCallback {
         });
     }
 
-    private void removeClusterStatus(String id, Version version, long opId) {
+    private void removeClusterStatus(String id, Version version, UUID opId) {
         cmgManager.logicalTopology().thenAccept(logicalTopology -> {
             Set<String> logicalNodes = logicalTopology.nodes().stream()
                     .map(LogicalNode::name)

@@ -34,6 +34,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.deployunit.metastore.ClusterEventCallback;
@@ -129,7 +130,7 @@ public class DeploymentUnitStoreImplTest extends BaseIgniteAbstractTest {
         assertThat(clusterStatusFuture, willCompleteSuccessfully());
 
         UnitClusterStatus clusterStatus = clusterStatusFuture.get();
-        long opId = clusterStatus.opId();
+        UUID opId = clusterStatus.opId();
 
         assertThat(metastore.getClusterStatus(id, version),
                 willBe(new UnitClusterStatus(id, version, UPLOADING, opId, Set.of())));
@@ -151,7 +152,7 @@ public class DeploymentUnitStoreImplTest extends BaseIgniteAbstractTest {
         CompletableFuture<UnitClusterStatus> clusterStatusFuture1 = metastore.createClusterStatus(id, version, Set.of());
         assertThat(clusterStatusFuture1, willCompleteSuccessfully());
 
-        long opId1 = clusterStatusFuture1.join().opId();
+        UUID opId1 = clusterStatusFuture1.join().opId();
 
         assertThat(metastore.removeClusterStatus(id, version, opId1), willBe(true));
 
@@ -159,7 +160,7 @@ public class DeploymentUnitStoreImplTest extends BaseIgniteAbstractTest {
         CompletableFuture<UnitClusterStatus> clusterStatusFuture2 = metastore.createClusterStatus(id, version, Set.of());
         assertThat(clusterStatusFuture2, willCompleteSuccessfully());
 
-        long opId2 = clusterStatusFuture2.join().opId();
+        UUID opId2 = clusterStatusFuture2.join().opId();
 
         // Remove with the initial operation ID should fail
         assertThat(metastore.removeClusterStatus(id, version, opId1), willBe(false));
@@ -174,8 +175,8 @@ public class DeploymentUnitStoreImplTest extends BaseIgniteAbstractTest {
         Version version = Version.parseVersion("1.1.1");
         String node1 = "node1";
 
-        long opId1 = 0;
-        long opId2 = 1;
+        UUID opId1 = UUID.randomUUID();
+        UUID opId2 = UUID.randomUUID();
 
         assertThat(metastore.createNodeStatus(node1, id, version, opId1, UPLOADING), willBe(true));
 
@@ -204,7 +205,7 @@ public class DeploymentUnitStoreImplTest extends BaseIgniteAbstractTest {
         assertThat(clusterStatusFuture, willCompleteSuccessfully());
 
         UnitClusterStatus clusterStatus = clusterStatusFuture.get();
-        long opId = clusterStatus.opId();
+        UUID opId = clusterStatus.opId();
 
         assertThat(metastore.getClusterStatus(id, version),
                 willBe(new UnitClusterStatus(id, version, UPLOADING, opId, Set.of(node1, node2, node3))));
@@ -245,17 +246,18 @@ public class DeploymentUnitStoreImplTest extends BaseIgniteAbstractTest {
         Version version = Version.parseVersion("1.1.1");
         String node1 = LOCAL_NODE;
 
-        assertThat(metastore.createNodeStatus(node1, id, version, 0, UPLOADING), willBe(true));
+        UUID opId = UUID.randomUUID();
+        assertThat(metastore.createNodeStatus(node1, id, version, opId, UPLOADING), willBe(true));
         assertThat(metastore.updateNodeStatus(node1, id, version, DEPLOYED), willBe(true));
         assertThat(metastore.updateNodeStatus(node1, id, version, OBSOLETE), willBe(true));
         assertThat(metastore.updateNodeStatus(node1, id, version, REMOVING), willBe(true));
 
         await().untilAsserted(() ->
                 assertThat(nodeHistory, containsInAnyOrder(
-                        new UnitNodeStatus(id, version, UPLOADING, 0, node1),
-                        new UnitNodeStatus(id, version, DEPLOYED, 0, node1),
-                        new UnitNodeStatus(id, version, OBSOLETE, 0, node1),
-                        new UnitNodeStatus(id, version, REMOVING, 0, node1)
+                        new UnitNodeStatus(id, version, UPLOADING, opId, node1),
+                        new UnitNodeStatus(id, version, DEPLOYED, opId, node1),
+                        new UnitNodeStatus(id, version, OBSOLETE, opId, node1),
+                        new UnitNodeStatus(id, version, REMOVING, opId, node1)
                 )));
     }
 
@@ -268,7 +270,7 @@ public class DeploymentUnitStoreImplTest extends BaseIgniteAbstractTest {
         assertThat(clusterStatusFuture, willCompleteSuccessfully());
 
         UnitClusterStatus clusterStatus = clusterStatusFuture.get();
-        long opId = clusterStatus.opId();
+        UUID opId = clusterStatus.opId();
 
         assertThat(metastore.updateClusterStatus(id, version, DEPLOYED), willBe(true));
         assertThat(metastore.updateClusterStatus(id, version, OBSOLETE), willBe(true));

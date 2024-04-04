@@ -31,6 +31,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedF
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -43,6 +44,8 @@ import org.apache.ignite.internal.deployunit.metastore.status.NodeStatusKey;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitClusterStatus;
 import org.apache.ignite.internal.deployunit.metastore.status.UnitNodeStatus;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 
 /**
@@ -50,6 +53,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
  */
 public class DeploymentUnitStoreImpl implements DeploymentUnitStore {
     private final MetaStorageManager metaStorage;
+    private final IgniteLogger LOG = Loggers.forClass(DeploymentUnitStoreImpl.class);
 
     /**
      * Constructor.
@@ -142,8 +146,8 @@ public class DeploymentUnitStoreImpl implements DeploymentUnitStore {
     @Override
     public CompletableFuture<UnitClusterStatus> createClusterStatus(String id, Version version, Set<String> nodes) {
         ByteArray key = ClusterStatusKey.builder().id(id).version(version).build().toByteArray();
-        long revision = metaStorage.appliedRevision();
-        UnitClusterStatus clusterStatus = new UnitClusterStatus(id, version, UPLOADING, revision, nodes);
+        UUID operationId = UUID.randomUUID();
+        UnitClusterStatus clusterStatus = new UnitClusterStatus(id, version, UPLOADING, operationId, nodes);
         byte[] value = UnitClusterStatus.serialize(clusterStatus);
 
         return metaStorage.invoke(notExists(key), put(key, value), noop())
@@ -155,7 +159,7 @@ public class DeploymentUnitStoreImpl implements DeploymentUnitStore {
             String nodeId,
             String id,
             Version version,
-            long opId,
+            UUID opId,
             DeploymentStatus status
     ) {
         ByteArray key = NodeStatusKey.builder().id(id).version(version).nodeId(nodeId).build().toByteArray();
@@ -208,12 +212,12 @@ public class DeploymentUnitStoreImpl implements DeploymentUnitStore {
     }
 
     @Override
-    public CompletableFuture<Boolean> removeClusterStatus(String id, Version version, long opId) {
+    public CompletableFuture<Boolean> removeClusterStatus(String id, Version version, UUID opId) {
         ByteArray key = ClusterStatusKey.builder().id(id).version(version).build().toByteArray();
 
         return metaStorage.get(key).thenCompose(e -> {
             UnitClusterStatus prev = UnitClusterStatus.deserialize(e.value());
-            if (prev.opId() != -1 && prev.opId() != opId) {
+            if (!Objects.equals(prev.opId(), opId)) {
                 return falseCompletedFuture();
             }
 
@@ -222,12 +226,12 @@ public class DeploymentUnitStoreImpl implements DeploymentUnitStore {
     }
 
     @Override
-    public CompletableFuture<Boolean> removeNodeStatus(String nodeId, String id, Version version, long opId) {
+    public CompletableFuture<Boolean> removeNodeStatus(String nodeId, String id, Version version, UUID opId) {
         ByteArray key = NodeStatusKey.builder().id(id).version(version).nodeId(nodeId).build().toByteArray();
 
         return metaStorage.get(key).thenCompose(e -> {
             UnitNodeStatus prev = UnitNodeStatus.deserialize(e.value());
-            if (prev.opId() != -1 && prev.opId() != opId) {
+            if (!Objects.equals(prev.opId(), opId)) {
                 return falseCompletedFuture();
             }
 
