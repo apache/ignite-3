@@ -48,7 +48,7 @@ import org.apache.ignite.raft.jraft.util.timer.Timer;
  * Node options.
  */
 public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
-    /** This value is used by default to determine the count of stripes in the striped queue. */
+    /** This value is used by default to determine the count of stripes in the striped disruptors, excluding log manager disruptor. */
     private static final int DEFAULT_STRIPES = Utils.cpus();
 
     /** This value is used by default to determine the count of stripes for log manager. */
