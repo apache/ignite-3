@@ -334,7 +334,9 @@ public class SchemaSynchronizationTest : IgniteTestsBase
 
     [Test]
     [SuppressMessage("ReSharper", "AccessToDisposedClosure", Justification = "Reviewed")]
-    public async Task TestSchemaUpdateWhileStreaming([Values(true, false)] bool insertNewColumn)
+    public async Task TestSchemaUpdateWhileStreaming(
+        [Values(true, false)] bool insertNewColumn,
+        [Values(true, false)] bool withRemove)
     {
         using var metricListener = new MetricsTests.Listener();
         await Client.Sql.ExecuteAsync(null, $"CREATE TABLE {TestTableName} (KEY bigint PRIMARY KEY)");
@@ -355,6 +357,11 @@ public class SchemaSynchronizationTest : IgniteTestsBase
 
         async IAsyncEnumerable<IIgniteTuple> GetData()
         {
+            if (withRemove)
+            {
+                // TODO: Include remove operations in streaming.
+            }
+
             // First set of batches uses old schema.
             for (int i = 0; i < 20; i++)
             {
