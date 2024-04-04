@@ -43,10 +43,16 @@ public class DataStreamerTests : IgniteTestsBase
     [Test]
     public async Task TestBasicStreamingRecordBinaryView()
     {
+        await TupleView.UpsertAsync(null, GetTuple(0, "old"));
+
         var options = DataStreamerOptions.Default with { PageSize = 10 };
         var data = Enumerable.Range(0, Count).Select(x => GetTuple(x, "t" + x)).ToList();
-
         await TupleView.StreamDataAsync(data.ToAsyncEnumerable(), options);
+
+        var toRemoveKey = Count + 1;
+        await TupleView.UpsertAsync(null, GetTuple(toRemoveKey, "t" + toRemoveKey));
+        await TupleView.StreamDataAsync(new[] { DataStreamerItem.Create(GetTuple(toRemoveKey), DataStreamerOperationType.Remove) }.ToAsyncEnumerable());
+
         await CheckData();
     }
 
@@ -56,6 +62,7 @@ public class DataStreamerTests : IgniteTestsBase
         var options = DataStreamerOptions.Default with { PageSize = 5 };
         var data = Enumerable.Range(0, Count).Select(x => GetPoco(x, "t" + x)).ToList();
 
+        // TODO: Here and below, update/remove test.
         await Table.GetRecordView<Poco>().StreamDataAsync(data.ToAsyncEnumerable(), options);
         await CheckData();
     }
