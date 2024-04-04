@@ -208,9 +208,10 @@ public class DataStreamerTests : IgniteTestsBase
     public async Task TestAddUpdateRemoveMixed()
     {
         // TODO: Bug in PartitionReplicaListener - when we delete recently created row, the delete op is ignored - we should check newKeyMap
+        const int minKey = 33000;
         await Table.GetRecordView<Poco>().StreamDataAsync(GetData());
 
-        IList<Option<Poco>> res = await PocoView.GetAllAsync(null, Enumerable.Range(1, 4).Select(x => GetPoco(x)));
+        IList<Option<Poco>> res = await PocoView.GetAllAsync(null, Enumerable.Range(minKey, 4).Select(x => GetPoco(x)));
         Assert.AreEqual(4, res.Count);
 
         Assert.IsFalse(res[0].HasValue, "Deleted key should not exist: " + res[0]);
@@ -227,19 +228,19 @@ public class DataStreamerTests : IgniteTestsBase
         static async IAsyncEnumerable<DataStreamerItem<Poco>> GetData()
         {
             await Task.Yield();
-            yield return DataStreamerItem.Create(GetPoco(1, "created"));
-            yield return DataStreamerItem.Create(GetPoco(1, "updated"));
-            yield return DataStreamerItem.Create(GetPoco(1, "deleted"), DataStreamerOperationType.Remove);
+            yield return DataStreamerItem.Create(GetPoco(minKey, "created"));
+            yield return DataStreamerItem.Create(GetPoco(minKey, "updated"));
+            yield return DataStreamerItem.Create(GetPoco(minKey, "deleted"), DataStreamerOperationType.Remove);
 
-            yield return DataStreamerItem.Create(GetPoco(2, "created"));
-            yield return DataStreamerItem.Create(GetPoco(2, "updated"));
-            yield return DataStreamerItem.Create(GetPoco(2, "deleted"), DataStreamerOperationType.Remove);
-            yield return DataStreamerItem.Create(GetPoco(2, "created2"));
+            yield return DataStreamerItem.Create(GetPoco(minKey + 1, "created"));
+            yield return DataStreamerItem.Create(GetPoco(minKey + 1, "updated"));
+            yield return DataStreamerItem.Create(GetPoco(minKey + 1, "deleted"), DataStreamerOperationType.Remove);
+            yield return DataStreamerItem.Create(GetPoco(minKey + 1, "created2"));
 
-            yield return DataStreamerItem.Create(GetPoco(3, "created"));
-            yield return DataStreamerItem.Create(GetPoco(3, "updated"));
+            yield return DataStreamerItem.Create(GetPoco(minKey + 2, "created"));
+            yield return DataStreamerItem.Create(GetPoco(minKey + 2, "updated"));
 
-            yield return DataStreamerItem.Create(GetPoco(4, "created"));
+            yield return DataStreamerItem.Create(GetPoco(minKey + 3, "created"));
         }
     }
 
