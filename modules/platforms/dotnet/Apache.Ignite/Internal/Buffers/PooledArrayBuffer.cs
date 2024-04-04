@@ -65,6 +65,11 @@ namespace Apache.Ignite.Internal.Buffers
         public int Position => _index - _prefixSize;
 
         /// <summary>
+        /// Gets or sets the data offset from the start of the buffer.
+        /// </summary>
+        public int Offset { get; set; }
+
+        /// <summary>
         /// Gets the free capacity.
         /// </summary>
         private int FreeCapacity => _buffer.Length - _index;
@@ -77,7 +82,7 @@ namespace Apache.Ignite.Internal.Buffers
         {
             Debug.Assert(!_disposed, "!_disposed");
 
-            return new(_buffer, start: 0, length: _index);
+            return new(_buffer, start: Offset, length: _index);
         }
 
         /// <summary>
