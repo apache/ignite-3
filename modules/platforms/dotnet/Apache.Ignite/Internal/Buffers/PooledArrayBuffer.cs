@@ -100,7 +100,11 @@ namespace Apache.Ignite.Internal.Buffers
         /// <summary>
         /// Resets the buffer to the initial state.
         /// </summary>
-        public void Reset() => _index = _prefixSize;
+        public void Reset()
+        {
+            _index = _prefixSize;
+            Offset = 0;
+        }
 
         /// <summary>
         /// Gets a span for writing.
