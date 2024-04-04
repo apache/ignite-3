@@ -36,11 +36,16 @@ public class DataStreamerTests : IgniteTestsBase
 {
     private const int Count = 100;
 
+    private const int UpdatedKey = Count - 1;
     private const int DeletedKey = Count + 1;
 
     [SetUp]
-    public async Task DeleteAll() =>
+    public async Task PrepareData()
+    {
         await TupleView.DeleteAllAsync(null, Enumerable.Range(0, Count).Select(x => GetTuple(x)));
+        await TupleView.UpsertAsync(null, GetTuple(UpdatedKey, "update me"));
+        await TupleView.UpsertAsync(null, GetTuple(DeletedKey, "delete me"));
+    }
 
     [Test]
     public async Task TestBasicStreamingRecordBinaryView()
@@ -50,8 +55,6 @@ public class DataStreamerTests : IgniteTestsBase
         var options = DataStreamerOptions.Default with { PageSize = 10 };
         var data = Enumerable.Range(0, Count).Select(x => GetTuple(x, "t" + x)).ToList();
         await TupleView.StreamDataAsync(data.ToAsyncEnumerable(), options);
-
-        await TupleView.UpsertAsync(null, GetTuple(DeletedKey, "t" + DeletedKey));
         await TupleView.StreamDataAsync(new[] { DataStreamerItem.Create(GetTuple(DeletedKey), DataStreamerOperationType.Remove) }.ToAsyncEnumerable());
 
         await CheckData();
