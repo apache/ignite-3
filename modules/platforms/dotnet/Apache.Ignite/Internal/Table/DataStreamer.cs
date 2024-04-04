@@ -107,10 +107,10 @@ internal static class DataStreamer
                 // However, not all producers support cancellation, so we need to check it here as well.
                 cancellationToken.ThrowIfCancellationRequested();
 
-                var (batch, partition) = await AddWithRetryUnmapped(item).ConfigureAwait(false);
+                var batch = await AddWithRetryUnmapped(item).ConfigureAwait(false);
                 if (batch.Count >= options.PageSize)
                 {
-                    await SendAsync(batch, partition).ConfigureAwait(false);
+                    await SendAsync(batch).ConfigureAwait(false);
                 }
 
                 if (lastPartitionsAssignmentCheck.Elapsed > PartitionAssignmentUpdateFrequency)
@@ -145,7 +145,7 @@ internal static class DataStreamer
 
         return;
 
-        async ValueTask<(Batch<T> Batch, int Partition)> AddWithRetryUnmapped(DataStreamerItem<T> item)
+        async ValueTask<Batch<T>> AddWithRetryUnmapped(DataStreamerItem<T> item)
         {
             try
             {
@@ -158,7 +158,7 @@ internal static class DataStreamer
             }
         }
 
-        (Batch<T> Batch, int Partition) Add(DataStreamerItem<T> item)
+        Batch<T> Add(DataStreamerItem<T> item)
         {
             var schema0 = schema;
             var tupleBuilder = new BinaryTupleBuilder(schema0.Columns.Length, hashedColumnsPredicate: schema0.HashedColumnIndexProvider);
@@ -173,7 +173,7 @@ internal static class DataStreamer
             }
         }
 
-        (Batch<T> Batch, int Partition) Add0(DataStreamerItem<T> item, ref BinaryTupleBuilder tupleBuilder, Schema schema0)
+        Batch<T> Add0(DataStreamerItem<T> item, ref BinaryTupleBuilder tupleBuilder, Schema schema0)
         {
             var columnCount = schema0.Columns.Length;
 
@@ -211,7 +211,7 @@ internal static class DataStreamer
 
             Metrics.StreamerItemsQueuedIncrement();
 
-            return (batch, partitionId);
+            return batch;
         }
 
         Batch<T> GetOrCreateBatch(int partitionId)
@@ -220,8 +220,8 @@ internal static class DataStreamer
 
             if (batchRef == null)
             {
-                batchRef = new Batch<T>(options.PageSize, schema);
-                InitBuffer(batchRef, partitionId, schema);
+                batchRef = new Batch<T>(options.PageSize, schema, partitionId);
+                InitBuffer(batchRef, schema);
 
                 Metrics.StreamerBatchesActiveIncrement();
             }
@@ -229,7 +229,7 @@ internal static class DataStreamer
             return batchRef;
         }
 
-        async Task SendAsync(Batch<T> batch, int partitionId)
+        async Task SendAsync(Batch<T> batch)
         {
             var expectedSize = batch.Count;
 
@@ -245,12 +245,13 @@ internal static class DataStreamer
                 }
 
                 FinalizeBatchHeader(batch);
-                batch.Task = SendAndDisposeBufAsync(batch.Buffer, partitionId, batch.Task, batch.Items, batch.Count, batch.SchemaOutdated);
+                batch.Task = SendAndDisposeBufAsync(
+                    batch.Buffer, batch.PartitionId, batch.Task, batch.Items, batch.Count, batch.SchemaOutdated);
 
                 batch.Items = GetPool<T>().Rent(options.PageSize);
                 batch.Count = 0;
                 batch.Buffer = ProtoCommon.GetMessageWriter(); // Prev buf will be disposed in SendAndDisposeBufAsync.
-                InitBuffer(batch, partitionId, schema);
+                InitBuffer(batch, schema);
                 batch.LastFlush = Stopwatch.GetTimestamp();
                 batch.Schema = schema;
                 batch.SchemaOutdated = false;
@@ -333,11 +334,11 @@ internal static class DataStreamer
                 await Task.Delay(options.AutoFlushFrequency, flushCt).ConfigureAwait(false);
                 var ts = Stopwatch.GetTimestamp();
 
-                foreach (var (partition, batch) in batches)
+                foreach (var batch in batches.Values)
                 {
                     if (batch.Count > 0 && ts - batch.LastFlush > options.AutoFlushFrequency.Ticks)
                     {
-                        await SendAsync(batch, partition).ConfigureAwait(false);
+                        await SendAsync(batch).ConfigureAwait(false);
                     }
                 }
             }
@@ -345,11 +346,11 @@ internal static class DataStreamer
 
         async Task Drain()
         {
-            foreach (var (partition, batch) in batches)
+            foreach (var batch in batches.Values)
             {
                 if (batch.Count > 0)
                 {
-                    await SendAsync(batch, partition).ConfigureAwait(false);
+                    await SendAsync(batch).ConfigureAwait(false);
                 }
 
                 await batch.Task.ConfigureAwait(false);
@@ -357,11 +358,11 @@ internal static class DataStreamer
         }
     }
 
-    private static void InitBuffer<T>(Batch<T> batch, int partitionId, Schema schema)
+    private static void InitBuffer<T>(Batch<T> batch, Schema schema)
     {
         var buf = batch.Buffer;
 
-        WriteBatchHeader(buf, partitionId, schema, deletedSetReserveSize: batch.Items.Length);
+        WriteBatchHeader(buf, batch.PartitionId, schema, deletedSetReserveSize: batch.Items.Length);
 
         batch.CountPos = buf.Position;
         buf.Advance(5); // Reserve count.
@@ -386,20 +387,33 @@ internal static class DataStreamer
     {
         var buf = batch.Buffer;
 
-        // Actual count.
+        if (HasDeletedItems<T>(batch.Items.AsSpan(0, batch.Count)))
+        {
+            // Re-write entire header with the deleted set.
+            buf.Offset = 0;
+            var w = buf.MessageWriter;
+            w.Write(batch.Schema.TableId);
+            w.Write(batch.PartitionId);
+
+            var deletedSet = w.WriteBitSet(batch.Count);
+
+            for (var i = 0; i < batch.Count; i++)
+            {
+                if (batch.Items[i].OperationType == DataStreamerOperationType.Remove)
+                {
+                    deletedSet.SetBit(i);
+                }
+            }
+
+            w.Write(batch.Schema.Version);
+
+            // Count position should not change - we only rearrange the header above it.
+            Debug.Assert(buf.Position == batch.CountPos, $"buf.Position = {buf.Position}, batch.CountPos = {batch.CountPos}");
+        }
+
+        // Update count.
         buf.WriteByte(MsgPackCode.Int32, batch.CountPos);
         buf.WriteIntBigEndian(batch.Count, batch.CountPos + 1);
-
-        // Deleted set.
-        // TODO: This is wrong span, we should preserve deleted set as memory.
-        // var deletedSet = buf.GetSpan(batch.DeletedSetPos, batch.Items.Length);
-        // for (var i = 0; i < batch.Items.Length; i++)
-        // {
-        //     if (batch.Items[i].OperationType == DataStreamerOperationType.Remove)
-        //     {
-        //         deletedSet.SetBit(i);
-        //     }
-        // }
     }
 
     private static void ReWriteBatch<T>(
@@ -440,19 +454,19 @@ internal static class DataStreamer
             var remove = item.OperationType == DataStreamerOperationType.Remove;
             writer.Handler.Write(ref w, schema, item.Data, keyOnly: remove, computeHash: false);
         }
+    }
 
-        static bool HasDeletedItems(ReadOnlySpan<DataStreamerItem<T>> items)
+    private static bool HasDeletedItems<T>(ReadOnlySpan<DataStreamerItem<T>> items)
+    {
+        foreach (var t in items)
         {
-            foreach (var t in items)
+            if (t.OperationType == DataStreamerOperationType.Remove)
             {
-                if (t.OperationType == DataStreamerOperationType.Remove)
-                {
-                    return true;
-                }
+                return true;
             }
-
-            return false;
         }
+
+        return false;
     }
 
     private static async Task SendBatchAsync(
@@ -480,11 +494,14 @@ internal static class DataStreamer
 
     private sealed record Batch<T>
     {
-        public Batch(int capacity, Schema schema)
+        public Batch(int capacity, Schema schema, int partitionId)
         {
+            PartitionId = partitionId;
             Items = GetPool<T>().Rent(capacity);
             Schema = schema;
         }
+
+        public int PartitionId { get; }
 
         public PooledArrayBuffer Buffer { get; set; } = ProtoCommon.GetMessageWriter();
 
