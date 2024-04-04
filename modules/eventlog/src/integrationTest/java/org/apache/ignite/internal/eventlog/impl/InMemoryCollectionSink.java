@@ -15,22 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.eventlog.api;
+package org.apache.ignite.internal.eventlog.impl;
 
-import java.util.Arrays;
-import org.apache.ignite.internal.eventlog.event.EventTypeRegistry;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
+import org.apache.ignite.internal.eventlog.api.Event;
+import org.apache.ignite.internal.eventlog.api.Sink;
 
-/**
- * Defines a subset of event types that can be created in the system. Note, the event type is a string that is unique within the system. The
- * event type is used to filter the events in the event log.
- */
-public enum IgniteEventType {
-    USER_AUTHENTICATED,
-    CONNECTION_CLOSED;
+class InMemoryCollectionSink implements Sink {
+    private final CopyOnWriteArrayList<Event> events = new CopyOnWriteArrayList<>();
 
-    static {
-        // Without the following line, the IgniteEventType enum will not be registered in the EventTypeRegistry
-        // and the EventTypeRegistry will not be able to validate the event types.
-        Arrays.stream(values()).forEach(type -> EventTypeRegistry.register(type.name()));
+    @Override
+    public void write(Event event) {
+        events.add(event);
+    }
+
+    List<Event> events() {
+        return new ArrayList<>(events);
     }
 }

@@ -43,7 +43,7 @@ class ConfigurationBasedSinkRegistryTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        registry = new ConfigurationBasedSinkRegistry(cfg);
+        registry = new ConfigurationBasedSinkRegistry(cfg, new SinkFactory(){});
     }
 
     @Test

@@ -18,27 +18,31 @@
 package org.apache.ignite.internal.eventlog;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
+import org.apache.ignite.internal.eventlog.api.IgniteEventType;
 import org.apache.ignite.internal.eventlog.config.schema.EventLogConfiguration;
-import org.apache.ignite.internal.eventlog.config.schema.LogSinkChange;
 import org.junit.jupiter.api.Test;
 
-class ItEventLogConfigurationTest extends ClusterPerClassIntegrationTest {
-    @Test
-    void correctConfiguration() {
-        assertDoesNotThrow(() -> CLUSTER.aliveNode().clusterConfiguration().change(c ->
-                c.changeRoot(EventLogConfiguration.KEY).changeSinks().create("logSink", s -> {
-                    // Configure the channel.
-                    s.changeChannel("testChannel");
+class ItEventLogConfigurationValidationTest extends ClusterPerClassIntegrationTest {
 
-                    // Configure the log sink.
-                    var logSinkChange = (LogSinkChange) s.convert("log");
-                    logSinkChange.changeCriteria("EventLog");
-                    logSinkChange.changeLevel("info");
-                    logSinkChange.changeFormat("json");
-                    logSinkChange.changeChannel("testChannel");
-                })).get()
+    @Test
+    void channelShouldDefineValidEventTypes() {
+        // Expect invalid event type should be validated.
+        assertThrows(Exception.class, () ->
+                CLUSTER.aliveNode().clusterConfiguration().getConfiguration(EventLogConfiguration.KEY)
+                        .change(c -> c.changeChannels(cs -> cs.create("testChannel", channelChange -> {
+                            channelChange.changeEvents("NO_SUCH_EVENT_TYPE");
+                        }))).get()
+        );
+
+        // But valid event type is ok.
+        assertDoesNotThrow(
+                () -> CLUSTER.aliveNode().clusterConfiguration().getConfiguration(EventLogConfiguration.KEY)
+                        .change(c -> c.changeChannels(cs -> cs.create("testChannel2", channelChange -> {
+                            channelChange.changeEvents(IgniteEventType.CONNECTION_CLOSED.name());
+                        }))).get()
         );
     }
 }

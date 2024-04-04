@@ -45,7 +45,11 @@ public class EventLogImpl implements EventLog {
      * @param cfg the configuration.
      */
     public EventLogImpl(EventLogConfiguration cfg) {
-        this(new ConfigurationBasedChannelRegistry(cfg, new ConfigurationBasedSinkRegistry(cfg)));
+        this(cfg, new SinkFactory(){});
+    }
+
+    public EventLogImpl(EventLogConfiguration cfg, SinkFactory sinkFactory) {
+        this(new ConfigurationBasedChannelRegistry(cfg, new ConfigurationBasedSinkRegistry(cfg, sinkFactory)));
     }
 
     @Override

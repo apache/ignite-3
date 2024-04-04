@@ -26,14 +26,14 @@ import org.apache.ignite.lang.ErrorGroups.Common;
 /**
  * Factory for creating sink instances.
  */
-class SinkFactory {
+interface SinkFactory {
     /**
      * Creates a sink instance.
      *
      * @param sinkView Sink configuration view.
      * @return Sink instance.
      */
-    Sink createSink(SinkView sinkView) {
+    default Sink createSink(SinkView sinkView) {
         if (sinkView instanceof LogSinkView) {
             return new LogSink((LogSinkView) sinkView);
         }
