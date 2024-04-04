@@ -164,7 +164,7 @@ public class Checkpointer extends IgniteWorker {
      * @param filePageStoreManager File page store manager.
      * @param compactor Delta file compactor.
      * @param checkpointConfig Checkpoint configuration.
-     * @param logSyncer Write-ahead log synchronizer.
+     * @param logSyncer write-ahead log synchronizer.
      */
     Checkpointer(
             String igniteInstanceName,
@@ -349,7 +349,7 @@ public class Checkpointer extends IgniteWorker {
                 try {
                     logSyncer.sync();
                 } catch (Exception e) {
-                    log.error("Failed to sync Write-ahead log during checkpoint processing ", e);
+                    log.error("Failed to sync write-ahead log during checkpoint processing ", e);
 
                     throw new IgniteInternalCheckedException(e);
                 }

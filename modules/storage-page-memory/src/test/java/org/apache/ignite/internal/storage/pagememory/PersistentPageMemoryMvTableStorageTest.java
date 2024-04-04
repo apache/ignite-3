@@ -70,7 +70,8 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
                 workDir,
                 null,
                 mock(FailureProcessor.class),
-                mock(LogSyncer.class));
+                mock(LogSyncer.class)
+        );
 
         engine.start();
 

@@ -62,7 +62,9 @@ class PersistentPageMemoryMvPartitionStorageConcurrencyTest extends AbstractMvPa
                 workDir,
                 null,
                 mock(FailureProcessor.class),
-                mock(LogSyncer.class));
+                mock(LogSyncer.class)
+        );
+
         engine.start();
 
         table = engine.createMvTable(
