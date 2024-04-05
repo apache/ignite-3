@@ -389,11 +389,10 @@ public class ItIgnitePicocliCommandsTest extends CliIntegrationTest {
 
         // When stop one node
         CLUSTER.stopNode(nodeIndex);
-        var actualNodeNames = allNodeNames();
-        actualNodeNames.remove(igniteNodeName);
+        assertThat(allNodeNames(), not(hasItem(igniteNodeName)));
 
         // Then node name suggestions does not contain the stopped node
-        await().until(() -> complete(givenParsedLine), containsInAnyOrder(actualNodeNames.toArray()));
+        await().until(() -> complete(givenParsedLine), containsInAnyOrder(allNodeNames().toArray()));
 
         // When start the node again
         CLUSTER.startNode(nodeIndex);
