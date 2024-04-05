@@ -32,9 +32,9 @@ class ItEventLogConfigurationValidationTest extends ClusterPerClassIntegrationTe
         // Expect invalid event type should be validated.
         assertThrows(Exception.class, () ->
                 CLUSTER.aliveNode().clusterConfiguration().getConfiguration(EventLogConfiguration.KEY)
-                        .change(c -> c.changeChannels(cs -> cs.create("testChannel", channelChange -> {
+                        .change(c -> c.changeChannels().create("testChannel", channelChange -> {
                             channelChange.changeEvents("NO_SUCH_EVENT_TYPE");
-                        }))).get()
+                        })).get()
         );
 
         // But valid event type is ok.
