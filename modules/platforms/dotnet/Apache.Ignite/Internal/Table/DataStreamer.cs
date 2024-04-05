@@ -387,7 +387,7 @@ internal static class DataStreamer
         // Write header.
         w.Write(schema.TableId);
         w.Write(partitionId);
-        w.WriteNil(); // Deleted set. We assume there are no deleted items in the beginning.
+        w.WriteNil(); // Deleted set. We assume there are no deleted items by default. The header will be rewritten if needed.
         w.Write(schema.Version);
     }
 
