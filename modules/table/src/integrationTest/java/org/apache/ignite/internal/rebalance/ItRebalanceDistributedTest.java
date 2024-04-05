@@ -125,6 +125,7 @@ import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.lowwatermark.LowWatermarkImpl;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -171,7 +172,6 @@ import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableRaftService;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
-import org.apache.ignite.internal.table.distributed.LowWatermarkImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
@@ -1136,6 +1136,15 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     () -> TestIgnitionManager.DEFAULT_MAX_CLOCK_SKEW_MS
             );
 
+            lowWatermark = new LowWatermarkImpl(
+                    name,
+                    gcConfig.lowWatermark(),
+                    clockService,
+                    vaultManager,
+                    failureProcessor,
+                    clusterService.messagingService()
+            );
+
             txManager = new TxManagerImpl(
                     txConfiguration,
                     clusterService,
@@ -1147,7 +1156,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     partitionIdleSafeTimePropagationPeriodMsSupplier,
                     new TestLocalRwTxCounter(),
                     resourcesRegistry,
-                    transactionInflights
+                    transactionInflights,
+                    lowWatermark
             );
 
             replicaManager = spy(new ReplicaManager(
@@ -1189,16 +1199,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry.getConfiguration(StorageUpdateConfiguration.KEY);
 
             HybridClockImpl clock = new HybridClockImpl();
-
-            lowWatermark = new LowWatermarkImpl(
-                    name,
-                    gcConfig.lowWatermark(),
-                    clockService,
-                    txManager,
-                    vaultManager,
-                    failureProcessor,
-                    clusterService.messagingService()
-            );
 
             tableManager = new TableManager(
                     name,
