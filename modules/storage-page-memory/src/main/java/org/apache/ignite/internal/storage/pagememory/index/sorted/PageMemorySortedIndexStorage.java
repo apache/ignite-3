@@ -190,7 +190,9 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
             SortedIndexRowKey lower = createBound(lowerBound, !includeLower);
             SortedIndexRowKey upper = createBound(upperBound, includeUpper);
 
-            try (Cursor<SortedIndexRow> cursor = indexTree.find(lower, upper)) {
+            try {
+                Cursor<SortedIndexRow> cursor = indexTree.find(lower, upper);
+
                 return new PeekCursor<IndexRow>() {
                     private @Nullable IndexRow next = null;
 
