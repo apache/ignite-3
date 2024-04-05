@@ -19,7 +19,6 @@ package org.apache.ignite.internal.client.table;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
-import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.client.ClientUtils;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
