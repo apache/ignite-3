@@ -41,7 +41,6 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -245,6 +244,6 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
                 .storage()
                 .getMvPartition(0);
 
-        return storage != null && IgniteTestUtils.bypassingThreadAssertions(storage::rowsCount) != 0;
+        return storage != null && bypassingThreadAssertions(storage::rowsCount) != 0;
     }
 }
