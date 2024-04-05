@@ -17,23 +17,61 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static org.apache.ignite.internal.util.CompletableFutures.allOf;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.tx.message.TxMessagesFactory;
+import org.apache.ignite.internal.tx.message.VacuumTxStatesCommand;
 
 public class PersistentTxStateVacuumizer {
-    private final Function<TablePartitionId, TxStateStorage> txStateStorageResolver;
+    private static final IgniteLogger LOG = Loggers.forClass(PersistentTxStateVacuumizer.class);
 
-    public PersistentTxStateVacuumizer(Function<TablePartitionId, TxStateStorage> txStateStorageResolver) {
+    private static final TxMessagesFactory TX_MESSAGES_FACTORY = new TxMessagesFactory();
+
+    private final Function<TablePartitionId, RaftGroupService> txStateStorageResolver;
+
+    public PersistentTxStateVacuumizer(Function<TablePartitionId, RaftGroupService> txStateStorageResolver) {
         this.txStateStorageResolver = txStateStorageResolver;
     }
 
-    public void vacuumPersistentTxState(UUID txId, TablePartitionId commitPartitionId) {
-        TxStateStorage txStateStorage = txStateStorageResolver.apply(commitPartitionId);
+    public CompletableFuture<IgniteBiTuple<Set<UUID>, Set<UUID>>> vacuumPersistentTxStates(Map<TablePartitionId, Set<UUID>> txIds) {
+        Set<UUID> successful = ConcurrentHashMap.newKeySet();
+        Set<UUID> unsuccessful = ConcurrentHashMap.newKeySet();
+        List<CompletableFuture<?>> futures = new ArrayList<>();
 
-        if (txStateStorage != null) {
-            txStateStorage.remove(txId);
-        }
+        txIds.forEach((commitPartitionId, ids) -> {
+            RaftGroupService raftClient = txStateStorageResolver.apply(commitPartitionId);
+
+            if (raftClient != null) {
+                VacuumTxStatesCommand cmd = TX_MESSAGES_FACTORY.vacuumTxStatesCommand().txIds(ids).build();
+
+                CompletableFuture<?> future = raftClient.run(cmd).whenComplete((v, e) -> {
+                    if (e == null) {
+                        successful.addAll(ids);
+                    } else {
+                        LOG.warn("Failed to vacuum tx states from the persistent storage.", e);
+
+                        unsuccessful.addAll(ids);
+                    }
+                });
+
+                futures.add(future);
+            }
+        });
+
+        return allOf(futures.toArray(new CompletableFuture[0]))
+                .thenApply(unused -> new IgniteBiTuple<>(successful, unsuccessful));
     }
 }

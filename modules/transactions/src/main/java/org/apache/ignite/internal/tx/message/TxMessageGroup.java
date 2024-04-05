@@ -79,4 +79,9 @@ public class TxMessageGroup {
      */
     public static final short TX_FINISHED_BATCH = 10;
 
+    /**
+     * Message type for {@link VacuumTxStatesCommand}.
+     */
+    public static final short VACUUM_TX_STATE_COMMAND = 11;
+
 }
