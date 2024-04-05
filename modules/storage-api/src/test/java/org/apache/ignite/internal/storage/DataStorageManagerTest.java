@@ -34,6 +34,7 @@ import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.ConfigurationWrongPolymorphicTypeIdException;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -78,7 +79,9 @@ public class DataStorageManagerTest extends BaseIgniteAbstractTest {
                         mock(ConfigurationRegistry.class),
                         workDir,
                         null,
-                        mock(FailureProcessor.class))
+                        mock(FailureProcessor.class),
+                        mock(LogSyncer.class)
+                )
         );
 
         // Check random polymorphicTypeId.
@@ -125,7 +128,9 @@ public class DataStorageManagerTest extends BaseIgniteAbstractTest {
                         mock(ConfigurationRegistry.class),
                         workDir,
                         null,
-                        mock(FailureProcessor.class))
+                        mock(FailureProcessor.class),
+                        mock(LogSyncer.class)
+                )
         );
 
         DataStorageView dataStorageView = dataStorageConfig.value();
