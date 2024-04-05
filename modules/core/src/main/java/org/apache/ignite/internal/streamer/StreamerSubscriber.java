@@ -32,7 +32,6 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.table.DataStreamerItem;
 import org.jetbrains.annotations.Nullable;
 
@@ -210,12 +209,8 @@ public class StreamerSubscriber<T, P> implements Subscriber<DataStreamerItem<T>>
     }
 
     private void close(@Nullable Throwable throwable) {
-        if (flushExecutor != null) {
-            assert flushTask != null;
-
+        if (flushTask != null) {
             flushTask.cancel(false);
-
-            IgniteUtils.shutdownAndAwaitTermination(flushExecutor, 10, TimeUnit.SECONDS);
         }
 
         var s = subscription;
