@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.function.Predicate;
 import org.apache.calcite.rel.RelCollation;
+import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Aggregate;
 import org.apache.calcite.rel.core.AggregateCall;
@@ -34,6 +35,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSort;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapHashAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceHashAggregate;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.util.ArrayUtils;
@@ -543,6 +545,26 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
         checkCountDistinctHash(TestCase.CASE_24_1E);
     }
 
+    /**
+     * Validates a plan for a query with aggregate and with groups and sorting by the same column set in descending order.
+     */
+    @Test
+    public void groupsWithOrderByGroupColumnDescending() throws Exception {
+        checkDerivedCollationWithOrderByGroupColumnSingle(TestCase.CASE_25);
+
+        checkDerivedCollationWithOrderByGroupColumnHash(TestCase.CASE_25A);
+    }
+
+    /**
+     * Validates a plan for a query with aggregate and with sorting in descending order by a subset of grouping column.
+     */
+    @Test
+    public void groupsWithOrderBySubsetOfGroupColumnDescending() throws Exception {
+        checkDerivedCollationWithOrderBySubsetOfGroupColumnsSingle(TestCase.CASE_26);
+
+        checkDerivedCollationWithOrderBySubsetOfGroupColumnsHash(TestCase.CASE_26A);
+    }
+
     private void checkSimpleAggSingle(TestCase testCase) throws Exception {
         assertPlan(testCase,
                 nodeOrAnyChild(isInstanceOf(IgniteReduceHashAggregate.class)
@@ -794,6 +816,75 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
                         .and(input(isInstanceOf(IgniteMapHashAggregate.class)
                                 .and(hasNoGroupSets(IgniteMapHashAggregate::getGroupSets))
                                 .and(input(isInstanceOf(IgniteProject.class).and(input(inputAgg)))
+                                ))
+                        )),
+                disableRules);
+    }
+
+    private void checkDerivedCollationWithOrderByGroupColumnSingle(TestCase testCase) throws Exception {
+        RelCollation requiredCollation = RelCollations.of(TraitUtils.createFieldCollation(0, Collation.DESC_NULLS_FIRST));
+
+        assertPlan(testCase, isInstanceOf(IgniteSort.class)
+                .and(hasCollation(requiredCollation))
+                .and(nodeOrAnyChild(isInstanceOf(IgniteReduceHashAggregate.class)
+                        .and(hasAggregate())
+                        .and(input(isInstanceOf(IgniteMapHashAggregate.class)
+                                .and(hasAggregate())
+                        ))
+                )),
+                disableRules);
+    }
+
+    private void checkDerivedCollationWithOrderByGroupColumnHash(TestCase testCase) throws Exception {
+        RelCollation requiredCollation = RelCollations.of(TraitUtils.createFieldCollation(0, Collation.DESC_NULLS_FIRST));
+
+        assertPlan(testCase, isInstanceOf(IgniteSort.class)
+                .and(hasCollation(requiredCollation))
+                .and(nodeOrAnyChild(isInstanceOf(IgniteReduceHashAggregate.class)
+                        .and(hasAggregate())
+                        .and(input(isInstanceOf(IgniteExchange.class)
+                                .and(hasDistribution(IgniteDistributions.single()))
+                                .and(input(isInstanceOf(IgniteMapHashAggregate.class)
+                                        .and(hasAggregate())
+                                ))
+                        ))
+                )),
+                disableRules);
+    }
+
+    private void checkDerivedCollationWithOrderBySubsetOfGroupColumnsSingle(TestCase testCase) throws Exception {
+        RelCollation outputCollation = RelCollations.of(
+                TraitUtils.createFieldCollation(1, Collation.DESC_NULLS_FIRST)
+        );
+
+        assertPlan(testCase,
+                isInstanceOf(IgniteSort.class)
+                        .and(hasCollation(outputCollation))
+                        .and(input(isInstanceOf(IgniteProject.class)
+                                .and(input(isInstanceOf(IgniteReduceHashAggregate.class)
+                                        .and(input(isInstanceOf(IgniteMapHashAggregate.class)))
+                                ))
+                        )),
+                disableRules);
+    }
+
+    private void checkDerivedCollationWithOrderBySubsetOfGroupColumnsHash(TestCase testCase) throws Exception {
+        RelCollation outputCollation = RelCollations.of(
+                TraitUtils.createFieldCollation(1, Collation.DESC_NULLS_FIRST)
+        );
+
+        assertPlan(testCase,
+                isInstanceOf(IgniteSort.class)
+                        .and(hasCollation(outputCollation))
+                        .and(input(isInstanceOf(IgniteProject.class)
+                                .and(input(isInstanceOf(IgniteReduceHashAggregate.class)
+                                        .and(input(isInstanceOf(IgniteMapHashAggregate.class)
+                                                // TODO: https://issues.apache.org/jira/browse/IGNITE-20095
+                                                // Why can't Map be pushed down to under 'exchange'.
+                                                .and(input(isInstanceOf(IgniteExchange.class)
+                                                        .and(hasDistribution(IgniteDistributions.single()))
+                                                ))
+                                        ))
                                 ))
                         )),
                 disableRules);

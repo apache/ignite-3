@@ -15,32 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.raft.storage;
+package org.apache.ignite.internal.components;
 
-import org.apache.ignite.internal.close.ManuallyCloseable;
-import org.apache.ignite.internal.components.LogSyncer;
-import org.apache.ignite.raft.jraft.option.RaftOptions;
-import org.apache.ignite.raft.jraft.storage.LogStorage;
-
-/** Log storage factory interface. */
-public interface LogStorageFactory extends ManuallyCloseable, LogSyncer {
+/** Interface to synchronize write-ahead log. Operates only for persistent log storages. */
+public interface LogSyncer {
     /**
-     * Starts the log storage factory.
-     */
-    void start();
-
-    /**
-     * Creates a log storage.
+     * Synchronizes write-ahead log.
      *
-     * @param uri Log storage URI.
-     * @param raftOptions Raft options.
-     * @return Log storage.
+     * @throws Exception if an error occurs whilst syncing.
      */
-    LogStorage createLogStorage(String uri, RaftOptions raftOptions);
-
-    /**
-     * Closes the factory.
-     */
-    @Override
-    void close();
+    void sync() throws Exception;
 }

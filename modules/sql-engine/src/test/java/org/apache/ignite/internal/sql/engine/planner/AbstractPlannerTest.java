@@ -1039,6 +1039,15 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         };
     }
 
+    /** Creates a function, which builds sorted index with given column names and with desired collation. */
+    protected static UnaryOperator<TableBuilder> addSortIndex(String col1, Collation col1Collation, String col2, Collation col2Collation) {
+        return tableBuilder -> tableBuilder.sortedIndex()
+                .name("IDX" + '_' + col1 + '_' + col2)
+                .addColumn(col1.toUpperCase(), col1Collation)
+                .addColumn(col2.toUpperCase(), col2Collation)
+                .end();
+    }
+
     /** Creates a function, which builds hash index with given column names. */
     protected static UnaryOperator<TableBuilder> addHashIndex(String... columns) {
         return tableBuilder -> {
