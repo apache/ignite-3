@@ -317,9 +317,9 @@ public class LowWatermarkImpl implements LowWatermark, IgniteComponent {
         return inBusyLockAsync(busyLock, () -> {
             vaultManager.put(LOW_WATERMARK_VAULT_KEY, ByteUtils.toBytes(newLowWatermark));
 
-            return notifyListeners(newLowWatermark).whenCompleteAsync((unused, throwable) -> {
-                setLowWatermark(newLowWatermark);
+            setLowWatermark(newLowWatermark);
 
+            return notifyListeners(newLowWatermark).whenCompleteAsync((unused, throwable) -> {
                 if (throwable != null) {
                     if (!(throwable instanceof NodeStoppingException)) {
                         LOG.error("Failed to update low watermark, will schedule again: {}", throwable, newLowWatermark);

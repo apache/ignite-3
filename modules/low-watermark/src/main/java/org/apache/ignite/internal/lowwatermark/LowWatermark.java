@@ -33,7 +33,7 @@ public interface LowWatermark {
     /**
      * Returns the current low watermark, {@code null} means no low watermark has been assigned yet.
      *
-     * <p>When called from method {@link LowWatermarkChangedListener#onLwmChanged(HybridTimestamp)}, the previous value will be
+     * <p>When called from method {@link LowWatermarkChangedListener#onLwmChanged(HybridTimestamp)}, the new value will be
      * returned.</p>
      */
     @Nullable HybridTimestamp getLowWatermark();
@@ -48,7 +48,7 @@ public interface LowWatermark {
      * Runs the provided {@code consumer} under the {@code lock} preventing concurrent LWM update, {@code null} means no low watermark has
      * been assigned yet.
      *
-     * <p>When called from method {@link LowWatermarkChangedListener#onLwmChanged(HybridTimestamp)}, the previous value will be
+     * <p>When called from method {@link LowWatermarkChangedListener#onLwmChanged(HybridTimestamp)}, the new value will be
      * returned.</p>
      */
     void getLowWatermarkSafe(Consumer<@Nullable HybridTimestamp> consumer);

@@ -287,15 +287,14 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
         assertThat(lowWatermark.start(), willCompleteSuccessfully());
 
         HybridTimestamp newLwm = clockService.now();
-        HybridTimestamp oldLwm = lowWatermark.getLowWatermark();
 
         lowWatermark.addUpdateListener(newLwm0 -> {
             try {
                 assertEquals(newLwm, newLwm0);
 
-                assertEquals(oldLwm, lowWatermark.getLowWatermark());
+                assertEquals(newLwm, lowWatermark.getLowWatermark());
 
-                lowWatermark.getLowWatermarkSafe(lwm -> assertEquals(oldLwm, lwm));
+                lowWatermark.getLowWatermarkSafe(lwm -> assertEquals(newLwm, lwm));
 
                 return nullCompletedFuture();
             } catch (Throwable t) {
