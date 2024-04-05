@@ -56,23 +56,8 @@ public class PublicApiThreading {
      *
      * @see ApiEntryRole
      */
-    public static @Nullable ApiEntryRole getThreadRole() {
+    private static @Nullable ApiEntryRole getThreadRole() {
         return THREAD_ROLE.get();
-    }
-
-    /**
-     * Replaces the role of the current thread.
-     *
-     * @param role New role.
-     * @return Old role.
-     * @see ApiEntryRole
-     */
-    public static @Nullable ApiEntryRole replaceThreadRole(ApiEntryRole role) {
-        ApiEntryRole oldRole = THREAD_ROLE.get();
-
-        THREAD_ROLE.set(role);
-
-        return oldRole;
     }
 
     /**
@@ -87,6 +72,8 @@ public class PublicApiThreading {
 
     /**
      * Returns {@code true} if the current thread is executing a sync public API call.
+     *
+     * @see ApiEntryRole#SYNC_PUBLIC_API
      */
     public static boolean executingSyncPublicApi() {
         return getThreadRole() == ApiEntryRole.SYNC_PUBLIC_API;
@@ -94,6 +81,8 @@ public class PublicApiThreading {
 
     /**
      * Returns {@code true} if the current thread is executing an async public API call.
+     *
+     * @see ApiEntryRole#ASYNC_PUBLIC_API
      */
     public static boolean executingAsyncPublicApi() {
         return getThreadRole() == ApiEntryRole.ASYNC_PUBLIC_API;
@@ -101,10 +90,13 @@ public class PublicApiThreading {
 
     /**
      * Executes an operation marking the current thread as {@link ApiEntryRole#SYNC_PUBLIC_API} if it's not
-     * already marked as {@link ApiEntryRole#ASYNC_PUBLIC_API}.
+     * already marked with any role.
+     *
+     * <p>A thread having this role is allowed to do any {@link ThreadOperation}.
      *
      * @param operation Operation to execute.
      * @return Whatever the operation returns.
+     * @see ApiEntryRole#SYNC_PUBLIC_API
      */
     public static <T> T execUserSyncOperation(Supplier<T> operation) {
         return executeWithRole(ApiEntryRole.SYNC_PUBLIC_API, operation);
@@ -112,9 +104,12 @@ public class PublicApiThreading {
 
     /**
      * Executes an operation marking the current thread as {@link ApiEntryRole#SYNC_PUBLIC_API} if it's not
-     * already marked as {@link ApiEntryRole#ASYNC_PUBLIC_API}.
+     * already marked with any role.
+     *
+     * <p>A thread having this role is allowed to do any {@link ThreadOperation}.
      *
      * @param operation Operation to execute.
+     * @see ApiEntryRole#SYNC_PUBLIC_API
      */
     public static void execUserSyncOperation(Runnable operation) {
         execUserSyncOperation(() -> {
@@ -125,10 +120,13 @@ public class PublicApiThreading {
 
     /**
      * Executes an operation marking the current thread as {@link ApiEntryRole#ASYNC_PUBLIC_API} if it's not
-     * already marked as {@link ApiEntryRole#SYNC_PUBLIC_API}.
+     * already marked with any role.
+     *
+     * <p>A thread having this role will have switched to an appropriate internal Ignite thread if it tries to touch the storage.
      *
      * @param operation Operation to execute.
      * @return Whatever the operation returns.
+     * @see ApiEntryRole#ASYNC_PUBLIC_API
      */
     public static <T> CompletableFuture<T> execUserAsyncOperation(Supplier<CompletableFuture<T>> operation) {
         return executeWithRole(ApiEntryRole.ASYNC_PUBLIC_API, operation);
@@ -155,11 +153,12 @@ public class PublicApiThreading {
      */
     public enum ApiEntryRole {
         /**
-         * The thread executes a sync public API call.
+         * The thread executes a sync public API call. A thread having this role is allowed to do any {@link ThreadOperation}.
          */
         SYNC_PUBLIC_API,
         /**
-         * The thread executes an async public API call.
+         * The thread executes an async public API call. A thread having this role will have switched to an appropriate internal
+         * Ignite thread if it tries to touch the storage.
          */
         ASYNC_PUBLIC_API
     }
