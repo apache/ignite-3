@@ -130,14 +130,6 @@ namespace Apache.Ignite.Internal.Buffers
         /// <summary>
         /// Gets a span for writing.
         /// </summary>
-        /// <param name="start">Start.</param>
-        /// <param name="size">Size.</param>
-        /// <returns>Span for writing.</returns>
-        public Span<byte> GetSpan(int start, int size) => _buffer.AsSpan(start, size);
-
-        /// <summary>
-        /// Gets a span for writing.
-        /// </summary>
         /// <param name="size">Size.</param>
         /// <returns>Span for writing.</returns>
         public Span<byte> GetSpanAndAdvance(int size)
@@ -236,13 +228,6 @@ namespace Apache.Ignite.Internal.Buffers
             BinaryPrimitives.WriteInt64LittleEndian(_buffer.AsSpan(_index), val);
             _index += 8;
         }
-
-        /// <summary>
-        /// Reads a byte at specified position.
-        /// </summary>
-        /// <param name="pos">Position.</param>
-        /// <returns>Result.</returns>
-        public byte ReadByte(int pos) => _buffer[pos + _prefixSize];
 
         /// <summary>
         /// Reads a short at specified position.
