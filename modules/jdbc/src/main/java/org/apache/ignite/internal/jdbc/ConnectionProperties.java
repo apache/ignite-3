@@ -256,16 +256,16 @@ public interface ConnectionProperties {
     void setPassword(String password);
 
     /**
-     * TODO BLah-blah.
+     * Get connection time zone ID.
      *
-     * @return Time zone ID.
+     * @return Connection time zone ID.
      */
     ZoneId getConnectionTimeZone();
 
     /**
-     * TODO Blah-nlah.
+     * Set connection time zone ID.
      *
-     * @param timeZoneId Time zone ID.
+     * @param timeZoneId Connection time zone ID.
      */
     void setConnectionTimeZone(ZoneId timeZoneId);
 }

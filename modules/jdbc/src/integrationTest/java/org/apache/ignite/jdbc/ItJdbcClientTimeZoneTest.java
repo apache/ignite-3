@@ -20,6 +20,7 @@ package org.apache.ignite.jdbc;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.sql.Connection;
@@ -31,6 +32,7 @@ import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.zone.ZoneRulesException;
 import java.util.Objects;
 import java.util.TimeZone;
 import org.apache.ignite.internal.jdbc.ConnectionProperties;
@@ -56,7 +58,7 @@ public class ItJdbcClientTimeZoneTest extends AbstractJdbcSelfTest {
     }
 
     @BeforeEach
-    void saveTimezone() throws SQLException {
+    void saveTimeZoneAndClearTable() throws SQLException {
         origin = TimeZone.getDefault().toZoneId();
 
         stmt.execute("DELETE FROM test");
@@ -128,6 +130,15 @@ public class ItJdbcClientTimeZoneTest extends AbstractJdbcSelfTest {
             });
         }
 
+        {
+            String timeZone = "invalid/timezone";
+
+            assertThrows(
+                    ZoneRulesException.class,
+                    () -> DriverManager.getConnection(URL + "?connectionTimeZone=" + timeZone)
+            );
+        }
+
         assertEquals(TimeZone.getDefault().getID(), originTimeZone);
     }
 
@@ -145,7 +156,7 @@ public class ItJdbcClientTimeZoneTest extends AbstractJdbcSelfTest {
                 stmt.setInt(1, 1);
                 stmt.setTimestamp(2, ts);
                 // The UTC value must be adjusted according to
-                // session time zone and must be "1969-01-01 23:00:00 UTC".
+                // session time zone and must be "1969-12-31 23:00:00 UTC".
                 stmt.setTimestamp(3, ts);
 
                 stmt.executeUpdate();

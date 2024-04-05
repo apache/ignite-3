@@ -25,7 +25,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.mockito.Mockito.when;
 
 import java.lang.reflect.Array;
 import java.math.BigDecimal;
@@ -38,7 +37,6 @@ import java.sql.SQLType;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.LocalTime;
-import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -46,10 +44,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.TreeSet;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryEventHandler;
-import org.apache.ignite.internal.jdbc.proto.event.JdbcConnectResult;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -91,11 +87,8 @@ public class PreparedStatementParamsTest extends BaseIgniteAbstractTest {
     private JdbcConnection conn;
 
     @BeforeEach
-    public void initConnection() throws SQLException {
-        JdbcQueryEventHandler handler = Mockito.mock(JdbcQueryEventHandler.class);
-        when(handler.connect(ZoneId.systemDefault())).thenReturn(CompletableFuture.completedFuture(new JdbcConnectResult(1)));
-
-        conn = new JdbcConnection(handler, new ConnectionPropertiesImpl());
+    public void initConnection() {
+        conn = new JdbcConnection(Mockito.mock(JdbcQueryEventHandler.class), new ConnectionPropertiesImpl());
     }
 
     /** {@link PreparedStatement#clearParameters()} clears parameter list. */

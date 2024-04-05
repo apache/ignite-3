@@ -42,7 +42,6 @@ import java.sql.Savepoint;
 import java.sql.ShardingKey;
 import java.sql.Statement;
 import java.sql.Struct;
-import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.IdentityHashMap;
@@ -66,6 +65,7 @@ import org.apache.ignite.internal.jdbc.proto.event.JdbcConnectResult;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcFinishTxResult;
 import org.apache.ignite.internal.jdbc.proto.event.Response;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * JDBC connection implementation.
@@ -119,44 +119,6 @@ public class JdbcConnection implements Connection {
 
     /** Jdbc metadata. Cache the JDBC object on the first access */
     private JdbcDatabaseMetadata metadata;
-
-    /**
-     * Constructor.
-     *
-     * @param handler Handler.
-     * @param props   Properties.
-     */
-    public JdbcConnection(JdbcQueryEventHandler handler, ConnectionProperties props) throws SQLException {
-        this.connProps = props;
-        this.handler = handler;
-
-        try {
-            JdbcConnectResult result = handler.connect(ZoneId.systemDefault()).get();
-
-            if (!result.hasResults()) {
-                throw IgniteQueryErrorCode.createJdbcSqlException(result.err(), result.status());
-            }
-
-            connectionId = result.connectionId();
-        } catch (InterruptedException e) {
-            throw new SQLException("Thread was interrupted.", e);
-        } catch (ExecutionException e) {
-            throw new SQLException("Failed to initialize connection.", e);
-        } catch (CancellationException e) {
-            throw new SQLException("Connection initialization canceled.", e);
-        }
-
-        autoCommit = true;
-
-        netTimeout = connProps.getConnectionTimeout();
-        qryTimeout = connProps.getQueryTimeout();
-
-        holdability = HOLD_CURSORS_OVER_COMMIT;
-
-        schema = DEFAULT_SCHEMA_NAME;
-
-        client = null;
-    }
 
     /**
      * Creates new connection.
@@ -213,6 +175,27 @@ public class JdbcConnection implements Connection {
         schema = normalizeSchema(connProps.getSchema());
 
         holdability = HOLD_CURSORS_OVER_COMMIT;
+    }
+
+    /**
+     * Constructor used for testing purposes.
+     */
+    @TestOnly
+    public JdbcConnection(JdbcQueryEventHandler handler, ConnectionProperties props) {
+        this.connProps = props;
+        this.handler = handler;
+
+        autoCommit = true;
+
+        netTimeout = connProps.getConnectionTimeout();
+        qryTimeout = connProps.getQueryTimeout();
+
+        holdability = HOLD_CURSORS_OVER_COMMIT;
+
+        schema = DEFAULT_SCHEMA_NAME;
+
+        client = null;
+        connectionId = -1;
     }
 
     private static @Nullable SslConfiguration extractSslConfiguration(ConnectionProperties connProps) {

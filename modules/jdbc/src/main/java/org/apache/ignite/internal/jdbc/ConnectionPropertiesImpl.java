@@ -126,7 +126,7 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     private final StringProperty password = new StringProperty("password",
             "Password", null, null, false, null);
 
-    /** Client connection time zone ID. */
+    /** Client connection time zone ID. This property can be used by the client to change the time zone of the "session" on the server. */
     private final StringProperty connectionTimeZone = new StringProperty("connectionTimeZone",
             "Client connection time zone ID", TimeZone.getDefault().getID(), null, false, null);
 
