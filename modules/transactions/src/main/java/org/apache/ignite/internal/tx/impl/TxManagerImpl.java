@@ -415,7 +415,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     }
 
     @Override
-    public @Nullable <T extends TxStateMeta> T updateTxMeta(UUID txId, Function<TxStateMeta, TxStateMeta> updater) {
+    public @Nullable <T extends TxStateMeta> T updateTxMeta(UUID txId, Function<@Nullable TxStateMeta, TxStateMeta> updater) {
         return txStateVolatileStorage.updateMeta(txId, updater);
     }
 
@@ -608,7 +608,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                             TxStateMeta updatedMeta = updateTxMeta(txId, old ->
                                     new TxStateMeta(
                                             result.transactionState(),
-                                            old.txCoordinatorId(),
+                                            old == null ? null : old.txCoordinatorId(),
                                             commitPartition,
                                             result.commitTimestamp()
                                     )
