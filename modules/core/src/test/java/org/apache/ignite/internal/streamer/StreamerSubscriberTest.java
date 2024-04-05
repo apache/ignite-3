@@ -27,14 +27,31 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.LongFunction;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.table.DataStreamerItem;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 class StreamerSubscriberTest extends BaseIgniteAbstractTest {
+    private static ScheduledExecutorService flushExecutor;
+
+    @BeforeAll
+    public static void flushExecutorInit() {
+        flushExecutor = Executors.newSingleThreadScheduledExecutor(
+                new NamedThreadFactory("flushExecutor", Loggers.forClass(StreamerSubscriberTest.class)));
+    }
+
+    @AfterAll
+    public static void flushExecutorShutdown() {
+        flushExecutor.shutdown();
+    }
+
     private static class Metrics implements StreamerMetricSink {
         private final LongAdder batchesSent = new LongAdder();
         private final LongAdder itemsSent = new LongAdder();
@@ -159,7 +176,7 @@ class StreamerSubscriberTest extends BaseIgniteAbstractTest {
                 (part, batch, deleted) -> sendFuture,
                 partitionProvider,
                 options,
-                Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory(threadPrefix, log)), // todo stop
+                Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("testBackpressureWithDelay", log)), // todo stop
                 log,
                 metrics
         );
