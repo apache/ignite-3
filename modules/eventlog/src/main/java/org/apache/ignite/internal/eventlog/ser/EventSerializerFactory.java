@@ -15,24 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.eventlog.impl;
-
-import org.apache.ignite.internal.eventlog.api.Sink;
-import org.apache.ignite.internal.eventlog.config.schema.SinkView;
-import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.lang.ErrorGroups.Common;
+package org.apache.ignite.internal.eventlog.ser;
 
 /**
- * Factory for creating sink instances.
+ * A factory to create a serializer useful for sink to write the event.
  */
-public interface SinkFactory {
+public class EventSerializerFactory {
     /**
-     * Creates a sink instance.
-     *
-     * @param sinkView Sink configuration view.
-     * @return Sink instance.
+     * Creates a serializer which can be used in a sink to serialize all kinds of events that were registered.
      */
-    default Sink createSink(SinkView sinkView) {
-        throw new IgniteInternalException(Common.INTERNAL_ERR, "Unsupported sink type: " + sinkView.type());
+    public EventSerializer createEventSerializer() {
+        return new JacksonBasedJsonSerializer();
     }
 }
