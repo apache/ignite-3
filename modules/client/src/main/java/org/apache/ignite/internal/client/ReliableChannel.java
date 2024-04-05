@@ -121,7 +121,6 @@ public final class ReliableChannel implements AutoCloseable {
     /** Scheduled executor for streamer flush. */
     private final ScheduledExecutorService streamerFlushExecutor;
 
-
     /**
      * Constructor.
      *
