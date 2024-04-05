@@ -20,6 +20,7 @@ package org.apache.ignite.internal.eventlog.impl;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.internal.eventlog.config.schema.SinkConfigurationSchema;
 
+/** Configuration schema for in-memory collection sink. Needed for tests. */
 @PolymorphicConfigInstance("inMemory")
-class InMemoryCollectionSinkConfigurationSchema extends SinkConfigurationSchema {
+public class InMemoryCollectionSinkConfigurationSchema extends SinkConfigurationSchema {
 }

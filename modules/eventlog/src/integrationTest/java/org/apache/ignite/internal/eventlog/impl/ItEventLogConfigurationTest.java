@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.eventlog.impl;
 
-import static org.hamcrest.CoreMatchers.hasItem;
-import static org.hamcrest.CoreMatchers.is;
+import static org.apache.ignite.internal.eventlog.impl.TestEventTypes.TEST_EVENT_TYPE_1;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.hasSize;
 
-import java.util.Collections;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.eventlog.api.Event;
@@ -45,94 +45,102 @@ class ItEventLogConfigurationTest extends BaseIgniteAbstractTest {
 
     private EventLog eventLog;
 
-    private SinkFactory sinkFactory;
-
     private InMemoryCollectionSink inMemoryCollectionSink;
 
     @BeforeEach
     void setUp() {
         inMemoryCollectionSink = new InMemoryCollectionSink();
-        sinkFactory = new TestSinkFactory(inMemoryCollectionSink);
+        SinkFactory sinkFactory = new TestSinkFactory(inMemoryCollectionSink);
         eventLog = new EventLogImpl(eventLogConfiguration, sinkFactory);
     }
 
     @Test
     void configureChannelAndTestSink() throws Exception {
         // Given channel for EVENT_TYPE_1.
-        eventLogConfiguration.change(c -> c.changeChannels(cs -> cs.create(TEST_CHANNEL_NAME, channelChange -> {
-            channelChange.changeEvents(TestEventTypes.TEST_EVENT_TYPE_1.name());
-        }))).get();
+        eventLogConfiguration.change(c -> c.changeChannels().create(
+                TEST_CHANNEL_NAME,
+                channelChange -> channelChange.changeEvents(TEST_EVENT_TYPE_1.name())
+        )).get();
 
         // And in memory sink piped to the channel.
-        eventLogConfiguration.change(c -> c.changeSinks(cs -> cs.create(TEST_SINK_NAME, createTestSink -> {
-            var inMemorySinkChange = (InMemoryCollectionSinkChange) createTestSink.convert(IN_MEMORY_SINK_TYPE);
-            inMemorySinkChange.changeChannel(TEST_CHANNEL_NAME);
-        }))).get();
+        eventLogConfiguration.change(c -> c.changeSinks().create(
+                TEST_SINK_NAME,
+                createTestSink -> {
+                    var inMemorySinkChange = (InMemoryCollectionSinkChange) createTestSink.convert(IN_MEMORY_SINK_TYPE);
+                    inMemorySinkChange.changeChannel(TEST_CHANNEL_NAME);
+                }
+        )).get();
 
         // And in memory sink is empty.
-        assertThat(inMemoryCollectionSink.events(), is(Collections.emptyList()));
+        assertThat(inMemoryCollectionSink.events(), empty());
 
         // When publishing event of type EVENT_TYPE_1.
         var event = Event.builder()
-                .type(TestEventTypes.TEST_EVENT_TYPE_1.name())
+                .type(TEST_EVENT_TYPE_1.name())
                 .user(EventUser.system())
                 .build();
 
         eventLog.log(() -> event);
 
         // Then event is written into the sink.
-        assertThat(inMemoryCollectionSink.events(), hasSize(1));
-        assertThat(inMemoryCollectionSink.events(), hasItem(event));
+        assertThat(inMemoryCollectionSink.events(), contains(event));
     }
 
     @Test
     void configureTestSinkAndChannel() throws Exception {
         // Given in memory sink piped to the channel first. The order of configuration changes matters.
-        eventLogConfiguration.change(c -> c.changeSinks(cs -> cs.create(TEST_SINK_NAME, createTestSink -> {
-            var inMemorySinkChange = (InMemoryCollectionSinkChange) createTestSink.convert(IN_MEMORY_SINK_TYPE);
-            inMemorySinkChange.changeChannel(TEST_CHANNEL_NAME);
-        }))).get();
+        eventLogConfiguration.change(c -> c.changeSinks().create(
+                TEST_SINK_NAME,
+                createTestSink -> {
+                    var inMemorySinkChange = (InMemoryCollectionSinkChange) createTestSink.convert(IN_MEMORY_SINK_TYPE);
+                    inMemorySinkChange.changeChannel(TEST_CHANNEL_NAME);
+                }
+        )).get();
 
         // And channel for EVENT_TYPE_1.
-        eventLogConfiguration.change(c -> c.changeChannels(cs -> cs.create(TEST_CHANNEL_NAME, channelChange -> {
-            channelChange.changeEvents(TestEventTypes.TEST_EVENT_TYPE_1.name());
-        }))).get();
+        eventLogConfiguration.change(c -> c.changeChannels().create(
+                TEST_CHANNEL_NAME,
+                channelChange -> channelChange.changeEvents(TEST_EVENT_TYPE_1.name())
+        )).get();
 
         // And in memory sink is empty.
-        assertThat(inMemoryCollectionSink.events(), is(Collections.emptyList()));
+        assertThat(inMemoryCollectionSink.events(), empty());
 
         // When publishing event of type EVENT_TYPE_1.
         var event = Event.builder()
-                .type(TestEventTypes.TEST_EVENT_TYPE_1.name())
+                .type(TEST_EVENT_TYPE_1.name())
                 .user(EventUser.system())
                 .build();
 
         eventLog.log(() -> event);
 
         // Then event is written into the sink.
-        assertThat(inMemoryCollectionSink.events(), hasSize(1));
-        assertThat(inMemoryCollectionSink.events(), hasItem(event));
+        assertThat(inMemoryCollectionSink.events(), contains(event));
     }
 
     @Test
     void channelConfigurationChanges() throws Exception {
         // Given channel for EVENT_TYPE_1.
-        eventLogConfiguration.change(c -> c.changeChannels(cs -> cs.create(TEST_CHANNEL_NAME, channelChange -> {
-            channelChange.changeEvents(TestEventTypes.TEST_EVENT_TYPE_1.name());
-        }))).get();
+        eventLogConfiguration.change(c -> c.changeChannels().create(
+                TEST_CHANNEL_NAME,
+                channelChange -> channelChange.changeEvents(TEST_EVENT_TYPE_1.name())
+        )).get();
 
         // And in memory sink piped to the channel.
-        eventLogConfiguration.change(c -> c.changeSinks(cs -> cs.create(TEST_SINK_NAME, createTestSink -> {
-            var inMemorySinkChange = (InMemoryCollectionSinkChange) createTestSink.convert(IN_MEMORY_SINK_TYPE);
-            inMemorySinkChange.changeChannel(TEST_CHANNEL_NAME);
-        }))).get();
+        eventLogConfiguration.change(c -> c.changeSinks().create(
+                TEST_SINK_NAME,
+                createTestSink -> {
+                    var inMemorySinkChange = (InMemoryCollectionSinkChange) createTestSink.convert(IN_MEMORY_SINK_TYPE);
+                    inMemorySinkChange.changeChannel(TEST_CHANNEL_NAME);
+                }
+        )).get();
 
         // And in memory sink is empty.
-        assertThat(inMemoryCollectionSink.events(), is(Collections.emptyList()));
+        assertThat(inMemoryCollectionSink.events(), empty());
 
         // When publishing event of type EVENT_TYPE_1.
         var event = Event.builder()
-                .type(TestEventTypes.TEST_EVENT_TYPE_1.name())
+                .type(TEST_EVENT_TYPE_1.name())
                 .user(EventUser.system())
                 .build();
 
@@ -153,12 +161,13 @@ class ItEventLogConfigurationTest extends BaseIgniteAbstractTest {
         assertThat(inMemoryCollectionSink.events(), hasSize(1));
 
         // When change channel configuration to be associated with all test event types.
-        eventLogConfiguration.change(c -> c.changeChannels(cs -> cs.update(TEST_CHANNEL_NAME, channelChange -> {
-            channelChange.changeEvents(
-                    TestEventTypes.TEST_EVENT_TYPE_1.name(),
-                    TestEventTypes.TEST_EVENT_TYPE_2.name()
-            );
-        }))).get();
+        eventLogConfiguration.change(c -> c.changeChannels().update(
+                TEST_CHANNEL_NAME,
+                channelChange -> channelChange.changeEvents(
+                        TEST_EVENT_TYPE_1.name(),
+                        TestEventTypes.TEST_EVENT_TYPE_2.name()
+                )
+        )).get();
 
         // Then the previous event is not written into the sink.
         assertThat(inMemoryCollectionSink.events(), hasSize(1));
@@ -173,22 +182,26 @@ class ItEventLogConfigurationTest extends BaseIgniteAbstractTest {
     @Test
     void enableDisableChannel() throws Exception {
         // Given channel for EVENT_TYPE_1.
-        eventLogConfiguration.change(c -> c.changeChannels(cs -> cs.create(TEST_CHANNEL_NAME, channelChange -> {
-            channelChange.changeEvents(TestEventTypes.TEST_EVENT_TYPE_1.name());
-        }))).get();
+        eventLogConfiguration.change(c -> c.changeChannels().create(
+                TEST_CHANNEL_NAME,
+                channelChange -> channelChange.changeEvents(TEST_EVENT_TYPE_1.name())
+        )).get();
 
         // And in memory sink piped to the channel.
-        eventLogConfiguration.change(c -> c.changeSinks(cs -> cs.create(TEST_SINK_NAME, createTestSink -> {
-            var inMemorySinkChange = (InMemoryCollectionSinkChange) createTestSink.convert(IN_MEMORY_SINK_TYPE);
-            inMemorySinkChange.changeChannel(TEST_CHANNEL_NAME);
-        }))).get();
+        eventLogConfiguration.change(c -> c.changeSinks().create(
+                TEST_SINK_NAME,
+                createTestSink -> {
+                    var inMemorySinkChange = (InMemoryCollectionSinkChange) createTestSink.convert(IN_MEMORY_SINK_TYPE);
+                    inMemorySinkChange.changeChannel(TEST_CHANNEL_NAME);
+                }
+        )).get();
 
         // And in memory sink is empty.
-        assertThat(inMemoryCollectionSink.events(), is(Collections.emptyList()));
+        assertThat(inMemoryCollectionSink.events(), empty());
 
         // When publishing event of type EVENT_TYPE_1.
         var event = Event.builder()
-                .type(TestEventTypes.TEST_EVENT_TYPE_1.name())
+                .type(TEST_EVENT_TYPE_1.name())
                 .user(EventUser.system())
                 .build();
 
@@ -198,9 +211,10 @@ class ItEventLogConfigurationTest extends BaseIgniteAbstractTest {
         assertThat(inMemoryCollectionSink.events(), hasSize(1));
 
         // When disable the channel.
-        eventLogConfiguration.change(c -> c.changeChannels(cs -> cs.update(TEST_CHANNEL_NAME, channelChange -> {
-            channelChange.changeEnabled(false);
-        }))).get();
+        eventLogConfiguration.change(c -> c.changeChannels().update(
+                TEST_CHANNEL_NAME,
+                channelChange -> channelChange.changeEnabled(false)
+        )).get();
 
         // When log event again.
         eventLog.log(() -> event);
@@ -209,9 +223,10 @@ class ItEventLogConfigurationTest extends BaseIgniteAbstractTest {
         assertThat(inMemoryCollectionSink.events(), hasSize(1));
 
         // When enable the channel.
-        eventLogConfiguration.change(c -> c.changeChannels(cs -> cs.update(TEST_CHANNEL_NAME, channelChange -> {
-            channelChange.changeEnabled(true);
-        }))).get();
+        eventLogConfiguration.change(c -> c.changeChannels().update(
+                TEST_CHANNEL_NAME,
+                channelChange -> channelChange.changeEnabled(true)
+        )).get();
 
         // When log event again.
         eventLog.log(() -> event);

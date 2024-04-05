@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.eventlog;
 
+import static org.apache.ignite.internal.eventlog.api.IgniteEventType.CONNECTION_CLOSED;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
-import org.apache.ignite.internal.eventlog.api.IgniteEventType;
 import org.apache.ignite.internal.eventlog.config.schema.EventLogConfiguration;
 import org.junit.jupiter.api.Test;
 
@@ -30,19 +30,26 @@ class ItEventLogConfigurationValidationTest extends ClusterPerClassIntegrationTe
     @Test
     void channelShouldDefineValidEventTypes() {
         // Expect invalid event type should be validated.
-        assertThrows(Exception.class, () ->
-                CLUSTER.aliveNode().clusterConfiguration().getConfiguration(EventLogConfiguration.KEY)
-                        .change(c -> c.changeChannels().create("testChannel", channelChange -> {
-                            channelChange.changeEvents("NO_SUCH_EVENT_TYPE");
-                        })).get()
+        assertThrows(
+                Exception.class,
+                () -> eventLogConfiguration().change(
+                        c -> c.changeChannels().create(
+                                "testChannel",
+                                chC -> chC.changeEvents("NO_SUCH_EVENT_TYPE"))
+                ).get()
         );
 
         // But valid event type is ok.
         assertDoesNotThrow(
-                () -> CLUSTER.aliveNode().clusterConfiguration().getConfiguration(EventLogConfiguration.KEY)
-                        .change(c -> c.changeChannels().create("testChannel2", channelChange -> {
-                            channelChange.changeEvents(IgniteEventType.CONNECTION_CLOSED.name());
-                        })).get()
+                () -> eventLogConfiguration().change(
+                        c -> c.changeChannels().create(
+                                "testChannel2",
+                                chC -> chC.changeEvents(CONNECTION_CLOSED.name()))
+                ).get()
         );
+    }
+
+    private static EventLogConfiguration eventLogConfiguration() {
+        return CLUSTER.aliveNode().clusterConfiguration().getConfiguration(EventLogConfiguration.KEY);
     }
 }

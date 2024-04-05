@@ -45,7 +45,7 @@ public class EventLogImpl implements EventLog {
      * @param cfg the configuration.
      */
     public EventLogImpl(EventLogConfiguration cfg) {
-        this(cfg, new SinkFactory(){});
+        this(cfg, SinkFactory.DEFAULT);
     }
 
     public EventLogImpl(EventLogConfiguration cfg, SinkFactory sinkFactory) {

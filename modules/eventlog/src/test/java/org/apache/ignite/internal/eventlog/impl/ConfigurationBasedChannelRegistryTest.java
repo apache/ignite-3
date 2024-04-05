@@ -45,7 +45,7 @@ class ConfigurationBasedChannelRegistryTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        registry = new ConfigurationBasedChannelRegistry(cfg, new ConfigurationBasedSinkRegistry(cfg, new SinkFactory(){}));
+        registry = new ConfigurationBasedChannelRegistry(cfg, new ConfigurationBasedSinkRegistry(cfg, SinkFactory.DEFAULT));
     }
 
     @Test
