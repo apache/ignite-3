@@ -18,11 +18,15 @@
 package org.apache.ignite.internal.client;
 
 import static org.apache.ignite.internal.client.ClientUtils.sync;
+import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.catalog.IgniteCatalog;
 import org.apache.ignite.catalog.Options;
 import org.apache.ignite.client.IgniteClient;
@@ -38,6 +42,8 @@ import org.apache.ignite.internal.jdbc.proto.ClientMessage;
 import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.exporters.jmx.JmxExporter;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -50,7 +56,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Implementation of {@link IgniteClient} over TCP protocol.
  */
-public class TcpIgniteClient implements IgniteClient {
+public final class TcpIgniteClient implements IgniteClient {
     /** Configuration. */
     private final IgniteClientConfiguration cfg;
 
@@ -75,8 +81,7 @@ public class TcpIgniteClient implements IgniteClient {
     /** Metrics. */
     private final ClientMetricSource metrics;
 
-    /** Marshallers provider. */
-    private final ReflectionMarshallersProvider marshallers = new ReflectionMarshallersProvider();
+    private final ScheduledExecutorService streamerFlushExecutor;
 
     /**
      * Cluster name.
@@ -104,6 +109,8 @@ public class TcpIgniteClient implements IgniteClient {
 
         this.cfg = cfg;
 
+        var marshallers = new ReflectionMarshallersProvider();
+
         metrics = new ClientMetricSource();
         ch = new ReliableChannel(chFactory, cfg, metrics);
         tables = new ClientTables(ch, marshallers);
@@ -111,6 +118,9 @@ public class TcpIgniteClient implements IgniteClient {
         compute = new ClientCompute(ch, tables);
         sql = new ClientSql(ch, marshallers);
         metricManager = initMetricManager(cfg);
+
+        streamerFlushExecutor = Executors.newSingleThreadScheduledExecutor(
+                new NamedThreadFactory("client-data-streamer-flush-" + hashCode(), ClientUtils.logger(cfg, TcpIgniteClient.class)));
     }
 
     @Nullable
@@ -215,11 +225,14 @@ public class TcpIgniteClient implements IgniteClient {
     /** {@inheritDoc} */
     @Override
     public void close() throws Exception {
-        ch.close();
-
-        if (metricManager != null) {
-            metricManager.stop();
-        }
+        IgniteUtils.closeAll(
+                ch,
+                () -> shutdownAndAwaitTermination(streamerFlushExecutor, 10, TimeUnit.SECONDS),
+                () -> {
+                    if (metricManager != null) {
+                        metricManager.stop();
+                    }
+                });
     }
 
     /** {@inheritDoc} */
