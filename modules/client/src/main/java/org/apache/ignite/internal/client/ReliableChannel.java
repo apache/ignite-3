@@ -119,7 +119,8 @@ public final class ReliableChannel implements AutoCloseable {
     private final AtomicReference<UUID> clusterId = new AtomicReference<>();
 
     /** Scheduled executor for streamer flush. */
-    private final ScheduledExecutorService streamerFlushExecutor;
+    @Nullable
+    private ScheduledExecutorService streamerFlushExecutor;
 
     /**
      * Constructor.
@@ -138,11 +139,6 @@ public final class ReliableChannel implements AutoCloseable {
 
         connMgr = new NettyClientConnectionMultiplexer(metrics);
         connMgr.start(clientCfg);
-
-        streamerFlushExecutor = Executors.newSingleThreadScheduledExecutor(
-                new NamedThreadFactory(
-                        "client-data-streamer-flush-" + hashCode(),
-                        ClientUtils.logger(clientCfg, ReliableChannel.class)));
     }
 
     /** {@inheritDoc} */
@@ -696,7 +692,14 @@ public final class ReliableChannel implements AutoCloseable {
      *
      * @return Streamer flush executor.
      */
-    public ScheduledExecutorService streamerFlushExecutor() {
+    public synchronized ScheduledExecutorService streamerFlushExecutor() {
+        if (streamerFlushExecutor == null) {
+            streamerFlushExecutor = Executors.newSingleThreadScheduledExecutor(
+                    new NamedThreadFactory(
+                            "client-data-streamer-flush-" + hashCode(),
+                            ClientUtils.logger(clientCfg, ReliableChannel.class)));
+        }
+
         return streamerFlushExecutor;
     }
 
