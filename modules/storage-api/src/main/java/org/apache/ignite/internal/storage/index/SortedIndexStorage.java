@@ -63,4 +63,10 @@ public interface SortedIndexStorage extends IndexStorage {
             @Nullable BinaryTuplePrefix upperBound,
             @MagicConstant(flagsFromClass = SortedIndexStorage.class) int flags
     );
+
+    PeekCursor<IndexRow> readOnlyScan(
+            @Nullable BinaryTuplePrefix lowerBound,
+            @Nullable BinaryTuplePrefix upperBound,
+            @MagicConstant(flagsFromClass = SortedIndexStorage.class) int flags
+    );
 }
