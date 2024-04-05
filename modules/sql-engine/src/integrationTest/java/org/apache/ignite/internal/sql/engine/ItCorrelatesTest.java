@@ -25,7 +25,8 @@ import org.junit.jupiter.api.Test;
 
 /** Tests for correlated queries. */
 public class ItCorrelatesTest extends BaseSqlIntegrationTest {
-    private static final String DISABLED_JOIN_RULES = " /*+ DISABLE_RULE('MergeJoinConverter', 'NestedLoopJoinConverter') */ ";
+    private static final String DISABLED_JOIN_RULES = " /*+ DISABLE_RULE('MergeJoinConverter', 'NestedLoopJoinConverter', "
+            + "'HashJoinConverter') */ ";
 
     @AfterEach
     public void dropTables() {
@@ -49,7 +50,7 @@ public class ItCorrelatesTest extends BaseSqlIntegrationTest {
      * Tests resolving of collisions in correlates with correlate variables in the left hand.
      */
     @Test
-    public void testCorrelatesCollisionLeft() throws InterruptedException {
+    public void testCorrelatesCollisionLeft() {
         sql("CREATE TABLE test1 (a INTEGER PRIMARY KEY, b INTEGER)");
         sql("CREATE TABLE test2 (a INTEGER PRIMARY KEY, c INTEGER)");
 
@@ -68,7 +69,7 @@ public class ItCorrelatesTest extends BaseSqlIntegrationTest {
      * Tests resolving of collisions in correlates with correlate variables in both, left and right hands.
      */
     @Test
-    public void testCorrelatesCollisionRight() throws InterruptedException {
+    public void testCorrelatesCollisionRight() {
         sql("CREATE TABLE test1 (a INTEGER PRIMARY KEY, b INTEGER)");
         sql("CREATE TABLE test2 (a INTEGER PRIMARY KEY, c INTEGER)");
 

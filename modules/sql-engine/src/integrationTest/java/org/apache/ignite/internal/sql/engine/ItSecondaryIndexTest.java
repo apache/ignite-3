@@ -126,7 +126,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-21286")
     public void testIndexLoopJoin() {
-        assertQuery("SELECT /*+ DISABLE_RULE('MergeJoinConverter', 'NestedLoopJoinConverter') */ d1.name, d2.name "
+        assertQuery("SELECT /*+ DISABLE_RULE('HashJoinConverter', 'MergeJoinConverter', 'NestedLoopJoinConverter') */ d1.name, d2.name "
                 + "FROM Developer d1, Developer d2 WHERE d1.id = d2.id")
                 .matches(containsSubPlan("CorrelatedNestedLoopJoin"))
                 .returns("Bach", "Bach")
@@ -916,7 +916,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
             String sql = "SELECT t1.i1, t2.i1 FROM t t1 LEFT JOIN t t2 ON t1.i2 = t2.i1";
 
             assertQuery(sql)
-                    .disableRules("NestedLoopJoinConverter", "MergeJoinConverter")
+                    .disableRules("NestedLoopJoinConverter", "MergeJoinConverter", "HashJoinConverter")
                     .matches(containsSubPlan("CorrelatedNestedLoopJoin"))
                     .matches(containsIndexScan("PUBLIC", "T", "T_IDX"))
                     .returns(0, null)

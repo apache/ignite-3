@@ -57,6 +57,7 @@ import org.apache.ignite.internal.sql.engine.exec.rel.CorrelatedNestedLoopJoinNo
 import org.apache.ignite.internal.sql.engine.exec.rel.DataSourceScanNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.FilterNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.HashAggregateNode;
+import org.apache.ignite.internal.sql.engine.exec.rel.HashJoinNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.Inbox;
 import org.apache.ignite.internal.sql.engine.exec.rel.IndexScanNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.IndexSpoolNode;
@@ -81,6 +82,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteFilter;
 import org.apache.ignite.internal.sql.engine.rel.IgniteHashIndexSpool;
+import org.apache.ignite.internal.sql.engine.rel.IgniteHashJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueGet;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
@@ -252,6 +254,24 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         BiPredicate<RowT, RowT> cond = expressionFactory.biPredicate(rel.getCondition(), rowType);
 
         Node<RowT> node = NestedLoopJoinNode.create(ctx, outType, leftType, rightType, joinType, cond);
+
+        Node<RowT> leftInput = visit(rel.getLeft());
+        Node<RowT> rightInput = visit(rel.getRight());
+
+        node.register(asList(leftInput, rightInput));
+
+        return node;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Node<RowT> visit(IgniteHashJoin rel) {
+        RelDataType outType = rel.getRowType();
+        RelDataType leftType = rel.getLeft().getRowType();
+        RelDataType rightType = rel.getRight().getRowType();
+        JoinRelType joinType = rel.getJoinType();
+
+        Node<RowT> node = HashJoinNode.create(ctx, outType, leftType, rightType, joinType, rel.analyzeCondition());
 
         Node<RowT> leftInput = visit(rel.getLeft());
         Node<RowT> rightInput = visit(rel.getRight());

@@ -57,7 +57,8 @@ public class ItHashSpoolIntegrationTest extends BaseSqlIntegrationTest {
                 + "FROM t0 JOIN t1 ON t0.i1=t1.i1 AND t0.i2=t1.i2";
 
         assertQuery(sql)
-                .disableRules("MergeJoinConverter", "NestedLoopJoinConverter", "FilterSpoolMergeToSortedIndexSpoolRule")
+                .disableRules("HashJoinConverter", "MergeJoinConverter", "NestedLoopJoinConverter",
+                        "FilterSpoolMergeToSortedIndexSpoolRule")
                 .returns(1, 1, 1, 1)
                 .check();
     }

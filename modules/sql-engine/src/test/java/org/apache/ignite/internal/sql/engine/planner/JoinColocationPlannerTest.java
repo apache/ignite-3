@@ -57,7 +57,7 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
                 + "from TEST_TBL t1 "
                 + "join TEST_TBL t2 on t1.id = t2.id";
 
-        RelNode phys = physicalPlan(sql, schema, "NestedLoopJoinConverter", "CorrelatedNestedLoopJoin");
+        RelNode phys = physicalPlan(sql, schema, "NestedLoopJoinConverter", "CorrelatedNestedLoopJoin", "HashJoinConverter");
 
         IgniteMergeJoin join = findFirstNode(phys, byClass(IgniteMergeJoin.class));
 
@@ -82,7 +82,7 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
                 + "from TEST_TBL t1 "
                 + "join TEST_TBL t2 on t1.id1 = t2.id1 and t1.id2 = t2.id2";
 
-        RelNode phys = physicalPlan(sql, schema, "NestedLoopJoinConverter", "CorrelatedNestedLoopJoin");
+        RelNode phys = physicalPlan(sql, schema, "NestedLoopJoinConverter", "CorrelatedNestedLoopJoin", "HashJoinConverter");
 
         IgniteMergeJoin join = findFirstNode(phys, byClass(IgniteMergeJoin.class));
 
@@ -124,7 +124,7 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
                                 ))
                         ))
                 ))
-        ), "NestedLoopJoinConverter", "CorrelatedNestedLoopJoin");
+        ), "NestedLoopJoinConverter", "CorrelatedNestedLoopJoin", "HashJoinConverter");
     }
 
     /**
@@ -162,7 +162,7 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
                                 .and(scan -> complexTblIndirect.equals(scan.getTable().unwrap(IgniteTable.class)))
                         ))
                 ))
-        ), "NestedLoopJoinConverter", "CorrelatedNestedLoopJoin");
+        ), "NestedLoopJoinConverter", "CorrelatedNestedLoopJoin", "HashJoinConverter");
     }
 
     private static IgniteTable simpleTable(String tableName, int size) {

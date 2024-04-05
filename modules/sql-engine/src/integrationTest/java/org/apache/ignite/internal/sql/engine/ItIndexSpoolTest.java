@@ -80,7 +80,7 @@ public class ItIndexSpoolTest extends BaseSqlIntegrationTest {
     public void test(int rows, int partitions) throws InterruptedException {
         prepareDataSet(rows, partitions);
 
-        var res = sql("SELECT /*+ DISABLE_RULE('NestedLoopJoinConverter', 'MergeJoinConverter') */"
+        var res = sql("SELECT /*+ DISABLE_RULE('NestedLoopJoinConverter', 'MergeJoinConverter', 'HashJoinConverter') */"
                         + "T0.val, T1.val FROM TEST0 as T0 "
                         + "JOIN TEST1 as T1 on T0.jid = T1.jid "
         );

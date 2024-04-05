@@ -38,6 +38,9 @@ public class ItJoinTest extends BaseSqlIntegrationTest {
     public static void beforeTestsStarted() {
         sql("CREATE TABLE t1 (id INT PRIMARY KEY, c1 INT NOT NULL, c2 INT, c3 INT)");
         sql("CREATE TABLE t2 (id INT PRIMARY KEY, c1 INT NOT NULL, c2 INT, c3 INT)");
+        sql("CREATE TABLE t3 (id INT PRIMARY KEY, c1 INTEGER)");
+        sql("CREATE TABLE checkNulls1 (id INT PRIMARY KEY, c1 INTEGER, c2 INTEGER)");
+        sql("CREATE TABLE checkNulls2 (id INT PRIMARY KEY, c1 INTEGER, c2 INTEGER)");
 
         sql("create index t1_idx on t1 (c3, c2, c1)");
         sql("create index t2_idx on t2 (c3, c2, c1)");
@@ -59,6 +62,202 @@ public class ItJoinTest extends BaseSqlIntegrationTest {
                 new Object[] {4, 3, 3, 3},
                 new Object[] {5, 4, 4, 4}
         );
+
+        insertData("t3", List.of("ID", "C1"),
+                new Object[] {0, 1},
+                new Object[] {1, 2},
+                new Object[] {2, 3},
+                new Object[] {3, null}
+        );
+
+        insertData("checkNulls1", List.of("ID", "C1", "C2"),
+                new Object[] {0, null, 1}
+        );
+
+        insertData("checkNulls2", List.of("ID", "C1", "C2"),
+                new Object[] {0, 1, null}
+        );
+    }
+
+    @ParameterizedTest
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-21286 remove exclude
+    @EnumSource(mode = Mode.EXCLUDE, names = "CORRELATED")
+    public void testCheckNullsNullFirstLeftJoin(JoinType joinType) {
+        assertQuery("select t1.c1, t1.c2, t2.c1, t2.c2 "
+                        + "from checkNulls1 t1 left join checkNulls1 t2 on t1.c1 = t2.c1;",
+                joinType
+        )
+                .returns(null, 1, null, null)
+                .check();
+
+        assertQuery("select t1.c1, t1.c2, t2.c1, t2.c2 "
+                        + "from checkNulls1 t1 left join checkNulls1 t2 on t1.c1 = t2.c1 and t1.c2 = t2.c2;",
+                joinType
+        )
+                .returns(null, 1, null, null)
+                .check();
+
+        assertQuery("select t1.c1, t1.c2, t2.c1, t2.c2 "
+                        + "from checkNulls1 t1 left join checkNulls1 t2 on t1.c2 = t2.c2;",
+                joinType
+        )
+                .returns(null, 1, null, 1)
+                .check();
+    }
+
+    @ParameterizedTest
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-21286 remove exclude
+    @EnumSource(mode = Mode.EXCLUDE, names = "CORRELATED")
+    public void testCheckNullsNullFirstRightJoin(JoinType joinType) {
+        assertQuery("select t1.c1, t1.c2, t2.c1, t2.c2 "
+                        + "from checkNulls1 t1 right join checkNulls1 t2 on t1.c1 = t2.c1;",
+                joinType
+        )
+                .returns(null, null, null, 1)
+                .check();
+
+        assertQuery("select t1.c1, t1.c2, t2.c1, t2.c2 "
+                        + "from checkNulls1 t1 right join checkNulls1 t2 on t1.c1 = t2.c1 and t1.c2 = t2.c2;",
+                joinType
+        )
+                .returns(null, null, null, 1)
+                .check();
+
+        assertQuery("select t1.c1, t1.c2, t2.c1, t2.c2 "
+                        + "from checkNulls1 t1 right join checkNulls1 t2 on t1.c2 = t2.c2;",
+                joinType
+        )
+                .returns(null, 1, null, 1)
+                .check();
+    }
+
+    @ParameterizedTest
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-21286 remove exclude
+    @EnumSource(mode = Mode.EXCLUDE, names = "CORRELATED")
+    public void testCheckNullsNullFirstInnerJoin(JoinType joinType) {
+        assertQuery("select t1.c1, t1.c2, t2.c1, t2.c2 "
+                        + "from checkNulls1 t1 inner join checkNulls1 t2 on t1.c1 = t2.c1;",
+                joinType
+        )
+                .returnNothing()
+                .check();
+
+        assertQuery("select t1.c1, t1.c2, t2.c1, t2.c2 "
+                        + "from checkNulls1 t1 inner join checkNulls1 t2 on t1.c1 = t2.c1 and t1.c2 = t2.c2;",
+                joinType
+        )
+                .returnNothing()
+                .check();
+
+        assertQuery("select t1.c1, t1.c2, t2.c1, t2.c2 "
+                        + "from checkNulls1 t1 inner join checkNulls1 t2 on t1.c2 = t2.c2;",
+                joinType
+        )
+                .returns(null, 1, null, 1)
+                .check();
+    }
+
+    @ParameterizedTest
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-21286 remove exclude
+    @EnumSource(mode = Mode.EXCLUDE, names = "CORRELATED")
+    public void testCheckNullsNullSecondLeftJoin(JoinType joinType) {
+        assertQuery("select t1.c1, t1.c2, t2.c1, t2.c2 "
+                        + "from checkNulls2 t1 left join checkNulls2 t2 on t1.c1 = t2.c1;",
+                joinType
+        )
+                .returns(1, null, 1, null)
+                .check();
+
+        assertQuery("select t1.c1, t1.c2, t2.c1, t2.c2 "
+                        + "from checkNulls2 t1 left join checkNulls2 t2 on t1.c1 = t2.c1 and t1.c2 = t2.c2;",
+                joinType
+        )
+                .returns(1, null, null, null)
+                .check();
+
+        assertQuery("select t1.c1, t1.c2, t2.c1, t2.c2 "
+                        + "from checkNulls2 t1 left join checkNulls2 t2 on t1.c2 = t2.c2;",
+                joinType
+        )
+                .returns(1, null, null, null)
+                .check();
+    }
+
+    @ParameterizedTest
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-21286 remove exclude
+    @EnumSource(mode = Mode.EXCLUDE, names = "CORRELATED")
+    public void testCheckNullsNullSecondRightJoin(JoinType joinType) {
+        assertQuery("select t1.c1, t1.c2, t2.c1, t2.c2 "
+                        + "from checkNulls2 t1 right join checkNulls2 t2 on t1.c1 = t2.c1;",
+                joinType
+        )
+                .returns(1, null, 1, null)
+                .check();
+
+        assertQuery("select t1.c1, t1.c2, t2.c1, t2.c2 "
+                        + "from checkNulls2 t1 right join checkNulls2 t2 on t1.c1 = t2.c1 and t1.c2 = t2.c2;",
+                joinType
+        )
+                .returns(null, null, 1, null)
+                .check();
+
+        assertQuery("select t1.c1, t1.c2, t2.c1, t2.c2 "
+                        + "from checkNulls2 t1 right join checkNulls2 t2 on t1.c2 = t2.c2;",
+                joinType
+        )
+                .returns(null, null, 1, null)
+                .check();
+    }
+
+    @ParameterizedTest
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-21286 remove exclude
+    @EnumSource(mode = Mode.EXCLUDE, names = "CORRELATED")
+    public void testCheckNullsNullSecondInnerJoin(JoinType joinType) {
+        assertQuery("select t1.c1, t1.c2, t2.c1, t2.c2 "
+                        + "from checkNulls2 t1 inner join checkNulls2 t2 on t1.c1 = t2.c1;",
+                joinType
+        )
+                .returns(1, null, 1, null)
+                .check();
+
+        assertQuery("select t1.c1, t1.c2, t2.c1, t2.c2 "
+                        + "from checkNulls2 t1 inner join checkNulls2 t2 on t1.c1 = t2.c1 and t1.c2 = t2.c2;",
+                joinType
+        )
+                .returnNothing()
+                .check();
+
+        assertQuery("select t1.c1, t1.c2, t2.c1, t2.c2 "
+                        + "from checkNulls2 t1 inner join checkNulls2 t2 on t1.c2 = t2.c2;",
+                joinType
+        )
+                .returnNothing()
+                .check();
+    }
+
+    @ParameterizedTest
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-21286 remove exclude
+    @EnumSource(mode = Mode.EXCLUDE, names = "CORRELATED")
+    public void testFullOuterJoin(JoinType joinType) {
+        assertQuery(""
+                        + "select t1.c1 c11, t1.c2 c12, t1.c3 c13, t2.c1 c21, t2.c2 c22 "
+                        + "  from t1 "
+                        + "  full outer join t2 "
+                        + "    on t1.c1 = t2.c1 "
+                        + "   and t1.c2 = t2.c2 "
+                        + " order by t1.c1, t1.c2, t1.c3",
+                joinType
+        )
+                .ordered()
+                .returns(1, 1, 1, 1, 1)
+                .returns(2, 2, 2, 2, 2)
+                .returns(2, 2, 2, 2, 2)
+                .returns(2, null, 2, null, null)
+                .returns(3, 3, 3, 3, 3)
+                .returns(3, 3, null, 3, 3)
+                .returns(4, 4, 4, 4, 4)
+                .returns(null, null, null, 3, null)
+                .check();
     }
 
     /**
@@ -250,13 +449,28 @@ public class ItJoinTest extends BaseSqlIntegrationTest {
      */
     @ParameterizedTest
     // TODO: https://issues.apache.org/jira/browse/IGNITE-21286 remove exclude
-    @EnumSource(mode = Mode.EXCLUDE, names = "CORRELATED")
+    @EnumSource(mode = Mode.EXCLUDE, names = {"CORRELATED"})
     public void testLeftJoin(JoinType joinType) {
+        assertQuery("SELECT c1 FROM t3 WHERE c1 = ANY(SELECT c1 FROM t3) ORDER BY c1", joinType)
+                .ordered()
+                .returns(1)
+                .returns(2)
+                .returns(3)
+                .check();
+
+        assertQuery("select t31.c1 from t3 t31 left join t3 t32 on t31.c1 = t32.c1 ORDER BY t31.c1;", joinType)
+                .ordered()
+                .returns(1)
+                .returns(2)
+                .returns(3)
+                .returns(null)
+                .check();
+
         assertQuery(""
                 + "select t1.c1 c11, t1.c2 c12, t1.c3 c13, t2.c1 c21, t2.c2 c22 "
                 + "  from t1 "
                 + "  left join t2 "
-                + "    on t1.c1 = t2.c1 "
+                + "    on t1.c1 = t2.c1"
                 + "   and t1.c2 = t2.c2 "
                 + " order by t1.c1, t1.c2, t1.c3",
                 joinType
@@ -843,6 +1057,7 @@ public class ItJoinTest extends BaseSqlIntegrationTest {
         Stream<Arguments> types = Arrays.stream(JoinType.values())
                 // TODO: https://issues.apache.org/jira/browse/IGNITE-21286 remove filter below
                 .filter(type -> type != JoinType.CORRELATED)
+                .filter(type -> type != JoinType.HASHJOIN)
                 .flatMap(v -> Stream.of(Arguments.of(v, false), Arguments.of(v, true)));
 
         return types;

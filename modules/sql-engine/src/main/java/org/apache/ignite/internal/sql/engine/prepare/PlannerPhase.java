@@ -50,6 +50,7 @@ import org.apache.ignite.internal.sql.engine.rule.FilterConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.FilterSpoolMergeToHashIndexSpoolRule;
 import org.apache.ignite.internal.sql.engine.rule.FilterSpoolMergeToSortedIndexSpoolRule;
 import org.apache.ignite.internal.sql.engine.rule.HashAggregateConverterRule;
+import org.apache.ignite.internal.sql.engine.rule.HashJoinConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.LogicalScanConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.MergeJoinConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.NestedLoopJoinConverterRule;
@@ -227,6 +228,7 @@ public enum PlannerPhase {
 
             CorrelateToNestedLoopRule.INSTANCE,
             NestedLoopJoinConverterRule.INSTANCE,
+            HashJoinConverterRule.INSTANCE,
 
             ValuesConverterRule.INSTANCE,
             LogicalScanConverterRule.INDEX_SCAN,
