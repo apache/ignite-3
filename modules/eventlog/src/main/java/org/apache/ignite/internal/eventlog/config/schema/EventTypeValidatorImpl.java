@@ -22,7 +22,7 @@ import org.apache.ignite.configuration.validation.ValidationIssue;
 import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.eventlog.event.EventTypeRegistry;
 
-/** Validates that the event types are valid. */
+/** Validates event types. */
 public class EventTypeValidatorImpl implements Validator<ValidEventType, String[]> {
     /** Static instance. */
     public static final EventTypeValidatorImpl INSTANCE = new EventTypeValidatorImpl();
