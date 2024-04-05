@@ -692,6 +692,15 @@ public final class ReliableChannel implements AutoCloseable {
         return partitionAssignmentTimestamp.get();
     }
 
+    /**
+     * Gets the data streamer flush scheduled executor.
+     *
+     * @return Streamer flush executor.
+     */
+    public ScheduledExecutorService streamerFlushExecutor() {
+        return streamerFlushExecutor;
+    }
+
     @Nullable
     private static IgniteClientConnectionException unwrapConnectionException(Throwable err) {
         while (err instanceof CompletionException) {
