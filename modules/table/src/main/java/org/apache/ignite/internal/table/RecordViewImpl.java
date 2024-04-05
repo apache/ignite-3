@@ -582,7 +582,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
                 );
 
         CompletableFuture<Void> future = DataStreamer.streamData(
-                publisher, options, batchSender, partitioner, tbl.getStreamerFlushExecutor());
+                publisher, options, batchSender, partitioner, tbl.streamerFlushExecutor());
 
         return convertToPublicFuture(future);
     }

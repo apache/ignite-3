@@ -485,5 +485,5 @@ public interface InternalTable extends ManuallyCloseable {
      *
      * @return Streamer flush executor.
      */
-    ScheduledExecutorService getStreamerFlushExecutor();
+    ScheduledExecutorService streamerFlushExecutor();
 }

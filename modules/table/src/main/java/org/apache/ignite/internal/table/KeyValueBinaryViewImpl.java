@@ -566,7 +566,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
                         schemaVersion -> this.tbl.updateAll(marshalPairs(items, schemaVersion, deleted), deleted, partitionId)
                 );
 
-        CompletableFuture<Void> future = DataStreamer.streamData(publisher, options, batchSender, partitioner);
+        CompletableFuture<Void> future = DataStreamer.streamData(publisher, options, batchSender, partitioner, tbl.streamerFlushExecutor());
         return convertToPublicFuture(future);
     }
 

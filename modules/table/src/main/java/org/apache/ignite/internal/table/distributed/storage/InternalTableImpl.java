@@ -2168,7 +2168,7 @@ public class InternalTableImpl implements InternalTable {
     }
 
     @Override
-    public ScheduledExecutorService getStreamerFlushExecutor() {
+    public ScheduledExecutorService streamerFlushExecutor() {
         return streamerFlushExecutor;
     }
 
