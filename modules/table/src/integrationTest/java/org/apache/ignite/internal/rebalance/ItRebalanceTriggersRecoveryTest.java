@@ -20,6 +20,7 @@ package org.apache.ignite.internal.rebalance;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableId;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.executeWithEverythingAllowed;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -35,20 +36,17 @@ import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests for recovery of the rebalance procedure.
  */
-@WithSystemProperty(key = IgniteSystemProperties.THREAD_ASSERTIONS_THREAD_WHITELISTING_ENABLED, value = "true")
 public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTest {
     private static final String US_NODE_BOOTSTRAP_CFG_TEMPLATE = "{\n"
             + "  network: {\n"
@@ -246,6 +244,6 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
                 .storage()
                 .getMvPartition(0);
 
-        return storage != null && storage.rowsCount() != 0;
+        return storage != null && executeWithEverythingAllowed(storage::rowsCount) != 0;
     }
 }

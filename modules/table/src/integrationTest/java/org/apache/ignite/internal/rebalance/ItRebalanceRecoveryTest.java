@@ -18,23 +18,21 @@
 package org.apache.ignite.internal.rebalance;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.executeWithEverythingAllowed;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests for recovery of the rebalance procedure.
  */
-@WithSystemProperty(key = IgniteSystemProperties.THREAD_ASSERTIONS_THREAD_WHITELISTING_ENABLED, value = "true")
 public class ItRebalanceRecoveryTest extends ClusterPerTestIntegrationTest {
     @Override
     protected int initialNodes() {
@@ -74,6 +72,6 @@ public class ItRebalanceRecoveryTest extends ClusterPerTestIntegrationTest {
                 .storage()
                 .getMvPartition(0);
 
-        return storage.rowsCount() != 0;
+        return executeWithEverythingAllowed(() -> storage.rowsCount() != 0);
     }
 }

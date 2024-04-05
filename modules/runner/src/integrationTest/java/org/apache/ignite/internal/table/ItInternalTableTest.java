@@ -49,7 +49,6 @@ import org.apache.ignite.IgnitionManager;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.Column;
@@ -58,9 +57,10 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.thread.PublicApiThreading;
+import org.apache.ignite.internal.thread.PublicApiThreading.ApiEntryRole;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -85,7 +85,6 @@ import org.junit.jupiter.params.provider.ValueSource;
  * Tests for the internal table API.
  */
 @ExtendWith(WorkDirectoryExtension.class)
-@WithSystemProperty(key = IgniteSystemProperties.THREAD_ASSERTIONS_THREAD_WHITELISTING_ENABLED, value = "true")
 public class ItInternalTableTest extends BaseIgniteAbstractTest {
     private static final String TABLE_NAME = "SOME_TABLE";
 
@@ -158,6 +157,18 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
         stopTable(node(), TABLE_NAME);
 
         table = null;
+    }
+
+    @BeforeEach
+    void allowAllOperationsToTestThread() {
+        // Doing this as this class tests internal API which relies on public API to mark the threads.
+        // Without this marking, thread assertions would go off.
+        PublicApiThreading.setThreadRole(ApiEntryRole.SYNC_PUBLIC_API);
+    }
+
+    @AfterEach
+    void cleanupThreadApiRole() {
+        PublicApiThreading.setThreadRole(null);
     }
 
     @Test

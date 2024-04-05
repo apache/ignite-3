@@ -21,6 +21,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.executeWithEverythingAllowed;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
@@ -39,7 +40,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.DefaultMessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
@@ -47,7 +47,6 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeException;
 import org.apache.ignite.internal.tx.TxMeta;
@@ -296,7 +295,6 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    @WithSystemProperty(key = IgniteSystemProperties.THREAD_ASSERTIONS_THREAD_WHITELISTING_ENABLED, value = "true")
     void testCommitAlreadyAbortedTx() throws ExecutionException, InterruptedException {
         Context context = prepareTransactionData();
 
@@ -320,7 +318,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
                 ABORTED,
                 null
         );
-        storage.put(tx.id(), txMetaToSet);
+        executeWithEverythingAllowed(() -> storage.put(tx.id(), txMetaToSet));
     }
 
 

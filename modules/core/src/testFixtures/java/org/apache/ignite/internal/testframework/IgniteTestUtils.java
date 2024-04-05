@@ -531,6 +531,15 @@ public final class IgniteTestUtils {
     }
 
     /**
+     * Executes a synchronous operation in a thread that is allowed to execute any thread operation.
+     *
+     * @param operation Operation to execute.
+     */
+    public static void executeWithEverythingAllowed(Runnable operation) {
+        await(runAsync(operation::run));
+    }
+
+    /**
      * Runs callable tasks each in separate threads.
      *
      * @param calls Callable tasks.

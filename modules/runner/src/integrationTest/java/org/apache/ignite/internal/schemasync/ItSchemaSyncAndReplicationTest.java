@@ -19,6 +19,7 @@ package org.apache.ignite.internal.schemasync;
 
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.executeWithEverythingAllowed;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -31,14 +32,12 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnAppendEntries;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
@@ -48,7 +47,6 @@ import org.junit.jupiter.api.Test;
  * Tests about interaction between Schema Synchronization and Replication.
  */
 @SuppressWarnings("resource")
-@WithSystemProperty(key = IgniteSystemProperties.THREAD_ASSERTIONS_THREAD_WHITELISTING_ENABLED, value = "true")
 class ItSchemaSyncAndReplicationTest extends ClusterPerTestIntegrationTest {
     private static final int NODES_TO_START = 3;
 
@@ -147,7 +145,7 @@ class ItSchemaSyncAndReplicationTest extends ClusterPerTestIntegrationTest {
 
     private static boolean solePartitionIsEmpty(IgniteImpl node) {
         MvPartitionStorage mvPartitionStorage = solePartitionStorage(node);
-        RowId rowId = mvPartitionStorage.closestRowId(RowId.lowestRowId(0));
+        RowId rowId = executeWithEverythingAllowed(() -> mvPartitionStorage.closestRowId(RowId.lowestRowId(0)));
         return rowId == null;
     }
 

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.executeWithEverythingAllowed;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -51,7 +52,6 @@ import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.DefaultMessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
@@ -101,7 +101,6 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 @ExtendWith(SystemPropertiesExtension.class)
 @WithSystemProperty(key = RESOURCE_VACUUM_INTERVAL_MILLISECONDS_PROPERTY, value = "500")
-@WithSystemProperty(key = IgniteSystemProperties.THREAD_ASSERTIONS_THREAD_WHITELISTING_ENABLED, value = "true")
 public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
 
@@ -444,7 +443,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         // Continue the COMMIT message flow.
         CompletableFuture<NetworkMessage> finishRequest =
-                messaging(commitPartNode).invoke(targetName.get(), finishRequestCaptureFut.join(), 3000);
+                executeWithEverythingAllowed(() -> messaging(commitPartNode).invoke(targetName.get(), finishRequestCaptureFut.join(), 3000));
 
         assertThat(finishRequest, willCompleteSuccessfully());
 
@@ -518,7 +517,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         assertTrue(waitForCondition(() -> txStoredState(commitPartNode, orphanTx.id()) == TxState.ABORTED, 10_000));
 
         CompletableFuture<NetworkMessage> commitRequest =
-                messaging(commitPartNode).invoke(targetName.get(), finishRequestCaptureFut.join(), 3000);
+                executeWithEverythingAllowed(() -> messaging(commitPartNode).invoke(targetName.get(), finishRequestCaptureFut.join(), 3000));
 
         assertThat(commitRequest, willCompleteSuccessfully());
 
@@ -1032,16 +1031,16 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         return txMeta == null ? null : txMeta.txState();
     }
 
-    private @Nullable TxState txStoredState(IgniteImpl node, UUID txId) {
+    private static @Nullable TxState txStoredState(IgniteImpl node, UUID txId) {
         TxMeta txMeta = txStoredMeta(node, txId);
 
         return txMeta == null ? null : txMeta.txState();
     }
 
-    private @Nullable TxMeta txStoredMeta(IgniteImpl node, UUID txId) {
+    private static @Nullable TxMeta txStoredMeta(IgniteImpl node, UUID txId) {
         InternalTable internalTable = unwrapTableImpl(node.tables().table(TABLE_NAME)).internalTable();
 
-        return internalTable.txStateStorage().getTxStateStorage(0).get(txId);
+        return executeWithEverythingAllowed(() -> internalTable.txStateStorage().getTxStateStorage(0).get(txId));
     }
 
     /**

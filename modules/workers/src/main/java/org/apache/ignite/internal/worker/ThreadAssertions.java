@@ -18,9 +18,7 @@
 package org.apache.ignite.internal.worker;
 
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.THREAD_ASSERTIONS_ENABLED;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.THREAD_ASSERTIONS_THREAD_WHITELISTING_ENABLED;
 
-import java.util.regex.Pattern;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -33,11 +31,6 @@ import org.apache.ignite.internal.thread.ThreadOperation;
  */
 public class ThreadAssertions {
     private static final IgniteLogger LOG = Loggers.forClass(ThreadAssertions.class);
-
-    /** Names of threads on which the assertions are skipped. */
-    private static final Pattern WHITELISTED_THREAD_NAMES = Pattern.compile(
-            "(^main$|^Test worker$|^junit-timeout-thread.*)"
-    );
 
     /**
      * Returns {@code true} if thread assertions are enabled.
@@ -72,10 +65,6 @@ public class ThreadAssertions {
 
         Thread currentThread = Thread.currentThread();
 
-        if (threadWhiteListingEnabled() && whiteListed(currentThread)) {
-            return;
-        }
-
         if (!(currentThread instanceof ThreadAttributes)) {
             LOG.warn("Thread {} does not have allowed operations", trackerException(), currentThread);
 
@@ -87,14 +76,6 @@ public class ThreadAssertions {
 
             throw new AssertionError("Thread is not allowed to do " + requestedOperation);
         }
-    }
-
-    private static boolean threadWhiteListingEnabled() {
-        return IgniteSystemProperties.getBoolean(THREAD_ASSERTIONS_THREAD_WHITELISTING_ENABLED, false);
-    }
-
-    private static boolean whiteListed(Thread currentThread) {
-        return WHITELISTED_THREAD_NAMES.matcher(currentThread.getName()).matches();
     }
 
     private static Exception trackerException() {

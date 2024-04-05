@@ -29,6 +29,8 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.executeAsyncWithEverythingAllowed;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.executeWithEverythingAllowed;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -123,7 +125,6 @@ import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -178,7 +179,6 @@ import org.apache.ignite.internal.table.distributed.schema.SchemaSyncServiceImpl
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
@@ -1044,7 +1044,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      * Restarts the node which stores some data.
      */
     @Test
-    @WithSystemProperty(key = IgniteSystemProperties.THREAD_ASSERTIONS_THREAD_WHITELISTING_ENABLED, value = "true")
     public void nodeWithDataAndIndexRebuildTest() {
         IgniteImpl ignite = startNode(0);
 
@@ -1059,8 +1058,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         CompletableFuture[] flushFuts = new CompletableFuture[partitions];
 
         for (int i = 0; i < partitions; i++) {
+            int finalI = i;
             // Flush data on disk, so that we will have a snapshot to read on restart.
-            flushFuts[i] = internalTable.storage().getMvPartition(i).flush();
+            flushFuts[i] = executeAsyncWithEverythingAllowed(() -> internalTable.storage().getMvPartition(finalI).flush());
         }
 
         assertThat(CompletableFuture.allOf(flushFuts), willCompleteSuccessfully());
@@ -1077,16 +1077,18 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         checkTableWithData(ignite, TABLE_NAME);
 
-        table = unwrapTableViewInternal(ignite.tables().table(TABLE_NAME));
+        TableViewInternal tableAfterRestart = unwrapTableViewInternal(ignite.tables().table(TABLE_NAME));
 
         // Check data that was added after flush.
-        for (int i = 0; i < 100; i++) {
-            Tuple row = table.keyValueView().get(null, Tuple.create().set("id", i + 500));
+        executeWithEverythingAllowed(() -> {
+            for (int i = 0; i < 100; i++) {
+                Tuple row = tableAfterRestart.keyValueView().get(null, Tuple.create().set("id", i + 500));
 
-            Objects.requireNonNull(row, "row");
+                Objects.requireNonNull(row, "row");
 
-            assertEquals(VALUE_PRODUCER.apply(i + 500), row.stringValue("name"));
-        }
+                assertEquals(VALUE_PRODUCER.apply(i + 500), row.stringValue("name"));
+            }
+        });
     }
 
     /**
