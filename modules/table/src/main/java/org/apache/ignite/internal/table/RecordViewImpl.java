@@ -581,7 +581,9 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
                         schemaVersion -> this.tbl.updateAll(marshal(items, schemaVersion, deleted), deleted, partitionId)
                 );
 
-        CompletableFuture<Void> future = DataStreamer.streamData(publisher, options, batchSender, partitioner);
+        CompletableFuture<Void> future = DataStreamer.streamData(
+                publisher, options, batchSender, partitioner, tbl.getStreamerFlushExecutor());
+
         return convertToPublicFuture(future);
     }
 

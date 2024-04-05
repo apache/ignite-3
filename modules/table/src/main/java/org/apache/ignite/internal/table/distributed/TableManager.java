@@ -336,6 +336,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      */
     private final ExecutorService ioExecutor;
 
+    private final ScheduledExecutorService streamerFlushExecutor;
+
     private final HybridClock clock;
 
     private final ClockService clockService;
@@ -535,6 +537,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         scanRequestExecutor = Executors.newSingleThreadExecutor(
                 IgniteThreadFactory.create(nodeName, "scan-query-executor", LOG, STORAGE_READ));
+
+        streamerFlushExecutor = Executors.newSingleThreadScheduledExecutor(
+                IgniteThreadFactory.create(nodeName, "streamer-flush-executor", LOG, STORAGE_WRITE));
 
         int cpus = Runtime.getRuntime().availableProcessors();
 
@@ -1319,7 +1324,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 tableRaftService,
                 transactionInflights,
                 implicitTransactionTimeout,
-                attemptsObtainLock
+                attemptsObtainLock,
+                streamerFlushExecutor
         );
 
         var table = new TableImpl(
