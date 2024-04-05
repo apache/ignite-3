@@ -15,21 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tostring;
+package org.apache.ignite.internal.components;
 
-import java.lang.annotation.Documented;
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
-
-/**
- * Class, field or method annotated with IgniteToStringInclude claims the element <b>must be</b> excluded from {@code toString()} output.
- * This annotation is used to override the default exclusion policy.
- */
-@Documented
-@Retention(RetentionPolicy.RUNTIME)
-@Target({ElementType.FIELD, ElementType.TYPE, ElementType.METHOD})
-public @interface IgniteToStringExclude {
-    // No-op.
+/** Interface to synchronize write-ahead log. Operates only for persistent log storages. */
+public interface LogSyncer {
+    /**
+     * Synchronizes write-ahead log.
+     *
+     * @throws Exception if an error occurs whilst syncing.
+     */
+    void sync() throws Exception;
 }

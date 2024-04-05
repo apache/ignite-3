@@ -78,6 +78,7 @@ import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -829,7 +830,14 @@ public class TableManagerTest extends IgniteAbstractTest {
         DataStorageModules dataStorageModules = new DataStorageModules(List.of(new PersistentPageMemoryDataStorageModule()));
 
         DataStorageManager manager = new DataStorageManager(
-                dataStorageModules.createStorageEngines(NODE_NAME, mockedRegistry, storagePath, null, mock(FailureProcessor.class))
+                dataStorageModules.createStorageEngines(
+                        NODE_NAME,
+                        mockedRegistry,
+                        storagePath,
+                        null,
+                        mock(FailureProcessor.class),
+                        mock(LogSyncer.class)
+                )
         );
 
         assertThat(manager.start(), willCompleteSuccessfully());

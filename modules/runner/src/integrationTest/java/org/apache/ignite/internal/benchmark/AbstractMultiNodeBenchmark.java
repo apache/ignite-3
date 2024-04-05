@@ -84,7 +84,7 @@ public class AbstractMultiNodeBenchmark {
             var createZoneStatement = "CREATE ZONE IF NOT EXISTS " + ZONE_NAME + " WITH partitions=" + partitionCount();
 
             getAllFromCursor(
-                    await(queryEngine.querySingleAsync(
+                    await(queryEngine.queryAsync(
                             SqlPropertiesHelper.emptyProperties(), clusterNode.transactions(), null, createZoneStatement
                     ))
             );
@@ -130,7 +130,7 @@ public class AbstractMultiNodeBenchmark {
         createTableStatement += "\nWITH primary_zone='" + ZONE_NAME + "'";
 
         getAllFromCursor(
-                await(clusterNode.queryEngine().querySingleAsync(
+                await(clusterNode.queryEngine().queryAsync(
                         SqlPropertiesHelper.emptyProperties(), clusterNode.transactions(), null, createTableStatement
                 ))
         );

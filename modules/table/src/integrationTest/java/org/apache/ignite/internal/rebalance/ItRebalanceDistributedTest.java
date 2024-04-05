@@ -1123,7 +1123,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                             nodeCfgMgr.configurationRegistry(),
                             dir.resolve("storage"),
                             null,
-                            failureProcessor
+                            failureProcessor,
+                            raftManager.getLogSyncer()
                     )
             );
 

@@ -531,7 +531,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                         nodeCfgMgr.configurationRegistry(),
                         storagePath,
                         null,
-                        failureProcessor
+                        failureProcessor,
+                        raftMgr.getLogSyncer()
                 )
         );
 

@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeN
 import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
@@ -51,7 +52,7 @@ class RocksDbGcUpdateHandlerTest extends AbstractGcUpdateHandlerTest {
             TestInfo testInfo,
             @InjectConfiguration RocksDbStorageEngineConfiguration engineConfig
     ) {
-        engine = new RocksDbStorageEngine(testNodeName(testInfo, 0), engineConfig, workDir);
+        engine = new RocksDbStorageEngine(testNodeName(testInfo, 0), engineConfig, workDir, mock(LogSyncer.class));
 
         engine.start();
 

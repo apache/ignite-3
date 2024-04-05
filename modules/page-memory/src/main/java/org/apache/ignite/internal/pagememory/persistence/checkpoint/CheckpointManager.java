@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.pagememory.persistence.CheckpointUrgenc
 import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
@@ -107,6 +108,7 @@ public class CheckpointManager {
             PartitionMetaManager partitionMetaManager,
             Collection<? extends DataRegion<PersistentPageMemory>> dataRegions,
             PageIoRegistry ioRegistry,
+            LogSyncer logSyncer,
             // TODO: IGNITE-17017 Move to common config
             int pageSize
     ) throws IgniteInternalCheckedException {
@@ -155,7 +157,8 @@ public class CheckpointManager {
                 checkpointPagesWriterFactory,
                 filePageStoreManager,
                 compactor,
-                checkpointConfig
+                checkpointConfig,
+                logSyncer
         );
 
         checkpointTimeoutLock = new CheckpointTimeoutLock(
