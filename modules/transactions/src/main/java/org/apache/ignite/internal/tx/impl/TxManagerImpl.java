@@ -56,7 +56,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
 import java.util.stream.Collectors;
@@ -67,6 +66,8 @@ import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.lowwatermark.LowWatermark;
+import org.apache.ignite.internal.lowwatermark.LowWatermarkChangedListener;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
@@ -138,11 +139,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             Comparator.comparing(TxIdAndTimestamp::getReadTimestamp).thenComparing(TxIdAndTimestamp::getTxId)
     );
 
-    /**
-     * Low watermark, does not allow creating read-only transactions less than or equal to this value, {@code null} means it has never been
-     * updated yet.
-     */
-    private final AtomicReference<HybridTimestamp> lowWatermark = new AtomicReference<>();
+    /** Low watermark. */
+    private final LowWatermark lowWatermark;
 
     private final PlacementDriver placementDriver;
 
@@ -192,6 +190,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     private final EventListener<PrimaryReplicaEventParameters> primaryReplicaEventListener;
 
+    private final LowWatermarkChangedListener lowWatermarkChangedListener = this::onLwnChanged;
+
     /** Counter of read-write transactions that were created and completed locally on the node. */
     private final LocalRwTxCounter localRwTxCounter;
 
@@ -213,6 +213,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      * @param localRwTxCounter Counter of read-write transactions that were created and completed locally on the node.
      * @param resourcesRegistry Resources registry.
      * @param transactionInflights Transaction inflights.
+     * @param lowWatermark Low watermark.
      */
     @TestOnly
     public TxManagerImpl(
@@ -226,7 +227,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             LongSupplier idleSafeTimePropagationPeriodMsSupplier,
             LocalRwTxCounter localRwTxCounter,
             RemotelyTriggeredResourceRegistry resourcesRegistry,
-            TransactionInflights transactionInflights
+            TransactionInflights transactionInflights,
+            LowWatermark lowWatermark
     ) {
         this(
                 clusterService.nodeName(),
@@ -242,7 +244,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 localRwTxCounter,
                 ForkJoinPool.commonPool(),
                 resourcesRegistry,
-                transactionInflights
+                transactionInflights,
+                lowWatermark
         );
     }
 
@@ -262,6 +265,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      * @param partitionOperationsExecutor Executor on which partition operations will be executed, if needed.
      * @param resourcesRegistry Resources registry.
      * @param transactionInflights Transaction inflights.
+     * @param lowWatermark Low watermark.
      */
     public TxManagerImpl(
             String nodeName,
@@ -277,7 +281,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             LocalRwTxCounter localRwTxCounter,
             Executor partitionOperationsExecutor,
             RemotelyTriggeredResourceRegistry resourcesRegistry,
-            TransactionInflights transactionInflights
+            TransactionInflights transactionInflights,
+            LowWatermark lowWatermark
     ) {
         this.txConfig = txConfig;
         this.lockManager = lockManager;
@@ -291,6 +296,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         this.localRwTxCounter = localRwTxCounter;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
         this.transactionInflights = transactionInflights;
+        this.lowWatermark = lowWatermark;
 
         placementDriverHelper = new PlacementDriverHelper(placementDriver, clockService);
 
@@ -373,7 +379,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         CompletableFuture<Void> oldFuture = readOnlyTxFutureById.put(txIdAndTimestamp, txFuture);
         assert oldFuture == null : "previous transaction has not completed yet: " + txIdAndTimestamp;
 
-        HybridTimestamp lowWatermark = this.lowWatermark.get();
+        HybridTimestamp lowWatermark = this.lowWatermark.getLowWatermark();
 
         if (lowWatermark != null && readTimestamp.compareTo(lowWatermark) <= 0) {
             // "updateLowWatermark" method updates "this.lowWatermark" field, and only then scans "this.readOnlyTxFutureById" for old
@@ -709,21 +715,25 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     @Override
     public CompletableFuture<Void> start() {
-        localNodeId = topologyService.localMember().id();
+        return inBusyLockAsync(busyLock, () -> {
+            localNodeId = topologyService.localMember().id();
 
-        messagingService.addMessageHandler(ReplicaMessageGroup.class, this);
+            messagingService.addMessageHandler(ReplicaMessageGroup.class, this);
 
-        txStateVolatileStorage.start();
+            txStateVolatileStorage.start();
 
-        orphanDetector.start(txStateVolatileStorage, txConfig.abandonedCheckTs());
+            orphanDetector.start(txStateVolatileStorage, txConfig.abandonedCheckTs());
 
-        txCleanupRequestSender.start();
+            txCleanupRequestSender.start();
 
-        txCleanupRequestHandler.start();
+            txCleanupRequestHandler.start();
 
-        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, primaryReplicaEventListener);
+            placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, primaryReplicaEventListener);
 
-        return nullCompletedFuture();
+            lowWatermark.addUpdateListener(lowWatermarkChangedListener);
+
+            return nullCompletedFuture();
+        });
     }
 
     @Override
@@ -744,6 +754,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         txCleanupRequestHandler.stop();
 
         placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, primaryReplicaEventListener);
+
+        lowWatermark.removeUpdateListener(lowWatermarkChangedListener);
 
         shutdownAndAwaitTermination(writeIntentSwitchPool, 10, TimeUnit.SECONDS);
     }
@@ -796,24 +808,14 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         return readOnlyTxFuture;
     }
 
-    @Override
-    public CompletableFuture<Void> updateLowWatermark(HybridTimestamp newLowWatermark) {
-        lowWatermark.updateAndGet(previousLowWatermark -> {
-            if (previousLowWatermark == null) {
-                return newLowWatermark;
-            }
+    private CompletableFuture<Void> onLwnChanged(HybridTimestamp newLowWatermark) {
+        return inBusyLockAsync(busyLock, () -> {
+            TxIdAndTimestamp upperBound = new TxIdAndTimestamp(newLowWatermark, new UUID(Long.MAX_VALUE, Long.MAX_VALUE));
 
-            assert newLowWatermark.compareTo(previousLowWatermark) > 0 :
-                    "lower watermark should be growing: [previous=" + previousLowWatermark + ", new=" + newLowWatermark + ']';
+            List<CompletableFuture<Void>> readOnlyTxFutures = List.copyOf(readOnlyTxFutureById.headMap(upperBound, true).values());
 
-            return newLowWatermark;
+            return allOf(readOnlyTxFutures.toArray(CompletableFuture[]::new));
         });
-
-        TxIdAndTimestamp upperBound = new TxIdAndTimestamp(newLowWatermark, new UUID(Long.MAX_VALUE, Long.MAX_VALUE));
-
-        List<CompletableFuture<Void>> readOnlyTxFutures = List.copyOf(readOnlyTxFutureById.headMap(upperBound, true).values());
-
-        return allOf(readOnlyTxFutures.toArray(CompletableFuture[]::new));
     }
 
     @Override
