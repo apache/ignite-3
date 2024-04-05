@@ -358,14 +358,14 @@ public class SchemaSynchronizationTest : IgniteTestsBase
 
         async IAsyncEnumerable<DataStreamerItem<IIgniteTuple>> GetData()
         {
-            if (withRemove)
-            {
-                // TODO: Include remove operations in streaming.
-            }
-
             // First set of batches uses old schema.
             for (int i = 0; i < 20; i++)
             {
+                if (withRemove)
+                {
+                    yield return DataStreamerItem.Create(GetTuple(-i), DataStreamerOperationType.Remove);
+                }
+
                 yield return DataStreamerItem.Create(GetTuple(i));
             }
 
@@ -379,6 +379,11 @@ public class SchemaSynchronizationTest : IgniteTestsBase
 
             for (int i = 10; i < 30; i++)
             {
+                if (withRemove)
+                {
+                    yield return DataStreamerItem.Create(GetTuple(-i), DataStreamerOperationType.Remove);
+                }
+
                 yield return insertNewColumn
                     ? DataStreamerItem.Create(GetTuple(i, "BAR_" + i))
                     : DataStreamerItem.Create(GetTuple(i));
