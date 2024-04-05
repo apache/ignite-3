@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.metadata;
 
-import org.apache.calcite.plan.Convention;
 import org.apache.calcite.plan.volcano.RelSubset;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Aggregate;
@@ -60,10 +59,6 @@ public class IgniteMdDistinctRowCount extends RelMdDistinctRowCount {
             return mq.getDistinctRowCount(best, groupKey, predicate);
         }
 
-        if (rel.getConvention() == Convention.NONE) {
-            return null;
-        }
-
         Double d = null;
         for (RelNode r2 : rel.getRels()) {
             try {
@@ -74,6 +69,7 @@ public class IgniteMdDistinctRowCount extends RelMdDistinctRowCount {
                 // in this set.
             }
         }
+
         return d;
     }
 }

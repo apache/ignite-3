@@ -19,6 +19,12 @@ package org.apache.ignite.internal.sql.engine.planner;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import com.google.common.io.CharStreams;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
@@ -69,8 +75,47 @@ public class TpchQueryPlannerTest extends AbstractPlannerTest {
         MultiStepPlan plan = (MultiStepPlan) node.prepare(TpchHelper.getQuery(queryId));
 
         String actualPlan = RelOptUtil.toString(Cloner.clone(plan.root(), Commons.cluster()), SqlExplainLevel.DIGEST_ATTRIBUTES);
-        String expectedPlan = TpchHelper.getQueryPlan(queryId);
+        String expectedPlan = getQueryPlan(queryId);
 
         assertEquals(expectedPlan, actualPlan);
+    }
+
+    /**
+     * Loads query plan for provided TPC-H query id.
+     *
+     * @see TpchHelper#getQuery(String) for query id details.
+     */
+    public static String getQueryPlan(String queryId) {
+        // variant query ends with "v"
+        boolean variant = queryId.endsWith("v");
+        int numericId;
+
+        if (variant) {
+            String idString = queryId.substring(0, queryId.length() - 1);
+            numericId = Integer.parseInt(idString);
+        } else {
+            numericId = Integer.parseInt(queryId);
+        }
+
+        if (variant) {
+            var variantQueryFile = String.format("tpch/plan/variant_q%d.plan", numericId);
+            return loadFromResource(variantQueryFile);
+        } else {
+            var queryFile = String.format("tpch/plan/q%s.plan", numericId);
+            return loadFromResource(queryFile);
+        }
+    }
+
+    static String loadFromResource(String resource) {
+        try (InputStream is = TpchHelper.class.getClassLoader().getResourceAsStream(resource)) {
+            if (is == null) {
+                throw new IllegalArgumentException("Resource does not exist: " + resource);
+            }
+            try (InputStreamReader reader = new InputStreamReader(is, StandardCharsets.UTF_8)) {
+                return CharStreams.toString(reader);
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException("I/O operation failed: " + resource, e);
+        }
     }
 }

@@ -141,8 +141,6 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
         checkDistinctAggWithGroupBySingle(TestCase.CASE_7_2);
         checkDistinctAggWithGroupBySingle(TestCase.CASE_7_3);
 
-        // TODO REMOVE TODO and close ticket
-        // TODO replace with calls to test methods after https://issues.apache.org/jira/browse/IGNITE-20083 is fixed
         checkDistinctAggWithGroupByHash(TestCase.CASE_7_1A);
         checkDistinctAggWithGroupByHash(TestCase.CASE_7_2A);
         checkDistinctAggWithGroupByHash(TestCase.CASE_7_3A);
