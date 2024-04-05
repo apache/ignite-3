@@ -65,10 +65,7 @@ class ItEventLogConfigurationTest extends BaseIgniteAbstractTest {
         // And in memory sink piped to the channel.
         eventLogConfiguration.change(c -> c.changeSinks().create(
                 TEST_SINK_NAME,
-                createTestSink -> {
-                    var inMemorySinkChange = (InMemoryCollectionSinkChange) createTestSink.convert(IN_MEMORY_SINK_TYPE);
-                    inMemorySinkChange.changeChannel(TEST_CHANNEL_NAME);
-                }
+                createTestSink -> createTestSink.convert(IN_MEMORY_SINK_TYPE).changeChannel(TEST_CHANNEL_NAME)
         )).get();
 
         // And in memory sink is empty.
@@ -91,10 +88,7 @@ class ItEventLogConfigurationTest extends BaseIgniteAbstractTest {
         // Given in memory sink piped to the channel first. The order of configuration changes matters.
         eventLogConfiguration.change(c -> c.changeSinks().create(
                 TEST_SINK_NAME,
-                createTestSink -> {
-                    var inMemorySinkChange = (InMemoryCollectionSinkChange) createTestSink.convert(IN_MEMORY_SINK_TYPE);
-                    inMemorySinkChange.changeChannel(TEST_CHANNEL_NAME);
-                }
+                createTestSink -> createTestSink.convert(IN_MEMORY_SINK_TYPE).changeChannel(TEST_CHANNEL_NAME)
         )).get();
 
         // And channel for EVENT_TYPE_1.
@@ -129,10 +123,7 @@ class ItEventLogConfigurationTest extends BaseIgniteAbstractTest {
         // And in memory sink piped to the channel.
         eventLogConfiguration.change(c -> c.changeSinks().create(
                 TEST_SINK_NAME,
-                createTestSink -> {
-                    var inMemorySinkChange = (InMemoryCollectionSinkChange) createTestSink.convert(IN_MEMORY_SINK_TYPE);
-                    inMemorySinkChange.changeChannel(TEST_CHANNEL_NAME);
-                }
+                createTestSink -> createTestSink.convert(IN_MEMORY_SINK_TYPE).changeChannel(TEST_CHANNEL_NAME)
         )).get();
 
         // And in memory sink is empty.
@@ -190,10 +181,7 @@ class ItEventLogConfigurationTest extends BaseIgniteAbstractTest {
         // And in memory sink piped to the channel.
         eventLogConfiguration.change(c -> c.changeSinks().create(
                 TEST_SINK_NAME,
-                createTestSink -> {
-                    var inMemorySinkChange = (InMemoryCollectionSinkChange) createTestSink.convert(IN_MEMORY_SINK_TYPE);
-                    inMemorySinkChange.changeChannel(TEST_CHANNEL_NAME);
-                }
+                createTestSink -> createTestSink.convert(IN_MEMORY_SINK_TYPE).changeChannel(TEST_CHANNEL_NAME)
         )).get();
 
         // And in memory sink is empty.
