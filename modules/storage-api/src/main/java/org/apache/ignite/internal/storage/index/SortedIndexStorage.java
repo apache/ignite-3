@@ -19,6 +19,7 @@ package org.apache.ignite.internal.storage.index;
 
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.util.Cursor;
 import org.intellij.lang.annotations.MagicConstant;
 import org.jetbrains.annotations.Nullable;
 
@@ -64,7 +65,7 @@ public interface SortedIndexStorage extends IndexStorage {
             @MagicConstant(flagsFromClass = SortedIndexStorage.class) int flags
     );
 
-    PeekCursor<IndexRow> readOnlyScan(
+    Cursor<IndexRow> readOnlyScan(
             @Nullable BinaryTuplePrefix lowerBound,
             @Nullable BinaryTuplePrefix upperBound,
             @MagicConstant(flagsFromClass = SortedIndexStorage.class) int flags

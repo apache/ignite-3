@@ -20,7 +20,6 @@ package org.apache.ignite.internal.storage.pagememory.index.sorted;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
 
 import java.nio.ByteBuffer;
-import java.util.NoSuchElementException;
 import java.util.Objects;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
@@ -42,6 +41,7 @@ import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMeta;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.CursorUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -180,7 +180,7 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
     }
 
     @Override
-    public PeekCursor<IndexRow> readOnlyScan(@Nullable BinaryTuplePrefix lowerBound, @Nullable BinaryTuplePrefix upperBound, int flags) {
+    public Cursor<IndexRow> readOnlyScan(@Nullable BinaryTuplePrefix lowerBound, @Nullable BinaryTuplePrefix upperBound, int flags) {
         return busyDataRead(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
@@ -193,45 +193,7 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
             try {
                 Cursor<SortedIndexRow> cursor = indexTree.find(lower, upper);
 
-                return new PeekCursor<IndexRow>() {
-                    private @Nullable IndexRow next = null;
-
-                    @Override
-                    public @Nullable IndexRow peek() {
-                        return next;
-                    }
-
-                    @Override
-                    public void close() {
-                        cursor.close();
-                    }
-
-                    @Override
-                    public boolean hasNext() {
-                        return next == null;
-                    }
-
-                    @Override
-                    public IndexRow next() throws NoSuchElementException {
-                        IndexRow result = next;
-
-                        if (result == null) {
-                            throw new NoSuchElementException();
-                        }
-
-                        advance();
-
-                        return result;
-                    }
-
-                    private void advance() {
-                        if (cursor.hasNext()) {
-                            next = toIndexRowImpl(cursor.next());
-                        } else {
-                            next = null;
-                        }
-                    }
-                };
+                return CursorUtils.map(cursor, this::toIndexRowImpl);
             } catch (IgniteInternalCheckedException e) {
                 throw new StorageException("Couldn't get index tree cursor", e);
             }
