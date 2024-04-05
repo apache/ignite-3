@@ -15,13 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.message;
+package org.apache.ignite.internal.lowwatermark.message;
 
+import static org.apache.ignite.internal.lowwatermark.message.LowWatermarkMessageGroup.GET_LOW_WATERMARK_RESPONSE;
+
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 
-/** Request for low watermark. */
-@Transferable(TableMessageGroup.GET_LOW_WATERMARK_REQUEST)
-public interface GetLowWatermarkRequest extends NetworkMessage {
+/** Response to {@link GetLowWatermarkRequest}. */
+@Transferable(GET_LOW_WATERMARK_RESPONSE)
+public interface GetLowWatermarkResponse extends NetworkMessage {
+    /** Returns the low watermark, {@link HybridTimestamp#NULL_HYBRID_TIMESTAMP} means no low watermark has been assigned yet. */
+    long lowWatermark();
 }

@@ -31,8 +31,6 @@ import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryMan
 import org.apache.ignite.internal.table.distributed.disaster.messages.LocalPartitionState;
 import org.apache.ignite.internal.table.distributed.disaster.messages.LocalPartitionStatesRequest;
 import org.apache.ignite.internal.table.distributed.disaster.messages.LocalPartitionStatesResponse;
-import org.apache.ignite.internal.table.distributed.message.GetLowWatermarkRequest;
-import org.apache.ignite.internal.table.distributed.message.GetLowWatermarkResponse;
 import org.apache.ignite.internal.table.distributed.message.HasDataRequest;
 import org.apache.ignite.internal.table.distributed.message.HasDataResponse;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotMetaRequest;
@@ -188,12 +186,6 @@ public interface TableMessageGroup {
      * Message type for {@link TimedBinaryRowMessage}.
      */
     short TIMED_BINARY_ROW_MESSAGE = 24;
-
-    /** Message type for {@link GetLowWatermarkRequest}. */
-    short GET_LOW_WATERMARK_REQUEST = 25;
-
-    /** Message type for {@link GetLowWatermarkResponse}. */
-    short GET_LOW_WATERMARK_RESPONSE = 26;
 
     /**
      * Message types for Table module RAFT commands.
