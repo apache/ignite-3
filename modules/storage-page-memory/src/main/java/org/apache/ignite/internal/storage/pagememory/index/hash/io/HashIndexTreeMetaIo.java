@@ -63,7 +63,7 @@ public class HashIndexTreeMetaIo extends BplusMetaIo {
     public void setInlineSize(long pageAddr, int inlineSize) {
         assertPageType(pageAddr);
 
-        assert inlineSize > 0 && inlineSize <= MAX_BINARY_TUPLE_INLINE_SIZE : inlineSize;
+        assert inlineSize >= 0 && inlineSize <= MAX_BINARY_TUPLE_INLINE_SIZE : inlineSize;
 
         putInt(pageAddr, INLINE_SIZE_OFFSET, inlineSize);
     }

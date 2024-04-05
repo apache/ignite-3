@@ -17,9 +17,6 @@
 
 package org.apache.ignite.internal.storage.pagememory.index.hash;
 
-import static org.apache.ignite.internal.storage.pagememory.index.InlineUtils.binaryTupleInlineSize;
-import static org.apache.ignite.internal.storage.pagememory.index.hash.io.HashIndexTreeIo.ITEM_SIZE_WITHOUT_COLUMNS;
-
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.PageMemory;
@@ -103,7 +100,8 @@ public class HashIndexTree extends BplusTree<HashIndexRowKey, HashIndexRow> {
     ) throws IgniteInternalCheckedException {
         super("HashIndexTree_" + grpId, grpId, grpName, partId, pageMem, lockLsnr, globalRmvId, metaPageId, reuseList);
 
-        this.inlineSize = binaryTupleInlineSize(pageSize(), ITEM_SIZE_WITHOUT_COLUMNS, indexDescriptor);
+        // this.inlineSize = binaryTupleInlineSize(pageSize(), ITEM_SIZE_WITHOUT_COLUMNS, indexDescriptor);
+        this.inlineSize = 0;
         this.dataPageReader = new DataPageReader(pageMem, grpId, statisticsHolder());
 
         init(true);
