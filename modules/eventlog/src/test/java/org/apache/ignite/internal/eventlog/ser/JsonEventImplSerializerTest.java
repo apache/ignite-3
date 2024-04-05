@@ -30,7 +30,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-class JsonEventSerializerTest {
+class JsonEventImplSerializerTest {
     private static Stream<Arguments> events() {
         return Stream.of(
                 Arguments.of(
@@ -76,11 +76,11 @@ class JsonEventSerializerTest {
         );
     }
 
-    private JsonEventSerializer serializer;
+    private JsonEventImplSerializer serializer;
 
     @BeforeEach
     void setUp() {
-        serializer = new JsonEventSerializer();
+        serializer = new JsonEventImplSerializer();
     }
 
     @ParameterizedTest

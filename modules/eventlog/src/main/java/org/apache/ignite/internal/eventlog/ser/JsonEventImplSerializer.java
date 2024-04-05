@@ -18,38 +18,16 @@
 package org.apache.ignite.internal.eventlog.ser;
 
 import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializerProvider;
-import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.ser.std.StdSerializer;
 import java.io.IOException;
-import org.apache.ignite.internal.eventlog.api.Event;
 import org.apache.ignite.internal.eventlog.event.EventImpl;
-import org.apache.ignite.internal.eventlog.event.EventUser;
-import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.lang.ErrorGroups.Common;
 
 /** Serializes events to JSON. */
-public class JsonEventSerializer implements EventSerializer {
-    private final ObjectMapper mapper;
-
+public class JsonEventImplSerializer extends JacksonBasedJsonSerializer<EventImpl> {
     /** Default constructor. */
-    public JsonEventSerializer() {
-        mapper = new ObjectMapper();
-        SimpleModule module = new SimpleModule();
-        module.addSerializer(EventImpl.class, new EventImplJacksonSerializer());
-        module.addSerializer(EventUser.class, new EventUserJacksonSerializer());
-        mapper.registerModule(module);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public String serialize(Event event) {
-        try {
-            return mapper.writeValueAsString(event);
-        } catch (Exception e) {
-            throw new IgniteInternalException(Common.INTERNAL_ERR, "Failed to serialize event", e);
-        }
+    public JsonEventImplSerializer() {
+        super(EventImpl.class, new EventImplJacksonSerializer());
     }
 
     static class EventImplJacksonSerializer extends StdSerializer<EventImpl> {
@@ -77,33 +55,6 @@ public class JsonEventSerializer implements EventSerializer {
             jgen.writeStringField("productVersion", value.productVersion());
             jgen.writeObjectField("user", value.user());
             jgen.writeObjectField("fields", value.fields());
-            jgen.writeEndObject();
-        }
-    }
-
-
-    static class EventUserJacksonSerializer extends StdSerializer<EventUser> {
-        private EventUser value;
-        private JsonGenerator jgen;
-        private SerializerProvider provider;
-
-        EventUserJacksonSerializer() {
-            this(null);
-        }
-
-        EventUserJacksonSerializer(Class<EventUser> e) {
-            super(e);
-        }
-
-        @Override
-        public void serialize(EventUser value, JsonGenerator jgen, SerializerProvider provider) throws IOException {
-            this.value = value;
-            this.jgen = jgen;
-            this.provider = provider;
-
-            jgen.writeStartObject();
-            jgen.writeStringField("username", value.username());
-            jgen.writeStringField("authenticationProvider", value.authenticationProvider());
             jgen.writeEndObject();
         }
     }

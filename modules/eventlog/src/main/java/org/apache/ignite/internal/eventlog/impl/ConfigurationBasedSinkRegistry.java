@@ -32,6 +32,7 @@ import org.apache.ignite.configuration.notifications.ConfigurationNotificationEv
 import org.apache.ignite.internal.eventlog.api.Sink;
 import org.apache.ignite.internal.eventlog.config.schema.EventLogConfiguration;
 import org.apache.ignite.internal.eventlog.config.schema.SinkView;
+import org.apache.ignite.internal.eventlog.ser.EventSerializerFactory;
 
 class ConfigurationBasedSinkRegistry implements SinkRegistry {
     private final ReadWriteLock guard;
@@ -46,7 +47,7 @@ class ConfigurationBasedSinkRegistry implements SinkRegistry {
         this.guard = new ReentrantReadWriteLock();
         this.cache = new HashMap<>();
         this.cacheByChannel = new HashMap<>();
-        this.sinkFactory = new SinkFactory();
+        this.sinkFactory = new SinkFactory(new EventSerializerFactory().createEventSerializer());
 
         cfg.sinks().listen(new CacheUpdater());
     }

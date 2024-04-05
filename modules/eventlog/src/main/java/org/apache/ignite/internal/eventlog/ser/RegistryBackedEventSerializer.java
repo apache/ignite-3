@@ -15,30 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.eventlog.impl;
+package org.apache.ignite.internal.eventlog.ser;
 
-import java.lang.System.Logger;
-import java.lang.System.Logger.Level;
 import org.apache.ignite.internal.eventlog.api.Event;
-import org.apache.ignite.internal.eventlog.api.Sink;
-import org.apache.ignite.internal.eventlog.config.schema.LogSinkView;
-import org.apache.ignite.internal.eventlog.ser.EventSerializer;
 
-/** Sink that writes events to the log using any logging framework the user has configured. */
-class LogSink implements Sink {
-    private final Logger logger;
-    private final EventSerializer serializer;
-    private final String level;
+public class RegistryBackedEventSerializer implements EventSerializer {
+    private final EventSerializerRegistry serializerRegistry;
 
-    LogSink(LogSinkView cfg, EventSerializer eventSerializer) {
-        this.level = cfg.level();
-        this.logger = System.getLogger(cfg.criteria());
-        this.serializer = eventSerializer;
+    public RegistryBackedEventSerializer(EventSerializerRegistry eventSerializerRegistry) {
+        this.serializerRegistry = eventSerializerRegistry;
     }
 
-    /** {@inheritDoc} */
     @Override
-    public void write(Event event) {
-        logger.log(Level.valueOf(level), serializer.serialize(event));
+    public String serialize(Event event) {
+        EventSerializer serializer = serializerRegistry.findSerializer(event.getClass());
+        if (serializer == null) {
+            // Throwing exception here is not a very good idea.
+            throw new IllegalArgumentException("No serializer is defined for event " + event.getClass().getCanonicalName());
+        } else {
+            return serializer.serialize(event);
+        }
     }
 }

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.eventlog.impl;
 import org.apache.ignite.internal.eventlog.api.Sink;
 import org.apache.ignite.internal.eventlog.config.schema.LogSinkView;
 import org.apache.ignite.internal.eventlog.config.schema.SinkView;
+import org.apache.ignite.internal.eventlog.ser.EventSerializer;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.lang.ErrorGroups.Common;
 
@@ -27,6 +28,12 @@ import org.apache.ignite.lang.ErrorGroups.Common;
  * Factory for creating sink instances.
  */
 class SinkFactory {
+    private final EventSerializer eventSerializer;
+
+    SinkFactory(EventSerializer eventSerializer) {
+        this.eventSerializer = eventSerializer;
+    }
+
     /**
      * Creates a sink instance.
      *
@@ -35,7 +42,7 @@ class SinkFactory {
      */
     Sink createSink(SinkView sinkView) {
         if (sinkView instanceof LogSinkView) {
-            return new LogSink((LogSinkView) sinkView);
+            return new LogSink((LogSinkView) sinkView, eventSerializer);
         }
 
         throw new IgniteInternalException(Common.INTERNAL_ERR, "Unsupported sink type: " + sinkView.type());

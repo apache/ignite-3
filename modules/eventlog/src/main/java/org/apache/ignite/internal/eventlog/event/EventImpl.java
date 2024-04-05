@@ -20,13 +20,13 @@ package org.apache.ignite.internal.eventlog.event;
 import java.util.Map;
 import java.util.Objects;
 import org.apache.ignite.internal.eventlog.api.Event;
-import org.apache.ignite.internal.eventlog.ser.JsonEventSerializer;
+import org.apache.ignite.internal.eventlog.ser.JsonEventImplSerializer;
 
 /**
  * Implementation of the {@link Event} interface. The class is immutable and thread-safe. If you want to create an instance of this class,
  * use the {@link EventBuilder}.
  *
- * <p>NOTE: If you rename/add any field in this class, you should also update the {@link JsonEventSerializer}.
+ * <p>NOTE: If you rename/add any field in this class, you should also update the {@link JsonEventImplSerializer}.
  */
 public class EventImpl implements Event {
     private final String type;
