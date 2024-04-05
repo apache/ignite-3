@@ -40,9 +40,9 @@ class ItEventLogConfigurationValidationTest extends ClusterPerClassIntegrationTe
         // But valid event type is ok.
         assertDoesNotThrow(
                 () -> CLUSTER.aliveNode().clusterConfiguration().getConfiguration(EventLogConfiguration.KEY)
-                        .change(c -> c.changeChannels(cs -> cs.create("testChannel2", channelChange -> {
+                        .change(c -> c.changeChannels().create("testChannel2", channelChange -> {
                             channelChange.changeEvents(IgniteEventType.CONNECTION_CLOSED.name());
-                        }))).get()
+                        })).get()
         );
     }
 }
