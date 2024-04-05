@@ -43,6 +43,7 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.table.criteria.SqlRowProjection;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
+import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.sql.IgniteSql;
@@ -576,10 +577,10 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
         );
 
         StreamerBatchSender<R, Integer> batchSender = (partitionId, items, deleted) ->
-                withSchemaSync(
+                PublicApiThreading.execUserAsyncOperation(() -> withSchemaSync(
                         null,
                         schemaVersion -> this.tbl.updateAll(marshal(items, schemaVersion, deleted), deleted, partitionId)
-                );
+                ));
 
         CompletableFuture<Void> future = DataStreamer.streamData(publisher, options, batchSender, partitioner);
         return convertToPublicFuture(future);

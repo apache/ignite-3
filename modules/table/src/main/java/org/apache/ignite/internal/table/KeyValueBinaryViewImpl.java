@@ -41,6 +41,7 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.table.criteria.SqlRowProjection;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
+import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
@@ -561,10 +562,10 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
 
         var partitioner = new KeyValueTupleStreamerPartitionAwarenessProvider(rowConverter.registry(), tbl.partitions());
         StreamerBatchSender<Entry<Tuple, Tuple>, Integer> batchSender = (partitionId, items, deleted) ->
-                withSchemaSync(
+                PublicApiThreading.execUserAsyncOperation(() -> withSchemaSync(
                         null,
                         schemaVersion -> this.tbl.updateAll(marshalPairs(items, schemaVersion, deleted), deleted, partitionId)
-                );
+                ));
 
         CompletableFuture<Void> future = DataStreamer.streamData(publisher, options, batchSender, partitioner);
         return convertToPublicFuture(future);

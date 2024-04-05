@@ -36,6 +36,7 @@ import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
+import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.MarshallerException;
@@ -487,9 +488,9 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
 
         var partitioner = new TupleStreamerPartitionAwarenessProvider(rowConverter.registry(), tbl.partitions());
         StreamerBatchSender<Tuple, Integer> batchSender = (partitionId, rows, deleted) ->
-                withSchemaSync(null,
+                PublicApiThreading.execUserAsyncOperation(() -> withSchemaSync(null,
                         schemaVersion -> this.tbl.updateAll(mapToBinary(rows, schemaVersion, deleted), deleted, partitionId)
-                );
+                ));
 
         CompletableFuture<Void> future = DataStreamer.streamData(publisher, options, batchSender, partitioner);
         return convertToPublicFuture(future);
