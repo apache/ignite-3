@@ -30,7 +30,12 @@ import org.jetbrains.annotations.Nullable;
  * @see <a href="https://cwiki.apache.org/confluence/display/IGNITE/IEP-91%3A+Transaction+protocol">IEP-91</a>
  */
 public interface LowWatermark {
-    /** Returns the current low watermark, {@code null} means no low watermark has been assigned yet. */
+    /**
+     * Returns the current low watermark, {@code null} means no low watermark has been assigned yet.
+     *
+     * <p>When called from method {@link LowWatermarkChangedListener#onLwmChanged(HybridTimestamp)}, the previous value will be
+     * returned.</p>
+     */
     @Nullable HybridTimestamp getLowWatermark();
 
     /** Subscribes on watermark changes. */
@@ -42,6 +47,9 @@ public interface LowWatermark {
     /**
      * Runs the provided {@code consumer} under the {@code lock} preventing concurrent LWM update, {@code null} means no low watermark has
      * been assigned yet.
+     *
+     * <p>When called from method {@link LowWatermarkChangedListener#onLwmChanged(HybridTimestamp)}, the previous value will be
+     * returned.</p>
      */
     void getLowWatermarkSafe(Consumer<@Nullable HybridTimestamp> consumer);
 

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.lowwatermark;
 
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.lowwatermark.LowWatermarkImpl.LOW_WATERMARK_VAULT_KEY;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
@@ -279,6 +280,30 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
         lowWatermark.updateLowWatermark(newLwm1);
 
         assertThat(updateLowWatermarkFuture2, willTimeoutFast());
+    }
+
+    @Test
+    void testGetLowWatermarkFromListener() {
+        assertThat(lowWatermark.start(), willCompleteSuccessfully());
+
+        HybridTimestamp newLwm = clockService.now();
+        HybridTimestamp oldLwm = lowWatermark.getLowWatermark();
+
+        lowWatermark.addUpdateListener(newLwm0 -> {
+            try {
+                assertEquals(newLwm, newLwm0);
+
+                assertEquals(oldLwm, lowWatermark.getLowWatermark());
+
+                lowWatermark.getLowWatermarkSafe(lwm -> assertEquals(oldLwm, lwm));
+
+                return nullCompletedFuture();
+            } catch (Throwable t) {
+                return failedFuture(t);
+            }
+        });
+
+        assertThat(lowWatermark.updateAndNotify(newLwm), willCompleteSuccessfully());
     }
 
     private CompletableFuture<HybridTimestamp> listenUpdateLowWatermark() {
