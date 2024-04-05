@@ -20,7 +20,7 @@ package org.apache.ignite.internal.storage.index;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.lang.ErrorGroups.Storage;
 
-/** Exception occurred while reading from an index that has not yet been built. */
+/** Exception occurring while reading from an index that has not yet been built. */
 public class IndexNotBuiltException extends StorageException {
     private static final long serialVersionUID = 7512376065062977603L;
 
