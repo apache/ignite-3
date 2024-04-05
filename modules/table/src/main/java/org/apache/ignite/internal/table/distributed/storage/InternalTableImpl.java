@@ -62,6 +62,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -132,7 +133,7 @@ public class InternalTableImpl implements InternalTable {
     /** Partitions. */
     private final int partitions;
 
-    private final ScheduledExecutorService streamerFlushExecutor;
+    private final Supplier<ScheduledExecutorService> streamerFlushExecutor;
 
     /** Table name. */
     private volatile String tableName;
@@ -221,7 +222,7 @@ public class InternalTableImpl implements InternalTable {
             TransactionInflights transactionInflights,
             long implicitTransactionTimeout,
             int attemptsObtainLock,
-            ScheduledExecutorService streamerFlushExecutor
+            Supplier<ScheduledExecutorService> streamerFlushExecutor
     ) {
         this.tableName = tableName;
         this.tableId = tableId;
@@ -2169,7 +2170,7 @@ public class InternalTableImpl implements InternalTable {
 
     @Override
     public ScheduledExecutorService streamerFlushExecutor() {
-        return streamerFlushExecutor;
+        return streamerFlushExecutor.get();
     }
 
     /**

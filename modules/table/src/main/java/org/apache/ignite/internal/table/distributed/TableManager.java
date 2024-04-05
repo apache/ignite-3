@@ -336,8 +336,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      */
     private final ExecutorService ioExecutor;
 
-    private final ScheduledExecutorService streamerFlushExecutor;
-
     private final HybridClock clock;
 
     private final ClockService clockService;
@@ -408,8 +406,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private final TransactionConfiguration txCfg;
 
+    private final String nodeName;
+
     private long implicitTransactionTimeout;
+
     private int attemptsObtainLock;
+
+    @Nullable
+    private ScheduledExecutorService streamerFlushExecutor;
 
     /**
      * Creates a new table manager.
@@ -501,6 +505,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.lowWatermark = lowWatermark;
         this.transactionInflights = transactionInflights;
         this.txCfg = txCfg;
+        this.nodeName = nodeName;
 
         this.executorInclinedSchemaSyncService = new ExecutorInclinedSchemaSyncService(schemaSyncService, partitionOperationsExecutor);
         this.executorInclinedPlacementDriver = new ExecutorInclinedPlacementDriver(placementDriver, partitionOperationsExecutor);
@@ -537,9 +542,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         scanRequestExecutor = Executors.newSingleThreadExecutor(
                 IgniteThreadFactory.create(nodeName, "scan-query-executor", LOG, STORAGE_READ));
-
-        streamerFlushExecutor = Executors.newSingleThreadScheduledExecutor(
-                IgniteThreadFactory.create(nodeName, "streamer-flush-executor", LOG, STORAGE_WRITE));
 
         int cpus = Runtime.getRuntime().availableProcessors();
 
@@ -1328,7 +1330,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 transactionInflights,
                 implicitTransactionTimeout,
                 attemptsObtainLock,
-                streamerFlushExecutor
+                this::streamerFlushExecutor
         );
 
         var table = new TableImpl(
@@ -2550,5 +2552,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         assert engine != null : "tableId=" + tableDescriptor.id() + ", engineName=" + zoneDescriptor.dataStorage().engine();
 
         engine.dropMvTable(tableDescriptor.id());
+    }
+
+    private synchronized ScheduledExecutorService streamerFlushExecutor() {
+        if (streamerFlushExecutor == null) {
+            streamerFlushExecutor = Executors.newSingleThreadScheduledExecutor(
+                    IgniteThreadFactory.create(nodeName, "streamer-flush-executor", LOG, STORAGE_WRITE));
+        }
+
+        return streamerFlushExecutor;
     }
 }
