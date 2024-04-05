@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.rebalance;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.executeWithEverythingAllowed;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -28,6 +28,7 @@ import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -72,6 +73,6 @@ public class ItRebalanceRecoveryTest extends ClusterPerTestIntegrationTest {
                 .storage()
                 .getMvPartition(0);
 
-        return executeWithEverythingAllowed(() -> storage.rowsCount() != 0);
+        return IgniteTestUtils.bypassingThreadAssertions(() -> storage.rowsCount() != 0);
     }
 }

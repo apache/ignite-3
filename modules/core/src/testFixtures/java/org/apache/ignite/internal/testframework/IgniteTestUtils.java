@@ -516,7 +516,7 @@ public final class IgniteTestUtils {
      * @param operation Operation to execute.
      * @return Whatever the operation returns.
      */
-    public static <T> CompletableFuture<T> executeAsyncWithEverythingAllowed(Supplier<CompletableFuture<T>> operation) {
+    public static <T> CompletableFuture<T> bypassingThreadAssertionsAsync(Supplier<CompletableFuture<T>> operation) {
         return runAsync(operation::get).thenCompose(identity());
     }
 
@@ -526,7 +526,7 @@ public final class IgniteTestUtils {
      * @param operation Operation to execute.
      * @return Whatever the operation returns.
      */
-    public static <T> T executeWithEverythingAllowed(Supplier<T> operation) {
+    public static <T> T bypassingThreadAssertions(Supplier<T> operation) {
         return await(runAsync(operation::get));
     }
 
@@ -535,7 +535,7 @@ public final class IgniteTestUtils {
      *
      * @param operation Operation to execute.
      */
-    public static void executeWithEverythingAllowed(Runnable operation) {
+    public static void bypassingThreadAssertions(Runnable operation) {
         await(runAsync(operation::run));
     }
 

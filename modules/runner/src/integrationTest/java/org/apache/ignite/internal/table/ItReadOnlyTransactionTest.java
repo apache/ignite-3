@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.table;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.executeAsyncWithEverythingAllowed;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.executeWithEverythingAllowed;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertionsAsync;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -153,7 +153,7 @@ public class ItReadOnlyTransactionTest extends ClusterPerClassIntegrationTest {
             Collection<ClusterNode> nodes = ignite.clusterNodes();
 
             int finalI = i;
-            executeWithEverythingAllowed(() -> {
+            bypassingThreadAssertions(() -> {
                 for (ClusterNode clusterNode : nodes) {
                     CompletableFuture<BinaryRow> getFut = internalTable.get(createRowKey(schema, finalI), clock.now(), clusterNode);
 
@@ -165,9 +165,9 @@ public class ItReadOnlyTransactionTest extends ClusterPerClassIntegrationTest {
 
             long startTime = System.currentTimeMillis();
 
-            executeAsyncWithEverythingAllowed(() -> internalTable.delete(createRowKey(schema, finalI), null)).get();
+            bypassingThreadAssertionsAsync(() -> internalTable.delete(createRowKey(schema, finalI), null)).get();
 
-            executeWithEverythingAllowed(() -> {
+            bypassingThreadAssertions(() -> {
                 for (ClusterNode clusterNode : nodes) {
                     CompletableFuture<BinaryRow> getFut = internalTable.get(createRowKey(schema, finalI), clock.now(), clusterNode);
 
@@ -177,7 +177,7 @@ public class ItReadOnlyTransactionTest extends ClusterPerClassIntegrationTest {
 
             log.info("Delay to remove a data record [node={}, delay={}]", ignite.name(), (System.currentTimeMillis() - startTime));
 
-            executeWithEverythingAllowed(() -> {
+            bypassingThreadAssertions(() -> {
                 for (ClusterNode clusterNode : nodes) {
                     CompletableFuture<BinaryRow> getFut = internalTable.get(createRowKey(schema, finalI), pastTs, clusterNode);
 

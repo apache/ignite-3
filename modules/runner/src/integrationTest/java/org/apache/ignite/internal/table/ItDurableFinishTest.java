@@ -21,7 +21,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.executeWithEverythingAllowed;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
@@ -318,7 +318,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
                 ABORTED,
                 null
         );
-        executeWithEverythingAllowed(() -> storage.put(tx.id(), txMetaToSet));
+        bypassingThreadAssertions(() -> storage.put(tx.id(), txMetaToSet));
     }
 
 

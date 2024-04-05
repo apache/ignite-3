@@ -22,7 +22,7 @@ import static org.apache.ignite.internal.PublicApiThreadingTests.anIgniteThread;
 import static org.apache.ignite.internal.PublicApiThreadingTests.asyncContinuationPool;
 import static org.apache.ignite.internal.PublicApiThreadingTests.tryToSwitchFromUserThreadWithDelayedSchemaSync;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteTransactionsImpl;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.executeAsyncWithEverythingAllowed;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertionsAsync;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.either;
@@ -78,7 +78,7 @@ class ItTransactionsApiThreadingTest extends ClusterPerClassIntegrationTest {
                 // Executing with everything allowed as this is what is handled by public API wrapper that we removed.
                 // Internal components using the APIs directly (without the public API threading wrapper) should call the APIs
                 // in IgniteThreads with corresponding permissions, so we do the same.
-                () -> executeAsyncWithEverythingAllowed(() -> operation.executeOn(igniteTransactionsForInternalUse()))
+                () -> bypassingThreadAssertionsAsync(() -> operation.executeOn(igniteTransactionsForInternalUse()))
                         .thenApply(unused -> currentThread())
         );
 
@@ -117,7 +117,7 @@ class ItTransactionsApiThreadingTest extends ClusterPerClassIntegrationTest {
                 // Executing with everything allowed as this is what is handled by public API wrapper that we removed.
                 // Internal components using the APIs directly (without the public API threading wrapper) should call the APIs
                 // in IgniteThreads with corresponding permissions, so we do the same.
-                () -> executeAsyncWithEverythingAllowed(() -> operation.executeOn(tx))
+                () -> bypassingThreadAssertionsAsync(() -> operation.executeOn(tx))
                         .thenApply(unused -> currentThread())
         );
 

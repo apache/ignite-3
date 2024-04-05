@@ -20,7 +20,7 @@ package org.apache.ignite.internal.rebalance;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableId;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.executeWithEverythingAllowed;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -41,6 +41,7 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -244,6 +245,6 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
                 .storage()
                 .getMvPartition(0);
 
-        return storage != null && executeWithEverythingAllowed(storage::rowsCount) != 0;
+        return storage != null && IgniteTestUtils.bypassingThreadAssertions(storage::rowsCount) != 0;
     }
 }

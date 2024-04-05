@@ -20,7 +20,7 @@ package org.apache.ignite.internal.table;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.executeWithEverythingAllowed;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -443,7 +443,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         // Continue the COMMIT message flow.
         CompletableFuture<NetworkMessage> finishRequest =
-                executeWithEverythingAllowed(() -> messaging(commitPartNode).invoke(targetName.get(), finishRequestCaptureFut.join(), 3000));
+                IgniteTestUtils.bypassingThreadAssertions(() -> messaging(commitPartNode).invoke(targetName.get(), finishRequestCaptureFut.join(), 3000));
 
         assertThat(finishRequest, willCompleteSuccessfully());
 
@@ -517,7 +517,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         assertTrue(waitForCondition(() -> txStoredState(commitPartNode, orphanTx.id()) == TxState.ABORTED, 10_000));
 
         CompletableFuture<NetworkMessage> commitRequest =
-                executeWithEverythingAllowed(() -> messaging(commitPartNode).invoke(targetName.get(), finishRequestCaptureFut.join(), 3000));
+                IgniteTestUtils.bypassingThreadAssertions(() -> messaging(commitPartNode).invoke(targetName.get(), finishRequestCaptureFut.join(), 3000));
 
         assertThat(commitRequest, willCompleteSuccessfully());
 
@@ -1040,7 +1040,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     private static @Nullable TxMeta txStoredMeta(IgniteImpl node, UUID txId) {
         InternalTable internalTable = unwrapTableImpl(node.tables().table(TABLE_NAME)).internalTable();
 
-        return executeWithEverythingAllowed(() -> internalTable.txStateStorage().getTxStateStorage(0).get(txId));
+        return IgniteTestUtils.bypassingThreadAssertions(() -> internalTable.txStateStorage().getTxStateStorage(0).get(txId));
     }
 
     /**

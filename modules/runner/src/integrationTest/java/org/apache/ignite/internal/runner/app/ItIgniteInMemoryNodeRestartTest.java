@@ -367,7 +367,7 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
     }
 
     private static boolean tableHasAnyData(TableViewInternal nodeTable, int partitions) {
-        return IgniteTestUtils.executeWithEverythingAllowed(() -> {
+        return IgniteTestUtils.bypassingThreadAssertions(() -> {
             return IntStream.range(0, partitions)
                     .mapToObj(partition -> new IgniteBiTuple<>(
                             partition, nodeTable.internalTable().storage().getMvPartition(partition)

@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.table;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.executeWithEverythingAllowed;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.params.ParameterizedTest.ARGUMENTS_PLACEHOLDER;
 
@@ -44,6 +44,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.table.Table;
@@ -190,7 +191,7 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
     }
 
     private static List<Tuple> getAllBypassingThreadAssertions(TableViewInternal tbl, int part) {
-        return executeWithEverythingAllowed(() -> {
+        return IgniteTestUtils.bypassingThreadAssertions(() -> {
             try {
                 return getAll(tbl, part);
             } catch (InterruptedException e) {

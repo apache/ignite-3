@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.index;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.executeWithEverythingAllowed;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -44,6 +44,7 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestStorageEngine;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -225,7 +226,7 @@ public class ItIndexNodeFinishedRwTransactionsCheckerTest extends ClusterPerClas
     }
 
     private static long[] partitionSizes() {
-        return executeWithEverythingAllowed(() -> {
+        return IgniteTestUtils.bypassingThreadAssertions(() -> {
             InternalTable table = tableImpl().internalTable();
 
             return IntStream.range(0, table.partitions())
