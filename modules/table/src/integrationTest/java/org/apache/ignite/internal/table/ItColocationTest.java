@@ -294,7 +294,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 new TableRaftServiceImpl("PUBLIC.TEST", PARTS, partRafts, new SingleClusterNodeResolver(clusterNode)),
                 transactionInflights,
                 3_000,
-                0
+                0,
+                null
         );
     }
 
