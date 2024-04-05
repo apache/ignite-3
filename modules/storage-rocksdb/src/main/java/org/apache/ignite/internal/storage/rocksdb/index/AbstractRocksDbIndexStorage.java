@@ -40,6 +40,7 @@ import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
+import org.apache.ignite.internal.storage.index.IndexNotBuiltException;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.PeekCursor;
 import org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper;
@@ -388,6 +389,12 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
                     it.seek(lowerBound);
                 }
             }
+        }
+    }
+
+    protected void throwExceptionIfIndexNotBuilt() {
+        if (nextRowIdToBuild != null) {
+            throw new IndexNotBuiltException(indexId, partitionId);
         }
     }
 }

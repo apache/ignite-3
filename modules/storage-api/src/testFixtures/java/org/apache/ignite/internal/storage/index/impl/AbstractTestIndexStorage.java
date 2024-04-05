@@ -25,6 +25,7 @@ import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageDestroyedException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
+import org.apache.ignite.internal.storage.index.IndexNotBuiltException;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
@@ -39,12 +40,15 @@ abstract class AbstractTestIndexStorage implements IndexStorage {
 
     private volatile @Nullable RowId nextRowIdToBuild;
 
+    private final int indexId;
+
     private final int partitionId;
 
     /** Amount of cursors that opened and still do not close. */
     protected final AtomicInteger pendingCursors = new AtomicInteger();
 
-    AbstractTestIndexStorage(int partitionId) {
+    AbstractTestIndexStorage(int indexId, int partitionId) {
+        this.indexId = indexId;
         this.partitionId = partitionId;
         nextRowIdToBuild = initialRowIdToBuild(partitionId);
     }
@@ -61,6 +65,8 @@ abstract class AbstractTestIndexStorage implements IndexStorage {
     @Override
     public Cursor<RowId> get(BinaryTuple key) {
         checkStorageClosedOrInProcessOfRebalance(true);
+
+        throwExceptionIfIndexIsNotBuilt();
 
         Iterator<RowId> iterator = getRowIdIteratorForGetByBinaryTuple(key);
 
@@ -175,6 +181,12 @@ abstract class AbstractTestIndexStorage implements IndexStorage {
 
         if (rebalance) {
             throw new StorageRebalanceException("Storage in the process of rebalancing");
+        }
+    }
+
+    void throwExceptionIfIndexIsNotBuilt() {
+        if (nextRowIdToBuild != null) {
+            throw new IndexNotBuiltException(indexId, partitionId);
         }
     }
 }

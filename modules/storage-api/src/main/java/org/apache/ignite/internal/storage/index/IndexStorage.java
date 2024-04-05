@@ -33,6 +33,7 @@ public interface IndexStorage {
      * Returns a cursor over {@code RowId}s associated with the given index key.
      *
      * @throws StorageException If failed to read data.
+     * @throws IndexNotBuiltException If the index has not yet been built.
      */
     Cursor<RowId> get(BinaryTuple key) throws StorageException;
 

@@ -134,10 +134,18 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
         when(catalogService.aliveIndex(eq(catalogSortedIndexDescriptor.name()), anyLong())).thenReturn(catalogSortedIndexDescriptor);
         when(catalogService.index(eq(catalogSortedIndexDescriptor.id()), anyInt())).thenReturn(catalogSortedIndexDescriptor);
 
-        return tableStorage.getOrCreateSortedIndex(
+        SortedIndexStorage index = tableStorage.getOrCreateSortedIndex(
                 TEST_PARTITION,
                 new StorageSortedIndexDescriptor(catalogTableDescriptor, catalogSortedIndexDescriptor)
         );
+
+        partitionStorage.runConsistently(locker -> {
+            index.setNextRowIdToBuild(null);
+
+            return null;
+        });
+
+        return index;
     }
 
     @Override
@@ -1385,6 +1393,19 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
         assertThat(getAll(index, row1), is(empty()));
         assertThat(getAll(index, row2), is(empty()));
         assertThat(getAll(index, row3), is(empty()));
+    }
+
+    @Test
+    void testScanFromNotBuiltIndex() {
+        SortedIndexStorage index = createIndexStorage(INDEX_NAME, ColumnType.INT32);
+
+        partitionStorage.runConsistently(locker -> {
+            index.setNextRowIdToBuild(new RowId(TEST_PARTITION));
+
+            return null;
+        });
+
+        assertThrows(IndexNotBuiltException.class, () -> index.scan(null, null, 0));
     }
 
     private List<ColumnParams> shuffledRandomColumnParams() {

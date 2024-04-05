@@ -46,7 +46,7 @@ public class TestHashIndexStorage extends AbstractTestIndexStorage implements Ha
      * Constructor.
      */
     public TestHashIndexStorage(int partitionId, StorageHashIndexDescriptor descriptor) {
-        super(partitionId);
+        super(descriptor.id(), partitionId);
 
         this.descriptor = descriptor;
     }

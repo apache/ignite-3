@@ -60,10 +60,18 @@ public abstract class AbstractHashIndexStorageTest extends AbstractIndexStorageT
         when(catalogService.aliveIndex(eq(name), anyLong())).thenReturn(catalogHashIndexDescriptor);
         when(catalogService.index(eq(catalogHashIndexDescriptor.id()), anyInt())).thenReturn(catalogHashIndexDescriptor);
 
-        return tableStorage.getOrCreateHashIndex(
+        HashIndexStorage index = tableStorage.getOrCreateHashIndex(
                 TEST_PARTITION,
                 new StorageHashIndexDescriptor(catalogTableDescriptor, catalogHashIndexDescriptor)
         );
+
+        partitionStorage.runConsistently(locker -> {
+            index.setNextRowIdToBuild(null);
+
+            return null;
+        });
+
+        return index;
     }
 
     @Override

@@ -107,6 +107,8 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
         return busyDataRead(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
+            throwExceptionIfIndexNotBuilt();
+
             BinaryTuplePrefix keyPrefix = BinaryTuplePrefix.fromBinaryTuple(key);
 
             return scan(keyPrefix, keyPrefix, true, true, this::decodeRowId);
@@ -149,6 +151,8 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
     public PeekCursor<IndexRow> scan(@Nullable BinaryTuplePrefix lowerBound, @Nullable BinaryTuplePrefix upperBound, int flags) {
         return busyDataRead(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+
+            throwExceptionIfIndexNotBuilt();
 
             boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;
             boolean includeUpper = (flags & LESS_OR_EQUAL) != 0;

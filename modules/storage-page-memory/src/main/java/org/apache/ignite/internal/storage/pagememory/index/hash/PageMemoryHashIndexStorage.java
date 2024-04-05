@@ -84,6 +84,8 @@ public class PageMemoryHashIndexStorage extends AbstractPageMemoryIndexStorage<H
         return busyDataRead(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
+            throwExceptionIfIndexNotBuilt();
+
             IndexColumns indexColumns = new IndexColumns(partitionId, key.byteBuffer());
 
             HashIndexRow lowerBound = new HashIndexRow(indexColumns, lowestRowId);

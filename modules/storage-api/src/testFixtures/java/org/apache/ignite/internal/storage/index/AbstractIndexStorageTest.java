@@ -339,6 +339,22 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
         assertDoesNotThrow(() -> remove(index, row));
     }
 
+    @Test
+    void testGetFromNotBuiltIndex() {
+        S index = createIndexStorage(INDEX_NAME, ColumnType.INT32);
+        var serializer = new BinaryTupleRowSerializer(indexDescriptor(index));
+
+        IndexRow row = toIndexRow(serializer, 1);
+
+        partitionStorage.runConsistently(locker -> {
+            index.setNextRowIdToBuild(new RowId(TEST_PARTITION));
+
+            return null;
+        });
+
+        assertThrows(IndexNotBuiltException.class, () -> get(index, row.indexColumns()));
+    }
+
     protected static Collection<RowId> getAll(IndexStorage index, IndexRow row) {
         try (Cursor<RowId> cursor = index.get(row.indexColumns())) {
             return cursor.stream().collect(toList());
@@ -384,5 +400,9 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
 
     private static ColumnParams.Builder columnParamsBuilder(ColumnType columnType) {
         return ColumnParams.builder().name(columnName(columnType)).type(columnType);
+    }
+
+    protected static IndexRow toIndexRow(BinaryTupleRowSerializer serializer, Object... values) {
+        return serializer.serializeRow(values, new RowId(TEST_PARTITION));
     }
 }
