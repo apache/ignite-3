@@ -40,8 +40,11 @@ dependencies {
     testImplementation testFixtures(project(':ignite-configuration'))
     testImplementation project(':ignite-configuration')
 
+    integrationTestAnnotationProcessor project(':ignite-configuration-annotation-processor')
+
     integrationTestImplementation testFixtures(project(':ignite-runner'))
     integrationTestImplementation testFixtures(project(':ignite-core'))
+    integrationTestImplementation testFixtures(project(':ignite-configuration'))
     integrationTestImplementation project(':ignite-api')
     integrationTestImplementation project(':ignite-configuration')
 }
