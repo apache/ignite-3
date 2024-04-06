@@ -606,7 +606,7 @@ public class IgniteSqlFunctions {
      *          with the only difference being that it does not add trailing zeros.
      */
     public static String unixTimeToString(int time, int precision) {
-        IgniteStringBuilder buf = new IgniteStringBuilder(8);
+        IgniteStringBuilder buf = new IgniteStringBuilder(8 + (precision > 0 ? 1 + precision : 0));
 
         unixTimeToString(buf, time, precision);
 
