@@ -57,24 +57,24 @@ public class ThreadAssertions {
      * Asserts that the current thread allows to perform the requested operation.
      */
     public static void assertThreadAllowsTo(ThreadOperation requestedOperation) {
-        if (PublicApiThreading.executingSyncPublicApi()) {
-            // Allow everything if we ride a user thread while executing a public API call.
-
-            return;
-        }
-
         Thread currentThread = Thread.currentThread();
 
         if (!(currentThread instanceof ThreadAttributes)) {
+            if (PublicApiThreading.executingSyncPublicApi()) {
+                // Allow everything if we ride a user thread while executing a public API call.
+
+                return;
+            }
+
             LOG.warn("Thread {} does not have allowed operations", trackerException(), currentThread);
 
-            throw new AssertionError("Thread does not have allowed operations");
+            throw new AssertionError("Thread " + currentThread.getName() + " does not have allowed operations");
         }
 
         if (!((ThreadAttributes) currentThread).allows(requestedOperation)) {
             LOG.warn("Thread {} is not allowed to do {}", trackerException(), currentThread, requestedOperation);
 
-            throw new AssertionError("Thread is not allowed to do " + requestedOperation);
+            throw new AssertionError("Thread " + currentThread.getName() + " is not allowed to do " + requestedOperation);
         }
     }
 
