@@ -496,7 +496,6 @@ public class FakeInternalTable implements InternalTable {
 
     @Override
     public ScheduledExecutorService streamerFlushExecutor() {
-        //noinspection DataFlowIssue
-        return null;
+        throw new UnsupportedOperationException("Not implemented");
     }
 }
