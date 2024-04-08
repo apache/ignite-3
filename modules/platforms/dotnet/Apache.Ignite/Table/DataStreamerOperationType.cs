@@ -15,26 +15,20 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Tests.Table
+namespace Apache.Ignite.Table;
+
+/// <summary>
+/// Data streamer operation type.
+/// </summary>
+public enum DataStreamerOperationType
 {
-    using System;
-    using System.ComponentModel.DataAnnotations.Schema;
+    /// <summary>
+    /// Put operation.
+    /// </summary>
+    Put,
 
     /// <summary>
-    /// Test user object.
+    /// Remove operation.
     /// </summary>
-    public class Poco
-    {
-        public long Key { get; set; }
-
-        public string? Val { get; set; }
-
-        [NotMapped]
-        public Guid UnmappedId { get; set; }
-
-        [NotMapped]
-        public string? UnmappedStr { get; set; }
-
-        public override string ToString() => $"Poco [Key={Key}, Val={Val}]";
-    }
+    Remove
 }
