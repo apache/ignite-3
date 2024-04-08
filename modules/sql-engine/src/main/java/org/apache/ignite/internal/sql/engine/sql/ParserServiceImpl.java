@@ -26,8 +26,6 @@ import org.apache.calcite.sql.dialect.AnsiSqlDialect;
 import org.apache.calcite.sql.pretty.SqlPrettyWriter;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.sql.engine.util.cache.Cache;
-import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 
 /**
  * An implementation of {@link ParserService} that, apart of parsing, introduces cache of parsed results.
@@ -42,26 +40,9 @@ public class ParserServiceImpl implements ParserService {
             .withUpdateSetListNewline(false)
             .withIndentation(0);
 
-    private final Cache<String, ParsedResult> queryToParsedResultCache;
-
-    /**
-     * Constructs the object.
-     *
-     * @param cacheFactory A factory to create cache for parsed results.
-     */
-    public ParserServiceImpl(int cacheSize, CacheFactory cacheFactory) {
-        this.queryToParsedResultCache = cacheFactory.create(cacheSize);
-    }
-
     /** {@inheritDoc} */
     @Override
     public ParsedResult parse(String query) {
-        ParsedResult cachedResult = queryToParsedResultCache.get(query);
-
-        if (cachedResult != null) {
-            return cachedResult;
-        }
-
         StatementParseResult parsedStatement = IgniteSqlParser.parse(query, StatementParseResult.MODE);
 
         SqlNode parsedTree = parsedStatement.statement();
@@ -81,10 +62,6 @@ public class ParserServiceImpl implements ParserService {
                 parsedStatement.dynamicParamsCount(),
                 () -> IgniteSqlParser.parse(query, StatementParseResult.MODE).statement()
         );
-
-        if (shouldBeCached(queryType)) {
-            queryToParsedResultCache.put(query, result);
-        }
 
         return result;
     }
@@ -164,9 +141,5 @@ public class ParserServiceImpl implements ParserService {
         public SqlNode parsedTree() {
             return parsedTreeSupplier.get();
         }
-    }
-
-    private static boolean shouldBeCached(SqlQueryType queryType) {
-        return queryType == SqlQueryType.QUERY || queryType == SqlQueryType.DML;
     }
 }

@@ -34,5 +34,7 @@ namespace Apache.Ignite.Tests.Table
 
         [NotMapped]
         public string? UnmappedStr { get; set; }
+
+        public override string ToString() => $"Poco [Key={Key}, Val={Val}]";
     }
 }

@@ -125,6 +125,7 @@ import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -570,6 +571,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 storagePath.resolve(TX_STATE_DIR),
                 txStateStorageScheduledPool,
                 txStateStoragePool,
+                raftMgr.getLogSyncer(),
                 TX_STATE_STORAGE_FLUSH_DELAY_SUPPLIER
         );
 

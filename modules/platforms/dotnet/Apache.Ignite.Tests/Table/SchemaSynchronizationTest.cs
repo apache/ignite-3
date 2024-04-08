@@ -45,7 +45,8 @@ public class SchemaSynchronizationTest : IgniteTestsBase
     }
 
     private static string TestTableName => TestContext.CurrentContext.Test.Name
-        .Replace("(", string.Empty)
+        .Replace("(", "_")
+        .Replace(",", "_")
         .Replace(")", string.Empty);
 
     [TearDown]
@@ -334,7 +335,9 @@ public class SchemaSynchronizationTest : IgniteTestsBase
 
     [Test]
     [SuppressMessage("ReSharper", "AccessToDisposedClosure", Justification = "Reviewed")]
-    public async Task TestSchemaUpdateWhileStreaming([Values(true, false)] bool insertNewColumn)
+    public async Task TestSchemaUpdateWhileStreaming(
+        [Values(true, false)] bool insertNewColumn,
+        [Values(true, false)] bool withRemove)
     {
         using var metricListener = new MetricsTests.Listener();
         await Client.Sql.ExecuteAsync(null, $"CREATE TABLE {TestTableName} (KEY bigint PRIMARY KEY)");
@@ -353,12 +356,17 @@ public class SchemaSynchronizationTest : IgniteTestsBase
         var res2 = await view.GetAsync(null, GetTuple(19));
         Assert.AreEqual(insertNewColumn ? "BAR_19" : "FOO", res2.Value["VAL"]);
 
-        async IAsyncEnumerable<IIgniteTuple> GetData()
+        async IAsyncEnumerable<DataStreamerItem<IIgniteTuple>> GetData()
         {
             // First set of batches uses old schema.
-            for (int i = 0; i < 10; i++)
+            for (int i = 0; i < 20; i++)
             {
-                yield return GetTuple(i);
+                if (withRemove)
+                {
+                    yield return DataStreamerItem.Create(GetTuple(-i), DataStreamerOperationType.Remove);
+                }
+
+                yield return DataStreamerItem.Create(GetTuple(i));
             }
 
             // Wait for background streaming to complete.
@@ -369,9 +377,16 @@ public class SchemaSynchronizationTest : IgniteTestsBase
             // New schema has a new column with a default value, so it is not required to provide it in the streamed data.
             await Client.Sql.ExecuteAsync(null, $"ALTER TABLE {TestTableName} ADD COLUMN VAL varchar DEFAULT 'FOO'");
 
-            for (int i = 10; i < 20; i++)
+            for (int i = 10; i < 30; i++)
             {
-                yield return insertNewColumn ? GetTuple(i, "BAR_" + i) : GetTuple(i);
+                if (withRemove)
+                {
+                    yield return DataStreamerItem.Create(GetTuple(-i), DataStreamerOperationType.Remove);
+                }
+
+                yield return insertNewColumn
+                    ? DataStreamerItem.Create(GetTuple(i, "BAR_" + i))
+                    : DataStreamerItem.Create(GetTuple(i));
             }
         }
     }

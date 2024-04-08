@@ -157,27 +157,15 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         }
 
         InternalTransaction tx = req.autoCommit() ? null : connectionContext.getOrStartTransaction();
-        SqlProperties properties = createProperties(req.getStmtType());
+        SqlProperties properties = createProperties(req.getStmtType(), req.multiStatement());
 
-        CompletableFuture<AsyncSqlCursor<InternalSqlRow>> result;
-
-        if (req.multiStatement()) {
-            result = processor.queryScriptAsync(
-                    properties,
-                    igniteTransactions,
-                    tx,
-                    req.sqlQuery(),
-                    req.arguments() == null ? OBJECT_EMPTY_ARRAY : req.arguments()
-            );
-        } else {
-            result = processor.querySingleAsync(
-                    properties,
-                    igniteTransactions,
-                    tx,
-                    req.sqlQuery(),
-                    req.arguments() == null ? OBJECT_EMPTY_ARRAY : req.arguments()
-            );
-        }
+        CompletableFuture<AsyncSqlCursor<InternalSqlRow>> result = processor.queryAsync(
+                properties,
+                igniteTransactions,
+                tx,
+                req.sqlQuery(),
+                req.arguments() == null ? OBJECT_EMPTY_ARRAY : req.arguments()
+        );
 
         return result.thenCompose(cursor -> createJdbcResult(new JdbcQueryCursor<>(req.maxRows(), cursor), req))
                 .exceptionally(t -> {
@@ -189,12 +177,12 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
                 });
     }
 
-    private static SqlProperties createProperties(JdbcStatementType stmtType) {
+    private static SqlProperties createProperties(JdbcStatementType stmtType, boolean multiStatement) {
         Set<SqlQueryType> allowedTypes;
 
         switch (stmtType) {
             case ANY_STATEMENT_TYPE:
-                allowedTypes = SqlQueryType.SINGLE_STMT_TYPES;
+                allowedTypes = multiStatement ? SqlQueryType.ALL : SqlQueryType.SINGLE_STMT_TYPES;
                 break;
             case SELECT_STATEMENT_TYPE:
                 allowedTypes = SELECT_STATEMENT_QUERIES;
@@ -287,9 +275,9 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
             return CompletableFuture.failedFuture(new IgniteInternalException(CONNECTION_ERR, "Connection is closed"));
         }
 
-        SqlProperties properties = createProperties(JdbcStatementType.UPDATE_STATEMENT_TYPE);
+        SqlProperties properties = createProperties(JdbcStatementType.UPDATE_STATEMENT_TYPE, false);
 
-        CompletableFuture<AsyncSqlCursor<InternalSqlRow>> result = processor.querySingleAsync(
+        CompletableFuture<AsyncSqlCursor<InternalSqlRow>> result = processor.queryAsync(
                 properties,
                 igniteTransactions,
                 tx,

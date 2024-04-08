@@ -46,6 +46,7 @@ import org.rocksdb.DBOptions;
 import org.rocksdb.Env;
 import org.rocksdb.Priority;
 import org.rocksdb.RocksDB;
+import org.rocksdb.RocksDBException;
 import org.rocksdb.WriteBatch;
 import org.rocksdb.util.SizeUnit;
 
@@ -157,6 +158,11 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
     @Override
     public LogStorage createLogStorage(String groupId, RaftOptions raftOptions) {
         return new RocksDbSharedLogStorage(this, db, confHandle, dataHandle, groupId, raftOptions, executorService);
+    }
+
+    @Override
+    public void sync() throws RocksDBException {
+        db.syncWal();
     }
 
     /**

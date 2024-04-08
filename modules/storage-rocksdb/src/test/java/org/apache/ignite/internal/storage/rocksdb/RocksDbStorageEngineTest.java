@@ -26,6 +26,7 @@ import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
@@ -55,7 +56,7 @@ public class RocksDbStorageEngineTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp(@WorkDirectory Path workDir) {
-        engine = new RocksDbStorageEngine("test", engineConfig, workDir);
+        engine = new RocksDbStorageEngine("test", engineConfig, workDir, mock(LogSyncer.class));
 
         engine.start();
     }

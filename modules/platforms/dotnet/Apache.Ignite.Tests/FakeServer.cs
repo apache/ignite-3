@@ -115,7 +115,7 @@ namespace Apache.Ignite.Tests
 
         public Dictionary<string, object?> LastSqlScriptProps { get; private set; } = new();
 
-        public long UpsertAllRowCount { get; set; }
+        public long StreamerRowCount { get; set; }
 
         public long DroppedConnectionCount { get; set; }
 
@@ -281,11 +281,6 @@ namespace Apache.Ignite.Tests
                             Thread.Sleep(MultiRowOperationDelayPerRow * count);
                         }
 
-                        if (opCode == ClientOp.TupleUpsertAll)
-                        {
-                            UpsertAllRowCount += count;
-                        }
-
                         Send(handler, requestId, new byte[] { 1, 0 }.AsMemory());
                         continue;
 
@@ -332,6 +327,13 @@ namespace Apache.Ignite.Tests
 
                     case ClientOp.Heartbeat:
                         Thread.Sleep(HeartbeatDelay);
+                        Send(handler, requestId, Array.Empty<byte>());
+                        continue;
+
+                    case ClientOp.StreamerBatchSend:
+                        reader.Skip(4);
+                        StreamerRowCount += reader.ReadInt32();
+
                         Send(handler, requestId, Array.Empty<byte>());
                         continue;
                 }

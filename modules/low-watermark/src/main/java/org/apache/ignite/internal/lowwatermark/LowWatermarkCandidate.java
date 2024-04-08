@@ -15,13 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.message;
+package org.apache.ignite.internal.lowwatermark;
 
-import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.table.distributed.TableMessageGroup;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 
-/** Request for low watermark. */
-@Transferable(TableMessageGroup.GET_LOW_WATERMARK_REQUEST)
-public interface GetLowWatermarkRequest extends NetworkMessage {
+/** Internal class for {@link LowWatermarkImpl}. */
+final class LowWatermarkCandidate {
+    private final HybridTimestamp lowWatermark;
+
+    /** Future of low watermark update operation, see {@link LowWatermarkImpl}. */
+    private final CompletableFuture<Void> updateFuture;
+
+    LowWatermarkCandidate(HybridTimestamp lowWatermark, CompletableFuture<Void> updateFuture) {
+        this.lowWatermark = lowWatermark;
+        this.updateFuture = updateFuture;
+    }
+
+    HybridTimestamp lowWatermark() {
+        return lowWatermark;
+    }
+
+    CompletableFuture<Void> updateFuture() {
+        return updateFuture;
+    }
 }

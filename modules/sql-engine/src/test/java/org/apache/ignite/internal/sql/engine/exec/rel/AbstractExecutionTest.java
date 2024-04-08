@@ -100,14 +100,18 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
                     false,
                     0);
 
-            StripedThreadPoolExecutor stripedThreadPoolExecutor = (StripedThreadPoolExecutor) IgniteTestUtils.getFieldValue(
+            StripedThreadPoolExecutor stripedThreadPoolExecutor = IgniteTestUtils.getFieldValue(
                     taskExecutor,
                     QueryTaskExecutorImpl.class,
                     "stripedThreadPoolExecutor"
             );
-            stripedThreadPoolExecutor.shutdown();
 
-            IgniteTestUtils.setFieldValue(taskExecutor, "stripedThreadPoolExecutor", testExecutor);
+            // change it once on startup
+            if (!(stripedThreadPoolExecutor instanceof IgniteTestStripedThreadPoolExecutor)) {
+                stripedThreadPoolExecutor.shutdown();
+
+                IgniteTestUtils.setFieldValue(taskExecutor, "stripedThreadPoolExecutor", testExecutor);
+            }
         }
 
         FragmentDescription fragmentDesc = getFragmentDescription();

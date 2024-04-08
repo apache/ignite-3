@@ -30,6 +30,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
 import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.storage.StorageException;
@@ -88,16 +89,20 @@ public class RocksDbStorageEngine implements StorageEngine {
     // TODO IGNITE-19762 Think of proper way to use regions and storages.
     private final Map<String, RocksDbStorage> storageByRegionName = new ConcurrentHashMap<>();
 
+    private final LogSyncer logSyncer;
+
     /**
      * Constructor.
      *
      * @param nodeName Node name.
      * @param engineConfig RocksDB storage engine configuration.
      * @param storagePath Storage path.
+     * @param logSyncer Write-ahead log synchronizer.
      */
-    public RocksDbStorageEngine(String nodeName, RocksDbStorageEngineConfiguration engineConfig, Path storagePath) {
+    public RocksDbStorageEngine(String nodeName, RocksDbStorageEngineConfiguration engineConfig, Path storagePath, LogSyncer logSyncer) {
         this.engineConfig = engineConfig;
         this.storagePath = storagePath;
+        this.logSyncer = logSyncer;
 
         threadPool = Executors.newFixedThreadPool(
                 Runtime.getRuntime().availableProcessors(),
@@ -128,6 +133,10 @@ public class RocksDbStorageEngine implements StorageEngine {
      */
     public ScheduledExecutorService scheduledPool() {
         return scheduledPool;
+    }
+
+    public LogSyncer logSyncer() {
+        return logSyncer;
     }
 
     @Override

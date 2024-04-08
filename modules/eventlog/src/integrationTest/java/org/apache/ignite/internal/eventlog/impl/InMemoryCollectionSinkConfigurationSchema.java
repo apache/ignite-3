@@ -15,28 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed;
+package org.apache.ignite.internal.eventlog.impl;
 
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.internal.eventlog.config.schema.SinkConfigurationSchema;
 
-/** Internal class for {@link LowWatermarkImpl}. */
-final class LowWatermarkCandidate {
-    private final HybridTimestamp lowWatermark;
-
-    /** Future of low watermark update operation, see {@link LowWatermarkImpl}. */
-    private final CompletableFuture<Void> updateFuture;
-
-    LowWatermarkCandidate(HybridTimestamp lowWatermark, CompletableFuture<Void> updateFuture) {
-        this.lowWatermark = lowWatermark;
-        this.updateFuture = updateFuture;
-    }
-
-    HybridTimestamp lowWatermark() {
-        return lowWatermark;
-    }
-
-    CompletableFuture<Void> updateFuture() {
-        return updateFuture;
-    }
+/** Configuration schema for in-memory collection sink. Needed for tests. */
+@PolymorphicConfigInstance("inMemory")
+public class InMemoryCollectionSinkConfigurationSchema extends SinkConfigurationSchema {
 }

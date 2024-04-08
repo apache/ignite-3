@@ -59,8 +59,6 @@ public class ItJdbcErrorsSelfTest extends ItJdbcErrorsAbstractSelfTest {
      */
     @Test
     public void processMixedQueries() throws SQLException {
-        conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
-
         try (Statement stmt = conn.createStatement()) {
             stmt.executeUpdate(
                     "CREATE TABLE CITIES ("
