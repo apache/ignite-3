@@ -352,6 +352,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      * Testing TableManager#writeTableAssignmentsToMetastore for 2 exceptional scenarios:
      * 1. the method was interrupted in inner metastore's future when whe result of invocation had gotten, but after error happens;
      * 2. the method was interrupted in outer future before invoke calling completion.
+     *
      * @throws Exception if something goes wrong on mocks creation.
      */
     @Test

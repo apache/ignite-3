@@ -55,7 +55,7 @@ public class WritingAssignmentsToMetastoreException extends IgniteInternalExcept
     }
 
     /**
-     * Constructor for the exception if assignments list is unavailable
+     * Constructor for the exception if assignments list is unavailable.
      *
      * @param tableId the identifier of a table which for assignments list tried to be written.
      * @param cause any throwable cause that was the reason for metastore writing failure.
