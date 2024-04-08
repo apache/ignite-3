@@ -70,7 +70,7 @@ class LogSinkTest extends BaseIgniteAbstractTest {
             logSinkChange.changeFormat("json");
         })).get();
         // And log sink.
-        Sink logSink = new SinkFactory().createSink(cfg.sinks().get("logSink").value());
+        Sink logSink = SinkFactory.DEFAULT.createSink(cfg.sinks().get("logSink").value());
         // And event.
         Event event = IgniteEvents.USER_AUTHENTICATED.create(
                 EventUser.of("user1", "basicProvider")

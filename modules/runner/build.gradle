@@ -83,6 +83,7 @@ dependencies {
     implementation project(':ignite-failure-handler')
     implementation project(':ignite-catalog-dsl')
     implementation project(':ignite-eventlog')
+    implementation project(':ignite-low-watermark')
     implementation libs.jetbrains.annotations
     implementation libs.micronaut.inject
     implementation libs.micronaut.validation
@@ -154,6 +155,7 @@ dependencies {
     integrationTestImplementation project(':ignite-system-view-api')
     integrationTestImplementation project(':ignite-workers')
     integrationTestImplementation project(':ignite-failure-handler')
+    integrationTestImplementation project(':ignite-low-watermark')
     integrationTestImplementation testFixtures(project(":ignite-api"))
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-configuration'))
