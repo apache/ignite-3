@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInCleanupOrRebalancedState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInProgressOfRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInRunnableOrRebalanceState;
@@ -197,12 +196,9 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
         busy(() -> {
             throwExceptionIfStorageNotInRunnableState();
 
-            if (leaseStartTime == this.leaseStartTime) {
+            if (leaseStartTime <= this.leaseStartTime) {
                 return null;
             }
-
-            assert leaseStartTime > this.leaseStartTime : format("Updated lease start time should be greater than current [current={}, "
-                    + "updated={}]", this.leaseStartTime, leaseStartTime);
 
             this.leaseStartTime = leaseStartTime;
 

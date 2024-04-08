@@ -999,12 +999,9 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     @Override
     public void updateLease(long leaseStartTime) {
         busy(() -> {
-            if (leaseStartTime == this.leaseStartTime) {
+            if (leaseStartTime <= this.leaseStartTime) {
                 return null;
             }
-
-            assert leaseStartTime > this.leaseStartTime : format("Updated lease start time should be greater than current [current={}, "
-                    + "updated={}]", this.leaseStartTime, leaseStartTime);
 
             AbstractWriteBatch writeBatch = PartitionDataHelper.requireWriteBatch();
 
@@ -1035,6 +1032,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     void destroyData(WriteBatch writeBatch) throws RocksDBException {
         writeBatch.delete(meta, lastAppliedIndexAndTermKey);
         writeBatch.delete(meta, lastGroupConfigKey);
+        writeBatch.delete(meta, leaseKey);
 
         writeBatch.deleteRange(helper.partCf, helper.partitionStartPrefix(), helper.partitionEndPrefix());
 
@@ -1547,6 +1545,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
         writeBatch.delete(meta, lastGroupConfigKey);
         writeBatch.deleteRange(helper.partCf, helper.partitionStartPrefix(), helper.partitionEndPrefix());
+        writeBatch.delete(meta, leaseKey);
 
         gc.deleteQueue(writeBatch);
     }

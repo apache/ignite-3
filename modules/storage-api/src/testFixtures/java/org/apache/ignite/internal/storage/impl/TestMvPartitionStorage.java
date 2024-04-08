@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.storage.impl;
 
 import static java.util.Comparator.comparing;
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.Arrays;
@@ -626,12 +625,9 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     public void updateLease(long leaseStartTime) {
         checkStorageClosed();
 
-        if (leaseStartTime == this.leaseStartTime) {
+        if (leaseStartTime <= this.leaseStartTime) {
             return;
         }
-
-        assert leaseStartTime > this.leaseStartTime : format("Updated lease start time should be greater than current [current={}, "
-                + "updated={}]", this.leaseStartTime, leaseStartTime);
 
         this.leaseStartTime = leaseStartTime;
     }
