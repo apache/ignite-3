@@ -1,0 +1,36 @@
+# name: test/sql/filter/test_in_list_of_single_element.test
+# description: Test IN predicate with list of single element.
+# feature: T631
+# group: [filter]
+
+
+statement ok
+CREATE TABLE integers(i INTEGER)
+
+statement ok
+INSERT INTO integers VALUES (1), (NULL);
+
+query III
+SELECT 1 IN (1), 1 IN (NULL), NULL IN (NULL)
+----
+TRUE, FALSE, FALSE
+
+query I rowsort
+SELECT * FROM integers WHERE 1 IN (1)
+----
+NULL
+1
+
+query I
+SELECT * FROM integers WHERE i IN (1)
+----
+1
+
+query I
+SELECT * FROM integers WHERE i IN (2)
+----
+
+query I
+SELECT * FROM integers WHERE i IN (NULL)
+----
+
