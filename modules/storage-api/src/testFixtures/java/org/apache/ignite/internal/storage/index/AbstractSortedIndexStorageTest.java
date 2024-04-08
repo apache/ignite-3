@@ -415,6 +415,40 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
         );
     }
 
+    /**
+     * Tests that an empty range is returned if {@link SortedIndexStorage#scan} and {@link SortedIndexStorage#readOnlyScan} methods
+     * are called using overlapping keys.
+     */
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void testEmptyRange(boolean readOnly) {
+        List<ColumnParams> indexSchema = shuffledRandomColumnParams();
+
+        SortedIndexStorage indexStorage = createIndexStorage(INDEX_NAME, indexSchema);
+
+        TestIndexRow entry1 = TestIndexRow.randomRow(indexStorage, TEST_PARTITION);
+        TestIndexRow entry2 = TestIndexRow.randomRow(indexStorage, TEST_PARTITION);
+
+        if (entry2.compareTo(entry1) < 0) {
+            TestIndexRow t = entry2;
+            entry2 = entry1;
+            entry1 = t;
+        }
+
+        put(indexStorage, entry1);
+        put(indexStorage, entry2);
+
+        try (Cursor<IndexRow> cursor = getIndexRowCursor(
+                indexStorage,
+                entry2.prefix(indexSchema.size()).prefix(),
+                entry1.prefix(indexSchema.size()).prefix(),
+                0,
+                readOnly
+        )) {
+            assertThat(cursor.stream().collect(toList()), is(empty()));
+        }
+    }
+
     @ParameterizedTest
     @MethodSource("allTypesColumnParamsAndReadOnly")
     void testNullValues(ColumnParams columnParams, boolean readOnly) {
@@ -450,40 +484,6 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
                     cursor.stream().map(row -> row.indexColumns().byteBuffer()).collect(toList()),
                     contains(entry1.indexColumns().byteBuffer(), entry2.indexColumns().byteBuffer())
             );
-        }
-    }
-
-    /**
-     * Tests that an empty range is returned if {@link SortedIndexStorage#scan} and {@link SortedIndexStorage#readOnlyScan} methods
-     * are called using overlapping keys.
-     */
-    @ParameterizedTest
-    @ValueSource(booleans = {false, true})
-    void testEmptyRange(boolean readOnly) {
-        List<ColumnParams> indexSchema = shuffledRandomColumnParams();
-
-        SortedIndexStorage indexStorage = createIndexStorage(INDEX_NAME, indexSchema);
-
-        TestIndexRow entry1 = TestIndexRow.randomRow(indexStorage, TEST_PARTITION);
-        TestIndexRow entry2 = TestIndexRow.randomRow(indexStorage, TEST_PARTITION);
-
-        if (entry2.compareTo(entry1) < 0) {
-            TestIndexRow t = entry2;
-            entry2 = entry1;
-            entry1 = t;
-        }
-
-        put(indexStorage, entry1);
-        put(indexStorage, entry2);
-
-        try (Cursor<IndexRow> cursor = getIndexRowCursor(
-                indexStorage,
-                entry2.prefix(indexSchema.size()).prefix(),
-                entry1.prefix(indexSchema.size()).prefix(),
-                0,
-                readOnly
-        )) {
-            assertThat(cursor.stream().collect(toList()), is(empty()));
         }
     }
 
