@@ -17,9 +17,6 @@
 
 package org.apache.ignite.internal.replicator.message;
 
-import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
-
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
@@ -27,9 +24,5 @@ import org.apache.ignite.internal.network.annotations.Transferable;
  */
 @Transferable(ReplicaMessageGroup.WAIT_REPLICA_STATE)
 public interface WaitReplicaStateMessage extends ReplicaRequest {
-    long syncTimeLong();
-
-    default HybridTimestamp syncTime() {
-        return hybridTimestamp(syncTimeLong());
-    }
+    long timeout();
 }

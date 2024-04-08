@@ -46,6 +46,7 @@ import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.WaitReplicaStateMessage;
+import org.apache.ignite.internal.util.FastTimestamps;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
 
@@ -255,7 +256,7 @@ public class Replica {
     private CompletableFuture<Void> processWaitReplicaStateMessage(WaitReplicaStateMessage msg) {
         LOG.info("Received LeaseGrantedMessage for replica belonging to group=" + groupId());
 
-        return waitForActualState(msg.syncTime().getPhysical());
+        return waitForActualState(FastTimestamps.coarseCurrentTimeMillis() + TimeUnit.SECONDS.toMillis(msg.timeout()));
     }
 
     private CompletableFuture<Void> sendPrimaryReplicaChangeToReplicationGroup(long leaseStartTime) {

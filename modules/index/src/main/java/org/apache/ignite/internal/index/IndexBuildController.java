@@ -270,7 +270,7 @@ class IndexBuildController implements ManuallyCloseable {
 
     private CompletableFuture<ReplicaMeta> awaitPrimaryReplica(ZonePartitionId replicaId, HybridTimestamp timestamp) {
         return placementDriver
-                .awaitPrimaryReplicaTmp(replicaId, timestamp, AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC, SECONDS)
+                .awaitPrimaryReplicaForTable(replicaId, timestamp, AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC, SECONDS)
                 .handle((replicaMeta, throwable) -> {
                     if (throwable != null) {
                         Throwable unwrapThrowable = ExceptionUtils.unwrapCause(throwable);

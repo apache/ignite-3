@@ -37,7 +37,9 @@ import org.apache.ignite.network.ClusterNodeResolver;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Tbd.
+ * Implementation of {@link PlacementDriver} that is aware if {@link ReplicaService}.
+ * It delegates calls to the original {@link PlacementDriver} and after that sends {@link WaitReplicaStateMessage}
+ * which calls {@link org.apache.ignite.internal.replicator.Replica#waitForActualState(long)}.
  */
 public class ReplicaAwareLeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, PrimaryReplicaEventParameters> implements
         PlacementDriver {
@@ -81,7 +83,7 @@ public class ReplicaAwareLeaseTracker extends AbstractEventProducer<PrimaryRepli
     }
 
     @Override
-    public CompletableFuture<ReplicaMeta> awaitPrimaryReplicaTmp(
+    public CompletableFuture<ReplicaMeta> awaitPrimaryReplicaForTable(
             ZonePartitionId groupId,
             HybridTimestamp timestamp,
             long timeout,
@@ -95,7 +97,7 @@ public class ReplicaAwareLeaseTracker extends AbstractEventProducer<PrimaryRepli
 
                     WaitReplicaStateMessage awaitReplicaReq = REPLICA_MESSAGES_FACTORY.waitReplicaStateMessage()
                             .groupId(tablePartitionId)
-                            .syncTimeLong(replicaMeta.getExpirationTime().longValue())
+                            .timeout(timeout)
                             .build();
 
                     return replicaService.invoke(leaseholderNode, awaitReplicaReq).thenApply((ignored) -> replicaMeta);

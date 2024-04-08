@@ -55,5 +55,6 @@ public interface ReplicaMessageGroup {
     /** Message type for {@link PrimaryReplicaChangeCommand}. */
     short PRIMARY_REPLICA_CHANGE_COMMAND = 41;
 
+    /** Message type for {@link WaitReplicaStateMessage}. */
     short WAIT_REPLICA_STATE = 42;
 }

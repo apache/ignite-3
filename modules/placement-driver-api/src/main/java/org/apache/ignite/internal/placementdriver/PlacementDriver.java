@@ -62,12 +62,9 @@ public interface PlacementDriver extends EventProducer<PrimaryReplicaEvent, Prim
     );
 
     /**
-     * Returns a future for the primary replica for the specified replication group whose expiration time (the right border of the
-     * corresponding lease interval) is greater than or equal to the (timestamp passed as a parameter - CLOCK_SKEW).
-     * Please pay attention that there are no restriction on the lease start time (left border),
-     * it can either be less or greater than or equal to proposed timestamp.
-     * Given method will await for an appropriate primary replica appearance if there's no already existing one. If the current lease
-     * is held by a node that is already not in a cluster, the future will be completed after the lease is transferred to another node.
+     * Temporary solution for awaiting {@link ReplicaMeta}. Waits for
+     * {@link ReplicaMeta} for {@link org.apache.ignite.internal.replicator.TablePartitionId}
+     * based on the {@link ZonePartitionId#tableId()}.
      *
      * @param groupId Replication group id.
      * @param timestamp CLOCK_SKEW aware timestamp reference value.
@@ -77,7 +74,7 @@ public interface PlacementDriver extends EventProducer<PrimaryReplicaEvent, Prim
      * @throws PrimaryReplicaAwaitTimeoutException If primary replica await timed out.
      * @throws PrimaryReplicaAwaitException If primary replica await failed with any other reason except timeout.
      */
-    default CompletableFuture<ReplicaMeta> awaitPrimaryReplicaTmp(
+    default CompletableFuture<ReplicaMeta> awaitPrimaryReplicaForTable(
             ZonePartitionId groupId,
             HybridTimestamp timestamp,
             long timeout,
