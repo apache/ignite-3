@@ -152,7 +152,7 @@ import org.apache.ignite.internal.network.serialization.SerializationRegistrySer
 import org.apache.ignite.internal.network.wrapper.JumpToExecutorByConsistentIdAfterSend;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.PlacementDriverManager;
-import org.apache.ignite.internal.placementdriver.leases.ReplicaAwareLeaseTracker;
+import org.apache.ignite.internal.replicator.ReplicaAwareLeaseTracker;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;

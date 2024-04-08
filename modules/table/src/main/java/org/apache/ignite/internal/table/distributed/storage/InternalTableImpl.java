@@ -69,9 +69,11 @@ import org.apache.ignite.internal.lang.IgnitePentaFunction;
 import org.apache.ignite.internal.lang.IgniteTriFunction;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
+import org.apache.ignite.internal.replicator.ReplicaAwareLeaseTracker;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
@@ -137,6 +139,9 @@ public class InternalTableImpl implements InternalTable {
     /** Table identifier. */
     private final int tableId;
 
+    /** Zone identifier where table is presented. */
+    private final int zoneId;
+
     /** Resolver that resolves a node consistent ID to cluster node. */
     private final ClusterNodeResolver clusterNodeResolver;
 
@@ -189,6 +194,7 @@ public class InternalTableImpl implements InternalTable {
      *
      * @param tableName Table name.
      * @param tableId Table id.
+     * @param zoneId Zone id.
      * @param partitions Partitions.
      * @param clusterNodeResolver Cluster node resolver.
      * @param txManager Transaction manager.
@@ -205,6 +211,7 @@ public class InternalTableImpl implements InternalTable {
     public InternalTableImpl(
             String tableName,
             int tableId,
+            int zoneId,
             int partitions,
             ClusterNodeResolver clusterNodeResolver,
             TxManager txManager,
@@ -221,6 +228,7 @@ public class InternalTableImpl implements InternalTable {
     ) {
         this.tableName = tableName;
         this.tableId = tableId;
+        this.zoneId = zoneId;
         this.partitions = partitions;
         this.clusterNodeResolver = clusterNodeResolver;
         this.txManager = txManager;
@@ -230,7 +238,7 @@ public class InternalTableImpl implements InternalTable {
         this.tableMessagesFactory = new TableMessagesFactory();
         this.clock = clock;
         this.observableTimestampTracker = observableTimestampTracker;
-        this.placementDriver = placementDriver;
+        this.placementDriver = new ReplicaAwareLeaseTracker(placementDriver, replicaSvc, clusterNodeResolver);
         this.tableRaftService = tableRaftService;
         this.transactionInflights = transactionInflights;
         this.implicitTransactionTimeout = implicitTransactionTimeout;
@@ -253,6 +261,12 @@ public class InternalTableImpl implements InternalTable {
     @Override
     public int tableId() {
         return tableId;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public int zoneId() {
+        return zoneId;
     }
 
     /** {@inheritDoc} */
@@ -727,8 +741,8 @@ public class InternalTableImpl implements InternalTable {
 
         TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
 
-        CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplica(
-                tablePartitionId,
+        CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplicaForTable(
+                new ZonePartitionId(zoneId, partId, tableId),
                 tx.startTimestamp(),
                 AWAIT_PRIMARY_REPLICA_TIMEOUT,
                 SECONDS
@@ -778,8 +792,8 @@ public class InternalTableImpl implements InternalTable {
 
         TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
 
-        CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplica(
-                tablePartitionId,
+        CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplicaForTable(
+                new ZonePartitionId(zoneId, partId, tableId),
                 tx.startTimestamp(),
                 AWAIT_PRIMARY_REPLICA_TIMEOUT,
                 SECONDS
@@ -1842,8 +1856,8 @@ public class InternalTableImpl implements InternalTable {
 
         HybridTimestamp now = clock.now();
 
-        CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplica(
-                tablePartitionId,
+        CompletableFuture<ReplicaMeta> primaryReplicaFuture = placementDriver.awaitPrimaryReplicaForTable(
+                new ZonePartitionId(zoneId, partId, tableId),
                 now,
                 AWAIT_PRIMARY_REPLICA_TIMEOUT,
                 SECONDS
@@ -2108,9 +2122,9 @@ public class InternalTableImpl implements InternalTable {
      * @return Cluster node to evalute read-only request.
      */
     protected CompletableFuture<ClusterNode> evaluateReadOnlyRecipientNode(int partId) {
-        TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
+        ZonePartitionId zonePartitionId = new ZonePartitionId(zoneId, partId, tableId);
 
-        return placementDriver.awaitPrimaryReplica(tablePartitionId, clock.now(), AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS)
+        return placementDriver.awaitPrimaryReplicaForTable(zonePartitionId, clock.now(), AWAIT_PRIMARY_REPLICA_TIMEOUT, SECONDS)
                 .handle((res, e) -> {
                     if (e != null) {
                         throw withCause(TransactionException::new, REPLICA_UNAVAILABLE_ERR, e);
