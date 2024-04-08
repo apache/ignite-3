@@ -153,6 +153,7 @@ import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.storage.impl.LogStorageFactoryCreator;
+import org.apache.ignite.internal.replicator.ReplicaAwareLeaseTracker;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -502,7 +503,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.txCfg = txCfg;
 
         this.executorInclinedSchemaSyncService = new ExecutorInclinedSchemaSyncService(schemaSyncService, partitionOperationsExecutor);
-        this.executorInclinedPlacementDriver = new ExecutorInclinedPlacementDriver(placementDriver, partitionOperationsExecutor);
+        this.executorInclinedPlacementDriver = new ExecutorInclinedPlacementDriver(
+                new ReplicaAwareLeaseTracker(placementDriver, replicaSvc, topologyService),
+                partitionOperationsExecutor
+        );
 
         TxMessageSender txMessageSender = new TxMessageSender(
                 messagingService,

@@ -26,6 +26,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 
 /**
  * Decorates a {@link PlacementDriver} to make sure that completion stages depending on the returned futures are always completed
@@ -47,6 +48,16 @@ public class ExecutorInclinedPlacementDriver extends DelegatingPlacementDriver {
     public CompletableFuture<ReplicaMeta> awaitPrimaryReplica(ReplicationGroupId groupId, HybridTimestamp timestamp, long timeout,
             TimeUnit unit) {
         return decorateFuture(super.awaitPrimaryReplica(groupId, timestamp, timeout, unit));
+    }
+
+    @Override
+    public CompletableFuture<ReplicaMeta> awaitPrimaryReplicaForTable(
+            ZonePartitionId groupId,
+            HybridTimestamp timestamp,
+            long timeout,
+            TimeUnit unit
+    ) {
+        return decorateFuture(super.awaitPrimaryReplicaForTable(groupId, timestamp, timeout, unit));
     }
 
     private <T> CompletableFuture<T> decorateFuture(CompletableFuture<T> future) {
