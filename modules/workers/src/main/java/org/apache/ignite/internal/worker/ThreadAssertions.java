@@ -68,7 +68,9 @@ public class ThreadAssertions {
 
             AssertionError error = new AssertionError("Thread " + currentThread.getName() + " does not have allowed operations");
 
-            LOG.warn("Thread {} does not have allowed operations", error, currentThread);
+            if (logBeforeThrowing()) {
+                LOG.warn("Thread {} does not have allowed operations", error, currentThread);
+            }
 
             throw error;
         }
@@ -76,9 +78,15 @@ public class ThreadAssertions {
         if (!((ThreadAttributes) currentThread).allows(requestedOperation)) {
             AssertionError error = new AssertionError("Thread " + currentThread.getName() + " is not allowed to do " + requestedOperation);
 
-            LOG.warn("Thread {} is not allowed to do {}", error, currentThread, requestedOperation);
+            if (logBeforeThrowing()) {
+                LOG.warn("Thread {} is not allowed to do {}", error, currentThread, requestedOperation);
+            }
 
             throw error;
         }
+    }
+
+    private static boolean logBeforeThrowing() {
+        return IgniteSystemProperties.getBoolean(IgniteSystemProperties.THREAD_ASSERTIONS_LOG_BEFORE_THROWING, true);
     }
 }

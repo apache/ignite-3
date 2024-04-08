@@ -26,10 +26,16 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
+import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.internal.thread.ThreadOperation;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
+@ExtendWith(SystemPropertiesExtension.class)
+@WithSystemProperty(key = IgniteSystemProperties.THREAD_ASSERTIONS_LOG_BEFORE_THROWING, value = "false")
 class ThreadAssertionsTest {
 
     private final Runnable assertAllowedToWrite = () -> ThreadAssertions.assertThreadAllowsTo(STORAGE_WRITE);
