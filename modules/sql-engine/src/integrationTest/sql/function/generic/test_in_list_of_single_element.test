@@ -5,15 +5,25 @@
 
 
 statement ok
-CREATE TABLE integers(i INTEGER)
+CREATE TABLE integers(i INTEGER);
 
 statement ok
 INSERT INTO integers VALUES (1), (NULL);
 
-query III
-SELECT 1 IN (1), 1 IN (NULL), NULL IN (NULL)
+query I
+SELECT 1 IN (1)
 ----
-TRUE, FALSE, FALSE
+true
+
+query I
+SELECT 1 IN (NULL)
+----
+NULL
+
+query I
+SELECT NULL IN (NULL)
+----
+NULL
 
 query I rowsort
 SELECT * FROM integers WHERE 1 IN (1)
