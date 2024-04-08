@@ -92,6 +92,12 @@ public class LogitLogStorageFactory implements LogStorageFactory {
         ExecutorServiceHelper.shutdownAndAwaitTermination(checkpointExecutor);
     }
 
+    @Override
+    public void sync() {
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-21955
+        throw new UnsupportedOperationException("Not implemented yet");
+    }
+
     private Path resolveLogStoragePath(String groupId) {
         return baseLogStoragesPath.resolve(LOG_DIR_PREFIX + groupId);
     }

@@ -619,7 +619,7 @@ public class TestBuilders {
             HybridClock clock = new HybridClockImpl();
             CatalogManager catalogManager = CatalogTestUtils.createCatalogManagerWithTestUpdateLog(clusterName, clock);
 
-            var parserService = new ParserServiceImpl(0, EmptyCacheFactory.INSTANCE);
+            var parserService = new ParserServiceImpl();
             var prepareService = new PrepareServiceImpl(clusterName, 0, CaffeineCacheFactory.INSTANCE,
                     new DdlSqlToCommandConverter(), PLANNING_TIMEOUT, PLANNING_THREAD_COUNT,
                     mock(MetricManager.class));

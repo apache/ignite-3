@@ -24,6 +24,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -81,12 +82,19 @@ public class DataStorageModules {
             ConfigurationRegistry configRegistry,
             Path storagePath,
             @Nullable LongJvmPauseDetector longJvmPauseDetector,
-            FailureProcessor failureProcessor
-
+            FailureProcessor failureProcessor,
+            LogSyncer logSyncer
     ) {
         return modules.entrySet().stream().collect(toUnmodifiableMap(
                 Entry::getKey,
-                e -> e.getValue().createEngine(igniteInstanceName, configRegistry, storagePath, longJvmPauseDetector, failureProcessor)
+                e -> e.getValue().createEngine(
+                        igniteInstanceName,
+                        configRegistry,
+                        storagePath,
+                        longJvmPauseDetector,
+                        failureProcessor,
+                        logSyncer
+                )
         ));
     }
 }

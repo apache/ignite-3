@@ -46,6 +46,7 @@ dependencies {
     implementation project(':ignite-placement-driver-api')
     implementation project(':ignite-failure-handler')
     implementation project(':ignite-workers')
+    implementation project(':ignite-low-watermark')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.auto.service.annotations
@@ -77,6 +78,7 @@ dependencies {
     testImplementation(testFixtures(project(':ignite-catalog')))
     testImplementation(testFixtures(project(':ignite-vault')))
     testImplementation(testFixtures(project(':ignite-table')))
+    testImplementation(testFixtures(project(':ignite-low-watermark')))
     testImplementation libs.mockito.core
     testImplementation libs.mockito.junit
     testImplementation libs.hamcrest.core
@@ -105,6 +107,7 @@ dependencies {
     testFixturesImplementation(testFixtures(project(':ignite-cluster-management')))
     testFixturesImplementation(testFixtures(project(':ignite-network')))
     testFixturesImplementation(testFixtures(project(':ignite-placement-driver-api')))
+    testFixturesImplementation(testFixtures(project(':ignite-low-watermark')))
     testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation libs.fastutil.core
     testFixturesImplementation libs.mockito.core
@@ -132,6 +135,7 @@ dependencies {
     integrationTestImplementation project(':ignite-storage-page-memory')
     integrationTestImplementation project(':ignite-sql-engine')
     integrationTestImplementation project(':ignite-failure-handler')
+    integrationTestImplementation project(':ignite-low-watermark')
     integrationTestImplementation(testFixtures(project))
     integrationTestImplementation(testFixtures(project(':ignite-api')))
     integrationTestImplementation(testFixtures(project(':ignite-core')))
@@ -147,6 +151,7 @@ dependencies {
     integrationTestImplementation(testFixtures(project(':ignite-metastorage')))
     integrationTestImplementation(testFixtures(project(':ignite-distribution-zones')))
     integrationTestImplementation(testFixtures(project(':ignite-runner')))
+    integrationTestImplementation(testFixtures(project(':ignite-low-watermark')))
     integrationTestImplementation libs.fastutil.core
     integrationTestImplementation libs.jetbrains.annotations
     integrationTestImplementation libs.calcite.core

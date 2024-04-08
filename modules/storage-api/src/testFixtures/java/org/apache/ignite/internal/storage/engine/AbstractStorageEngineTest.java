@@ -28,7 +28,9 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assumptions.assumeFalse;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.nio.ByteBuffer;
@@ -37,6 +39,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
@@ -70,6 +73,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 public abstract class AbstractStorageEngineTest extends BaseMvStoragesTest {
     /** Engine instance. */
     private StorageEngine storageEngine;
+
+    protected LogSyncer logSyncer = mock(LogSyncer.class);
 
     @BeforeEach
     void createEngineBeforeTest() {
@@ -109,6 +114,22 @@ public abstract class AbstractStorageEngineTest extends BaseMvStoragesTest {
         createEngineBeforeTest();
 
         checkMvTableStorageWithPartitionAfterRestart(tableId, lastAppliedIndex, lastAppliedTerm);
+    }
+
+    /**
+     * Tests that write-ahead log is synced before flush.
+     */
+    @Test
+    void testSyncWalBeforeFlush() throws Exception {
+        assumeFalse(storageEngine.isVolatile());
+
+        int tableId = 1;
+        int lastAppliedIndex = 10;
+        int lastAppliedTerm = 20;
+
+        createMvTableWithPartitionAndFill(tableId, lastAppliedIndex, lastAppliedTerm);
+
+        verify(logSyncer, atLeastOnce()).sync();
     }
 
     @Test

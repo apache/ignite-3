@@ -24,9 +24,7 @@ import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Range;
 
-/**
- * Low watermark configuration schema.
- */
+/** Low watermark configuration schema. */
 @Config
 public class LowWatermarkConfigurationSchema {
     /**

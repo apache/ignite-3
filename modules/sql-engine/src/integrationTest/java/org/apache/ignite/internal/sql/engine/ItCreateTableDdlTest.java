@@ -47,6 +47,7 @@ import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.AfterEach;
@@ -62,6 +63,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     @AfterEach
     public void dropTables() {
         dropAllTables();
+        dropAllZonesExceptDefaultOne();
     }
 
     @Test
@@ -373,6 +375,37 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
                 .returns("TEST2_PK", "SORTED", "ID1 DESC, ID2 ASC")
                 .returns("TEST3_PK", "HASH", "ID2, ID1")
                 .check();
+    }
+
+    @Test
+    public void testSuccessfulCreateTableWithZoneIdentifier() {
+        sql("CREATE ZONE test_zone");
+        sql("CREATE TABLE test_table (id INT PRIMARY KEY, val INT) WITH PRIMARY_ZONE=test_zone");
+    }
+
+    @Test
+    public void testSuccessfulCreateTableWithZoneLiteral() {
+        sql("CREATE ZONE test_zone");
+        sql("CREATE TABLE test_table (id INT PRIMARY KEY, val INT) WITH PRIMARY_ZONE='TEST_ZONE'");
+    }
+
+    @Test
+    public void testSuccessfulCreateTableWithZoneQuotedLiteral() {
+        sql("CREATE ZONE \"test_zone\"");
+        sql("CREATE TABLE test_table (id INT PRIMARY KEY, val INT) WITH PRIMARY_ZONE='test_zone'");
+        sql("DROP TABLE test_table");
+        sql("DROP ZONE \"test_zone\"");
+    }
+
+    @Test
+    public void testExceptionalCreateTableWithZoneUnquotedLiteral() {
+
+        sql("CREATE ZONE test_zone");
+        assertThrowsSqlException(
+                SqlException.class,
+                STMT_VALIDATION_ERR,
+                "Failed to validate query. Distribution zone with name 'test_zone' not found",
+                () -> sql("CREATE TABLE test_table (id INT PRIMARY KEY, val INT) WITH PRIMARY_ZONE='test_zone'"));
     }
 
     @Test

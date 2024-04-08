@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_P
 import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -64,7 +65,9 @@ class PersistentPageMemorySortedIndexStorageTest extends AbstractPageMemorySorte
                 ioRegistry,
                 workDir,
                 null,
-                mock(FailureProcessor.class));
+                mock(FailureProcessor.class),
+                mock(LogSyncer.class)
+        );
 
         engine.start();
 

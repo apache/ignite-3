@@ -1147,7 +1147,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         return findNode(1, initialNodes(), n -> !leaseholder.equals(n.name()));
     }
 
-    private ReplicaMeta waitAndGetPrimaryReplica(IgniteImpl node, ReplicationGroupId tblReplicationGrp) {
+    private static ReplicaMeta waitAndGetPrimaryReplica(IgniteImpl node, ReplicationGroupId tblReplicationGrp) {
         CompletableFuture<ReplicaMeta> primaryReplicaFut = node.placementDriver().awaitPrimaryReplica(
                 tblReplicationGrp,
                 node.clock().now(),
@@ -1160,7 +1160,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         return primaryReplicaFut.join();
     }
 
-    private String waitAndGetLeaseholder(IgniteImpl node, ReplicationGroupId tblReplicationGrp) {
+    private static String waitAndGetLeaseholder(IgniteImpl node, ReplicationGroupId tblReplicationGrp) {
         return waitAndGetPrimaryReplica(node, tblReplicationGrp).getLeaseholder();
     }
 

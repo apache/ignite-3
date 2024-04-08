@@ -48,7 +48,8 @@ public class RocksDbStorageEngineTest extends AbstractStorageEngineTest {
                 "test",
                 engineConfiguration,
                 storageConfiguration,
-                workDir
+                workDir,
+                logSyncer
         );
     }
 }

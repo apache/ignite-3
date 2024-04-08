@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_P
 import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
@@ -52,7 +53,7 @@ public class RocksDbHashIndexStorageTest extends AbstractHashIndexStorageTest {
             @InjectConfiguration("mock.profiles.default = {engine = \"rocksDb\", size = 16777216, writeBufferSize = 16777216}")
             StorageConfiguration storageConfiguration
     ) {
-        engine = new RocksDbStorageEngine("test", engineConfig, storageConfiguration, workDir);
+        engine = new RocksDbStorageEngine("test", engineConfig, storageConfiguration, workDir, mock(LogSyncer.class));
 
         engine.start();
 

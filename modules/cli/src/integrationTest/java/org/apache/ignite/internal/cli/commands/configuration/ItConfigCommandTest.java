@@ -18,9 +18,11 @@
 package org.apache.ignite.internal.cli.commands.configuration;
 
 
+import static org.apache.ignite.internal.cli.core.style.AnsiStringSupport.fg;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import org.apache.ignite.internal.cli.CliIntegrationTest;
+import org.apache.ignite.internal.cli.core.style.AnsiStringSupport.Color;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -77,7 +79,8 @@ class ItConfigCommandTest extends CliIntegrationTest {
         assertAll(
                 this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
-                this::assertOutputIsNotEmpty
+                () -> assertOutputContains("Node configuration updated. "
+                        + fg(Color.YELLOW).mark("Restart the node to apply changes."))
         );
 
         // When read the updated cluster configuration
@@ -194,6 +197,38 @@ class ItConfigCommandTest extends CliIntegrationTest {
                 this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
                 this::assertOutputIsNotEmpty
+        );
+    }
+
+    @Test
+    void updateWithWrongData() {
+        execute("node", "config", "update", "--node-url", NODE_URL, "network.foo=\"bar\"");
+
+        assertAll(
+                () -> assertExitCodeIs(1),
+                () -> assertErrOutputContains("'network' configuration doesn't have the 'foo' sub-configuration"),
+                this::assertOutputIsEmpty
+        );
+
+        resetOutput();
+
+        execute("node", "config", "update", "--node-url", NODE_URL, "network.shutdownQuietPeriod=asd");
+
+        assertAll(
+                () -> assertExitCodeIs(1),
+                () -> assertErrOutputContains("'long' is expected as a type for the 'network.shutdownQuietPeriod' configuration value"),
+                this::assertOutputIsEmpty
+        );
+    }
+
+    @Test
+    public void partialGet() {
+        execute("node", "config", "show", "--node-url", NODE_URL, "network");
+        assertAll(
+                this::assertExitCodeIsZero,
+                this::assertErrOutputIsEmpty,
+                () -> assertOutputContains("\"inbound\""),
+                () -> assertOutputDoesNotContain("\"node\"")
         );
     }
 }

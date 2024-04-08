@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeN
 import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -70,7 +71,8 @@ class PersistentPageMemoryGcUpdateHandlerTest extends AbstractGcUpdateHandlerTes
                 ioRegistry,
                 workDir,
                 new LongJvmPauseDetector(nodeName),
-                mock(FailureProcessor.class)
+                mock(FailureProcessor.class),
+                mock(LogSyncer.class)
         );
 
         engine.start();

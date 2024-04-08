@@ -132,7 +132,7 @@ public class TransactionEnlistTest extends BaseIgniteAbstractTest {
         }
 
         @Override
-        public CompletableFuture<AsyncSqlCursor<InternalSqlRow>> querySingleAsync(
+        public CompletableFuture<AsyncSqlCursor<InternalSqlRow>> queryAsync(
                 SqlProperties properties,
                 IgniteTransactions transactions,
                 @Nullable InternalTransaction transaction,
@@ -159,17 +159,6 @@ public class TransactionEnlistTest extends BaseIgniteAbstractTest {
             );
 
             return CompletableFuture.completedFuture(sqlCursor);
-        }
-
-        @Override
-        public CompletableFuture<AsyncSqlCursor<InternalSqlRow>> queryScriptAsync(
-                SqlProperties properties,
-                IgniteTransactions transactions,
-                @Nullable InternalTransaction transaction,
-                String qry,
-                Object... params
-        ) {
-            throw new UnsupportedOperationException();
         }
 
         @Override

@@ -226,6 +226,38 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         assertEquals(createTable.primaryKeyCollations(), Collections.emptyList());
     }
 
+    @Test
+    @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
+    public void tableWithIdentifierZone() throws SqlParseException {
+        var node = parse("CREATE TABLE t (id int) WITH PRIMARY_ZONE=test_zone");
+
+        assertThat(node, instanceOf(SqlDdl.class));
+
+        var cmd = converter.convert((SqlDdl) node, createContext());
+
+        assertThat(cmd, Matchers.instanceOf(CreateTableCommand.class));
+
+        var createTable = (CreateTableCommand) cmd;
+
+        assertEquals("TEST_ZONE", createTable.zone());
+    }
+
+    @Test
+    @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
+    public void tableWithLiteralZone() throws SqlParseException {
+        var node = parse("CREATE TABLE t (id int) WITH PRIMARY_ZONE='test_zone'");
+
+        assertThat(node, instanceOf(SqlDdl.class));
+
+        var cmd = converter.convert((SqlDdl) node, createContext());
+
+        assertThat(cmd, Matchers.instanceOf(CreateTableCommand.class));
+
+        var createTable = (CreateTableCommand) cmd;
+
+        assertEquals("test_zone", createTable.zone());
+    }
+
     @SuppressWarnings({"ThrowableNotThrown"})
     @TestFactory
     public Stream<DynamicTest> numericDefaultWithIntervalTypes() {
