@@ -178,7 +178,7 @@ class StreamerSubscriberTest extends BaseIgniteAbstractTest {
                 (part, batch, deleted) -> sendFuture,
                 partitionProvider,
                 options,
-                Executors.newSingleThreadScheduledExecutor(new NamedThreadFactory("testBackpressureWithDelay", log)), // todo stop
+                flushExecutor,
                 log,
                 metrics
         );
