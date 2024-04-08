@@ -25,7 +25,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.function.BooleanSupplier;
-import org.apache.ignite.internal.failure.NoopFailureProcessor;
+import org.apache.ignite.internal.failure.NoOpFailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -145,7 +145,7 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
         String nodeName = service.nodeName();
 
         KeyValueStorage storage = storageByName.computeIfAbsent(nodeName, name -> {
-            var s = new RocksDbKeyValueStorage(name, listenerPersistencePath, new NoopFailureProcessor(name));
+            var s = new RocksDbKeyValueStorage(name, listenerPersistencePath, new NoOpFailureProcessor(name));
 
             s.start();
 

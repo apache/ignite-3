@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.metastorage.server;
 
 import java.nio.file.Path;
-import org.apache.ignite.internal.failure.NoopFailureProcessor;
+import org.apache.ignite.internal.failure.NoOpFailureProcessor;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -32,6 +32,6 @@ public class RocksDbCompactionKeyValueStorageTest extends AbstractCompactionKeyV
 
     @Override
     public KeyValueStorage createStorage() {
-        return new RocksDbKeyValueStorage("test", workDir.resolve("storage"), new NoopFailureProcessor("test"));
+        return new RocksDbKeyValueStorage("test", workDir.resolve("storage"), new NoOpFailureProcessor("test"));
     }
 }
