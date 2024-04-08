@@ -50,6 +50,7 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeException;
 import org.apache.ignite.internal.tx.TxMeta;
@@ -243,6 +244,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
+    @WithSystemProperty(key = "IGNITE_ALWAYS_FORCE", value = "false")
     void testChangePrimaryOnCleanup() throws ExecutionException, InterruptedException {
         node(0).clusterConfiguration().getConfiguration(ReplicationConfiguration.KEY).change(replicationChange ->
                 replicationChange.changeRpcTimeout(3000));
