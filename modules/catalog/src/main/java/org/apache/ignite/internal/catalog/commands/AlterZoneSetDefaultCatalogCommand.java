@@ -19,6 +19,7 @@ package org.apache.ignite.internal.catalog.commands;
 
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 
+import java.util.Collections;
 import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
@@ -30,7 +31,7 @@ import org.apache.ignite.internal.catalog.storage.UpdateEntry;
  */
 public class AlterZoneSetDefaultCatalogCommand extends AbstractZoneCommand {
     /** Returns builder to create a command that set specified zone as default. */
-    public static AlterZoneSetDefaultCommandBuilder builder() {
+    public static Builder builder() {
         return new AlterZoneSetDefaultCatalogCommand.Builder();
     }
 
@@ -42,31 +43,26 @@ public class AlterZoneSetDefaultCatalogCommand extends AbstractZoneCommand {
      */
     private AlterZoneSetDefaultCatalogCommand(String zoneName) throws CatalogValidationException {
         super(zoneName);
-
-        validate();
     }
 
     @Override
     public List<UpdateEntry> get(Catalog catalog) {
         // TODO https://issues.apache.org/jira/browse/IGNITE-19687
+        if (zoneName.equals(DEFAULT_ZONE_NAME)) {
+            return Collections.emptyList();
+        }
+
         throw new UnsupportedOperationException();
     }
 
-    private void validate() {
-        // TODO https://issues.apache.org/jira/browse/IGNITE-19687
-        if (zoneName.equals(DEFAULT_ZONE_NAME)) {
-            throw new CatalogValidationException("Zone '" + zoneName + "' is already set as the default distribution zone.");
-        }
-    }
-
     /**
-     * Implementation of {@link AlterZoneSetDefaultCommandBuilder}.
+     * Builder of a command that set specified zone as default.
      */
-    private static class Builder implements AlterZoneSetDefaultCommandBuilder {
+    public static class Builder implements AbstractZoneCommandBuilder<Builder> {
         private String zoneName;
 
         @Override
-        public AlterZoneSetDefaultCommandBuilder zoneName(String zoneName) {
+        public Builder zoneName(String zoneName) {
             this.zoneName = zoneName;
 
             return this;

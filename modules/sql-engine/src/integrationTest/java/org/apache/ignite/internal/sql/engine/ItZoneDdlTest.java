@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.DistributionZoneExistsValidationException;
 import org.apache.ignite.internal.catalog.DistributionZoneNotFoundValidationException;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -117,13 +116,9 @@ public class ItZoneDdlTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
-    public void testAlterDefaultZoneSetDefaultThrowsException() {
-        //noinspection ThrowableNotThrown
-        IgniteTestUtils.assertThrowsWithCause(
-                () -> sql(format("ALTER ZONE \"{}\" SET DEFAULT", CatalogService.DEFAULT_ZONE_NAME)),
-                CatalogValidationException.class,
-                "Zone '" + CatalogService.DEFAULT_ZONE_NAME + "' is already set as the default distribution zone."
-        );
+    public void testSetDefaultZoneThatIsAlreadyDefaultDoesNotThrowException() {
+        // TODO https://issues.apache.org/jira/browse/IGNITE-19687 The test should not only check the zone named "Default".
+        sql(format("ALTER ZONE \"{}\" SET DEFAULT", CatalogService.DEFAULT_ZONE_NAME));
     }
 
     private static void tryToCreateZone(String zoneName, boolean failIfExists) {
