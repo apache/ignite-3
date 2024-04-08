@@ -66,19 +66,19 @@ public class ThreadAssertions {
                 return;
             }
 
-            LOG.warn("Thread {} does not have allowed operations", trackerException(), currentThread);
+            AssertionError error = new AssertionError("Thread " + currentThread.getName() + " does not have allowed operations");
 
-            throw new AssertionError("Thread " + currentThread.getName() + " does not have allowed operations");
+            LOG.warn("Thread {} does not have allowed operations", error, currentThread);;
+
+            throw error;
         }
 
         if (!((ThreadAttributes) currentThread).allows(requestedOperation)) {
-            LOG.warn("Thread {} is not allowed to do {}", trackerException(), currentThread, requestedOperation);
+            AssertionError error = new AssertionError("Thread " + currentThread.getName() + " is not allowed to do " + requestedOperation);
 
-            throw new AssertionError("Thread " + currentThread.getName() + " is not allowed to do " + requestedOperation);
+            LOG.warn("Thread {} is not allowed to do {}", error, currentThread, requestedOperation);
+
+            throw error;
         }
-    }
-
-    private static Exception trackerException() {
-        return new Exception("Tracker");
     }
 }
