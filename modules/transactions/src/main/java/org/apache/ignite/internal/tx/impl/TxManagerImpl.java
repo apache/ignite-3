@@ -191,7 +191,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /** Transaction message sender. */
     private final TxMessageSender txMessageSender;
 
-    private final EventListener<PrimaryReplicaEventParameters> primaryReplicaEventListener;
+    private final EventListener<PrimaryReplicaEventParameters> primaryReplicaExpiredListener;
+
+    private final EventListener<PrimaryReplicaEventParameters> primaryReplicaElectedListener;
 
     /** Counter of read-write transactions that were created and completed locally on the node. */
     private final LocalRwTxCounter localRwTxCounter;
@@ -288,7 +290,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         this.idleSafeTimePropagationPeriodMsSupplier = idleSafeTimePropagationPeriodMsSupplier;
         this.topologyService = topologyService;
         this.messagingService = messagingService;
-        this.primaryReplicaEventListener = this::primaryReplicaEventListener;
+        this.primaryReplicaExpiredListener = this::primaryReplicaExpiredListener;
+        this.primaryReplicaElectedListener = this::primaryReplicaElectedListener;
         this.localRwTxCounter = localRwTxCounter;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
         this.transactionInflights = transactionInflights;
@@ -324,7 +327,23 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 new TxCleanupRequestSender(txMessageSender, placementDriverHelper, txStateVolatileStorage);
     }
 
-    private CompletableFuture<Boolean> primaryReplicaEventListener(PrimaryReplicaEventParameters eventParameters) {
+    private CompletableFuture<Boolean> primaryReplicaElectedListener(PrimaryReplicaEventParameters eventParameters) {
+        return inBusyLock(busyLock, () -> {
+            if (!(eventParameters.groupId() instanceof TablePartitionId)) {
+                return falseCompletedFuture();
+            }
+
+            TablePartitionId groupId = (TablePartitionId) eventParameters.groupId();
+
+            String localNodeName = topologyService.localMember().name();
+
+            txMessageSender.sendRecoveryCleanup(localNodeName, groupId);
+
+            return falseCompletedFuture();
+        });
+    }
+
+    private CompletableFuture<Boolean> primaryReplicaExpiredListener(PrimaryReplicaEventParameters eventParameters) {
         return inBusyLock(busyLock, () -> {
             if (!(eventParameters.groupId() instanceof TablePartitionId)) {
                 return falseCompletedFuture();
@@ -728,7 +747,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         txCleanupRequestHandler.start();
 
-        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, primaryReplicaEventListener);
+        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, primaryReplicaExpiredListener);
+
+        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, primaryReplicaElectedListener);
 
         return nullCompletedFuture();
     }
@@ -750,7 +771,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         txCleanupRequestHandler.stop();
 
-        placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, primaryReplicaEventListener);
+        placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, primaryReplicaExpiredListener);
+
+        placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, primaryReplicaElectedListener);
 
         shutdownAndAwaitTermination(writeIntentSwitchPool, 10, TimeUnit.SECONDS);
     }

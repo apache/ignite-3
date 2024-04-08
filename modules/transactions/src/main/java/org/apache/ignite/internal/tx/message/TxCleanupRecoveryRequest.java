@@ -15,26 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.replicator.listener;
+package org.apache.ignite.internal.tx.message;
 
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.replicator.ReplicaResult;
+import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 
-/** Replica listener. */
-@FunctionalInterface
-public interface ReplicaListener {
-    /**
-     * Invokes a replica listener to process request.
-     *
-     * @param request Replica request.
-     * @param senderId Sender id.
-     * @return Listener response.
-     */
-    CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, String senderId);
+/**
+ * A replica request that either triggers the conversion of all pending entries(writeIntents) to regular values(TxState.COMMITTED)
+ * or removes them (TxState.ABORTED).
+ */
+@Transferable(TxMessageGroup.TX_CLEANUP_RECOVERY)
+public interface TxCleanupRecoveryRequest extends ReplicaRequest {
 
-    /** Callback on replica shutdown. */
-    default void onShutdown() {
-        // No-op.
-    }
 }

@@ -91,7 +91,6 @@ import org.apache.ignite.internal.lang.SafeTimeReorderException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
-import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.replicator.ReplicaResult;
@@ -176,6 +175,7 @@ import org.apache.ignite.internal.tx.TxStateMetaFinishing;
 import org.apache.ignite.internal.tx.UpdateCommandResult;
 import org.apache.ignite.internal.tx.impl.FullyQualifiedResourceId;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
+import org.apache.ignite.internal.tx.message.TxCleanupRecoveryRequest;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxRecoveryMessage;
 import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequest;
@@ -396,30 +396,6 @@ public class PartitionReplicaListener implements ReplicaListener {
         prepareIndexBuilderTxRwOperationTracker();
     }
 
-    @Override
-    public CompletableFuture<Boolean> onPrimaryElected(PrimaryReplicaEventParameters evt) {
-        assert replicationGroupId.equals(evt.groupId()) : format(
-                "The replication group listener does not match the event [grp={}, eventGrp={}]",
-                replicationGroupId,
-                evt.groupId()
-        );
-
-        if (!localNode.id().equals(evt.leaseholderId())) {
-            return falseCompletedFuture();
-        }
-
-        schedulePersistentStorageScan();
-
-        // The future returned by this event handler can't wait for all cleanups because it's not necessary and it can block
-        // meta storage notification thread for a while, preventing it from delivering further updates (including leases) and therefore
-        // causing deadlock on primary replica waiting.
-        return falseCompletedFuture();
-    }
-
-    private void schedulePersistentStorageScan() {
-        txManager.executeWriteIntentSwitchAsync(this::runPersistentStorageScan);
-    }
-
     private void runPersistentStorageScan() {
         try (Cursor<IgniteBiTuple<UUID, TxMeta>> txs = txStateStorage.scan()) {
             for (IgniteBiTuple<UUID, TxMeta> tx : txs) {
@@ -479,6 +455,10 @@ public class PartitionReplicaListener implements ReplicaListener {
             return processTxRecoveryMessage((TxRecoveryMessage) request, senderId);
         }
 
+        if (request instanceof TxCleanupRecoveryRequest) {
+            return processCleanupRecoveryMessage((TxCleanupRecoveryRequest) request);
+        }
+
         HybridTimestamp opTsIfDirectRo = (request instanceof ReadOnlyDirectReplicaRequest) ? clockService.now() : null;
 
         return validateTableExistence(request, opTsIfDirectRo)
@@ -486,6 +466,12 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .thenCompose(unused -> waitForSchemasBeforeReading(request, opTsIfDirectRo))
                 .thenCompose(unused ->
                         processOperationRequestWithTxRwCounter(senderId, request, isPrimary, opTsIfDirectRo, leaseStartTime));
+    }
+
+    private CompletableFuture<Void> processCleanupRecoveryMessage(TxCleanupRecoveryRequest request) {
+        txManager.executeWriteIntentSwitchAsync(this::runPersistentStorageScan);
+
+        return nullCompletedFuture();
     }
 
     /**
