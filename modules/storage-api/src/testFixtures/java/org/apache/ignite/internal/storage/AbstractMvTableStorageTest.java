@@ -361,6 +361,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         fillStorages(partitionStorage, null, sortedIndexStorage1, rows);
         fillStorages(partitionStorage, null, sortedIndexStorage2, rows);
 
+        finishBuiltIndexes(partitionStorage,sortedIndexStorage1, sortedIndexStorage2);
+
         checkForPresenceRows(null, null, sortedIndexStorage1, rows);
         checkForPresenceRows(null, null, sortedIndexStorage2, rows);
 
@@ -368,6 +370,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         assertThat(tableStorage.getIndex(PARTITION_ID, sortedIndexDescriptor1.id()), is(nullValue()));
 
+        assertNull(sortedIndexStorage2.getNextRowIdToBuild());
         checkForPresenceRows(null, null, sortedIndexStorage2, rows);
     }
 
@@ -414,6 +417,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         fillStorages(partitionStorage, hashIndexStorage1, null, rows);
         fillStorages(partitionStorage, hashIndexStorage2, null, rows);
 
+        finishBuiltIndexes(partitionStorage, hashIndexStorage1, hashIndexStorage2);
+
         checkForPresenceRows(null, hashIndexStorage1, null, rows);
         checkForPresenceRows(null, hashIndexStorage2, null, rows);
 
@@ -421,6 +426,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         assertThat(tableStorage.getIndex(PARTITION_ID, hashIndexDescriptor1.id()), is(nullValue()));
 
+        assertNull(hashIndexStorage2.getNextRowIdToBuild());
         checkForPresenceRows(null, hashIndexStorage2, null, rows);
     }
 
@@ -439,6 +445,9 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         assertThat(storage1, is(notNullValue()));
         assertThat(storage2, is(notNullValue()));
+
+        finishBuiltIndexes(partitionStorage1, storage1);
+        finishBuiltIndexes(partitionStorage2, storage2);
 
         var rowId1 = new RowId(PARTITION_ID);
         var rowId2 = new RowId(PARTITION_ID + 1);
@@ -555,6 +564,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         HashIndexStorage hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx);
         SortedIndexStorage sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx);
 
+        finishBuiltIndexes(mvPartitionStorage, hashIndexStorage, sortedIndexStorage);
+
         // Error because rebalance has not yet started for the partition.
         assertThrows(
                 StorageRebalanceException.class,
@@ -603,6 +614,11 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         assertThat(tableStorage.finishRebalancePartition(PARTITION_ID, 10, 20, raftGroupConfig), willCompleteSuccessfully());
 
+        assertEquals(INITIAL_ROW_ID_TO_BUILD, hashIndexStorage.getNextRowIdToBuild());
+        assertEquals(INITIAL_ROW_ID_TO_BUILD, sortedIndexStorage.getNextRowIdToBuild());
+
+        finishBuiltIndexes(mvPartitionStorage, hashIndexStorage, sortedIndexStorage);
+
         // Let's check the storages after success finish rebalance.
         checkForMissingRows(mvPartitionStorage, hashIndexStorage, sortedIndexStorage, rowsBeforeRebalanceStart);
         checkForPresenceRows(mvPartitionStorage, hashIndexStorage, sortedIndexStorage, rowsOnRebalance);
@@ -612,13 +628,15 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
     }
 
     @Test
-    public void testFailRebalance() throws Exception {
+    public void testFailRebalance() {
         MvPartitionStorage mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
         HashIndexStorage hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx);
         SortedIndexStorage sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx);
 
+        finishBuiltIndexes(mvPartitionStorage, hashIndexStorage, sortedIndexStorage);
+
         // Nothing will happen because rebalancing has not started.
-        tableStorage.abortRebalancePartition(PARTITION_ID).get(1, SECONDS);
+        assertThat(tableStorage.abortRebalancePartition(PARTITION_ID), willCompleteSuccessfully());
 
         List<TestRow> rowsBeforeRebalanceStart = List.of(
                 new TestRow(new RowId(PARTITION_ID), binaryRow(new TestKey(0, "0"), new TestValue(0, "0"))),
@@ -649,6 +667,11 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         assertThrows(IllegalArgumentException.class, () -> tableStorage.abortRebalancePartition(getPartitionIdOutOfRange()));
 
         assertThat(tableStorage.abortRebalancePartition(PARTITION_ID), willCompleteSuccessfully());
+
+        assertEquals(INITIAL_ROW_ID_TO_BUILD, hashIndexStorage.getNextRowIdToBuild());
+        assertEquals(INITIAL_ROW_ID_TO_BUILD, sortedIndexStorage.getNextRowIdToBuild());
+
+        finishBuiltIndexes(mvPartitionStorage, hashIndexStorage, sortedIndexStorage);
 
         // Let's check the storages after abort rebalance.
         checkForMissingRows(mvPartitionStorage, hashIndexStorage, sortedIndexStorage, rowsBeforeRebalanceStart);
@@ -682,6 +705,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         HashIndexStorage hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx);
         SortedIndexStorage sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx);
 
+        finishBuiltIndexes(mvPartitionStorage, hashIndexStorage, sortedIndexStorage);
+
         List<TestRow> rows = List.of(
                 new TestRow(new RowId(PARTITION_ID), binaryRow(new TestKey(0, "0"), new TestValue(0, "0"))),
                 new TestRow(new RowId(PARTITION_ID), binaryRow(new TestKey(1, "1"), new TestValue(1, "1")))
@@ -710,11 +735,19 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx);
 
         if (tableStorage.isVolatile()) {
+            assertEquals(INITIAL_ROW_ID_TO_BUILD, hashIndexStorage.getNextRowIdToBuild());
+            assertEquals(INITIAL_ROW_ID_TO_BUILD, sortedIndexStorage.getNextRowIdToBuild());
+
+            finishBuiltIndexes(mvPartitionStorage, hashIndexStorage, sortedIndexStorage);
+
             // Let's check the repositories: they should be empty.
             checkForMissingRows(mvPartitionStorage, hashIndexStorage, sortedIndexStorage, rows);
 
             checkLastApplied(mvPartitionStorage, 0, 0);
         } else {
+            assertNull(hashIndexStorage.getNextRowIdToBuild());
+            assertNull(sortedIndexStorage.getNextRowIdToBuild());
+
             checkForPresenceRows(mvPartitionStorage, hashIndexStorage, sortedIndexStorage, rows);
 
             checkLastApplied(mvPartitionStorage, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS);
@@ -737,6 +770,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         checkLastApplied(mvPartitionStorage, 0, 0);
         assertNull(mvPartitionStorage.committedGroupConfiguration());
+        assertEquals(INITIAL_ROW_ID_TO_BUILD, hashIndexStorage.getNextRowIdToBuild());
+        assertEquals(INITIAL_ROW_ID_TO_BUILD, sortedIndexStorage.getNextRowIdToBuild());
 
         // Let's fill the storages and clean them.
         List<TestRow> rows = List.of(
@@ -747,6 +782,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         byte[] raftGroupConfig = createRandomRaftGroupConfiguration();
 
         fillStorages(mvPartitionStorage, hashIndexStorage, sortedIndexStorage, rows);
+
+        finishBuiltIndexes(mvPartitionStorage, hashIndexStorage, sortedIndexStorage);
 
         mvPartitionStorage.runConsistently(locker -> {
             mvPartitionStorage.lastApplied(100, 500);
@@ -761,6 +798,10 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         checkLastApplied(mvPartitionStorage, 0, 0);
         assertNull(mvPartitionStorage.committedGroupConfiguration());
+        assertEquals(INITIAL_ROW_ID_TO_BUILD, hashIndexStorage.getNextRowIdToBuild());
+        assertEquals(INITIAL_ROW_ID_TO_BUILD, sortedIndexStorage.getNextRowIdToBuild());
+
+        finishBuiltIndexes(mvPartitionStorage, hashIndexStorage, sortedIndexStorage);
 
         checkForMissingRows(mvPartitionStorage, hashIndexStorage, sortedIndexStorage, rows);
     }
@@ -1170,6 +1211,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         HashIndexStorage hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx);
         SortedIndexStorage sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx);
 
+        finishBuiltIndexes(mvPartitionStorage, hashIndexStorage, sortedIndexStorage);
+
         RowId rowId = new RowId(PARTITION_ID);
 
         BinaryRow binaryRow = binaryRow(new TestKey(0, "0"), new TestValue(1, "1"));
@@ -1239,6 +1282,8 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         HashIndexStorage hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx);
         SortedIndexStorage sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx);
 
+        finishBuiltIndexes(mvPartitionStorage, hashIndexStorage, sortedIndexStorage);
+
         List<TestRow> rows = List.of(
                 new TestRow(new RowId(PARTITION_ID), binaryRow(new TestKey(0, "0"), new TestValue(0, "0"))),
                 new TestRow(new RowId(PARTITION_ID), binaryRow(new TestKey(1, "1"), new TestValue(1, "1")))
@@ -1289,6 +1334,11 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
         hashIndexStorage = tableStorage.getOrCreateHashIndex(PARTITION_ID, hashIdx);
         sortedIndexStorage = tableStorage.getOrCreateSortedIndex(PARTITION_ID, sortedIdx);
+
+        assertEquals(INITIAL_ROW_ID_TO_BUILD, hashIndexStorage.getNextRowIdToBuild());
+        assertEquals(INITIAL_ROW_ID_TO_BUILD, sortedIndexStorage.getNextRowIdToBuild());
+
+        finishBuiltIndexes(mvPartitionStorage, hashIndexStorage, sortedIndexStorage);
 
         checkForMissingRows(mvPartitionStorage, hashIndexStorage, sortedIndexStorage, rows);
     }
@@ -1408,5 +1458,15 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
      */
     protected MvPartitionStorage getOrCreateMvPartition(int partitionId) {
         return getOrCreateMvPartition(tableStorage, partitionId);
+    }
+
+    protected static void finishBuiltIndexes(MvPartitionStorage partition, IndexStorage... indexes) {
+        partition.runConsistently(locker -> {
+            for (IndexStorage index : indexes) {
+                index.setNextRowIdToBuild(null);
+            }
+
+            return null;
+        });
     }
 }
