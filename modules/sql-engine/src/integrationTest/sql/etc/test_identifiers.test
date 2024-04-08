@@ -1,0 +1,39 @@
+# name: test/sql/etc/test_identifiers.test
+# description: SQL feature E031-03 (Identifiers, Trailing underscore feature)
+# group: [identifiers]
+
+statement ok
+PRAGMA enable_verification
+
+statement ok
+CREATE TABLE t_ (id INTEGER PRIMARY KEY, val INTEGER)
+
+statement ok
+CREATE TABLE t1 (id_ INTEGER PRIMARY KEY, val INTEGER)
+
+statement ok
+CREATE TABLE t2 (id INTEGER PRIMARY KEY, val_ INTEGER)
+
+statement ok
+ALTER TABLE t_ ADD COLUMN (col INTEGER)
+
+statement ok
+ALTER TABLE t2 ADD COLUMN (col_ INTEGER)
+
+statement ok
+ALTER TABLE t2 DROP COLUMN col_
+
+query I
+SELECT col_ FROM (VALUES (1), (2)) t(col_)
+----
+1
+2
+
+query I
+SELECT col__ FROM (VALUES (1), (2)) t(col__)
+----
+1
+2
+
+statement error: must be less than or equal to 128 characters
+ALTER TABLE t2 ADD COLUMN (a12345678910111213141516171819202122232425262728293031323334353637383940414243444546474849505152535455565758596061626364656667686970717273747576777879808182838485868788899091929394959697989910010110210310410510610710810911011111211311411511611711811912012112212312412512612712 INTEGER)
