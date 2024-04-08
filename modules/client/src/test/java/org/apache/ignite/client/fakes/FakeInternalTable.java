@@ -117,6 +117,11 @@ public class FakeInternalTable implements InternalTable {
     }
 
     @Override
+    public int zoneId() {
+        return 0;
+    }
+
+    @Override
     public CompletableFuture<BinaryRow> get(BinaryRowEx keyRow, @Nullable InternalTransaction tx) {
         return completedFuture(getImpl(keyRow.tupleSlice(), keyRow));
     }

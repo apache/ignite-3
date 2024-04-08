@@ -72,7 +72,6 @@ import org.apache.ignite.internal.lang.IgnitePentaFunction;
 import org.apache.ignite.internal.lang.IgniteTriFunction;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
-import org.apache.ignite.internal.replicator.ReplicaAwareLeaseTracker;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -244,7 +243,7 @@ public class InternalTableImpl implements InternalTable {
         this.tableMessagesFactory = new TableMessagesFactory();
         this.clock = clock;
         this.observableTimestampTracker = observableTimestampTracker;
-        this.placementDriver = new ReplicaAwareLeaseTracker(placementDriver, replicaSvc, clusterNodeResolver);
+        this.placementDriver = placementDriver;
         this.tableRaftService = tableRaftService;
         this.transactionInflights = transactionInflights;
         this.implicitTransactionTimeout = implicitTransactionTimeout;
