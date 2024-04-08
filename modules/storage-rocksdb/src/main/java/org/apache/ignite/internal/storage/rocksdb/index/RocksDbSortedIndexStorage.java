@@ -198,11 +198,6 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
         };
     }
 
-    @Override
-    public Cursor<IndexRow> readOnlyScan(@Nullable BinaryTuplePrefix lowerBound, @Nullable BinaryTuplePrefix upperBound, int flags) {
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
     private static void setEqualityFlag(byte[] prefix) {
         //noinspection ImplicitNumericConversion
         prefix[PREFIX_WITH_IDS_LENGTH] |= BinaryTupleCommon.EQUALITY_FLAG;

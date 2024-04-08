@@ -453,15 +453,6 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
         }
     }
 
-    private static Stream<Arguments> allTypesColumnParamsAndReadOnly() {
-        return Stream.concat(
-                ALL_TYPES_COLUMN_PARAMS.stream()
-                        .map(param -> Arguments.of(param, false)),
-                ALL_TYPES_COLUMN_PARAMS.stream()
-                        .map(param -> Arguments.of(param, true))
-        );
-    }
-
     /**
      * Tests that an empty range is returned if {@link SortedIndexStorage#scan} and {@link SortedIndexStorage#readOnlyScan} methods
      * are called using overlapping keys.
@@ -1543,6 +1534,15 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
         return readOnly
                 ? indexStorage.readOnlyScan(lowerBound, upperBound, flags)
                 : indexStorage.scan(lowerBound, upperBound, flags);
+    }
+
+    private static Stream<Arguments> allTypesColumnParamsAndReadOnly() {
+        return Stream.concat(
+                ALL_TYPES_COLUMN_PARAMS.stream()
+                        .map(param -> Arguments.of(param, false)),
+                ALL_TYPES_COLUMN_PARAMS.stream()
+                        .map(param -> Arguments.of(param, true))
+        );
     }
 
     private static <T> Function<IndexRow, T> firstColumn(BinaryTupleRowSerializer serializer) {
