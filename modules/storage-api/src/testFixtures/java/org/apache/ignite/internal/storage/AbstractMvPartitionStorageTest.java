@@ -1368,7 +1368,9 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
 
             assertEquals(lst1, storage.leaseStartTime());
 
-            assertThrows(AssertionError.class, () -> storage.updateLease(0));
+            storage.updateLease(0);
+
+            assertEquals(lst1, storage.leaseStartTime());
 
             return null;
         });
