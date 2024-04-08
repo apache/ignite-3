@@ -25,14 +25,12 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.sameInstance;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.when;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.impl.BinaryTupleRowSerializer;
@@ -57,14 +55,14 @@ public abstract class AbstractHashIndexStorageTest extends AbstractIndexStorageT
                 Stream.of(columnTypes).map(AbstractIndexStorageTest::columnName).collect(toList())
         );
 
-        when(catalogService.aliveIndex(eq(name), anyLong())).thenReturn(catalogHashIndexDescriptor);
-        when(catalogService.index(eq(catalogHashIndexDescriptor.id()), anyInt())).thenReturn(catalogHashIndexDescriptor);
+        addIndexDescriptorToCatalog(catalogHashIndexDescriptor);
 
         HashIndexStorage index = tableStorage.getOrCreateHashIndex(
                 TEST_PARTITION,
                 new StorageHashIndexDescriptor(catalogTableDescriptor, catalogHashIndexDescriptor)
         );
 
+        // Completes the building of the index.
         partitionStorage.runConsistently(locker -> {
             index.setNextRowIdToBuild(null);
 
@@ -72,6 +70,19 @@ public abstract class AbstractHashIndexStorageTest extends AbstractIndexStorageT
         });
 
         return index;
+    }
+
+    @Override
+    protected CatalogIndexDescriptor createCatalogIndexDescriptor(int tableId, int indexId, String indexName, ColumnParams... columns) {
+        return new CatalogHashIndexDescriptor(
+                indexId,
+                indexName,
+                tableId,
+                false,
+                AVAILABLE,
+                catalogService.latestCatalogVersion(),
+                Stream.of(columns).map(ColumnParams::name).collect(toList())
+        );
     }
 
     @Override

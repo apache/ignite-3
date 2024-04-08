@@ -47,10 +47,10 @@ abstract class AbstractTestIndexStorage implements IndexStorage {
     /** Amount of cursors that opened and still do not close. */
     protected final AtomicInteger pendingCursors = new AtomicInteger();
 
-    AbstractTestIndexStorage(int indexId, int partitionId) {
+    AbstractTestIndexStorage(int indexId, int partitionId, boolean pk) {
         this.indexId = indexId;
         this.partitionId = partitionId;
-        nextRowIdToBuild = initialRowIdToBuild(partitionId);
+        nextRowIdToBuild = pk ? null : initialRowIdToBuild(partitionId);
     }
 
     /**

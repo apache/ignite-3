@@ -33,9 +33,7 @@ import org.apache.ignite.internal.type.NativeType;
  * @see HashIndexStorage
  */
 public class StorageHashIndexDescriptor implements StorageIndexDescriptor {
-    /**
-     * Descriptor of a Hash Index column.
-     */
+    /** Descriptor of a Hash Index column. */
     public static class StorageHashIndexColumnDescriptor implements StorageColumnDescriptor {
         private final String name;
 
@@ -81,6 +79,8 @@ public class StorageHashIndexDescriptor implements StorageIndexDescriptor {
 
     private final List<StorageHashIndexColumnDescriptor> columns;
 
+    private final boolean pk;
+
     /**
      * Constructor.
      *
@@ -88,18 +88,30 @@ public class StorageHashIndexDescriptor implements StorageIndexDescriptor {
      * @param index Catalog index descriptor.
      */
     public StorageHashIndexDescriptor(CatalogTableDescriptor table, CatalogHashIndexDescriptor index) {
-        this(index.id(), extractIndexColumnsConfiguration(table, index));
+        this(index.id(), extractIndexColumnsConfiguration(table, index), table.primaryKeyIndexId() == index.id());
+    }
+
+    /**
+     * Creates a descriptor for non-primary index from a given set of columns.
+     *
+     * @param indexId Index ID.
+     * @param columns Columns descriptors.
+     */
+    public StorageHashIndexDescriptor(int indexId, List<StorageHashIndexColumnDescriptor> columns) {
+        this(indexId, columns, false);
     }
 
     /**
      * Creates an Index Descriptor from a given set of columns.
      *
-     * @param indexId Index id.
+     * @param indexId Index ID.
      * @param columns Columns descriptors.
+     * @param pk Primary index flag.
      */
-    public StorageHashIndexDescriptor(int indexId, List<StorageHashIndexColumnDescriptor> columns) {
+    public StorageHashIndexDescriptor(int indexId, List<StorageHashIndexColumnDescriptor> columns, boolean pk) {
         this.id = indexId;
         this.columns = columns;
+        this.pk = pk;
     }
 
     @Override
@@ -112,11 +124,16 @@ public class StorageHashIndexDescriptor implements StorageIndexDescriptor {
         return columns;
     }
 
+    @Override
+    public boolean isPk() {
+        return pk;
+    }
+
     private static List<StorageHashIndexColumnDescriptor> extractIndexColumnsConfiguration(
             CatalogTableDescriptor table,
             CatalogHashIndexDescriptor index
     ) {
-        assert table.id() == index.tableId() : "tableId=" + table.id() + ", indexTableId=" + index.tableId();
+        assert table.id() == index.tableId() : "indexId=" + index.id() + ", tableId=" + table.id() + ", indexTableId=" + index.tableId();
 
         return index.columns().stream()
                 .map(columnName -> {

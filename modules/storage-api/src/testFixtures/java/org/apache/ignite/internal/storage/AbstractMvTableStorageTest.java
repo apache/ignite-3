@@ -361,7 +361,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
         fillStorages(partitionStorage, null, sortedIndexStorage1, rows);
         fillStorages(partitionStorage, null, sortedIndexStorage2, rows);
 
-        finishBuiltIndexes(partitionStorage,sortedIndexStorage1, sortedIndexStorage2);
+        finishBuiltIndexes(partitionStorage, sortedIndexStorage1, sortedIndexStorage2);
 
         checkForPresenceRows(null, null, sortedIndexStorage1, rows);
         checkForPresenceRows(null, null, sortedIndexStorage2, rows);

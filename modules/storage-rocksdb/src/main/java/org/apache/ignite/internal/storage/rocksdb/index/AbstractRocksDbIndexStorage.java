@@ -80,13 +80,13 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
     /** Row ID for which the index needs to be built, {@code null} means that the index building has completed. */
     private volatile @Nullable RowId nextRowIdToBuild;
 
-    AbstractRocksDbIndexStorage(int tableId, int indexId, int partitionId, RocksDbMetaStorage indexMetaStorage) {
+    AbstractRocksDbIndexStorage(int tableId, int indexId, int partitionId, RocksDbMetaStorage indexMetaStorage, boolean pk) {
         this.tableId = tableId;
         this.indexId = indexId;
         this.indexMetaStorage = indexMetaStorage;
         this.partitionId = partitionId;
 
-        nextRowIdToBuild = indexMetaStorage.getNextRowIdToBuild(tableId, indexId, partitionId);
+        nextRowIdToBuild = pk ? null : indexMetaStorage.getNextRowIdToBuild(tableId, indexId, partitionId);
     }
 
     @Override

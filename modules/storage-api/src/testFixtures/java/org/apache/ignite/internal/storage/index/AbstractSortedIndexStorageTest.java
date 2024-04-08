@@ -43,10 +43,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -61,6 +57,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -131,14 +128,14 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
                 List.of(columns)
         );
 
-        when(catalogService.aliveIndex(eq(catalogSortedIndexDescriptor.name()), anyLong())).thenReturn(catalogSortedIndexDescriptor);
-        when(catalogService.index(eq(catalogSortedIndexDescriptor.id()), anyInt())).thenReturn(catalogSortedIndexDescriptor);
+        addIndexDescriptorToCatalog(catalogSortedIndexDescriptor);
 
         SortedIndexStorage index = tableStorage.getOrCreateSortedIndex(
                 TEST_PARTITION,
                 new StorageSortedIndexDescriptor(catalogTableDescriptor, catalogSortedIndexDescriptor)
         );
 
+        // Completes the building of the index.
         partitionStorage.runConsistently(locker -> {
             index.setNextRowIdToBuild(null);
 
@@ -151,6 +148,19 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
     @Override
     protected StorageSortedIndexDescriptor indexDescriptor(SortedIndexStorage index) {
         return index.indexDescriptor();
+    }
+
+    @Override
+    protected CatalogIndexDescriptor createCatalogIndexDescriptor(int tableId, int indexId, String indexName, ColumnParams... columns) {
+        return new CatalogSortedIndexDescriptor(
+                indexId,
+                indexName,
+                tableId,
+                false,
+                AVAILABLE,
+                catalogService.latestCatalogVersion(),
+                Stream.of(columns).map(c -> new CatalogIndexColumnDescriptor(c.name(), ASC_NULLS_FIRST)).collect(toList())
+        );
     }
 
     /**

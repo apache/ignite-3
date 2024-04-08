@@ -67,7 +67,15 @@ public class PageMemoryHashIndexStorage extends AbstractPageMemoryIndexStorage<H
             IndexMetaTree indexMetaTree,
             boolean isVolatile
     ) {
-        super(indexMeta, indexTree.partitionId(), indexTree, freeList, indexMetaTree, isVolatile);
+        super(
+                indexMeta,
+                indexTree.partitionId(),
+                indexTree,
+                freeList,
+                indexMetaTree,
+                isVolatile,
+                descriptor != null && descriptor.isPk()
+        );
 
         this.descriptor = descriptor;
     }
