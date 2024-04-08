@@ -275,7 +275,7 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
      * Tests the happy case of the {@link SortedIndexStorage#scan} method.
      */
     @RepeatedTest(5)
-    void testScan() {
+    void testReadWriteScan() {
         testScan(false);
     }
 
