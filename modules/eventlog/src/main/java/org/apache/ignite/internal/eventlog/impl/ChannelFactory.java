@@ -28,6 +28,6 @@ class ChannelFactory {
     }
 
     EventChannel createChannel(String name, Set<String> types) {
-        return new EventChannelImpl(types, sinkRegistry.findAllByChannel(name));
+        return new EventChannelImpl(name, types, sinkRegistry);
     }
 }

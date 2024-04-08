@@ -15,28 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed;
+package org.apache.ignite.internal.eventlog.impl;
 
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.eventlog.event.EventTypeRegistry;
 
-/** Internal class for {@link LowWatermarkImpl}. */
-final class LowWatermarkCandidate {
-    private final HybridTimestamp lowWatermark;
+enum TestEventTypes {
+    TEST_EVENT_TYPE_1,
+    TEST_EVENT_TYPE_2;
 
-    /** Future of low watermark update operation, see {@link LowWatermarkImpl}. */
-    private final CompletableFuture<Void> updateFuture;
-
-    LowWatermarkCandidate(HybridTimestamp lowWatermark, CompletableFuture<Void> updateFuture) {
-        this.lowWatermark = lowWatermark;
-        this.updateFuture = updateFuture;
-    }
-
-    HybridTimestamp lowWatermark() {
-        return lowWatermark;
-    }
-
-    CompletableFuture<Void> updateFuture() {
-        return updateFuture;
+    static {
+        // Register all event types.
+        for (TestEventTypes type : values()) {
+            EventTypeRegistry.register(type.name());
+        }
     }
 }

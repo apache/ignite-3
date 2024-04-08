@@ -109,7 +109,7 @@ class ConfigurationBasedChannelRegistry implements ChannelRegistry {
                     .map(String::trim)
                     .collect(Collectors.toSet());
 
-            return new EventChannelImpl(types, sinkRegistry.findAllByChannel(view.name()));
+            return new EventChannelImpl(view.name(), types, sinkRegistry);
         }
     }
 }

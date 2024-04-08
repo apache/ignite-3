@@ -214,9 +214,4 @@ public class FakeTxManager implements TxManager {
     public int pending() {
         return 0;
     }
-
-    @Override
-    public CompletableFuture<Void> updateLowWatermark(HybridTimestamp newLowWatermark) {
-        return null;
-    }
 }

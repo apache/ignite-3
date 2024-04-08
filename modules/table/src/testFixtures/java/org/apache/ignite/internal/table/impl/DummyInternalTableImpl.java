@@ -19,7 +19,9 @@ package org.apache.ignite.internal.table.impl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.replicator.ReplicaManager.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -48,6 +50,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.network.AbstractMessagingService;
 import org.apache.ignite.internal.network.ChannelType;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
@@ -150,6 +153,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     private final Object raftServiceMutex = new Object();
 
     private static final AtomicInteger nextTableId = new AtomicInteger(10_001);
+
+    private static final TestLowWatermark LOW_WATERMARK = new TestLowWatermark();
 
     /**
      * Creates a new local table.
@@ -479,10 +484,11 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
                 new TestLocalRwTxCounter(),
                 resourcesRegistry,
-                transactionInflights
+                transactionInflights,
+                LOW_WATERMARK
         );
 
-        txManager.start();
+        assertThat(txManager.start(), willCompleteSuccessfully());
 
         return txManager;
     }

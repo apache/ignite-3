@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.configuration;
+package org.apache.ignite.internal.lowwatermark.configuration;
 
 import static org.apache.ignite.internal.replicator.ReplicaManager.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 
@@ -24,9 +24,7 @@ import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Range;
 
-/**
- * Low watermark configuration schema.
- */
+/** Low watermark configuration schema. */
 @Config
 public class LowWatermarkConfigurationSchema {
     /**
