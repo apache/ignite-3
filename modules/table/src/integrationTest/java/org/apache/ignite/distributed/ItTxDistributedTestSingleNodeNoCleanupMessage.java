@@ -36,6 +36,7 @@ import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -117,7 +118,8 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                     ClusterNode node,
                     PlacementDriver placementDriver,
                     RemotelyTriggeredResourceRegistry resourcesRegistry,
-                    TransactionInflights transactionInflights
+                    TransactionInflights transactionInflights,
+                    LowWatermark lowWatermark
             ) {
                 return new TxManagerImpl(
                         txConfiguration,
@@ -130,7 +132,8 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                         () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
                         new TestLocalRwTxCounter(),
                         resourcesRegistry,
-                        transactionInflights
+                        transactionInflights,
+                        lowWatermark
                 ) {
                     @Override
                     public CompletableFuture<Void> executeWriteIntentSwitchAsync(Runnable runnable) {

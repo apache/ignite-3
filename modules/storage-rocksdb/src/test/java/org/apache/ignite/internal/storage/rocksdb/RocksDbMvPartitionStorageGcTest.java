@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.storage.rocksdb.configuration.schema.Ro
 import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.storage.AbstractMvPartitionStorageGcTest;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
@@ -49,7 +50,7 @@ public class RocksDbMvPartitionStorageGcTest extends AbstractMvPartitionStorageG
             @InjectConfiguration("mock {flushDelayMillis = 0, defaultRegion {size = 16777216, writeBufferSize = 16777216}}")
             RocksDbStorageEngineConfiguration engineConfig
     ) {
-        engine = new RocksDbStorageEngine("test", engineConfig, workDir);
+        engine = new RocksDbStorageEngine("test", engineConfig, workDir, mock(LogSyncer.class));
 
         engine.start();
 

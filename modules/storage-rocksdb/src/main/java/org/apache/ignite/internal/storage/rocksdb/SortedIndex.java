@@ -66,6 +66,6 @@ class SortedIndex extends Index<RocksDbSortedIndexStorage> {
 
     @Override
     RocksDbSortedIndexStorage createStorage(int partitionId) {
-        return new RocksDbSortedIndexStorage(descriptor, tableId, partitionId, indexColumnFamily().columnFamily(), indexMetaStorage);
+        return new RocksDbSortedIndexStorage(descriptor, tableId(), partitionId, columnFamily(), indexMetaStorage);
     }
 }

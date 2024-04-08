@@ -199,14 +199,4 @@ public interface TxManager extends IgniteComponent {
      */
     @TestOnly
     int pending();
-
-    /**
-     * Updates the low watermark, the value is expected to only increase.
-     *
-     * <p>All new read-only transactions will need to be created with a read time greater than this value.
-     *
-     * @param newLowWatermark New low watermark.
-     * @return Future of all read-only transactions with read timestamp less or equals the given new low watermark.
-     */
-    CompletableFuture<Void> updateLowWatermark(HybridTimestamp newLowWatermark);
 }

@@ -15,23 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed;
+package org.apache.ignite.internal.components;
 
-import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-
-/**
- * Low watermark event listener interface.
- *
- * @see LowWatermark
- */
-@FunctionalInterface
-public interface LowWatermarkChangedListener {
+/** Interface to synchronize write-ahead log. Operates only for persistent log storages. */
+public interface LogSyncer {
     /**
-     * Low watermark changed callback.
+     * Synchronizes write-ahead log.
      *
-     * @param ts New low watermark.
-     * @return A future, which completes after the event has been processed.
+     * @throws Exception if an error occurs whilst syncing.
      */
-    CompletableFuture<Void> onLwmChanged(HybridTimestamp ts);
+    void sync() throws Exception;
 }

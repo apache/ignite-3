@@ -40,4 +40,9 @@ public class LocalLogStorageFactory implements LogStorageFactory {
     public void close() {
         // no-op
     }
+
+    @Override
+    public void sync() {
+        // no-op
+    }
 }

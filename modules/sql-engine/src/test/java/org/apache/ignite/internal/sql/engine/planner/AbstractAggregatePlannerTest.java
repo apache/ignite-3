@@ -892,6 +892,34 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
          * <p>Distribution identity(2)
          */
         CASE_24_1E("SELECT COUNT(val0), COUNT(DISTINCT(val1)) from test", schema(identity(2))),
+
+        /**
+         * Query: SELECT val0, COUNT(val1) FROM test GROUP BY val0 ORDER BY val0 DESC.
+         *
+         * <p>Distribution single()
+         */
+        CASE_25("SELECT val0, COUNT(val1) FROM test GROUP BY val0 ORDER BY val0 DESC", schema(single())),
+        /**
+         * Query: SELECT val0, COUNT(val1) FROM test GROUP BY val0 ORDER BY val0 DESC.
+         *
+         * <p>Distribution hash(0)
+         */
+        CASE_25A("SELECT val0, COUNT(val1) FROM test GROUP BY val0 ORDER BY val0 DESC", schema(hash(0))),
+
+        /**
+         * Query: SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val1 DESC.
+         *
+         * <p>Distribution single
+         */
+        CASE_26("SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val1 DESC",
+                schema(single())),
+        /**
+         * Query: SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val1 DESC.
+         *
+         * <p>Distribution hash(0)
+         */
+        CASE_26A("SELECT val0, val1, COUNT(*) cnt FROM test GROUP BY val0, val1 ORDER BY val1 DESC",
+                schema(hash(0))),
         ;
 
         final String query;

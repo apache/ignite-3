@@ -80,6 +80,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.component.RestAddressReporter;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.compute.AntiHijackIgniteCompute;
 import org.apache.ignite.internal.compute.ComputeComponent;
@@ -125,6 +126,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.lowwatermark.LowWatermarkImpl;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
@@ -189,7 +191,6 @@ import org.apache.ignite.internal.storage.engine.ThreadAssertingStorageEngine;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.systemview.api.SystemViewManager;
 import org.apache.ignite.internal.table.distributed.AntiHijackIgniteTables;
-import org.apache.ignite.internal.table.distributed.LowWatermarkImpl;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.TableMessageGroup;
 import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager;
@@ -631,12 +632,15 @@ public class IgniteImpl implements Ignite {
 
         GcConfiguration gcConfig = clusterConfigRegistry.getConfiguration(GcConfiguration.KEY);
 
+        LogSyncer logSyncer = raftMgr.getLogSyncer();
+
         Map<String, StorageEngine> storageEngines = dataStorageModules.createStorageEngines(
                 name,
                 nodeConfigRegistry,
                 storagePath,
                 longJvmPauseDetector,
-                failureProcessor
+                failureProcessor,
+                logSyncer
         );
 
         dataStorageMgr = new DataStorageManager(applyThreadAssertionsIfNeeded(storageEngines));
@@ -690,7 +694,16 @@ public class IgniteImpl implements Ignite {
 
         resourcesRegistry = new RemotelyTriggeredResourceRegistry();
 
-        TransactionInflights transactionInflights = new TransactionInflights(placementDriverMgr.placementDriver());
+        lowWatermark = new LowWatermarkImpl(
+                name,
+                gcConfig.lowWatermark(),
+                clockService,
+                vaultMgr,
+                failureProcessor,
+                clusterSvc.messagingService()
+        );
+
+        var transactionInflights = new TransactionInflights(placementDriverMgr.placementDriver());
 
         // TODO: IGNITE-19344 - use nodeId that is validated on join (and probably generated differently).
         txManager = new TxManagerImpl(
@@ -707,7 +720,8 @@ public class IgniteImpl implements Ignite {
                 indexNodeFinishedRwTransactionsChecker,
                 threadPoolsManager.partitionOperationsExecutor(),
                 resourcesRegistry,
-                transactionInflights
+                transactionInflights,
+                lowWatermark
         );
 
         resourceVacuumManager = new ResourceVacuumManager(
@@ -720,16 +734,6 @@ public class IgniteImpl implements Ignite {
         );
 
         StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry.getConfiguration(StorageUpdateConfiguration.KEY);
-
-        lowWatermark = new LowWatermarkImpl(
-                name,
-                gcConfig.lowWatermark(),
-                clockService,
-                txManager,
-                vaultMgr,
-                failureProcessor,
-                clusterSvc.messagingService()
-        );
 
         distributedTblMgr = new TableManager(
                 name,

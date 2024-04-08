@@ -18,12 +18,19 @@
 package org.apache.ignite.internal.deployunit.metastore.status;
 
 import static org.apache.ignite.internal.deployunit.metastore.status.SerializeUtils.checkElement;
+import static org.apache.ignite.internal.deployunit.metastore.status.SerializeUtils.decode;
+import static org.apache.ignite.internal.deployunit.metastore.status.SerializeUtils.decodeAsSet;
+import static org.apache.ignite.internal.deployunit.metastore.status.SerializeUtils.deserializeStatus;
+import static org.apache.ignite.internal.deployunit.metastore.status.SerializeUtils.deserializeUuid;
+import static org.apache.ignite.internal.deployunit.metastore.status.SerializeUtils.deserializeVersion;
 
 import java.util.Collections;
 import java.util.Set;
+import java.util.UUID;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.deployunit.DeploymentStatus;
 import org.apache.ignite.internal.deployunit.UnitStatus;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Deployment unit cluster status.
@@ -44,7 +51,7 @@ public class UnitClusterStatus extends UnitStatus {
             String id,
             Version version,
             DeploymentStatus status,
-            long opId,
+            UUID opId,
             Set<String> initialNodesToDeploy
     ) {
         super(id, version, status, opId);
@@ -102,19 +109,18 @@ public class UnitClusterStatus extends UnitStatus {
      * @param value Serialized deployment unit cluster status.
      * @return Deserialized deployment unit cluster status.
      */
-    public static UnitClusterStatus deserialize(byte[] value) {
+    public static UnitClusterStatus deserialize(byte @Nullable [] value) {
         if (value == null || value.length == 0) {
-            return new UnitClusterStatus(null, null, null, 0, Set.of());
+            return new UnitClusterStatus(null, null, null, null, Set.of());
         }
 
         String[] values = SerializeUtils.deserialize(value);
 
-        String id = checkElement(values, 0) ? SerializeUtils.decode(values[0]) : null;
-        Version version = checkElement(values, 1) ? Version.parseVersion(SerializeUtils.decode(values[1])) : null;
-        DeploymentStatus status = checkElement(values, 2) ? DeploymentStatus.valueOf(SerializeUtils.decode(values[2])) : null;
-        long opId = checkElement(values, 3) ? Long.parseLong(SerializeUtils.decode(values[3])) : 0;
-        Set<String> nodes = checkElement(values, 4) ? SerializeUtils.decodeAsSet(values[4]) : Set.of();
-
+        String id = checkElement(values, 0) ? decode(values[0]) : null;
+        Version version = deserializeVersion(values, 1);
+        DeploymentStatus status = deserializeStatus(values, 2);
+        UUID opId = deserializeUuid(values, 3);
+        Set<String> nodes = checkElement(values, 4) ? decodeAsSet(values[4]) : Set.of();
 
         return new UnitClusterStatus(id, version, status, opId, nodes);
     }
