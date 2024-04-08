@@ -691,7 +691,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param assignmentsFuture Assignments future, to get the assignments that should be written.
      * @return Real list of assignments.
      */
-    private CompletableFuture<List<Assignments>> writeTableAssignmentsToMetastore(
+    public CompletableFuture<List<Assignments>> writeTableAssignmentsToMetastore(
             int tableId,
             CompletableFuture<List<Assignments>> assignmentsFuture
     ) {
@@ -747,10 +747,16 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         }
                     })
                     .exceptionally(e -> {
-                        LOG.error("Couldn't write assignments to metastore", e);
-
-                        return null;
+                        throw new WritingAssignmentsToMetastoreException(tableId, newAssignments, e);
                     });
+        })
+        .exceptionally(e -> {
+            LOG.error("Couldn't write assignments to metastore", e);
+            if (e instanceof WritingAssignmentsToMetastoreException) {
+                throw (WritingAssignmentsToMetastoreException) e;
+            } else {
+                throw new WritingAssignmentsToMetastoreException(tableId, e);
+            }
         });
     }
 
@@ -1236,27 +1242,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             // Retrieve descriptor during synchronous call, before the previous catalog version could be concurrently compacted.
             CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, catalogVersion);
 
-            CompletableFuture<List<Assignments>> assignmentsFuture;
-
-            // Check if the table already has assignments in the meta storage locally.
-            // So, it means, that it is a recovery process and we should use the meta storage local assignments instead of calculation
-            // of the new ones.
-            if (partitionAssignmentsGetLocally(metaStorageMgr, tableId, 0, causalityToken) != null) {
-                assignmentsFuture = completedFuture(
-                        tableAssignmentsGetLocally(metaStorageMgr, tableId, zoneDescriptor.partitions(), causalityToken));
-            } else {
-                assignmentsFuture = distributionZoneManager.dataNodes(causalityToken, catalogVersion, zoneId)
-                        .thenApply(dataNodes -> AffinityUtils.calculateAssignments(
-                                dataNodes,
-                                zoneDescriptor.partitions(),
-                                zoneDescriptor.replicas()
-                        ).stream().map(Assignments::of).collect(toList()));
-
-                assignmentsFuture.thenAccept(assignmentsList -> {
-                    LOG.info(IgniteStringFormatter.format("Assignments calculated from data nodes [table={}, tableId={}, assignments={}, "
-                            + "revision={}]", tableDescriptor.name(), tableId, assignmentListToString(assignmentsList), causalityToken));
-                });
-            }
+            CompletableFuture<List<Assignments>> assignmentsFuture = createOrGetAssignments(
+                    tableDescriptor,
+                    zoneDescriptor,
+                    causalityToken,
+                    catalogVersion);
 
             CompletableFuture<List<Assignments>> assignmentsFutureAfterInvoke =
                     writeTableAssignmentsToMetastore(tableId, assignmentsFuture);
@@ -1269,6 +1259,40 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     onNodeRecovery
             );
         });
+    }
+
+    /**
+     * Check if the table already has assignments in the meta storage locally.
+     * So, it means, that it is a recovery process and we should use the meta storage local assignments instead of calculation
+     * of the new ones.
+     *
+     */
+    private CompletableFuture<List<Assignments>> createOrGetAssignments(
+            CatalogTableDescriptor tableDescriptor,
+            CatalogZoneDescriptor zoneDescriptor,
+            long causalityToken,
+            int catalogVersion
+    ) {
+        int tableId = tableDescriptor.id();
+        CompletableFuture<List<Assignments>> assignmentsFuture;
+
+        if (partitionAssignmentsGetLocally(metaStorageMgr, tableId, 0, causalityToken) != null) {
+            assignmentsFuture = completedFuture(
+                    tableAssignmentsGetLocally(metaStorageMgr, tableId, zoneDescriptor.partitions(), causalityToken));
+        } else {
+            assignmentsFuture = distributionZoneManager.dataNodes(causalityToken, catalogVersion, zoneDescriptor.id())
+                    .thenApply(dataNodes -> AffinityUtils.calculateAssignments(
+                            dataNodes,
+                            zoneDescriptor.partitions(),
+                            zoneDescriptor.replicas()
+                    ).stream().map(Assignments::of).collect(toList()));
+
+            assignmentsFuture.thenAccept(assignmentsList -> {
+                LOG.info(IgniteStringFormatter.format("Assignments calculated from data nodes [table={}, tableId={}, assignments={}, "
+                        + "revision={}]", tableDescriptor.name(), tableId, assignmentListToString(assignmentsList), causalityToken));
+            });
+        }
+        return assignmentsFuture;
     }
 
     /**

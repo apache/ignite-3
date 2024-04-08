@@ -73,6 +73,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
 import org.apache.ignite.internal.affinity.AffinityUtils;
+import org.apache.ignite.internal.affinity.Assignment;
+import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
@@ -344,6 +346,53 @@ public class TableManagerTest extends IgniteAbstractTest {
         assertSame(table, tblManagerFut.join().table(DYNAMIC_TABLE_NAME));
 
         checkTableDataStorage(allTableDescriptors(), PersistentPageMemoryStorageEngine.ENGINE_NAME);
+    }
+
+    /**
+     * Testing TableManager#writeTableAssignmentsToMetastore for 2 exceptional scenarios:
+     * 1. the method was interrupted in inner metastore's future when whe result of invocation had gotten, but after error happens;
+     * 2. the method was interrupted in outer future before invoke calling completion.
+     * @throws Exception if something goes wrong on mocks creation.
+     */
+    @Test
+    public void testWriteTableAssignmentsToMetastoreExceptionally() throws Exception {
+        TableViewInternal table = mockManagersAndCreateTable(DYNAMIC_TABLE_NAME, tblManagerFut);
+        int tableId = table.tableId();
+        TableManager tableManager = tblManagerFut.join();
+
+        List<Assignments> assignmentsList = List.of(Assignments.of(Assignment.forPeer(node.id())));
+        String assignmentsListStr = Assignments.assignmentListToString(assignmentsList);
+        CompletableFuture<List<Assignments>> assignmentsFuture = completedFuture(assignmentsList);
+
+        // make invokeResult -> false and let it go to the msm.getAll()
+        when(msm.invoke(any(), any(List.class), any(List.class))).thenReturn(completedFuture(false));
+        // make getAll() throw an error that should trigger .exceptionally() block in the inner metastore's future
+        when(msm.getAll(any())).thenThrow(new AssertionError("Internal future is interrupted"));
+        CompletableFuture<List<Assignments>> writtenAssignmentsFuture = tableManager.writeTableAssignmentsToMetastore(
+                tableId,
+                assignmentsFuture);
+        assertTrue(writtenAssignmentsFuture.isCompletedExceptionally());
+        assertThrowsWithCause(
+                writtenAssignmentsFuture::get,
+                WritingAssignmentsToMetastoreException.class,
+                "Failure while writing assignments " + assignmentsListStr + " for table "  + tableId + " after invoke completion");
+        assertThrowsWithCause(
+                writtenAssignmentsFuture::get,
+                AssertionError.class,
+                "Internal future is interrupted");
+
+        // case with invoke() interruption, then thrown exception is the exceptional result of the table manager calling
+        when(msm.invoke(any(), any(List.class), any(List.class))).thenThrow(new AssertionError("Invocation is interrupted"));
+        writtenAssignmentsFuture = tableManager.writeTableAssignmentsToMetastore(tableId, assignmentsFuture);
+        assertTrue(writtenAssignmentsFuture.isCompletedExceptionally());
+        assertThrowsWithCause(
+                writtenAssignmentsFuture::get,
+                WritingAssignmentsToMetastoreException.class,
+                "Failure while writing assignments for table " + tableId + " before or during metastore invoke");
+        assertThrowsWithCause(
+                writtenAssignmentsFuture::get,
+                AssertionError.class,
+                "Invocation is interrupted");
     }
 
     /**

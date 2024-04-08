@@ -24,6 +24,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
@@ -134,5 +135,15 @@ public class Assignments implements Serializable {
     @Override
     public String toString() {
         return S.toString(this);
+    }
+
+    /**
+     * Creates a string representation of the given assignmentsList list to use it for logging.
+     *
+     * @param assignments List of assignmentsList.
+     * @return String representation of the given assignmentsList list to use it for logging.
+     */
+    public static String assignmentListToString(List<Assignments> assignments) {
+        return S.toString(assignments, (sb, e, i) -> sb.app(i).app('=').app(e.nodes()));
     }
 }
