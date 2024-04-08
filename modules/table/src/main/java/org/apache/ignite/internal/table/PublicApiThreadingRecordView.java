@@ -29,7 +29,8 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Wrapper around {@link RecordView} that maintains public API invariants relating to threading.
- * That is, it adds protection against thread hijacking by users and also marks threads as 'executing a sync user operation' or
+ *
+ * <p>That is, it adds protection against thread hijacking by users and also marks threads as 'executing a sync user operation' or
  * 'executing an async user operation'.
  *
  * @see PublicApiThreading#preventThreadHijack(CompletableFuture, Executor)
