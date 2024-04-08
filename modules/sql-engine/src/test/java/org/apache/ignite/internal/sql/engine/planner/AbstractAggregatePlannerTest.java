@@ -29,10 +29,8 @@ import java.util.Objects;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
-import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.AggregateCall;
-import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
 import org.apache.ignite.internal.sql.engine.rel.IgniteAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceAggregateBase;
@@ -40,7 +38,6 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
-import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterAll;
@@ -1064,33 +1061,6 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
             }
 
             return true;
-        };
-    }
-
-    <T> Predicate<T> hasGroupSets(Function<T, List<ImmutableBitSet>> groupSets, int groupKey) {
-        return (node) -> {
-            List<ImmutableBitSet> allGroupSets = groupSets.apply(node);
-            ImmutableBitSet firstGroupSet = allGroupSets.get(0);
-
-            boolean groupSetsMatch = allGroupSets.equals(List.of(ImmutableBitSet.of(groupKey)));
-            boolean groupSetMatches = firstGroupSet.equals(ImmutableBitSet.of(groupKey));
-
-            return groupSetMatches && groupSetsMatch;
-        };
-    }
-
-    <T> Predicate<T> hasNoGroupSets(Function<T, List<ImmutableBitSet>> groupSets) {
-        return (node) -> {
-            List<ImmutableBitSet> allGroupSets = groupSets.apply(node);
-            List<ImmutableBitSet> emptyGroupSets = List.of(ImmutableBitSet.of());
-            return emptyGroupSets.equals(allGroupSets);
-        };
-    }
-
-    <T extends RelNode> Predicate<T> hasCollation(RelCollation expected) {
-        return (node) -> {
-            RelCollation collation = TraitUtils.collation(node);
-            return expected.equals(collation);
         };
     }
 }

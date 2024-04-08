@@ -15,13 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.message;
+namespace Apache.Ignite.Table;
 
-import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.table.distributed.TableMessageGroup;
+/// <summary>
+/// Data streamer operation type.
+/// </summary>
+public enum DataStreamerOperationType
+{
+    /// <summary>
+    /// Put operation.
+    /// </summary>
+    Put,
 
-/** Request for low watermark. */
-@Transferable(TableMessageGroup.GET_LOW_WATERMARK_REQUEST)
-public interface GetLowWatermarkRequest extends NetworkMessage {
+    /// <summary>
+    /// Remove operation.
+    /// </summary>
+    Remove
 }

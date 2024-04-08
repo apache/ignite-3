@@ -15,16 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.message;
+package org.apache.ignite.internal.eventlog.impl;
 
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.table.distributed.TableMessageGroup;
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.internal.eventlog.config.schema.SinkConfigurationSchema;
 
-/** Response to {@link GetLowWatermarkRequest}. */
-@Transferable(TableMessageGroup.GET_LOW_WATERMARK_RESPONSE)
-public interface GetLowWatermarkResponse extends NetworkMessage {
-    /** Returns the low watermark, {@link HybridTimestamp#NULL_HYBRID_TIMESTAMP} means no low watermark has been assigned yet. */
-    long lowWatermark();
+/** Configuration schema for in-memory collection sink. Needed for tests. */
+@PolymorphicConfigInstance("inMemory")
+public class InMemoryCollectionSinkConfigurationSchema extends SinkConfigurationSchema {
 }

@@ -15,23 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed;
+package org.apache.ignite.internal.lowwatermark;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 
-/**
- * Low watermark event listener interface.
- *
- * @see LowWatermark
- */
-@FunctionalInterface
-public interface LowWatermarkChangedListener {
-    /**
-     * Low watermark changed callback.
-     *
-     * @param ts New low watermark.
-     * @return A future, which completes after the event has been processed.
-     */
-    CompletableFuture<Void> onLwmChanged(HybridTimestamp ts);
+/** Internal class for {@link LowWatermarkImpl}. */
+final class LowWatermarkCandidate {
+    private final HybridTimestamp lowWatermark;
+
+    /** Future of low watermark update operation, see {@link LowWatermarkImpl}. */
+    private final CompletableFuture<Void> updateFuture;
+
+    LowWatermarkCandidate(HybridTimestamp lowWatermark, CompletableFuture<Void> updateFuture) {
+        this.lowWatermark = lowWatermark;
+        this.updateFuture = updateFuture;
+    }
+
+    HybridTimestamp lowWatermark() {
+        return lowWatermark;
+    }
+
+    CompletableFuture<Void> updateFuture() {
+        return updateFuture;
+    }
 }

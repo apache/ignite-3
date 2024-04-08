@@ -591,11 +591,9 @@ public class ColocatedHashAggregatePlannerTest extends AbstractAggregatePlannerT
         assertPlan(testCase,
                 isInstanceOf(IgniteColocatedHashAggregate.class)
                         .and(hasAggregate())
-                        .and(not(hasDistinctAggregate()))
-                        .and(input(isInstanceOf(IgniteColocatedHashAggregate.class)
-                                .and(hasGroups())
-                                .and(input(isTableScan("TEST")))
-                        )),
+                        .and(hasDistinctAggregate())
+                        .and(hasGroups())
+                        .and(input(isTableScan("TEST"))),
                 disableRules
         );
     }
@@ -604,12 +602,10 @@ public class ColocatedHashAggregatePlannerTest extends AbstractAggregatePlannerT
         assertPlan(testCase,
                 isInstanceOf(IgniteColocatedHashAggregate.class)
                         .and(hasAggregate())
-                        .and(not(hasDistinctAggregate()))
-                        .and(input(isInstanceOf(IgniteColocatedHashAggregate.class)
-                                .and(hasGroups())
-                                .and(input(isInstanceOf(IgniteExchange.class)
-                                        .and(input(isTableScan("TEST")))
-                                ))
+                        .and(hasDistinctAggregate())
+                        .and(hasGroups())
+                        .and(input(isInstanceOf(IgniteExchange.class)
+                                .and(input(isTableScan("TEST")))
                         )),
                 disableRules
         );

@@ -64,9 +64,7 @@ public abstract class IgniteAggregate extends Aggregate implements IgniteRel {
             return groupsCnt;
         }
 
-        // Estimation of the groups count is not available.
-        // Use heuristic estimation for result rows count.
-        return super.estimateRowCount(mq);
+        return guessDistinctRows(mq, groupSet.cardinality());
     }
 
     /**
@@ -78,11 +76,14 @@ public abstract class IgniteAggregate extends Aggregate implements IgniteRel {
 
         if (!aggCalls.isEmpty()) {
             double grps = estimateRowCount(mq);
-            double rows = input.estimateRowCount(mq);
 
             for (AggregateCall aggCall : aggCalls) {
                 if (aggCall.isDistinct()) {
-                    mem += IgniteCost.AGG_CALL_MEM_COST * rows / grps;
+                    ImmutableBitSet aggGroup = ImmutableBitSet.of(aggCall.getArgList());
+
+                    double distinctRows = guessDistinctRows(mq, aggGroup.cardinality());
+
+                    mem += IgniteCost.AGG_CALL_MEM_COST * distinctRows / grps;
                 } else {
                     mem += IgniteCost.AGG_CALL_MEM_COST;
                 }
@@ -90,6 +91,17 @@ public abstract class IgniteAggregate extends Aggregate implements IgniteRel {
         }
 
         return mem;
+    }
+
+    /** Implements heuristics estimation for distinct row count. */
+    private double guessDistinctRows(RelMetadataQuery mq, int groupSize) {
+        if (groupSize == 0) {
+            return 1;
+        } else {
+            double rowCount = mq.getRowCount(getInput());
+            rowCount *= (1.0 - Math.pow(.8, groupSize));
+            return rowCount;
+        }
     }
 
     /**

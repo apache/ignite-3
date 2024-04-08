@@ -209,28 +209,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
             PooledArrayBuffer buf,
             Transactions.Transaction? tx,
             Schema schema,
-            IEnumerable<T> recs,
-            bool keyOnly = false)
-        {
-            var enumerator = recs.GetEnumerator();
-            enumerator.MoveNext();
-
-            return WriteMultiple(buf, tx, schema, enumerator, keyOnly);
-        }
-
-        /// <summary>
-        /// Write multiple records.
-        /// </summary>
-        /// <param name="buf">Buffer.</param>
-        /// <param name="tx">Transaction.</param>
-        /// <param name="schema">Schema.</param>
-        /// <param name="recs">Records.</param>
-        /// <param name="keyOnly">Key only columns.</param>
-        /// <returns>First record hash.</returns>
-        public int WriteMultiple(
-            PooledArrayBuffer buf,
-            Transactions.Transaction? tx,
-            Schema schema,
             IEnumerator<T> recs,
             bool keyOnly = false)
         {
