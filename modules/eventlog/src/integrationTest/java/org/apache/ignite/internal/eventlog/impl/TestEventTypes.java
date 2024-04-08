@@ -15,22 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.eventlog.api;
+package org.apache.ignite.internal.eventlog.impl;
 
-import java.util.Arrays;
 import org.apache.ignite.internal.eventlog.event.EventTypeRegistry;
 
-/**
- * Defines a subset of event types that can be created in the system. Note, the event type is a string that is unique within the system. The
- * event type is used to filter the events in the event log.
- */
-public enum IgniteEventType {
-    USER_AUTHENTICATED,
-    CONNECTION_CLOSED;
+enum TestEventTypes {
+    TEST_EVENT_TYPE_1,
+    TEST_EVENT_TYPE_2;
 
     static {
-        // Without the following line, the IgniteEventType enum will not be registered in the EventTypeRegistry
-        // and the EventTypeRegistry will not be able to validate the event types.
-        Arrays.stream(values()).forEach(type -> EventTypeRegistry.register(type.name()));
+        // Register all event types.
+        for (TestEventTypes type : values()) {
+            EventTypeRegistry.register(type.name());
+        }
     }
 }

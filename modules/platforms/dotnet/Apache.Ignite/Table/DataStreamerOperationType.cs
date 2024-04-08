@@ -15,22 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.eventlog.api;
+namespace Apache.Ignite.Table;
 
-import java.util.Arrays;
-import org.apache.ignite.internal.eventlog.event.EventTypeRegistry;
+/// <summary>
+/// Data streamer operation type.
+/// </summary>
+public enum DataStreamerOperationType
+{
+    /// <summary>
+    /// Put operation.
+    /// </summary>
+    Put,
 
-/**
- * Defines a subset of event types that can be created in the system. Note, the event type is a string that is unique within the system. The
- * event type is used to filter the events in the event log.
- */
-public enum IgniteEventType {
-    USER_AUTHENTICATED,
-    CONNECTION_CLOSED;
-
-    static {
-        // Without the following line, the IgniteEventType enum will not be registered in the EventTypeRegistry
-        // and the EventTypeRegistry will not be able to validate the event types.
-        Arrays.stream(values()).forEach(type -> EventTypeRegistry.register(type.name()));
-    }
+    /// <summary>
+    /// Remove operation.
+    /// </summary>
+    Remove
 }
