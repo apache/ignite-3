@@ -68,7 +68,7 @@ public class ThreadAssertions {
 
             AssertionError error = new AssertionError("Thread " + currentThread.getName() + " does not have allowed operations");
 
-            LOG.warn("Thread {} does not have allowed operations", error, currentThread);;
+            LOG.warn("Thread {} does not have allowed operations", error, currentThread);
 
             throw error;
         }
