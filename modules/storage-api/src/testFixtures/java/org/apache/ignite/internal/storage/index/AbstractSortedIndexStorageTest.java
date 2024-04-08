@@ -43,7 +43,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -277,40 +276,7 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
      */
     @RepeatedTest(5)
     void testScan() {
-        SortedIndexStorage indexStorage = createIndexStorage(INDEX_NAME, shuffledColumnParams());
-
-        List<TestIndexRow> entries = IntStream.range(0, 10)
-                .mapToObj(i -> {
-                    TestIndexRow entry = TestIndexRow.randomRow(indexStorage, TEST_PARTITION);
-
-                    put(indexStorage, entry);
-
-                    return entry;
-                })
-                .sorted()
-                .collect(toList());
-
-        int firstIndex = 3;
-        int lastIndex = 8;
-
-        TestIndexPrefix first = entries.get(firstIndex).prefix(3);
-        TestIndexPrefix last = entries.get(lastIndex).prefix(5);
-
-        List<IndexRow> expected = entries.stream()
-                .filter(row -> row.compareTo(first) >= 0 && row.compareTo(last) <= 0)
-                .collect(toList());
-
-        assertThat(expected, hasSize(greaterThanOrEqualTo(lastIndex - firstIndex + 1)));
-
-        try (Cursor<IndexRow> cursor = indexStorage.scan(first.prefix(), last.prefix(), GREATER_OR_EQUAL | LESS_OR_EQUAL)) {
-            List<IndexRow> actual = cursor.stream().collect(toList());
-
-            assertThat(actual, hasSize(expected.size()));
-
-            for (int i = firstIndex; i < actual.size(); ++i) {
-                assertThat(actual.get(i).rowId(), is(equalTo(expected.get(i).rowId())));
-            }
-        }
+        testScan(false);
     }
 
     /**
@@ -318,9 +284,11 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
      */
     @RepeatedTest(5)
     void testReadOnlyScan() {
-        SortedIndexStorage indexStorage = createIndexStorage(INDEX_NAME, shuffledColumnParams());
+        testScan(true);
+    }
 
-        assumeTrue(indexStorage.readOnlyScanImplemented());
+    private void testScan(boolean readOnly) {
+        SortedIndexStorage indexStorage = createIndexStorage(INDEX_NAME, shuffledColumnParams());
 
         List<TestIndexRow> entries = IntStream.range(0, 10)
                 .mapToObj(i -> {
@@ -345,7 +313,10 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
 
         assertThat(expected, hasSize(greaterThanOrEqualTo(lastIndex - firstIndex + 1)));
 
-        try (Cursor<IndexRow> cursor = indexStorage.readOnlyScan(first.prefix(), last.prefix(), GREATER_OR_EQUAL | LESS_OR_EQUAL)) {
+        try (Cursor<IndexRow> cursor = readOnly
+                ? indexStorage.readOnlyScan(first.prefix(), last.prefix(), GREATER_OR_EQUAL | LESS_OR_EQUAL)
+                : indexStorage.scan(first.prefix(), last.prefix(), GREATER_OR_EQUAL | LESS_OR_EQUAL)
+        ) {
             List<IndexRow> actual = cursor.stream().collect(toList());
 
             assertThat(actual, hasSize(expected.size()));
@@ -1549,8 +1520,6 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
             Function<Object[], T> mapper,
             boolean readOnly
     ) {
-        assumeTrue(!readOnly || storage.readOnlyScanImplemented());
-
         var serializer = new BinaryTupleRowSerializer(storage.indexDescriptor());
 
         try (Cursor<IndexRow> cursor = readOnly
@@ -1571,8 +1540,6 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
             int flags,
             boolean readOnly
     ) {
-        assumeTrue(!readOnly || indexStorage.readOnlyScanImplemented());
-
         return readOnly
                 ? indexStorage.readOnlyScan(lowerBound, upperBound, flags)
                 : indexStorage.scan(lowerBound, upperBound, flags);

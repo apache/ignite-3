@@ -77,14 +77,11 @@ public interface SortedIndexStorage extends IndexStorage {
      * @return Cursor with fetched index rows.
      * @throws IllegalArgumentException If backwards flag is passed and backwards iteration is not supported by the storage.
      */
-    Cursor<IndexRow> readOnlyScan(
+    default Cursor<IndexRow> readOnlyScan(
             @Nullable BinaryTuplePrefix lowerBound,
             @Nullable BinaryTuplePrefix upperBound,
             @MagicConstant(flagsFromClass = SortedIndexStorage.class) int flags
-    );
-
-    /** If read-only scan is implemented for this storage. */
-    default boolean readOnlyScanImplemented() {
-        return false;
+    ) {
+        return scan(lowerBound, upperBound, flags);
     }
 }

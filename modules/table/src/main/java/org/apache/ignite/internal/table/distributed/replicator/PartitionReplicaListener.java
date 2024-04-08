@@ -80,7 +80,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.StartBuildingIndexEventParameters;
-import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -1322,22 +1321,12 @@ public class PartitionReplicaListener implements ReplicaListener {
 
         int flags = request.flags();
 
-        Supplier<ManuallyCloseable> cursorProvider = ((SortedIndexStorage) schemaAwareIndexStorage.storage()).readOnlyScanImplemented()
-                ? () -> new CursorResource(
-                indexStorage.readOnlyScan(
+        Cursor<IndexRow> cursor = remotelyTriggeredResourceRegistry.<CursorResource>register(cursorId, request.coordinatorId(),
+                () -> new CursorResource(indexStorage.scan(
                         lowerBound,
                         upperBound,
-                        flags))
-                : () -> new CursorResource(
-                        indexStorage.scan(
-                                lowerBound,
-                                upperBound,
-                                flags
-                         )
-                );
-
-        Cursor<IndexRow> cursor = remotelyTriggeredResourceRegistry.<CursorResource>register(cursorId, request.coordinatorId(),
-                cursorProvider).cursor();
+                        flags
+                ))).cursor();
 
         int batchCount = request.batchSize();
 
