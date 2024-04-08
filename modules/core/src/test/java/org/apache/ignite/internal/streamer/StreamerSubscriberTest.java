@@ -49,7 +49,9 @@ class StreamerSubscriberTest extends BaseIgniteAbstractTest {
 
     @AfterAll
     public static void flushExecutorShutdown() {
-        flushExecutor.shutdown();
+        if (flushExecutor != null) {
+            flushExecutor.shutdown();
+        }
     }
 
     private static class Metrics implements StreamerMetricSink {
