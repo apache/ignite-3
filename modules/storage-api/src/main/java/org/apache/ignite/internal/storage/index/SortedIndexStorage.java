@@ -65,9 +65,17 @@ public interface SortedIndexStorage extends IndexStorage {
             @MagicConstant(flagsFromClass = SortedIndexStorage.class) int flags
     );
 
+    /**
+     * Same as {@link SortedIndexStorage#scan}, returning read-only cursor
+     */
     Cursor<IndexRow> readOnlyScan(
             @Nullable BinaryTuplePrefix lowerBound,
             @Nullable BinaryTuplePrefix upperBound,
             @MagicConstant(flagsFromClass = SortedIndexStorage.class) int flags
     );
+
+    /** If read only scan is implemented for this storage. */
+    default boolean readOnlyScanImplemented() {
+        return false;
+    };
 }

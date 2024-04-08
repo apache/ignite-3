@@ -200,6 +200,11 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
         });
     }
 
+    @Override
+    public boolean readOnlyScanImplemented() {
+        return true;
+    }
+
     private @Nullable SortedIndexRowKey createBound(@Nullable BinaryTuplePrefix bound, boolean setEqualityFlag) {
         if (bound == null) {
             return null;

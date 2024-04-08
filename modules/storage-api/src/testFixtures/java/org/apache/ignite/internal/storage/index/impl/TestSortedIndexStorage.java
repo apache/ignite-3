@@ -39,6 +39,7 @@ import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.PeekCursor;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
+import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.TransformingIterator;
 import org.jetbrains.annotations.Nullable;
 
@@ -142,6 +143,11 @@ public class TestSortedIndexStorage extends AbstractTestIndexStorage implements 
         pendingCursors.incrementAndGet();
 
         return new ScanCursor(navigableSet);
+    }
+
+    @Override
+    public Cursor<IndexRow> readOnlyScan(@Nullable BinaryTuplePrefix lowerBound, @Nullable BinaryTuplePrefix upperBound, int flags) {
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     private IndexRowImpl prefixToIndexRow(BinaryTuplePrefix prefix, RowId rowId) {
