@@ -70,6 +70,8 @@ public class StreamerSubscriber<T, P> implements Subscriber<DataStreamerItem<T>>
 
     private @Nullable ScheduledFuture<?> flushTask;
 
+    private boolean closed;
+
     /**
      * Constructor.
      *
@@ -99,7 +101,7 @@ public class StreamerSubscriber<T, P> implements Subscriber<DataStreamerItem<T>>
 
     /** {@inheritDoc} */
     @Override
-    public void onSubscribe(Subscription subscription) {
+    public synchronized void onSubscribe(Subscription subscription) {
         if (this.subscription != null) {
             throw new IllegalStateException("Subscription is already set.");
         }
@@ -208,7 +210,7 @@ public class StreamerSubscriber<T, P> implements Subscriber<DataStreamerItem<T>>
         }
     }
 
-    private void close(@Nullable Throwable throwable) {
+    private synchronized void close(@Nullable Throwable throwable) {
         if (flushTask != null) {
             flushTask.cancel(false);
         }
@@ -228,9 +230,15 @@ public class StreamerSubscriber<T, P> implements Subscriber<DataStreamerItem<T>>
         } else {
             completionFut.completeExceptionally(throwable);
         }
+
+        closed = true;
     }
 
-    private void requestMore() {
+    private synchronized void requestMore() {
+        if (closed || subscription == null) {
+            return;
+        }
+
         // This method controls backpressure. We won't get more items than we requested.
         // The idea is to have perPartitionParallelOperations batches in flight for every connection.
         var pending = pendingItemCount.get();
@@ -242,12 +250,15 @@ public class StreamerSubscriber<T, P> implements Subscriber<DataStreamerItem<T>>
             return;
         }
 
-        assert subscription != null;
         subscription.request(count);
         pendingItemCount.addAndGet(count);
     }
 
-    private void initFlushTimer() {
+    private synchronized void initFlushTimer() {
+        if (closed) {
+            return;
+        }
+
         int interval = options.autoFlushFrequency();
 
         if (interval <= 0) {
