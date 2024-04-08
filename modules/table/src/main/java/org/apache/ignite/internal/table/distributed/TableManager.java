@@ -2556,11 +2556,19 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private synchronized ScheduledExecutorService streamerFlushExecutor() {
-        if (streamerFlushExecutor == null) {
-            streamerFlushExecutor = Executors.newSingleThreadScheduledExecutor(
-                    IgniteThreadFactory.create(nodeName, "streamer-flush-executor", LOG, STORAGE_WRITE));
+        if (!busyLock.enterBusy()) {
+            throw new IgniteException(new NodeStoppingException());
         }
 
-        return streamerFlushExecutor;
+        try {
+            if (streamerFlushExecutor == null) {
+                streamerFlushExecutor = Executors.newSingleThreadScheduledExecutor(
+                        IgniteThreadFactory.create(nodeName, "streamer-flush-executor", LOG, STORAGE_WRITE));
+            }
+
+            return streamerFlushExecutor;
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 }
