@@ -143,6 +143,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     /** Scheduled executor for idle safe time sync. */
     private final ScheduledExecutorService scheduledIdleSafeTimeSyncExecutor;
 
+    private final ScheduledExecutorService scheduledTableLeaseUpdateExecutor;
+
     private final Executor requestsExecutor;
 
     /** Set of message groups to handler as replica requests. */
@@ -217,6 +219,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         scheduledIdleSafeTimeSyncExecutor = Executors.newScheduledThreadPool(
                 1,
                 NamedThreadFactory.create(nodeName, "scheduled-idle-safe-time-sync-thread", LOG)
+        );
+
+        scheduledTableLeaseUpdateExecutor = Executors.newScheduledThreadPool(
+                1,
+                NamedThreadFactory.create(nodeName, "scheduled-table-lease-update-thread", LOG)
         );
     }
 
@@ -665,7 +672,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 TimeUnit.MILLISECONDS
         );
 
-        scheduledIdleSafeTimeSyncExecutor.scheduleAtFixedRate(() -> {
+        scheduledTableLeaseUpdateExecutor.scheduleAtFixedRate(() -> {
                     for (Map.Entry<ZonePartitionId, Set<ReplicationGroupId>> entry : zonePartIdToTablePartId.entrySet()) {
                         ZonePartitionId repGrp = entry.getKey();
 
@@ -723,6 +730,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         busyLock.block();
 
         shutdownAndAwaitTermination(scheduledIdleSafeTimeSyncExecutor, 10, TimeUnit.SECONDS);
+        shutdownAndAwaitTermination(scheduledTableLeaseUpdateExecutor, 10, TimeUnit.SECONDS);
 
         assert replicas.values().stream().noneMatch(CompletableFuture::isDone)
                 : "There are replicas alive [replicas="

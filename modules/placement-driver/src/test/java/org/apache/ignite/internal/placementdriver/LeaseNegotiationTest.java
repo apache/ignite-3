@@ -150,7 +150,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
                 metaStorageManager,
                 pdClusterService.topologyService(),
                 new TestClockService(new HybridClockImpl()),
-                GROUP_ID -> ZONE_PARTITION_ID
+                grpId -> ZONE_PARTITION_ID
         );
 
         leaseTracker.startTrack(0L);
@@ -162,7 +162,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
                 pdLogicalTopologyService,
                 leaseTracker,
                 new TestClockService(new HybridClockImpl()),
-                GROUP_ID -> ZONE_PARTITION_ID
+                grpId -> ZONE_PARTITION_ID
         );
     }
 
@@ -236,7 +236,10 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
             return createLeaseGrantedMessageResponse(true);
         };
 
-        metaStorageManager.put(stablePartAssignmentsKey(ZONE_PARTITION_ID), Assignments.toBytes(Set.of(forPeer(NODE_0_NAME), forPeer(NODE_1_NAME))));
+        metaStorageManager.put(
+                stablePartAssignmentsKey(ZONE_PARTITION_ID),
+                Assignments.toBytes(Set.of(forPeer(NODE_0_NAME), forPeer(NODE_1_NAME)))
+        );
 
         assertThat(lgmReceived, willCompleteSuccessfully());
 
