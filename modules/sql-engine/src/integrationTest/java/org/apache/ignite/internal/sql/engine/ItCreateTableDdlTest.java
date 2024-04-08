@@ -379,19 +379,19 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
     @Test
     public void testSuccessfulCreateTableWithZoneIdentifier() {
-        sql("CREATE ZONE test_zone");
+        sql("CREATE ZONE test_zone WITH STORAGE_PROFILES='" + DEFAULT_STORAGE_PROFILE + "'");
         sql("CREATE TABLE test_table (id INT PRIMARY KEY, val INT) WITH PRIMARY_ZONE=test_zone");
     }
 
     @Test
     public void testSuccessfulCreateTableWithZoneLiteral() {
-        sql("CREATE ZONE test_zone");
+        sql("CREATE ZONE test_zone WITH STORAGE_PROFILES='" + DEFAULT_STORAGE_PROFILE + "'");
         sql("CREATE TABLE test_table (id INT PRIMARY KEY, val INT) WITH PRIMARY_ZONE='TEST_ZONE'");
     }
 
     @Test
     public void testSuccessfulCreateTableWithZoneQuotedLiteral() {
-        sql("CREATE ZONE \"test_zone\"");
+        sql("CREATE ZONE \"test_zone\" WITH STORAGE_PROFILES='" + DEFAULT_STORAGE_PROFILE + "'");
         sql("CREATE TABLE test_table (id INT PRIMARY KEY, val INT) WITH PRIMARY_ZONE='test_zone'");
         sql("DROP TABLE test_table");
         sql("DROP ZONE \"test_zone\"");
@@ -400,7 +400,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     @Test
     public void testExceptionalCreateTableWithZoneUnquotedLiteral() {
 
-        sql("CREATE ZONE test_zone");
+        sql("CREATE ZONE test_zone WITH STORAGE_PROFILES='" + DEFAULT_STORAGE_PROFILE + "'");
         assertThrowsSqlException(
                 SqlException.class,
                 STMT_VALIDATION_ERR,
