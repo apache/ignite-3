@@ -33,7 +33,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
  */
 public class IgniteSqlAlterZoneSetDefault extends IgniteAbstractSqlAlterZone {
 
-    /** ALTER ZONE RENAME TO operator. */
+    /** ALTER ZONE SET DEFAULT operator. */
     protected static class Operator extends IgniteDdlOperator {
 
         /** Constructor. */
