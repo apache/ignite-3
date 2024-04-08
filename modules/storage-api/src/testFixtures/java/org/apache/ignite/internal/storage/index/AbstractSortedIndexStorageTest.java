@@ -175,7 +175,7 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
     void testEmpty(boolean readOnly) {
         SortedIndexStorage index = createIndexStorage(INDEX_NAME, shuffledRandomColumnParams());
 
-        assertThat(getIndexRowList(index, null, null, 0, readOnly), is(empty()));
+        assertThat(scan(index, null, null, 0, readOnly), is(empty()));
     }
 
     /**
@@ -210,7 +210,7 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
         put(index, row2);
         put(index, row3);
 
-        List<Object[]> actualColumns = getIndexRowList(index, null, null, 0, false);
+        List<Object[]> actualColumns = scan(index, null, null, 0, false);
 
         assertThat(actualColumns, contains(columnValues2, columnValues1, columnValues1));
     }
@@ -238,28 +238,28 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
         put(index, row2);
         put(index, row3);
 
-        List<Object[]> actualColumns = getIndexRowList(index, null, null, 0, false);
+        List<Object[]> actualColumns = scan(index, null, null, 0, false);
 
         assertThat(actualColumns, contains(columnValues2, columnValues1, columnValues1));
 
         // Test that rows with the same indexed columns can be removed individually
         remove(index, row2);
 
-        actualColumns = getIndexRowList(index, null, null, 0, false);
+        actualColumns = scan(index, null, null, 0, false);
 
         assertThat(actualColumns, contains(columnValues2, columnValues1));
 
         // Test that removing a non-existent row does nothing
         remove(index, row2);
 
-        actualColumns = getIndexRowList(index, null, null, 0, false);
+        actualColumns = scan(index, null, null, 0, false);
 
         assertThat(actualColumns, contains(columnValues2, columnValues1));
 
         // Test that the first row can be actually removed
         remove(index, row1);
 
-        actualColumns = getIndexRowList(index, null, null, 0, false);
+        actualColumns = scan(index, null, null, 0, false);
 
         assertThat(actualColumns, contains((Object) columnValues2));
     }
@@ -390,56 +390,56 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
 
         // Test without bounds.
         assertThat(
-                getIndexRowList(index1, null, null, 0, readOnly),
+                scan(index1, null, null, 0, readOnly),
                 contains(val1080, val1090, val2080, val2090)
         );
 
         assertThat(
-                getIndexRowList(index2, null, null, 0, readOnly),
+                scan(index2, null, null, 0, readOnly),
                 contains(val1090, val1080, val2090, val2080)
         );
 
         // Lower bound exclusive.
         assertThat(
-                getIndexRowList(index1, prefix(index1, "10"), null, GREATER, readOnly),
+                scan(index1, prefix(index1, "10"), null, GREATER, readOnly),
                 contains(val2080, val2090)
         );
 
         assertThat(
-                getIndexRowList(index2, prefix(index2, "10"), null, GREATER, readOnly),
+                scan(index2, prefix(index2, "10"), null, GREATER, readOnly),
                 contains(val2090, val2080)
         );
 
         // Lower bound inclusive.
         assertThat(
-                getIndexRowList(index1, prefix(index1, "10"), null, GREATER_OR_EQUAL, readOnly),
+                scan(index1, prefix(index1, "10"), null, GREATER_OR_EQUAL, readOnly),
                 contains(val1080, val1090, val2080, val2090)
         );
 
         assertThat(
-                getIndexRowList(index2, prefix(index2, "10"), null, GREATER_OR_EQUAL, readOnly),
+                scan(index2, prefix(index2, "10"), null, GREATER_OR_EQUAL, readOnly),
                 contains(val1090, val1080, val2090, val2080)
         );
 
         // Upper bound exclusive.
         assertThat(
-                getIndexRowList(index1, null, prefix(index1, "20"), LESS, readOnly),
+                scan(index1, null, prefix(index1, "20"), LESS, readOnly),
                 contains(val1080, val1090)
         );
 
         assertThat(
-                getIndexRowList(index2, null, prefix(index2, "20"), LESS, readOnly),
+                scan(index2, null, prefix(index2, "20"), LESS, readOnly),
                 contains(val1090, val1080)
         );
 
         // Upper bound inclusive.
         assertThat(
-                getIndexRowList(index1, null, prefix(index1, "20"), LESS_OR_EQUAL, readOnly),
+                scan(index1, null, prefix(index1, "20"), LESS_OR_EQUAL, readOnly),
                 contains(val1080, val1090, val2080, val2090)
         );
 
         assertThat(
-                getIndexRowList(index2, null, prefix(index2, "20"), LESS_OR_EQUAL, readOnly),
+                scan(index2, null, prefix(index2, "20"), LESS_OR_EQUAL, readOnly),
                 contains(val1090, val1080, val2090, val2080)
         );
     }
@@ -468,7 +468,7 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
             entry1 = t;
         }
 
-        try (Cursor<IndexRow> cursor = scanStorage(
+        try (Cursor<IndexRow> cursor = getIndexRowCursor(
                 storage,
                 entry1.prefix(1).prefix(),
                 entry2.prefix(1).prefix(),
@@ -485,11 +485,11 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
     private static Stream<Arguments> allTypesColumnParamsAndReadOnly() {
         return Stream.concat(
                 ALL_TYPES_COLUMN_PARAMS.stream()
-                .map(param -> Arguments.of(param, false)),
+                        .map(param -> Arguments.of(param, false)),
                 ALL_TYPES_COLUMN_PARAMS.stream()
                         .map(param -> Arguments.of(param, true))
         );
-}
+    }
 
     /**
      * Tests that an empty range is returned if {@link SortedIndexStorage#scan} and {@link SortedIndexStorage#readOnlyScan} methods
@@ -514,7 +514,7 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
         put(indexStorage, entry1);
         put(indexStorage, entry2);
 
-        try (Cursor<IndexRow> cursor = scanStorage(
+        try (Cursor<IndexRow> cursor = getIndexRowCursor(
                 indexStorage,
                 entry2.prefix(indexSchema.size()).prefix(),
                 entry1.prefix(indexSchema.size()).prefix(),
@@ -541,13 +541,13 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
 
         // Checking without borders.
         assertThat(
-                getIndexRowList(indexStorage, null, null, 0, AbstractSortedIndexStorageTest::firstArrayElement, readOnly),
+                scan(indexStorage, null, null, 0, AbstractSortedIndexStorageTest::firstArrayElement, readOnly),
                 contains(0, 1, 2, 3, 4)
         );
 
         // Let's check with borders.
         assertThat(
-                getIndexRowList(
+                scan(
                         indexStorage,
                         serializer.serializeRowPrefix(0),
                         serializer.serializeRowPrefix(4),
@@ -559,7 +559,7 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
         );
 
         assertThat(
-                getIndexRowList(
+                scan(
                         indexStorage,
                         serializer.serializeRowPrefix(0),
                         serializer.serializeRowPrefix(4),
@@ -571,7 +571,7 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
         );
 
         assertThat(
-                getIndexRowList(
+                scan(
                         indexStorage,
                         serializer.serializeRowPrefix(0),
                         serializer.serializeRowPrefix(4),
@@ -583,7 +583,7 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
         );
 
         assertThat(
-                getIndexRowList(
+                scan(
                         indexStorage,
                         serializer.serializeRowPrefix(0),
                         serializer.serializeRowPrefix(4),
@@ -596,7 +596,7 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
 
         // Let's check only with the lower bound.
         assertThat(
-                getIndexRowList(
+                scan(
                         indexStorage,
                         serializer.serializeRowPrefix(1),
                         null,
@@ -608,7 +608,7 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
         );
 
         assertThat(
-                getIndexRowList(
+                scan(
                         indexStorage,
                         serializer.serializeRowPrefix(1),
                         null,
@@ -620,7 +620,7 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
         );
 
         assertThat(
-                getIndexRowList(
+                scan(
                         indexStorage,
                         serializer.serializeRowPrefix(1),
                         null,
@@ -632,7 +632,7 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
         );
 
         assertThat(
-                getIndexRowList(
+                scan(
                         indexStorage,
                         serializer.serializeRowPrefix(1),
                         null,
@@ -645,7 +645,7 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
 
         // Let's check only with the upper bound.
         assertThat(
-                getIndexRowList(
+                scan(
                         indexStorage,
                         null,
                         serializer.serializeRowPrefix(3),
@@ -657,7 +657,7 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
         );
 
         assertThat(
-                getIndexRowList(
+                scan(
                         indexStorage,
                         null,
                         serializer.serializeRowPrefix(3),
@@ -669,7 +669,7 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
         );
 
         assertThat(
-                getIndexRowList(
+                scan(
                         indexStorage,
                         null,
                         serializer.serializeRowPrefix(3),
@@ -681,7 +681,7 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
         );
 
         assertThat(
-                getIndexRowList(
+                scan(
                         indexStorage,
                         null,
                         serializer.serializeRowPrefix(3),
@@ -1531,17 +1531,17 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
         return serializer.serializeRowPrefix(vals);
     }
 
-    private static List<Object[]> getIndexRowList(
+    private static List<Object[]> scan(
             SortedIndexStorage index,
             @Nullable BinaryTuplePrefix lowerBound,
             @Nullable BinaryTuplePrefix upperBound,
             @MagicConstant(flagsFromClass = SortedIndexStorage.class) int flags,
             boolean readOnly
     ) {
-        return getIndexRowList(index, lowerBound, upperBound, flags, identity(), readOnly);
+        return scan(index, lowerBound, upperBound, flags, identity(), readOnly);
     }
 
-    private static <T> List<T> getIndexRowList(
+    private static <T> List<T> scan(
             SortedIndexStorage storage,
             @Nullable BinaryTuplePrefix lowerBound,
             @Nullable BinaryTuplePrefix upperBound,
@@ -1564,7 +1564,7 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
         }
     }
 
-    private Cursor<IndexRow> scanStorage(
+    private static Cursor<IndexRow> getIndexRowCursor(
             SortedIndexStorage indexStorage,
             BinaryTuplePrefix lowerBound,
             BinaryTuplePrefix upperBound,

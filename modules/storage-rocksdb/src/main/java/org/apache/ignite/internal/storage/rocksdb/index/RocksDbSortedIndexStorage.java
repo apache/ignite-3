@@ -157,11 +157,6 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
         });
     }
 
-    @Override
-    public Cursor<IndexRow> readOnlyScan(@Nullable BinaryTuplePrefix lowerBound, @Nullable BinaryTuplePrefix upperBound, int flags) {
-        throw new UnsupportedOperationException("Not implemented yet.");
-    }
-
     protected <T> PeekCursor<T> scan(
             @Nullable BinaryTuplePrefix lowerBound,
             @Nullable BinaryTuplePrefix upperBound,
@@ -201,6 +196,11 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
                 return mapper.apply(byteBuffer);
             }
         };
+    }
+
+    @Override
+    public Cursor<IndexRow> readOnlyScan(@Nullable BinaryTuplePrefix lowerBound, @Nullable BinaryTuplePrefix upperBound, int flags) {
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     private static void setEqualityFlag(byte[] prefix) {

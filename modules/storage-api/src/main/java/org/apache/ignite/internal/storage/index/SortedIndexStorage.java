@@ -48,7 +48,7 @@ public interface SortedIndexStorage extends IndexStorage {
     StorageSortedIndexDescriptor indexDescriptor();
 
     /**
-     * Returns a range of index values between the lower bound and the upper bound.
+     * Returns a range of updatable index values between the lower bound and the upper bound, supporting read-write transactions.
      *
      * @param lowerBound Lower bound. Exclusivity is controlled by a {@link #GREATER_OR_EQUAL} or {@link #GREATER} flag.
      *      {@code null} means unbounded.
@@ -66,7 +66,16 @@ public interface SortedIndexStorage extends IndexStorage {
     );
 
     /**
-     * Same as {@link SortedIndexStorage#scan}, returning read-only cursor
+     * Returns a range of index values between the lower bound and the upper bound, use in read-only transactions.
+     *
+     * @param lowerBound Lower bound. Exclusivity is controlled by a {@link #GREATER_OR_EQUAL} or {@link #GREATER} flag.
+     *      {@code null} means unbounded.
+     * @param upperBound Upper bound. Exclusivity is controlled by a {@link #LESS} or {@link #LESS_OR_EQUAL} flag.
+     *      {@code null} means unbounded.
+     * @param flags Control flags. {@link #GREATER} | {@link #LESS} by default. Other available values
+     *      are {@link #GREATER_OR_EQUAL}, {@link #LESS_OR_EQUAL}.
+     * @return Cursor with fetched index rows.
+     * @throws IllegalArgumentException If backwards flag is passed and backwards iteration is not supported by the storage.
      */
     Cursor<IndexRow> readOnlyScan(
             @Nullable BinaryTuplePrefix lowerBound,
@@ -74,8 +83,8 @@ public interface SortedIndexStorage extends IndexStorage {
             @MagicConstant(flagsFromClass = SortedIndexStorage.class) int flags
     );
 
-    /** If read only scan is implemented for this storage. */
+    /** If read-only scan is implemented for this storage. */
     default boolean readOnlyScanImplemented() {
         return false;
-    };
+    }
 }

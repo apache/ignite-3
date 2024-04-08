@@ -1333,7 +1333,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 lowerBound,
                                 upperBound,
                                 flags
-                        )
+                         )
                 );
 
         Cursor<IndexRow> cursor = remotelyTriggeredResourceRegistry.<CursorResource>register(cursorId, request.coordinatorId(),
