@@ -17,8 +17,12 @@
 
 package org.apache.ignite.internal.sql.api;
 
+import static org.apache.ignite.internal.thread.PublicApiThreading.execUserAsyncOperation;
+import static org.apache.ignite.internal.thread.PublicApiThreading.execUserSyncOperation;
+
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.wrapper.Wrapper;
 import org.apache.ignite.sql.BatchedArguments;
@@ -33,35 +37,37 @@ import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Wrapper around {@link IgniteSql} that adds protection agains thread hijacking by users.
+ * Wrapper around {@link IgniteSql} that maintains public API invariants relating to threading.
+ * That is, it adds protection against thread hijacking by users and also marks threads as 'executing a sync user operation' or
+ * 'executing an async user operation'.
  */
-public class AntiHijackIgniteSql implements IgniteSql, Wrapper {
+public class PublicApiThreadingIgniteSql implements IgniteSql, Wrapper {
     private final IgniteSql sql;
     private final Executor asyncContinuationExecutor;
 
-    public AntiHijackIgniteSql(IgniteSql sql, Executor asyncContinuationExecutor) {
+    public PublicApiThreadingIgniteSql(IgniteSql sql, Executor asyncContinuationExecutor) {
         this.sql = sql;
         this.asyncContinuationExecutor = asyncContinuationExecutor;
     }
 
     @Override
     public Statement createStatement(String query) {
-        return sql.createStatement(query);
+        return execUserSyncOperation(() -> sql.createStatement(query));
     }
 
     @Override
     public StatementBuilder statementBuilder() {
-        return sql.statementBuilder();
+        return execUserSyncOperation(sql::statementBuilder);
     }
 
     @Override
     public ResultSet<SqlRow> execute(@Nullable Transaction transaction, String query, @Nullable Object... arguments) {
-        return sql.execute(transaction, query, arguments);
+        return execUserSyncOperation(() -> sql.execute(transaction, query, arguments));
     }
 
     @Override
     public ResultSet<SqlRow> execute(@Nullable Transaction transaction, Statement statement, @Nullable Object... arguments) {
-        return sql.execute(transaction, statement, arguments);
+        return execUserSyncOperation(() -> sql.execute(transaction, statement, arguments));
     }
 
     @Override
@@ -71,7 +77,7 @@ public class AntiHijackIgniteSql implements IgniteSql, Wrapper {
             String query,
             @Nullable Object... arguments
     ) {
-        return sql.execute(transaction, mapper, query, arguments);
+        return execUserSyncOperation(() -> sql.execute(transaction, mapper, query, arguments));
     }
 
     @Override
@@ -81,7 +87,7 @@ public class AntiHijackIgniteSql implements IgniteSql, Wrapper {
             Statement statement,
             @Nullable Object... arguments
     ) {
-        return sql.execute(transaction, mapper, statement, arguments);
+        return execUserSyncOperation(() -> sql.execute(transaction, mapper, statement, arguments));
     }
 
     @Override
@@ -90,7 +96,7 @@ public class AntiHijackIgniteSql implements IgniteSql, Wrapper {
             String query,
             @Nullable Object... arguments
     ) {
-        return preventThreadHijackForResultSet(sql.executeAsync(transaction, query, arguments));
+        return doAsyncOperationForResultSet(() -> sql.executeAsync(transaction, query, arguments));
     }
 
     @Override
@@ -99,7 +105,7 @@ public class AntiHijackIgniteSql implements IgniteSql, Wrapper {
             Statement statement,
             @Nullable Object... arguments
     ) {
-        return preventThreadHijackForResultSet(sql.executeAsync(transaction, statement, arguments));
+        return doAsyncOperationForResultSet(() -> sql.executeAsync(transaction, statement, arguments));
     }
 
     @Override
@@ -109,7 +115,7 @@ public class AntiHijackIgniteSql implements IgniteSql, Wrapper {
             String query,
             @Nullable Object... arguments
     ) {
-        return preventThreadHijackForResultSet(sql.executeAsync(transaction, mapper, query, arguments));
+        return doAsyncOperationForResultSet(() -> sql.executeAsync(transaction, mapper, query, arguments));
     }
 
     @Override
@@ -119,46 +125,49 @@ public class AntiHijackIgniteSql implements IgniteSql, Wrapper {
             Statement statement,
             @Nullable Object... arguments
     ) {
-        return preventThreadHijackForResultSet(sql.executeAsync(transaction, mapper, statement, arguments));
+        return doAsyncOperationForResultSet(() -> sql.executeAsync(transaction, mapper, statement, arguments));
     }
 
     @Override
     public long[] executeBatch(@Nullable Transaction transaction, String dmlQuery, BatchedArguments batch) {
-        return sql.executeBatch(transaction, dmlQuery, batch);
+        return execUserSyncOperation(() -> sql.executeBatch(transaction, dmlQuery, batch));
     }
 
     @Override
     public long[] executeBatch(@Nullable Transaction transaction, Statement dmlStatement, BatchedArguments batch) {
-        return sql.executeBatch(transaction, dmlStatement, batch);
+        return execUserSyncOperation(() -> sql.executeBatch(transaction, dmlStatement, batch));
     }
 
     @Override
     public CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, String query, BatchedArguments batch) {
-        return preventThreadHijack(sql.executeBatchAsync(transaction, query, batch));
+        return doAsyncOperation(() -> sql.executeBatchAsync(transaction, query, batch));
     }
 
     @Override
     public CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, Statement statement, BatchedArguments batch) {
-        return preventThreadHijack(sql.executeBatchAsync(transaction, statement, batch));
+        return doAsyncOperation(() -> sql.executeBatchAsync(transaction, statement, batch));
     }
 
     @Override
     public void executeScript(String query, @Nullable Object... arguments) {
-        sql.executeScript(query, arguments);
+        execUserSyncOperation(() -> sql.executeScript(query, arguments));
     }
 
     @Override
     public CompletableFuture<Void> executeScriptAsync(String query, @Nullable Object... arguments) {
-        return preventThreadHijack(sql.executeScriptAsync(query, arguments));
+        return doAsyncOperation(() -> sql.executeScriptAsync(query, arguments));
     }
 
-    private <T> CompletableFuture<AsyncResultSet<T>> preventThreadHijackForResultSet(CompletableFuture<AsyncResultSet<T>> originalFuture) {
-        return preventThreadHijack(originalFuture)
+    private <T> CompletableFuture<AsyncResultSet<T>> doAsyncOperationForResultSet(
+            Supplier<CompletableFuture<AsyncResultSet<T>>> operation
+    ) {
+        return doAsyncOperation(operation)
                 .thenApply(resultSet -> new AntiHijackAsyncResultSet<>(resultSet, asyncContinuationExecutor));
     }
 
-    private <T> CompletableFuture<T> preventThreadHijack(CompletableFuture<T> originalFuture) {
-        return PublicApiThreading.preventThreadHijack(originalFuture, asyncContinuationExecutor);
+    private <T> CompletableFuture<T> doAsyncOperation(Supplier<CompletableFuture<T>> operation) {
+        CompletableFuture<T> future = execUserAsyncOperation(operation);
+        return PublicApiThreading.preventThreadHijack(future, asyncContinuationExecutor);
     }
 
     @Override

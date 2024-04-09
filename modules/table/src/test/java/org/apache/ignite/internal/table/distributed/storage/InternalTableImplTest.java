@@ -74,7 +74,8 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 new TableRaftServiceImpl("test", 1, Int2ObjectMaps.emptyMap(), new SingleClusterNodeResolver(mock(ClusterNode.class))),
                 mock(TransactionInflights.class),
                 3_000,
-                0
+                0,
+                null
         );
 
         // Let's check the empty table.
@@ -123,7 +124,8 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 new TableRaftServiceImpl("test", 3, Int2ObjectMaps.emptyMap(), new SingleClusterNodeResolver(mock(ClusterNode.class))),
                 mock(TransactionInflights.class),
                 3_000,
-                0
+                0,
+                null
         );
 
         List<BinaryRowEx> originalRows = List.of(

@@ -17,9 +17,13 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static org.apache.ignite.internal.thread.PublicApiThreading.execUserAsyncOperation;
+import static org.apache.ignite.internal.thread.PublicApiThreading.execUserSyncOperation;
+
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -33,35 +37,37 @@ import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Wrapper around {@link Transaction} that adds protection against thread hijacking by users.
+ * Wrapper around {@link Transaction} that maintains public API invariants relating to threading.
+ * That is, it adds protection against thread hijacking by users and also marks threads as 'executing a sync user operation' or
+ * 'executing an async user operation'.
  */
-public class AntiHijackTransaction implements InternalTransaction, Wrapper {
+public class PublicApiThreadingTransaction implements InternalTransaction, Wrapper {
     private final InternalTransaction transaction;
     private final Executor asyncContinuationExecutor;
 
-    public AntiHijackTransaction(Transaction transaction, Executor asyncContinuationExecutor) {
+    PublicApiThreadingTransaction(Transaction transaction, Executor asyncContinuationExecutor) {
         this.transaction = (InternalTransaction) transaction;
         this.asyncContinuationExecutor = asyncContinuationExecutor;
     }
 
     @Override
     public void commit() throws TransactionException {
-        transaction.commit();
+        execUserSyncOperation(transaction::commit);
     }
 
     @Override
     public CompletableFuture<Void> commitAsync() {
-        return preventThreadHijack(transaction.commitAsync());
+        return preventThreadHijack(transaction::commitAsync);
     }
 
     @Override
     public void rollback() throws TransactionException {
-        transaction.rollback();
+        execUserSyncOperation(transaction::rollback);
     }
 
     @Override
     public CompletableFuture<Void> rollbackAsync() {
-        return preventThreadHijack(transaction.rollbackAsync());
+        return preventThreadHijack(transaction::rollbackAsync);
     }
 
     @Override
@@ -69,8 +75,9 @@ public class AntiHijackTransaction implements InternalTransaction, Wrapper {
         return transaction.isReadOnly();
     }
 
-    private <T> CompletableFuture<T> preventThreadHijack(CompletableFuture<T> originalFuture) {
-        return PublicApiThreading.preventThreadHijack(originalFuture, asyncContinuationExecutor);
+    private <T> CompletableFuture<T> preventThreadHijack(Supplier<CompletableFuture<T>> operation) {
+        CompletableFuture<T> future = execUserAsyncOperation(operation);
+        return PublicApiThreading.preventThreadHijack(future, asyncContinuationExecutor);
     }
 
     @Override

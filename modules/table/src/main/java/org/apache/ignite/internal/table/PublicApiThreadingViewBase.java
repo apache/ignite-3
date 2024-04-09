@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Flow.Publisher;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.lang.Cursor;
@@ -32,13 +33,13 @@ import org.apache.ignite.table.criteria.CriteriaQuerySource;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
-abstract class AntiHijackViewBase<T> implements DataStreamerTarget<T>, CriteriaQuerySource<T> {
+abstract class PublicApiThreadingViewBase<T> implements DataStreamerTarget<T>, CriteriaQuerySource<T> {
     private final DataStreamerTarget<T> streamerTarget;
     private final CriteriaQuerySource<T> querySource;
 
     private final Executor asyncContinuationExecutor;
 
-    AntiHijackViewBase(
+    PublicApiThreadingViewBase(
             DataStreamerTarget<T> streamerTarget,
             CriteriaQuerySource<T> querySource,
             Executor asyncContinuationExecutor
@@ -50,7 +51,7 @@ abstract class AntiHijackViewBase<T> implements DataStreamerTarget<T>, CriteriaQ
 
     @Override
     public CompletableFuture<Void> streamData(Publisher<DataStreamerItem<T>> publisher, @Nullable DataStreamerOptions options) {
-        return preventThreadHijack(streamerTarget.streamData(publisher, options));
+        return executeAsyncOp(() -> streamerTarget.streamData(publisher, options));
     }
 
     @Override
@@ -60,7 +61,7 @@ abstract class AntiHijackViewBase<T> implements DataStreamerTarget<T>, CriteriaQ
             @Nullable String indexName,
             @Nullable CriteriaQueryOptions opts
     ) {
-        return querySource.query(tx, criteria, indexName, opts);
+        return executeSyncOp(() -> querySource.query(tx, criteria, indexName, opts));
     }
 
     @Override
@@ -70,11 +71,21 @@ abstract class AntiHijackViewBase<T> implements DataStreamerTarget<T>, CriteriaQ
             @Nullable String indexName,
             @Nullable CriteriaQueryOptions opts
     ) {
-        return preventThreadHijack(querySource.queryAsync(tx, criteria, indexName, opts))
+        return executeAsyncOp(() -> querySource.queryAsync(tx, criteria, indexName, opts))
                 .thenApply(cursor -> new AntiHijackAsyncCursor<>(cursor, asyncContinuationExecutor));
     }
 
-    final <U> CompletableFuture<U> preventThreadHijack(CompletableFuture<U> originalFuture) {
-        return PublicApiThreading.preventThreadHijack(originalFuture, asyncContinuationExecutor);
+    final <U> CompletableFuture<U> executeAsyncOp(Supplier<CompletableFuture<U>> operation) {
+        CompletableFuture<U> future = PublicApiThreading.execUserAsyncOperation(operation);
+
+        return PublicApiThreading.preventThreadHijack(future, asyncContinuationExecutor);
+    }
+
+    static <T> T executeSyncOp(Supplier<T> operation) {
+        return PublicApiThreading.execUserSyncOperation(operation);
+    }
+
+    static void executeSyncOp(Runnable operation) {
+        PublicApiThreading.execUserSyncOperation(operation);
     }
 }

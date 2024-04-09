@@ -309,7 +309,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
         RaftGroupService raftGroupService = cluster.leaderServiceFor(tablePartitionId);
 
         assertThat(
-                "Unexpected leadership change",
+                "Unexpected leadership change on group: " + tablePartitionId,
                 raftGroupService.getServerId().getConsistentId(), is(cluster.node(expectedLeaderNodeIndex).name())
         );
 

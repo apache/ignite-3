@@ -181,6 +181,30 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
     }
 
     @Test
+    public void testAlterZoneSetDefault() throws SqlParseException {
+        SqlNode node = parse("ALTER ZONE test SET DEFAULT");
+
+        DdlCommand cmd = converter.convert((SqlDdl) node, createContext());
+        assertThat(cmd, Matchers.instanceOf(AlterZoneSetDefaultCommand.class));
+
+        AlterZoneSetDefaultCommand zoneCmd = (AlterZoneSetDefaultCommand) cmd;
+        assertThat(zoneCmd.zoneName(), equalTo("TEST"));
+        assertThat(zoneCmd.ifExists(), is(false));
+    }
+
+    @Test
+    public void testAlterZoneSetDefaultIfExists() throws SqlParseException {
+        SqlNode node = parse("ALTER ZONE IF EXISTS test SET DEFAULT");
+
+        DdlCommand cmd = converter.convert((SqlDdl) node, createContext());
+        assertThat(cmd, Matchers.instanceOf(AlterZoneSetDefaultCommand.class));
+
+        AlterZoneSetDefaultCommand zoneCmd = (AlterZoneSetDefaultCommand) cmd;
+        assertThat(zoneCmd.zoneName(), equalTo("TEST"));
+        assertThat(zoneCmd.ifExists(), is(true));
+    }
+
+    @Test
     public void testAlterZoneCommandWithInvalidOptions() throws SqlParseException {
         SqlNode node = parse("ALTER ZONE test SET replicas=2, data_nodes_auto_adjust=-100");
 
