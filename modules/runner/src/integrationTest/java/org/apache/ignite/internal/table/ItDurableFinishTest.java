@@ -146,7 +146,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
 
         // Drop all finish messages to the old primary, pick a new one.
         // The coordinator will get a response from the new primary.
-        CompletableFuture<Void> transferPrimaryFuture = changePrimaryOnFinish(context.coordinatorNode, context.publicTable);
+        CompletableFuture<Void> transferPrimaryFuture = changePrimaryOnFinish(context.coordinatorNode);
 
         // The primary is changed after calculating the outcome and commit timestamp.
         // The new primary successfully commits such transaction.
@@ -155,7 +155,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
         assertThat(transferPrimaryFuture, willCompleteSuccessfully());
     }
 
-    private CompletableFuture<Void> changePrimaryOnFinish(IgniteImpl coordinatorNode, Table publicTable) {
+    private CompletableFuture<Void> changePrimaryOnFinish(IgniteImpl coordinatorNode) {
         DefaultMessagingService coordinatorMessaging = messaging(coordinatorNode);
 
         AtomicBoolean dropMessage = new AtomicBoolean(true);
@@ -247,14 +247,14 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
         Context context = prepareTransactionData();
 
         // The transaction is committed but the primary expires right before applying the cleanup message.
-        CompletableFuture<Void> transferPrimaryFuture = changePrimaryOnCleanup(context.primaryNode, context.publicTable);
+        CompletableFuture<Void> transferPrimaryFuture = changePrimaryOnCleanup(context.primaryNode);
 
         commitAndValidate(context.tx, context.publicTable, context.keyTpl);
 
         assertThat(transferPrimaryFuture, willCompleteSuccessfully());
     }
 
-    private CompletableFuture<Void> changePrimaryOnCleanup(IgniteImpl primaryNode, Table publicTable) {
+    private CompletableFuture<Void> changePrimaryOnCleanup(IgniteImpl primaryNode) {
         DefaultMessagingService primaryMessaging = messaging(primaryNode);
 
         AtomicBoolean dropMessage = new AtomicBoolean(true);
