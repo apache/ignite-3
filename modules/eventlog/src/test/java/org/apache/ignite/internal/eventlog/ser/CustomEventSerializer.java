@@ -24,7 +24,7 @@ import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.ser.std.StdSerializer;
 import java.io.IOException;
 
-public class CustomEventSerializer extends JacksonBasedJsonSerializer {
+class CustomEventSerializer extends JacksonBasedJsonSerializer {
     /** Default constructor. */
     public CustomEventSerializer() {
         super(createJacksonModule());

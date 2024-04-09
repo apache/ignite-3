@@ -19,7 +19,10 @@ package org.apache.ignite.internal.eventlog.ser;
 
 import org.apache.ignite.internal.eventlog.api.Event;
 
-public class RegistryBackedEventSerializer implements EventSerializer {
+/**
+ * EventSerializer which uses passed registry to resolve the actual serializer which is compatible with the requested Event class.
+ */
+class RegistryBackedEventSerializer implements EventSerializer {
     private final EventSerializerRegistry serializerRegistry;
 
     public RegistryBackedEventSerializer(EventSerializerRegistry eventSerializerRegistry) {

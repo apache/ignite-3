@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.eventlog.ser;
 
-public class Message {
+class Message {
     private final int version;
     private final String body;
 

@@ -23,6 +23,9 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.eventlog.api.Event;
 
+/**
+ * Implementation of EventSerializerRegistry.
+ */
 public class EventSerializerRegistryImpl implements EventSerializerRegistry {
     private final ReadWriteLock guard = new ReentrantReadWriteLock();
     private final Map<Class<? extends Event>, EventSerializer> serializers = new HashMap<>();
