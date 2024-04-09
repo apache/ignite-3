@@ -51,7 +51,7 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
-import org.apache.ignite.internal.storage.impl.TestStorageEngine;
+import org.apache.ignite.internal.storage.impl.schema.TestProfileConfigurationSchema;
 import org.apache.ignite.internal.storage.index.impl.TestHashIndexStorage;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 import org.apache.ignite.internal.table.NodeUtils;
@@ -93,8 +93,9 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
     public void setup(TestInfo testInfo) throws Exception {
         super.setup(testInfo);
 
-        String zoneSql = IgniteStringFormatter.format("CREATE ZONE IF NOT EXISTS {} ENGINE {} WITH REPLICAS={}, PARTITIONS={}",
-                ZONE_NAME, TestStorageEngine.ENGINE_NAME, 3, 1
+        String zoneSql = IgniteStringFormatter.format(
+                "CREATE ZONE IF NOT EXISTS {} WITH REPLICAS={}, PARTITIONS={}, STORAGE_PROFILES='{}'",
+                ZONE_NAME, 3, 1, TestProfileConfigurationSchema.TEST_PROFILE_NAME
         );
 
         String sql = IgniteStringFormatter.format(
