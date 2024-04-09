@@ -49,6 +49,7 @@ public class ColocatedHashAggregatePlannerTest extends AbstractAggregatePlannerT
 
     private final String[] disableRules = {
             "MapReduceHashAggregateConverterRule",
+            "SortAggregateExchangeTransposeRule",
             "MapReduceSortAggregateConverterRule",
             "ColocatedSortAggregateConverterRule"
     };

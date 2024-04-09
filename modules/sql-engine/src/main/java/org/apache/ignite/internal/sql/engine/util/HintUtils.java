@@ -25,10 +25,10 @@ import java.util.List;
 import java.util.StringJoiner;
 import java.util.stream.Collectors;
 import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.core.Aggregate;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.hint.Hintable;
 import org.apache.calcite.rel.hint.RelHint;
-import org.apache.calcite.rel.logical.LogicalAggregate;
 import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
 
 /**
@@ -44,7 +44,7 @@ public class HintUtils {
      *
      * @param rel Logical aggregate to check on expand distinct aggregate hint.
      */
-    public static boolean isExpandDistinctAggregate(LogicalAggregate rel) {
+    public static boolean isExpandDistinctAggregate(Aggregate rel) {
         return rel.getHints().stream()
                 .anyMatch(r -> r.hintName.equals(EXPAND_DISTINCT_AGG.name()))
                 && rel.getAggCallList().stream().anyMatch(AggregateCall::isDistinct);
