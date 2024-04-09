@@ -1,11 +1,18 @@
 # name: test/sql/function/json/test_json_query.test
-# description:
+# description: JSON_QUERY function (is a part of T821 "Basic SQL/JSON query operators")
 #   feature T828 “JSON_QUERY”
 #   feature T829 “JSON_QUERY: array wrapper options"
 #   feature T825 “SQL/JSON: ON EMPTY and ON ERROR clauses” (json_query only tests)
 # group: [json]
 
-# default mode is strict, default error behaviour is NULL
+# SQL 16 6.34 <JSON query>
+# Syntax Rules
+# 3) If <JSON query empty behavior> is not specified, then NULL ON EMPTY is implicit.
+# 4) If <JSON query error behavior> is not specified, then NULL ON ERROR is implicit.
+# 5) If <JSON query wrapper behavior> is not specified, then WITHOUT ARRAY is implicit
+# 6) If <JSON query wrapper behavior> specifies WITH and neither CONDITIONAL nor UNCONDITIONAL
+#    is specified, then UNCONDITIONAL is implicit.
+
 query T
 select json_query('{"foo":100}', '$.foo')
 ----
@@ -46,41 +53,33 @@ select json_query('{"foo":100}', 'lax $.foo' empty array on empty)
 ----
 []
 
-statement ok
-create table t(jsonData VARCHAR, jsonPath VARCHAR)
-
-statement ok
-insert into t values('{"info":{"type": 1, "address":[{"town":"Paris"},{"town":"London"}]}}', '$.info.address')
-
 query T
-select JSON_QUERY(jsonData, jsonPath) from t
+select JSON_QUERY('{"info":{"type": 1, "address":[{"town":"Paris"},{"town":"London"}]}}', '$.info.address')
 ----
 [{"town":"Paris"},{"town":"London"}]
 
 query T
-select JSON_QUERY(jsonData, '$.info.address[1]') from t
+select JSON_QUERY('{"info":{"type": 1, "address":[{"town":"Paris"},{"town":"London"}]}}', '$.info.address[1]')
 ----
 {"town":"London"}
 
 # Array wrapper is absent by default
 query T
-select JSON_QUERY(jsonData, '$.info.address' without array wrapper) from t
+select JSON_QUERY('{"info":{"type": 1, "address":[{"town":"Paris"},{"town":"London"}]}}', '$.info.address' without array wrapper)
 ----
 [{"town":"Paris"},{"town":"London"}]
 
-# 6.34 Rule 6 If <JSON query wrapper behavior> specifies WITH and neither CONDITIONAL nor UNCONDITIONAL
-# is specified, then UNCONDITIONAL is implicit.
 query T
-select JSON_QUERY(jsonData, '$.info.address' with wrapper) from t
+select JSON_QUERY('{"info":{"type": 1, "address":[{"town":"Paris"},{"town":"London"}]}}', '$.info.address' with wrapper)
 ----
 [[{"town":"Paris"},{"town":"London"}]]
 
 query T
-select JSON_QUERY(jsonData, '$.info.address' with unconditional wrapper) from t
+select JSON_QUERY('{"info":{"type": 1, "address":[{"town":"Paris"},{"town":"London"}]}}', '$.info.address' with unconditional wrapper)
 ----
 [[{"town":"Paris"},{"town":"London"}]]
 
 query T
-select JSON_QUERY(jsonData, '$.info.address' with conditional wrapper) from t
+select JSON_QUERY('{"info":{"type": 1, "address":[{"town":"Paris"},{"town":"London"}]}}', '$.info.address' with conditional wrapper)
 ----
 [{"town":"Paris"},{"town":"London"}]

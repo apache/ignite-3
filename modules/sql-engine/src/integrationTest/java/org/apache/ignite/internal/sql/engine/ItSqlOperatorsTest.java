@@ -302,7 +302,11 @@ public class ItSqlOperatorsTest extends BaseSqlIntegrationTest {
     @Test
     public void testJson() {
         assertExpression("JSON_VALUE('{\"a\":1}', '$.a')").returns("1").check();
+        assertExpression("JSON_VALUE('{\"a\":1}', '$.a' RETURNING INTEGER)").returns(1).check();
+        assertExpression("JSON_VALUE('{\"a\":true}', '$.a' RETURNING BOOLEAN)").returns(true).check();
+        assertExpression("JSON_VALUE('{\"a\":1.1}', '$.a' RETURNING DOUBLE)").returns(1.1d).check();
         assertExpression("JSON_VALUE('{\"a\":1}' FORMAT JSON, '$.a')").returns("1").check();
+
         assertExpression("JSON_QUERY('{\"a\":{\"b\":1}}', '$.a')").returns("{\"b\":1}").check();
         assertExpression("JSON_TYPE('{\"a\":1}')").returns("OBJECT").check();
         assertExpression("JSON_EXISTS('{\"a\":1}', '$.a')").returns(true).check();
