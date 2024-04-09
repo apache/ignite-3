@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.metastorage.server;
 
 import java.nio.file.Path;
+import org.apache.ignite.internal.failure.NoOpFailureProcessor;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.jetbrains.annotations.TestOnly;
 
@@ -35,7 +36,7 @@ public class TestRocksDbKeyValueStorage extends RocksDbKeyValueStorage {
      * @param dbPath RocksDB path.
      */
     public TestRocksDbKeyValueStorage(String nodeName, Path dbPath) {
-        super(nodeName, dbPath);
+        super(nodeName, dbPath, new NoOpFailureProcessor(nodeName));
     }
 
     @Override

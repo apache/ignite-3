@@ -18,14 +18,11 @@
 package org.apache.ignite.internal.streamer;
 
 import org.apache.ignite.Ignite;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 
 /**
  * Integration test for server-side data streamer API.
  */
 // Disabling thread assertions as DataStreamer uses common pool on which ReplicaManager executes its requests.
-@WithSystemProperty(key = IgniteSystemProperties.THREAD_ASSERTIONS_ENABLED, value = "false")
 public class ItServerDataStreamerTest extends ItAbstractDataStreamerTest {
     @Override
     Ignite ignite() {

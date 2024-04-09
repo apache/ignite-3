@@ -29,16 +29,18 @@ import org.apache.ignite.table.manager.IgniteTables;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Wrapper around {@link IgniteTables} that adds protection against thread hijacking by users.
+ * Wrapper around {@link IgniteTables} that maintains public API invariants relating to threading.
+ * That is, it adds protection against thread hijacking by users and also marks threads as 'executing a sync user operation' or
+ * 'executing an async user operation'.
  */
-public class AntiHijackIgniteTables implements IgniteTables, Wrapper {
+public class PublicApiThreadingIgniteTables implements IgniteTables, Wrapper {
     private final IgniteTables tables;
     private final Executor asyncContinuationExecutor;
 
     /**
      * Constructor.
      */
-    public AntiHijackIgniteTables(IgniteTables tables, Executor asyncContinuationExecutor) {
+    public PublicApiThreadingIgniteTables(IgniteTables tables, Executor asyncContinuationExecutor) {
         assert !(tables instanceof Wrapper) : "Wrapping other wrappers is not supported";
 
         this.tables = tables;
@@ -61,7 +63,7 @@ public class AntiHijackIgniteTables implements IgniteTables, Wrapper {
             return null;
         }
 
-        return new AntiHijackTable(table, asyncContinuationExecutor);
+        return new PublicApiThreadingTable(table, asyncContinuationExecutor);
     }
 
     @Override

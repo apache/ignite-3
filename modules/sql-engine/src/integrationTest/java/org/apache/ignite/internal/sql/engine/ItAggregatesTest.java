@@ -374,7 +374,7 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
         var sql = "select distinct name from person";
 
         assertQuery(sql)
-                .matches(QueryChecker.matches(".*Colocated.*Aggregate.*Exchange.*"))
+                .matches(QueryChecker.matches(".*ReduceHashAggregate.*Exchange.*MapHashAggregate.*"))
                 .returns("Igor")
                 .returns("Ilya")
                 .returns("Roma")

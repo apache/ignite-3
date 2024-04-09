@@ -28,11 +28,14 @@ import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Wrapper around {@link RecordView} that adds anti-thread-hijacking protection to methods returning {@link CompletableFuture}s.
+ * Wrapper around {@link RecordView} that maintains public API invariants relating to threading.
+ *
+ * <p>That is, it adds protection against thread hijacking by users and also marks threads as 'executing a sync user operation' or
+ * 'executing an async user operation'.
  *
  * @see PublicApiThreading#preventThreadHijack(CompletableFuture, Executor)
  */
-public class AntiHijackRecordView<R> extends AntiHijackViewBase<R> implements RecordView<R>, Wrapper {
+public class PublicApiThreadingRecordView<R> extends PublicApiThreadingViewBase<R> implements RecordView<R>, Wrapper {
     private final RecordView<R> view;
 
     /**
@@ -42,172 +45,170 @@ public class AntiHijackRecordView<R> extends AntiHijackViewBase<R> implements Re
      * @param asyncContinuationExecutor Executor to which execution will be resubmitted when leaving asynchronous public API endpoints
      *     (to prevent the user from stealing Ignite threads).
      */
-    public AntiHijackRecordView(RecordView<R> view, Executor asyncContinuationExecutor) {
+    public PublicApiThreadingRecordView(RecordView<R> view, Executor asyncContinuationExecutor) {
         super(view, view, asyncContinuationExecutor);
-
-        assert !(view instanceof Wrapper) : "Wrapping other wrappers is not supported";
 
         this.view = view;
     }
 
     @Override
     public R get(@Nullable Transaction tx, R keyRec) {
-        return view.get(tx, keyRec);
+        return executeSyncOp(() -> view.get(tx, keyRec));
     }
 
     @Override
     public CompletableFuture<R> getAsync(@Nullable Transaction tx, R keyRec) {
-        return preventThreadHijack(view.getAsync(tx, keyRec));
+        return executeAsyncOp(() -> view.getAsync(tx, keyRec));
     }
 
     @Override
     public List<R> getAll(@Nullable Transaction tx, Collection<R> keyRecs) {
-        return view.getAll(tx, keyRecs);
+        return executeSyncOp(() -> view.getAll(tx, keyRecs));
     }
 
     @Override
     public CompletableFuture<List<R>> getAllAsync(@Nullable Transaction tx, Collection<R> keyRecs) {
-        return preventThreadHijack(view.getAllAsync(tx, keyRecs));
+        return executeAsyncOp(() -> view.getAllAsync(tx, keyRecs));
     }
 
     @Override
     public boolean contains(@Nullable Transaction tx, R keyRec) {
-        return view.contains(tx, keyRec);
+        return executeSyncOp(() -> view.contains(tx, keyRec));
     }
 
     @Override
     public CompletableFuture<Boolean> containsAsync(@Nullable Transaction tx, R keyRec) {
-        return preventThreadHijack(view.containsAsync(tx, keyRec));
+        return executeAsyncOp(() -> view.containsAsync(tx, keyRec));
     }
 
     @Override
     public void upsert(@Nullable Transaction tx, R rec) {
-        view.upsert(tx, rec);
+        executeSyncOp(() -> view.upsert(tx, rec));
     }
 
     @Override
     public CompletableFuture<Void> upsertAsync(@Nullable Transaction tx, R rec) {
-        return preventThreadHijack(view.upsertAsync(tx, rec));
+        return executeAsyncOp(() -> view.upsertAsync(tx, rec));
     }
 
     @Override
     public void upsertAll(@Nullable Transaction tx, Collection<R> recs) {
-        view.upsertAll(tx, recs);
+        executeSyncOp(() -> view.upsertAll(tx, recs));
     }
 
     @Override
     public CompletableFuture<Void> upsertAllAsync(@Nullable Transaction tx, Collection<R> recs) {
-        return preventThreadHijack(view.upsertAllAsync(tx, recs));
+        return executeAsyncOp(() -> view.upsertAllAsync(tx, recs));
     }
 
     @Override
     public R getAndUpsert(@Nullable Transaction tx, R rec) {
-        return view.getAndUpsert(tx, rec);
+        return executeSyncOp(() -> view.getAndUpsert(tx, rec));
     }
 
     @Override
     public CompletableFuture<R> getAndUpsertAsync(@Nullable Transaction tx, R rec) {
-        return preventThreadHijack(view.getAndUpsertAsync(tx, rec));
+        return executeAsyncOp(() -> view.getAndUpsertAsync(tx, rec));
     }
 
     @Override
     public boolean insert(@Nullable Transaction tx, R rec) {
-        return view.insert(tx, rec);
+        return executeSyncOp(() -> view.insert(tx, rec));
     }
 
     @Override
     public CompletableFuture<Boolean> insertAsync(@Nullable Transaction tx, R rec) {
-        return preventThreadHijack(view.insertAsync(tx, rec));
+        return executeAsyncOp(() -> view.insertAsync(tx, rec));
     }
 
     @Override
     public List<R> insertAll(@Nullable Transaction tx, Collection<R> recs) {
-        return view.insertAll(tx, recs);
+        return executeSyncOp(() -> view.insertAll(tx, recs));
     }
 
     @Override
     public CompletableFuture<List<R>> insertAllAsync(@Nullable Transaction tx, Collection<R> recs) {
-        return preventThreadHijack(view.insertAllAsync(tx, recs));
+        return executeAsyncOp(() -> view.insertAllAsync(tx, recs));
     }
 
     @Override
     public boolean replace(@Nullable Transaction tx, R rec) {
-        return view.replace(tx, rec);
+        return executeSyncOp(() -> view.replace(tx, rec));
     }
 
     @Override
     public boolean replace(@Nullable Transaction tx, R oldRec, R newRec) {
-        return view.replace(tx, oldRec, newRec);
+        return executeSyncOp(() -> view.replace(tx, oldRec, newRec));
     }
 
     @Override
     public CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, R rec) {
-        return preventThreadHijack(view.replaceAsync(tx, rec));
+        return executeAsyncOp(() -> view.replaceAsync(tx, rec));
     }
 
     @Override
     public CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, R oldRec, R newRec) {
-        return preventThreadHijack(view.replaceAsync(tx, oldRec, newRec));
+        return executeAsyncOp(() -> view.replaceAsync(tx, oldRec, newRec));
     }
 
     @Override
     public R getAndReplace(@Nullable Transaction tx, R rec) {
-        return view.getAndReplace(tx, rec);
+        return executeSyncOp(() -> view.getAndReplace(tx, rec));
     }
 
     @Override
     public CompletableFuture<R> getAndReplaceAsync(@Nullable Transaction tx, R rec) {
-        return preventThreadHijack(view.getAndReplaceAsync(tx, rec));
+        return executeAsyncOp(() -> view.getAndReplaceAsync(tx, rec));
     }
 
     @Override
     public boolean delete(@Nullable Transaction tx, R keyRec) {
-        return view.delete(tx, keyRec);
+        return executeSyncOp(() -> view.delete(tx, keyRec));
     }
 
     @Override
     public CompletableFuture<Boolean> deleteAsync(@Nullable Transaction tx, R keyRec) {
-        return preventThreadHijack(view.deleteAsync(tx, keyRec));
+        return executeAsyncOp(() -> view.deleteAsync(tx, keyRec));
     }
 
     @Override
     public boolean deleteExact(@Nullable Transaction tx, R rec) {
-        return view.deleteExact(tx, rec);
+        return executeSyncOp(() -> view.deleteExact(tx, rec));
     }
 
     @Override
     public CompletableFuture<Boolean> deleteExactAsync(@Nullable Transaction tx, R rec) {
-        return preventThreadHijack(view.deleteExactAsync(tx, rec));
+        return executeAsyncOp(() -> view.deleteExactAsync(tx, rec));
     }
 
     @Override
     public R getAndDelete(@Nullable Transaction tx, R keyRec) {
-        return view.getAndDelete(tx, keyRec);
+        return executeSyncOp(() -> view.getAndDelete(tx, keyRec));
     }
 
     @Override
     public CompletableFuture<R> getAndDeleteAsync(@Nullable Transaction tx, R keyRec) {
-        return preventThreadHijack(view.getAndDeleteAsync(tx, keyRec));
+        return executeAsyncOp(() -> view.getAndDeleteAsync(tx, keyRec));
     }
 
     @Override
     public List<R> deleteAll(@Nullable Transaction tx, Collection<R> keyRecs) {
-        return view.deleteAll(tx, keyRecs);
+        return executeSyncOp(() -> view.deleteAll(tx, keyRecs));
     }
 
     @Override
     public CompletableFuture<List<R>> deleteAllAsync(@Nullable Transaction tx, Collection<R> keyRecs) {
-        return preventThreadHijack(view.deleteAllAsync(tx, keyRecs));
+        return executeAsyncOp(() -> view.deleteAllAsync(tx, keyRecs));
     }
 
     @Override
     public List<R> deleteAllExact(@Nullable Transaction tx, Collection<R> recs) {
-        return view.deleteAllExact(tx, recs);
+        return executeSyncOp(() -> view.deleteAllExact(tx, recs));
     }
 
     @Override
     public CompletableFuture<List<R>> deleteAllExactAsync(@Nullable Transaction tx, Collection<R> recs) {
-        return preventThreadHijack(view.deleteAllExactAsync(tx, recs));
+        return executeAsyncOp(() -> view.deleteAllExactAsync(tx, recs));
     }
 
     @Override
