@@ -522,7 +522,11 @@ public class IgniteUtils {
      * @param timeout the maximum time to wait for the {@code ExecutorService} to terminate
      * @param unit the time unit of the timeout argument
      */
-    public static void shutdownAndAwaitTermination(ExecutorService service, long timeout, TimeUnit unit) {
+    public static void shutdownAndAwaitTermination(@Nullable ExecutorService service, long timeout, TimeUnit unit) {
+        if (service == null) {
+            return;
+        }
+
         long halfTimeoutNanos = unit.toNanos(timeout) / 2;
 
         // Disable new tasks from being submitted
