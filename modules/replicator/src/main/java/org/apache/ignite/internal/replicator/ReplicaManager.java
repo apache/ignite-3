@@ -263,9 +263,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 return true;
             }
 
-            // It's something else: either a JRE thread or an Ignite thread not marked with ThreadAttributes. In any case,
-            // let it proceed. If it touches a storage, we'll see an assertion.
-            return false;
+            // It's something else: either a JRE thread or an Ignite thread not marked with ThreadAttributes. As we are not sure,
+            // let's switch: false negative can produce assertion errors.
+            return true;
         }
     }
 
