@@ -58,7 +58,6 @@ import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessage;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.network.NetworkAddress;
@@ -72,8 +71,6 @@ import org.junit.jupiter.api.Test;
  */
 public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
     private static final PlacementDriverMessagesFactory MSG_FACTORY = new PlacementDriverMessagesFactory();
-
-    private static final TablePartitionId GROUP_ID = new TablePartitionId(0, 0);
 
     private static final ZonePartitionId ZONE_PARTITION_ID = new ZonePartitionId(0, 0);
 
