@@ -97,7 +97,7 @@ class PartitionCommandsMarshallerImplTest {
     private FinishTxCommand commandWithRequiredCatalogVersion(int requiredCatalogVersion) {
         return tableMessagesFactory.finishTxCommand()
                 .txId(UUID.randomUUID())
-                .tablePartitionIds(List.of())
+                .partitionIds(List.of())
                 .requiredCatalogVersion(requiredCatalogVersion)
                 .build();
     }

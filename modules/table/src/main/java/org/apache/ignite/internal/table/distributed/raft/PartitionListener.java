@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.table.distributed.raft;
 
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.table.distributed.TableUtils.indexIdsAtRwTxBeginTs;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
@@ -55,6 +54,7 @@ import org.apache.ignite.internal.raft.service.BeforeApplyHandler;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.CommittedConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
@@ -379,10 +379,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
         TxMeta txMetaToSet = new TxMeta(
                 stateToSet,
-                cmd.tablePartitionIds()
-                        .stream()
-                        .map(TablePartitionIdMessage::asTablePartitionId)
-                        .collect(toList()),
+                fromPartitionIdMessage(cmd.partitionIds()),
                 cmd.commitTimestamp()
         );
 
@@ -407,6 +404,15 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         return new TransactionResult(stateToSet, cmd.commitTimestamp());
     }
 
+    private static List<TablePartitionId> fromPartitionIdMessage(List<TablePartitionIdMessage> partitionIds) {
+        List<TablePartitionId> list = new ArrayList<>();
+
+        for (TablePartitionIdMessage partitionIdMessage : partitionIds) {
+            list.add(partitionIdMessage.asTablePartitionId());
+        }
+
+        return list;
+    }
 
     /**
      * Handler for the {@link WriteIntentSwitchCommand}.

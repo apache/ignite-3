@@ -21,7 +21,6 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
@@ -1701,9 +1700,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 commit,
                                 commitTimestamp,
                                 catalogVersion,
-                                aggregatedGroupIds.stream()
-                                        .map(PartitionReplicaListener::tablePartitionId)
-                                        .collect(toList())
+                                toPartitionIdMessage(aggregatedGroupIds)
                         )
                 )
                 .handle((txOutcome, ex) -> {
@@ -1730,6 +1727,16 @@ public class PartitionReplicaListener implements ReplicaListener {
                 });
     }
 
+    private static List<TablePartitionIdMessage> toPartitionIdMessage(Collection<TablePartitionId> partitionIds) {
+        List<TablePartitionIdMessage> list = new ArrayList<>();
+
+        for (TablePartitionId partitionId : partitionIds) {
+            list.add(tablePartitionId(partitionId));
+        }
+
+        return list;
+    }
+
     private CompletableFuture<Object> applyFinishCommand(
             UUID transactionId,
             boolean commit,
@@ -1743,7 +1750,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     .commit(commit)
                     .safeTimeLong(clockService.nowLong())
                     .requiredCatalogVersion(catalogVersion)
-                    .tablePartitionIds(tablePartitionIds);
+                    .partitionIds(tablePartitionIds);
 
             if (commit) {
                 finishTxCmdBldr.commitTimestampLong(commitTimestamp.longValue());

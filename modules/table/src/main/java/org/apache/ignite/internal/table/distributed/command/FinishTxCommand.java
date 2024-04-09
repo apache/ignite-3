@@ -50,6 +50,6 @@ public interface FinishTxCommand extends PartitionCommand {
     /**
      * Returns an ordered replication groups ids.
      */
-    List<TablePartitionIdMessage> tablePartitionIds();
+    List<TablePartitionIdMessage> partitionIds();
 
 }
