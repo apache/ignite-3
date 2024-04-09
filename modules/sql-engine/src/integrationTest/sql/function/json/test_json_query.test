@@ -1,0 +1,86 @@
+# name: test/sql/function/json/test_json_query.test
+# description:
+#   feature T828 “JSON_QUERY”
+#   feature T829 “JSON_QUERY: array wrapper options"
+#   feature T825 “SQL/JSON: ON EMPTY and ON ERROR clauses” (json_query only tests)
+# group: [json]
+
+# default mode is strict, default error behaviour is NULL
+query T
+select json_query('{"foo":100}', '$.foo')
+----
+NULL
+
+query T
+select json_query('{"foo":100}', '$.foo' empty object on error)
+----
+{}
+
+query T
+select json_query('{"foo":100}', '$.foo' empty array on error)
+----
+[]
+
+statement error
+select json_query('{"foo":100}', '$.foo' error on error)
+
+statement error
+select json_query('{"foo":100}', 'strict $.foo' error on error)
+
+# lax mode
+query T
+select json_query('{"foo":100}', 'lax $.foo' error on error)
+----
+NULL
+
+statement error
+select json_query('{"foo":100}', 'lax $.foo' error on empty)
+
+query T
+select json_query('{"foo":100}', 'lax $.foo' empty object on empty)
+----
+{}
+
+query T
+select json_query('{"foo":100}', 'lax $.foo' empty array on empty)
+----
+[]
+
+statement ok
+create table t(jsonData VARCHAR, jsonPath VARCHAR)
+
+statement ok
+insert into t values('{"info":{"type": 1, "address":[{"town":"Paris"},{"town":"London"}]}}', '$.info.address')
+
+query T
+select JSON_QUERY(jsonData, jsonPath) from t
+----
+[{"town":"Paris"},{"town":"London"}]
+
+query T
+select JSON_QUERY(jsonData, '$.info.address[1]') from t
+----
+{"town":"London"}
+
+# Array wrapper is absent by default
+query T
+select JSON_QUERY(jsonData, '$.info.address' without array wrapper) from t
+----
+[{"town":"Paris"},{"town":"London"}]
+
+# 6.34 Rule 6 If <JSON query wrapper behavior> specifies WITH and neither CONDITIONAL nor UNCONDITIONAL
+# is specified, then UNCONDITIONAL is implicit.
+query T
+select JSON_QUERY(jsonData, '$.info.address' with wrapper) from t
+----
+[[{"town":"Paris"},{"town":"London"}]]
+
+query T
+select JSON_QUERY(jsonData, '$.info.address' with unconditional wrapper) from t
+----
+[[{"town":"Paris"},{"town":"London"}]]
+
+query T
+select JSON_QUERY(jsonData, '$.info.address' with conditional wrapper) from t
+----
+[{"town":"Paris"},{"town":"London"}]

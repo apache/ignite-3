@@ -300,9 +300,7 @@ public class ItSqlOperatorsTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20163")
     public void testJson() {
-        assertExpression("'{\"a\":1}' FORMAT JSON").check();
         assertExpression("JSON_VALUE('{\"a\":1}', '$.a')").returns("1").check();
         assertExpression("JSON_VALUE('{\"a\":1}' FORMAT JSON, '$.a')").returns("1").check();
         assertExpression("JSON_QUERY('{\"a\":{\"b\":1}}', '$.a')").returns("{\"b\":1}").check();
@@ -326,6 +324,9 @@ public class ItSqlOperatorsTest extends BaseSqlIntegrationTest {
         assertExpression("'{\"a\":1}' IS NOT JSON OBJECT").returns(false).check();
         assertExpression("'[1, 2]' IS NOT JSON ARRAY").returns(false).check();
         assertExpression("'1' IS NOT JSON SCALAR").returns(false).check();
+
+        // TODO https://issues.apache.org/jira/browse/IGNITE-20163
+        // assertExpression("'{\"a\":1}' FORMAT JSON").check();
     }
 
     @Test
