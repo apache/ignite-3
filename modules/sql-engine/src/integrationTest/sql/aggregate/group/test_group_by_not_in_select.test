@@ -43,3 +43,15 @@ SELECT SUM(k), COUNT(k) FROM integers GROUP BY i, j
 2.000000	1
 4.000000	2
 6.000000	2
+
+# HAVING with condition on group
+query R
+SELECT SUM(a) AS sum_c FROM test GROUP BY b HAVING b=22;
+----
+24.000000
+
+# HAVING with condition on sum
+query R
+SELECT SUM(a) FROM test GROUP BY b HAVING SUM(a) < 20;
+----
+12.000000
