@@ -748,7 +748,8 @@ public class ItTxTestCluster {
                         new TableRaftServiceImpl(tableName, 1, clients, nodeResolver),
                         clientTransactionInflights,
                         500,
-                        0
+                        0,
+                        null
                 ),
                 new DummySchemaManagerImpl(schemaDescriptor),
                 clientTxManager.lockManager(),

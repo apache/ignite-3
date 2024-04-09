@@ -31,7 +31,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
@@ -102,13 +101,13 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
     /**
      * Waits for operation completion.
      *
-     * @param fut Future to wait to.
+     * @param future Future to wait to.
      * @param <T> Future result type.
      * @return Future result.
      */
-    protected final <T> T sync(Supplier<CompletableFuture<T>> fut) {
+    protected static <T> T sync(CompletableFuture<T> future) {
         try {
-            return fut.get().get();
+            return future.get();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt(); // Restore interrupt flag.
 
@@ -166,7 +165,7 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
                                 assert tx == null : "Only for implicit transactions a retry might be requested";
                                 assert previousSchemaVersion == null || !Objects.equals(schemaVersion, previousSchemaVersion)
                                         : "Same schema version (" + schemaVersion
-                                                + ") on a retry: something is wrong, is this caused by the test setup?";
+                                        + ") on a retry: something is wrong, is this caused by the test setup?";
 
                                 // Repeat.
                                 return withSchemaSync(tx, schemaVersion, action);
@@ -207,7 +206,7 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
     /** {@inheritDoc} */
     @Override
     public Cursor<R> query(@Nullable Transaction tx, @Nullable Criteria criteria, @Nullable String indexName, CriteriaQueryOptions opts) {
-        return new CursorAdapter<>(sync(() -> queryAsync(tx, criteria, indexName, opts)));
+        return new CursorAdapter<>(sync(queryAsync(tx, criteria, indexName, opts)));
     }
 
     /** {@inheritDoc} */
