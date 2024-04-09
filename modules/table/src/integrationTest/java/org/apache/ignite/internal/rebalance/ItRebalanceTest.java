@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.rebalance;
 
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.partitionAssignments;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tablesCounterKey;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
@@ -278,7 +279,8 @@ public class ItRebalanceTest extends IgniteIntegrationTest {
         String sql1 = String.format("create zone %s with "
                 + "partitions=%d, replicas=%d, "
                 + "data_nodes_auto_adjust_scale_up=0, "
-                + "data_nodes_auto_adjust_scale_down=0", zoneName, partitions, replicas);
+                + "data_nodes_auto_adjust_scale_down=0, "
+                + "storage_profiles='%s'", zoneName, partitions, replicas, DEFAULT_STORAGE_PROFILE);
 
         cluster.doInSession(0, session -> {
             executeUpdate(sql1, session);

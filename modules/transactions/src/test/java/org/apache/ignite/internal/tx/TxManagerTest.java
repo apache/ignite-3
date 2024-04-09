@@ -21,7 +21,7 @@ import static java.lang.Math.abs;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
-import static org.apache.ignite.internal.replicator.ReplicaManager.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
+import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -63,6 +63,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -133,6 +134,8 @@ public class TxManagerTest extends IgniteAbstractTest {
 
     private final LocalRwTxCounter localRwTxCounter = spy(new TestLocalRwTxCounter());
 
+    private final TestLowWatermark lowWatermark = spy(new TestLowWatermark());
+
     @BeforeEach
     public void setup() {
         when(clusterService.topologyService().localMember()).thenReturn(LOCAL_NODE);
@@ -156,7 +159,8 @@ public class TxManagerTest extends IgniteAbstractTest {
                 idleSafeTimePropagationPeriodMsSupplier,
                 localRwTxCounter,
                 resourceRegistry,
-                transactionInflights
+                transactionInflights,
+                lowWatermark
         );
 
         txManager.start();
@@ -222,7 +226,7 @@ public class TxManagerTest extends IgniteAbstractTest {
     void testCreateNewRoTxAfterUpdateLowerWatermark() {
         when(clockService.now()).thenReturn(new HybridTimestamp(10_000, 10));
 
-        assertThat(txManager.updateLowWatermark(new HybridTimestamp(10_000, 11)), willSucceedFast());
+        assertThat(lowWatermark.updateAndNotify(new HybridTimestamp(10_000, 11)), willSucceedFast());
 
         IgniteInternalException exception =
                 assertThrows(IgniteInternalException.class, () -> txManager.begin(hybridTimestampTracker, true));
@@ -232,8 +236,10 @@ public class TxManagerTest extends IgniteAbstractTest {
 
     @Test
     void testUpdateLowerWatermark() {
+        verify(lowWatermark).addUpdateListener(any());
+
         // Let's check the absence of transactions.
-        assertThat(txManager.updateLowWatermark(clockService.now()), willSucceedFast());
+        assertThat(lowWatermark.updateAndNotify(clockService.now()), willSucceedFast());
 
         InternalTransaction rwTx0 = txManager.begin(hybridTimestampTracker);
 
@@ -242,7 +248,7 @@ public class TxManagerTest extends IgniteAbstractTest {
         InternalTransaction roTx0 = txManager.begin(hybridTimestampTracker, true);
         InternalTransaction roTx1 = txManager.begin(hybridTimestampTracker, true);
 
-        CompletableFuture<Void> readOnlyTxsFuture = txManager.updateLowWatermark(roTx1.readTimestamp());
+        CompletableFuture<Void> readOnlyTxsFuture = lowWatermark.updateAndNotify(roTx1.readTimestamp());
         assertFalse(readOnlyTxsFuture.isDone());
 
         assertThat(rwTx0.commitAsync(), willSucceedFast());
@@ -258,7 +264,7 @@ public class TxManagerTest extends IgniteAbstractTest {
         txManager.begin(hybridTimestampTracker);
         txManager.begin(hybridTimestampTracker);
 
-        assertThat(txManager.updateLowWatermark(clockService.now()), willSucceedFast());
+        assertThat(lowWatermark.updateAndNotify(clockService.now()), willSucceedFast());
     }
 
     @Test

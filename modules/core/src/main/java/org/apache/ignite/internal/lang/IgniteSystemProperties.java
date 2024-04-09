@@ -70,6 +70,9 @@ public final class IgniteSystemProperties {
     /** Name of the property controlling whether thread assertions are enabled. */
     public static final String THREAD_ASSERTIONS_ENABLED = "IGNITE_THREAD_ASSERTIONS_ENABLED";
 
+    /** Name of the property controlling whether, when a thread assertion is triggered, it should also be written to the log. */
+    public static final String THREAD_ASSERTIONS_LOG_BEFORE_THROWING = "THREAD_ASSERTIONS_LOG_BEFORE_THROWING";
+
     /**
      * Enforces singleton.
      */

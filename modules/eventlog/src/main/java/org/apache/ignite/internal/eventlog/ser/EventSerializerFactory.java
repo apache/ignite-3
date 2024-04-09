@@ -22,11 +22,13 @@ import org.apache.ignite.internal.eventlog.event.EventImpl;
 /**
  * A factory to create a serializer useful for sink to write the event.
  */
-public class EventSerializerFactory {
+public interface EventSerializerFactory {
+    EventSerializerFactory DEFAULT = new EventSerializerFactory() {};
+
     /**
      * Creates a serializer which can be used in a sink to serialize all kinds of events that were registered.
      */
-    public EventSerializer createEventSerializer() {
+    default EventSerializer createEventSerializer() {
         EventSerializerRegistry eventSerializerRegistry = new EventSerializerRegistryImpl();
         EventSerializer serializer = new JsonEventImplSerializer();
         eventSerializerRegistry.register(EventImpl.class, serializer);

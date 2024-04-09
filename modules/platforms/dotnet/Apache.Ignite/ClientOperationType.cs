@@ -147,7 +147,7 @@ namespace Apache.Ignite
         ComputeChangePriority,
 
         /// <summary>
-        /// Send data streamer batch (<see cref="IDataStreamerTarget{T}.StreamDataAsync"/>).
+        /// Send data streamer batch (<see cref="IDataStreamerTarget{T}"/>).
         /// </summary>
         StreamerBatchSend
     }

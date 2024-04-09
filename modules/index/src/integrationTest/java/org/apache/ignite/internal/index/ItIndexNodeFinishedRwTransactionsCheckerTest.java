@@ -40,9 +40,10 @@ import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
-import org.apache.ignite.internal.storage.impl.TestStorageEngine;
+import org.apache.ignite.internal.storage.impl.schema.TestProfileConfigurationSchema;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -71,8 +72,8 @@ public class ItIndexNodeFinishedRwTransactionsCheckerTest extends ClusterPerClas
     @BeforeEach
     void setUp() {
         if (node() != null) {
-            createZoneOnlyIfNotExists(zoneName(TABLE_NAME), 1, 2, TestStorageEngine.ENGINE_NAME);
-            createZoneOnlyIfNotExists(zoneNameForUpdateCatalogVersionOnly, 1, 1, TestStorageEngine.ENGINE_NAME);
+            createZoneOnlyIfNotExists(zoneName(TABLE_NAME), 1, 2, TestProfileConfigurationSchema.TEST_PROFILE_NAME);
+            createZoneOnlyIfNotExists(zoneNameForUpdateCatalogVersionOnly, 1, 1, TestProfileConfigurationSchema.TEST_PROFILE_NAME);
             createTableOnly(TABLE_NAME, zoneName(TABLE_NAME));
         }
     }
@@ -224,11 +225,13 @@ public class ItIndexNodeFinishedRwTransactionsCheckerTest extends ClusterPerClas
     }
 
     private static long[] partitionSizes() {
-        InternalTable table = tableImpl().internalTable();
+        return IgniteTestUtils.bypassingThreadAssertions(() -> {
+            InternalTable table = tableImpl().internalTable();
 
-        return IntStream.range(0, table.partitions())
-                .mapToLong(partitionId -> table.storage().getMvPartition(partitionId).rowsCount())
-                .toArray();
+            return IntStream.range(0, table.partitions())
+                    .mapToLong(partitionId -> table.storage().getMvPartition(partitionId).rowsCount())
+                    .toArray();
+        });
     }
 
     private static int differences(long[] partitionSizes0, long[] partitionsSizes1) {

@@ -34,7 +34,6 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests for synchronous SQL API.
  */
-@SuppressWarnings("ThrowableNotThrown")
 public class ItSqlSynchronousApiTest extends ItSqlApiBaseTest {
     @Override
     @Test

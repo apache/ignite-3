@@ -23,6 +23,7 @@ import org.apache.ignite.internal.eventlog.api.Event;
 import org.apache.ignite.internal.eventlog.api.EventChannel;
 import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.eventlog.config.schema.EventLogConfiguration;
+import org.apache.ignite.internal.eventlog.ser.EventSerializerFactory;
 
 /**
  * Implementation of the {@link EventLog} interface.
@@ -45,7 +46,11 @@ public class EventLogImpl implements EventLog {
      * @param cfg the configuration.
      */
     public EventLogImpl(EventLogConfiguration cfg) {
-        this(new ConfigurationBasedChannelRegistry(cfg, new ConfigurationBasedSinkRegistry(cfg)));
+        this(cfg, new LogSinkFactory(EventSerializerFactory.DEFAULT.createEventSerializer()));
+    }
+
+    public EventLogImpl(EventLogConfiguration cfg, SinkFactory sinkFactory) {
+        this(new ConfigurationBasedChannelRegistry(cfg, new ConfigurationBasedSinkRegistry(cfg, sinkFactory)));
     }
 
     @Override

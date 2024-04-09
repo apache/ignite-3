@@ -20,7 +20,9 @@ package org.apache.ignite.internal.tx;
 import static java.lang.Thread.currentThread;
 import static org.apache.ignite.internal.PublicApiThreadingTests.anIgniteThread;
 import static org.apache.ignite.internal.PublicApiThreadingTests.asyncContinuationPool;
+import static org.apache.ignite.internal.PublicApiThreadingTests.tryToSwitchFromUserThreadWithDelayedSchemaSync;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteTransactionsImpl;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertionsAsync;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.either;
@@ -30,9 +32,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
-import org.apache.ignite.internal.PublicApiThreadingTests;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.tx.IgniteTransactions;
@@ -43,7 +42,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 
 @SuppressWarnings("resource")
-@WithSystemProperty(key = IgniteSystemProperties.THREAD_ASSERTIONS_ENABLED, value = "false")
 class ItTransactionsApiThreadingTest extends ClusterPerClassIntegrationTest {
     private static final String TABLE_NAME = "test";
 
@@ -65,7 +63,7 @@ class ItTransactionsApiThreadingTest extends ClusterPerClassIntegrationTest {
     @ParameterizedTest
     @EnumSource(TransactionsAsyncOperation.class)
     void transactionsFuturesCompleteInContinuationsPool(TransactionsAsyncOperation operation) {
-        CompletableFuture<Thread> completerFuture = forcingSwitchFromUserThread(
+        CompletableFuture<Thread> completerFuture = tryingToSwitchFromUserThread(
                 () -> operation.executeOn(CLUSTER.aliveNode().transactions())
                         .thenApply(unused -> currentThread())
         );
@@ -76,8 +74,11 @@ class ItTransactionsApiThreadingTest extends ClusterPerClassIntegrationTest {
     @ParameterizedTest
     @EnumSource(TransactionsAsyncOperation.class)
     void transactionsFuturesFromInternalCallsAreNotResubmittedToContinuationsPool(TransactionsAsyncOperation operation) {
-        CompletableFuture<Thread> completerFuture = forcingSwitchFromUserThread(
-                () -> operation.executeOn(igniteTransactionsForInternalUse())
+        CompletableFuture<Thread> completerFuture = tryingToSwitchFromUserThread(
+                // Executing with everything allowed as this is what is handled by public API wrapper that we removed.
+                // Internal components using the APIs directly (without the public API threading wrapper) should call the APIs
+                // in IgniteThreads with corresponding permissions, so we do the same.
+                () -> bypassingThreadAssertionsAsync(() -> operation.executeOn(igniteTransactionsForInternalUse()))
                         .thenApply(unused -> currentThread())
         );
 
@@ -90,7 +91,7 @@ class ItTransactionsApiThreadingTest extends ClusterPerClassIntegrationTest {
         Transaction tx = CLUSTER.aliveNode().transactions().begin();
         touchTestTableIn(tx);
 
-        CompletableFuture<Thread> completerFuture = forcingSwitchFromUserThread(
+        CompletableFuture<Thread> completerFuture = tryingToSwitchFromUserThread(
                 () -> operation.executeOn(tx)
                         .thenApply(unused -> currentThread())
         );
@@ -112,16 +113,19 @@ class ItTransactionsApiThreadingTest extends ClusterPerClassIntegrationTest {
         Transaction tx = igniteTransactionsForInternalUse().begin();
         touchTestTableIn(tx);
 
-        CompletableFuture<Thread> completerFuture = forcingSwitchFromUserThread(
-                () -> operation.executeOn(tx)
+        CompletableFuture<Thread> completerFuture = tryingToSwitchFromUserThread(
+                // Executing with everything allowed as this is what is handled by public API wrapper that we removed.
+                // Internal components using the APIs directly (without the public API threading wrapper) should call the APIs
+                // in IgniteThreads with corresponding permissions, so we do the same.
+                () -> bypassingThreadAssertionsAsync(() -> operation.executeOn(tx))
                         .thenApply(unused -> currentThread())
         );
 
         assertThat(completerFuture, willBe(anIgniteThread()));
     }
 
-    private static <T> T forcingSwitchFromUserThread(Supplier<? extends T> action) {
-        return PublicApiThreadingTests.forcingSwitchFromUserThread(CLUSTER.aliveNode(), action);
+    private static <T> T tryingToSwitchFromUserThread(Supplier<? extends T> action) {
+        return tryToSwitchFromUserThreadWithDelayedSchemaSync(CLUSTER.aliveNode(), action);
     }
 
     private static IgniteTransactionsImpl igniteTransactionsForInternalUse() {
