@@ -91,6 +91,7 @@ import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterTableAddColumn;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterTableDropColumn;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterZoneRenameTo;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterZoneSet;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterZoneSetDefault;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateIndex;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateTable;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateTableOption;
@@ -215,6 +216,10 @@ public class DdlSqlToCommandConverter {
 
         if (ddlNode instanceof IgniteSqlAlterZoneSet) {
             return convertAlterZoneSet((IgniteSqlAlterZoneSet) ddlNode, ctx);
+        }
+
+        if (ddlNode instanceof IgniteSqlAlterZoneSetDefault) {
+            return convertAlterZoneSetDefault((IgniteSqlAlterZoneSetDefault) ddlNode, ctx);
         }
 
         if (ddlNode instanceof IgniteSqlDropZone) {
@@ -612,6 +617,22 @@ public class DdlSqlToCommandConverter {
         }
 
         return alterZoneCmd;
+    }
+
+    /**
+     * Converts the given {@link IgniteSqlAlterZoneSetDefault} AST node to a {@link AlterZoneSetDefaultCommand}.
+     *
+     * @param alterZoneSetDefault Root node of the given AST.
+     * @param ctx Planning context.
+     */
+    private DdlCommand convertAlterZoneSetDefault(IgniteSqlAlterZoneSetDefault alterZoneSetDefault, PlanningContext ctx) {
+        AlterZoneSetDefaultCommand cmd = new AlterZoneSetDefaultCommand();
+
+        cmd.schemaName(deriveSchemaName(alterZoneSetDefault.name(), ctx));
+        cmd.zoneName(deriveObjectName(alterZoneSetDefault.name(), ctx, "zoneName"));
+        cmd.ifExists(alterZoneSetDefault.ifExists());
+
+        return cmd;
     }
 
     /**

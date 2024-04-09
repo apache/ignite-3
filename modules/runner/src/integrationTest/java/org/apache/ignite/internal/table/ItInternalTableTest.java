@@ -60,6 +60,8 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.thread.PublicApiThreading;
+import org.apache.ignite.internal.thread.PublicApiThreading.ApiEntryRole;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -156,6 +158,18 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
         stopTable(node(), TABLE_NAME);
 
         table = null;
+    }
+
+    @BeforeEach
+    void allowAllOperationsToTestThread() {
+        // Doing this as this class tests internal API which relies on public API to mark the threads.
+        // Without this marking, thread assertions would go off.
+        PublicApiThreading.setThreadRole(ApiEntryRole.SYNC_PUBLIC_API);
+    }
+
+    @AfterEach
+    void cleanupThreadApiRole() {
+        PublicApiThreading.setThreadRole(null);
     }
 
     @Test

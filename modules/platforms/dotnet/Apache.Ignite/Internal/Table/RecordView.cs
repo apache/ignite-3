@@ -294,7 +294,7 @@ namespace Apache.Ignite.Internal.Table
 
         /// <inheritdoc/>
         public async Task StreamDataAsync(
-            IAsyncEnumerable<T> data,
+            IAsyncEnumerable<DataStreamerItem<T>> data,
             DataStreamerOptions? options = null,
             CancellationToken cancellationToken = default) =>
             await DataStreamer.StreamDataAsync(

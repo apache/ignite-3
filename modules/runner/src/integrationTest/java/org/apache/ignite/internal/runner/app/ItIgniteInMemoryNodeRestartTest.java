@@ -49,6 +49,7 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.IgniteSql;
@@ -367,12 +368,14 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
     }
 
     private static boolean tableHasAnyData(TableViewInternal nodeTable, int partitions) {
-        return IntStream.range(0, partitions)
-                .mapToObj(partition -> new IgniteBiTuple<>(
-                        partition, nodeTable.internalTable().storage().getMvPartition(partition)
-                ))
-                .filter(pair -> pair.get2() != null)
-                .anyMatch(pair -> pair.get2().closestRowId(RowId.lowestRowId(pair.get1())) != null);
+        return IgniteTestUtils.bypassingThreadAssertions(() -> {
+            return IntStream.range(0, partitions)
+                    .mapToObj(partition -> new IgniteBiTuple<>(
+                            partition, nodeTable.internalTable().storage().getMvPartition(partition)
+                    ))
+                    .filter(pair -> pair.get2() != null)
+                    .anyMatch(pair -> pair.get2().closestRowId(RowId.lowestRowId(pair.get1())) != null);
+        });
     }
 
     private static IgniteImpl ignite(int idx) {

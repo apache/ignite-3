@@ -57,6 +57,7 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopologySer
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
+import org.apache.ignite.internal.failure.NoOpFailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -178,7 +179,7 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
                     cmgManager,
                     logicalTopologyService,
                     raftManager,
-                    new RocksDbKeyValueStorage(name(), basePath.resolve("storage")),
+                    new RocksDbKeyValueStorage(name(), basePath.resolve("storage"), new NoOpFailureProcessor(name())),
                     clock,
                     topologyAwareRaftGroupServiceFactory,
                     metaStorageConfiguration

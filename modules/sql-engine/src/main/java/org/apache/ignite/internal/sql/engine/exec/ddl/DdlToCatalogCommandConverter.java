@@ -30,6 +30,7 @@ import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommand;
 import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnCommand;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
+import org.apache.ignite.internal.catalog.commands.AlterZoneSetDefaultCatalogCommand;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexCommand;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexCommand;
@@ -44,6 +45,7 @@ import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableAddCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableDropCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterZoneRenameCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterZoneSetCommand;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterZoneSetDefaultCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.ColumnDefinition;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateIndexCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateTableCommand;
@@ -143,6 +145,12 @@ class DdlToCatalogCommandConverter {
                 .dataNodesAutoAdjust(cmd.dataNodesAutoAdjust())
                 .dataNodesAutoAdjustScaleUp(cmd.dataNodesAutoAdjustScaleUp())
                 .dataNodesAutoAdjustScaleDown(cmd.dataNodesAutoAdjustScaleDown())
+                .build();
+    }
+
+    static CatalogCommand convert(AlterZoneSetDefaultCommand cmd) {
+        return AlterZoneSetDefaultCatalogCommand.builder()
+                .zoneName(cmd.zoneName())
                 .build();
     }
 

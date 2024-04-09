@@ -78,6 +78,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.internal.thread.ExecutorChooser;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.thread.ThreadAttributes;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -239,19 +240,29 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         // If the request actually came from the network, we are already in the correct thread that has permissions to do storage reads
         // and writes.
         // But if this is a local call (in the same Ignite instance), we might still be in a thread that does not have those permissions.
-        if (currentThreadCannotDoStorageReadsAndWrites()) {
+        if (shouldSwitchToRequestsExecutor()) {
             requestsExecutor.execute(() -> handleReplicaRequest(request, sender, correlationId));
         } else {
             handleReplicaRequest(request, sender, correlationId);
         }
     }
 
-    private boolean currentThreadCannotDoStorageReadsAndWrites() {
+    private static boolean shouldSwitchToRequestsExecutor() {
         if (Thread.currentThread() instanceof ThreadAttributes) {
             ThreadAttributes thread = (ThreadAttributes) Thread.currentThread();
             return !thread.allows(STORAGE_READ) || !thread.allows(STORAGE_WRITE);
         } else {
-            // We don't know for sure.
+            if (PublicApiThreading.executingSyncPublicApi()) {
+                // It's a user thread, it executes a sync public API call, so it can do anything, no switch is needed.
+                return false;
+            }
+            if (PublicApiThreading.executingAsyncPublicApi()) {
+                // It's a user thread, it executes an async public API call, so it cannot do anything, a switch is needed.
+                return true;
+            }
+
+            // It's something else: either a JRE thread or an Ignite thread not marked with ThreadAttributes. In any case,
+            // let it proceed. If it touches a storage, we'll see an assertion.
             return false;
         }
     }

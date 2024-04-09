@@ -256,7 +256,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 ),
                 transactionInflights,
                 3_000,
-                0
+                0,
+                null
         );
 
         RaftGroupService svc = tableRaftService().partitionRaftGroupService(PART_ID);

@@ -37,6 +37,9 @@ dependencies {
     integrationTestImplementation project(':ignite-api')
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-runner'))
+
+    testFixturesImplementation project(':ignite-core')
+    testFixturesImplementation project(':ignite-failure-handler')
 }
 
 description = 'ignite-failure-handler'
