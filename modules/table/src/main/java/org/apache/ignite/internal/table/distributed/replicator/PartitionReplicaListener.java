@@ -1679,13 +1679,14 @@ public class PartitionReplicaListener implements ReplicaListener {
     /**
      * Finishes a transaction. This operation is idempotent.
      *
+     * @param partitionIds Collection of enlisted partition groups.
      * @param txId Transaction id.
      * @param commit True is the transaction is committed, false otherwise.
      * @param commitTimestamp Commit timestamp, if applicable.
      * @return Future to wait of the finish.
      */
     private CompletableFuture<TransactionResult> finishTransaction(
-            Collection<TablePartitionId> aggregatedGroupIds,
+            Collection<TablePartitionId> partitionIds,
             UUID txId,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp
@@ -1700,7 +1701,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 commit,
                                 commitTimestamp,
                                 catalogVersion,
-                                toPartitionIdMessage(aggregatedGroupIds)
+                                toPartitionIdMessage(partitionIds)
                         )
                 )
                 .handle((txOutcome, ex) -> {
@@ -1742,7 +1743,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             boolean commit,
             HybridTimestamp commitTimestamp,
             int catalogVersion,
-            List<TablePartitionIdMessage> tablePartitionIds
+            List<TablePartitionIdMessage> partitionIds
     ) {
         synchronized (commandProcessingLinearizationMutex) {
             FinishTxCommandBuilder finishTxCmdBldr = MSG_FACTORY.finishTxCommand()
@@ -1750,7 +1751,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                     .commit(commit)
                     .safeTimeLong(clockService.nowLong())
                     .requiredCatalogVersion(catalogVersion)
-                    .partitionIds(tablePartitionIds);
+                    .partitionIds(partitionIds);
 
             if (commit) {
                 finishTxCmdBldr.commitTimestampLong(commitTimestamp.longValue());

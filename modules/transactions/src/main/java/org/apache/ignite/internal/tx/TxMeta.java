@@ -34,7 +34,7 @@ public class TxMeta implements TransactionMeta {
     /** Tx state. */
     private final TxState txState;
 
-    /** The list of enlisted partitions. */
+    /** Collection of enlisted partition groups. */
     private final Collection<TablePartitionId> enlistedPartitions;
 
     /** Commit timestamp. */
@@ -45,7 +45,7 @@ public class TxMeta implements TransactionMeta {
      * The constructor.
      *
      * @param txState Tx state.
-     * @param enlistedPartitions The list of enlisted partitions.
+     * @param enlistedPartitions Collection of enlisted partition groups.
      * @param commitTimestamp Commit timestamp.
      */
     public TxMeta(TxState txState, Collection<TablePartitionId> enlistedPartitions, @Nullable HybridTimestamp commitTimestamp) {
