@@ -2,8 +2,8 @@
 # description: JSON_VALUE function (is a part of T821 "Basic SQL/JSON query operators").
 # group: [json]
 
-# default NULL ON EMPTY is implicit (Sql 16 6.27 Rule 4)
-# default NULL ON ERROR is implicit (Sql 16 6.27 Rule 5)
+# NULL ON EMPTY is implicit (Sql 16 6.27 Rule 4)
+# NULL ON ERROR is implicit (Sql 16 6.27 Rule 5)
 query T
 select json_value('{"foo":100}', '$.bar')
 ----
