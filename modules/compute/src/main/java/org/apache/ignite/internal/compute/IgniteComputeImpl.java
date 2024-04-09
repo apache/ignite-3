@@ -48,7 +48,7 @@ import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.compute.NodeNotFoundException;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.util.CompletableFutures;
@@ -338,9 +338,9 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
     }
 
     private CompletableFuture<ClusterNode> primaryReplicaForPartition(TableViewInternal table, int partitionIndex) {
-        TablePartitionId tablePartitionId = new TablePartitionId(table.tableId(), partitionIndex);
+        ZonePartitionId zonePartitionId = new ZonePartitionId(table.internalTable().zoneId(), partitionIndex, table.tableId());
 
-        return placementDriver.awaitPrimaryReplica(tablePartitionId, clock.now(), 30, TimeUnit.SECONDS)
+        return placementDriver.awaitPrimaryReplicaForTable(zonePartitionId, clock.now(), 30, TimeUnit.SECONDS)
                 .thenApply(replicaMeta -> {
                     if (replicaMeta != null && replicaMeta.getLeaseholderId() != null) {
                         return topologyService.getById(replicaMeta.getLeaseholderId());

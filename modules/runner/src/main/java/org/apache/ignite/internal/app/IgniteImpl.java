@@ -854,7 +854,7 @@ public class IgniteImpl implements Ignite {
         );
 
         compute = new IgniteComputeImpl(
-                placementDriverMgr.placementDriver(),
+                replicaAwarePlacementDriver,
                 clusterSvc.topologyService(),
                 distributedTblMgr,
                 computeComponent,
