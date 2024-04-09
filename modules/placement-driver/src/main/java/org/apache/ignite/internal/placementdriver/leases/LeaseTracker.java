@@ -198,6 +198,8 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
         ).whenComplete((invokeResult, throwable) -> {
             if (throwable != null) {
                 resultFut.completeExceptionally(throwable);
+
+                return;
             }
 
             if (invokeResult) {
