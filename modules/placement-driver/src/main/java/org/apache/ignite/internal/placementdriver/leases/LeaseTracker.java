@@ -324,7 +324,9 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
                         }
                     }
 
-                    for (ReplicationGroupId grpId : previousLeasesMap.keySet()) {
+                    for (Map.Entry<ReplicationGroupId, Lease> replicaLease : previousLeasesMap.entrySet()) {
+                        ReplicationGroupId grpId = replicaLease.getKey();
+
                         if (!leasesMap.containsKey(grpId)) {
                             tryRemoveTracker(grpId);
 
