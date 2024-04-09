@@ -40,7 +40,7 @@ import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
-import org.apache.ignite.internal.storage.impl.TestStorageEngine;
+import org.apache.ignite.internal.storage.impl.schema.TestProfileConfigurationSchema;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -72,8 +72,8 @@ public class ItIndexNodeFinishedRwTransactionsCheckerTest extends ClusterPerClas
     @BeforeEach
     void setUp() {
         if (node() != null) {
-            createZoneOnlyIfNotExists(zoneName(TABLE_NAME), 1, 2, TestStorageEngine.ENGINE_NAME);
-            createZoneOnlyIfNotExists(zoneNameForUpdateCatalogVersionOnly, 1, 1, TestStorageEngine.ENGINE_NAME);
+            createZoneOnlyIfNotExists(zoneName(TABLE_NAME), 1, 2, TestProfileConfigurationSchema.TEST_PROFILE_NAME);
+            createZoneOnlyIfNotExists(zoneNameForUpdateCatalogVersionOnly, 1, 1, TestProfileConfigurationSchema.TEST_PROFILE_NAME);
             createTableOnly(TABLE_NAME, zoneName(TABLE_NAME));
         }
     }

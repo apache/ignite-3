@@ -19,9 +19,10 @@ package org.apache.ignite.internal.table;
 
 import static java.util.Arrays.asList;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
-import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -76,7 +77,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
     private final Collection<CompletableFuture<?>> futures = new ArrayList<>();
 
     private void createTestTableWith3Replicas() {
-        String zoneSql = "create zone test_zone with partitions=1, replicas=3";
+        String zoneSql = "create zone test_zone with partitions=1, replicas=3, storage_profiles='" + DEFAULT_STORAGE_PROFILE + "'";
         String sql = "create table " + TABLE_NAME + " (key int primary key, val varchar(20))"
                 + " with primary_zone='TEST_ZONE'";
 
@@ -147,7 +148,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
 
         // Drop all finish messages to the old primary, pick a new one.
         // The coordinator will get a response from the new primary.
-        CompletableFuture<Void> transferPrimaryFuture = changePrimaryOnFinish(context.coordinatorNode, context.publicTable);
+        CompletableFuture<Void> transferPrimaryFuture = changePrimaryOnFinish(context.coordinatorNode);
 
         // The primary is changed after calculating the outcome and commit timestamp.
         // The new primary successfully commits such transaction.
@@ -156,8 +157,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
         assertThat(transferPrimaryFuture, willCompleteSuccessfully());
     }
 
-    private CompletableFuture<Void> changePrimaryOnFinish(IgniteImpl coordinatorNode, Table publicTable) {
-        TableImpl tableImpl = unwrapTableImpl(publicTable);
+    private CompletableFuture<Void> changePrimaryOnFinish(IgniteImpl coordinatorNode) {
         DefaultMessagingService coordinatorMessaging = messaging(coordinatorNode);
 
         AtomicBoolean dropMessage = new AtomicBoolean(true);
@@ -187,7 +187,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
 
                 logger().info("Start transferring primary.");
 
-                NodeUtils.transferPrimary(tableImpl, null, this::node);
+                NodeUtils.transferPrimary(cluster.runningNodes().collect(toSet()), defaultTablePartitionId(node(0)), null);
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             } finally {
@@ -249,15 +249,14 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
         Context context = prepareTransactionData();
 
         // The transaction is committed but the primary expires right before applying the cleanup message.
-        CompletableFuture<Void> transferPrimaryFuture = changePrimaryOnCleanup(context.primaryNode, context.publicTable);
+        CompletableFuture<Void> transferPrimaryFuture = changePrimaryOnCleanup(context.primaryNode);
 
         commitAndValidate(context.tx, context.publicTable, context.keyTpl);
 
         assertThat(transferPrimaryFuture, willCompleteSuccessfully());
     }
 
-    private CompletableFuture<Void> changePrimaryOnCleanup(IgniteImpl primaryNode, Table publicTable) {
-        TableImpl tableImpl = unwrapTableImpl(publicTable);
+    private CompletableFuture<Void> changePrimaryOnCleanup(IgniteImpl primaryNode) {
         DefaultMessagingService primaryMessaging = messaging(primaryNode);
 
         AtomicBoolean dropMessage = new AtomicBoolean(true);
@@ -287,7 +286,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
 
                 logger().info("Start transferring primary.");
 
-                NodeUtils.transferPrimary(tableImpl, null, this::node);
+                NodeUtils.transferPrimary(cluster.runningNodes().collect(toSet()), defaultTablePartitionId(node(0)), null);
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             } finally {

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
 import static org.apache.ignite.internal.schema.BinaryRowMatcher.equalToRow;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
@@ -698,7 +699,8 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
         String zoneName = zoneNameForTable(tableName);
         IgniteSql sql = node.sql();
 
-        sql.execute(null, String.format("create zone \"%s\" with partitions=3, replicas=%d", zoneName, DEFAULT_REPLICA_COUNT));
+        sql.execute(null, String.format("create zone \"%s\" with partitions=3, replicas=%d, storage_profiles='%s'",
+                zoneName, DEFAULT_REPLICA_COUNT, DEFAULT_STORAGE_PROFILE));
 
         sql.execute(null,
                 String.format(
