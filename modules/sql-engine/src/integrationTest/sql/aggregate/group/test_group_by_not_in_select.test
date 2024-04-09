@@ -52,6 +52,6 @@ SELECT SUM(a) FROM test GROUP BY b HAVING b=22;
 
 # HAVING with condition on sum
 query R
-SELECT SUM(a) as sum_c FROM test GROUP BY b HAVING sum_c < 20;
+SELECT SUM(a) FROM test GROUP BY b HAVING SUM(a) < 20;
 ----
 12.000000
