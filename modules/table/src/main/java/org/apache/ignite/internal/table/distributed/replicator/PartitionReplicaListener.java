@@ -468,7 +468,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private CompletableFuture<Void> processCleanupRecoveryMessage(TxCleanupRecoveryRequest request) {
-        runPersistentStorageScan();
+        txManager.executeWriteIntentSwitchAsync(this::runPersistentStorageScan);
 
         return nullCompletedFuture();
     }
