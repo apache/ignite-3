@@ -45,6 +45,7 @@ public class CatalogHashIndexDescriptor extends CatalogIndexDescriptor {
      * @param unique Unique flag.
      * @param txWaitCatalogVersion Catalog version used in special index status updates to wait for RW transactions, started before
      *         this version, to finish.
+     * @param zoneId Zone id where table for the index is presented.
      * @param columns A list of indexed columns. Must not contains duplicates.
      * @throws IllegalArgumentException If columns list contains duplicates.
      */

@@ -39,6 +39,7 @@ public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor {
     /** Index descriptor type. */
     private final CatalogIndexDescriptorType indexType;
 
+    /** Zone id where table for the index is presented. */
     private final int zoneId;
 
     CatalogIndexDescriptor(CatalogIndexDescriptorType indexType, int id, String name, int tableId, boolean unique,
@@ -75,6 +76,7 @@ public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor {
         return txWaitCatalogVersion;
     }
 
+    /** Return zone id where table for the index is presented. */
     public int zoneId() {
         return zoneId;
     }

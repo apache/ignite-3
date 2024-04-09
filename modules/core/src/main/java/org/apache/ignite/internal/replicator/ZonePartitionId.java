@@ -66,24 +66,6 @@ public class ZonePartitionId implements ReplicationGroupId {
         return tableId;
     }
 
-    /**
-     * Converts a string representation of zone partition id to the object.
-     *
-     * @param str String representation.
-     * @return An zone partition id.
-     */
-    public static ZonePartitionId fromString(String str) {
-        String[] parts = str.split("_part_");
-
-        // TODO:
-        return new ZonePartitionId(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]), 0);
-    }
-
-    @Override
-    public String toString() {
-        return zoneId + "_part_" + partId;
-    }
-
     @Override
     public boolean equals(Object o) {
         if (this == o) {
