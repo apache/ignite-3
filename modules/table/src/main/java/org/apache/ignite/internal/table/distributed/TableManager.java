@@ -100,7 +100,6 @@ import org.apache.ignite.internal.affinity.AffinityUtils;
 import org.apache.ignite.internal.affinity.Assignment;
 import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.catalog.descriptors.CatalogDataStorageDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
@@ -1413,14 +1412,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param zoneDescriptor Catalog distributed zone descriptor.
      */
     protected MvTableStorage createTableStorage(CatalogTableDescriptor tableDescriptor, CatalogZoneDescriptor zoneDescriptor) {
-        CatalogDataStorageDescriptor dataStorage = zoneDescriptor.dataStorage();
+        StorageEngine engine = dataStorageMgr.engineByStorageProfile(tableDescriptor.storageProfile());
 
-        StorageEngine engine = dataStorageMgr.engine(dataStorage.engine());
-
-        assert engine != null : "tableId=" + tableDescriptor.id() + ", engine=" + dataStorage.engine();
+        assert engine != null : "tableId=" + tableDescriptor.id() + ", engine=" + engine.name();
 
         return engine.createMvTable(
-                new StorageTableDescriptor(tableDescriptor.id(), zoneDescriptor.partitions(), dataStorage.dataRegion()),
+                new StorageTableDescriptor(tableDescriptor.id(), zoneDescriptor.partitions(), tableDescriptor.storageProfile()),
                 new CatalogStorageIndexDescriptorSupplier(catalogService, lowWatermark)
         );
     }
@@ -2539,18 +2536,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             assert tableDescriptor != null : "tableId=" + droppedTableInfo.tableId() + ", catalogVersion=" + catalogVersion;
 
-            CatalogZoneDescriptor zoneDescriptor = catalogService.zone(tableDescriptor.zoneId(), catalogVersion);
-
-            assert zoneDescriptor != null : "zoneId=" + tableDescriptor.zoneId() + ", catalogVersion=" + catalogVersion;
-
-            destroyTableStorageOnRecoveryBusy(tableDescriptor, zoneDescriptor);
+            destroyTableStorageOnRecoveryBusy(tableDescriptor);
         }
     }
 
-    private void destroyTableStorageOnRecoveryBusy(CatalogTableDescriptor tableDescriptor, CatalogZoneDescriptor zoneDescriptor) {
-        StorageEngine engine = dataStorageMgr.engine(zoneDescriptor.dataStorage().engine());
+    private void destroyTableStorageOnRecoveryBusy(CatalogTableDescriptor tableDescriptor) {
+        StorageEngine engine = dataStorageMgr.engineByStorageProfile(tableDescriptor.storageProfile());
 
-        assert engine != null : "tableId=" + tableDescriptor.id() + ", engineName=" + zoneDescriptor.dataStorage().engine();
+        assert engine != null : "tableId=" + tableDescriptor.id() + ", storageProfile=" + tableDescriptor.storageProfile();
 
         engine.dropMvTable(tableDescriptor.id());
     }
