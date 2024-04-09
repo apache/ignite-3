@@ -57,6 +57,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
 import java.util.stream.Collectors;
@@ -333,7 +334,10 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 new TxCleanupRequestSender(txMessageSender, placementDriverHelper, txStateVolatileStorage);
     }
 
-    private CompletableFuture<Boolean> primaryReplicaElectedListener(PrimaryReplicaEventParameters eventParameters) {
+    private CompletableFuture<Boolean> primaryReplicaEventListener(
+            PrimaryReplicaEventParameters eventParameters,
+            Consumer<TablePartitionId> action
+    ) {
         return inBusyLock(busyLock, () -> {
             if (!(eventParameters.groupId() instanceof TablePartitionId)) {
                 return falseCompletedFuture();
@@ -341,26 +345,22 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
             TablePartitionId groupId = (TablePartitionId) eventParameters.groupId();
 
-            String localNodeName = topologyService.localMember().name();
-
-            txMessageSender.sendRecoveryCleanup(localNodeName, groupId);
+            action.accept(groupId);
 
             return falseCompletedFuture();
         });
     }
 
-    private CompletableFuture<Boolean> primaryReplicaExpiredListener(PrimaryReplicaEventParameters eventParameters) {
-        return inBusyLock(busyLock, () -> {
-            if (!(eventParameters.groupId() instanceof TablePartitionId)) {
-                return falseCompletedFuture();
-            }
+    private CompletableFuture<Boolean> primaryReplicaElectedListener(PrimaryReplicaEventParameters eventParameters) {
+        return primaryReplicaEventListener(eventParameters, groupId -> {
+            String localNodeName = topologyService.localMember().name();
 
-            TablePartitionId groupId = (TablePartitionId) eventParameters.groupId();
-
-            transactionInflights.cancelWaitingInflights(groupId);
-
-            return falseCompletedFuture();
+            txMessageSender.sendRecoveryCleanup(localNodeName, groupId);
         });
+    }
+
+    private CompletableFuture<Boolean> primaryReplicaExpiredListener(PrimaryReplicaEventParameters eventParameters) {
+        return primaryReplicaEventListener(eventParameters, transactionInflights::cancelWaitingInflights);
     }
 
     @Override

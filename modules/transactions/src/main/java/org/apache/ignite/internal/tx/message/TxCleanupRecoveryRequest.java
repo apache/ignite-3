@@ -21,8 +21,7 @@ import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 
 /**
- * A replica request that either triggers the conversion of all pending entries(writeIntents) to regular values(TxState.COMMITTED)
- * or removes them (TxState.ABORTED).
+ * A replica request that is used for retriggering cleanup for finished transactions on node becoming primary.
  */
 @Transferable(TxMessageGroup.TX_CLEANUP_RECOVERY)
 public interface TxCleanupRecoveryRequest extends ReplicaRequest {
