@@ -303,7 +303,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
         Context context = prepareTransactionData();
 
         // Simulate the state when a tx has already been committed by writing a corresponding state into tx state storage.
-        markTxAbortedInTxStateStorage(context.primaryNode, context.tx, context.tbl);
+        markTxAbortedInTxStateStorage(context.primaryNode, context.tx, context.publicTable);
 
         // Tx.commit should throw MismatchingTransactionOutcomeException.
         TransactionException transactionException = assertThrows(TransactionException.class, context.tx::commit);
@@ -313,14 +313,16 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
         assertInstanceOf(MismatchingTransactionOutcomeException.class, cause);
     }
 
-    private void markTxAbortedInTxStateStorage(IgniteImpl primaryNode, InternalTransaction tx, TableImpl tbl) {
+    private void markTxAbortedInTxStateStorage(IgniteImpl primaryNode, InternalTransaction tx, Table publicTable) {
+        TableImpl tableImpl = unwrapTableImpl(publicTable);
+
         TableViewInternal primaryTbl = unwrapTableViewInternal(primaryNode.tables().table(TABLE_NAME));
 
         TxStateStorage storage = primaryTbl.internalTable().txStateStorage().getTxStateStorage(0);
 
         TxMeta txMetaToSet = new TxMeta(
                 ABORTED,
-                asList(new TablePartitionId(tbl.tableId(), 0)),
+                asList(new TablePartitionId(tableImpl.tableId(), 0)),
                 null
         );
         bypassingThreadAssertions(() -> storage.put(tx.id(), txMetaToSet));

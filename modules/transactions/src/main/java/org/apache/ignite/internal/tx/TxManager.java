@@ -142,8 +142,8 @@ public interface TxManager extends IgniteComponent {
 
     /**
      * Sends cleanup request to the cluster nodes that hosts primary replicas for the enlisted partitions.
-     * <p>
-     * The nodes to send the request to are taken from the mapping `partition id -> partition primary`.
+     *
+     * <p>The nodes to send the request to are taken from the mapping `partition id -> partition primary`.
      *
      * @param enlistedPartitions Map of partition groups to their primary nodes.
      * @param commit {@code true} if a commit requested.
@@ -160,8 +160,8 @@ public interface TxManager extends IgniteComponent {
 
     /**
      * Sends cleanup request to the cluster nodes that hosts primary replicas for the enlisted partitions.
-     * <p>
-     * The nodes to sends the request to are calculated by the placement driver.
+     *
+     * <p>The nodes to sends the request to are calculated by the placement driver.
      *
      * @param enlistedPartitions Enlisted partition groups.
      * @param commit {@code true} if a commit requested.
