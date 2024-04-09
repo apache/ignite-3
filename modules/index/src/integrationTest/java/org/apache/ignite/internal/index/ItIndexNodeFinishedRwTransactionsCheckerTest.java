@@ -43,6 +43,7 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.impl.TestStorageEngine;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -224,11 +225,13 @@ public class ItIndexNodeFinishedRwTransactionsCheckerTest extends ClusterPerClas
     }
 
     private static long[] partitionSizes() {
-        InternalTable table = tableImpl().internalTable();
+        return IgniteTestUtils.bypassingThreadAssertions(() -> {
+            InternalTable table = tableImpl().internalTable();
 
-        return IntStream.range(0, table.partitions())
-                .mapToLong(partitionId -> table.storage().getMvPartition(partitionId).rowsCount())
-                .toArray();
+            return IntStream.range(0, table.partitions())
+                    .mapToLong(partitionId -> table.storage().getMvPartition(partitionId).rowsCount())
+                    .toArray();
+        });
     }
 
     private static int differences(long[] partitionSizes0, long[] partitionsSizes1) {

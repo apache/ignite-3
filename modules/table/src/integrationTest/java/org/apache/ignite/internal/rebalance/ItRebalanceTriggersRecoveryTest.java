@@ -20,6 +20,7 @@ package org.apache.ignite.internal.rebalance;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableId;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -243,6 +244,6 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
                 .storage()
                 .getMvPartition(0);
 
-        return storage != null && storage.rowsCount() != 0;
+        return storage != null && bypassingThreadAssertions(storage::rowsCount) != 0;
     }
 }

@@ -39,10 +39,8 @@ import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.PublicApiThreadingTests;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.streamer.SimplePublisher;
 import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
@@ -54,7 +52,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.junitpioneer.jupiter.cartesian.CartesianTest.Enum;
 
-@WithSystemProperty(key = IgniteSystemProperties.THREAD_ASSERTIONS_ENABLED, value = "false")
 @SuppressWarnings("resource")
 class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
     private static final String TABLE_NAME = "test";
@@ -137,7 +134,7 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
     }
 
     private static <T> T forcingSwitchFromUserThread(Supplier<? extends T> action) {
-        return PublicApiThreadingTests.forcingSwitchFromUserThread(CLUSTER.aliveNode(), action);
+        return PublicApiThreadingTests.tryToSwitchFromUserThreadWithDelayedSchemaSync(CLUSTER.aliveNode(), action);
     }
 
     private static KeyValueContext<Integer, String> plainKeyValueContext() {

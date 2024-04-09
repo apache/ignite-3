@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static org.apache.ignite.internal.thread.PublicApiThreading.execUserAsyncOperation;
 import static org.apache.ignite.internal.thread.PublicApiThreading.preventThreadHijack;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.wrapper.Wrapper;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
@@ -28,30 +30,34 @@ import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Wrapper around {@link IgniteTransactions} that adds protection against thread hijacking by users.
+ * Wrapper around {@link IgniteTransactions} that maintains public API invariants relating to threading.
+ * That is, it adds protection against thread hijacking by users and also marks threads as 'executing a sync user operation' or
+ * 'executing an async user operation'.
  */
-public class AntiHijackIgniteTransactions implements IgniteTransactions, Wrapper {
+public class PublicApiThreadingIgniteTransactions implements IgniteTransactions, Wrapper {
     private final IgniteTransactions transactions;
     private final Executor asyncContinuationExecutor;
 
-    public AntiHijackIgniteTransactions(IgniteTransactions transactions, Executor asyncContinuationExecutor) {
+    public PublicApiThreadingIgniteTransactions(IgniteTransactions transactions, Executor asyncContinuationExecutor) {
         this.transactions = transactions;
         this.asyncContinuationExecutor = asyncContinuationExecutor;
     }
 
     @Override
     public Transaction begin(@Nullable TransactionOptions options) {
-        return applyProtection(transactions.begin(options));
+        return PublicApiThreading.execUserSyncOperation(() -> wrapTransaction(transactions.begin(options)));
     }
 
     @Override
     public CompletableFuture<Transaction> beginAsync(@Nullable TransactionOptions options) {
-        return preventThreadHijack(transactions.beginAsync(options), asyncContinuationExecutor)
-                .thenApply(this::applyProtection);
+        CompletableFuture<Transaction> future = execUserAsyncOperation(() -> transactions.beginAsync(options));
+
+        return preventThreadHijack(future, asyncContinuationExecutor)
+                .thenApply(this::wrapTransaction);
     }
 
-    private Transaction applyProtection(Transaction transaction) {
-        return new AntiHijackTransaction(transaction, asyncContinuationExecutor);
+    private Transaction wrapTransaction(Transaction transaction) {
+        return new PublicApiThreadingTransaction(transaction, asyncContinuationExecutor);
     }
 
     @Override
