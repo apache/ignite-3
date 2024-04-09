@@ -37,6 +37,7 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.schema.CheckCatalogVersionOnAppendEntries;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
@@ -144,7 +145,7 @@ class ItSchemaSyncAndReplicationTest extends ClusterPerTestIntegrationTest {
 
     private static boolean solePartitionIsEmpty(IgniteImpl node) {
         MvPartitionStorage mvPartitionStorage = solePartitionStorage(node);
-        RowId rowId = mvPartitionStorage.closestRowId(RowId.lowestRowId(0));
+        RowId rowId = IgniteTestUtils.bypassingThreadAssertions(() -> mvPartitionStorage.closestRowId(RowId.lowestRowId(0)));
         return rowId == null;
     }
 
