@@ -1857,8 +1857,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         CompletableFuture<Void> localServicesStartFuture;
 
-        int tableId = tbl.tableId();
-
         int zoneId = zonePartitionId.zoneId();
 
         // This is a set of assignments for nodes that are not the part of stable assignments, i.e. unstable part of the distribution.

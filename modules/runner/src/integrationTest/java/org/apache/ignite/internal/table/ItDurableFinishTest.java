@@ -71,6 +71,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Test resending the finish request from the coordinator when the previous attempts failed for any reason.
  */
+@WithSystemProperty(key = "IGNITE_ALWAYS_FORCE", value = "false")
 public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
     private static final int AWAIT_PRIMARY_REPLICA_TIMEOUT = 10;
 
@@ -244,7 +245,6 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    @WithSystemProperty(key = "IGNITE_ALWAYS_FORCE", value = "false")
     void testChangePrimaryOnCleanup() throws ExecutionException, InterruptedException {
         node(0).clusterConfiguration().getConfiguration(ReplicationConfiguration.KEY).change(replicationChange ->
                 replicationChange.changeRpcTimeout(3000));
