@@ -18,6 +18,8 @@
 package org.apache.ignite.jdbc;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -133,10 +135,10 @@ public class ItJdbcClientTimeZoneTest extends AbstractJdbcSelfTest {
         {
             String timeZone = "invalid/timezone";
 
-            assertThrows(
-                    ZoneRulesException.class,
-                    () -> DriverManager.getConnection(URL + "?connectionTimeZone=" + timeZone)
-            );
+            SQLException ex = assertThrows(SQLException.class,
+                    () -> DriverManager.getConnection(URL + "?connectionTimeZone=" + timeZone));
+
+            assertThat(ex.getCause(), instanceOf(ZoneRulesException.class));
         }
 
         assertEquals(TimeZone.getDefault().getID(), originTimeZone);

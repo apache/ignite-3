@@ -20,6 +20,7 @@ package org.apache.ignite.internal.jdbc;
 import java.io.Serializable;
 import java.sql.DriverPropertyInfo;
 import java.sql.SQLException;
+import java.time.DateTimeException;
 import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.Properties;
@@ -127,8 +128,8 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
             "Password", null, null, false, null);
 
     /** Client connection time zone ID. This property can be used by the client to change the time zone of the "session" on the server. */
-    private final StringProperty connectionTimeZone = new StringProperty("connectionTimeZone",
-            "Client connection time zone ID", TimeZone.getDefault().getID(), null, false, null);
+    private final TimeZoneProperty connectionTimeZone = new TimeZoneProperty("connectionTimeZone",
+            "Client connection time zone ID", TimeZone.getDefault().toZoneId(), null, false, null);
 
     /** Properties array. */
     private final ConnectionProperty[] propsArray = {
@@ -352,12 +353,12 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
 
     @Override
     public ZoneId getConnectionTimeZone() {
-        return ZoneId.of(connectionTimeZone.value());
+        return connectionTimeZone.value();
     }
 
     @Override
     public void setConnectionTimeZone(ZoneId timeZoneId) {
-        connectionTimeZone.setValue(timeZoneId.getId());
+        connectionTimeZone.setValue(timeZoneId);
     }
 
     /**
@@ -1056,6 +1057,54 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
             }
 
             val = Boolean.parseBoolean(str);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        String valueObject() {
+            return String.valueOf(val);
+        }
+    }
+
+    /**
+     * Time zone property.
+     */
+    private static class TimeZoneProperty extends ConnectionProperty {
+        private static final long serialVersionUID = 0L;
+
+        private ZoneId val;
+
+        TimeZoneProperty(String name, String desc, ZoneId dfltVal, String[] choices, boolean required,
+                PropertyValidator validator) {
+            super(name, desc, dfltVal, choices, required, validator);
+
+            val = dfltVal;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        void init(String str) throws SQLException {
+            if (str == null) {
+                val = dfltVal != null ? (ZoneId) dfltVal : null;
+
+                return;
+            }
+
+            try {
+                val = ZoneId.of(str);
+            } catch (DateTimeException e) {
+                throw new SQLException("Failed to set time zone property [value=" + str + ']', SqlStateCode.CLIENT_CONNECTION_FAILED, e);
+            }
+        }
+
+        /** Sets the property value. */
+        void setValue(ZoneId val) {
+            this.val = val;
+        }
+
+        /** Returns property value. */
+        ZoneId value() {
+            return val;
         }
 
         /** {@inheritDoc} */
