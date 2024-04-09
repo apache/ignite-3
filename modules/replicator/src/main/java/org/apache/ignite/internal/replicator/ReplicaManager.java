@@ -32,6 +32,7 @@ import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -442,7 +443,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                             responses.stream().filter(leaseGranResp -> !leaseGranResp.accepted()).findAny().get().redirectProposal();
 
                     LeaseGrantedMessageResponse response = PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse()
-                            .appliedGroups(replicationGroupIds)
+                            .appliedGroups(replicationGroupIds == null ? Collections.emptySet() : replicationGroupIds)
                             .redirectProposal(redirect)
                             .accepted(accepted)
                             .build();

@@ -90,6 +90,8 @@ public class LeaseNegotiator {
 
                         LeaseGrantedMessageResponse response = (LeaseGrantedMessageResponse) msg;
 
+                        assert !response.accepted() || response.appliedGroups() != null : response;
+
                         fut.complete(response);
                     } else {
                         if (!(unwrapCause(throwable) instanceof NodeStoppingException)) {

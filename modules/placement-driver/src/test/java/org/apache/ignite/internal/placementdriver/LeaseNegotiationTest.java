@@ -58,6 +58,7 @@ import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessage;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.network.NetworkAddress;
@@ -164,7 +165,10 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
     }
 
     private static LeaseGrantedMessageResponse createLeaseGrantedMessageResponse(boolean accept) {
-        return MSG_FACTORY.leaseGrantedMessageResponse().accepted(accept).build();
+        return MSG_FACTORY.leaseGrantedMessageResponse()
+                .appliedGroups(Set.of(new TablePartitionId(0, 0)))
+                .accepted(accept)
+                .build();
     }
 
     @Test
