@@ -263,9 +263,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 return true;
             }
 
-            // It's something else: either a JRE thread or an Ignite thread not marked with ThreadAttributes. In any case,
-            // let it proceed. If it touches a storage, we'll see an assertion.
-            return false;
+            // It's something else: either a JRE thread or an Ignite thread not marked with ThreadAttributes. As we are not sure,
+            // let's switch: false negative can produce assertion errors.
+            return true;
         }
     }
 
@@ -351,14 +351,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
                 clusterNetSvc.messagingService().respond(senderConsistentId, msg, correlationId);
 
-                if (request instanceof PrimaryReplicaRequest) {
-                    ClusterNode localNode = clusterNetSvc.topologyService().localMember();
-
-                    if (!localNode.name().equals(replica.proposedPrimary())) {
-                        stopLeaseProlongation(request.groupId(), replica.proposedPrimary());
-                    } else if (isConnectivityRelatedException(ex)) {
-                        stopLeaseProlongation(request.groupId(), null);
-                    }
+                if (request instanceof PrimaryReplicaRequest && isConnectivityRelatedException(ex)) {
+                    stopLeaseProlongation(request.groupId(), null);
                 }
 
                 if (ex == null && res.replicationFuture() != null) {
