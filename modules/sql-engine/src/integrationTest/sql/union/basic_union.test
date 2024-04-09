@@ -1,4 +1,5 @@
 # description: Basic union tests
+# feature: E071-01
 
 statement ok
 CREATE TABLE a(i INTEGER);
@@ -74,7 +75,3 @@ SELECT 1, 2 UNION ALL SELECT i, i FROM a
 NULL	NULL
 100	100
 1	2
-
-
-
-

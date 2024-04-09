@@ -1,6 +1,6 @@
-# name: union_all_projection_pushdown.test
+# name: test_union_all_projection_pushdown.test
 # description: Test projection pushdown in UNION ALL
-# group: [setops]
+# feature: E071-01
 
 statement ok
 CREATE TABLE a(i INTEGER, j INTEGER, k INTEGER, l INTEGER);
