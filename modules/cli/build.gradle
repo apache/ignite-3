@@ -131,8 +131,8 @@ configurations {
 ext.generatedClientDir = layout.buildDirectory.dir("swagger/client")
 
 task copyOpenapiDefinition(type: Copy) {
-    from("$rootDir/modules/rest-api/openapi")
-    into("$buildDir/customOpenapiDefinition/")
+    from("$rootDir/modules/rest-api/build/openapi")
+    into(layout.buildDirectory.dir("customOpenapiDefinition"))
 }
 
 pmdMain {
@@ -141,8 +141,8 @@ pmdMain {
 
 task generateApiClient(type: GenerateTask) {
     generatorName="java"
-    inputs.dir file("$buildDir/customOpenapiDefinition/")
-    inputSpec="$buildDir/customOpenapiDefinition/openapi.yaml"
+    inputs.dir layout.buildDirectory.dir("customOpenapiDefinition")
+    inputSpec=layout.buildDirectory.file("customOpenapiDefinition/openapi.yaml").toString()
     apiPackage="org.apache.ignite.rest.client.api"
     invokerPackage="org.apache.ignite.rest.client.invoker"
     modelPackage="org.apache.ignite.rest.client.model"
