@@ -791,13 +791,16 @@ public class IgniteImpl implements Ignite {
                 lowWatermark
         );
 
+        ReplicaAwareLeaseTracker replicaAwarePlacementDriver = new ReplicaAwareLeaseTracker(placementDriverMgr.placementDriver(),
+                replicaSvc, clusterSvc.topologyService());
+
         indexBuildingManager = new IndexBuildingManager(
                 name,
                 replicaSvc,
                 catalogManager,
                 metaStorageMgr,
                 indexManager,
-                new ReplicaAwareLeaseTracker(placementDriverMgr.placementDriver(), replicaSvc, clusterSvc.topologyService()),
+                replicaAwarePlacementDriver,
                 clusterSvc,
                 logicalTopologyService,
                 clockService
@@ -819,7 +822,7 @@ public class IgniteImpl implements Ignite {
                 systemViewManager,
                 failureProcessor,
                 partitionIdleSafeTimePropagationPeriodMsSupplier,
-                placementDriverMgr.placementDriver(),
+                replicaAwarePlacementDriver,
                 clusterConfigRegistry.getConfiguration(SqlDistributedConfiguration.KEY),
                 nodeConfigRegistry.getConfiguration(SqlLocalConfiguration.KEY),
                 transactionInflights
