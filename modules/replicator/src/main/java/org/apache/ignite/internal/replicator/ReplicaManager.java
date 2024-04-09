@@ -777,7 +777,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      */
     private void sendReplicaUnavailableErrorResponse(
             String senderConsistentId,
-            long correlationId,
+            @Nullable Long correlationId,
             ReplicationGroupId groupId,
             @Nullable HybridTimestamp requestTimestamp
     ) {
