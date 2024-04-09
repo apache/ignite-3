@@ -32,6 +32,7 @@ import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
@@ -688,27 +689,24 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
                                 try {
                                     placementDriver.addSubgroups(repGrp, meta.getStartTime().longValue(), diff)
-                                            .thenRun(() -> {
+                                            .thenCompose(unused -> {
+                                                ArrayList<CompletableFuture<?>> requestToReplicas = new ArrayList<>();
+
                                                 for (ReplicationGroupId partId : diff) {
                                                     EmptyPrimaryReplicaRequest req = REPLICA_MESSAGES_FACTORY.emptyPrimaryReplicaRequest()
                                                             .enlistmentConsistencyToken(meta.getStartTime().longValue())
                                                             .groupId(partId)
                                                             .build();
 
-                                                    if (shouldSwitchToRequestsExecutor()) {
-                                                        requestsExecutor.execute(() -> handleReplicaRequest(
-                                                                req,
-                                                                clusterNetSvc.topologyService().localMember(),
-                                                                null
-                                                        ));
-                                                    } else {
-                                                        requestsExecutor.execute(() -> handleReplicaRequest(
-                                                                req,
-                                                                clusterNetSvc.topologyService().localMember(),
-                                                                null
-                                                        ));
+                                                    CompletableFuture<Replica> replicaFut = replicas.get(repGrp);
+
+                                                    if (replicaFut != null) {
+                                                        requestToReplicas.add(replicaFut.thenCompose(
+                                                                replica -> replica.processRequest(req, localNodeId)));
                                                     }
                                                 }
+
+                                                return allOf(requestToReplicas.toArray(CompletableFuture[]::new));
                                             }).join();
                                 } catch (Exception ex) {
                                     LOG.error(
@@ -777,7 +775,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      */
     private void sendReplicaUnavailableErrorResponse(
             String senderConsistentId,
-            @Nullable Long correlationId,
+            long correlationId,
             ReplicationGroupId groupId,
             @Nullable HybridTimestamp requestTimestamp
     ) {
