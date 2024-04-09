@@ -24,12 +24,15 @@ import org.jetbrains.annotations.Nullable;
  */
 public class Wrappers {
     /**
-     * Unwraps an object. Either invokes {@link Wrapper#unwrap(Class)} if it's a Wrapper, or tries to cast directly otherwise.
+     * Unwraps an object (that is not {@code null}). Either invokes {@link Wrapper#unwrap(Class)} if it's a Wrapper, or tries to cast
+     * directly otherwise.
      *
      * @param object Object to unwrap.
      * @param classToUnwrap Class which is to be unwrapped.
      */
     public static <T> T unwrap(Object object, Class<T> classToUnwrap) {
+        assert object != null : "Object to unwrap is null";
+
         if (object instanceof Wrapper) {
             return ((Wrapper) object).unwrap(classToUnwrap);
         }
