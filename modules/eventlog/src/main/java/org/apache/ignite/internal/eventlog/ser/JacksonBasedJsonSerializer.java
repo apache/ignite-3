@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.eventlog.ser;
 
 import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.databind.JsonSerializer;
+import com.fasterxml.jackson.databind.Module;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.module.SimpleModule;
@@ -30,16 +30,20 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.lang.ErrorGroups.Common;
 
 /** Serializes events to JSON. Uses provided json serializer to serialize events of specified class. */
-public class JacksonBasedJsonSerializer<T extends Event> implements EventSerializer {
+public class JacksonBasedJsonSerializer implements EventSerializer {
     private final ObjectMapper mapper;
 
     /** Default constructor. */
-    public JacksonBasedJsonSerializer(Class<T> eventClass, JsonSerializer<T> eventJsonSerializer) {
+    public JacksonBasedJsonSerializer(Module jacksonModule) {
         mapper = new ObjectMapper();
-        SimpleModule module = new SimpleModule();
-        module.addSerializer(eventClass, eventJsonSerializer);
+        mapper.registerModule(jacksonModule);
+        mapper.registerModule(eventUserModule());
+    }
+
+    private static Module eventUserModule() {
+        SimpleModule module = new SimpleModule("EventUser");
         module.addSerializer(EventUser.class, new EventUserJacksonSerializer());
-        mapper.registerModule(module);
+        return module;
     }
 
     /** {@inheritDoc} */
@@ -52,7 +56,7 @@ public class JacksonBasedJsonSerializer<T extends Event> implements EventSeriali
         }
     }
 
-    static class EventUserJacksonSerializer extends StdSerializer<EventUser> {
+    private static class EventUserJacksonSerializer extends StdSerializer<EventUser> {
         private EventUser value;
         private JsonGenerator jgen;
         private SerializerProvider provider;
@@ -77,4 +81,5 @@ public class JacksonBasedJsonSerializer<T extends Event> implements EventSeriali
             jgen.writeEndObject();
         }
     }
+
 }

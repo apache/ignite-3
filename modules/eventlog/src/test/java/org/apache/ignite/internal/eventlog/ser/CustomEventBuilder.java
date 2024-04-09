@@ -17,15 +17,35 @@
 
 package org.apache.ignite.internal.eventlog.ser;
 
-import org.apache.ignite.internal.eventlog.api.Event;
-import org.jetbrains.annotations.Nullable;
+import org.apache.ignite.internal.eventlog.event.EventUser;
 
-/**
- * Event Serializer Registry.
- */
-public interface EventSerializerRegistry {
-    void register(Class<? extends Event> eventClass, EventSerializer eventSerializer);
+class CustomEventBuilder {
+    private long timestamp;
+    private String productVersion;
+    private EventUser eventUser;
+    private Message message;
 
-    @Nullable
-    EventSerializer findSerializer(Class<? extends Event> eventClass);
+    public CustomEventBuilder timestamp(long timestamp) {
+        this.timestamp = timestamp;
+        return this;
+    }
+
+    public CustomEventBuilder productVersion(String productVersion) {
+        this.productVersion = productVersion;
+        return this;
+    }
+
+    public CustomEventBuilder user(EventUser eventUser) {
+        this.eventUser = eventUser;
+        return this;
+    }
+
+    public CustomEventBuilder message(Message message) {
+        this.message = message;
+        return this;
+    }
+
+    public CustomEvent build() {
+        return new CustomEvent(timestamp, productVersion, eventUser, message);
+    }
 }

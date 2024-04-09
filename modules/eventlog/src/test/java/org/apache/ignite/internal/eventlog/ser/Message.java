@@ -17,15 +17,20 @@
 
 package org.apache.ignite.internal.eventlog.ser;
 
-import org.apache.ignite.internal.eventlog.api.Event;
-import org.jetbrains.annotations.Nullable;
+public class Message {
+    private final int version;
+    private final String body;
 
-/**
- * Event Serializer Registry.
- */
-public interface EventSerializerRegistry {
-    void register(Class<? extends Event> eventClass, EventSerializer eventSerializer);
+    public Message(int version, String body) {
+        this.version = version;
+        this.body = body;
+    }
 
-    @Nullable
-    EventSerializer findSerializer(Class<? extends Event> eventClass);
+    public int getVersion() {
+        return version;
+    }
+
+    public String getBody() {
+        return body;
+    }
 }

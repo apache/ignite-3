@@ -23,46 +23,52 @@ import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.ser.std.StdSerializer;
 import java.io.IOException;
-import org.apache.ignite.internal.eventlog.event.EventImpl;
 
-/** Serializes events to JSON. */
-public class JsonEventImplSerializer extends JacksonBasedJsonSerializer {
+public class CustomEventSerializer extends JacksonBasedJsonSerializer {
     /** Default constructor. */
-    public JsonEventImplSerializer() {
+    public CustomEventSerializer() {
         super(createJacksonModule());
     }
 
     private static Module createJacksonModule() {
         SimpleModule module = new SimpleModule();
-        module.addSerializer(EventImpl.class, new EventImplJacksonSerializer());
+        module.addSerializer(CustomEvent.class, new CustomEventJacksonSerializer());
+        module.addSerializer(Message.class, new MessageJacksonSerializer());
         return module;
     }
 
-    static class EventImplJacksonSerializer extends StdSerializer<EventImpl> {
-        private EventImpl value;
-        private JsonGenerator jgen;
-        private SerializerProvider provider;
-
-        EventImplJacksonSerializer() {
+    static class CustomEventJacksonSerializer extends StdSerializer<CustomEvent> {
+        CustomEventJacksonSerializer() {
             this(null);
         }
 
-        EventImplJacksonSerializer(Class<EventImpl> e) {
+        CustomEventJacksonSerializer(Class<CustomEvent> e) {
             super(e);
         }
 
         @Override
-        public void serialize(EventImpl value, JsonGenerator jgen, SerializerProvider provider) throws IOException {
-            this.value = value;
-            this.jgen = jgen;
-            this.provider = provider;
-
+        public void serialize(CustomEvent value, JsonGenerator jgen, SerializerProvider provider) throws IOException {
             jgen.writeStartObject();
             jgen.writeStringField("type", value.type());
             jgen.writeNumberField("timestamp", value.timestamp());
             jgen.writeStringField("productVersion", value.productVersion());
             jgen.writeObjectField("user", value.user());
+            jgen.writeObjectField("message", value.message());
             jgen.writeObjectField("fields", value.fields());
+            jgen.writeEndObject();
+        }
+    }
+
+    static class MessageJacksonSerializer extends StdSerializer<Message> {
+        MessageJacksonSerializer() {
+            super((Class<Message>) null);
+        }
+
+        @Override
+        public void serialize(Message value, JsonGenerator jgen, SerializerProvider provider) throws IOException {
+            jgen.writeStartObject();
+            jgen.writeNumberField("version", value.getVersion());
+            jgen.writeStringField("body", value.getBody());
             jgen.writeEndObject();
         }
     }
