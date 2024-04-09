@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.util.CompletableFutures.emptySetCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_TIMEOUT_ERR;
 import static org.apache.ignite.raft.jraft.test.TestUtils.getLocalAddress;
@@ -34,6 +35,7 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -189,6 +191,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
                         var mockRaftClient = mock(TopologyAwareRaftGroupService.class);
                         when(mockRaftClient.readIndex()).thenReturn(completedFuture(-1L));
+                        when(mockRaftClient.run(any())).thenReturn(nullCompletedFuture());
 
                         replicaManager.startReplica(
                                 tablePartitionId,
@@ -307,6 +310,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
 
                     var mockRaftClient = mock(TopologyAwareRaftGroupService.class);
                     when(mockRaftClient.readIndex()).thenReturn(completedFuture(-1L));
+                    when(mockRaftClient.run(any())).thenReturn(nullCompletedFuture());
 
                     replicaManager.startReplica(
                             tablePartitionId,

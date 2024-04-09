@@ -177,13 +177,7 @@ public class Replica {
                             v -> sendPrimaryReplicaChangeToReplicationGroup(targetPrimaryReq.enlistmentConsistencyToken()),
                             executor
                     )
-                    .thenComposeAsync(unused -> {
-                        if (request instanceof EmptyPrimaryReplicaRequest) {
-                            return completedFuture(new ReplicaResult(null, null));
-                        }
-
-                        return listener.invoke(request, senderId);
-                    }, executor);
+                    .thenComposeAsync(unused -> listener.invoke(request, senderId), executor);
         }
 
         return listener.invoke(request, senderId);
