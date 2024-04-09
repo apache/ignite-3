@@ -157,9 +157,14 @@ public class Replica {
 
             if (request instanceof EmptyPrimaryReplicaRequest) {
                 return waitForActualState(FastTimestamps.coarseCurrentTimeMillis() + 10_000)
-                        .thenCompose(v -> sendPrimaryReplicaChangeToReplicationGroup(targetPrimaryReq.enlistmentConsistencyToken()))
-                        .thenCompose(unused ->
-                    completedFuture(new ReplicaResult(null, null)));
+                        .thenComposeAsync(
+                                v -> sendPrimaryReplicaChangeToReplicationGroup(targetPrimaryReq.enlistmentConsistencyToken()),
+                                executor
+                        )
+                        .thenComposeAsync(
+                                unused -> completedFuture(new ReplicaResult(null, null)),
+                                executor
+                        );
             }
 
             return placementDriver.addSubgroups(
@@ -168,7 +173,10 @@ public class Replica {
                             Set.of(replicaGrpId)
                     )
                     .thenComposeAsync(unused -> waitForActualState(clockService.nowLong()), executor)
-                    .thenCompose(v -> sendPrimaryReplicaChangeToReplicationGroup(targetPrimaryReq.enlistmentConsistencyToken()))
+                    .thenComposeAsync(
+                            v -> sendPrimaryReplicaChangeToReplicationGroup(targetPrimaryReq.enlistmentConsistencyToken()),
+                            executor
+                    )
                     .thenComposeAsync(unused -> {
                         if (request instanceof EmptyPrimaryReplicaRequest) {
                             return completedFuture(new ReplicaResult(null, null));

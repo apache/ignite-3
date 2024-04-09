@@ -685,19 +685,38 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                             if (meta.getLeaseholderId().equals(localNodeId) && !diff.isEmpty()) {
                                 LOG.info("New subgroups are found for existing lease [repGrp={}, subGroups={}]", repGrp, diff);
 
-                                placementDriver.addSubgroups(repGrp, meta.getStartTime().longValue(), diff)
-                                        .thenRun(() -> {
-                                            for (ReplicationGroupId partId : diff) {
-                                                replicas.get(partId).thenAccept(replica -> {
+                                try {
+                                    placementDriver.addSubgroups(repGrp, meta.getStartTime().longValue(), diff)
+                                            .thenRun(() -> {
+                                                for (ReplicationGroupId partId : diff) {
                                                     EmptyPrimaryReplicaRequest req = REPLICA_MESSAGES_FACTORY.emptyPrimaryReplicaRequest()
                                                             .enlistmentConsistencyToken(meta.getStartTime().longValue())
                                                             .groupId(partId)
                                                             .build();
 
-                                                    replica.processRequest(req, localNodeId);
-                                                });
-                                            }
-                                        });
+                                                    if (currentThreadCannotDoStorageReadsAndWrites()) {
+                                                        requestsExecutor.execute(() -> handleReplicaRequest(
+                                                                req,
+                                                                clusterNetSvc.topologyService().localMember(),
+                                                                null
+                                                        ));
+                                                    } else {
+                                                        requestsExecutor.execute(() -> handleReplicaRequest(
+                                                                req,
+                                                                clusterNetSvc.topologyService().localMember(),
+                                                                null
+                                                        ));
+                                                    }
+                                                }
+                                            }).join();
+                                } catch (Exception ex) {
+                                    LOG.error(
+                                            "Failed to add new subgroups to the replication group [repGrp={}, subGroups={}]",
+                                            ex,
+                                            repGrp,
+                                            diff
+                                    );
+                                }
                             }
                         }
                     }
