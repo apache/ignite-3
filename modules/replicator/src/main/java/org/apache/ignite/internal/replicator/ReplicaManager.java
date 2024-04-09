@@ -694,7 +694,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                                             .groupId(partId)
                                                             .build();
 
-                                                    if (currentThreadCannotDoStorageReadsAndWrites()) {
+                                                    if (shouldSwitchToRequestsExecutor()) {
                                                         requestsExecutor.execute(() -> handleReplicaRequest(
                                                                 req,
                                                                 clusterNetSvc.topologyService().localMember(),
