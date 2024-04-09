@@ -22,7 +22,7 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.TopologyService;
@@ -93,9 +93,9 @@ public class NextColocatedWorkerSelector<K> implements NextWorkerSelector {
         this.tuple = tuple;
     }
 
-    private CompletableFuture<ClusterNode> tryToFindPrimaryReplica(TablePartitionId tablePartitionId) {
-        return placementDriver.awaitPrimaryReplica(
-                        tablePartitionId,
+    private CompletableFuture<ClusterNode> tryToFindPrimaryReplica(ZonePartitionId zonePartitionId) {
+        return placementDriver.awaitPrimaryReplicaForTable(
+                        zonePartitionId,
                         clock.now().addPhysicalTime(PRIMARY_REPLICA_ASK_CLOCK_ADDITION_MILLIS),
                         AWAIT_FOR_PRIMARY_REPLICA_SECONDS,
                         TimeUnit.SECONDS
@@ -105,15 +105,15 @@ public class NextColocatedWorkerSelector<K> implements NextWorkerSelector {
 
     @Override
     public CompletableFuture<ClusterNode> next() {
-        TablePartitionId tablePartitionId = tablePartitionId();
-        return tryToFindPrimaryReplica(tablePartitionId);
+        ZonePartitionId zonePartitionId = zonePartitionId();
+        return tryToFindPrimaryReplica(zonePartitionId);
     }
 
-    private TablePartitionId tablePartitionId() {
+    private ZonePartitionId zonePartitionId() {
         if (key != null && keyMapper != null) {
-            return new TablePartitionId(table.tableId(), table.partition(key, keyMapper));
+            return new ZonePartitionId(table.internalTable().zoneId(), table.partition(key, keyMapper), table.tableId());
         } else {
-            return new TablePartitionId(table.tableId(), table.partition(tuple));
+            return new ZonePartitionId(table.internalTable().zoneId(), table.partition(tuple), table.tableId());
         }
     }
 }
