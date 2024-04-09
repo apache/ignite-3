@@ -50,8 +50,15 @@ SELECT SUM(a) FROM test GROUP BY b HAVING b=22;
 ----
 24.000000
 
-# HAVING with condition on sum
+# HAVING with condition on aggregate column
 query R
 SELECT SUM(a) FROM test GROUP BY b HAVING SUM(a) < 20;
 ----
 12.000000
+
+# HAVING with condition on non-select column
+query R
+SELECT SUM(k) FROM integers GROUP BY i HAVING COUNT(j) < 20;
+----
+10.000000
+2.000000
