@@ -21,16 +21,18 @@ import java.util.HashSet;
 import java.util.Set;
 import org.apache.ignite.internal.eventlog.api.Event;
 import org.apache.ignite.internal.eventlog.api.EventChannel;
-import org.apache.ignite.internal.eventlog.api.Sink;
 
 class EventChannelImpl implements EventChannel {
-    private final Set<Sink> sinks;
+    private final SinkRegistry sinkRegistry;
 
     private final Set<String> types;
 
-    EventChannelImpl(Set<String> types, Set<Sink> sinks) {
+    private final String channelName;
+
+    EventChannelImpl(String channelName, Set<String> types, SinkRegistry sinkRegistry) {
         this.types = new HashSet<>(types);
-        this.sinks = new HashSet<>(sinks);
+        this.channelName = channelName;
+        this.sinkRegistry = sinkRegistry;
     }
 
     @Override
@@ -40,6 +42,6 @@ class EventChannelImpl implements EventChannel {
 
     @Override
     public void log(Event event) {
-        sinks.forEach(s -> s.write(event));
+        sinkRegistry.findAllByChannel(channelName).forEach(s -> s.write(event));
     }
 }

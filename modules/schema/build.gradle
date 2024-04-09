@@ -36,6 +36,7 @@ dependencies {
     implementation project(':ignite-replicator')
     implementation project(':ignite-configuration-api')
     implementation project(':ignite-metastorage-api')
+    implementation project(':ignite-low-watermark')
     implementation libs.jetbrains.annotations
     implementation libs.auto.service.annotations
 

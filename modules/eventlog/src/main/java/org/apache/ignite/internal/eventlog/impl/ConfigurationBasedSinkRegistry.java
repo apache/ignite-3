@@ -42,11 +42,11 @@ class ConfigurationBasedSinkRegistry implements SinkRegistry {
 
     private final SinkFactory sinkFactory;
 
-    ConfigurationBasedSinkRegistry(EventLogConfiguration cfg) {
+    ConfigurationBasedSinkRegistry(EventLogConfiguration cfg, SinkFactory sinkFactory) {
         this.guard = new ReentrantReadWriteLock();
         this.cache = new HashMap<>();
         this.cacheByChannel = new HashMap<>();
-        this.sinkFactory = new SinkFactory();
+        this.sinkFactory = sinkFactory;
 
         cfg.sinks().listen(new CacheUpdater());
     }

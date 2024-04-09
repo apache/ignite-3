@@ -78,7 +78,10 @@ namespace Apache.Ignite.Tests
                 if (text.Contains("public class", StringComparison.Ordinal) ||
                     text.Contains("public record", StringComparison.Ordinal))
                 {
-                    Assert.Fail("Public classes must be sealed: " + file);
+                    if (!text.Contains("public record struct"))
+                    {
+                        Assert.Fail("Public classes must be sealed: " + file);
+                    }
                 }
             }
         }

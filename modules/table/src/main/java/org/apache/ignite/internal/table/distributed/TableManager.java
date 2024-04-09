@@ -125,6 +125,7 @@ import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -406,8 +407,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private final TransactionConfiguration txCfg;
 
+    private final String nodeName;
+
     private long implicitTransactionTimeout;
+
     private int attemptsObtainLock;
+
+    @Nullable
+    private ScheduledExecutorService streamerFlushExecutor;
 
     /**
      * Creates a new table manager.
@@ -499,6 +506,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.lowWatermark = lowWatermark;
         this.transactionInflights = transactionInflights;
         this.txCfg = txCfg;
+        this.nodeName = nodeName;
 
         this.executorInclinedSchemaSyncService = new ExecutorInclinedSchemaSyncService(schemaSyncService, partitionOperationsExecutor);
         this.executorInclinedPlacementDriver = new ExecutorInclinedPlacementDriver(placementDriver, partitionOperationsExecutor);
@@ -1156,15 +1164,18 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             return;
         }
 
+        int shutdownTimeoutSeconds = 10;
+
         IgniteUtils.closeAllManually(
                 mvGc,
                 fullStateTransferIndexChooser,
                 sharedTxStateStorage,
-                () -> shutdownAndAwaitTermination(rebalanceScheduler, 10, TimeUnit.SECONDS),
-                () -> shutdownAndAwaitTermination(txStateStoragePool, 10, TimeUnit.SECONDS),
-                () -> shutdownAndAwaitTermination(txStateStorageScheduledPool, 10, TimeUnit.SECONDS),
-                () -> shutdownAndAwaitTermination(scanRequestExecutor, 10, TimeUnit.SECONDS),
-                () -> shutdownAndAwaitTermination(incomingSnapshotsExecutor, 10, TimeUnit.SECONDS)
+                () -> shutdownAndAwaitTermination(rebalanceScheduler, shutdownTimeoutSeconds, TimeUnit.SECONDS),
+                () -> shutdownAndAwaitTermination(txStateStoragePool, shutdownTimeoutSeconds, TimeUnit.SECONDS),
+                () -> shutdownAndAwaitTermination(txStateStorageScheduledPool, shutdownTimeoutSeconds, TimeUnit.SECONDS),
+                () -> shutdownAndAwaitTermination(scanRequestExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS),
+                () -> shutdownAndAwaitTermination(incomingSnapshotsExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS),
+                () -> shutdownAndAwaitTermination(streamerFlushExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS)
         );
     }
 
@@ -1319,7 +1330,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 tableRaftService,
                 transactionInflights,
                 implicitTransactionTimeout,
-                attemptsObtainLock
+                attemptsObtainLock,
+                this::streamerFlushExecutor
         );
 
         var table = new TableImpl(
@@ -2541,5 +2553,22 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         assert engine != null : "tableId=" + tableDescriptor.id() + ", engineName=" + zoneDescriptor.dataStorage().engine();
 
         engine.dropMvTable(tableDescriptor.id());
+    }
+
+    private synchronized ScheduledExecutorService streamerFlushExecutor() {
+        if (!busyLock.enterBusy()) {
+            throw new IgniteException(new NodeStoppingException());
+        }
+
+        try {
+            if (streamerFlushExecutor == null) {
+                streamerFlushExecutor = Executors.newSingleThreadScheduledExecutor(
+                        IgniteThreadFactory.create(nodeName, "streamer-flush-executor", LOG, STORAGE_WRITE));
+            }
+
+            return streamerFlushExecutor;
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 }

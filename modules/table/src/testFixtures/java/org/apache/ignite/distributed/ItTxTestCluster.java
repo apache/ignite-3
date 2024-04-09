@@ -78,6 +78,8 @@ import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.lowwatermark.LowWatermark;
+import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.StaticNodeFinder;
@@ -284,6 +286,8 @@ public class ItTxTestCluster {
 
     private final AtomicInteger globalCatalogId = new AtomicInteger();
 
+    protected final TestLowWatermark lowWatermark = new TestLowWatermark();
+
     /**
      * The constructor.
      */
@@ -436,7 +440,8 @@ public class ItTxTestCluster {
                     node,
                     placementDriver,
                     resourcesRegistry,
-                    transactionInflights
+                    transactionInflights,
+                    lowWatermark
             );
 
             ResourceVacuumManager resourceVacuumManager = new ResourceVacuumManager(
@@ -448,10 +453,10 @@ public class ItTxTestCluster {
                     txMgr
             );
 
-            txMgr.start();
+            assertThat(txMgr.start(), willCompleteSuccessfully());
             txManagers.put(node.name(), txMgr);
 
-            resourceVacuumManager.start();
+            assertThat(resourceVacuumManager.start(), willCompleteSuccessfully());
             resourceCleanupManagers.put(node.name(), resourceVacuumManager);
 
             txStateStorages.put(node.name(), new TestTxStateStorage());
@@ -485,7 +490,8 @@ public class ItTxTestCluster {
             ClusterNode node,
             PlacementDriver placementDriver,
             RemotelyTriggeredResourceRegistry resourcesRegistry,
-            TransactionInflights transactionInflights
+            TransactionInflights transactionInflights,
+            LowWatermark lowWatermark
     ) {
         return new TxManagerImpl(
                 node.name(),
@@ -501,7 +507,8 @@ public class ItTxTestCluster {
                 new TestLocalRwTxCounter(),
                 partitionOperationsExecutor,
                 resourcesRegistry,
-                transactionInflights
+                transactionInflights,
+                lowWatermark
         );
     }
 
@@ -741,7 +748,8 @@ public class ItTxTestCluster {
                         new TableRaftServiceImpl(tableName, 1, clients, nodeResolver),
                         clientTransactionInflights,
                         500,
-                        0
+                        0,
+                        null
                 ),
                 new DummySchemaManagerImpl(schemaDescriptor),
                 clientTxManager.lockManager(),
@@ -992,7 +1000,8 @@ public class ItTxTestCluster {
                 new TestLocalRwTxCounter(),
                 partitionOperationsExecutor,
                 resourceRegistry,
-                clientTransactionInflights
+                clientTransactionInflights,
+                lowWatermark
         );
 
         clientResourceVacuumManager = new ResourceVacuumManager(
