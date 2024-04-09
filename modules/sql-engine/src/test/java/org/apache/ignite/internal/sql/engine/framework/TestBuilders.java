@@ -807,6 +807,7 @@ public class TestBuilders {
         private int size = 100_000;
         private Integer tableId;
         private int partitions = CatalogUtils.DEFAULT_PARTITION_COUNT;
+        private int zoneId = 0;
 
         /** {@inheritDoc} */
         @Override
@@ -929,7 +930,8 @@ public class TestBuilders {
                     findPrimaryKey(tableDescriptor, indexes.values()),
                     new TestStatistic(size),
                     indexes,
-                    partitions
+                    partitions,
+                    zoneId
             );
         }
     }
