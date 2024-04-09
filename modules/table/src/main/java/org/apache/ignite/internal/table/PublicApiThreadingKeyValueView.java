@@ -23,18 +23,20 @@ import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import org.apache.ignite.internal.thread.PublicApiThreading;
-import org.apache.ignite.internal.wrapper.Wrapper;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Wrapper around {@link KeyValueView} that adds anti-thread-hijacking protection to methods returning {@link CompletableFuture}s.
+ * Wrapper around {@link KeyValueView} that maintains public API invariants relating to threading.
+ *
+ * <p>That is, it adds protection against thread hijacking by users and also marks threads as 'executing a sync user operation' or
+ * 'executing an async user operation'.
  *
  * @see PublicApiThreading#preventThreadHijack(CompletableFuture, Executor)
  */
-public class AntiHijackKeyValueView<K, V> extends AntiHijackViewBase<Entry<K, V>> implements KeyValueView<K, V> {
+public class PublicApiThreadingKeyValueView<K, V> extends PublicApiThreadingViewBase<Entry<K, V>> implements KeyValueView<K, V> {
     private final KeyValueView<K, V> view;
 
     /**
@@ -44,201 +46,199 @@ public class AntiHijackKeyValueView<K, V> extends AntiHijackViewBase<Entry<K, V>
      * @param asyncContinuationExecutor Executor to which execution will be resubmitted when leaving asynchronous public API endpoints
      *     (to prevent the user from stealing Ignite threads).
      */
-    public AntiHijackKeyValueView(KeyValueView<K, V> view, Executor asyncContinuationExecutor) {
+    public PublicApiThreadingKeyValueView(KeyValueView<K, V> view, Executor asyncContinuationExecutor) {
         super(view, view, asyncContinuationExecutor);
-
-        assert !(view instanceof Wrapper) : "Wrapping other wrappers is not supported";
 
         this.view = view;
     }
 
     @Override
     public @Nullable V get(@Nullable Transaction tx, K key) {
-        return view.get(tx, key);
+        return executeSyncOp(() -> view.get(tx, key));
     }
 
     @Override
     public CompletableFuture<V> getAsync(@Nullable Transaction tx, K key) {
-        return preventThreadHijack(view.getAsync(tx, key));
+        return executeAsyncOp(() -> view.getAsync(tx, key));
     }
 
     @Override
     public NullableValue<V> getNullable(@Nullable Transaction tx, K key) {
-        return view.getNullable(tx, key);
+        return executeSyncOp(() -> view.getNullable(tx, key));
     }
 
     @Override
     public CompletableFuture<NullableValue<V>> getNullableAsync(@Nullable Transaction tx, K key) {
-        return preventThreadHijack(view.getNullableAsync(tx, key));
+        return executeAsyncOp(() -> view.getNullableAsync(tx, key));
     }
 
     @Override
     public @Nullable V getOrDefault(@Nullable Transaction tx, K key, @Nullable V defaultValue) {
-        return view.getOrDefault(tx, key, defaultValue);
+        return executeSyncOp(() -> view.getOrDefault(tx, key, defaultValue));
     }
 
     @Override
     public CompletableFuture<V> getOrDefaultAsync(@Nullable Transaction tx, K key, @Nullable V defaultValue) {
-        return preventThreadHijack(view.getOrDefaultAsync(tx, key, defaultValue));
+        return executeAsyncOp(() -> view.getOrDefaultAsync(tx, key, defaultValue));
     }
 
     @Override
     public Map<K, V> getAll(@Nullable Transaction tx, Collection<K> keys) {
-        return view.getAll(tx, keys);
+        return executeSyncOp(() -> view.getAll(tx, keys));
     }
 
     @Override
     public CompletableFuture<Map<K, V>> getAllAsync(@Nullable Transaction tx, Collection<K> keys) {
-        return preventThreadHijack(view.getAllAsync(tx, keys));
+        return executeAsyncOp(() -> view.getAllAsync(tx, keys));
     }
 
     @Override
     public boolean contains(@Nullable Transaction tx, K key) {
-        return view.contains(tx, key);
+        return executeSyncOp(() -> view.contains(tx, key));
     }
 
     @Override
     public CompletableFuture<Boolean> containsAsync(@Nullable Transaction tx, K key) {
-        return preventThreadHijack(view.containsAsync(tx, key));
+        return executeAsyncOp(() -> view.containsAsync(tx, key));
     }
 
     @Override
     public void put(@Nullable Transaction tx, K key, @Nullable V val) {
-        view.put(tx, key, val);
+        executeSyncOp(() -> view.put(tx, key, val));
     }
 
     @Override
     public CompletableFuture<Void> putAsync(@Nullable Transaction tx, K key, @Nullable V val) {
-        return preventThreadHijack(view.putAsync(tx, key, val));
+        return executeAsyncOp(() -> view.putAsync(tx, key, val));
     }
 
     @Override
     public void putAll(@Nullable Transaction tx, Map<K, V> pairs) {
-        view.putAll(tx, pairs);
+        executeSyncOp(() -> view.putAll(tx, pairs));
     }
 
     @Override
     public CompletableFuture<Void> putAllAsync(@Nullable Transaction tx, Map<K, V> pairs) {
-        return preventThreadHijack(view.putAllAsync(tx, pairs));
+        return executeAsyncOp(() -> view.putAllAsync(tx, pairs));
     }
 
     @Override
     public @Nullable V getAndPut(@Nullable Transaction tx, K key, @Nullable V val) {
-        return view.getAndPut(tx, key, val);
+        return executeSyncOp(() -> view.getAndPut(tx, key, val));
     }
 
     @Override
     public CompletableFuture<V> getAndPutAsync(@Nullable Transaction tx, K key, @Nullable V val) {
-        return preventThreadHijack(view.getAndPutAsync(tx, key, val));
+        return executeAsyncOp(() -> view.getAndPutAsync(tx, key, val));
     }
 
     @Override
     public NullableValue<V> getNullableAndPut(@Nullable Transaction tx, K key, @Nullable V val) {
-        return view.getNullableAndPut(tx, key, val);
+        return executeSyncOp(() -> view.getNullableAndPut(tx, key, val));
     }
 
     @Override
     public CompletableFuture<NullableValue<V>> getNullableAndPutAsync(@Nullable Transaction tx, K key, @Nullable V val) {
-        return preventThreadHijack(view.getNullableAndPutAsync(tx, key, val));
+        return executeAsyncOp(() -> view.getNullableAndPutAsync(tx, key, val));
     }
 
     @Override
     public boolean putIfAbsent(@Nullable Transaction tx, K key, @Nullable V val) {
-        return view.putIfAbsent(tx, key, val);
+        return executeSyncOp(() -> view.putIfAbsent(tx, key, val));
     }
 
     @Override
     public CompletableFuture<Boolean> putIfAbsentAsync(@Nullable Transaction tx, K key, @Nullable V val) {
-        return preventThreadHijack(view.putIfAbsentAsync(tx, key, val));
+        return executeAsyncOp(() -> view.putIfAbsentAsync(tx, key, val));
     }
 
     @Override
     public boolean remove(@Nullable Transaction tx, K key) {
-        return view.remove(tx, key);
+        return executeSyncOp(() -> view.remove(tx, key));
     }
 
     @Override
     public boolean remove(@Nullable Transaction tx, K key, V val) {
-        return view.remove(tx, key, val);
+        return executeSyncOp(() -> view.remove(tx, key, val));
     }
 
     @Override
     public CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, K key) {
-        return preventThreadHijack(view.removeAsync(tx, key));
+        return executeAsyncOp(() -> view.removeAsync(tx, key));
     }
 
     @Override
     public CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, K key, V val) {
-        return preventThreadHijack(view.removeAsync(tx, key, val));
+        return executeAsyncOp(() -> view.removeAsync(tx, key, val));
     }
 
     @Override
     public Collection<K> removeAll(@Nullable Transaction tx, Collection<K> keys) {
-        return view.removeAll(tx, keys);
+        return executeSyncOp(() -> view.removeAll(tx, keys));
     }
 
     @Override
     public CompletableFuture<Collection<K>> removeAllAsync(@Nullable Transaction tx, Collection<K> keys) {
-        return preventThreadHijack(view.removeAllAsync(tx, keys));
+        return executeAsyncOp(() -> view.removeAllAsync(tx, keys));
     }
 
     @Override
     public @Nullable V getAndRemove(@Nullable Transaction tx, K key) {
-        return view.getAndRemove(tx, key);
+        return executeSyncOp(() -> view.getAndRemove(tx, key));
     }
 
     @Override
     public CompletableFuture<V> getAndRemoveAsync(@Nullable Transaction tx, K key) {
-        return preventThreadHijack(view.getAndRemoveAsync(tx, key));
+        return executeAsyncOp(() -> view.getAndRemoveAsync(tx, key));
     }
 
     @Override
     public NullableValue<V> getNullableAndRemove(@Nullable Transaction tx, K key) {
-        return view.getNullableAndRemove(tx, key);
+        return executeSyncOp(() -> view.getNullableAndRemove(tx, key));
     }
 
     @Override
     public CompletableFuture<NullableValue<V>> getNullableAndRemoveAsync(@Nullable Transaction tx, K key) {
-        return preventThreadHijack(view.getNullableAndRemoveAsync(tx, key));
+        return executeAsyncOp(() -> view.getNullableAndRemoveAsync(tx, key));
     }
 
     @Override
     public boolean replace(@Nullable Transaction tx, K key, @Nullable V val) {
-        return view.replace(tx, key, val);
+        return executeSyncOp(() -> view.replace(tx, key, val));
     }
 
     @Override
     public boolean replace(@Nullable Transaction tx, K key, V oldValue, @Nullable V newValue) {
-        return view.replace(tx, key, oldValue, newValue);
+        return executeSyncOp(() -> view.replace(tx, key, oldValue, newValue));
     }
 
     @Override
     public CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, K key, @Nullable V val) {
-        return preventThreadHijack(view.replaceAsync(tx, key, val));
+        return executeAsyncOp(() -> view.replaceAsync(tx, key, val));
     }
 
     @Override
     public CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, K key, @Nullable V oldVal, @Nullable V newVal) {
-        return preventThreadHijack(view.replaceAsync(tx, key, oldVal, newVal));
+        return executeAsyncOp(() -> view.replaceAsync(tx, key, oldVal, newVal));
     }
 
     @Override
     public @Nullable V getAndReplace(@Nullable Transaction tx, @Nullable K key, @Nullable V val) {
-        return view.getAndReplace(tx, key, val);
+        return executeSyncOp(() -> view.getAndReplace(tx, key, val));
     }
 
     @Override
     public CompletableFuture<V> getAndReplaceAsync(@Nullable Transaction tx, K key, @Nullable V val) {
-        return preventThreadHijack(view.getAndReplaceAsync(tx, key, val));
+        return executeAsyncOp(() -> view.getAndReplaceAsync(tx, key, val));
     }
 
     @Override
     public NullableValue<V> getNullableAndReplace(@Nullable Transaction tx, K key, @Nullable V val) {
-        return view.getNullableAndReplace(tx, key, val);
+        return executeSyncOp(() -> view.getNullableAndReplace(tx, key, val));
     }
 
     @Override
     public CompletableFuture<NullableValue<V>> getNullableAndReplaceAsync(@Nullable Transaction tx, K key, @Nullable V val) {
-        return preventThreadHijack(view.getNullableAndReplaceAsync(tx, key, val));
+        return executeAsyncOp(() -> view.getNullableAndReplaceAsync(tx, key, val));
     }
 }

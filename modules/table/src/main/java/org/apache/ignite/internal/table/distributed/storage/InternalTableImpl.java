@@ -55,12 +55,14 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -130,6 +132,8 @@ public class InternalTableImpl implements InternalTable {
 
     /** Partitions. */
     private final int partitions;
+
+    private final Supplier<ScheduledExecutorService> streamerFlushExecutor;
 
     /** Table name. */
     private volatile String tableName;
@@ -217,7 +221,8 @@ public class InternalTableImpl implements InternalTable {
             TableRaftServiceImpl tableRaftService,
             TransactionInflights transactionInflights,
             long implicitTransactionTimeout,
-            int attemptsObtainLock
+            int attemptsObtainLock,
+            Supplier<ScheduledExecutorService> streamerFlushExecutor
     ) {
         this.tableName = tableName;
         this.tableId = tableId;
@@ -235,6 +240,7 @@ public class InternalTableImpl implements InternalTable {
         this.transactionInflights = transactionInflights;
         this.implicitTransactionTimeout = implicitTransactionTimeout;
         this.attemptsObtainLock = attemptsObtainLock;
+        this.streamerFlushExecutor = streamerFlushExecutor;
     }
 
     /** {@inheritDoc} */
@@ -2160,6 +2166,11 @@ public class InternalTableImpl implements InternalTable {
     @Override
     public @Nullable PendingComparableValuesTracker<Long, Void> getPartitionStorageIndexTracker(int partitionId) {
         return storageIndexTrackerByPartitionId.get(partitionId);
+    }
+
+    @Override
+    public ScheduledExecutorService streamerFlushExecutor() {
+        return streamerFlushExecutor.get();
     }
 
     /**

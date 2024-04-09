@@ -19,8 +19,8 @@ package org.apache.ignite.internal.table.distributed;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import org.apache.ignite.internal.table.AntiHijackKeyValueView;
-import org.apache.ignite.internal.table.AntiHijackRecordView;
+import org.apache.ignite.internal.table.PublicApiThreadingKeyValueView;
+import org.apache.ignite.internal.table.PublicApiThreadingRecordView;
 import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.wrapper.Wrapper;
 import org.apache.ignite.table.KeyValueView;
@@ -30,20 +30,20 @@ import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 
 /**
- * Wrapper around {@link Table} that adds protection against thread hijacking by users.
+ * Wrapper around {@link Table} that maintains public API invariants relating to threading.
+ * That is, it adds protection against thread hijacking by users and also marks threads as 'executing a sync user operation' or
+ * 'executing an async user operation'.
  *
  * @see PublicApiThreading#preventThreadHijack(CompletableFuture, Executor)
  */
-class AntiHijackTable implements Table, Wrapper {
+class PublicApiThreadingTable implements Table, Wrapper {
     private final Table table;
     private final Executor asyncContinuationExecutor;
 
     /**
      * Constructor.
      */
-    AntiHijackTable(Table table, Executor asyncContinuationExecutor) {
-        assert !(table instanceof Wrapper) : "Wrapping other wrappers is not supported";
-
+    PublicApiThreadingTable(Table table, Executor asyncContinuationExecutor) {
         this.table = table;
         this.asyncContinuationExecutor = asyncContinuationExecutor;
     }
@@ -55,22 +55,22 @@ class AntiHijackTable implements Table, Wrapper {
 
     @Override
     public <R> RecordView<R> recordView(Mapper<R> recMapper) {
-        return new AntiHijackRecordView<>(table.recordView(recMapper), asyncContinuationExecutor);
+        return new PublicApiThreadingRecordView<>(table.recordView(recMapper), asyncContinuationExecutor);
     }
 
     @Override
     public RecordView<Tuple> recordView() {
-        return new AntiHijackRecordView<>(table.recordView(), asyncContinuationExecutor);
+        return new PublicApiThreadingRecordView<>(table.recordView(), asyncContinuationExecutor);
     }
 
     @Override
     public <K, V> KeyValueView<K, V> keyValueView(Mapper<K> keyMapper, Mapper<V> valMapper) {
-        return new AntiHijackKeyValueView<>(table.keyValueView(keyMapper, valMapper), asyncContinuationExecutor);
+        return new PublicApiThreadingKeyValueView<>(table.keyValueView(keyMapper, valMapper), asyncContinuationExecutor);
     }
 
     @Override
     public KeyValueView<Tuple, Tuple> keyValueView() {
-        return new AntiHijackKeyValueView<>(table.keyValueView(), asyncContinuationExecutor);
+        return new PublicApiThreadingKeyValueView<>(table.keyValueView(), asyncContinuationExecutor);
     }
 
     @Override

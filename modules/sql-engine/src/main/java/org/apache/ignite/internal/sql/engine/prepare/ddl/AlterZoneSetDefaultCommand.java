@@ -15,17 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.streamer;
-
-import org.apache.ignite.Ignite;
+package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
 /**
- * Integration test for server-side data streamer API.
+ * ALTER ZONE ... SET DEFAULT statement.
  */
-// Disabling thread assertions as DataStreamer uses common pool on which ReplicaManager executes its requests.
-public class ItServerDataStreamerTest extends ItAbstractDataStreamerTest {
-    @Override
-    Ignite ignite() {
-        return CLUSTER.aliveNode();
+public class AlterZoneSetDefaultCommand extends AbstractZoneDdlCommand {
+    /** Quietly ignore this command if zone does not exists. */
+    private boolean ifExists;
+
+    public boolean ifExists() {
+        return ifExists;
+    }
+
+    public void ifExists(boolean ifExists) {
+        this.ifExists = ifExists;
     }
 }
