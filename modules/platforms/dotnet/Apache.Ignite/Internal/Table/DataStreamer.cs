@@ -276,8 +276,6 @@ internal static class DataStreamer
         {
             Debug.Assert(items.Length > 0, "items.Length > 0");
 
-            Console.WriteLine("Sending batch: " + items.Take(count).StringJoin());
-
             if (batchSchemaOutdated)
             {
                 // Schema update was detected while the batch was being filled.
