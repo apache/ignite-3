@@ -63,23 +63,34 @@ select JSON_QUERY('{"info":{"type": 1, "address":[{"town":"Paris"},{"town":"Lond
 ----
 {"town":"London"}
 
-# Array wrapper is absent by default
+# WITHOUT ARRAY is implicit
 query T
-select JSON_QUERY('{"info":{"type": 1, "address":[{"town":"Paris"},{"town":"London"}]}}', '$.info.address' without array wrapper)
+select JSON_QUERY('{"foo":100}', '$.foo')
 ----
-[{"town":"Paris"},{"town":"London"}]
+NULL
 
 query T
-select JSON_QUERY('{"info":{"type": 1, "address":[{"town":"Paris"},{"town":"London"}]}}', '$.info.address' with wrapper)
+select JSON_QUERY('{"foo":100}', '$.foo' without array wrapper)
 ----
-[[{"town":"Paris"},{"town":"London"}]]
+NULL
 
 query T
-select JSON_QUERY('{"info":{"type": 1, "address":[{"town":"Paris"},{"town":"London"}]}}', '$.info.address' with unconditional wrapper)
+select JSON_QUERY('{"foo":100}', '$.foo' with wrapper)
 ----
-[[{"town":"Paris"},{"town":"London"}]]
+[100]
+
+# UNCONDITIONAL is implicit
+query T
+select JSON_QUERY('{"foo":[100]}', '$.foo' with wrapper)
+----
+[[100]]
 
 query T
-select JSON_QUERY('{"info":{"type": 1, "address":[{"town":"Paris"},{"town":"London"}]}}', '$.info.address' with conditional wrapper)
+select JSON_QUERY('{"foo":[100]}', '$.foo' with unconditional wrapper)
 ----
-[{"town":"Paris"},{"town":"London"}]
+[[100]]
+
+query T
+select JSON_QUERY('{"foo":[100]}', '$.foo' with conditional wrapper)
+----
+[100]
