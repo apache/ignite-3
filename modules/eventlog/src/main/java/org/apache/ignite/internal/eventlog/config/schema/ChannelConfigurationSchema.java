@@ -34,6 +34,7 @@ public class ChannelConfigurationSchema {
     public boolean enabled = true;
 
     /** Event types that this channel should handle. Should be the types from {@link IgniteEventType}. */
+    @ValidEventType
     @Value(hasDefault = true)
     public String[] events = {};
 }

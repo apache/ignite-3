@@ -47,6 +47,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.util.Cursor;
@@ -58,7 +59,7 @@ import org.junit.jupiter.api.function.Executable;
 /**
  * Abstract tx storage test.
  */
-public abstract class AbstractTxStateStorageTest {
+public abstract class AbstractTxStateStorageTest extends BaseIgniteAbstractTest {
     protected static final int TABLE_ID = 1;
 
     protected TxStateTableStorage tableStorage;
@@ -429,8 +430,17 @@ public abstract class AbstractTxStateStorageTest {
         assertEquals(2, storage0.lastAppliedIndex());
         assertEquals(2, storage0.lastAppliedTerm());
 
-        assertThrows(AssertionError.class, () -> storage0.updateLease(100, 3, 2));
-        assertThrows(AssertionError.class, () -> storage0.updateLease(100, 1, 1));
+        // Storage update isn't expected because 100 < 2000
+        storage0.updateLease(100, 3, 2);
+        assertEquals(lst1, storage0.leaseStartTime());
+        assertEquals(2, storage0.lastAppliedIndex());
+        assertEquals(2, storage0.lastAppliedTerm());
+
+        // Storage update isn't expected because 100 < 2000
+        storage0.updateLease(100, 1, 1);
+        assertEquals(lst1, storage0.leaseStartTime());
+        assertEquals(2, storage0.lastAppliedIndex());
+        assertEquals(2, storage0.lastAppliedTerm());
     }
 
     private static void checkStorageIsEmpty(TxStateStorage storage) {

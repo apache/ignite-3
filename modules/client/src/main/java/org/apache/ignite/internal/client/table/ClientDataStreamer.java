@@ -42,7 +42,12 @@ class ClientDataStreamer {
         IgniteLogger log = ClientUtils.logger(tbl.channel().configuration(), StreamerSubscriber.class);
         StreamerOptions streamerOpts = streamerOptions(options);
         StreamerSubscriber<R, Integer> subscriber = new StreamerSubscriber<>(
-                batchSender, partitionAwarenessProvider, streamerOpts, log, tbl.channel().metrics());
+                batchSender,
+                partitionAwarenessProvider,
+                streamerOpts,
+                tbl.channel().streamerFlushExecutor(),
+                log,
+                tbl.channel().metrics());
 
         publisher.subscribe(subscriber);
 

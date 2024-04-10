@@ -35,6 +35,7 @@ dependencies {
     integrationTestImplementation project(':ignite-api')
     integrationTestImplementation project(':ignite-runner')
     integrationTestImplementation project(':ignite-storage-page-memory')
+    integrationTestImplementation project(':ignite-storage-api')
     integrationTestImplementation project(':ignite-page-memory')
     integrationTestImplementation project(':ignite-storage-rocksdb')
     integrationTestImplementation project(':ignite-configuration')

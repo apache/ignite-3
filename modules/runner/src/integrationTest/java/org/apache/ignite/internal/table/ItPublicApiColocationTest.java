@@ -43,6 +43,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.table.Table;
@@ -99,10 +100,10 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
         TableViewInternal tbl1 = unwrapTableViewInternal(CLUSTER.aliveNode().tables().table("test1"));
 
         for (int i = 0; i < parts; ++i) {
-            List<Tuple> r0 = getAll(tbl0, i);
+            List<Tuple> r0 = getAllBypassingThreadAssertions(tbl0, i);
 
             Set<Object> ids0 = r0.stream().map(t -> t.value("id")).collect(Collectors.toSet());
-            List<Tuple> r1 = getAll(tbl1, i);
+            List<Tuple> r1 = getAllBypassingThreadAssertions(tbl1, i);
 
             // because the byte array is not comparable, we need to check the type separately
             if (type == NativeTypeSpec.BYTES) {
@@ -150,11 +151,11 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
         };
 
         for (int i = 0; i < parts; ++i) {
-            List<Tuple> r0 = getAll(tbl0, i);
+            List<Tuple> r0 = getAllBypassingThreadAssertions(tbl0, i);
 
             Set<Tuple> ids0 = r0.stream().map(tupleColocationExtract).collect(Collectors.toSet());
 
-            List<Tuple> r1 = getAll(tbl1, i);
+            List<Tuple> r1 = getAllBypassingThreadAssertions(tbl1, i);
 
             r1.forEach(t -> assertTrue(ids0.remove(tupleColocationExtract.apply(t))));
 
@@ -186,6 +187,20 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
         }
 
         return args.stream();
+    }
+
+    private static List<Tuple> getAllBypassingThreadAssertions(TableViewInternal tbl, int part) {
+        return IgniteTestUtils.bypassingThreadAssertions(() -> {
+            try {
+                return getAll(tbl, part);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+
+                throw new RuntimeException(e);
+            } catch (ExecutionException e) {
+                throw new RuntimeException(e);
+            }
+        });
     }
 
     private static List<Tuple> getAll(TableViewInternal tbl, int part) throws ExecutionException, InterruptedException {

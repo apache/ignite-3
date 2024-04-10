@@ -384,5 +384,9 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
         @Override
         public void close() {
         }
+
+        @Override
+        public void sync(){
+        }
     }
 }
