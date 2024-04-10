@@ -71,6 +71,9 @@ statement ok
 CREATE ZONE zone_ WITH STORAGE_PROFILES='default', PARTITIONS=1, REPLICAS=3
 
 statement ok
+ALTER ZONE zone_ SET REPLICAS = 4
+
+statement ok
 ALTER ZONE zone_ RENAME TO another_zone_
 
 statement ok
