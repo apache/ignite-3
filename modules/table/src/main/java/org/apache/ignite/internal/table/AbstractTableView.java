@@ -41,6 +41,7 @@ import org.apache.ignite.internal.table.criteria.CursorAdapter;
 import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncCursor;
 import org.apache.ignite.internal.table.criteria.SqlSerializer;
 import org.apache.ignite.internal.table.criteria.SqlSerializer.Builder;
+import org.apache.ignite.internal.table.distributed.replicator.IncompatibleSchemaException;
 import org.apache.ignite.internal.table.distributed.replicator.InternalSchemaVersionMismatchException;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -163,17 +164,26 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
                         .handle((res, ex) -> {
                             if (isOrCausedBy(InternalSchemaVersionMismatchException.class, ex)) {
                                 assert tx == null : "Only for implicit transactions a retry might be requested";
-                                assert previousSchemaVersion == null || !Objects.equals(schemaVersion, previousSchemaVersion)
-                                        : "Same schema version (" + schemaVersion
-                                        + ") on a retry: something is wrong, is this caused by the test setup?";
+                                assertSchemaVersionIncreased(previousSchemaVersion, schemaVersion);
 
                                 // Repeat.
+                                return withSchemaSync(tx, schemaVersion, action);
+                            } else if (tx == null && isOrCausedBy(IncompatibleSchemaException.class, ex)) {
+                                // Schema has changed while we were executing an implicit transaction: let's retry.
+                                assertSchemaVersionIncreased(previousSchemaVersion, schemaVersion);
+
                                 return withSchemaSync(tx, schemaVersion, action);
                             } else {
                                 return ex == null ? completedFuture(res) : CompletableFuture.<T>failedFuture(ex);
                             }
                         }))
                 .thenCompose(identity());
+    }
+
+    private static void assertSchemaVersionIncreased(@Nullable Integer previousSchemaVersion, Integer schemaVersion) {
+        assert previousSchemaVersion == null || !Objects.equals(schemaVersion, previousSchemaVersion)
+                : "Same schema version (" + schemaVersion
+                + ") on a retry: something is wrong, is this caused by the test setup?";
     }
 
     /**
