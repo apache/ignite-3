@@ -1,5 +1,5 @@
 # name: test/sql/etc/test_identifiers.test
-# description: SQL feature E031-03 (Identifiers, Trailing underscore feature)
+# description: SQL feature E031-03 (Trailing underscore)
 # group: [etc]
 
 statement ok
