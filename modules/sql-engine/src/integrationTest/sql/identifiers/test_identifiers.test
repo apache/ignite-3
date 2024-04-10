@@ -1,6 +1,6 @@
 # name: test/sql/etc/test_identifiers.test
 # description: SQL feature E031-03 (Trailing underscore)
-# group: [etc]
+# group: [identifiers]
 
 statement ok
 PRAGMA enable_verification
