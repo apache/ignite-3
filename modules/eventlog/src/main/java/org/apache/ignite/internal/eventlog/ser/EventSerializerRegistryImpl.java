@@ -30,16 +30,14 @@ public class EventSerializerRegistryImpl implements EventSerializerRegistry {
     private final ReadWriteLock guard = new ReentrantReadWriteLock();
     private final Map<Class<? extends Event>, EventSerializer> serializers = new HashMap<>();
 
-
     @Override
     public void register(Class<? extends Event> eventClass, EventSerializer eventSerializer) {
         guard.writeLock().lock();
         try {
             if (serializers.containsKey(eventClass)) {
                 throw new IllegalStateException("EventSerializer for class " + eventClass.getCanonicalName() + " is already registered");
-            } else {
-                serializers.put(eventClass, eventSerializer);
             }
+            serializers.put(eventClass, eventSerializer);
         } finally {
             guard.writeLock().unlock();
         }

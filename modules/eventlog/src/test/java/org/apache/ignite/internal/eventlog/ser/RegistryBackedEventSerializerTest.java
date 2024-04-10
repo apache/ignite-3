@@ -54,13 +54,17 @@ class RegistryBackedEventSerializerTest {
                                 .productVersion("3.0.0")
                                 .timestamp(1234567890)
                                 .user(EventUser.of("test_user", "test_provider"))
-                                .fields(Map.of("ip", "127.0.0.1", "id", "123"))
+                                .fields(Map.of(
+                                        "ip", "127.0.0.1",
+                                        "id", "123",
+                                        "message", new Message(1, "foo")
+                                ))
                                 .build(),
                         "{\"type\":\"USER_AUTHENTICATED\","
                                 + "\"timestamp\":1234567890,"
                                 + "\"productVersion\":\"3.0.0\","
                                 + "\"user\":{\"username\":\"test_user\",\"authenticationProvider\":\"test_provider\"},"
-                                + "\"fields\":{\"id\":\"123\",\"ip\":\"127.0.0.1\"}"
+                                + "\"fields\":{\"id\":\"123\",\"ip\":\"127.0.0.1\",\"message\":{\"version\":1,\"body\":\"foo\"}}"
                                 + "}"
                 )
         );
