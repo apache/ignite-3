@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.storage.pagememory.index;
 
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
-import static org.apache.ignite.internal.storage.pagememory.configuration.schema.BasePageMemoryStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
 import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
@@ -27,6 +27,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
@@ -49,7 +50,9 @@ class PersistentPageMemorySortedIndexStorageTest extends AbstractPageMemorySorte
     void setUp(
             @WorkDirectory Path workDir,
             @InjectConfiguration
-            PersistentPageMemoryStorageEngineConfiguration engineConfig
+            PersistentPageMemoryStorageEngineConfiguration engineConfig,
+            @InjectConfiguration("mock.profiles.default = {engine = \"aipersist\"}")
+            StorageConfiguration storageConfiguration
     ) {
         PageIoRegistry ioRegistry = new PageIoRegistry();
 
@@ -58,6 +61,7 @@ class PersistentPageMemorySortedIndexStorageTest extends AbstractPageMemorySorte
         engine = new PersistentPageMemoryStorageEngine(
                 "test",
                 engineConfig,
+                storageConfiguration,
                 ioRegistry,
                 workDir,
                 null,
@@ -68,11 +72,11 @@ class PersistentPageMemorySortedIndexStorageTest extends AbstractPageMemorySorte
         engine.start();
 
         tableStorage = engine.createMvTable(
-                new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, DEFAULT_DATA_REGION_NAME),
+                new StorageTableDescriptor(1, DEFAULT_PARTITION_COUNT, DEFAULT_STORAGE_PROFILE),
                 mock(StorageIndexDescriptorSupplier.class)
         );
 
-        initialize(tableStorage, engineConfig);
+        initialize(tableStorage, engineConfig.pageSize().value());
     }
 
     @AfterEach

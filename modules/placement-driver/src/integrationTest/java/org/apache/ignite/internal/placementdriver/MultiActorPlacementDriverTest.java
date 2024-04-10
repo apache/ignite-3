@@ -427,14 +427,22 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
             }
         };
 
+        final Lease fLease = lease;
+        String proposedLeaseholder = nodeNames.stream().filter(n -> !n.equals(fLease.getLeaseholder())).findAny().orElseThrow();
+
         service.messagingService().send(
                 clusterServices.get(activeActorRef.get()).topologyService().localMember(),
-                PLACEMENT_DRIVER_MESSAGES_FACTORY.stopLeaseProlongationMessage().groupId(grpPart).build()
+                PLACEMENT_DRIVER_MESSAGES_FACTORY.stopLeaseProlongationMessage()
+                        .groupId(grpPart)
+                        .redirectProposal(proposedLeaseholder)
+                        .build()
         );
 
         Lease leaseRenew = waitNewLeaseholder(grpPart, lease);
 
         log.info("Lease move from {} to {}", lease.getLeaseholder(), leaseRenew.getLeaseholder());
+
+        assertEquals(proposedLeaseholder, leaseRenew.getLeaseholder());
     }
 
     /**

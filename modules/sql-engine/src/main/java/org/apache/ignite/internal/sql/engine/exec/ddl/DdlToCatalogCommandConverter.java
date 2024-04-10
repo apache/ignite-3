@@ -17,11 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.exec.ddl;
 
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_DATA_REGION;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_STORAGE_ENGINE;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseStorageProfiles;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.calcite.rel.type.RelDataType;
@@ -32,10 +30,10 @@ import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommand;
 import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnCommand;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
+import org.apache.ignite.internal.catalog.commands.AlterZoneSetDefaultCatalogCommand;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexCommand;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexCommand;
-import org.apache.ignite.internal.catalog.commands.DataStorageParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.RenameZoneCommand;
 import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
@@ -47,6 +45,7 @@ import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableAddCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableDropCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterZoneRenameCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterZoneSetCommand;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterZoneSetDefaultCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.ColumnDefinition;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateIndexCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateTableCommand;
@@ -99,6 +98,7 @@ class DdlToCatalogCommandConverter {
                 .colocationColumns(cmd.colocationColumns())
 
                 .zone(cmd.zone())
+                .storageProfile(cmd.storageProfile())
 
                 .build();
     }
@@ -111,10 +111,6 @@ class DdlToCatalogCommandConverter {
     }
 
     static CatalogCommand convert(CreateZoneCommand cmd) {
-        // TODO: IGNITE-19719 We need to define the default engine differently and the parameters should depend on the engine
-        String engine = Objects.requireNonNullElse(cmd.dataStorage(), DEFAULT_STORAGE_ENGINE);
-        String dataRegion = (String) cmd.dataStorageOptions().getOrDefault("dataRegion", DEFAULT_DATA_REGION);
-
         return org.apache.ignite.internal.catalog.commands.CreateZoneCommand.builder()
                 .zoneName(cmd.zoneName())
                 .partitions(cmd.partitions())
@@ -123,7 +119,7 @@ class DdlToCatalogCommandConverter {
                 .dataNodesAutoAdjust(cmd.dataNodesAutoAdjust())
                 .dataNodesAutoAdjustScaleUp(cmd.dataNodesAutoAdjustScaleUp())
                 .dataNodesAutoAdjustScaleDown(cmd.dataNodesAutoAdjustScaleDown())
-                .dataStorageParams(DataStorageParams.builder().engine(engine).dataRegion(dataRegion).build())
+                .storageProfilesParams(parseStorageProfiles(cmd.storageProfiles()))
                 .build();
     }
 
@@ -149,6 +145,12 @@ class DdlToCatalogCommandConverter {
                 .dataNodesAutoAdjust(cmd.dataNodesAutoAdjust())
                 .dataNodesAutoAdjustScaleUp(cmd.dataNodesAutoAdjustScaleUp())
                 .dataNodesAutoAdjustScaleDown(cmd.dataNodesAutoAdjustScaleDown())
+                .build();
+    }
+
+    static CatalogCommand convert(AlterZoneSetDefaultCommand cmd) {
+        return AlterZoneSetDefaultCatalogCommand.builder()
+                .zoneName(cmd.zoneName())
                 .build();
     }
 

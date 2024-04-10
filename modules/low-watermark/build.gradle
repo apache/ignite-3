@@ -32,11 +32,13 @@ dependencies {
     implementation project(':ignite-vault')
     implementation project(':ignite-configuration-api')
     implementation project(':ignite-replicator')
+    implementation project(':ignite-schema')
     implementation libs.jetbrains.annotations
 
     testImplementation libs.hamcrest.core
     testImplementation libs.mockito.core
     testImplementation libs.mockito.junit
+    testImplementation project(":ignite-schema")
     testImplementation testFixtures(project(":ignite-core"))
     testImplementation testFixtures(project(":ignite-configuration"))
 
