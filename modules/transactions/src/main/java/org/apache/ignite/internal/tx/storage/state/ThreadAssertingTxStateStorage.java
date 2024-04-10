@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.tx.storage.state;
 
-import static org.apache.ignite.internal.thread.ThreadOperation.TX_STATE_STORAGE;
+import static org.apache.ignite.internal.thread.ThreadOperation.TX_STATE_STORAGE_ACCESS;
 import static org.apache.ignite.internal.worker.ThreadAssertions.assertThreadAllowsTo;
 import static org.apache.ignite.internal.worker.ThreadAssertions.assertThreadAllowsToRead;
 import static org.apache.ignite.internal.worker.ThreadAssertions.assertThreadAllowsToWrite;
@@ -75,7 +75,7 @@ public class ThreadAssertingTxStateStorage implements TxStateStorage {
 
     @Override
     public Cursor<IgniteBiTuple<UUID, TxMeta>> scan() {
-        assertThreadAllowsTo(TX_STATE_STORAGE);
+        assertThreadAllowsTo(TX_STATE_STORAGE_ACCESS);
 
         return new ThreadAssertingCursor<>(storage.scan());
     }
