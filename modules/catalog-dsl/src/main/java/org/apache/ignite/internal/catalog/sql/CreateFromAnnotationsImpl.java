@@ -111,6 +111,7 @@ class CreateFromAnnotationsImpl extends AbstractCatalogQuery {
             String zoneName = zone.value().isEmpty() ? zoneRef.getSimpleName() : zone.value();
             createTable.zone(zoneName);
             createZone.name(zoneName);
+            createZone.storageProfiles(zone.storageProfiles());
             if (zone.partitions() > 0) {
                 createZone.partitions(zone.partitions());
             }
@@ -134,12 +135,6 @@ class CreateFromAnnotationsImpl extends AbstractCatalogQuery {
 
             if (!zone.filter().isEmpty()) {
                 createZone.filter(zone.filter());
-            }
-
-            createZone.engine(zone.engine());
-
-            if (!zone.dataRegion().isEmpty()) {
-                createZone.dataRegion(zone.dataRegion());
             }
         }
     }

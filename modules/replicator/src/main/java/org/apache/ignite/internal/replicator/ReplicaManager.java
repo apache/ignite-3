@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.AFTER_REPLICA_STARTED;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.BEFORE_REPLICA_STOPPED;
+import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSuccessfully;
@@ -77,6 +78,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.internal.thread.ExecutorChooser;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.thread.ThreadAttributes;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -92,9 +94,6 @@ import org.jetbrains.annotations.TestOnly;
  * <p>Only a single instance of the class exists in Ignite node.
  */
 public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, LocalReplicaEventParameters> implements IgniteComponent {
-    /** Default Idle safe time propagation period for tests. */
-    public static final int DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS = 1000;
-
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ReplicaManager.class);
 
@@ -241,20 +240,30 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         // If the request actually came from the network, we are already in the correct thread that has permissions to do storage reads
         // and writes.
         // But if this is a local call (in the same Ignite instance), we might still be in a thread that does not have those permissions.
-        if (currentThreadCannotDoStorageReadsAndWrites()) {
+        if (shouldSwitchToRequestsExecutor()) {
             requestsExecutor.execute(() -> handleReplicaRequest(request, sender, correlationId));
         } else {
             handleReplicaRequest(request, sender, correlationId);
         }
     }
 
-    private boolean currentThreadCannotDoStorageReadsAndWrites() {
+    private static boolean shouldSwitchToRequestsExecutor() {
         if (Thread.currentThread() instanceof ThreadAttributes) {
             ThreadAttributes thread = (ThreadAttributes) Thread.currentThread();
             return !thread.allows(STORAGE_READ) || !thread.allows(STORAGE_WRITE);
         } else {
-            // We don't know for sure.
-            return false;
+            if (PublicApiThreading.executingSyncPublicApi()) {
+                // It's a user thread, it executes a sync public API call, so it can do anything, no switch is needed.
+                return false;
+            }
+            if (PublicApiThreading.executingAsyncPublicApi()) {
+                // It's a user thread, it executes an async public API call, so it cannot do anything, a switch is needed.
+                return true;
+            }
+
+            // It's something else: either a JRE thread or an Ignite thread not marked with ThreadAttributes. As we are not sure,
+            // let's switch: false negative can produce assertion errors.
+            return true;
         }
     }
 
@@ -340,14 +349,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
                 clusterNetSvc.messagingService().respond(senderConsistentId, msg, correlationId);
 
-                if (request instanceof PrimaryReplicaRequest) {
-                    ClusterNode localNode = clusterNetSvc.topologyService().localMember();
-
-                    if (!localNode.name().equals(replica.proposedPrimary())) {
-                        stopLeaseProlongation(request.groupId(), replica.proposedPrimary());
-                    } else if (isConnectivityRelatedException(ex)) {
-                        stopLeaseProlongation(request.groupId(), null);
-                    }
+                if (request instanceof PrimaryReplicaRequest && isConnectivityRelatedException(ex)) {
+                    stopLeaseProlongation(request.groupId(), null);
                 }
 
                 if (ex == null && res.replicationFuture() != null) {

@@ -120,6 +120,7 @@ dependencies {
     integrationTestImplementation project(':ignite-raft-api')
     integrationTestImplementation project(':ignite-affinity')
     integrationTestImplementation project(':ignite-storage-rocksdb')
+    integrationTestImplementation project(':ignite-storage-api')
     integrationTestImplementation project(':ignite-distribution-zones')
     integrationTestImplementation project(':ignite-catalog')
     integrationTestImplementation project(':ignite-metastorage-api')
