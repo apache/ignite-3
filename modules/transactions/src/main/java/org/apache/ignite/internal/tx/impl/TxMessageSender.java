@@ -83,7 +83,7 @@ public class TxMessageSender {
      * @param txId Transaction id.
      * @param commit {@code True} if a commit requested.
      * @param commitTimestamp Commit timestamp ({@code null} if it's an abort).
-     * @return Completable future of Void.
+     * @return Completable future of ReplicaResponse.
      */
     public CompletableFuture<ReplicaResponse> switchWriteIntents(
             String primaryConsistentId,
@@ -216,6 +216,22 @@ public class TxMessageSender {
 
                     return (TxStateResponse) resp;
                 });
+    }
+
+    /**
+     * Send TxCleanupRecoveryRequest.
+     *
+     * @param primaryConsistentId Node id to send the request to.
+     * @param tablePartitionId Table partition id.
+     * @return Completable future of ReplicaResponse.
+     */
+    public CompletableFuture<ReplicaResponse> sendRecoveryCleanup(String primaryConsistentId, TablePartitionId tablePartitionId) {
+        return replicaService.invoke(
+                primaryConsistentId,
+                FACTORY.txCleanupRecoveryRequest()
+                        .groupId(tablePartitionId)
+                        .build()
+        );
     }
 
     public MessagingService messagingService() {
