@@ -17,8 +17,12 @@
 
 package org.apache.ignite.internal.tx;
 
+import static java.util.Collections.unmodifiableCollection;
+
+import java.util.Collection;
 import java.util.Objects;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
@@ -30,6 +34,9 @@ public class TxMeta implements TransactionMeta {
     /** Tx state. */
     private final TxState txState;
 
+    /** Collection of enlisted partition groups. */
+    private final Collection<TablePartitionId> enlistedPartitions;
+
     /** Commit timestamp. */
     @Nullable
     private final HybridTimestamp commitTimestamp;
@@ -38,16 +45,22 @@ public class TxMeta implements TransactionMeta {
      * The constructor.
      *
      * @param txState Tx state.
+     * @param enlistedPartitions Collection of enlisted partition groups.
      * @param commitTimestamp Commit timestamp.
      */
-    public TxMeta(TxState txState, @Nullable HybridTimestamp commitTimestamp) {
+    public TxMeta(TxState txState, Collection<TablePartitionId> enlistedPartitions, @Nullable HybridTimestamp commitTimestamp) {
         this.txState = txState;
+        this.enlistedPartitions = enlistedPartitions;
         this.commitTimestamp = commitTimestamp;
     }
 
     @Override
     public TxState txState() {
         return txState;
+    }
+
+    public Collection<TablePartitionId> enlistedPartitions() {
+        return unmodifiableCollection(enlistedPartitions);
     }
 
     @Override
@@ -73,12 +86,14 @@ public class TxMeta implements TransactionMeta {
         TxMeta other = (TxMeta) o;
 
         return txState == other.txState
+                && enlistedPartitions.equals(other.enlistedPartitions)
                 && Objects.equals(commitTimestamp, other.commitTimestamp);
     }
 
     @Override
     public int hashCode() {
         int result = txState.hashCode();
+        result = 31 * result + enlistedPartitions.hashCode();
         result = 31 * result + (commitTimestamp != null ? commitTimestamp.hashCode() : 0);
         return result;
     }

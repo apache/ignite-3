@@ -15,24 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.thread;
+package org.apache.ignite.internal.tx.message;
+
+import org.apache.ignite.internal.network.annotations.Transferable;
+import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 
 /**
- * Operation that a thread might be allowed or denied to execute.
+ * A replica request that is used for retriggering cleanup for finished transactions on node becoming primary.
  */
-public enum ThreadOperation {
-    /** Storage read. */
-    STORAGE_READ,
-    /** Storage write. */
-    STORAGE_WRITE,
-    /** Access TX State storage. */
-    TX_STATE_STORAGE_ACCESS,
-    /** Make a blocking wait (involving taking a lock or waiting on a conditional variable or waiting for time to pass. */
-    WAIT;
+@Transferable(TxMessageGroup.TX_CLEANUP_RECOVERY)
+public interface TxCleanupRecoveryRequest extends ReplicaRequest {
 
-    /**
-     * Empty list of operations denoting that no potentially blocking/time consuming operations are allowed
-     * to be executed on a thread.
-     */
-    public static final ThreadOperation[] NOTHING_ALLOWED = new ThreadOperation[0];
 }
