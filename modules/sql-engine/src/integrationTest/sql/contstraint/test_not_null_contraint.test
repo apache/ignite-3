@@ -1,6 +1,6 @@
 # name: test/sql/etc/test_not_null_constraint.test
 # description: SQL Feature E141-01 (NOT NULL constraints)
-# group: [etc]
+# group: [constraint]
 
 statement ok
 PRAGMA enable_verification
