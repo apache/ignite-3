@@ -65,10 +65,10 @@ statement ok
 DROP INDEX t_some_idx_
 
 statement ok
-CREATE ZONE zone_ WITH STORAGE_PROFILES='default', PARTITIONS=1, REPLICAS=3
+DROP TABLE t_
 
 statement ok
-DROP TABLE t_
+CREATE ZONE zone_ WITH STORAGE_PROFILES='default', PARTITIONS=1, REPLICAS=3
 
 statement ok
 ALTER ZONE zone_ RENAME TO another_zone_
