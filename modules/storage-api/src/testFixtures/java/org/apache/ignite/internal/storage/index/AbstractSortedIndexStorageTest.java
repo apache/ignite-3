@@ -679,6 +679,24 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
     }
 
     @Test
+    void testReadOnlyScanContractUpdateAfterScan() {
+        SortedIndexStorage indexStorage = createIndexStorage(INDEX_NAME, ColumnType.INT32);
+
+        BinaryTupleRowSerializer serializer = new BinaryTupleRowSerializer(indexStorage.indexDescriptor());
+
+        // Put before scan, should be visible.
+        put(indexStorage, serializer.serializeRow(new Object[]{0}, new RowId(TEST_PARTITION)));
+
+        Cursor<IndexRow> scan = indexStorage.readOnlyScan(null, null, 0);
+
+        // Put after scan, should not be visible.
+        put(indexStorage, serializer.serializeRow(new Object[]{1}, new RowId(TEST_PARTITION)));
+
+        assertEquals(0, serializer.deserializeColumns(scan.next())[0]);
+        assertFalse(scan::hasNext);
+    }
+
+    @Test
     void testScanContractAddRowAfterInvokeHasNext() {
         SortedIndexStorage indexStorage = createIndexStorage(INDEX_NAME, ColumnType.INT32);
 
