@@ -270,7 +270,7 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
 
         private final ReadOptions options;
         private final RocksIterator it;
-        private final boolean refresh;
+        private final boolean keepUpdated;
 
         private @Nullable Boolean hasNext;
 
@@ -286,9 +286,9 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
          */
         private byte @Nullable [] peekedKey = BYTE_EMPTY_ARRAY;
 
-        RocksDbPeekCursor(byte[] upperBound, ColumnFamily indexCf, byte[] lowerBound, boolean refresh) {
+        RocksDbPeekCursor(byte[] upperBound, ColumnFamily indexCf, byte[] lowerBound, boolean keepUpdated) {
             this.lowerBound = lowerBound;
-            this.refresh = refresh;
+            this.keepUpdated = keepUpdated;
 
             upperBoundSlice = new Slice(upperBound);
             options = new ReadOptions().setIterateUpperBound(upperBoundSlice);
@@ -372,7 +372,7 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
         }
 
         private void refreshAndPrepareRocksIteratorBusy() {
-            if (refresh) {
+            if (keepUpdated) {
                 try {
                     it.refresh();
                 } catch (RocksDBException e) {

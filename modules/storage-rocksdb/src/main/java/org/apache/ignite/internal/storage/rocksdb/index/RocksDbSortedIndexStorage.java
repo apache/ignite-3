@@ -165,9 +165,6 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
             boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;
             boolean includeUpper = (flags & LESS_OR_EQUAL) != 0;
 
-            byte[] lowerBoundBytes = getBound(lowerBound, partitionStartPrefix, !includeLower);
-            byte[] upperBoundBytes = getBound(upperBound, partitionEndPrefix, includeUpper);
-
             return scan(lowerBound, upperBound, includeLower, includeUpper, this::decodeRow,  false);
         });
     }
@@ -178,13 +175,13 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
             boolean includeLower,
             boolean includeUpper,
             Function<ByteBuffer, T> mapper,
-            boolean refresh
+            boolean keepUpdated
     ) {
         byte[] lowerBoundBytes = getBound(lowerBound, partitionStartPrefix, !includeLower);
 
         byte[] upperBoundBytes = getBound(upperBound, partitionEndPrefix, includeUpper);
 
-        return new RocksDbPeekCursor<T>(upperBoundBytes, indexCf, lowerBoundBytes, refresh) {
+        return new RocksDbPeekCursor<>(upperBoundBytes, indexCf, lowerBoundBytes, keepUpdated) {
             @Override
             protected T map(ByteBuffer byteBuffer) {
                 return mapper.apply(byteBuffer);
