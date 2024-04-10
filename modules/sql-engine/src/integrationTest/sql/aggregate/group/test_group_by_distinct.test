@@ -1,5 +1,5 @@
 # name: test/sql/aggregate/group/test_group_by_alias.test
-# description: T434	(GROUP BY DISTINCT) feature
+# description: SQL feature T434 (GROUP BY DISTINCT)
 # group: [group]
 
 statement ok
