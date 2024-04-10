@@ -162,6 +162,10 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
         return schemaVersionFuture
                 .thenCompose(schemaVersion -> action.act(schemaVersion)
                         .handle((res, ex) -> {
+                            if (ex == null) {
+                                return completedFuture(res);
+                            }
+
                             if (isOrCausedBy(InternalSchemaVersionMismatchException.class, ex)) {
                                 assert tx == null : "Only for implicit transactions a retry might be requested";
                                 assertSchemaVersionIncreased(previousSchemaVersion, schemaVersion);
@@ -174,7 +178,7 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
 
                                 return withSchemaSync(tx, schemaVersion, action);
                             } else {
-                                return ex == null ? completedFuture(res) : CompletableFuture.<T>failedFuture(ex);
+                                return CompletableFuture.<T>failedFuture(ex);
                             }
                         }))
                 .thenCompose(identity());
