@@ -72,13 +72,14 @@ public class RocksDbMetaStorage {
      *
      * @param indexId Index ID.
      * @param partitionId Partition ID.
+     * @param pk Primary index flag.
      */
-    public @Nullable RowId getNextRowIdToBuild(int tableId, int indexId, int partitionId) {
+    public @Nullable RowId getNextRowIdToBuild(int tableId, int indexId, int partitionId, boolean pk) {
         try {
             byte[] lastBuiltRowIdBytes = metaColumnFamily.get(createKey(INDEX_ROW_ID_PREFIX, tableId, indexId, partitionId));
 
             if (lastBuiltRowIdBytes == null) {
-                return initialRowIdToBuild(partitionId);
+                return pk ? null : initialRowIdToBuild(partitionId);
             }
 
             if (lastBuiltRowIdBytes.length == 0) {
