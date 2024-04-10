@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import static org.apache.ignite.internal.util.ArrayUtils.nullOrEmpty;
+
 import org.apache.ignite.internal.util.IgniteUtils;
 
 /** Extract assignment based on incoming row. */
@@ -31,6 +33,8 @@ public class RehashingPartitionExtractor<RowT> implements RowPartitionExtractor<
             int[] fields,
             RowHandler<RowT> rowHandler
     ) {
+        assert !nullOrEmpty(fields);
+
         this.targetCount = targetCount;
         this.fields = fields;
         this.rowHandler = rowHandler;

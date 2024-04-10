@@ -79,4 +79,9 @@ public class TxMessageGroup {
      */
     public static final short TX_FINISHED_BATCH = 10;
 
+    /**
+     * Message type for {@link TxCleanupRecoveryRequest}.
+     */
+    public static final short TX_CLEANUP_RECOVERY = 11;
+
 }

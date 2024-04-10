@@ -533,6 +533,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
         FinishTxCommand command = msgFactory.finishTxCommand()
                 .txId(TestTransactionIds.newTransactionId())
                 .safeTimeLong(staleOrFreshSafeTime(stale))
+                .partitionIds(List.of())
                 .build();
 
         commandListener.onWrite(List.of(

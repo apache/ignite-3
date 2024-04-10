@@ -54,6 +54,7 @@ import org.apache.ignite.internal.raft.service.BeforeApplyHandler;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.CommittedConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
@@ -68,6 +69,7 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
+import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.command.WriteIntentSwitchCommand;
@@ -377,6 +379,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
         TxMeta txMetaToSet = new TxMeta(
                 stateToSet,
+                fromPartitionIdMessage(cmd.partitionIds()),
                 cmd.commitTimestamp()
         );
 
@@ -401,6 +404,15 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         return new TransactionResult(stateToSet, cmd.commitTimestamp());
     }
 
+    private static List<TablePartitionId> fromPartitionIdMessage(List<TablePartitionIdMessage> partitionIds) {
+        List<TablePartitionId> list = new ArrayList<>(partitionIds.size());
+
+        for (TablePartitionIdMessage partitionIdMessage : partitionIds) {
+            list.add(partitionIdMessage.asTablePartitionId());
+        }
+
+        return list;
+    }
 
     /**
      * Handler for the {@link WriteIntentSwitchCommand}.
