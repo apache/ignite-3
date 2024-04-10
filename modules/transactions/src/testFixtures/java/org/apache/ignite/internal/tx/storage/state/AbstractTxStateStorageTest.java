@@ -430,8 +430,17 @@ public abstract class AbstractTxStateStorageTest extends BaseIgniteAbstractTest 
         assertEquals(2, storage0.lastAppliedIndex());
         assertEquals(2, storage0.lastAppliedTerm());
 
-        assertThrows(AssertionError.class, () -> storage0.updateLease(100, 3, 2));
-        assertThrows(AssertionError.class, () -> storage0.updateLease(100, 1, 1));
+        // Storage update isn't expected because 100 < 2000
+        storage0.updateLease(100, 3, 2);
+        assertEquals(lst1, storage0.leaseStartTime());
+        assertEquals(2, storage0.lastAppliedIndex());
+        assertEquals(2, storage0.lastAppliedTerm());
+
+        // Storage update isn't expected because 100 < 2000
+        storage0.updateLease(100, 1, 1);
+        assertEquals(lst1, storage0.leaseStartTime());
+        assertEquals(2, storage0.lastAppliedIndex());
+        assertEquals(2, storage0.lastAppliedTerm());
     }
 
     private static void checkStorageIsEmpty(TxStateStorage storage) {
