@@ -264,13 +264,12 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
     /**
      * Cursor that always returns up-to-date next element.
      */
-    protected abstract class RocksDbPeekCursor<T> implements PeekCursor<T> {
+    protected abstract class UpToDatePeekCursor<T> implements PeekCursor<T> {
         private final Slice upperBoundSlice;
         private final byte[] lowerBound;
 
         private final ReadOptions options;
         private final RocksIterator it;
-        private final boolean keepUpdated;
 
         private @Nullable Boolean hasNext;
 
@@ -286,10 +285,8 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
          */
         private byte @Nullable [] peekedKey = BYTE_EMPTY_ARRAY;
 
-        RocksDbPeekCursor(byte[] upperBound, ColumnFamily indexCf, byte[] lowerBound, boolean keepUpdated) {
+        UpToDatePeekCursor(byte[] upperBound, ColumnFamily indexCf, byte[] lowerBound) {
             this.lowerBound = lowerBound;
-            this.keepUpdated = keepUpdated;
-
             upperBoundSlice = new Slice(upperBound);
             options = new ReadOptions().setIterateUpperBound(upperBoundSlice);
             it = indexCf.newIterator(options);
@@ -372,12 +369,10 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
         }
 
         private void refreshAndPrepareRocksIteratorBusy() {
-            if (keepUpdated) {
-                try {
-                    it.refresh();
-                } catch (RocksDBException e) {
-                    throw new StorageException("Error refreshing an iterator", e);
-                }
+            try {
+                it.refresh();
+            } catch (RocksDBException e) {
+                throw new StorageException("Error refreshing an iterator", e);
             }
 
             if (key == null) {
