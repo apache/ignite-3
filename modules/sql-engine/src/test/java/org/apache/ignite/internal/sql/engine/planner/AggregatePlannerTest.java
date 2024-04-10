@@ -186,23 +186,26 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
      */
     @Test
     public void aggregateWithGroupByIndexPrefixColumns() throws Exception {
-        checkAggWithGroupByIndexColumnsSingle(TestCase.CASE_9);
         checkAggWithGroupByIndexColumnsSingle(TestCase.CASE_10);
         checkAggWithGroupByIndexColumnsSingle(TestCase.CASE_11);
 
-        checkAggWithGroupByIndexColumnsSort(TestCase.CASE_9A);
         checkAggWithGroupByIndexColumnsSort(TestCase.CASE_10A);
         checkAggWithGroupByIndexColumnsSort(TestCase.CASE_11A);
 
-        checkAggWithGroupByIndexColumnsSort(TestCase.CASE_9B);
         checkAggWithGroupByIndexColumnsSort(TestCase.CASE_10B);
         checkAggWithGroupByIndexColumnsSort(TestCase.CASE_11B);
 
-        checkAggWithColocatedGroupByIndexColumnsHash(TestCase.CASE_9C);
         checkAggWithColocatedGroupByIndexColumnsHash(TestCase.CASE_10C);
         checkAggWithColocatedGroupByIndexColumnsHash(TestCase.CASE_11C);
 
-        checkAggWithColocatedGroupByIndexColumnsHash(TestCase.CASE_9D);
+        // grouping by a single column results in a lower number of groups, this makes
+        // hash aggregate slightly better than sorted because we occupy less memory,
+        // and scanning by an index is expensive
+        checkSimpleAggWithGroupBySingle(TestCase.CASE_9);
+        checkAggWithGroupByIndexColumnsHash(TestCase.CASE_9A);
+        checkAggWithGroupByIndexColumnsHash(TestCase.CASE_9B);
+        checkSimpleAggWithColocatedGroupByHash(TestCase.CASE_9C);
+        checkSimpleAggWithColocatedGroupByHash(TestCase.CASE_9D);
     }
 
     /**
@@ -212,11 +215,21 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
     public void distinctWithoutAggregate() throws Exception {
         checkGroupWithNoAggregateSingle(TestCase.CASE_12);
 
+        // even though collation satisfies the grouping,
+        // scan over and index is too expensive, for aggregates
+        // emitting rows with up to 2 columns it's considered
+        // cheaper (according to current cost model) to use hash
+        // aggregates instead
+        checkGroupWithNoAggregateSingle(TestCase.CASE_13);
+
         checkGroupWithNoAggregateHash(TestCase.CASE_12A);
         checkGroupWithNoAggregateHash(TestCase.CASE_12B);
 
         checkColocatedGroupWithNoAggregateHash(TestCase.CASE_12C);
         checkColocatedGroupWithNoAggregateHash(TestCase.CASE_12D);
+
+        checkColocatedGroupWithNoAggregateHash(TestCase.CASE_13C);
+        checkColocatedGroupWithNoAggregateHash(TestCase.CASE_13D);
     }
 
     /**
@@ -224,13 +237,11 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
      */
     @Test
     public void distinctWithoutAggregateUseIndex() throws Exception {
-        checkGroupWithNoAggregateUseIndexSingle(TestCase.CASE_13);
-
+        // hash aggregate adds an extra column for group id, this adds an extra cost
+        // to the memory part making two phase hash aggregate slightly more expensive
+        // than sorted ones
         checkGroupWithNoAggregateUseIndexHash(TestCase.CASE_13A);
         checkGroupWithNoAggregateUseIndexHash(TestCase.CASE_13B);
-
-        checkColocatedGroupWithNoAggregateUseIndexHash(TestCase.CASE_13C);
-        checkColocatedGroupWithNoAggregateUseIndexHash(TestCase.CASE_13D);
     }
 
     /**
@@ -478,9 +489,9 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
 
         Predicate<RelNode> nonColocated = hasChildThat(isInstanceOf(IgniteReduceHashAggregate.class)
                 .and(in -> hasAggregates(sumReduce, sum0Reduce).test(in.getAggregateCalls()))
-                .and(input(isInstanceOf(IgniteProject.class)
-                        .and(input(isInstanceOf(IgniteExchange.class)
-                                .and(hasDistribution(single()))
+                .and(input(isInstanceOf(IgniteExchange.class)
+                        .and(hasDistribution(single()))
+                        .and(input(isInstanceOf(IgniteProject.class)
                                 .and(input(isInstanceOf(IgniteMapHashAggregate.class)
                                                 .and(in -> hasAggregates(sumMap, countMap).test(in.getAggCallList()))
                                         )
@@ -705,6 +716,19 @@ public class AggregatePlannerTest extends AbstractAggregatePlannerTest {
                 nodeOrAnyChild(isInstanceOf(IgniteColocatedSortAggregate.class)
                         .and(hasAggregate())
                         .and(input(isIndexScan("TEST", "idx_grp0_grp1")))
+                )
+        );
+    }
+
+    private void checkAggWithGroupByIndexColumnsHash(TestCase testCase) throws Exception {
+        assertPlan(testCase,
+                nodeOrAnyChild(isInstanceOf(IgniteReduceHashAggregate.class)
+                        .and(input(isInstanceOf(IgniteExchange.class)
+                                .and(input(isInstanceOf(IgniteMapHashAggregate.class)
+                                        .and(hasAggregate())
+                                        .and(input(isTableScan("TEST")))
+                                ))
+                        ))
                 )
         );
     }

@@ -93,6 +93,15 @@ public class LeaseAgreement {
     }
 
     /**
+     * Whether the agreement is declined (ready but not accepted).
+     *
+     * @return Whether the agreement is declined (ready but not accepted).
+     */
+    public boolean isDeclined() {
+        return ready() && !isAccepted();
+    }
+
+    /**
      * The property matches to {@link LeaseGrantedMessageResponse#redirectProposal()}.
      * This property is available only when the agreement is ready (look at {@link #ready()}).
      *

@@ -26,6 +26,7 @@ import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.worker.ThreadAssertingCursor;
 import org.apache.ignite.internal.worker.ThreadAssertions;
+import org.apache.ignite.internal.wrapper.Wrapper;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -33,7 +34,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * @see ThreadAssertions
  */
-abstract class ThreadAssertingIndexStorage implements IndexStorage {
+abstract class ThreadAssertingIndexStorage implements IndexStorage, Wrapper {
     private final IndexStorage indexStorage;
 
     /** Constructor. */
@@ -72,5 +73,10 @@ abstract class ThreadAssertingIndexStorage implements IndexStorage {
         assertThreadAllowsToWrite();
 
         indexStorage.setNextRowIdToBuild(rowId);
+    }
+
+    @Override
+    public <T> T unwrap(Class<T> classToUnwrap) {
+        return classToUnwrap.cast(indexStorage);
     }
 }

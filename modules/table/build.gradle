@@ -120,6 +120,7 @@ dependencies {
     integrationTestImplementation project(':ignite-raft-api')
     integrationTestImplementation project(':ignite-affinity')
     integrationTestImplementation project(':ignite-storage-rocksdb')
+    integrationTestImplementation project(':ignite-storage-api')
     integrationTestImplementation project(':ignite-distribution-zones')
     integrationTestImplementation project(':ignite-catalog')
     integrationTestImplementation project(':ignite-metastorage-api')
@@ -151,6 +152,7 @@ dependencies {
     integrationTestImplementation(testFixtures(project(':ignite-distribution-zones')))
     integrationTestImplementation(testFixtures(project(':ignite-runner')))
     integrationTestImplementation(testFixtures(project(':ignite-low-watermark')))
+    integrationTestImplementation(testFixtures(project(':ignite-failure-handler')))
     integrationTestImplementation libs.fastutil.core
     integrationTestImplementation libs.jetbrains.annotations
     integrationTestImplementation libs.calcite.core
