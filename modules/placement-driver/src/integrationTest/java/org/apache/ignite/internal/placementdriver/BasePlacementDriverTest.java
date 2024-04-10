@@ -59,7 +59,6 @@ abstract class BasePlacementDriverTest extends IgniteAbstractTest {
 
         var grpPart0 = new ZonePartitionId(zoneId, 0);
 
-        // TODO
         log.info("Fake zone created [id={}, repGrp={}]", zoneId, grpPart0);
 
         return grpPart0;
