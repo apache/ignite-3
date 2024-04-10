@@ -21,12 +21,13 @@ import static org.apache.ignite.internal.storage.util.StorageUtils.initialRowIdT
 
 import java.util.Iterator;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageDestroyedException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
-import org.apache.ignite.internal.storage.index.IndexNotBuiltException;
 import org.apache.ignite.internal.storage.index.IndexStorage;
+import org.apache.ignite.internal.storage.util.StorageUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
@@ -184,9 +185,11 @@ abstract class AbstractTestIndexStorage implements IndexStorage {
         }
     }
 
+    private String createStorageInfo() {
+        return IgniteStringFormatter.format("indexId={}, partitionId={}", indexId, partitionId);
+    }
+
     void throwExceptionIfIndexIsNotBuilt() {
-        if (nextRowIdToBuild != null) {
-            throw new IndexNotBuiltException(indexId, partitionId);
-        }
+        StorageUtils.throwExceptionIfIndexIsNotBuilt(nextRowIdToBuild, this::createStorageInfo);
     }
 }

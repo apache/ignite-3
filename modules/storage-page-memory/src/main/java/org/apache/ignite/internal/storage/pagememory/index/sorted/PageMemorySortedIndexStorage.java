@@ -98,7 +98,7 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
         return busyDataRead(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
-            throwExceptionIfIndexNotBuilt();
+            throwExceptionIfIndexIsNotBuilt();
 
             SortedIndexRowKey lowerBound = toSortedIndexRow(key, lowestRowId);
 
@@ -158,11 +158,18 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
     }
 
     @Override
-    public PeekCursor<IndexRow> scan(@Nullable BinaryTuplePrefix lowerBound, @Nullable BinaryTuplePrefix upperBound, int flags) {
+    public PeekCursor<IndexRow> scan(
+            @Nullable BinaryTuplePrefix lowerBound,
+            @Nullable BinaryTuplePrefix upperBound,
+            int flags,
+            boolean onlyBuiltIndex
+    ) {
         return busyDataRead(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
-            throwExceptionIfIndexNotBuilt();
+            if (onlyBuiltIndex) {
+                throwExceptionIfIndexIsNotBuilt();
+            }
 
             boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;
             boolean includeUpper = (flags & LESS_OR_EQUAL) != 0;

@@ -17,14 +17,14 @@
 
 package org.apache.ignite.internal.storage.index;
 
-import static org.apache.ignite.lang.ErrorGroups.Storage.INDEX_NOT_BUILT_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Storage.INCONSISTENT_INDEX_STATE_ERR;
 
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.storage.StorageException;
 
-/** Exception occurring while reading from an index that has not yet been built. */
-public class IndexNotBuiltException extends StorageException {
-    private static final long serialVersionUID = 7512376065062977603L;
+/** Exception that occurs when an index is not consistent, for example, when reading from a readable index and it has not yet been built. */
+public class InconsistentIndexStateException extends StorageException {
+    private static final long serialVersionUID = 344560487657914429L;
 
     /**
      * Constructor.
@@ -33,7 +33,7 @@ public class IndexNotBuiltException extends StorageException {
      * @param params Error message params.
      * @see IgniteStringFormatter#format(String, Object...)
      */
-    public IndexNotBuiltException(String messagePattern, Object... params) {
-        super(INDEX_NOT_BUILT_ERR, messagePattern, params);
+    public InconsistentIndexStateException(String messagePattern, Object... params) {
+        super(INCONSISTENT_INDEX_STATE_ERR, messagePattern, params);
     }
 }

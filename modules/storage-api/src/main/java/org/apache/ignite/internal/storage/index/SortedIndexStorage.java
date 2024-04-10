@@ -56,14 +56,17 @@ public interface SortedIndexStorage extends IndexStorage {
      *      {@code null} means unbounded.
      * @param flags Control flags. {@link #GREATER} | {@link #LESS} by default. Other available values
      *      are {@link #GREATER_OR_EQUAL}, {@link #LESS_OR_EQUAL}.
+     * @param onlyBuiltIndex {@code True} if need to scan only from the built index.
      * @return Cursor with fetched index rows.
      * @throws IllegalArgumentException If backwards flag is passed and backwards iteration is not supported by the storage.
      * @throws StorageException If failed to read data.
-     * @throws IndexNotBuiltException If the index has not yet been built.
+     * @throws IndexNotBuiltException If the index has not yet been built and {@code onlyBuiltIndex} = {@code true}.
+     * @throws InconsistentIndexStateException If the index is in a readable status, but the index is not built.
      */
     PeekCursor<IndexRow> scan(
             @Nullable BinaryTuplePrefix lowerBound,
             @Nullable BinaryTuplePrefix upperBound,
-            @MagicConstant(flagsFromClass = SortedIndexStorage.class) int flags
+            @MagicConstant(flagsFromClass = SortedIndexStorage.class) int flags,
+            boolean onlyBuiltIndex
     );
 }

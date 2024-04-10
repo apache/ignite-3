@@ -79,7 +79,7 @@ public class TestSortedIndexStorage extends AbstractTestIndexStorage implements 
         BinaryTuplePrefix lowerBound = BinaryTuplePrefix.fromBinaryTuple(key);
         BinaryTuplePrefix higherBound = BinaryTuplePrefix.fromBinaryTuple(key);
 
-        PeekCursor<IndexRow> peekCursor = scan(lowerBound, higherBound, GREATER_OR_EQUAL | LESS_OR_EQUAL);
+        PeekCursor<IndexRow> peekCursor = scan(lowerBound, higherBound, GREATER_OR_EQUAL | LESS_OR_EQUAL, true);
 
         return new TransformingIterator<>(peekCursor, IndexRow::rowId);
     }
@@ -102,11 +102,14 @@ public class TestSortedIndexStorage extends AbstractTestIndexStorage implements 
     public PeekCursor<IndexRow> scan(
             @Nullable BinaryTuplePrefix lowerBound,
             @Nullable BinaryTuplePrefix upperBound,
-            int flags
+            int flags,
+            boolean onlyBuiltIndex
     ) {
         checkStorageClosedOrInProcessOfRebalance(true);
 
-        throwExceptionIfIndexIsNotBuilt();
+        if (onlyBuiltIndex) {
+            throwExceptionIfIndexIsNotBuilt();
+        }
 
         boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;
         boolean includeUpper = (flags & LESS_OR_EQUAL) != 0;

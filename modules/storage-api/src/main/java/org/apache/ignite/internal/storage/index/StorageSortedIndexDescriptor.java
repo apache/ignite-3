@@ -36,7 +36,9 @@ import org.apache.ignite.internal.type.NativeType;
  * @see SortedIndexStorage
  */
 public class StorageSortedIndexDescriptor implements StorageIndexDescriptor {
-    /** Descriptor of a Sorted Index column (column name and column sort order). */
+    /**
+     * Descriptor of a Sorted Index column (column name and column sort order).
+     */
     public static class StorageSortedIndexColumnDescriptor implements StorageColumnDescriptor {
         private final String name;
 
@@ -78,7 +80,9 @@ public class StorageSortedIndexDescriptor implements StorageIndexDescriptor {
             return nullable;
         }
 
-        /** Returns {@code true} if this column is sorted in ascending order or {@code false} otherwise. */
+        /**
+         * Returns {@code true} if this column is sorted in ascending order or {@code false} otherwise.
+         */
         public boolean asc() {
             return asc;
         }
@@ -149,7 +153,9 @@ public class StorageSortedIndexDescriptor implements StorageIndexDescriptor {
         return columns;
     }
 
-    /** Returns a {@code BinaryTupleSchema} that corresponds to the index configuration. */
+    /**
+     * Returns a {@code BinaryTupleSchema} that corresponds to the index configuration.
+     */
     public BinaryTupleSchema binaryTupleSchema() {
         return binaryTupleSchema;
     }

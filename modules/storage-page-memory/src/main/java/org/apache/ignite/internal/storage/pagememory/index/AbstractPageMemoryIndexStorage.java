@@ -38,7 +38,6 @@ import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
-import org.apache.ignite.internal.storage.index.IndexNotBuiltException;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.PeekCursor;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
@@ -458,9 +457,7 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
         }
     }
 
-    protected void throwExceptionIfIndexNotBuilt() {
-        if (nextRowIdToBuild != null) {
-            throw new IndexNotBuiltException(indexId, partitionId);
-        }
+    protected void throwExceptionIfIndexIsNotBuilt() {
+        StorageUtils.throwExceptionIfIndexIsNotBuilt(nextRowIdToBuild, this::createStorageInfo);
     }
 }

@@ -1274,7 +1274,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                                         // We have to handle upperBound on a level of replication listener,
                                         // for correctness of taking of a range lock.
                                         null,
-                                        flags
+                                        flags,
+                                        true
                                 ))
                         ).cursor();
 
@@ -1325,7 +1326,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                 () -> new CursorResource(indexStorage.scan(
                         lowerBound,
                         upperBound,
-                        flags
+                        flags,
+                        true
                 ))).cursor();
 
         int batchCount = request.batchSize();
