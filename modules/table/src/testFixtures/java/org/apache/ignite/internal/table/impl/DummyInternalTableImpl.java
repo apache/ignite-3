@@ -18,8 +18,10 @@
 package org.apache.ignite.internal.table.impl;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.replicator.ReplicaManager.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
+import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -42,10 +44,13 @@ import org.apache.ignite.internal.TestHybridClock;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.network.AbstractMessagingService;
 import org.apache.ignite.internal.network.ChannelType;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
@@ -95,7 +100,6 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
-import org.apache.ignite.internal.tx.impl.ResourceCleanupManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
@@ -131,6 +135,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     // Any value greater than that will work, hence 2000.
     public static final HybridClock CLOCK = new TestHybridClock(() -> 2000);
 
+    private static final ClockService CLOCK_SERVICE = new TestClockService(CLOCK);
+
     private static final int PART_ID = 0;
 
     private static final ReplicationGroupId crossTableGroupId = new TablePartitionId(333, 0);
@@ -147,6 +153,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
     private final Object raftServiceMutex = new Object();
 
     private static final AtomicInteger nextTableId = new AtomicInteger(10_001);
+
+    private static final TestLowWatermark LOW_WATERMARK = new TestLowWatermark();
 
     /**
      * Creates a new local table.
@@ -248,7 +256,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 ),
                 transactionInflights,
                 3_000,
-                0
+                0,
+                null
         );
 
         RaftGroupService svc = tableRaftService().partitionRaftGroupService(PART_ID);
@@ -385,7 +394,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 () -> Map.of(pkLocker.id(), pkLocker),
                 pkStorage,
                 Map::of,
-                CLOCK,
+                CLOCK_SERVICE,
                 safeTime,
                 txStateStorage().getOrCreateTxStateStorage(PART_ID),
                 transactionStateResolver,
@@ -408,7 +417,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 safeTime,
                 new PendingComparableValuesTracker<>(0L),
                 catalogService,
-                schemaManager
+                schemaManager,
+                CLOCK_SERVICE
         );
     }
 
@@ -463,30 +473,22 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         TransactionInflights transactionInflights = new TransactionInflights(placementDriver);
 
-        ResourceCleanupManager resourceCleanupManager = new ResourceCleanupManager(
-                LOCAL_NODE.name(),
-                resourcesRegistry,
-                clusterService.topologyService(),
-                clusterService.messagingService(),
-                transactionInflights
-        );
-
         var txManager = new TxManagerImpl(
                 txConfiguration,
                 clusterService,
                 replicaSvc,
                 new HeapLockManager(),
-                CLOCK,
+                CLOCK_SERVICE,
                 new TransactionIdGenerator(0xdeadbeef),
                 placementDriver,
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
                 new TestLocalRwTxCounter(),
                 resourcesRegistry,
-                resourceCleanupManager,
-                transactionInflights
+                transactionInflights,
+                LOW_WATERMARK
         );
 
-        txManager.start();
+        assertThat(txManager.start(), willCompleteSuccessfully());
 
         return txManager;
     }

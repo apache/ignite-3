@@ -25,8 +25,8 @@ import java.util.stream.Collectors;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributeView;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
-import org.apache.ignite.internal.cluster.management.configuration.StorageProfileView;
-import org.apache.ignite.internal.cluster.management.configuration.StorageProfilesConfiguration;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
+import org.apache.ignite.internal.storage.configurations.StorageProfileView;
 
 /**
  * This class is responsible for retrieving local node attributes
@@ -37,11 +37,11 @@ public class NodeAttributesCollector implements NodeAttributes {
 
     private final NodeAttributesConfiguration nodeAttributesConfiguration;
 
-    private final StorageProfilesConfiguration storageProfilesConfiguration;
+    private final StorageConfiguration storageProfilesConfiguration;
 
     public NodeAttributesCollector(
             NodeAttributesConfiguration nodeAttributesConfiguration,
-            StorageProfilesConfiguration storageProfilesConfiguration
+            StorageConfiguration storageProfilesConfiguration
     ) {
         this.nodeAttributesConfiguration = nodeAttributesConfiguration;
         this.storageProfilesConfiguration = storageProfilesConfiguration;
@@ -65,11 +65,12 @@ public class NodeAttributesCollector implements NodeAttributes {
 
     /** {@inheritDoc} */
     @Override
-    public Map<String, String> storageProfiles() {
-        NamedListView<StorageProfileView> storageProfiles = storageProfilesConfiguration.storageProfiles().value();
+    public List<String> storageProfiles() {
+        NamedListView<StorageProfileView> storageProfiles = storageProfilesConfiguration.profiles().value();
 
         return storageProfiles.stream()
-                .collect(Collectors.toUnmodifiableMap(StorageProfileView::name, StorageProfileView::engine));
+                .map(StorageProfileView::name)
+                .collect(Collectors.toList());
     }
 
     /** {@inheritDoc} */

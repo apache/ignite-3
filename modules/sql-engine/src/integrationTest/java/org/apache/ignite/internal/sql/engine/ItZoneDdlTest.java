@@ -17,7 +17,11 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.DistributionZoneExistsValidationException;
 import org.apache.ignite.internal.catalog.DistributionZoneNotFoundValidationException;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -112,8 +116,16 @@ public class ItZoneDdlTest extends ClusterPerClassIntegrationTest {
         tryToAlterZone("not_existing_" + ZONE_NAME, 200, false);
     }
 
+    @Test
+    public void testSetDefaultZoneThatIsAlreadyDefaultDoesNotThrowException() {
+        // TODO https://issues.apache.org/jira/browse/IGNITE-19687 The test should not only check the zone named "Default".
+        sql(format("ALTER ZONE \"{}\" SET DEFAULT", CatalogService.DEFAULT_ZONE_NAME));
+    }
+
     private static void tryToCreateZone(String zoneName, boolean failIfExists) {
-        sql(String.format("CREATE ZONE %s", failIfExists ? zoneName : "IF NOT EXISTS " + zoneName));
+        sql(String.format(
+                "CREATE ZONE %s WITH STORAGE_PROFILES='%s'", failIfExists ? zoneName : "IF NOT EXISTS " + zoneName, DEFAULT_STORAGE_PROFILE
+        ));
     }
 
     private static void tryToDropZone(String zoneName, boolean failIfNotExists) {

@@ -55,7 +55,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 import java.util.Set;
-import java.util.concurrent.ForkJoinPool;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.internal.marshaller.testobjects.TestObjectWithAllTypes;
@@ -412,7 +411,6 @@ public class RecordViewOperationsTest extends TableKvOperationsTestBase {
                 schemaVersions,
                 mock(IgniteSql.class),
                 marshallers,
-                ForkJoinPool.commonPool(),
                 recMapper
         );
     }

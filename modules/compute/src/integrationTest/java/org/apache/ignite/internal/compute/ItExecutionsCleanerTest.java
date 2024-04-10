@@ -29,14 +29,17 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.compute.ComputeException;
+import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.compute.utils.InteractiveJobs;
 import org.apache.ignite.internal.compute.utils.TestingJobExecution;
+import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.network.ClusterNode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+@SuppressWarnings("resource")
 class ItExecutionsCleanerTest extends ClusterPerClassIntegrationTest {
     private ExecutionManager localExecutionManager;
 
@@ -73,14 +76,18 @@ class ItExecutionsCleanerTest extends ClusterPerClassIntegrationTest {
         IgniteImpl localNode = CLUSTER.node(0);
         IgniteImpl remoteNode = CLUSTER.node(1);
 
-        IgniteComputeImpl localCompute = (IgniteComputeImpl) localNode.compute();
-        IgniteComputeImpl remoteCompute = (IgniteComputeImpl) remoteNode.compute();
+        IgniteComputeImpl localCompute = unwrapIgniteComputeImpl(localNode.compute());
+        IgniteComputeImpl remoteCompute = unwrapIgniteComputeImpl(remoteNode.compute());
 
         localExecutionManager = ((ComputeComponentImpl) localCompute.computeComponent()).executionManager();
         remoteExecutionManager = ((ComputeComponentImpl) remoteCompute.computeComponent()).executionManager();
 
         localNodes = Set.of(localNode.node());
         remoteNodes = Set.of(remoteNode.node());
+    }
+
+    private static IgniteComputeImpl unwrapIgniteComputeImpl(IgniteCompute compute) {
+        return Wrappers.unwrap(compute, IgniteComputeImpl.class);
     }
 
     @Test
@@ -211,7 +218,7 @@ class ItExecutionsCleanerTest extends ClusterPerClassIntegrationTest {
         String failoverWorkerNodeName = InteractiveJobs.globalJob().currentWorkerName();
 
         IgniteImpl failoverNode = CLUSTER.node(CLUSTER.nodeIndex(failoverWorkerNodeName));
-        IgniteComputeImpl failoverCompute = (IgniteComputeImpl) failoverNode.compute();
+        IgniteComputeImpl failoverCompute = unwrapIgniteComputeImpl(failoverNode.compute());
         ExecutionManager failoverExecutionManager = ((ComputeComponentImpl) failoverCompute.computeComponent()).executionManager();
 
         InteractiveJobs.globalJob().assertAlive();

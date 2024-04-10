@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.index;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.concurrent.CompletableFuture.runAsync;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_CREATE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_REMOVED;
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
@@ -45,6 +46,7 @@ import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -53,7 +55,6 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.table.LongPriorityQueue;
 import org.apache.ignite.internal.table.TableViewInternal;
-import org.apache.ignite.internal.table.distributed.LowWatermark;
 import org.apache.ignite.internal.table.distributed.PartitionSet;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -222,9 +223,10 @@ public class IndexManager implements IgniteComponent {
 
             List<DestroyIndexEvent> events = destructionEventsQueue.drainUpTo(newEarliestCatalogVersion);
 
-            events.forEach(event -> destroyIndex(event.indexId(), event.tableId()));
-
-            return nullCompletedFuture();
+            return runAsync(
+                    () -> events.forEach(event -> destroyIndex(event.indexId(), event.tableId())),
+                    ioExecutor
+            );
         });
     }
 
@@ -232,7 +234,7 @@ public class IndexManager implements IgniteComponent {
         TableViewInternal table = tableManager.cachedTable(tableId);
 
         if (table != null) {
-            // In case of DROP TABLE the table will be removed with all it's indexes.
+            // In case of DROP TABLE the table will be removed with all its indexes.
             table.unregisterIndex(indexId);
         }
     }

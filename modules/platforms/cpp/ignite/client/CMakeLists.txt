@@ -22,6 +22,7 @@ set(TARGET ${PROJECT_NAME})
 set(SOURCES
     ignite_client.cpp
     compute/compute.cpp
+    compute/job_execution.cpp
     sql/sql.cpp
     sql/result_set.cpp
     table/key_value_view.cpp
@@ -35,6 +36,7 @@ set(SOURCES
     detail/utils.cpp
     detail/node_connection.cpp
     detail/compute/compute_impl.cpp
+    detail/compute/job_execution_impl.cpp
     detail/sql/sql_impl.cpp
     detail/table/table_impl.cpp
     detail/table/tables_impl.cpp
@@ -65,16 +67,31 @@ set(PUBLIC_HEADERS
     transaction/transactions.h
 )
 
+add_library(${TARGET}-obj OBJECT ${SOURCES})
+target_include_directories(${TARGET}-obj PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
 add_library(${TARGET} SHARED ${SOURCES})
 
-set_target_properties(${TARGET} PROPERTIES VERSION ${CMAKE_PROJECT_VERSION})
-set_target_properties(${TARGET} PROPERTIES POSITION_INDEPENDENT_CODE 1)
+set(LIBRARIES
+    ignite-common
+    ignite-tuple
+    ignite-network
+    ignite-protocol
+)
 
-if (WIN32)
-    set_target_properties(${TARGET} PROPERTIES OUTPUT_NAME "ignite-client")
-endif()
+set(_target_libs ${TARGET} ${TARGET}-obj)
 
-target_link_libraries(${TARGET} ignite-common ignite-tuple ignite-network ignite-protocol)
+foreach(_target_lib IN LISTS _target_libs)
+    set_target_properties(${_target_lib} PROPERTIES VERSION ${CMAKE_PROJECT_VERSION})
+    set_target_properties(${_target_lib} PROPERTIES POSITION_INDEPENDENT_CODE 1)
+
+    if (WIN32)
+        set_target_properties(${_target_lib} PROPERTIES OUTPUT_NAME "ignite-client")
+    endif()
+
+    target_link_libraries(${_target_lib} ${LIBRARIES})
+endforeach()
+unset(_target_libs)
 
 if (${INSTALL_IGNITE_FILES})
     install(TARGETS ${TARGET}
@@ -85,3 +102,5 @@ if (${INSTALL_IGNITE_FILES})
 
     ignite_install_headers(FILES ${PUBLIC_HEADERS} DESTINATION ${IGNITE_INCLUDEDIR}/client)
 endif()
+
+ignite_test(utils_test detail/utils_test.cpp LIBS ${TARGET}-obj ${LIBRARIES})

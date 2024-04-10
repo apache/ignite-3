@@ -17,9 +17,11 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
-import static org.apache.ignite.internal.replicator.ReplicaManager.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
+import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.rowSchemaFromRelTypes;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
@@ -43,6 +45,8 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.TestClockService;
+import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
@@ -73,7 +77,6 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
-import org.apache.ignite.internal.tx.impl.ResourceCleanupManager;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
@@ -152,30 +155,22 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
 
             TransactionInflights transactionInflights = new TransactionInflights(placementDriver);
 
-            ResourceCleanupManager resourceCleanupManager = new ResourceCleanupManager(
-                    leaseholder,
-                    resourcesRegistry,
-                    clusterService.topologyService(),
-                    clusterService.messagingService(),
-                    transactionInflights
-            );
-
             TxManagerImpl txManager = new TxManagerImpl(
                     txConfiguration,
                     clusterService,
                     replicaSvc,
                     new HeapLockManager(),
-                    new HybridClockImpl(),
+                    new TestClockService(new HybridClockImpl()),
                     new TransactionIdGenerator(0xdeadbeef),
                     placementDriver,
                     () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
                     new TestLocalRwTxCounter(),
                     resourcesRegistry,
-                    resourceCleanupManager,
-                    transactionInflights
+                    transactionInflights,
+                    new TestLowWatermark()
             );
 
-            txManager.start();
+            assertThat(txManager.start(), willCompleteSuccessfully());
 
             closeables.add(txManager::stop);
 
@@ -255,7 +250,8 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     ),
                     mock(TransactionInflights.class),
                     3_000,
-                    0
+                    0,
+                    null
             );
             this.dataAmount = dataAmount;
 

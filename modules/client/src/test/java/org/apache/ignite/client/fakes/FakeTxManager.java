@@ -201,6 +201,11 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
+    public void vacuum() {
+        // No-op.
+    }
+
+    @Override
     public int finished() {
         return 0;
     }
@@ -208,15 +213,5 @@ public class FakeTxManager implements TxManager {
     @Override
     public int pending() {
         return 0;
-    }
-
-    @Override
-    public CompletableFuture<Void> updateLowWatermark(HybridTimestamp newLowWatermark) {
-        return null;
-    }
-
-    @Override
-    public HybridClock clock() {
-        return clock;
     }
 }

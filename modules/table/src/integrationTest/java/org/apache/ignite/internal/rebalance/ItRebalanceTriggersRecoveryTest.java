@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.rebalance;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsKey;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableId;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -86,7 +89,8 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
         startNode(2, GLOBAL_NODE_BOOTSTRAP_CFG_TEMPLATE);
 
         cluster.doInSession(0, session -> {
-            session.execute(null, "CREATE ZONE TEST_ZONE WITH PARTITIONS=1, REPLICAS=2, DATA_NODES_FILTER='$[?(@.region == \"US\")]'");
+            session.execute(null, "CREATE ZONE TEST_ZONE WITH PARTITIONS=1, REPLICAS=2, DATA_NODES_FILTER='$[?(@.region == \"US\")]', "
+                    + "STORAGE_PROFILES='" + DEFAULT_STORAGE_PROFILE + "'");
             session.execute(null, "CREATE TABLE TEST (id INT PRIMARY KEY, name INT) WITH PRIMARY_ZONE='TEST_ZONE'");
             session.execute(null, "INSERT INTO TEST VALUES (0, 0)");
         });
@@ -130,7 +134,8 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
         startNode(2, GLOBAL_NODE_BOOTSTRAP_CFG_TEMPLATE);
 
         cluster.doInSession(0, session -> {
-            session.execute(null, "CREATE ZONE TEST_ZONE WITH PARTITIONS=1, REPLICAS=1, DATA_NODES_FILTER='$[?(@.zone == \"global\")]'");
+            session.execute(null, "CREATE ZONE TEST_ZONE WITH PARTITIONS=1, REPLICAS=1, "
+                    + "DATA_NODES_FILTER='$[?(@.zone == \"global\")]', STORAGE_PROFILES='" + DEFAULT_STORAGE_PROFILE + "'");
             session.execute(null, "CREATE TABLE TEST (id INT PRIMARY KEY, name INT) WITH PRIMARY_ZONE='TEST_ZONE'");
             session.execute(null, "INSERT INTO TEST VALUES (0, 0)");
         });
@@ -176,7 +181,8 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
         startNode(3);
 
         cluster.doInSession(0, session -> {
-            session.execute(null, "CREATE ZONE TEST_ZONE WITH PARTITIONS=1, REPLICAS=1, DATA_NODES_FILTER='$[?(@.region == \"US\")]'");
+            session.execute(null, "CREATE ZONE TEST_ZONE WITH PARTITIONS=1, REPLICAS=1, "
+                    + "DATA_NODES_FILTER='$[?(@.region == \"US\")]', STORAGE_PROFILES='" + DEFAULT_STORAGE_PROFILE + "'");
             session.execute(null, "CREATE TABLE TEST (id INT PRIMARY KEY, name INT) WITH PRIMARY_ZONE='TEST_ZONE'");
             session.execute(null, "INSERT INTO TEST VALUES (0, 0)");
         });
@@ -235,13 +241,13 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
     }
 
     private static boolean containsPartition(Ignite node) {
-        var tableManager = ((TableManager) node.tables());
+        TableManager tableManager = unwrapTableManager(node.tables());
 
         MvPartitionStorage storage = tableManager.tableView("TEST")
                 .internalTable()
                 .storage()
                 .getMvPartition(0);
 
-        return storage != null && storage.rowsCount() != 0;
+        return storage != null && bypassingThreadAssertions(storage::rowsCount) != 0;
     }
 }

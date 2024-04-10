@@ -1,0 +1,64 @@
+# name: test/sql/aggregate/group/test_group_by_not_in_select.test
+# description: Test group by statements has no restriction that group by clause can contains column not in the select list.
+# feature: E051-04
+# group: [group]
+
+statement ok
+PRAGMA enable_verification
+
+statement ok
+CREATE TABLE test (a INTEGER, b INTEGER);
+
+statement ok
+CREATE TABLE integers(i INTEGER, j INTEGER, k INTEGER);
+
+statement ok
+INSERT INTO test VALUES (11, 22), (13, 22), (12, 21)
+
+statement ok
+INSERT INTO integers VALUES (1, 1, 2), (1, 2, 2), (1, 1, 2), (2, 1, 2), (1, 2, 4), (1, 2, NULL);
+
+query R rowsort
+SELECT SUM(a) FROM test GROUP BY b;
+----
+12.000000
+24.000000
+
+query R
+SELECT SUM(a) FROM test GROUP BY b ORDER BY COUNT(a);
+----
+12.000000
+24.000000
+
+query R
+SELECT SUM(a) FROM test GROUP BY b ORDER BY COUNT(a) DESC;
+----
+24.000000
+12.000000
+
+# multi-columns
+query RI rowsort
+SELECT SUM(k), COUNT(k) FROM integers GROUP BY i, j
+----
+2.000000	1
+4.000000	2
+6.000000	2
+
+# HAVING with condition on group
+query R
+SELECT SUM(a) FROM test GROUP BY b HAVING b=22;
+----
+24.000000
+
+# HAVING with condition on aggregate column
+query R
+SELECT SUM(a) FROM test GROUP BY b HAVING SUM(a) < 20;
+----
+12.000000
+
+# HAVING with condition on non-select column
+query R
+SELECT SUM(k) FROM integers GROUP BY i HAVING COUNT(j) < 20;
+----
+10.000000
+2.000000

@@ -45,6 +45,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -658,6 +659,15 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
         assertEquals(tupleRes, pojoRes);
     }
 
+    @ParameterizedTest
+    @CsvSource({"1E3,-3", "1.12E5,-5", "1.12E5,0", "1.123456789,10", "1.123456789,5"})
+    void testBigDecimalPropagation(String number, int scale) {
+        BigDecimal res = client().compute().execute(Set.of(node(0)), List.of(), DecimalJob.class.getName(), number, scale);
+
+        var expected = new BigDecimal(number).setScale(scale, RoundingMode.HALF_UP);
+        assertEquals(expected, res);
+    }
+
     private void testEchoArg(Object arg) {
         Object res = client().compute().execute(Set.of(node(0)), List.of(), EchoJob.class.getName(), arg, arg.toString());
 
@@ -735,6 +745,13 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
             }
 
             return null;
+        }
+    }
+
+    private static class DecimalJob implements ComputeJob<BigDecimal> {
+        @Override
+        public BigDecimal execute(JobExecutionContext context, Object... args) {
+            return new BigDecimal((String) args[0]).setScale((Integer) args[1], RoundingMode.HALF_UP);
         }
     }
 

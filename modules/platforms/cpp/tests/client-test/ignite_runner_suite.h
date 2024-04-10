@@ -51,6 +51,7 @@ public:
         "org.apache.ignite.internal.runner.app.client.ItThinClientComputeTest";
 
     inline static const std::string NODE_NAME_JOB = IT_THIN_CLIENT_COMPUTE_TEST + "$NodeNameJob";
+    inline static const std::string SLEEP_JOB = IT_THIN_CLIENT_COMPUTE_TEST + "$SleepJob";
     inline static const std::string CONCAT_JOB = IT_THIN_CLIENT_COMPUTE_TEST + "$ConcatJob";
     inline static const std::string ERROR_JOB = IT_THIN_CLIENT_COMPUTE_TEST + "$IgniteExceptionJob";
     inline static const std::string ECHO_JOB = IT_THIN_CLIENT_COMPUTE_TEST + "$EchoJob";

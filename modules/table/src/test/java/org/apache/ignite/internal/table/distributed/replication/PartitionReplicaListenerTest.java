@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table.distributed.replication;
 import static java.util.Collections.singletonList;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.BUILDING;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.REGISTERED;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_BUILDING;
@@ -98,9 +99,11 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.StartBuildingIndexEventParameters;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.MessagingService;
@@ -147,6 +150,7 @@ import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
 import org.apache.ignite.internal.table.distributed.command.CatalogVersionAware;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
 import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
+import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommandImpl;
 import org.apache.ignite.internal.table.distributed.command.WriteIntentSwitchCommand;
@@ -185,6 +189,8 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
+import org.apache.ignite.internal.tx.UpdateCommandResult;
+import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TxMessageSender;
@@ -287,6 +293,10 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
                 return v;
             });
+
+            return completedFuture(new UpdateCommandResult(true));
+        } else if (cmd instanceof UpdateAllCommand) {
+            return completedFuture(new UpdateCommandResult(true));
         } else if (cmd instanceof FinishTxCommand) {
             FinishTxCommand command = (FinishTxCommand) cmd;
 
@@ -307,6 +317,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     /** Hybrid clock. */
     private final HybridClock clock = new HybridClockImpl();
+
+    private final ClockService clockService = new TestClockService(clock);
 
     /** The storage stores transaction states. */
     private final TestTxStateStorage txStateStorage = new TestTxStateStorage();
@@ -350,6 +362,9 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     @InjectConfiguration
     private StorageUpdateConfiguration storageUpdateConfiguration;
 
+    @InjectConfiguration
+    private TransactionConfiguration transactionConfiguration;
+
     /** Schema descriptor for tests. */
     private SchemaDescriptor schemaDescriptor;
 
@@ -371,7 +386,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                     new CatalogTableColumnDescriptor("strVal", ColumnType.STRING, false, 0, 0, 0, null)
             ),
             List.of("intKey", "strKey"),
-            null
+            null,
+            DEFAULT_STORAGE_PROFILE
     );
 
     /** Placement driver. */
@@ -541,11 +557,16 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         transactionStateResolver = new TransactionStateResolver(
                 txManager,
-                clock,
+                clockService,
                 clusterNodeResolver,
                 messagingService,
                 mock(PlacementDriver.class),
-                new TxMessageSender(messagingService, mock(ReplicaService.class), clock)
+                new TxMessageSender(
+                        messagingService,
+                        mock(ReplicaService.class),
+                        clockService,
+                        transactionConfiguration
+                )
         );
 
         transactionStateResolver.start();
@@ -563,7 +584,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 () -> Map.of(pkLocker.id(), pkLocker, sortedIndexId, sortedIndexLocker, hashIndexId, hashIndexLocker),
                 pkStorageSupplier,
                 () -> Map.of(sortedIndexId, sortedIndexStorage, hashIndexId, hashIndexStorage),
-                clock,
+                clockService,
                 safeTimeClock,
                 txStateStorage,
                 transactionStateResolver,
@@ -1428,7 +1449,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         checkAfterFirstOperation.run();
 
         // Check that cleanup request processing awaits all write requests.
-        CompletableFuture<?> writeFut = new CompletableFuture<>();
+        CompletableFuture<UpdateCommandResult> writeFut = new CompletableFuture<>();
 
         raftClientFutureClosure = cmd -> writeFut;
 
@@ -1458,7 +1479,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
             assertFalse(replicaCleanupFut.isDone());
 
-            writeFut.complete(null);
+            writeFut.complete(new UpdateCommandResult(true));
 
             assertThat(replicaCleanupFut, willSucceedFast());
         } finally {
@@ -2704,7 +2725,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     private TestKey key(BinaryRow binaryRow) {
         try {
-            return kvMarshaller.unmarshalKey(Row.wrapKeyOnlyBinaryRow(schemaDescriptor, binaryRow));
+            return kvMarshaller.unmarshalKeyOnly(Row.wrapKeyOnlyBinaryRow(schemaDescriptor, binaryRow));
         } catch (MarshallerException e) {
             throw new AssertionError(e);
         }

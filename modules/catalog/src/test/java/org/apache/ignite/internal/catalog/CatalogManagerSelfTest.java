@@ -19,6 +19,7 @@ package org.apache.ignite.internal.catalog;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.SYSTEM_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.addColumnParams;
@@ -28,13 +29,11 @@ import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParams;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParamsBuilder;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.dropColumnParams;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.initializeColumnWithDefaults;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_DATA_REGION;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PRECISION;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_SCALE;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_STORAGE_ENGINE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
@@ -82,6 +81,7 @@ import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -104,7 +104,6 @@ import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams.Builder;
 import org.apache.ignite.internal.catalog.commands.CreateZoneCommand;
-import org.apache.ignite.internal.catalog.commands.DataStorageParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.DropIndexCommand;
 import org.apache.ignite.internal.catalog.commands.DropZoneCommand;
@@ -113,6 +112,7 @@ import org.apache.ignite.internal.catalog.commands.RemoveIndexCommand;
 import org.apache.ignite.internal.catalog.commands.RenameTableCommand;
 import org.apache.ignite.internal.catalog.commands.RenameZoneCommand;
 import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
+import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor.CatalogIndexDescriptorType;
@@ -196,8 +196,6 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjust());
         assertEquals(IMMEDIATE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleUp());
         assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleDown());
-        assertEquals(DEFAULT_STORAGE_ENGINE, zone.dataStorage().engine());
-        assertEquals(DEFAULT_DATA_REGION, zone.dataStorage().dataRegion());
 
         // System schema should exist.
 
@@ -1103,7 +1101,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         doNothing().when(updateLogMock).registerUpdateHandler(updateHandlerCapture.capture());
 
-        CatalogManagerImpl manager = new CatalogManagerImpl(updateLogMock, clockWaiter, clock);
+        CatalogManagerImpl manager = new CatalogManagerImpl(updateLogMock, clockService);
         manager.start();
 
         when(updateLogMock.append(any())).thenAnswer(invocation -> {
@@ -1135,7 +1133,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     public void catalogActivationTime() throws Exception {
         long delayDuration = TimeUnit.DAYS.toMillis(365);
 
-        CatalogManagerImpl manager = new CatalogManagerImpl(updateLog, clockWaiter, clock, delayDuration, 0);
+        CatalogManagerImpl manager = new CatalogManagerImpl(updateLog, clockService, delayDuration, 0);
 
         manager.start();
 
@@ -1163,10 +1161,61 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     }
 
     @Test
+    public void createTableIfNotExistWaitsActivationEvenIfTableExists() throws Exception {
+        long delayDuration = TimeUnit.DAYS.toMillis(365);
+
+        int partitionIdleSafeTimePropagationPeriod = 0;
+
+        CatalogManagerImpl manager = new CatalogManagerImpl(updateLog, clockService, delayDuration,
+                partitionIdleSafeTimePropagationPeriod);
+
+        manager.start();
+
+        try {
+            CatalogCommand createTableCommand = spy(simpleTable(TABLE_NAME));
+
+            CompletableFuture<Integer> createTableFuture1 = manager.execute(createTableCommand);
+
+            assertFalse(createTableFuture1.isDone());
+
+            ArgumentCaptor<VersionedUpdate> appendCapture = ArgumentCaptor.forClass(VersionedUpdate.class);
+
+            verify(updateLog).append(appendCapture.capture());
+
+            int catalogVerAfterTableCreate = appendCapture.getValue().version();
+
+            CompletableFuture<Integer> createTableFuture2 = manager.execute(createTableCommand);
+
+            verify(createTableCommand, times(2)).get(any());
+
+            assertFalse(createTableFuture2.isDone());
+
+            verify(clockWaiter, timeout(10_000).times(2)).waitFor(any());
+
+            Catalog catalog0 = manager.catalog(manager.latestCatalogVersion());
+
+            assertNotNull(catalog0);
+
+            HybridTimestamp activationSkew = CatalogUtils.clusterWideEnsuredActivationTsSafeForRoReads(
+                    catalog0,
+                    () -> partitionIdleSafeTimePropagationPeriod, clockService.maxClockSkewMillis());
+
+            clock.update(activationSkew);
+
+            assertTrue(waitForCondition(createTableFuture1::isDone, 2_000));
+            assertTrue(waitForCondition(createTableFuture2::isDone, 2_000));
+
+            assertSame(manager.schema(catalogVerAfterTableCreate), manager.activeSchema(clock.nowLong()));
+        } finally {
+            manager.stop();
+        }
+    }
+
+    @Test
     public void catalogServiceManagesUpdateLogLifecycle() throws Exception {
         UpdateLog updateLogMock = mock(UpdateLog.class);
 
-        CatalogManagerImpl manager = new CatalogManagerImpl(updateLogMock, clockWaiter, clock);
+        CatalogManagerImpl manager = new CatalogManagerImpl(updateLogMock, clockService);
 
         manager.start();
 
@@ -1272,7 +1321,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 .replicas(15)
                 .dataNodesAutoAdjust(73)
                 .filter("expression")
-                .dataStorageParams(DataStorageParams.builder().engine("test_engine").dataRegion("test_region").build())
+                .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile("test_profile").build()))
                 .build();
 
         assertThat(manager.execute(cmd), willCompleteSuccessfully());
@@ -1299,15 +1348,17 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleUp());
         assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleDown());
         assertEquals("expression", zone.filter());
-        assertEquals("test_engine", zone.dataStorage().engine());
-        assertEquals("test_region", zone.dataStorage().dataRegion());
+        assertEquals("test_profile", zone.storageProfiles().profiles().get(0).storageProfile());
     }
 
     @Test
     public void testDropZone() {
         String zoneName = ZONE_NAME + 1;
 
-        CatalogCommand cmd = CreateZoneCommand.builder().zoneName(zoneName).build();
+        CatalogCommand cmd = CreateZoneCommand.builder()
+                .zoneName(zoneName)
+                .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile(DEFAULT_STORAGE_PROFILE).build()))
+                .build();
 
         assertThat(manager.execute(cmd), willCompleteSuccessfully());
 
@@ -1345,6 +1396,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 .zoneName(zoneName)
                 .partitions(42)
                 .replicas(15)
+                .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile(DEFAULT_STORAGE_PROFILE).build()))
                 .build();
 
         assertThat(manager.execute(cmd), willCompleteSuccessfully());
@@ -1389,6 +1441,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 .zoneName(DEFAULT_ZONE_NAME)
                 .partitions(42)
                 .replicas(15)
+                .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile(DEFAULT_STORAGE_PROFILE).build()))
                 .build();
         assertThat(manager.execute(cmd), willThrow(IgniteInternalException.class));
 
@@ -1406,6 +1459,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 .replicas(15)
                 .dataNodesAutoAdjust(73)
                 .filter("expression")
+                .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile(DEFAULT_STORAGE_PROFILE).build()))
                 .build();
 
         CatalogCommand alterCmd = AlterZoneCommand.builder()
@@ -1415,7 +1469,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 .dataNodesAutoAdjustScaleUp(3)
                 .dataNodesAutoAdjustScaleDown(4)
                 .filter("newExpression")
-                .dataStorageParams(DataStorageParams.builder().engine("test_engine").dataRegion("test_region").build())
+                .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile("test_profile").build()))
                 .build();
 
         assertThat(manager.execute(cmd), willCompleteSuccessfully());
@@ -1433,8 +1487,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(3, zone.dataNodesAutoAdjustScaleUp());
         assertEquals(4, zone.dataNodesAutoAdjustScaleDown());
         assertEquals("newExpression", zone.filter());
-        assertEquals("test_engine", zone.dataStorage().engine());
-        assertEquals("test_region", zone.dataStorage().dataRegion());
+        assertEquals("test_profile", zone.storageProfiles().profiles().get(0).storageProfile());
     }
 
     @Test
@@ -1445,6 +1498,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 .zoneName(zoneName)
                 .partitions(42)
                 .replicas(15)
+                .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile(DEFAULT_STORAGE_PROFILE).build()))
                 .build();
 
         assertThat(manager.execute(cmd), willCompleteSuccessfully());
@@ -1454,6 +1508,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 .zoneName(zoneName)
                 .partitions(8)
                 .replicas(1)
+                .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile(DEFAULT_STORAGE_PROFILE).build()))
                 .build();
 
         assertThat(manager.execute(cmd), willThrowFast(DistributionZoneExistsValidationException.class));
@@ -1476,6 +1531,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         CatalogCommand cmd = CreateZoneCommand.builder()
                 .zoneName(zoneName)
+                .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile(DEFAULT_STORAGE_PROFILE).build()))
                 .build();
 
         EventListener<CatalogEventParameters> eventListener = mock(EventListener.class);
@@ -1534,7 +1590,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         HybridTimestamp startTs = clock.now();
 
-        CatalogManagerImpl manager = new CatalogManagerImpl(updateLog, clockWaiter, clock, delayDuration, 0);
+        CatalogManagerImpl manager = new CatalogManagerImpl(updateLog, clockService, delayDuration, 0);
 
         manager.start();
 
@@ -1549,7 +1605,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
             HybridTimestamp userWaitTs = tsCaptor.getValue();
             assertThat(
                     userWaitTs.getPhysical() - startTs.getPhysical(),
-                    greaterThanOrEqualTo(delayDuration + HybridTimestamp.maxClockSkew())
+                    greaterThanOrEqualTo(delayDuration + clockService.maxClockSkewMillis())
             );
         } finally {
             manager.stop();
@@ -1566,8 +1622,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         CatalogManagerImpl manager = new CatalogManagerImpl(
                 updateLog,
-                clockWaiter,
-                clock,
+                clockService,
                 delayDuration,
                 partitionIdleSafeTimePropagationPeriod
         );
@@ -1586,8 +1641,8 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
             assertThat(
                     userWaitTs.getPhysical() - startTs.getPhysical(),
                     greaterThanOrEqualTo(
-                            delayDuration + HybridTimestamp.maxClockSkew()
-                                    + partitionIdleSafeTimePropagationPeriod + HybridTimestamp.maxClockSkew()
+                            delayDuration + clockService.maxClockSkewMillis()
+                                    + partitionIdleSafeTimePropagationPeriod + clockService.maxClockSkewMillis()
                     )
             );
         } finally {
@@ -1818,7 +1873,16 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     void testCreateZoneWithDefaults() {
-        assertThat(manager.execute(CreateZoneCommand.builder().zoneName(ZONE_NAME + 1).build()), willCompleteSuccessfully());
+        assertThat(
+                manager.execute(
+                        CreateZoneCommand.builder()
+                                .zoneName(ZONE_NAME + 1)
+                                .storageProfilesParams(
+                                        List.of(StorageProfileParams.builder().storageProfile(DEFAULT_STORAGE_PROFILE).build())
+                                ).build()
+                ),
+                willCompleteSuccessfully()
+        );
 
         CatalogZoneDescriptor zone = manager.zone(ZONE_NAME, clock.nowLong());
 
@@ -1828,8 +1892,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(IMMEDIATE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleUp());
         assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjustScaleDown());
         assertEquals(DEFAULT_FILTER, zone.filter());
-        assertEquals(DEFAULT_STORAGE_ENGINE, zone.dataStorage().engine());
-        assertEquals(DEFAULT_DATA_REGION, zone.dataStorage().dataRegion());
+        assertEquals(DEFAULT_STORAGE_PROFILE, zone.storageProfiles().defaultProfile().storageProfile());
     }
 
     @Test
@@ -2333,6 +2396,26 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertThat(curDescriptor.primaryKeyColumns(), is(prevDescriptor.primaryKeyColumns()));
         assertThat(curDescriptor.primaryKeyIndexId(), is(prevDescriptor.primaryKeyIndexId()));
         assertThat(curDescriptor.schemaId(), is(prevDescriptor.schemaId()));
+    }
+
+    @Test
+    void testTableRenameAndCreateTableWithSameName() {
+        createSomeTable(TABLE_NAME);
+
+        CatalogCommand command = RenameTableCommand.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(TABLE_NAME)
+                .newTableName(TABLE_NAME_2)
+                .build();
+
+        assertThat(manager.execute(command), willCompleteSuccessfully());
+
+        createSomeTable(TABLE_NAME);
+
+        int catalogVersion = manager.latestCatalogVersion();
+
+        assertThat(table(catalogVersion, TABLE_NAME), is(notNullValue()));
+        assertThat(table(catalogVersion, TABLE_NAME_2), is(notNullValue()));
     }
 
     @Test

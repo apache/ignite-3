@@ -21,12 +21,14 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
+import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.TimeZone;
 import java.util.UUID;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.avatica.util.ByteString;
+import org.apache.calcite.avatica.util.DateTimeUtils;
 import org.apache.calcite.linq4j.tree.Types;
 import org.apache.calcite.runtime.SqlFunctions;
 import org.apache.calcite.sql.SqlIntervalQualifier;
@@ -125,7 +127,24 @@ public enum IgniteMethod {
      */
     TRUNCATE(IgniteSqlFunctions.class, "struncate", true),
 
-    SUBSTRING(IgniteSqlFunctions.class, "substring", true);
+    SUBSTRING(IgniteSqlFunctions.class, "substring", true),
+
+    /**
+     * Division operator used by REDUCE phase of AVG aggregate.
+     * See {@link IgniteSqlFunctions#decimalDivide(BigDecimal, BigDecimal, int, int)}.
+     */
+    DECIMAL_DIVIDE(IgniteSqlFunctions.class, "decimalDivide", BigDecimal.class, BigDecimal.class, int.class, int.class),
+
+    /**
+     * Conversion of timestamp to string (precision aware).
+     */
+    UNIX_TIMESTAMP_TO_STRING_PRECISION_AWARE(DateTimeUtils.class, "unixTimestampToString", long.class, int.class),
+
+    /**
+     * Conversion of time to string (precision aware).
+     */
+    UNIX_TIME_TO_STRING_PRECISION_AWARE(DateTimeUtils.class, "unixTimeToString", int.class, int.class),
+    ;
 
     private final Method method;
 

@@ -661,6 +661,23 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     /**
+     * Performs a {@code fn} in {@code busyLock} if {@link IgniteSpinBusyLock#enterBusy()} succeed. Otherwise it just silently returns.
+     *
+     * @param fn Runnable to run.
+     */
+    void busySafe(Runnable fn) {
+        if (!busyLock.enterBusy()) {
+            return;
+        }
+
+        try {
+            fn.run();
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /**
      * Creates a summary info of the storage in the format "table=user, partitionId=1".
      */
     public String createStorageInfo() {
@@ -868,8 +885,6 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * @param indexId Index ID which storage will be destroyed.
      * @return Future that will be completed as soon as the storage has been destroyed.
      */
-    // TODO: Index users should be able to handle the case, when an index is being concurrently destroyed, see
-    //  https://issues.apache.org/jira/browse/IGNITE-20126
     public CompletableFuture<Void> destroyIndex(int indexId) {
         return busy(() -> indexes.destroyIndex(indexId, renewableState.indexMetaTree()));
     }

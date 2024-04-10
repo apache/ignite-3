@@ -298,7 +298,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                 return;
             } else {
                 LOG.info(
-                        "Count down of zone's tables counter is succeeded [zoneId = {}, partId = {}, counter = {}, appliedPeers={}]",
+                        "Count down of zone's tables counter is succeeded [zoneId={}, partId={}, counter={}, appliedPeers={}]",
                         zoneId,
                         partId,
                         counter,
@@ -491,13 +491,10 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                 Condition con5;
                 if (plannedEntry.value() != null) {
                     // eq(revision(partition.assignments.planned), plannedEntry.revision)
-                    con5 = and(
-                            revision(plannedPartAssignmentsKey).eq(plannedEntry.revision()),
-                            value(pendingPartAssignmentsKey).eq(stableFromRaftByteArray)
-                    );
+                    con5 = revision(plannedPartAssignmentsKey).eq(plannedEntry.revision());
 
                     successCase = ops(
-                            put(stablePartAssignmentsKey, Assignments.toBytes(stableFromRaft)),
+                            put(stablePartAssignmentsKey, stableFromRaftByteArray),
                             put(pendingPartAssignmentsKey, plannedEntry.value()),
                             remove(plannedPartAssignmentsKey)
                     ).yield(SCHEDULE_PENDING_REBALANCE_SUCCESS);
@@ -505,10 +502,10 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                     failCase = ops().yield(SCHEDULE_PENDING_REBALANCE_FAIL);
                 } else {
                     // notExists(partition.assignments.planned)
-                    con5 = and(notExists(plannedPartAssignmentsKey), value(pendingPartAssignmentsKey).eq(stableFromRaftByteArray));
+                    con5 = notExists(plannedPartAssignmentsKey);
 
                     successCase = ops(
-                            put(stablePartAssignmentsKey, Assignments.toBytes(stableFromRaft)),
+                            put(stablePartAssignmentsKey, stableFromRaftByteArray),
                             remove(pendingPartAssignmentsKey)
                     ).yield(FINISH_REBALANCE_SUCCESS);
 

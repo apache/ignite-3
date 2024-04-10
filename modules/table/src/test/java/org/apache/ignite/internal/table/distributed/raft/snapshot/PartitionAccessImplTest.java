@@ -44,6 +44,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.DefaultValueProvider;
@@ -296,7 +297,8 @@ public class PartitionAccessImplTest extends BaseIgniteAbstractTest {
                 mock(IndexUpdateHandler.class),
                 mock(GcUpdateHandler.class),
                 mock(FullStateTransferIndexChooser.class),
-                SCHEMA_REGISTRY
+                SCHEMA_REGISTRY,
+                mock(LowWatermark.class)
         );
     }
 
@@ -313,7 +315,8 @@ public class PartitionAccessImplTest extends BaseIgniteAbstractTest {
                 indexUpdateHandler,
                 mock(GcUpdateHandler.class),
                 fullStateTransferIndexChooser,
-                SCHEMA_REGISTRY
+                SCHEMA_REGISTRY,
+                mock(LowWatermark.class)
         );
     }
 }

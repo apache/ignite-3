@@ -345,7 +345,7 @@ class BuiltInMarshalling {
             MarshallingContext context,
             List<T> list
     ) throws IOException, MarshalException {
-        // noinspection ForLoopReplaceableByForEach
+        //noinspection ForLoopReplaceableByForEach
         for (int i = 0; i < list.size(); i++) {
             valueWriter.write(list.get(i), output, context);
         }

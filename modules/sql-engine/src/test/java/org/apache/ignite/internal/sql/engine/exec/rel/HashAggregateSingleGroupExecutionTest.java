@@ -202,7 +202,7 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
         map.register(scan);
 
         RelDataType hashRowType = PlanUtils.createHashAggRowType(grpSets, tf, rowType, List.of(mapCall));
-        MapReduceAgg reduceAggCall = MapReduceAggregates.createMapReduceAggCall(mapCall, 0);
+        MapReduceAgg reduceAggCall = MapReduceAggregates.createMapReduceAggCall(Commons.cluster(), mapCall, 0, rowType, true);
 
         HashAggregateNode<Object[]> reduce = new HashAggregateNode<>(ctx, REDUCE, grpSets,
                 accFactory(ctx, reduceAggCall.getReduceCall(), REDUCE, hashRowType), rowFactory());
@@ -431,7 +431,7 @@ public class HashAggregateSingleGroupExecutionTest extends AbstractExecutionTest
 
         IgniteTypeFactory tf = Commons.typeFactory();
         RelDataType hashRowType = PlanUtils.createHashAggRowType(grpSets, tf, rowType, List.of(call));
-        MapReduceAgg reduceAggCall = MapReduceAggregates.createMapReduceAggCall(call, 0);
+        MapReduceAgg reduceAggCall = MapReduceAggregates.createMapReduceAggCall(Commons.cluster(), call, 0, rowType, true);
 
         return newHashAggNode(ctx, REDUCE, grpSets, hashRowType, reduceAggCall.getReduceCall());
     }

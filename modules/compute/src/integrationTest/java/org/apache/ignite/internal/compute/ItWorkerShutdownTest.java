@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.compute;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
@@ -41,6 +43,7 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.compute.utils.InteractiveJobs;
 import org.apache.ignite.internal.compute.utils.InteractiveJobs.AllInteractiveJobsApi;
 import org.apache.ignite.internal.compute.utils.TestingJobExecution;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.TableImpl;
@@ -321,8 +324,8 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
 
     private ClusterNode getPrimaryReplica(IgniteImpl node) {
         try {
-            var clock = node.clock();
-            TableImpl table = (TableImpl) node.tables().table(TABLE_NAME);
+            HybridClock clock = node.clock();
+            TableImpl table = unwrapTableImpl(node.tables().table(TABLE_NAME));
             TablePartitionId tablePartitionId = new TablePartitionId(table.tableId(), table.partition(Tuple.create(1).set("K", 1)));
 
             ReplicaMeta replicaMeta = node.placementDriver().getPrimaryReplica(tablePartitionId, clock.now()).get();
@@ -370,7 +373,7 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
     private void createReplicatedTestTableWithOneRow() {
         // Number of replicas == number of nodes and number of partitions == 1. This gives us the majority on primary replica stop.
         // After the primary replica is stopped we still be able to select new primary replica selected.
-        executeSql("CREATE ZONE TEST_ZONE WITH REPLICAS=3, PARTITIONS=1");
+        executeSql("CREATE ZONE TEST_ZONE WITH REPLICAS=3, PARTITIONS=1, STORAGE_PROFILES='" + DEFAULT_STORAGE_PROFILE + "'");
         executeSql("CREATE TABLE test (k int, v int, CONSTRAINT PK PRIMARY KEY (k)) WITH PRIMARY_ZONE='TEST_ZONE'");
         executeSql("INSERT INTO test(k, v) VALUES (1, 101)");
     }

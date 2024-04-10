@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.sql.ColumnType.INT32;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import java.util.List;
 import java.util.stream.Stream;
@@ -85,6 +87,40 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
     }
 
     @Test
+    void functionalDefaultNotSupportsForNonPkColumns() {
+        CreateTableCommandBuilder builder = CreateTableCommand.builder();
+
+        builder = fillProperties(builder);
+
+        builder.columns(List.of(
+                ColumnParams.builder().name("ID").type(INT32).defaultValue(DefaultValue.functionCall("function")).build(),
+                ColumnParams.builder().name("C").type(INT32).defaultValue(DefaultValue.constant(1)).build()
+
+        ));
+
+        assertThrowsWithCause(
+                builder::build,
+                CatalogValidationException.class,
+                "Functional defaults are not supported for non-primary key columns [col=ID]."
+        );
+    }
+
+    @Test
+    void functionalDefaultSupportsForPkColumns() {
+        CreateTableCommandBuilder builder = CreateTableCommand.builder();
+
+        builder = fillProperties(builder);
+
+        builder.columns(List.of(
+                ColumnParams.builder().name("C").type(INT32).defaultValue(DefaultValue.functionCall("function")).build(),
+                ColumnParams.builder().name("D").type(INT32).defaultValue(DefaultValue.constant(1)).build()
+
+        )).primaryKey(primaryKey("C", "D"));
+
+        builder.build();
+    }
+
+    @Test
     void columnShouldNotHaveDuplicates() {
         CreateTableCommandBuilder builder = CreateTableCommand.builder();
 
@@ -99,6 +135,54 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
                 builder::build,
                 CatalogValidationException.class,
                 "Column with name 'C' specified more than once"
+        );
+    }
+
+    @Test
+    void primaryKeyColumnsShouldNotHaveDuplicates() {
+        CreateTableCommandBuilder builder = CreateTableCommand.builder();
+
+        builder = fillProperties(builder)
+                .primaryKey(primaryKey("C", "C"));
+
+        assertThrowsWithCause(
+                builder::build,
+                CatalogValidationException.class,
+                "PK column 'C' specified more that once."
+        );
+    }
+
+    @Test
+    void primaryKeyColumnsShouldNotContainNullable() {
+        CreateTableCommandBuilder builder = CreateTableCommand.builder();
+
+        builder = fillProperties(builder)
+                .columns(List.of(
+                        ColumnParams.builder().name("C").type(INT32).nullable(true).build(),
+                        ColumnParams.builder().name("D").type(INT32).build()))
+                .primaryKey(primaryKey("D", "C"));
+
+        assertThrowsWithCause(
+                builder::build,
+                CatalogValidationException.class,
+                "Primary key cannot contain nullable column [col=C]."
+        );
+    }
+
+    @Test
+    void primaryKeyColumnsCanContainOnlyTableColumns() {
+        CreateTableCommandBuilder builder = CreateTableCommand.builder();
+
+        builder = fillProperties(builder)
+                .columns(List.of(
+                        ColumnParams.builder().name("C").type(INT32).build(),
+                        ColumnParams.builder().name("D").type(INT32).build()))
+                .primaryKey(primaryKey("Z", "D", "E"));
+
+        assertThrowsWithCause(
+                builder::build,
+                CatalogValidationException.class,
+                "Primary key constraint contains undefined columns: [cols=[Z, E]]."
         );
     }
 
@@ -334,5 +418,31 @@ public class CreateTableCommandValidationTest extends AbstractCommandValidationT
                 CatalogValidationException.class,
                 "Index with name 'PUBLIC.FOO_PK' already exists"
         );
+    }
+
+    @Test
+    void exceptionIsThrownIfZoneDoesNotContainTableStorageProfile() {
+        CreateTableCommandBuilder builder = CreateTableCommand.builder();
+
+        String zoneName = "testZone";
+
+        Catalog catalog = catalog(createZoneCommand(zoneName, List.of("profile1, profile2")));
+
+        String tableProfile = "profile3";
+
+        CatalogCommand command = fillProperties(builder).zone(zoneName).storageProfile(tableProfile).build();
+
+        assertThrowsWithCause(
+                () -> command.get(catalog),
+                CatalogValidationException.class,
+                format("Zone with name '{}' does not contain table's storage profile [storageProfile='{}']", zoneName, tableProfile)
+        );
+
+        assertDoesNotThrow(() -> {
+            // Let's check the success case.
+            Catalog newCatalog = catalog(createZoneCommand(zoneName, List.of("profile1", "profile2", tableProfile)));
+
+            command.get(newCatalog);
+        });
     }
 }

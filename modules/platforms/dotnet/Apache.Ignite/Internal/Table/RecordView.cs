@@ -294,24 +294,13 @@ namespace Apache.Ignite.Internal.Table
 
         /// <inheritdoc/>
         public async Task StreamDataAsync(
-            IAsyncEnumerable<T> data,
+            IAsyncEnumerable<DataStreamerItem<T>> data,
             DataStreamerOptions? options = null,
             CancellationToken cancellationToken = default) =>
             await DataStreamer.StreamDataAsync(
                 data,
-                sender: async (batch, preferredNode, retryPolicy) =>
-                {
-                    using var resBuf = await DoOutInOpAsync(
-                            ClientOp.TupleUpsertAll,
-                            tx: null,
-                            batch,
-                            PreferredNode.FromName(preferredNode),
-                            retryPolicy)
-                        .ConfigureAwait(false);
-                },
+                _table,
                 writer: _ser,
-                schemaProvider: _table.GetSchemaAsync,
-                partitionAssignmentProvider: () => _table.GetPartitionAssignmentAsync(),
                 options ?? DataStreamerOptions.Default,
                 cancellationToken).ConfigureAwait(false);
 

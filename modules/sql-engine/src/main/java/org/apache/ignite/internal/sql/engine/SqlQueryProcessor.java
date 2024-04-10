@@ -40,12 +40,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -54,15 +52,13 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongFunction;
 import java.util.function.LongSupplier;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.ClockWaiter;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.failure.FailureProcessor;
-import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -116,7 +112,9 @@ import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.tx.ScriptTransactionContext;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.sql.engine.util.cache.Cache;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.sql.metrics.SqlClientMetricSource;
@@ -171,9 +169,8 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     private static final long EXECUTION_SERVICE_SHUTDOWN_TIMEOUT = 60_000;
 
-    private final ParserService parserService = new ParserServiceImpl(
-            PARSED_RESULT_CACHE_SIZE, CACHE_FACTORY
-    );
+    private final ParserService parserService = new ParserServiceImpl();
+    private final Cache<String, ParsedResult> queryToParsedResultCache = CACHE_FACTORY.create(PARSED_RESULT_CACHE_SIZE);
 
     private static final ResultSetMetadata EMPTY_RESULT_SET_METADATA =
             new ResultSetMetadataImpl(Collections.emptyList());
@@ -189,8 +186,6 @@ public class SqlQueryProcessor implements QueryProcessor {
     private final SchemaManager schemaManager;
 
     private final DataStorageManager dataStorageManager;
-
-    private final Supplier<Map<String, Map<String, Class<?>>>> dataStorageFieldsSupplier;
 
     /** Busy lock for stop synchronisation. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -210,9 +205,7 @@ public class SqlQueryProcessor implements QueryProcessor {
     private volatile PrepareService prepareSvc;
 
     /** Clock. */
-    private final HybridClock clock;
-
-    private final ClockWaiter clockWaiter;
+    private final ClockService clockService;
 
     private final SchemaSyncService schemaSyncService;
 
@@ -245,10 +238,8 @@ public class SqlQueryProcessor implements QueryProcessor {
             TableManager tableManager,
             SchemaManager schemaManager,
             DataStorageManager dataStorageManager,
-            Supplier<Map<String, Map<String, Class<?>>>> dataStorageFieldsSupplier,
             ReplicaService replicaService,
-            HybridClock clock,
-            ClockWaiter clockWaiter,
+            ClockService clockService,
             SchemaSyncService schemaSyncService,
             CatalogManager catalogManager,
             MetricManager metricManager,
@@ -265,10 +256,8 @@ public class SqlQueryProcessor implements QueryProcessor {
         this.tableManager = tableManager;
         this.schemaManager = schemaManager;
         this.dataStorageManager = dataStorageManager;
-        this.dataStorageFieldsSupplier = dataStorageFieldsSupplier;
         this.replicaService = replicaService;
-        this.clock = clock;
-        this.clockWaiter = clockWaiter;
+        this.clockService = clockService;
         this.schemaSyncService = schemaSyncService;
         this.catalogManager = catalogManager;
         this.metricManager = metricManager;
@@ -302,7 +291,6 @@ public class SqlQueryProcessor implements QueryProcessor {
                 nodeName,
                 CACHE_FACTORY,
                 dataStorageManager,
-                dataStorageFieldsSupplier.get(),
                 metricManager,
                 clusterCfg,
                 nodeCfg
@@ -313,23 +301,23 @@ public class SqlQueryProcessor implements QueryProcessor {
                 clusterSrvc.messagingService(),
                 taskExecutor,
                 busyLock,
-                clock
+                clockService
         ));
 
         var exchangeService = registerService(new ExchangeServiceImpl(
                 mailboxRegistry,
                 msgSrvc,
-                clock
+                clockService
         ));
 
         this.prepareSvc = prepareSvc;
 
         var ddlCommandHandler = registerService(
-                new DdlCommandHandler(catalogManager, clockWaiter, partitionIdleSafeTimePropagationPeriodMsSupplier)
+                new DdlCommandHandler(catalogManager, clockService, partitionIdleSafeTimePropagationPeriodMsSupplier)
         );
 
         var executableTableRegistry = new ExecutableTableRegistryImpl(
-                tableManager, schemaManager, sqlSchemaManager, replicaService, clock, TABLE_CACHE_SIZE
+                tableManager, schemaManager, sqlSchemaManager, replicaService, clockService, TABLE_CACHE_SIZE
         );
 
         var dependencyResolver = new ExecutionDependencyResolverImpl(
@@ -389,7 +377,7 @@ public class SqlQueryProcessor implements QueryProcessor {
                 mappingService,
                 executableTableRegistry,
                 dependencyResolver,
-                clock,
+                clockService,
                 EXECUTION_SERVICE_SHUTDOWN_TIMEOUT
         ));
 
@@ -410,7 +398,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         List<CompletableFuture<NodeWithConsistencyToken>> result = new ArrayList<>(partitions);
 
-        HybridTimestamp clockNow = clock.now();
+        HybridTimestamp clockNow = clockService.now();
 
         // no need to wait all partitions after pruning was implemented.
         for (int partId = 0; partId < partitions; ++partId) {
@@ -486,7 +474,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<AsyncSqlCursor<InternalSqlRow>> querySingleAsync(
+    public CompletableFuture<AsyncSqlCursor<InternalSqlRow>> queryAsync(
             SqlProperties properties,
             IgniteTransactions transactions,
             @Nullable InternalTransaction transaction,
@@ -498,27 +486,13 @@ public class SqlQueryProcessor implements QueryProcessor {
         }
 
         try {
-            return querySingle0(properties, new QueryTransactionContext(transactions, transaction), qry, params);
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
+            SqlProperties properties0 = SqlPropertiesHelper.chain(properties, DEFAULT_PROPERTIES);
 
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<AsyncSqlCursor<InternalSqlRow>> queryScriptAsync(
-            SqlProperties properties,
-            IgniteTransactions transactions,
-            @Nullable InternalTransaction transaction,
-            String qry,
-            Object... params
-    ) {
-        if (!busyLock.enterBusy()) {
-            throw new IgniteInternalException(NODE_STOPPING_ERR, new NodeStoppingException());
-        }
-
-        try {
-            return queryScript0(properties, new QueryTransactionContext(transactions, transaction), qry, params);
+            if (Commons.isMultiStatementQueryAllowed(properties0)) {
+                return queryScript(properties0, new QueryTransactionContext(transactions, transaction), qry, params);
+            } else {
+                return querySingle(properties0, new QueryTransactionContext(transactions, transaction), qry, params);
+            }
         } finally {
             busyLock.leaveBusy();
         }
@@ -541,50 +515,42 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         QueryCancel queryCancel = new QueryCancel();
 
-        CompletableFuture<Void> start = new CompletableFuture<>();
+        ParsedResult parsedResult = queryToParsedResultCache.get(sql);
 
-        CompletableFuture<QueryMetadata> stage = start.thenCompose(ignored -> {
-            ParsedResult result = parserService.parse(sql);
+        CompletableFuture<ParsedResult> start = parsedResult != null
+                ? completedFuture(parsedResult)
+                : CompletableFuture.supplyAsync(() -> parseAndCache(sql), taskExecutor);
 
+        return start.thenCompose(result -> {
             validateParsedStatement(properties0, result);
             validateDynamicParameters(result.dynamicParamsCount(), params, false);
 
-            HybridTimestamp timestamp = explicitTransaction != null ? explicitTransaction.startTimestamp() : clock.now();
+            HybridTimestamp timestamp = explicitTransaction != null ? explicitTransaction.startTimestamp() : clockService.now();
 
             return prepareParsedStatement(schemaName, result, timestamp, queryCancel, params)
                     .thenApply(plan -> new QueryMetadata(plan.metadata(), plan.parameterMetadata()));
         });
-
-        // TODO IGNITE-20078 Improve (or remove) CancellationException handling.
-        stage.whenComplete((cur, ex) -> {
-            if (ex instanceof CancellationException) {
-                queryCancel.cancel();
-            }
-        });
-
-        start.completeAsync(() -> null, taskExecutor);
-
-        return stage;
     }
 
-    private CompletableFuture<AsyncSqlCursor<InternalSqlRow>> querySingle0(
+    private CompletableFuture<AsyncSqlCursor<InternalSqlRow>> querySingle(
             SqlProperties properties,
             QueryTransactionContext txCtx,
             String sql,
             Object... params
     ) {
-        SqlProperties properties0 = SqlPropertiesHelper.chain(properties, DEFAULT_PROPERTIES);
-        String schemaName = properties0.get(QueryProperty.DEFAULT_SCHEMA);
-        ZoneId timeZoneId = properties0.get(QueryProperty.TIME_ZONE_ID);
+        String schemaName = properties.get(QueryProperty.DEFAULT_SCHEMA);
+        ZoneId timeZoneId = properties.get(QueryProperty.TIME_ZONE_ID);
 
         QueryCancel queryCancel = new QueryCancel();
 
-        CompletableFuture<Void> start = new CompletableFuture<>();
+        ParsedResult parsedResult = queryToParsedResultCache.get(sql);
 
-        CompletableFuture<AsyncSqlCursor<InternalSqlRow>> stage = start.thenCompose(ignored -> {
-            ParsedResult result = parserService.parse(sql);
+        CompletableFuture<ParsedResult> start = parsedResult != null
+                ? completedFuture(parsedResult)
+                : CompletableFuture.supplyAsync(() -> parseAndCache(sql), taskExecutor);
 
-            validateParsedStatement(properties0, result);
+        return start.thenCompose(result -> {
+            validateParsedStatement(properties, result);
             validateDynamicParameters(result.dynamicParamsCount(), params, true);
 
             QueryTransactionWrapper txWrapper = txCtx.getOrStartImplicit(result.queryType());
@@ -611,28 +577,16 @@ public class SqlQueryProcessor implements QueryProcessor {
                         return executionResult;
                     });
         });
-
-        // TODO IGNITE-20078 Improve (or remove) CancellationException handling.
-        stage.whenComplete((cur, ex) -> {
-            if (ex instanceof CancellationException) {
-                queryCancel.cancel();
-            }
-        });
-
-        start.completeAsync(() -> null, taskExecutor);
-
-        return stage;
     }
 
-    private CompletableFuture<AsyncSqlCursor<InternalSqlRow>> queryScript0(
+    private CompletableFuture<AsyncSqlCursor<InternalSqlRow>> queryScript(
             SqlProperties properties,
             QueryTransactionContext txCtx,
             String sql,
             Object... params
     ) {
-        SqlProperties properties0 = SqlPropertiesHelper.chain(properties, DEFAULT_PROPERTIES);
-        String schemaName = properties0.get(QueryProperty.DEFAULT_SCHEMA);
-        ZoneId timeZoneId = properties0.get(QueryProperty.TIME_ZONE_ID);
+        String schemaName = properties.get(QueryProperty.DEFAULT_SCHEMA);
+        ZoneId timeZoneId = properties.get(QueryProperty.TIME_ZONE_ID);
 
         CompletableFuture<?> start = new CompletableFuture<>();
 
@@ -815,6 +769,20 @@ public class SqlQueryProcessor implements QueryProcessor {
                 throw new SqlException(STMT_VALIDATION_ERR, message);
             }
         }
+    }
+
+    private static boolean shouldBeCached(SqlQueryType queryType) {
+        return queryType == SqlQueryType.QUERY || queryType == SqlQueryType.DML;
+    }
+
+    private ParsedResult parseAndCache(String sql) {
+        ParsedResult result = parserService.parse(sql);
+
+        if (shouldBeCached(result.queryType())) {
+            queryToParsedResultCache.put(sql, result);
+        }
+
+        return result;
     }
 
     /** Returns count of opened cursors. */

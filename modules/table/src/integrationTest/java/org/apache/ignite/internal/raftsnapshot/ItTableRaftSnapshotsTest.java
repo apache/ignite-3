@@ -20,6 +20,10 @@ package org.apache.ignite.internal.raftsnapshot;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.raft.util.OptimizedMarshaller.NO_POOL;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.getFieldValue;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -122,6 +126,11 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
             + "    }\n"
             + "  },\n"
             + "  raft.rpcInstallSnapshotTimeout: 10000,\n"
+            + "  storage.profiles: {"
+            + "        " + DEFAULT_AIPERSIST_PROFILE_NAME + ".engine: aipersist, "
+            + "        " + DEFAULT_AIMEM_PROFILE_NAME + ".engine: aimem, "
+            + "        " + DEFAULT_ROCKSDB_PROFILE_NAME + ".engine: rocksDb"
+            + "  },\n"
             + "  clientConnector.port: {},\n"
             + "  rest.port: {}\n"
             + "}";
@@ -269,11 +278,13 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
     }
 
     private void createTestTableWith3Replicas(String storageEngine) {
-        String zoneSql = "create zone test_zone"
-                + (DEFAULT_STORAGE_ENGINE.equals(storageEngine) ? "" : " engine " + storageEngine)
-                + " with partitions=1, replicas=3;";
+        String storageProfile =
+                DEFAULT_STORAGE_ENGINE.equals(storageEngine) ? DEFAULT_STORAGE_PROFILE : "default_" + storageEngine.toLowerCase();
+
+        String zoneSql = "create zone test_zone with partitions=1, replicas=3, storage_profiles='" + storageProfile + "';";
+
         String sql = "create table test (key int primary key, val varchar(20))"
-                + " with primary_zone='TEST_ZONE'";
+                + " with primary_zone='TEST_ZONE', storage_profile='" + storageProfile + "';";
 
         cluster.doInSession(0, session -> {
             executeUpdate(zoneSql, session);
@@ -309,7 +320,7 @@ class ItTableRaftSnapshotsTest extends IgniteIntegrationTest {
         RaftGroupService raftGroupService = cluster.leaderServiceFor(tablePartitionId);
 
         assertThat(
-                "Unexpected leadership change",
+                "Unexpected leadership change on group: " + tablePartitionId,
                 raftGroupService.getServerId().getConsistentId(), is(cluster.node(expectedLeaderNodeIndex).name())
         );
 

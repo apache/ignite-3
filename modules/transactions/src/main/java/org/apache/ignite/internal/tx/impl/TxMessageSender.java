@@ -23,15 +23,17 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TransactionResult;
+import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxStateResponse;
 import org.jetbrains.annotations.Nullable;
@@ -40,9 +42,6 @@ import org.jetbrains.annotations.Nullable;
  * This class is responsible for interacting with the messaging layer. Sends transaction messages.
  */
 public class TxMessageSender {
-
-    private static final long RPC_TIMEOUT = 3000;
-
     /** Tx messages factory. */
     private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
 
@@ -52,20 +51,28 @@ public class TxMessageSender {
     /** Replica service. */
     private final ReplicaService replicaService;
 
-    /** A hybrid logical clock. */
-    private final HybridClock clock;
+    private final ClockService clockService;
+
+    private final TransactionConfiguration transactionConfiguration;
 
     /**
      * Constructor.
      *
      * @param messagingService Messaging service.
      * @param replicaService Replica service.
-     * @param clock A hybrid logical clock.
+     * @param clockService Clock service.
+     * @param transactionConfiguration Transaction configuration.
      */
-    public TxMessageSender(MessagingService messagingService, ReplicaService replicaService, HybridClock clock) {
+    public TxMessageSender(
+            MessagingService messagingService,
+            ReplicaService replicaService,
+            ClockService clockService,
+            TransactionConfiguration transactionConfiguration
+    ) {
         this.messagingService = messagingService;
         this.replicaService = replicaService;
-        this.clock = clock;
+        this.clockService = clockService;
+        this.transactionConfiguration = transactionConfiguration;
     }
 
     /**
@@ -78,7 +85,7 @@ public class TxMessageSender {
      * @param commitTimestamp Commit timestamp ({@code null} if it's an abort).
      * @return Completable future of Void.
      */
-    public CompletableFuture<Void> switchWriteIntents(
+    public CompletableFuture<ReplicaResponse> switchWriteIntents(
             String primaryConsistentId,
             TablePartitionId tablePartitionId,
             UUID txId,
@@ -89,7 +96,7 @@ public class TxMessageSender {
                 primaryConsistentId,
                 FACTORY.writeIntentSwitchReplicaRequest()
                         .groupId(tablePartitionId)
-                        .timestampLong(clock.nowLong())
+                        .timestampLong(clockService.nowLong())
                         .txId(txId)
                         .commit(commit)
                         .commitTimestampLong(hybridTimestampToLong(commitTimestamp))
@@ -120,10 +127,10 @@ public class TxMessageSender {
                         .txId(txId)
                         .commit(commit)
                         .commitTimestampLong(hybridTimestampToLong(commitTimestamp))
-                        .timestampLong(clock.nowLong())
+                        .timestampLong(clockService.nowLong())
                         .groups(replicationGroupIds)
                         .build(),
-                RPC_TIMEOUT);
+                transactionConfiguration.rpcTimeout().value());
     }
 
     /**
@@ -151,7 +158,7 @@ public class TxMessageSender {
                 primaryConsistentId,
                 FACTORY.txFinishReplicaRequest()
                         .txId(txId)
-                        .timestampLong(clock.nowLong())
+                        .timestampLong(clockService.nowLong())
                         .groupId(commitPartition)
                         .groups(replicationGroupIds)
                         .commit(commit)
@@ -203,11 +210,15 @@ public class TxMessageSender {
                                 .readTimestampLong(timestamp.longValue())
                                 .txId(txId)
                                 .build(),
-                        RPC_TIMEOUT)
+                        transactionConfiguration.rpcTimeout().value())
                 .thenApply(resp -> {
                     assert resp instanceof TxStateResponse : "Unsupported response type [type=" + resp.getClass().getSimpleName() + ']';
 
                     return (TxStateResponse) resp;
                 });
+    }
+
+    public MessagingService messagingService() {
+        return messagingService;
     }
 }

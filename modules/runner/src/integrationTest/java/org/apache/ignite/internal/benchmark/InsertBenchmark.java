@@ -55,7 +55,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
  * Benchmark for insertion operation, comparing KV, JDBC and SQL APIs.
  */
 @State(Scope.Benchmark)
-@Fork(3)
+@Fork(1)
 @Threads(1)
 @Warmup(iterations = 10, time = 2)
 @Measurement(iterations = 20, time = 2)
@@ -230,7 +230,7 @@ public class InsertBenchmark extends AbstractMultiNodeBenchmark {
         public void setUp() throws SQLException {
             String queryStr = createInsertStatement();
 
-            // noinspection CallToDriverManagerGetConnection
+            //noinspection CallToDriverManagerGetConnection
             conn = DriverManager.getConnection("jdbc:ignite:thin://127.0.0.1:10800/");
 
             stmt = conn.prepareStatement(queryStr);

@@ -83,7 +83,7 @@ public class ClientTupleTest {
             new ClientColumn("DATETIME", ColumnType.DATETIME, false, -1, 8, -1, 11),
             new ClientColumn("TIMESTAMP", ColumnType.TIMESTAMP, false, -1, 9, -1, 12),
             new ClientColumn("BOOL", ColumnType.BOOLEAN, false, -1, 10, -1, 13),
-            new ClientColumn("DECIMAL", ColumnType.DECIMAL, false, -1, 11, -1, 14),
+            new ClientColumn("DECIMAL", ColumnType.DECIMAL, false, -1, 11, -1, 14, 3, 10),
             new ClientColumn("BYTES", ColumnType.BYTE_ARRAY, false, -1, 12, -1, 15),
             new ClientColumn("PERIOD", ColumnType.PERIOD, false, -1, 13, -1, 16),
             new ClientColumn("DURATION", ColumnType.DURATION, false, -1, 14, -1, 17),
@@ -389,7 +389,7 @@ public class ClientTupleTest {
                 .set("DATETIME", DATE_TIME)
                 .set("TIMESTAMP", TIMESTAMP)
                 .set("BOOL", true)
-                .set("DECIMAL", BigDecimal.valueOf(1234))
+                .set("DECIMAL", BigDecimal.valueOf(1.234))
                 .set("BYTES", new byte[]{1, 2, 3})
                 .set("PERIOD", Period.ofDays(16))
                 .set("DURATION", Duration.ofDays(17))

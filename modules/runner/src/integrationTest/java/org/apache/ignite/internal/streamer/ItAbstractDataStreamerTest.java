@@ -48,6 +48,7 @@ import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -287,6 +288,26 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         assertEquals("bar-99", view.get(null, tupleKey(id)).stringValue("name"));
     }
 
+    @ParameterizedTest
+    @ValueSource(ints = {1, 2, 3})
+    @Disabled("IGNITE-21992 Data Streamer removal does not work for a new key in the same batch")
+    public void testSameItemInsertUpdateRemove(int pageSize) {
+        RecordView<Tuple> view = defaultTable().recordView();
+        CompletableFuture<Void> streamerFut;
+        int key = 333000;
+
+        try (var publisher = new SubmissionPublisher<DataStreamerItem<Tuple>>()) {
+            streamerFut = view.streamData(publisher, DataStreamerOptions.builder().pageSize(pageSize).build());
+
+            publisher.submit(DataStreamerItem.of(tuple(key, "foo")));
+            publisher.submit(DataStreamerItem.removed(tupleKey(key)));
+        }
+
+        streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+
+        assertNull(view.get(null, tupleKey(key)));
+    }
+
     @SuppressWarnings("resource")
     @Test
     public void testSchemaUpdateWhileStreaming() throws InterruptedException {
@@ -328,7 +349,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
     }
 
     private Table defaultTable() {
-        // noinspection resource
+        //noinspection resource
         return ignite().tables().table(TABLE_NAME);
     }
 

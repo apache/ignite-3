@@ -19,13 +19,13 @@ package org.apache.ignite.internal.storage.rocksdb.engine;
 
 import java.nio.file.Path;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.AbstractStorageEngineTest;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -36,6 +36,9 @@ public class RocksDbStorageEngineTest extends AbstractStorageEngineTest {
     @InjectConfiguration("mock.flushDelayMillis = 0")
     private RocksDbStorageEngineConfiguration engineConfiguration;
 
+    @InjectConfiguration("mock.profiles.default = {engine = \"rocksDb\"}")
+    StorageConfiguration storageConfiguration;
+
     @WorkDirectory
     private Path workDir;
 
@@ -44,13 +47,9 @@ public class RocksDbStorageEngineTest extends AbstractStorageEngineTest {
         return new RocksDbStorageEngine(
                 "test",
                 engineConfiguration,
-                workDir
+                storageConfiguration,
+                workDir,
+                logSyncer
         );
-    }
-
-    @Override
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21760")
-    protected void testDropMvTableOnRecovery() throws Exception {
-        super.testDropMvTableOnRecovery();
     }
 }

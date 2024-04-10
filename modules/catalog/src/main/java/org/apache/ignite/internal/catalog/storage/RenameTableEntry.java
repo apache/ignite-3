@@ -71,7 +71,8 @@ public class RenameTableEntry implements UpdateEntry, Fireable {
                 newTableName,
                 tableDescriptor.tableVersion() + 1,
                 tableDescriptor.columns(),
-                causalityToken
+                causalityToken,
+                tableDescriptor.storageProfile()
         );
 
         return new Catalog(

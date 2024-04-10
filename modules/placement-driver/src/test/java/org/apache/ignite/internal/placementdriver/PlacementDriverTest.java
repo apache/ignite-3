@@ -19,7 +19,6 @@ package org.apache.ignite.internal.placementdriver;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.apache.ignite.internal.hlc.HybridTimestamp.CLOCK_SKEW;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_LEASES_KEY;
@@ -48,7 +47,10 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
@@ -94,6 +96,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
             new HybridTimestamp(5_000, 0),
             false,
             true,
+            null,
             GROUP_1
     );
 
@@ -104,6 +107,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
             new HybridTimestamp(15_000, 0),
             false,
             true,
+            null,
             GROUP_1
     );
 
@@ -114,6 +118,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
             new HybridTimestamp(30_000, 0),
             false,
             true,
+            null,
             GROUP_1
     );
 
@@ -124,6 +129,8 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     private MetaStorageManager metastore;
 
     private PendingComparableValuesTracker<Long, Void> revisionTracker;
+
+    private final ClockService clockService = new TestClockService(new HybridClockImpl());
 
     private LeaseTracker placementDriver;
 
@@ -303,6 +310,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
                 new HybridTimestamp(leaseDurationMilliseconds, 0),
                 false,
                 true,
+                null,
                 GROUP_1
         );
 
@@ -324,6 +332,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
                 new HybridTimestamp(newLeaseholderPhysicalStartTimeMilliseconds + leaseDurationMilliseconds, 0),
                 false,
                 true,
+                null,
                 GROUP_1
         );
 
@@ -457,7 +466,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
         // Timeout first waiter, and assert that timeout occurred.
         primaryReplicaFuture1.orTimeout(1, MILLISECONDS);
 
-        // noinspection ThrowableNotThrown
+        //noinspection ThrowableNotThrown
         assertThrowsWithCause(primaryReplicaFuture1::get, TimeoutException.class);
         assertFalse(primaryReplicaFuture2.isDone());
 
@@ -548,7 +557,9 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
         assertThat(
                 placementDriver.getPrimaryReplica(
                         GROUP_1,
-                        LEASE_FROM_1_TO_15_000.getExpirationTime().addPhysicalTime(-CLOCK_SKEW).addPhysicalTime(1L)
+                        LEASE_FROM_1_TO_15_000.getExpirationTime()
+                                .subtractPhysicalTime(clockService.maxClockSkewMillis())
+                                .addPhysicalTime(1L)
                 ),
                 willBe(nullValue())
         );
@@ -617,6 +628,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
                 new HybridTimestamp(15_000, 0),
                 false,
                 true,
+                null,
                 new TablePartitionId(groupId.tableId() + 1, groupId.partitionId() + 1)
         );
 
@@ -686,6 +698,6 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
             public @Nullable ClusterNode getById(String id) {
                 return leaseholder;
             }
-        });
+        }, clockService);
     }
 }

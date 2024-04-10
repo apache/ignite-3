@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.SYSTEM_SCHEMAS;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
@@ -33,16 +36,18 @@ import java.util.Set;
 import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
-import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.apache.ignite.sql.SqlException;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.AfterEach;
@@ -58,20 +63,30 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     @AfterEach
     public void dropTables() {
         dropAllTables();
+        dropAllZonesExceptDefaultOne();
     }
 
     @Test
     public void pkWithNullableColumns() {
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "Primary key cannot contain nullable column [col=ID0]",
+                "Primary key cannot contain nullable column [col=ID0].",
                 () -> sql("CREATE TABLE T0(ID0 INT NULL, ID1 INT NOT NULL, VAL INT, PRIMARY KEY (ID1, ID0))")
         );
 
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "Primary key cannot contain nullable column [col=ID]",
+                "Primary key cannot contain nullable column [col=ID].",
                 () -> sql("CREATE TABLE T0(ID INT NULL PRIMARY KEY, VAL INT)")
+        );
+    }
+
+    @Test
+    public void pkWithDuplicatesColumn() {
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "PK column 'ID1' specified more that once.",
+                () -> sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, ID0, ID1))")
         );
     }
 
@@ -79,7 +94,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     public void pkWithInvalidColumns() {
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "Primary key constraint contains undefined columns: [cols=[ID2]]",
+                "Primary key constraint contains undefined columns: [cols=[ID2]].",
                 () -> sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID2, ID0))")
         );
     }
@@ -128,7 +143,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     public void undefinedColumnsInPrimaryKey() {
         assertThrowsSqlException(
                 STMT_VALIDATION_ERR,
-                "Primary key constraint contains undefined columns: [cols=[ID0, ID2, ID1]]",
+                "Primary key constraint contains undefined columns: [cols=[ID1, ID0, ID2]].",
                 () -> sql("CREATE TABLE T0(ID INT, VAL INT, PRIMARY KEY (ID1, ID0, ID2))")
         );
     }
@@ -158,7 +173,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     public void implicitColocationColumns() {
         sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, ID0))");
 
-        List<Column> colocationColumns = ((TableViewInternal) table("T0")).schemaView().lastKnownSchema().colocationColumns();
+        List<Column> colocationColumns = unwrapTableViewInternal(table("T0")).schemaView().lastKnownSchema().colocationColumns();
 
         assertEquals(2, colocationColumns.size());
         assertEquals("ID1", colocationColumns.get(0).name());
@@ -296,7 +311,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     public void explicitColocationColumns() {
         sql("CREATE TABLE T0(ID0 INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, ID0)) COLOCATE BY (id0)");
 
-        List<Column> colocationColumns = ((TableViewInternal) table("T0")).schemaView().lastKnownSchema().colocationColumns();
+        List<Column> colocationColumns = unwrapTableViewInternal(table("T0")).schemaView().lastKnownSchema().colocationColumns();
 
         assertEquals(1, colocationColumns.size());
         assertEquals("ID0", colocationColumns.get(0).name());
@@ -309,7 +324,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     public void explicitColocationColumnsCaseSensitive() {
         sql("CREATE TABLE T0(\"Id0\" INT, ID1 INT, VAL INT, PRIMARY KEY (ID1, \"Id0\")) COLOCATE BY (\"Id0\")");
 
-        List<Column> colocationColumns = ((TableViewInternal) table("T0")).schemaView().lastKnownSchema().colocationColumns();
+        List<Column> colocationColumns = unwrapTableViewInternal(table("T0")).schemaView().lastKnownSchema().colocationColumns();
 
         assertEquals(1, colocationColumns.size());
         assertEquals("Id0", colocationColumns.get(0).name());
@@ -360,5 +375,108 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
                 .returns("TEST2_PK", "SORTED", "ID1 DESC, ID2 ASC")
                 .returns("TEST3_PK", "HASH", "ID2, ID1")
                 .check();
+    }
+
+    @Test
+    public void testSuccessfulCreateTableWithZoneIdentifier() {
+        sql("CREATE ZONE test_zone WITH STORAGE_PROFILES='" + DEFAULT_STORAGE_PROFILE + "'");
+        sql("CREATE TABLE test_table (id INT PRIMARY KEY, val INT) WITH PRIMARY_ZONE=test_zone");
+    }
+
+    @Test
+    public void testSuccessfulCreateTableWithZoneLiteral() {
+        sql("CREATE ZONE test_zone WITH STORAGE_PROFILES='" + DEFAULT_STORAGE_PROFILE + "'");
+        sql("CREATE TABLE test_table (id INT PRIMARY KEY, val INT) WITH PRIMARY_ZONE='TEST_ZONE'");
+    }
+
+    @Test
+    public void testSuccessfulCreateTableWithZoneQuotedLiteral() {
+        sql("CREATE ZONE \"test_zone\" WITH STORAGE_PROFILES='" + DEFAULT_STORAGE_PROFILE + "'");
+        sql("CREATE TABLE test_table (id INT PRIMARY KEY, val INT) WITH PRIMARY_ZONE='test_zone'");
+        sql("DROP TABLE test_table");
+        sql("DROP ZONE \"test_zone\"");
+    }
+
+    @Test
+    public void testExceptionalCreateTableWithZoneUnquotedLiteral() {
+
+        sql("CREATE ZONE test_zone WITH STORAGE_PROFILES='" + DEFAULT_STORAGE_PROFILE + "'");
+        assertThrowsSqlException(
+                SqlException.class,
+                STMT_VALIDATION_ERR,
+                "Failed to validate query. Distribution zone with name 'test_zone' not found",
+                () -> sql("CREATE TABLE test_table (id INT PRIMARY KEY, val INT) WITH PRIMARY_ZONE='test_zone'"));
+    }
+
+    @Test
+    public void tableStorageProfileWithoutSettingItExplicitly() {
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
+
+        IgniteImpl node = CLUSTER.aliveNode();
+
+        CatalogTableDescriptor table = node.catalogManager().table("TEST", node.clock().nowLong());
+
+        CatalogZoneDescriptor zone = node.catalogManager().zone(DEFAULT_ZONE_NAME, node.clock().nowLong());
+
+        assertEquals(zone.storageProfiles().defaultProfile().storageProfile(), table.storageProfile());
+    }
+
+
+    @Test
+    public void tableStorageProfileExceptionIfZoneDoesntContainProfile() {
+        assertThrowsSqlException(
+                STMT_VALIDATION_ERR,
+                "Zone with name '" + DEFAULT_ZONE_NAME + "' does not contain table's storage profile",
+                () -> sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT) WITH STORAGE_PROFILE='profile1'")
+        );
+    }
+
+    @Test
+    public void tableStorageProfile() {
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT) WITH STORAGE_PROFILE='" + DEFAULT_STORAGE_PROFILE + "'");
+
+        IgniteImpl node = CLUSTER.aliveNode();
+
+        CatalogTableDescriptor table = node.catalogManager().table("TEST", node.clock().nowLong());
+
+        assertEquals(DEFAULT_STORAGE_PROFILE, table.storageProfile());
+
+        CatalogZoneDescriptor zone = node.catalogManager().zone(DEFAULT_ZONE_NAME, node.clock().nowLong());
+
+        assertEquals(zone.storageProfiles().defaultProfile().storageProfile(), table.storageProfile());
+    }
+
+    @Test
+    public void tableStorageProfileWithCustomZoneDefaultProfile() {
+        sql("CREATE ZONE ZONE1 WITH PARTITIONS = 1, STORAGE_PROFILES = '" + DEFAULT_STORAGE_PROFILE + "'");
+
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT) WITH PRIMARY_ZONE='ZONE1'");
+
+        IgniteImpl node = CLUSTER.aliveNode();
+
+        CatalogTableDescriptor table = node.catalogManager().table("TEST", node.clock().nowLong());
+
+        assertEquals(DEFAULT_STORAGE_PROFILE, table.storageProfile());
+
+        sql("DROP TABLE TEST");
+
+        sql("DROP ZONE ZONE1");
+    }
+
+    @Test
+    public void tableStorageProfileWithCustomZoneExplicitProfile() {
+        sql("CREATE ZONE ZONE1 WITH PARTITIONS = 1, STORAGE_PROFILES = '" + DEFAULT_STORAGE_PROFILE + "'");
+
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT) WITH PRIMARY_ZONE='ZONE1', STORAGE_PROFILE='" + DEFAULT_STORAGE_PROFILE + "'");
+
+        IgniteImpl node = CLUSTER.aliveNode();
+
+        CatalogTableDescriptor table = node.catalogManager().table("TEST", node.clock().nowLong());
+
+        assertEquals(DEFAULT_STORAGE_PROFILE, table.storageProfile());
+
+        sql("DROP TABLE TEST");
+
+        sql("DROP ZONE ZONE1");
     }
 }

@@ -164,7 +164,7 @@ public class TransactionInflights {
             if (isTxFinishing()) {
                 return false;
             } else {
-                // noinspection NonAtomicOperationOnVolatileField
+                //noinspection NonAtomicOperationOnVolatileField
                 inflights++;
                 return true;
             }
@@ -173,7 +173,7 @@ public class TransactionInflights {
         void removeInflight(UUID txId) {
             assert inflights > 0 : format("No inflights, cannot remove any [txId={}, ctx={}]", txId, this);
 
-            // noinspection NonAtomicOperationOnVolatileField
+            //noinspection NonAtomicOperationOnVolatileField
             inflights--;
         }
 

@@ -19,10 +19,13 @@ package org.apache.ignite.internal.table;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.tx.impl.ResourceCleanupManager.RESOURCE_CLEANUP_INTERVAL_MILLISECONDS_PROPERTY;
+import static org.apache.ignite.internal.tx.impl.ResourceVacuumManager.RESOURCE_VACUUM_INTERVAL_MILLISECONDS_PROPERTY;
 import static org.apache.ignite.internal.util.ExceptionUtils.extractCodeFrom;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -98,7 +101,7 @@ import org.junit.jupiter.params.provider.ValueSource;
  * Abandoned transactions integration tests.
  */
 @ExtendWith(SystemPropertiesExtension.class)
-@WithSystemProperty(key = RESOURCE_CLEANUP_INTERVAL_MILLISECONDS_PROPERTY, value = "500")
+@WithSystemProperty(key = RESOURCE_VACUUM_INTERVAL_MILLISECONDS_PROPERTY, value = "500")
 public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
 
@@ -112,7 +115,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     public void setup(TestInfo testInfo) throws Exception {
         super.setup(testInfo);
 
-        String zoneSql = "create zone test_zone with partitions=1, replicas=3";
+        String zoneSql = "create zone test_zone with partitions=1, replicas=3, storage_profiles='" + DEFAULT_STORAGE_PROFILE + "'";
         String sql = "create table " + TABLE_NAME + " (key int primary key, val varchar(20)) with primary_zone='TEST_ZONE'";
 
         cluster.doInSession(0, session -> {
@@ -135,7 +138,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
     @Test
     public void testMultipleRecoveryRequestsIssued() throws Exception {
-        TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
+        TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
         var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
 
@@ -190,7 +193,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
     @Test
     public void testAbandonedTxIsAborted() throws Exception {
-        TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
+        TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
         var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
 
@@ -233,7 +236,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
     @Test
     public void testWriteIntentRecoverNoCoordinator() throws Exception {
-        TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
+        TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
         var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
 
@@ -279,7 +282,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
      */
     @Test
     public void testWriteIntentNoRecovery() throws Exception {
-        TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
+        TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
         var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
 
@@ -324,7 +327,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
     @Test
     public void testWriteIntentRecoveryAndLockConflict() throws Exception {
-        TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
+        TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
         var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
 
@@ -388,7 +391,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
      */
     @Test
     public void testSendCommitAndDie() throws Exception {
-        TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
+        TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
         var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
 
@@ -441,7 +444,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         // Continue the COMMIT message flow.
         CompletableFuture<NetworkMessage> finishRequest =
-                messaging(commitPartNode).invoke(targetName.get(), finishRequestCaptureFut.join(), 3000);
+                bypassingThreadAssertions(() -> messaging(commitPartNode).invoke(targetName.get(), finishRequestCaptureFut.join(), 3000));
 
         assertThat(finishRequest, willCompleteSuccessfully());
 
@@ -457,7 +460,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
      */
     @Test
     public void testCommitAndDieRecoveryFirst() throws Exception {
-        TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
+        TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
         var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
 
@@ -515,7 +518,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         assertTrue(waitForCondition(() -> txStoredState(commitPartNode, orphanTx.id()) == TxState.ABORTED, 10_000));
 
         CompletableFuture<NetworkMessage> commitRequest =
-                messaging(commitPartNode).invoke(targetName.get(), finishRequestCaptureFut.join(), 3000);
+                bypassingThreadAssertions(() -> messaging(commitPartNode).invoke(targetName.get(), finishRequestCaptureFut.join(), 3000));
 
         assertThat(commitRequest, willCompleteSuccessfully());
 
@@ -532,7 +535,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
     @Test
     public void testRecoveryIsTriggeredOnce() throws Exception {
-        TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
+        TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
         var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
 
@@ -609,7 +612,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
     @Test
     public void testFinishAlreadyFinishedTx() throws Exception {
-        TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
+        TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
         var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
 
@@ -646,7 +649,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
     @Test
     public void testPrimaryFailureRightAfterCommitMsg() throws Exception {
-        TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
+        TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
         var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
 
@@ -706,7 +709,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
     @Test
     public void testPrimaryFailureWhileInflightInProgress() throws Exception {
-        TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
+        TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
         var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
 
@@ -744,7 +747,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
     @Test
     public void testPrimaryFailureWhileInflightInProgressAfterFirstResponse() throws Exception {
-        TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
+        TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
         var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
 
@@ -796,7 +799,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
     @Test
     public void testTsRecoveryForCursor() throws Exception {
-        TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
+        TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
         preloadData(tbl, 10);
 
@@ -851,7 +854,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     public void testCursorCleanup(boolean readOnly) throws Exception {
-        TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
+        TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
         var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
 
@@ -874,7 +877,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         // Creating a cursor that should remain because it is created from the node that will remain in the cluster.
         InternalTransaction rwTx = (InternalTransaction) thirdNode.transactions().begin();
-        scanSingleEntryAndLeaveCursorOpen(targetNode, (TableViewInternal) thirdNode.tables().table(TABLE_NAME), rwTx);
+        scanSingleEntryAndLeaveCursorOpen(targetNode, unwrapTableImpl(thirdNode.tables().table(TABLE_NAME)), rwTx);
 
         // Creating a cursor that should be closed because tx coordinator leaves topology.
         InternalTransaction tx = (InternalTransaction) txCrdNode.transactions().begin(new TransactionOptions().readOnly(readOnly));
@@ -909,7 +912,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
      */
     private void startTransactionWithCursorAndStopNode(IgniteImpl txCrdNode, IgniteImpl targetNode, InternalTransaction tx)
             throws Exception {
-        scanSingleEntryAndLeaveCursorOpen(targetNode, (TableViewInternal) txCrdNode.tables().table(TABLE_NAME), tx);
+        scanSingleEntryAndLeaveCursorOpen(targetNode, unwrapTableImpl(txCrdNode.tables().table(TABLE_NAME)), tx);
 
         String txCrdNodeId = txCrdNode.id();
 
@@ -960,7 +963,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
     @Test
     public void testCursorsClosedAfterTxClose() throws Exception {
-        TableImpl tbl = (TableImpl) node(0).tables().table(TABLE_NAME);
+        TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
         var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
 
@@ -1000,7 +1003,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
             return false;
         });
 
-        scanSingleEntryAndLeaveCursorOpen(txExecNode, (TableViewInternal) txCrdNode.tables().table(TABLE_NAME), roTx);
+        scanSingleEntryAndLeaveCursorOpen(txExecNode, unwrapTableImpl(txCrdNode.tables().table(TABLE_NAME)), roTx);
 
         // After the RO scan there should be one open cursor.
         assertEquals(1, txExecNode.resourcesRegistry().resources().size());
@@ -1029,16 +1032,16 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         return txMeta == null ? null : txMeta.txState();
     }
 
-    private @Nullable TxState txStoredState(IgniteImpl node, UUID txId) {
+    private static @Nullable TxState txStoredState(IgniteImpl node, UUID txId) {
         TxMeta txMeta = txStoredMeta(node, txId);
 
         return txMeta == null ? null : txMeta.txState();
     }
 
-    private @Nullable TxMeta txStoredMeta(IgniteImpl node, UUID txId) {
-        InternalTable internalTable = ((TableViewInternal) node.tables().table(TABLE_NAME)).internalTable();
+    private static @Nullable TxMeta txStoredMeta(IgniteImpl node, UUID txId) {
+        InternalTable internalTable = unwrapTableImpl(node.tables().table(TABLE_NAME)).internalTable();
 
-        return internalTable.txStateStorage().getTxStateStorage(0).get(txId);
+        return bypassingThreadAssertions(() -> internalTable.txStateStorage().getTxStateStorage(0).get(txId));
     }
 
     /**
@@ -1145,7 +1148,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         return findNode(1, initialNodes(), n -> !leaseholder.equals(n.name()));
     }
 
-    private ReplicaMeta waitAndGetPrimaryReplica(IgniteImpl node, ReplicationGroupId tblReplicationGrp) {
+    private static ReplicaMeta waitAndGetPrimaryReplica(IgniteImpl node, ReplicationGroupId tblReplicationGrp) {
         CompletableFuture<ReplicaMeta> primaryReplicaFut = node.placementDriver().awaitPrimaryReplica(
                 tblReplicationGrp,
                 node.clock().now(),
@@ -1158,7 +1161,7 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
         return primaryReplicaFut.join();
     }
 
-    private String waitAndGetLeaseholder(IgniteImpl node, ReplicationGroupId tblReplicationGrp) {
+    private static String waitAndGetLeaseholder(IgniteImpl node, ReplicationGroupId tblReplicationGrp) {
         return waitAndGetPrimaryReplica(node, tblReplicationGrp).getLeaseholder();
     }
 

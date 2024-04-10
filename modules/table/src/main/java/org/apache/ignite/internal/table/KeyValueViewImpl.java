@@ -28,7 +28,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
@@ -48,6 +47,7 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.table.criteria.SqlRowProjection;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
+import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
@@ -87,8 +87,6 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
      * @param schemaVersions Schema versions access.
      * @param sql Ignite SQL facade.
      * @param marshallers Marshallers provider.
-     * @param asyncContinuationExecutor Executor to which execution will be resubmitted when leaving asynchronous public API
-     *         endpoints (so as to prevent the user from stealing Ignite threads).
      * @param keyMapper Key class mapper.
      * @param valueMapper Value class mapper.
      */
@@ -98,11 +96,10 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
             SchemaVersions schemaVersions,
             IgniteSql sql,
             MarshallersProvider marshallers,
-            Executor asyncContinuationExecutor,
             Mapper<K> keyMapper,
             Mapper<V> valueMapper
     ) {
-        super(tbl, schemaVersions, schemaRegistry, sql, marshallers, asyncContinuationExecutor);
+        super(tbl, schemaVersions, schemaRegistry, sql, marshallers);
 
         this.keyMapper = keyMapper;
         this.valueMapper = valueMapper;
@@ -113,7 +110,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     /** {@inheritDoc} */
     @Override
     public V get(@Nullable Transaction tx, K key) {
-        return sync(() -> getAsync(tx, key));
+        return sync(getAsync(tx, key));
     }
 
     /** {@inheritDoc} */
@@ -131,7 +128,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     /** {@inheritDoc} */
     @Override
     public NullableValue<V> getNullable(@Nullable Transaction tx, K key) {
-        return sync(() -> getNullableAsync(tx, key));
+        return sync(getNullableAsync(tx, key));
     }
 
     /** {@inheritDoc} */
@@ -150,7 +147,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     /** {@inheritDoc} */
     @Override
     public V getOrDefault(@Nullable Transaction tx, K key, V defaultValue) {
-        return sync(() -> getOrDefaultAsync(tx, key, defaultValue));
+        return sync(getOrDefaultAsync(tx, key, defaultValue));
     }
 
     /** {@inheritDoc} */
@@ -169,7 +166,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     /** {@inheritDoc} */
     @Override
     public Map<K, V> getAll(@Nullable Transaction tx, Collection<K> keys) {
-        return sync(() -> getAllAsync(tx, keys));
+        return sync(getAllAsync(tx, keys));
     }
 
     /** {@inheritDoc} */
@@ -195,7 +192,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     /** {@inheritDoc} */
     @Override
     public boolean contains(@Nullable Transaction tx, K key) {
-        return sync(() -> containsAsync(tx, key));
+        return sync(containsAsync(tx, key));
     }
 
     /** {@inheritDoc} */
@@ -213,7 +210,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     /** {@inheritDoc} */
     @Override
     public void put(@Nullable Transaction tx, K key, @Nullable V val) {
-        sync(() -> putAsync(tx, key, val));
+        sync(putAsync(tx, key, val));
     }
 
     /** {@inheritDoc} */
@@ -231,7 +228,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     /** {@inheritDoc} */
     @Override
     public void putAll(@Nullable Transaction tx, Map<K, V> pairs) {
-        sync(() -> putAllAsync(tx, pairs));
+        sync(putAllAsync(tx, pairs));
     }
 
     /** {@inheritDoc} */
@@ -252,7 +249,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     /** {@inheritDoc} */
     @Override
     public V getAndPut(@Nullable Transaction tx, K key, @Nullable V val) {
-        return sync(() -> getAndPutAsync(tx, key, val));
+        return sync(getAndPutAsync(tx, key, val));
     }
 
     /** {@inheritDoc} */
@@ -270,7 +267,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     /** {@inheritDoc} */
     @Override
     public NullableValue<V> getNullableAndPut(@Nullable Transaction tx, K key, @Nullable V val) {
-        return sync(() -> getNullableAndPutAsync(tx, key, val));
+        return sync(getNullableAndPutAsync(tx, key, val));
     }
 
     /** {@inheritDoc} */
@@ -289,7 +286,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     /** {@inheritDoc} */
     @Override
     public boolean putIfAbsent(@Nullable Transaction tx, K key, @Nullable V val) {
-        return sync(() -> putIfAbsentAsync(tx, key, val));
+        return sync(putIfAbsentAsync(tx, key, val));
     }
 
     /** {@inheritDoc} */
@@ -307,13 +304,13 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     /** {@inheritDoc} */
     @Override
     public boolean remove(@Nullable Transaction tx, K key) {
-        return sync(() -> removeAsync(tx, key));
+        return sync(removeAsync(tx, key));
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean remove(@Nullable Transaction tx, K key, @Nullable V val) {
-        return sync(() -> removeAsync(tx, key, val));
+        return sync(removeAsync(tx, key, val));
     }
 
     /** {@inheritDoc} */
@@ -343,7 +340,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     /** {@inheritDoc} */
     @Override
     public Collection<K> removeAll(@Nullable Transaction tx, Collection<K> keys) {
-        return sync(() -> removeAllAsync(tx, keys));
+        return sync(removeAllAsync(tx, keys));
     }
 
     /** {@inheritDoc} */
@@ -361,7 +358,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     /** {@inheritDoc} */
     @Override
     public V getAndRemove(@Nullable Transaction tx, K key) {
-        return sync(() -> getAndRemoveAsync(tx, key));
+        return sync(getAndRemoveAsync(tx, key));
     }
 
     /** {@inheritDoc} */
@@ -380,7 +377,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     /** {@inheritDoc} */
     @Override
     public NullableValue<V> getNullableAndRemove(@Nullable Transaction tx, K key) {
-        return sync(() -> getNullableAndRemoveAsync(tx, key));
+        return sync(getNullableAndRemoveAsync(tx, key));
     }
 
     /** {@inheritDoc} */
@@ -399,13 +396,13 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     /** {@inheritDoc} */
     @Override
     public boolean replace(@Nullable Transaction tx, K key, @Nullable V val) {
-        return sync(() -> replaceAsync(tx, key, val));
+        return sync(replaceAsync(tx, key, val));
     }
 
     /** {@inheritDoc} */
     @Override
     public boolean replace(@Nullable Transaction tx, K key, @Nullable V oldVal, @Nullable V newVal) {
-        return sync(() -> replaceAsync(tx, key, oldVal, newVal));
+        return sync(replaceAsync(tx, key, oldVal, newVal));
     }
 
     /** {@inheritDoc} */
@@ -436,7 +433,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     /** {@inheritDoc} */
     @Override
     public V getAndReplace(@Nullable Transaction tx, K key, @Nullable V val) {
-        return sync(() -> getAndReplaceAsync(tx, key, val));
+        return sync(getAndReplaceAsync(tx, key, val));
     }
 
     /** {@inheritDoc} */
@@ -454,7 +451,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
     /** {@inheritDoc} */
     @Override
     public NullableValue<V> getNullableAndReplace(@Nullable Transaction tx, K key, @Nullable V val) {
-        return sync(() -> getNullableAndReplaceAsync(tx, key, val));
+        return sync(getNullableAndReplaceAsync(tx, key, val));
     }
 
     /** {@inheritDoc} */
@@ -606,7 +603,7 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
         try {
             for (Row row : rowConverter.resolveKeys(rows, schemaVersion)) {
                 if (row != null) {
-                    keys.add(marsh.unmarshalKey(row));
+                    keys.add(marsh.unmarshalKeyOnly(row));
                 }
             }
 
@@ -704,13 +701,13 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
         );
 
         StreamerBatchSender<Entry<K, V>, Integer> batchSender = (partitionId, items, deleted) ->
-                withSchemaSync(
+                PublicApiThreading.execUserAsyncOperation(() -> withSchemaSync(
                         null,
                         schemaVersion -> this.tbl.updateAll(marshalPairs(items, schemaVersion, deleted), deleted, partitionId)
-                );
+                ));
 
-        CompletableFuture<Void> future = DataStreamer.streamData(publisher, options, batchSender, partitioner);
-        return convertToPublicFuture(preventThreadHijack(future));
+        CompletableFuture<Void> future = DataStreamer.streamData(publisher, options, batchSender, partitioner, tbl.streamerFlushExecutor());
+        return convertToPublicFuture(future);
     }
 
     /** {@inheritDoc} */

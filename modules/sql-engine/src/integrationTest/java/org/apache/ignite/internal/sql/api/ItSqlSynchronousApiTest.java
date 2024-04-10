@@ -34,7 +34,6 @@ import org.junit.jupiter.api.Test;
 /**
  * Tests for synchronous SQL API.
  */
-@SuppressWarnings("ThrowableNotThrown")
 public class ItSqlSynchronousApiTest extends ItSqlApiBaseTest {
     @Override
     @Test
@@ -130,7 +129,7 @@ public class ItSqlSynchronousApiTest extends ItSqlApiBaseTest {
 
         @Override
         public List<SqlRow> result() {
-            // noinspection AssignmentOrReturnOfFieldWithMutableType
+            //noinspection AssignmentOrReturnOfFieldWithMutableType
             return res;
         }
 

@@ -19,9 +19,13 @@ package org.apache.ignite.internal.sql.engine.planner;
 
 import static org.apache.calcite.tools.Frameworks.createRootSchema;
 import static org.apache.calcite.tools.Frameworks.newConfigBuilder;
+import static org.apache.ignite.internal.sql.engine.planner.CorrelatedSubqueryPlannerTest.createTestTable;
 import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFIG;
+import static org.apache.ignite.internal.sql.engine.util.RexUtils.tryToDnf;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -29,12 +33,14 @@ import java.util.List;
 import java.util.UUID;
 import java.util.function.Predicate;
 import java.util.function.UnaryOperator;
+import java.util.stream.Stream;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.hint.HintStrategyTable;
+import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.util.Util;
@@ -53,10 +59,14 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * PlannerTest.
@@ -293,6 +303,54 @@ public class PlannerTest extends AbstractPlannerTest {
         IgniteRel phys = physicalPlan("SELECT (DATE '2021-03-01' - DATE '2021-01-01') MONTHS", publicSchema);
 
         checkSplitAndSerialization(phys, publicSchema);
+    }
+
+    // cnf: A AND B AND (C OR D)
+    // dnf: A AND B AND C OR A AND B AND D
+    private static Stream<Arguments> parseInputs() {
+        return Stream.of(
+                arguments("select * from t1 where a IS NOT null OR b=1", 2, true),
+                arguments("select * from t1 where a IS NOT null OR b=1 OR c IS NOT null", 2, false),
+                arguments("select * from t1 where a=1", 1, true),
+                arguments("select * from t1 where a=1", 2, true),
+                arguments("select * from t1 where a>1", 1, true),
+                arguments("select * from t1 where a=1 or b=1 or b=2", 1, false),
+                arguments("select * from t1 where a=1 or b=1 or b=2", 2, true),
+                arguments("select * from t1 where a=1 or b=1 or b=2", 3, true),
+                arguments("select * from t1 where a=1 or b=1 or b=1", 2, true),
+                arguments("select * from t1 where (a=1 and b=1) or b=2", 2, true),
+                arguments("select * from t1 where (a=1 and b=1) and b=1", 100, true),
+                arguments("select * from t1 where a=1 or b=1 or c=1", 1, false),
+                arguments("select * from t1 where a=1 or b=1 or c=1", 2, false),
+                arguments("select * from t1 where a=1 or b=1 or c=1", 3, true),
+                arguments("select * from t1 where a=1 or (b=1 and c=1)", 1, false),
+                arguments("select * from t1 where a=1 or (b=1 and c=1)", 2, true),
+                arguments("select * from t1 where a=1 or (b=1 and c=1)", 3, true),
+                arguments("select * from t1 where a=1 and (b=1 or c=1) or (b=2 and c=2)", 2, false),
+                arguments("select * from t1 where a=1 and (b=1 or c=1) or (b=2 and c=2)", 3, true),
+                arguments("select * from t1 where a=1 and b=1 and (c=1 or d=1)", 2, true),
+                arguments("select * from t1 where a=1 or a=1 or a=1 or b=1", 2, true),
+                arguments("select * from t1 where a<1 or a>=1", 2, true),
+                arguments("select * from t1 where a<1 or a>1", 2, true)
+        );
+    }
+
+    @ParameterizedTest(name = "sql: {0}")
+    @MethodSource("parseInputs")
+    public void testDnfProcessing(String sql, int maxCount, boolean result) throws Exception {
+        IgniteSchema schema = createSchema(createTestTable("A", "B", "C", "D", "E"));
+
+        IgniteRel rel = physicalPlan(sql, schema);
+
+        IgniteTableScan scan = findFirstNode(rel, byClass(IgniteTableScan.class));
+
+        RexNode rex = tryToDnf(Commons.rexBuilder(), scan.condition(), maxCount);
+
+        if (result) {
+            assertNotNull(rex);
+        } else {
+            assertNull(rex);
+        }
     }
 
     private static UnaryOperator<TableBuilder> employerTable(IgniteDistribution distribution) {

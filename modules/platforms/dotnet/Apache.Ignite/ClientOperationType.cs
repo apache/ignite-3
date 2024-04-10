@@ -144,6 +144,11 @@ namespace Apache.Ignite
         /// <summary>
         /// Change compute job priority (<see cref="IJobExecution{T}.ChangePriorityAsync"/>).
         /// </summary>
-        ComputeChangePriority
+        ComputeChangePriority,
+
+        /// <summary>
+        /// Send data streamer batch (<see cref="IDataStreamerTarget{T}"/>).
+        /// </summary>
+        StreamerBatchSend
     }
 }

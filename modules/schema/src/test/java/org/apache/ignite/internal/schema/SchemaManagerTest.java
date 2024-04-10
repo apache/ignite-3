@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.schema;
 
 import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor.INITIAL_TABLE_VERSION;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureCompletedMatcher.completedFuture;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
@@ -122,7 +123,7 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
                 new CatalogTableColumnDescriptor("v1", ColumnType.INT32, false, 0, 0, 0, null)
         );
         CatalogTableDescriptor tableDescriptor = new CatalogTableDescriptor(
-                TABLE_ID, -1, -1, TABLE_NAME, 0, columns, List.of("k1", "k2"), null
+                TABLE_ID, -1, -1, TABLE_NAME, 0, columns, List.of("k1", "k2"), null, DEFAULT_STORAGE_PROFILE
         );
 
         CompletableFuture<Boolean> future = tableCreatedListener()
@@ -161,12 +162,14 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
                 0,
                 columns,
                 List.of("k1", "k2"),
-                null
+                null,
+                DEFAULT_STORAGE_PROFILE
         ).newDescriptor(
                 TABLE_NAME,
                 INITIAL_TABLE_VERSION + 1,
                 columns,
-                INITIAL_CAUSALITY_TOKEN
+                INITIAL_CAUSALITY_TOKEN,
+                DEFAULT_STORAGE_PROFILE
         );
     }
 

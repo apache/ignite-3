@@ -30,10 +30,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executor;
-import java.util.concurrent.ForkJoinPool;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
@@ -46,7 +43,6 @@ import org.apache.ignite.internal.table.criteria.SqlSerializer;
 import org.apache.ignite.internal.table.criteria.SqlSerializer.Builder;
 import org.apache.ignite.internal.table.distributed.replicator.InternalSchemaVersionMismatchException;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
-import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.lang.Cursor;
@@ -78,8 +74,6 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
     /** Marshallers provider. */
     protected final MarshallersProvider marshallers;
 
-    private final Executor asyncContinuationExecutor;
-
     /**
      * Constructor.
      *
@@ -88,22 +82,18 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
      * @param schemaReg Schema registry.
      * @param sql Ignite SQL facade.
      * @param marshallers Marshallers provider.
-     * @param asyncContinuationExecutor Executor to which execution will be resubmitted when leaving asynchronous public API endpoints
-     *     (to prevent the user from stealing Ignite threads).
      */
     AbstractTableView(
             InternalTable tbl,
             SchemaVersions schemaVersions,
             SchemaRegistry schemaReg,
             IgniteSql sql,
-            MarshallersProvider marshallers,
-            Executor asyncContinuationExecutor
+            MarshallersProvider marshallers
     ) {
         this.tbl = tbl;
         this.schemaVersions = schemaVersions;
         this.sql = sql;
         this.marshallers = marshallers;
-        this.asyncContinuationExecutor = asyncContinuationExecutor;
 
         this.rowConverter = new TableViewRowConverter(schemaReg);
     }
@@ -111,17 +101,13 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
     /**
      * Waits for operation completion.
      *
-     * @param fut Future to wait to.
+     * @param future Future to wait to.
      * @param <T> Future result type.
      * @return Future result.
      */
-    protected final <T> T sync(Supplier<CompletableFuture<T>> fut) {
-        // Enclose in 'internal call' to prevent resubmission to the async continuation pool on future completion
-        // as such a resubmission is useless in the sync case and will just increase latency.
-        PublicApiThreading.startInternalCall();
-
+    protected static <T> T sync(CompletableFuture<T> future) {
         try {
-            return fut.get().get();
+            return future.get();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt(); // Restore interrupt flag.
 
@@ -129,13 +115,11 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
         } catch (ExecutionException e) {
             Throwable cause = unwrapCause(e);
             throw sneakyThrow(cause);
-        } finally {
-            PublicApiThreading.endInternalCall();
         }
     }
 
     /**
-     * Combines the effect of {@link #withSchemaSync(Transaction, KvAction)}, {@link #preventThreadHijack(CompletableFuture)} and
+     * Combines the effect of {@link #withSchemaSync(Transaction, KvAction)} and
      * {@link IgniteExceptionMapperUtil#convertToPublicFuture(CompletableFuture)}.
      *
      * @param <T> Type of the data the action returns.
@@ -144,9 +128,7 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
      * @return Future of whatever the action returns.
      */
     protected final <T> CompletableFuture<T> doOperation(@Nullable Transaction tx, KvAction<T> action) {
-        CompletableFuture<T> future = preventThreadHijack(withSchemaSync(tx, action));
-
-        return convertToPublicFuture(future);
+        return convertToPublicFuture(withSchemaSync(tx, action));
     }
 
     /**
@@ -183,7 +165,7 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
                                 assert tx == null : "Only for implicit transactions a retry might be requested";
                                 assert previousSchemaVersion == null || !Objects.equals(schemaVersion, previousSchemaVersion)
                                         : "Same schema version (" + schemaVersion
-                                                + ") on a retry: something is wrong, is this caused by the test setup?";
+                                        + ") on a retry: something is wrong, is this caused by the test setup?";
 
                                 // Repeat.
                                 return withSchemaSync(tx, schemaVersion, action);
@@ -192,23 +174,6 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
                             }
                         }))
                 .thenCompose(identity());
-    }
-
-    /**
-     * Prevents Ignite internal threads from being hijacked by the user code. If that happened, the user code could have blocked
-     * Ignite threads deteriorating progress.
-     *
-     * <p>This is done by completing the future in the async continuation thread pool if it would have been completed in an Ignite thread.
-     * This does not happen for synchronous operations as it's impossible to hijack a thread using such operations.
-     *
-     * <p>The switch to the async continuation pool is also skipped when it's known that the call is made by other Ignite component
-     * and not by the user.
-     *
-     * @param originalFuture Operation future.
-     * @return Future that will be completed in the async continuation thread pool ({@link ForkJoinPool#commonPool()} by default).
-     */
-    protected final <T> CompletableFuture<T> preventThreadHijack(CompletableFuture<T> originalFuture) {
-        return PublicApiThreading.preventThreadHijack(originalFuture, asyncContinuationExecutor);
     }
 
     /**
@@ -241,7 +206,7 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
     /** {@inheritDoc} */
     @Override
     public Cursor<R> query(@Nullable Transaction tx, @Nullable Criteria criteria, @Nullable String indexName, CriteriaQueryOptions opts) {
-        return new CursorAdapter<>(sync(() -> queryAsync(tx, criteria, indexName, opts)));
+        return new CursorAdapter<>(sync(queryAsync(tx, criteria, indexName, opts)));
     }
 
     /** {@inheritDoc} */
@@ -271,17 +236,16 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
             Statement statement = sql.statementBuilder().query(ser.toString()).pageSize(opts0.pageSize()).build();
 
             return sql.executeAsync(tx, statement, ser.getArguments())
-                    .<AsyncCursor<R>>thenApply(resultSet -> {
+                    .thenApply(resultSet -> {
                         ResultSetMetadata meta = resultSet.metadata();
 
                         assert meta != null : "Metadata can't be null.";
 
-                        AsyncCursor<R> cursor = new QueryCriteriaAsyncCursor<>(
+                        return new QueryCriteriaAsyncCursor<>(
                                 resultSet,
                                 queryMapper(meta, schema),
                                 () -> {/* NO-OP */}
                         );
-                        return new AntiHijackAsyncCursor<>(cursor, asyncContinuationExecutor);
                     });
         });
 

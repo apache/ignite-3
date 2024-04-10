@@ -19,6 +19,7 @@ package org.apache.ignite.internal.storage.index;
 
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.storage.BaseMvStoragesTest.getOrCreateMvPartition;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
@@ -76,7 +77,7 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
     @SuppressWarnings("WeakerAccess") // May be used in "@VariableSource", that's why it's public.
     public static final List<ColumnParams> ALL_TYPES_COLUMN_PARAMS = allTypesColumnParams();
 
-    protected static final int TEST_PARTITION = 0;
+    protected static final int TEST_PARTITION = 12;
 
     protected static final String INDEX_NAME = "TEST_IDX";
 
@@ -159,7 +160,8 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
                 zoneId,
                 Stream.concat(Stream.of(pkColumn), ALL_TYPES_COLUMN_PARAMS.stream()).map(CatalogUtils::fromParams).collect(toList()),
                 List.of("pk"),
-                null
+                null,
+                DEFAULT_STORAGE_PROFILE
         );
 
         when(catalogService.table(eq(TABLE_NAME), anyLong())).thenReturn(tableDescriptor);

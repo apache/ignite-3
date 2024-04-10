@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.util;
 
 import static org.apache.calcite.rel.hint.HintPredicates.AGGREGATE;
 import static org.apache.calcite.rel.hint.HintPredicates.JOIN;
+import static org.apache.ignite.internal.sql.engine.QueryProperty.ALLOWED_QUERY_TYPES;
 import static org.apache.ignite.internal.sql.engine.util.BaseQueryContext.CLUSTER;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
@@ -48,6 +49,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -61,13 +63,18 @@ import org.apache.calcite.plan.ConventionTraitDef;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelTraitDef;
+import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelCollationTraitDef;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.hint.HintStrategyTable;
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexBuilder;
+import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.type.SqlTypeCoercionRule;
+import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql2rel.SqlToRelConverter;
 import org.apache.calcite.tools.FrameworkConfig;
@@ -94,6 +101,8 @@ import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteConvertletTable;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteTypeCoercion;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
+import org.apache.ignite.internal.sql.engine.property.SqlProperties;
+import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCommitTransaction;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlConformance;
@@ -828,5 +837,73 @@ public final class Commons {
             default:
                 return null;
         }
+    }
+
+    /**
+     * Computes the least restrictive type among the provided inputs and
+     * adds a projection where a cast to the inferred type is needed.
+     *
+     * @param inputs Input relational expressions.
+     * @param cluster Cluster.
+     * @param traits Traits of relational expression.
+     * @return Converted inputs.
+     */
+    public static List<RelNode> castInputsToLeastRestrictiveTypeIfNeeded(List<RelNode> inputs, RelOptCluster cluster, RelTraitSet traits) {
+        List<RelDataType> inputRowTypes = inputs.stream()
+                .map(RelNode::getRowType)
+                .collect(Collectors.toList());
+
+        // Output type of a set operator is equal to leastRestrictive(inputTypes) (see SetOp::deriveRowType)
+
+        RelDataTypeFactory typeFactory = cluster.getTypeFactory();
+        RelDataType resultType = typeFactory.leastRestrictive(inputRowTypes);
+        if (resultType == null) {
+            throw new IllegalArgumentException("Cannot compute compatible row type for arguments to set op: " + inputRowTypes);
+        }
+
+        // Check output type of each input, if input's type does not match the result type,
+        // then add a projection with casts for non-matching fields.
+
+        RexBuilder rexBuilder = cluster.getRexBuilder();
+        List<RelNode> actualInputs = new ArrayList<>(inputs.size());
+
+        for (RelNode input : inputs) {
+            RelDataType inputRowType = input.getRowType();
+
+            // We can ignore nullability because it is always safe to convert from
+            // ROW (T1 nullable, T2 not nullable) to ROW (T1 nullable, T2 nullable)
+            // and leastRestrictive does exactly that.
+            if (SqlTypeUtil.equalAsStructSansNullability(typeFactory, resultType, inputRowType, null)) {
+                actualInputs.add(input);
+
+                continue;
+            }
+
+            List<RexNode> exprs = new ArrayList<>(inputRowType.getFieldCount());
+
+            for (int i = 0; i < resultType.getFieldCount(); i++) {
+                RelDataType fieldType = inputRowType.getFieldList().get(i).getType();
+                RelDataType outFieldType = resultType.getFieldList().get(i).getType();
+                RexNode ref = rexBuilder.makeInputRef(input, i);
+
+                if (fieldType.equals(outFieldType)) {
+                    exprs.add(ref);
+                } else {
+                    RexNode expr = rexBuilder.makeCast(outFieldType, ref, true, false);
+                    exprs.add(expr);
+                }
+            }
+
+            actualInputs.add(new IgniteProject(cluster, traits, input, exprs, resultType));
+        }
+
+        return actualInputs;
+    }
+
+    /** Returns {@code true} if the specified properties allow multi-statement query execution. */
+    public static boolean isMultiStatementQueryAllowed(SqlProperties properties) {
+        Set<SqlQueryType> allowedTypes = properties.get(ALLOWED_QUERY_TYPES);
+
+        return allowedTypes.contains(SqlQueryType.TX_CONTROL);
     }
 }

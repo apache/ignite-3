@@ -18,6 +18,8 @@
 #pragma once
 
 #include "ignite/client/compute/deployment_unit.h"
+#include "ignite/client/compute/job_execution.h"
+#include "ignite/client/compute/job_execution_options.h"
 #include "ignite/client/network/cluster_node.h"
 #include "ignite/client/table/ignite_tuple.h"
 #include "ignite/client/transaction/transaction.h"
@@ -48,63 +50,68 @@ public:
     compute() = delete;
 
     /**
-     * Submits a compute job represented by the given class for an execution on one of the specified nodes.
+     * Submits for execution a compute job represented by the given class for an execution on one of the specified
+     * nodes.
      *
      * @param nodes Nodes to use for the job execution.
      * @param units Deployment units. Can be empty.
-     * @param job_class_name Java class name of the job to execute.
+     * @param job_class_name Java class name of the job to submit.
      * @param args Job arguments.
+     * @param options Job execution options.
      * @param callback A callback called on operation completion with job execution result.
      */
-    IGNITE_API void submit(const std::vector<cluster_node> &nodes, const std::vector<deployment_unit> &units,
-        std::string_view job_class_name, const std::vector<primitive> &args,
-        ignite_callback<std::optional<primitive>> callback);
+    IGNITE_API void submit_async(const std::vector<cluster_node> &nodes, const std::vector<deployment_unit> &units,
+        std::string_view job_class_name, const std::vector<primitive> &args, const job_execution_options &options,
+        ignite_callback<job_execution> callback);
 
     /**
-     * Executes a compute job represented by the given class on one of the specified nodes.
+     * Submits for execution a compute job represented by the given class on one of the specified nodes.
      *
      * @param nodes Nodes to use for the job execution.
      * @param units Deployment units. Can be empty.
-     * @param job_class_name Java class name of the job to execute.
+     * @param job_class_name Java class name of the job to submit.
      * @param args Job arguments.
+     * @param options Job execution options.
      * @return Job execution result.
      */
-    IGNITE_API std::optional<primitive> execute(const std::vector<cluster_node> &nodes,
-        const std::vector<deployment_unit> &units, std::string_view job_class_name,
-        const std::vector<primitive> &args) {
-        return sync<std::optional<primitive>>([this, &nodes, &units, job_class_name, &args](auto callback) mutable {
-            submit(nodes, units, job_class_name, args, std::move(callback));
+    IGNITE_API job_execution submit(const std::vector<cluster_node> &nodes, const std::vector<deployment_unit> &units,
+        std::string_view job_class_name, const std::vector<primitive> &args, const job_execution_options &options) {
+        return sync<job_execution>([&](auto callback) mutable {
+            submit_async(nodes, units, job_class_name, args, options, std::move(callback));
         });
     }
 
     /**
-     * Submits a compute job represented by the given class for an execution on all of the specified nodes.
+     * Broadcast a compute job represented by the given class for an execution on all of the specified nodes.
      *
      * @param nodes Nodes to use for the job execution.
      * @param units Deployment units. Can be empty.
-     * @param job_class_name Java class name of the job to execute.
+     * @param job_class_name Java class name of the job to submit.
      * @param args Job arguments.
+     * @param options Job execution options.
      * @param callback A callback called on operation completion with jobs execution result.
      */
-    IGNITE_API void submit_broadcast(const std::set<cluster_node> &nodes, const std::vector<deployment_unit> &units,
-        std::string_view job_class_name, const std::vector<primitive> &args,
-        ignite_callback<std::map<cluster_node, ignite_result<std::optional<primitive>>>> callback);
+    IGNITE_API void submit_broadcast_async(const std::set<cluster_node> &nodes,
+        const std::vector<deployment_unit> &units, std::string_view job_class_name, const std::vector<primitive> &args,
+        const job_execution_options &options,
+        ignite_callback<std::map<cluster_node, ignite_result<job_execution>>> callback);
 
     /**
-     * Executes a compute job represented by the given class on one of the specified nodes.
+     * Broadcast a compute job represented by the given class on all of the specified nodes.
      *
      * @param nodes Nodes to use for the job execution.
      * @param units Deployment units. Can be empty.
-     * @param job_class_name Java class name of the job to execute.
+     * @param job_class_name Java class name of the job to submit.
      * @param args Job arguments.
+     * @param options Job execution options.
      * @return Job execution result.
      */
-    IGNITE_API std::map<cluster_node, ignite_result<std::optional<primitive>>> execute_broadcast(
+    IGNITE_API std::map<cluster_node, ignite_result<job_execution>> submit_broadcast(
         const std::set<cluster_node> &nodes, const std::vector<deployment_unit> &units, std::string_view job_class_name,
-        const std::vector<primitive> &args) {
-        return sync<std::map<cluster_node, ignite_result<std::optional<primitive>>>>(
-            [this, &nodes, &units, job_class_name, &args](
-                auto callback) mutable { submit_broadcast(nodes, units, job_class_name, args, std::move(callback)); });
+        const std::vector<primitive> &args, const job_execution_options &options) {
+        return sync<std::map<cluster_node, ignite_result<job_execution>>>([&](auto callback) mutable {
+            submit_broadcast_async(nodes, units, job_class_name, args, options, std::move(callback));
+        });
     }
 
     /**
@@ -113,13 +120,14 @@ public:
      * @param table_name Name of the table to be used with @c key to determine target node.
      * @param key Table key to be used to determine the target node for job execution.
      * @param units Deployment units. Can be empty.
-     * @param job_class_name Java class name of the job to execute.
+     * @param job_class_name Java class name of the job to submit.
      * @param args Job arguments.
+     * @param options Job execution options.
      * @param callback A callback called on operation completion with job execution result.
      */
-    IGNITE_API void submit_colocated(std::string_view table_name, const ignite_tuple &key,
+    IGNITE_API void submit_colocated_async(std::string_view table_name, const ignite_tuple &key,
         const std::vector<deployment_unit> &units, std::string_view job_class_name, const std::vector<primitive> &args,
-        ignite_callback<std::optional<primitive>> callback);
+        const job_execution_options &options, ignite_callback<job_execution> callback);
 
     /**
      * Synchronously executes a job represented by the given class on one node where the given key is located.
@@ -127,17 +135,17 @@ public:
      * @param table_name Name of the table to be used with @c key to determine target node.
      * @param key Table key to be used to determine the target node for job execution.
      * @param units Deployment units. Can be empty.
-     * @param job_class_name Java class name of the job to execute.
+     * @param job_class_name Java class name of the job to submit.
      * @param args Job arguments.
+     * @param options Job execution options.
      * @return Job execution result.
      */
-    IGNITE_API std::optional<primitive> execute_colocated(std::string_view table_name, const ignite_tuple &key,
-        const std::vector<deployment_unit> &units, std::string_view job_class_name,
-        const std::vector<primitive> &args) {
-        return sync<std::optional<primitive>>(
-            [this, &table_name, &key, &units, job_class_name, &args](auto callback) mutable {
-                submit_colocated(table_name, key, units, job_class_name, args, std::move(callback));
-            });
+    IGNITE_API job_execution submit_colocated(std::string_view table_name, const ignite_tuple &key,
+        const std::vector<deployment_unit> &units, std::string_view job_class_name, const std::vector<primitive> &args,
+        const job_execution_options &options) {
+        return sync<job_execution>([&](auto callback) mutable {
+            submit_colocated_async(table_name, key, units, job_class_name, args, options, std::move(callback));
+        });
     }
 
 private:

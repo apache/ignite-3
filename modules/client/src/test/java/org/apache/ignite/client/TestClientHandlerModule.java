@@ -46,13 +46,14 @@ import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.TestClockService;
+import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
-import org.apache.ignite.internal.table.TestLowWatermark;
 import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.lang.IgniteException;
@@ -203,6 +204,7 @@ public class TestClientHandlerModule implements IgniteComponent {
                     @Override
                     protected void initChannel(Channel ch) {
                         CatalogService catalogService = new FakeCatalogService(FakeInternalTable.PARTITIONS);
+                        TestClockService clockService = new TestClockService(clock);
                         ch.pipeline().addLast(
                                 new ClientMessageDecoder(),
                                 new ConnectionDropHandler(requestCounter, shouldDropConnection),
@@ -217,14 +219,14 @@ public class TestClientHandlerModule implements IgniteComponent {
                                         CompletableFuture.completedFuture(clusterTag),
                                         metrics,
                                         authenticationManager,
-                                        clock,
+                                        clockService,
                                         new AlwaysSyncedSchemaSyncService(),
                                         catalogService,
                                         connectionIdGen.incrementAndGet(),
                                         new ClientPrimaryReplicaTracker(
                                                 placementDriver,
                                                 catalogService,
-                                                clock,
+                                                clockService,
                                                 new AlwaysSyncedSchemaSyncService(),
                                                 new TestLowWatermark()
                                         )

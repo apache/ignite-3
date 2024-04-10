@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec.ddl;
 
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -25,9 +26,9 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.ClockWaiter;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
 import org.apache.ignite.internal.catalog.commands.RenameZoneCommand;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterZoneRenameCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterZoneSetCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateZoneCommand;
@@ -51,13 +52,14 @@ public class DistributionZoneDdlCommandHandlerTest extends IgniteAbstractTest {
     void before() {
         catalogManager = mock(CatalogManager.class, invocation -> nullCompletedFuture());
 
-        commandHandler = new DdlCommandHandler(catalogManager, mock(ClockWaiter.class, invocation -> nullCompletedFuture()), () -> 100);
+        commandHandler = new DdlCommandHandler(catalogManager, mock(ClockService.class, invocation -> nullCompletedFuture()), () -> 100);
     }
 
     @Test
     public void testCreateZone() {
         CreateZoneCommand cmd = new CreateZoneCommand();
         cmd.zoneName(ZONE_NAME);
+        cmd.storageProfiles(DEFAULT_STORAGE_PROFILE);
 
         invokeHandler(cmd);
 

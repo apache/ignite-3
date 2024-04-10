@@ -19,19 +19,14 @@ package org.apache.ignite.internal.table.distributed;
 
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
-import static org.apache.ignite.internal.hlc.HybridTimestamp.CLOCK_SKEW;
-import static org.apache.ignite.internal.replicator.ReplicaManager.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
+import static org.apache.ignite.internal.hlc.TestClockService.TEST_MAX_CLOCK_SKEW_MILLIS;
+import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.lenient;
 
 import java.util.List;
 import org.apache.ignite.internal.catalog.CatalogCommand;
@@ -49,11 +44,11 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.schema.configuration.LowWatermarkConfiguration;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.sql.ColumnType;
@@ -68,8 +63,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 @ExtendWith(ConfigurationExtension.class)
 class CatalogStorageIndexDescriptorSupplierTest extends BaseIgniteAbstractTest {
-    // TODO: remove this, see https://issues.apache.org/jira/browse/IGNITE-18977
-    private static final long MIN_DATA_AVAILABILITY_TIME = DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS + CLOCK_SKEW;
+    private static final long MIN_DATA_AVAILABILITY_TIME = DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
+            + TEST_MAX_CLOCK_SKEW_MILLIS;
 
     private static final String TABLE_NAME = "TEST";
 
@@ -79,16 +74,16 @@ class CatalogStorageIndexDescriptorSupplierTest extends BaseIgniteAbstractTest {
 
     private CatalogManager catalogManager;
 
-    private LowWatermarkImpl lowWatermark;
+    private TestLowWatermark lowWatermark;
 
     private StorageIndexDescriptorSupplier indexDescriptorSupplier;
 
+    @SuppressWarnings("JUnitMalformedDeclaration")
     @BeforeEach
     void setUp(
             TestInfo testInfo,
             @InjectConfiguration("mock.dataAvailabilityTime = " + MIN_DATA_AVAILABILITY_TIME)
             LowWatermarkConfiguration lowWatermarkConfiguration,
-            @Mock TxManager txManager,
             @Mock VaultManager vaultManager,
             @Mock FailureProcessor failureProcessor
     ) {
@@ -96,27 +91,16 @@ class CatalogStorageIndexDescriptorSupplierTest extends BaseIgniteAbstractTest {
 
         catalogManager = createTestCatalogManager(nodeName, clock);
 
-        lenient().when(txManager.updateLowWatermark(any())).thenReturn(nullCompletedFuture());
-
-        lowWatermark = new LowWatermarkImpl(
-                nodeName,
-                lowWatermarkConfiguration,
-                clock,
-                txManager,
-                vaultManager,
-                failureProcessor
-        );
+        lowWatermark = new TestLowWatermark();
 
         indexDescriptorSupplier = new CatalogStorageIndexDescriptorSupplier(catalogManager, lowWatermark);
 
-        catalogManager.start();
-
-        lowWatermark.start();
+        assertThat(catalogManager.start(), willCompleteSuccessfully());
     }
 
     @AfterEach
     void tearDown() throws Exception {
-        IgniteUtils.stopAll(lowWatermark, catalogManager);
+        IgniteUtils.stopAll(catalogManager);
     }
 
     @Test
@@ -227,14 +211,7 @@ class CatalogStorageIndexDescriptorSupplierTest extends BaseIgniteAbstractTest {
     }
 
     private void raiseWatermarkUpTo(HybridTimestamp now) throws InterruptedException {
-        // Wait for the low watermark to cover the previous Catalog version.
-        assertTrue(waitForCondition(() -> {
-            HybridTimestamp candidate = lowWatermark.createNewLowWatermarkCandidate();
-
-            return candidate.compareTo(now) >= 0;
-        }, 10_000));
-
-        assertThat(lowWatermark.updateLowWatermark(), willCompleteSuccessfully());
+        assertThat(lowWatermark.updateAndNotify(now), willCompleteSuccessfully());
 
         HybridTimestamp lowWatermarkTimestamp = lowWatermark.getLowWatermark();
 

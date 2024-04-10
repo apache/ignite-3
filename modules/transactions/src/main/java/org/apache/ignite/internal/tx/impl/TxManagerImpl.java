@@ -56,17 +56,18 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.event.EventListener;
-import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.lowwatermark.LowWatermark;
+import org.apache.ignite.internal.lowwatermark.LowWatermarkChangedListener;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
@@ -98,6 +99,7 @@ import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.TxStateMetaFinishing;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.TransactionInflights.ReadWriteTxContext;
+import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicatedInfo;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -124,8 +126,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /** Executor that runs async write intent switch actions. */
     private final ExecutorService writeIntentSwitchPool;
 
-    /** A hybrid logical clock. */
-    private final HybridClock clock;
+    private final ClockService clockService;
 
     /** Generates transaction IDs. */
     private final TransactionIdGenerator transactionIdGenerator;
@@ -138,11 +139,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             Comparator.comparing(TxIdAndTimestamp::getReadTimestamp).thenComparing(TxIdAndTimestamp::getTxId)
     );
 
-    /**
-     * Low watermark, does not allow creating read-only transactions less than or equal to this value, {@code null} means it has never been
-     * updated yet.
-     */
-    private final AtomicReference<HybridTimestamp> lowWatermark = new AtomicReference<>();
+    /** Low watermark. */
+    private final LowWatermark lowWatermark;
 
     private final PlacementDriver placementDriver;
 
@@ -192,13 +190,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     private final EventListener<PrimaryReplicaEventParameters> primaryReplicaEventListener;
 
+    private final LowWatermarkChangedListener lowWatermarkChangedListener = this::onLwnChanged;
+
     /** Counter of read-write transactions that were created and completed locally on the node. */
     private final LocalRwTxCounter localRwTxCounter;
 
     private final Executor partitionOperationsExecutor;
-
-    /** Cleanup manager for tx resources. */
-    private final ResourceCleanupManager resourceCleanupManager;
 
     private final TransactionInflights transactionInflights;
 
@@ -209,13 +206,14 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      * @param clusterService Cluster service.
      * @param replicaService Replica service.
      * @param lockManager Lock manager.
-     * @param clock A hybrid logical clock.
+     * @param clockService Clock service.
      * @param transactionIdGenerator Used to generate transaction IDs.
      * @param placementDriver Placement driver.
      * @param idleSafeTimePropagationPeriodMsSupplier Used to get idle safe time propagation period in ms.
      * @param localRwTxCounter Counter of read-write transactions that were created and completed locally on the node.
      * @param resourcesRegistry Resources registry.
      * @param transactionInflights Transaction inflights.
+     * @param lowWatermark Low watermark.
      */
     @TestOnly
     public TxManagerImpl(
@@ -223,14 +221,14 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             ClusterService clusterService,
             ReplicaService replicaService,
             LockManager lockManager,
-            HybridClock clock,
+            ClockService clockService,
             TransactionIdGenerator transactionIdGenerator,
             PlacementDriver placementDriver,
             LongSupplier idleSafeTimePropagationPeriodMsSupplier,
             LocalRwTxCounter localRwTxCounter,
             RemotelyTriggeredResourceRegistry resourcesRegistry,
-            ResourceCleanupManager resourceCleanupManager,
-            TransactionInflights transactionInflights
+            TransactionInflights transactionInflights,
+            LowWatermark lowWatermark
     ) {
         this(
                 clusterService.nodeName(),
@@ -239,15 +237,15 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 clusterService.topologyService(),
                 replicaService,
                 lockManager,
-                clock,
+                clockService,
                 transactionIdGenerator,
                 placementDriver,
                 idleSafeTimePropagationPeriodMsSupplier,
                 localRwTxCounter,
                 ForkJoinPool.commonPool(),
                 resourcesRegistry,
-                resourceCleanupManager,
-                transactionInflights
+                transactionInflights,
+                lowWatermark
         );
     }
 
@@ -259,7 +257,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      * @param topologyService Topology service.
      * @param replicaService Replica service.
      * @param lockManager Lock manager.
-     * @param clock A hybrid logical clock.
+     * @param clockService Clock service.
      * @param transactionIdGenerator Used to generate transaction IDs.
      * @param placementDriver Placement driver.
      * @param idleSafeTimePropagationPeriodMsSupplier Used to get idle safe time propagation period in ms.
@@ -267,6 +265,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      * @param partitionOperationsExecutor Executor on which partition operations will be executed, if needed.
      * @param resourcesRegistry Resources registry.
      * @param transactionInflights Transaction inflights.
+     * @param lowWatermark Low watermark.
      */
     public TxManagerImpl(
             String nodeName,
@@ -275,19 +274,19 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             TopologyService topologyService,
             ReplicaService replicaService,
             LockManager lockManager,
-            HybridClock clock,
+            ClockService clockService,
             TransactionIdGenerator transactionIdGenerator,
             PlacementDriver placementDriver,
             LongSupplier idleSafeTimePropagationPeriodMsSupplier,
             LocalRwTxCounter localRwTxCounter,
             Executor partitionOperationsExecutor,
             RemotelyTriggeredResourceRegistry resourcesRegistry,
-            ResourceCleanupManager resourceCleanupManager,
-            TransactionInflights transactionInflights
+            TransactionInflights transactionInflights,
+            LowWatermark lowWatermark
     ) {
         this.txConfig = txConfig;
         this.lockManager = lockManager;
-        this.clock = clock;
+        this.clockService = clockService;
         this.transactionIdGenerator = transactionIdGenerator;
         this.placementDriver = placementDriver;
         this.idleSafeTimePropagationPeriodMsSupplier = idleSafeTimePropagationPeriodMsSupplier;
@@ -296,10 +295,10 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         this.primaryReplicaEventListener = this::primaryReplicaEventListener;
         this.localRwTxCounter = localRwTxCounter;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
-        this.resourceCleanupManager = resourceCleanupManager;
         this.transactionInflights = transactionInflights;
+        this.lowWatermark = lowWatermark;
 
-        placementDriverHelper = new PlacementDriverHelper(placementDriver, clock);
+        placementDriverHelper = new PlacementDriverHelper(placementDriver, clockService);
 
         int cpus = Runtime.getRuntime().availableProcessors();
 
@@ -314,19 +313,20 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         orphanDetector = new OrphanDetector(topologyService, replicaService, placementDriverHelper, lockManager);
 
-        txMessageSender = new TxMessageSender(messagingService, replicaService, clock);
+        txMessageSender = new TxMessageSender(messagingService, replicaService, clockService, txConfig);
 
         var writeIntentSwitchProcessor = new WriteIntentSwitchProcessor(placementDriverHelper, txMessageSender, topologyService);
 
         txCleanupRequestHandler = new TxCleanupRequestHandler(
                 messagingService,
                 lockManager,
-                clock,
+                clockService,
                 writeIntentSwitchProcessor,
                 resourcesRegistry
         );
 
-        txCleanupRequestSender = new TxCleanupRequestSender(txMessageSender, placementDriverHelper, writeIntentSwitchProcessor);
+        txCleanupRequestSender =
+                new TxCleanupRequestSender(txMessageSender, placementDriverHelper, txStateVolatileStorage);
     }
 
     private CompletableFuture<Boolean> primaryReplicaEventListener(PrimaryReplicaEventParameters eventParameters) {
@@ -355,7 +355,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     @Override
     public InternalTransaction begin(HybridTimestampTracker timestampTracker, boolean readOnly, TxPriority priority) {
-        HybridTimestamp beginTimestamp = readOnly ? clock.now() : createBeginTimestampWithIncrementRwTxCounter();
+        HybridTimestamp beginTimestamp = readOnly ? clockService.now() : createBeginTimestampWithIncrementRwTxCounter();
         UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp, priority);
 
         startedTxs.incrementAndGet();
@@ -379,7 +379,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         CompletableFuture<Void> oldFuture = readOnlyTxFutureById.put(txIdAndTimestamp, txFuture);
         assert oldFuture == null : "previous transaction has not completed yet: " + txIdAndTimestamp;
 
-        HybridTimestamp lowWatermark = this.lowWatermark.get();
+        HybridTimestamp lowWatermark = this.lowWatermark.getLowWatermark();
 
         if (lowWatermark != null && readTimestamp.compareTo(lowWatermark) <= 0) {
             // "updateLowWatermark" method updates "this.lowWatermark" field, and only then scans "this.readOnlyTxFutureById" for old
@@ -410,7 +410,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      */
     private HybridTimestamp currentReadTimestamp(HybridTimestamp beginTx) {
         return beginTx.subtractPhysicalTime(
-                idleSafeTimePropagationPeriodMsSupplier.getAsLong() + HybridTimestamp.CLOCK_SKEW
+                idleSafeTimePropagationPeriodMsSupplier.getAsLong() + clockService.maxClockSkewMillis()
         );
     }
 
@@ -431,7 +431,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         finishedTxs.incrementAndGet();
 
         if (commit) {
-            timestampTracker.update(clock.now());
+            timestampTracker.update(clockService.now());
 
             finalState = COMMITTED;
         } else {
@@ -444,7 +444,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     }
 
     private @Nullable HybridTimestamp commitTimestamp(boolean commit) {
-        return commit ? clock.now() : null;
+        return commit ? clockService.now() : null;
     }
 
     @Override
@@ -715,19 +715,25 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     @Override
     public CompletableFuture<Void> start() {
-        localNodeId = topologyService.localMember().id();
+        return inBusyLockAsync(busyLock, () -> {
+            localNodeId = topologyService.localMember().id();
 
-        messagingService.addMessageHandler(ReplicaMessageGroup.class, this);
+            messagingService.addMessageHandler(ReplicaMessageGroup.class, this);
 
-        txStateVolatileStorage.start();
+            txStateVolatileStorage.start();
 
-        orphanDetector.start(txStateVolatileStorage, txConfig.abandonedCheckTs());
+            orphanDetector.start(txStateVolatileStorage, txConfig.abandonedCheckTs());
 
-        txCleanupRequestHandler.start();
+            txCleanupRequestSender.start();
 
-        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, primaryReplicaEventListener);
+            txCleanupRequestHandler.start();
 
-        return nullCompletedFuture();
+            placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, primaryReplicaEventListener);
+
+            lowWatermark.addUpdateListener(lowWatermarkChangedListener);
+
+            return nullCompletedFuture();
+        });
     }
 
     @Override
@@ -748,6 +754,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         txCleanupRequestHandler.stop();
 
         placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, primaryReplicaEventListener);
+
+        lowWatermark.removeUpdateListener(lowWatermarkChangedListener);
 
         shutdownAndAwaitTermination(writeIntentSwitchPool, 10, TimeUnit.SECONDS);
     }
@@ -773,6 +781,13 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     }
 
     @Override
+    public void vacuum() {
+        long vacuumObservationTimestamp = System.currentTimeMillis();
+
+        txStateVolatileStorage.vacuum(vacuumObservationTimestamp, txConfig.txnResourceTtl().value());
+    }
+
+    @Override
     public CompletableFuture<Void> executeWriteIntentSwitchAsync(Runnable runnable) {
         return runAsync(runnable, writeIntentSwitchPool);
     }
@@ -788,34 +803,19 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         UUID txId = txIdAndTimestamp.getTxId();
 
-        resourceCleanupManager.onReadOnlyTransactionFinished(txId);
+        transactionInflights.markReadOnlyTxFinished(txId);
 
         return readOnlyTxFuture;
     }
 
-    @Override
-    public CompletableFuture<Void> updateLowWatermark(HybridTimestamp newLowWatermark) {
-        lowWatermark.updateAndGet(previousLowWatermark -> {
-            if (previousLowWatermark == null) {
-                return newLowWatermark;
-            }
+    private CompletableFuture<Void> onLwnChanged(HybridTimestamp newLowWatermark) {
+        return inBusyLockAsync(busyLock, () -> {
+            TxIdAndTimestamp upperBound = new TxIdAndTimestamp(newLowWatermark, new UUID(Long.MAX_VALUE, Long.MAX_VALUE));
 
-            assert newLowWatermark.compareTo(previousLowWatermark) > 0 :
-                    "lower watermark should be growing: [previous=" + previousLowWatermark + ", new=" + newLowWatermark + ']';
+            List<CompletableFuture<Void>> readOnlyTxFutures = List.copyOf(readOnlyTxFutureById.headMap(upperBound, true).values());
 
-            return newLowWatermark;
+            return allOf(readOnlyTxFutures.toArray(CompletableFuture[]::new));
         });
-
-        TxIdAndTimestamp upperBound = new TxIdAndTimestamp(newLowWatermark, new UUID(Long.MAX_VALUE, Long.MAX_VALUE));
-
-        List<CompletableFuture<Void>> readOnlyTxFutures = List.copyOf(readOnlyTxFutureById.headMap(upperBound, true).values());
-
-        return allOf(readOnlyTxFutures.toArray(CompletableFuture[]::new));
-    }
-
-    @Override
-    public HybridClock clock() {
-        return clock;
     }
 
     @Override
@@ -836,6 +836,10 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         if (result instanceof UUID) {
             transactionInflights.removeInflight((UUID) result);
+        }
+
+        if (result instanceof WriteIntentSwitchReplicatedInfo) {
+            txCleanupRequestHandler.writeIntentSwitchReplicated((WriteIntentSwitchReplicatedInfo) result);
         }
     }
 
@@ -916,7 +920,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     private HybridTimestamp createBeginTimestampWithIncrementRwTxCounter() {
         return localRwTxCounter.inUpdateRwTxCountLock(() -> {
-            HybridTimestamp beginTs = clock.now();
+            HybridTimestamp beginTs = clockService.now();
 
             localRwTxCounter.incrementRwTxCount(beginTs);
 

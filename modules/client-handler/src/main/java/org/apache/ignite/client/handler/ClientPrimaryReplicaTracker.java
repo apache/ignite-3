@@ -37,16 +37,16 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.event.EventListener;
-import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.lowwatermark.LowWatermark;
+import org.apache.ignite.internal.lowwatermark.LowWatermarkChangedListener;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.LongPriorityQueue;
-import org.apache.ignite.internal.table.distributed.LowWatermark;
-import org.apache.ignite.internal.table.distributed.LowWatermarkChangedListener;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -80,7 +80,7 @@ public class ClientPrimaryReplicaTracker {
 
     private final PlacementDriver placementDriver;
 
-    private final HybridClock clock;
+    private final ClockService clockService;
 
     private final CatalogService catalogService;
 
@@ -105,20 +105,20 @@ public class ClientPrimaryReplicaTracker {
      *
      * @param placementDriver Placement driver.
      * @param catalogService Catalog.
-     * @param clock Hybrid clock.
+     * @param clockService Clock service.
      * @param schemaSyncService Schema synchronization service.
      * @param lowWatermark Low watermark.
      */
     public ClientPrimaryReplicaTracker(
             PlacementDriver placementDriver,
             CatalogService catalogService,
-            HybridClock clock,
+            ClockService clockService,
             SchemaSyncService schemaSyncService,
             LowWatermark lowWatermark
     ) {
         this.placementDriver = placementDriver;
         this.catalogService = catalogService;
-        this.clock = clock;
+        this.clockService = clockService;
         this.schemaSyncService = schemaSyncService;
         this.lowWatermark = lowWatermark;
     }
@@ -150,7 +150,7 @@ public class ClientPrimaryReplicaTracker {
      * @return Primary replicas for the table, or null when not yet known.
      */
     private CompletableFuture<PrimaryReplicasResult> primaryReplicasAsyncInternal(int tableId, @Nullable Long maxStartTime) {
-        HybridTimestamp timestamp = clock.now();
+        HybridTimestamp timestamp = clockService.now();
 
         if (maxStartTime == null) {
             maxStartTime = this.maxStartTime.get();
@@ -166,7 +166,7 @@ public class ClientPrimaryReplicaTracker {
         }
 
         // Request primary for all partitions.
-        CompletableFuture<Void> partitionsFut = partitionsAsync(tableId, timestamp).thenCompose(partitions -> {
+        CompletableFuture<Integer> partitionsFut = partitionsAsync(tableId, timestamp).thenCompose(partitions -> {
             CompletableFuture<?>[] futures = new CompletableFuture<?>[partitions];
 
             for (int partition = 0; partition < partitions; partition++) {
@@ -179,13 +179,13 @@ public class ClientPrimaryReplicaTracker {
                 });
             }
 
-            return CompletableFuture.allOf(futures);
+            return CompletableFuture.allOf(futures).thenApply(v -> partitions);
         });
 
         // Wait for all futures, check condition again.
         // Give up (return null) if we don't have replicas with specified maxStartTime - the client will retry later.
         long maxStartTime0 = maxStartTime;
-        return partitionsFut.handle((v, err) -> {
+        return partitionsFut.handle((partitions, err) -> {
             if (err != null) {
                 var cause = ExceptionUtils.unwrapCause(err);
 
@@ -196,7 +196,13 @@ public class ClientPrimaryReplicaTracker {
                 assert false : "Unexpected error: " + err;
             }
 
-            return primaryReplicasNoWait(tableId, maxStartTime0, timestamp, true);
+            PrimaryReplicasResult res = primaryReplicasNoWait(tableId, maxStartTime0, timestamp, true);
+            if (res != null) {
+                return res;
+            }
+
+            // Return partition count to the client so that batching can be initialized.
+            return new PrimaryReplicasResult(partitions);
         });
     }
 
@@ -264,7 +270,7 @@ public class ClientPrimaryReplicaTracker {
 
     void start() {
         // This could be newer than the actual max start time, but we are on the safe side here.
-        maxStartTime.set(clock.nowLong());
+        maxStartTime.set(clockService.nowLong());
 
         placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, primaryReplicaEventListener);
         catalogService.listen(CatalogEvent.TABLE_DROP, dropTableEventListener);
@@ -371,21 +377,35 @@ public class ClientPrimaryReplicaTracker {
      * Primary replicas per partition with timestamp.
      */
     public static class PrimaryReplicasResult {
+        private final int partitions;
+
+        @Nullable
         private final List<String> nodeNames;
 
         private final long timestamp;
 
+        PrimaryReplicasResult(int partitions) {
+            this.partitions = partitions;
+            this.nodeNames = null;
+            this.timestamp = 0;
+        }
+
         PrimaryReplicasResult(List<String> nodeNames, long timestamp) {
+            this.partitions = nodeNames.size();
             this.nodeNames = nodeNames;
             this.timestamp = timestamp;
         }
 
-        public List<String> nodeNames() {
+        public @Nullable List<String> nodeNames() {
             return nodeNames;
         }
 
         public long timestamp() {
             return timestamp;
+        }
+
+        public int partitions() {
+            return partitions;
         }
     }
 
