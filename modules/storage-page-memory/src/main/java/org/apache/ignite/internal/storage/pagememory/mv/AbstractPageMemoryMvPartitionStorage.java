@@ -885,8 +885,6 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      * @param indexId Index ID which storage will be destroyed.
      * @return Future that will be completed as soon as the storage has been destroyed.
      */
-    // TODO: Index users should be able to handle the case, when an index is being concurrently destroyed, see
-    //  https://issues.apache.org/jira/browse/IGNITE-20126
     public CompletableFuture<Void> destroyIndex(int indexId) {
         return busy(() -> indexes.destroyIndex(indexId, renewableState.indexMetaTree()));
     }

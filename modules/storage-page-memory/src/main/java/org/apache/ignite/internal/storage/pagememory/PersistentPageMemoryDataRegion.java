@@ -23,8 +23,8 @@ import static org.apache.ignite.internal.util.Constants.MiB;
 import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.pagememory.DataRegion;
-import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfiguration;
-import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionView;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileView;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
@@ -51,7 +51,7 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
      */
     private static final double PAGE_LIST_CACHE_LIMIT_THRESHOLD = 0.1;
 
-    private final PersistentPageMemoryDataRegionConfiguration cfg;
+    private final PersistentPageMemoryProfileConfiguration cfg;
 
     private final PageIoRegistry ioRegistry;
 
@@ -78,7 +78,7 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
      * @param pageSize Page size in bytes.
      */
     public PersistentPageMemoryDataRegion(
-            PersistentPageMemoryDataRegionConfiguration cfg,
+            PersistentPageMemoryProfileConfiguration cfg,
             PageIoRegistry ioRegistry,
             FilePageStoreManager filePageStoreManager,
             PartitionMetaManager partitionMetaManager,
@@ -98,13 +98,13 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
      * Starts a persistent data region.
      */
     public void start() {
-        PersistentPageMemoryDataRegionView dataRegionConfigView = cfg.value();
+        PersistentPageMemoryProfileView dataRegionConfigView = (PersistentPageMemoryProfileView) cfg.value();
 
         PersistentPageMemory pageMemory = new PersistentPageMemory(
                 cfg,
                 ioRegistry,
-                calculateSegmentSizes(dataRegionConfigView, Runtime.getRuntime().availableProcessors()),
-                calculateCheckpointBufferSize(dataRegionConfigView),
+                calculateSegmentSizes(dataRegionConfigView.size(), Runtime.getRuntime().availableProcessors()),
+                calculateCheckpointBufferSize(dataRegionConfigView.size()),
                 filePageStoreManager,
                 null,
                 (pageMemory0, fullPageId, buf) -> checkpointManager.writePageToDeltaFilePageStore(pageMemory0, fullPageId, buf, true),
@@ -169,14 +169,14 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
     /**
      * Calculates the size of segments in bytes.
      *
-     * @param dataRegionConfigView Data region configuration.
+     * @param size Data region size.
      * @param concurrencyLevel Number of concurrent segments in Ignite internal page mapping tables, must be greater than 0.
      */
     // TODO: IGNITE-16350 Add more and more detailed description
-    static long[] calculateSegmentSizes(PersistentPageMemoryDataRegionView dataRegionConfigView, int concurrencyLevel) {
+    static long[] calculateSegmentSizes(long size, int concurrencyLevel) {
         assert concurrencyLevel > 0 : concurrencyLevel;
 
-        long maxSize = dataRegionConfigView.size();
+        long maxSize = size;
 
         long fragmentSize = Math.max(maxSize / concurrencyLevel, MiB);
 
@@ -190,11 +190,11 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
     /**
      * Calculates the size of the checkpoint buffer in bytes.
      *
-     * @param dataRegionConfigView Data region configuration.
+     * @param size Data region size.
      */
     // TODO: IGNITE-16350 Add more and more detailed description
-    static long calculateCheckpointBufferSize(PersistentPageMemoryDataRegionView dataRegionConfigView) {
-        long maxSize = dataRegionConfigView.size();
+    static long calculateCheckpointBufferSize(long size) {
+        long maxSize = size;
 
         if (maxSize < GiB) {
             return Math.min(GiB / 4L, maxSize);
