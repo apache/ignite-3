@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table.distributed;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
 import static org.apache.ignite.internal.table.TableTestUtils.createHashIndex;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
@@ -97,10 +98,10 @@ import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataStorageModule;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
@@ -146,8 +147,8 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
     private static final long WAIT_TIMEOUT = TimeUnit.SECONDS.toMillis(10);
 
     // Configuration
-    @InjectConfiguration
-    private PersistentPageMemoryStorageEngineConfiguration storageEngineConfig;
+    @InjectConfiguration("mock.profiles.default = {engine = \"aipersist\"}")
+    private StorageConfiguration storageConfiguration;
     @InjectConfiguration
     private GcConfiguration gcConfig;
     @InjectConfiguration
@@ -212,7 +213,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         verify(txStateTableStorage, never()).getOrCreateTxStateStorage(anyInt());
 
         // Let's check that the table was deleted.
-        verify(dsm.engine(dataStorageModule.name())).dropMvTable(eq(tableId));
+        verify(dsm.engineByStorageProfile(DEFAULT_STORAGE_PROFILE)).dropMvTable(eq(tableId));
     }
 
     @Test
@@ -314,7 +315,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 null,
                 null,
                 tm,
-                dsm = createDataStorageManager(mock(ConfigurationRegistry.class), workDir, storageEngineConfig, dataStorageModule),
+                dsm = createDataStorageManager(mock(ConfigurationRegistry.class), workDir, storageConfiguration, dataStorageModule),
                 workDir,
                 metaStorageManager,
                 sm = new SchemaManager(revisionUpdater, catalogManager),
@@ -383,10 +384,10 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
     private static DataStorageManager createDataStorageManager(
             ConfigurationRegistry mockedRegistry,
             Path storagePath,
-            PersistentPageMemoryStorageEngineConfiguration config,
+            StorageConfiguration config,
             DataStorageModule dataStorageModule
     ) {
-        when(mockedRegistry.getConfiguration(PersistentPageMemoryStorageEngineConfiguration.KEY)).thenReturn(config);
+        when(mockedRegistry.getConfiguration(StorageConfiguration.KEY)).thenReturn(config);
 
         DataStorageModules dataStorageModules = new DataStorageModules(List.of(dataStorageModule));
 
@@ -398,7 +399,8 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                         null,
                         mock(FailureProcessor.class),
                         mock(LogSyncer.class)
-                )
+                ),
+                config
         );
 
         assertThat(manager.start(), willCompleteSuccessfully());

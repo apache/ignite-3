@@ -42,6 +42,9 @@ public interface CreateTableCommandBuilder extends AbstractTableCommandBuilder<C
      */
     CreateTableCommandBuilder colocationColumns(@Nullable List<String> colocationColumns);
 
-    /** A name of the zone to create new table in. Should not be null or blank. */
+    /** A name of the zone to create new table in. Should not be blank. */
     CreateTableCommandBuilder zone(@Nullable String zoneName);
+
+    /** A name of the table's storage profile. Table's zone must contain this storage profile. */
+    CreateTableCommandBuilder storageProfile(@Nullable String storageProfile);
 }

@@ -350,7 +350,6 @@ public class ItSetOpTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21921")
     public void testUnionWithDistinct() {
         var rows = sql(
                 "SELECT distinct(name) FROM emp1 UNION SELECT name from emp2");

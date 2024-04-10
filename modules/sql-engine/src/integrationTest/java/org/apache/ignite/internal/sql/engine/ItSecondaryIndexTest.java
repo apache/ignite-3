@@ -824,7 +824,10 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
 
     @Test
     public void testNotNullCondition() {
-        assertQuery("SELECT * FROM T1 WHERE val is not null")
+        // IS NOT NULL predicate has low selectivity, thus, given the cost of the index scan,
+        // it's considered cheaper to scan the whole table instead. Let's force planner to use
+        // index of interest
+        assertQuery("SELECT /*+ FORCE_INDEX(t1_idx) */ t1.* FROM T1 WHERE val is not null")
                 .matches(containsIndexScan("PUBLIC", "T1", "T1_IDX"))
                 .matches(not(containsUnion()))
                 .returns(3, 3)

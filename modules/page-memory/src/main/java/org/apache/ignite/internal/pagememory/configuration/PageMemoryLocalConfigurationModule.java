@@ -22,7 +22,9 @@ import java.util.Collection;
 import java.util.List;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema;
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorConfigurationSchema;
+import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfigurationSchema;
 
 /**
  * {@link ConfigurationModule} for cluster-wide configuration provided by ignite-page-memory.
@@ -38,6 +40,9 @@ public class PageMemoryLocalConfigurationModule implements ConfigurationModule {
     /** {@inheritDoc} */
     @Override
     public Collection<Class<?>> polymorphicSchemaExtensions() {
-        return List.of(UnsafeMemoryAllocatorConfigurationSchema.class);
+        return List.of(
+                PersistentPageMemoryProfileConfigurationSchema.class,
+                VolatilePageMemoryProfileConfigurationSchema.class,
+                UnsafeMemoryAllocatorConfigurationSchema.class);
     }
 }
