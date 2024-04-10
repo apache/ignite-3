@@ -27,6 +27,10 @@ import com.lmax.disruptor.YieldingWaitStrategy;
 import com.lmax.disruptor.dsl.Disruptor;
 import com.lmax.disruptor.dsl.ProducerType;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadFactory;
 import java.util.function.BiConsumer;
@@ -34,6 +38,7 @@ import java.util.function.BiFunction;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.raft.jraft.entity.NodeId;
 
 /**
@@ -237,11 +242,16 @@ public class StripedDisruptor<T extends NodeIdAware> {
     private class StripeEntryHandler implements EventHandler<T> {
         private final ConcurrentHashMap<NodeId, EventHandler<T>> subscribers;
 
+        /** The cache is used to correct handling the disruptor batch. */
+        private final Map<NodeId, List<T>> eventCache;
+
         /**
          * The constructor.
          */
         StripeEntryHandler() {
             subscribers = new ConcurrentHashMap<>();
+
+            eventCache = supportsBatches ? null : new HashMap<>();
         }
 
         /**
@@ -265,13 +275,46 @@ public class StripedDisruptor<T extends NodeIdAware> {
 
         /** {@inheritDoc} */
         @Override public void onEvent(T event, long sequence, boolean endOfBatch) throws Exception {
-            EventHandler<T> handler = subscribers.get(event.nodeId());
+            if (supportsBatches || subscribers.size() <= 1) {
+                EventHandler<T> handler = subscribers.get(event.nodeId());
 
-            // TODO: IGNITE-20536 Need to add assert that handler is not null and to implement a no-op handler.
-            if (handler != null) {
-                handler.onEvent(event, sequence, endOfBatch || subscribers.size() > 1 && !supportsBatches);
+                // TODO: IGNITE-20536 Need to add assert that handler is not null and to implement a no-op handler.
+                if (handler != null) {
+                    handler.onEvent(event, sequence, endOfBatch);
+                } else {
+                    LOG.warn(format("Group of the event is unsupported [nodeId={}, event={}, endOfBatch={}]",
+                            event.nodeId(), event, endOfBatch));
+                }
             } else {
-                LOG.warn(format("Group of the event is unsupported [nodeId={}, event={}]", event.nodeId(), event));
+                eventCache.compute(event.nodeId(), (nodeId, ts) -> {
+                    if (ts == null) {
+                        ts = new ArrayList<>();
+                    }
+
+                    ts.add(event);
+
+                    return ts;
+                });
+
+                if (endOfBatch) {
+                    for (Map.Entry<NodeId, List<T>> grpEvents : eventCache.entrySet()) {
+                        if (!CollectionUtils.nullOrEmpty(grpEvents.getValue())) {
+                            EventHandler<T> grpHandler = subscribers.get(grpEvents.getKey());
+
+                            if (grpHandler != null) {
+                                Iterator<T> iter = grpEvents.getValue().iterator();
+
+                                while (iter.hasNext()) {
+                                    T grpEvent = iter.next();
+
+                                    grpHandler.onEvent(grpEvent, sequence, !iter.hasNext());
+                                }
+                            }
+                        }
+                    }
+
+                    eventCache.clear();
+                }
             }
         }
     }
