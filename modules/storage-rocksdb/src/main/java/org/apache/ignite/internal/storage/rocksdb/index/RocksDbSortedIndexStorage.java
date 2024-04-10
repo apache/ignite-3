@@ -192,15 +192,13 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
             byte[] lowerBoundBytes = getBound(lowerBound, partitionStartPrefix, !includeLower);
             byte[] upperBoundBytes = getBound(upperBound, partitionEndPrefix, includeUpper);
 
-            Slice lowerBoundSlice = new Slice(lowerBoundBytes);
             Slice upperBoundSlice = new Slice(upperBoundBytes);
 
             ReadOptions readOptions = new ReadOptions()
-                    .setIterateLowerBound(lowerBoundSlice)
                     .setIterateUpperBound(upperBoundSlice);
 
             RocksIterator iterator = indexCf.newIterator(readOptions);
-            iterator.seekToFirst();
+            iterator.seek(lowerBoundBytes);
 
             return new Cursor<IndexRow>() {
                 private final RocksIterator it = iterator;
@@ -212,7 +210,7 @@ public class RocksDbSortedIndexStorage extends AbstractRocksDbIndexStorage imple
                 @Override
                 public void close() {
                     try {
-                        closeAll(it, readOptions, lowerBoundSlice, upperBoundSlice);
+                        closeAll(it, readOptions, upperBoundSlice);
                     } catch (Exception e) {
                         throw new StorageException("Error closing RocksDB RO cursor", e);
                     }
