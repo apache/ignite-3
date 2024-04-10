@@ -142,7 +142,7 @@ pmdMain {
 task generateApiClient(type: GenerateTask) {
     generatorName="java"
     inputs.dir layout.buildDirectory.dir("customOpenapiDefinition")
-    inputSpec=layout.buildDirectory.file("customOpenapiDefinition/openapi.yaml").toString()
+    inputSpec=layout.buildDirectory.file("customOpenapiDefinition/openapi.yaml").get().asFile.path
     apiPackage="org.apache.ignite.rest.client.api"
     invokerPackage="org.apache.ignite.rest.client.invoker"
     modelPackage="org.apache.ignite.rest.client.model"
