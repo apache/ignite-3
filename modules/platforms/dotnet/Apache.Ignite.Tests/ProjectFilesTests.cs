@@ -87,6 +87,29 @@ namespace Apache.Ignite.Tests
         }
 
         [Test]
+        public void TestNoConsoleOutputInCoreProject()
+        {
+            foreach (var file in GetCsFiles())
+            {
+                if (file.Contains(".Tests", StringComparison.Ordinal) ||
+                    file.Contains(".Benchmarks", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                foreach (var line in File.ReadAllLines(file))
+                {
+                    if (line.Trim().StartsWith("//", StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+
+                    StringAssert.DoesNotContain("Console.Write", line, $"Console output in '{file}'");
+                }
+            }
+        }
+
+        [Test]
         public void TestTodosHaveTickets()
         {
             var exceptions = new List<Exception>();

@@ -42,9 +42,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
@@ -115,6 +117,12 @@ public abstract class AbstractTxStateStorageTest extends BaseIgniteAbstractTest 
                 assertEquals(txMetaExpected, txMeta);
             }
         }
+    }
+
+    private List<TablePartitionId> generateEnlistedPartitions(int c) {
+        return IntStream.range(0, c)
+                .mapToObj(partitionNumber -> new TablePartitionId(TABLE_ID, partitionNumber))
+                .collect(toList());
     }
 
     private HybridTimestamp generateTimestamp(UUID uuid) {
