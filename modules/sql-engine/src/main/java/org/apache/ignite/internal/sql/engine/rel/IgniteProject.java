@@ -229,7 +229,15 @@ public class IgniteProject extends Project implements TraitsAwareIgniteRel {
     public RelOptCost computeSelfCost(RelOptPlanner planner, RelMetadataQuery mq) {
         double rowCount = mq.getRowCount(getInput());
 
-        return planner.getCostFactory().makeCost(rowCount, rowCount * IgniteCost.ROW_PASS_THROUGH_COST, 0);
+        RelOptCost cost = planner.getCostFactory().makeCost(rowCount, rowCount * IgniteCost.ROW_PASS_THROUGH_COST, 0);
+
+        if (distribution() == single()) {
+            // make single distributed projection slightly more expensive to help
+            // planner prefer distributed option, if exists
+            cost = cost.plus(planner.getCostFactory().makeTinyCost());
+        }
+
+        return cost;
     }
 
     /** {@inheritDoc} */
