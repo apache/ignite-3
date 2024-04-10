@@ -405,7 +405,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
     }
 
     private static List<TablePartitionId> fromPartitionIdMessage(List<TablePartitionIdMessage> partitionIds) {
-        List<TablePartitionId> list = new ArrayList<>();
+        List<TablePartitionId> list = new ArrayList<>(partitionIds.size());
 
         for (TablePartitionIdMessage partitionIdMessage : partitionIds) {
             list.add(partitionIdMessage.asTablePartitionId());

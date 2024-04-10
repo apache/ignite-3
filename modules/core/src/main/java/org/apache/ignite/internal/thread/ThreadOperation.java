@@ -25,8 +25,8 @@ public enum ThreadOperation {
     STORAGE_READ,
     /** Storage write. */
     STORAGE_WRITE,
-    /** Read TX State storage. */
-    TX_METASTORAGE_READ,
+    /** Access TX State storage. */
+    TX_STATE_STORAGE,
     /** Make a blocking wait (involving taking a lock or waiting on a conditional variable or waiting for time to pass. */
     WAIT;
 

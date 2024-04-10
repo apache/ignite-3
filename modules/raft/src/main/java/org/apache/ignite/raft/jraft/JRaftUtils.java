@@ -16,7 +16,7 @@
  */
 package org.apache.ignite.raft.jraft;
 
-import static org.apache.ignite.internal.thread.ThreadOperation.TX_METASTORAGE_READ;
+import static org.apache.ignite.internal.thread.ThreadOperation.TX_STATE_STORAGE;
 
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
@@ -110,7 +110,7 @@ public final class JRaftUtils {
         return createExecutor(
             NamedThreadFactory.threadPrefix(opts.getServerName(), poolName),
             opts.getCommonThreadPollSize(),
-            IgniteThreadFactory.create(opts.getServerName(), poolName, true, LOG, TX_METASTORAGE_READ)
+            IgniteThreadFactory.create(opts.getServerName(), poolName, true, LOG, TX_STATE_STORAGE)
         );
     }
 
@@ -128,7 +128,7 @@ public final class JRaftUtils {
                 new DefaultFixedThreadsExecutorGroupFactory() {
                     @Override
                     protected ThreadFactory newDaemonThreadFactory(String fullPoolName) {
-                        return IgniteThreadFactory.create(opts.getServerName(), poolName, true, LOG, TX_METASTORAGE_READ);
+                        return IgniteThreadFactory.create(opts.getServerName(), poolName, true, LOG, TX_STATE_STORAGE);
                     }
                 }
         );

@@ -396,6 +396,9 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private void runPersistentStorageScan() {
+        int committedCount = 0;
+        int abortedCount = 0;
+
         try (Cursor<IgniteBiTuple<UUID, TxMeta>> txs = txStateStorage.scan()) {
             for (IgniteBiTuple<UUID, TxMeta> tx : txs) {
                 UUID txId = tx.getKey();
@@ -403,18 +406,30 @@ public class PartitionReplicaListener implements ReplicaListener {
 
                 assert !txMeta.enlistedPartitions().isEmpty();
 
-                if (isFinalState(txMeta.txState())) {
-                    txManager.cleanup(
-                            txMeta.enlistedPartitions(),
-                            txMeta.txState() == COMMITTED,
-                            txMeta.commitTimestamp(),
-                            txId
-                    );
+                assert isFinalState(txMeta.txState()) : "Unexpected state [txId=" + txId + ", state=" + txMeta.txState() + "].";
+
+                if (txMeta.txState() == COMMITTED) {
+                    committedCount++;
+                } else {
+                    abortedCount++;
                 }
+
+                txManager.cleanup(
+                        txMeta.enlistedPartitions(),
+                        txMeta.txState() == COMMITTED,
+                        txMeta.commitTimestamp(),
+                        txId
+                ).exceptionally(throwable -> {
+                    LOG.warn("Failed to cleanup transaction [txId={}].", throwable, txId);
+
+                    return null;
+                });
             }
         } catch (IgniteInternalException e) {
-            LOG.warn("Failed to scan transaction state storage [commitPartition={}]", e, replicationGroupId);
+            LOG.warn("Failed to scan transaction state storage [commitPartition={}].", e, replicationGroupId);
         }
+
+        LOG.debug("Persistent storage scan finished [committed={}, aborted={}].", committedCount, abortedCount);
     }
 
     @Override
@@ -1729,7 +1744,7 @@ public class PartitionReplicaListener implements ReplicaListener {
     }
 
     private static List<TablePartitionIdMessage> toPartitionIdMessage(Collection<TablePartitionId> partitionIds) {
-        List<TablePartitionIdMessage> list = new ArrayList<>();
+        List<TablePartitionIdMessage> list = new ArrayList<>(partitionIds.size());
 
         for (TablePartitionId partitionId : partitionIds) {
             list.add(tablePartitionId(partitionId));
