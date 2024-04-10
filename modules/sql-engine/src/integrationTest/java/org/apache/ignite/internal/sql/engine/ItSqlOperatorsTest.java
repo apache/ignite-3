@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
-
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -28,7 +26,6 @@ import java.util.Map;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
-import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -337,19 +334,15 @@ public class ItSqlOperatorsTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    @SuppressWarnings("ThrowableNotThrown")
-    public void testJsonUnsupportedFunctions() {
-        assertThrowsSqlException(
-                Sql.STMT_VALIDATION_ERR,
-                "Illegal aggregate function",
-                () -> sql("SELECT JSON_OBJECTAGG(val: val) FROM t")
-        );
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22023")
+    public void testJsonAggregateFunctions() {
+        assertQuery("SELECT JSON_OBJECTAGG(id: val) FROM t")
+                .returns("{\"1\":1}")
+                .check();
 
-        assertThrowsSqlException(
-                Sql.STMT_VALIDATION_ERR,
-                "Illegal aggregate function",
-                () -> sql("select JSON_ARRAYAGG(val) FROM t")
-        );
+        assertQuery("SELECT JSON_ARRAYAGG(val) FROM t")
+                .returns("[1]")
+                .check();
     }
 
     @Test

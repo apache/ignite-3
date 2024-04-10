@@ -45,8 +45,8 @@ select json_array(name, age) from t
 ["Alex",32]
 ["Maria",27]
 
-# Note nested object construction fails with NullPointerException
 skipif ignite3
+# IGNITE-22022 Json object with nested object creation fails
 query T
 select json_object('name': 'Alex', 'address': json_object('city': 'City 17', 'street': 'xxx'))
 ----
