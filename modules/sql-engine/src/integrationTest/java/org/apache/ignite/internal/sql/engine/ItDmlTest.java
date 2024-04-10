@@ -575,7 +575,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
 
         var expectedMessage = "Failed to validate query. From line 1, column 28 to line 1, column 45: Column 'KEY' does not allow NULLs";
 
-        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, expectedMessage, () -> sql("INSERT INTO tbl (key, val) VALUES (NULL,'AA')"));
+        assertThrowsSqlException(Sql.CONSTRAINT_VIOLATION_ERR, expectedMessage, () -> sql("INSERT INTO tbl (key, val) VALUES (NULL,'AA')"));
     }
 
     private void checkQueryResult(String sql, List<Object> expectedVals) {
@@ -838,5 +838,67 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
 
             return false;
         }
+    }
+
+    @Test
+    public void testNotNullConstraints() {
+        sql("CREATE TABLE t1 (id INTEGER PRIMARY KEY, int_col INTEGER NOT NULL)");
+
+        // INSERT
+
+        // KV case
+        assertThrowsSqlException(
+                Sql.CONSTRAINT_VIOLATION_ERR,
+                "Column 'INT_COL' does not allow NULLs",
+                () -> sql("INSERT INTO t1 VALUES(1, NULL)"));
+
+        // General case
+
+        assertThrowsSqlException(
+                Sql.CONSTRAINT_VIOLATION_ERR,
+                "Column 'INT_COL' does not allow NULLs",
+                () -> sql("INSERT INTO t1 VALUES(1, (SELECT NULL))"));
+
+        assertThrowsSqlException(
+                Sql.CONSTRAINT_VIOLATION_ERR,
+                "Column 'INT_COL' does not allow NULLs",
+                () -> sql("INSERT INTO t1 SELECT 1, NULL"));
+
+        // UPDATE
+
+        sql("INSERT INTO t1 VALUES(1, 42)");
+
+        // KV case
+        assertThrowsSqlException(
+                Sql.CONSTRAINT_VIOLATION_ERR,
+                "Column 'INT_COL' does not allow NULLs",
+                () -> sql("UPDATE t1 SET int_col = null WHERE id = 1"));
+
+        // General case
+
+        assertThrowsSqlException(
+                Sql.CONSTRAINT_VIOLATION_ERR,
+                "Column 'INT_COL' does not allow NULLs",
+                () -> sql("UPDATE t1 SET int_col = null"));
+
+        // MERGE
+
+        sql("CREATE TABLE t2 (id INTEGER PRIMARY KEY, int_col INTEGER NOT NULL)");
+
+        sql("INSERT INTO t2 VALUES (1, 42)");
+
+        assertThrowsSqlException(
+                Sql.CONSTRAINT_VIOLATION_ERR,
+                "Column 'INT_COL' does not allow NULLs",
+                () -> sql("MERGE INTO t2 dst USING t1 src ON dst.id = src.id WHEN MATCHED THEN UPDATE SET int_col = NULL"));
+
+        sql("INSERT INTO t1 VALUES (2, 71)");
+
+        assertThrowsSqlException(
+                Sql.CONSTRAINT_VIOLATION_ERR,
+                "Column 'INT_COL' does not allow NULLs",
+                () -> sql("MERGE INTO t2 dst USING t1 src ON dst.id = src.id "
+                        + "WHEN NOT MATCHED THEN INSERT (id, int_col) VALUES (src.id, NULL)"));
+
     }
 }
