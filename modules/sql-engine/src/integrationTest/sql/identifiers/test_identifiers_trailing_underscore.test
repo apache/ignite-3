@@ -1,4 +1,4 @@
-# name: test/sql/etc/test_identifiers.test
+# name: sql/identifiers/test_identifiers_trailing_underscore.test
 # description: SQL feature E031-03 (Trailing underscore)
 # group: [identifiers]
 
