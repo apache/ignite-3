@@ -109,7 +109,7 @@ public class RocksDbHashIndexStorage extends AbstractRocksDbIndexStorage impleme
 
             byte[] rangeEnd = incrementPrefix(rangeStart);
 
-            return new UpToDatePeekCursor<RowId>(rangeEnd, indexCf, rangeStart) {
+            return new RocksDbPeekCursor<RowId>(rangeEnd, indexCf, rangeStart, true) {
                 @Override
                 protected RowId map(ByteBuffer byteBuffer) {
                     // RowId UUID is located at the last 16 bytes of the key
