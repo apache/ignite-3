@@ -23,7 +23,6 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
 import org.apache.ignite.internal.storage.index.impl.TestSortedIndexStorage;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -39,6 +38,6 @@ public class TestSortedIndexStorageTest extends AbstractSortedIndexStorageTest {
     }
 
     @Override
-    @Disabled("Not valid for test storage.")
+    // Not valid for test storage.
     void testReadOnlyScanContractUpdateAfterScan() {}
 }
