@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tx.storage.state.rocksdb;
 
 import static java.nio.ByteOrder.BIG_ENDIAN;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.tracing.TracingManager.span;
 import static org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbTableStorage.TABLE_PREFIX_SIZE_BYTES;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
@@ -30,6 +31,7 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_R
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_STOPPED_ERR;
 
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -40,7 +42,6 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.tracing.TraceSpan;
@@ -81,6 +82,8 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     /** Database key for the last applied index+term. */
     private final byte[] lastAppliedIndexAndTermKey;
 
+    private final byte[] leaseKey;
+
     /** Shared TX state storage. */
     private final TxStateRocksDbSharedStorage sharedStorage;
 
@@ -92,6 +95,8 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
     /** On-heap-cached last applied term value. */
     private volatile long lastAppliedTerm;
+
+    private volatile long leaseStartTime;
 
     /** Current state of the storage. */
     private final AtomicReference<StorageState> state = new AtomicReference<>(StorageState.RUNNABLE);
@@ -114,6 +119,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
                 .putInt(tableId)
                 .putShort((short) partitionId)
                 .array();
+        this.leaseKey = ("lease_" + tableId + '_' + partitionId).getBytes(StandardCharsets.UTF_8);
     }
 
     /**
@@ -128,6 +134,12 @@ public class TxStateRocksDbStorage implements TxStateStorage {
             if (indexAndTermBytes != null) {
                 lastAppliedIndex = bytesToLong(indexAndTermBytes);
                 lastAppliedTerm = bytesToLong(indexAndTermBytes, Long.BYTES);
+            }
+
+            byte[] leaseBytes = readLease(sharedStorage.readOptions);
+
+            if (leaseBytes != null) {
+                leaseStartTime = bytesToLong(leaseBytes);
             }
 
             return null;
@@ -146,7 +158,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
             } catch (RocksDBException e) {
                 throw new IgniteInternalException(
                         TX_STATE_STORAGE_ERR,
-                        IgniteStringFormatter.format("Failed to get a value from storage: [{}]", createStorageInfo()),
+                        format("Failed to get a value from storage: [{}]", createStorageInfo()),
                         e
                 );
             }
@@ -163,7 +175,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
             } catch (RocksDBException e) {
                 throw new IgniteInternalException(
                         TX_STATE_STORAGE_ERR,
-                        IgniteStringFormatter.format("Failed to put a value into storage: [{}]", createStorageInfo()),
+                        format("Failed to put a value into storage: [{}]", createStorageInfo()),
                         e
                 );
             }
@@ -220,7 +232,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
             } catch (RocksDBException e) {
                 throw new IgniteInternalException(
                         TX_STATE_STORAGE_ERR,
-                        IgniteStringFormatter.format("Failed perform CAS operation over a value in storage: [{}]", createStorageInfo()),
+                        format("Failed perform CAS operation over a value in storage: [{}]", createStorageInfo()),
                         e
                 );
             }
@@ -241,7 +253,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
             } catch (RocksDBException e) {
                 throw new IgniteInternalException(
                         TX_STATE_STORAGE_ERR,
-                        IgniteStringFormatter.format("Failed to remove a value from storage: [{}]", createStorageInfo()),
+                        format("Failed to remove a value from storage: [{}]", createStorageInfo()),
                         e
                 );
             }
@@ -350,7 +362,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
             } catch (RocksDBException e) {
                 throw new IgniteInternalException(
                         TX_STATE_STORAGE_ERR,
-                        IgniteStringFormatter.format("Failed to write applied index value to storage: [{}]", createStorageInfo()),
+                        format("Failed to write applied index value to storage: [{}]", createStorageInfo()),
                         e
                 );
             }
@@ -388,7 +400,19 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         } catch (RocksDBException e) {
             throw new IgniteInternalException(
                     TX_STATE_STORAGE_ERR,
-                    IgniteStringFormatter.format("Failed to read applied term value from storage: [{}]", createStorageInfo()),
+                    format("Failed to read applied term value from storage: [{}]", createStorageInfo()),
+                    e
+            );
+        }
+    }
+
+    private byte @Nullable [] readLease(ReadOptions readOptions) {
+        try {
+            return sharedStorage.db().get(readOptions, leaseKey);
+        } catch (RocksDBException e) {
+            throw new IgniteInternalException(
+                    TX_STATE_STORAGE_ERR,
+                    format("Failed to read a lease from a storage: [{}]", createStorageInfo()),
                     e
             );
         }
@@ -404,16 +428,13 @@ public class TxStateRocksDbStorage implements TxStateStorage {
             clearStorageData(writeBatch);
 
             writeBatch.delete(lastAppliedIndexAndTermKey);
+            writeBatch.delete(leaseKey);
 
             try (TraceSpan ignored = span("destroy")) {
                 sharedStorage.db().write(sharedStorage.writeOptions, writeBatch);
             }
         } catch (Exception e) {
-            throw new IgniteInternalException(
-                    TX_STATE_STORAGE_ERR,
-                    IgniteStringFormatter.format("Failed to destroy storage: [{}]", createStorageInfo()),
-                    e
-            );
+            throw new IgniteInternalException(TX_STATE_STORAGE_ERR, format("Failed to destroy storage: [{}]", createStorageInfo()), e);
         }
     }
 
@@ -473,7 +494,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         } catch (Exception e) {
             throw new IgniteInternalException(
                     TX_STATE_STORAGE_REBALANCE_ERR,
-                    IgniteStringFormatter.format("Failed to start rebalance: [{}]", createStorageInfo()),
+                    format("Failed to start rebalance: [{}]", createStorageInfo()),
                     e
             );
         } finally {
@@ -491,6 +512,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
             clearStorageData(writeBatch);
 
             writeBatch.delete(lastAppliedIndexAndTermKey);
+            writeBatch.delete(leaseKey);
 
             try (TraceSpan ignored = span("abortRebalance")) {
                 sharedStorage.db().write(sharedStorage.writeOptions, writeBatch);
@@ -499,11 +521,13 @@ public class TxStateRocksDbStorage implements TxStateStorage {
             lastAppliedIndex = 0;
             lastAppliedTerm = 0;
 
+            leaseStartTime = Long.MIN_VALUE;
+
             state.set(StorageState.RUNNABLE);
         } catch (Exception e) {
             throw new IgniteInternalException(
                     TX_STATE_STORAGE_REBALANCE_ERR,
-                    IgniteStringFormatter.format("Failed to abort rebalance: [{}]", createStorageInfo()),
+                    format("Failed to abort rebalance: [{}]", createStorageInfo()),
                     e
             );
         }
@@ -516,7 +540,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         if (state.get() != StorageState.REBALANCE) {
             throw new IgniteInternalException(
                     TX_STATE_STORAGE_REBALANCE_ERR,
-                    IgniteStringFormatter.format("Rebalancing has not started: [{}]", createStorageInfo())
+                    format("Rebalancing has not started: [{}]", createStorageInfo())
             );
         }
 
@@ -531,7 +555,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         } catch (Exception e) {
             throw new IgniteInternalException(
                     TX_STATE_STORAGE_REBALANCE_ERR,
-                    IgniteStringFormatter.format("Failed to finish rebalance: [{}]", createStorageInfo()),
+                    format("Failed to finish rebalance: [{}]", createStorageInfo()),
                     e
             );
         }
@@ -561,7 +585,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         } catch (RocksDBException e) {
             throw new IgniteInternalException(
                     TX_STATE_STORAGE_ERR,
-                    IgniteStringFormatter.format("Failed to cleanup storage: [{}]", createStorageInfo()),
+                    format("Failed to cleanup storage: [{}]", createStorageInfo()),
                     e
             );
         } finally {
@@ -569,6 +593,47 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
             busyLock.unblock();
         }
+    }
+
+    @Override
+    public void updateLease(long leaseStartTime, long commandIndex, long commandTerm) {
+        busy(() -> {
+            if (leaseStartTime <= this.leaseStartTime) {
+                return null;
+            }
+
+            try (WriteBatch writeBatch = new WriteBatch()) {
+                byte[] leaseBytes = new byte[Long.BYTES];
+
+                putLongToBytes(leaseStartTime, leaseBytes, 0);
+
+                writeBatch.put(leaseKey, leaseBytes);
+
+                this.leaseStartTime = leaseStartTime;
+
+                // If the store is in the process of rebalancing, then there is no need to update lastAppliedIndex and lastAppliedTerm.
+                // This is necessary to prevent a situation where, in the middle of the rebalance, the node will be restarted and we will
+                // have non-consistent storage. They will be updated by either #abortRebalance() or #finishRebalance(long, long).
+                if (state.get() != StorageState.REBALANCE) {
+                    updateLastApplied(writeBatch, commandIndex, commandTerm);
+                }
+
+                sharedStorage.db().write(sharedStorage.writeOptions, writeBatch);
+            } catch (RocksDBException e) {
+                throw new IgniteInternalException(
+                        TX_STATE_STORAGE_ERR,
+                        format("Failed update lease in a storage: [{}]", createStorageInfo()),
+                        e
+                );
+            }
+
+            return null;
+        });
+    }
+
+    @Override
+    public long leaseStartTime() {
+        return leaseStartTime;
     }
 
     private void clearStorageData(WriteBatch writeBatch) throws RocksDBException {
@@ -614,7 +679,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     private IgniteInternalException createStorageInProgressOfRebalanceException() {
         return new IgniteInternalException(
                 TX_STATE_STORAGE_REBALANCE_ERR,
-                IgniteStringFormatter.format("Storage is in the process of rebalance: [{}]", createStorageInfo())
+                format("Storage is in the process of rebalance: [{}]", createStorageInfo())
         );
     }
 
@@ -625,19 +690,19 @@ public class TxStateRocksDbStorage implements TxStateStorage {
             case CLOSED:
                 throw new IgniteInternalException(
                         TX_STATE_STORAGE_STOPPED_ERR,
-                        IgniteStringFormatter.format("Transaction state storage is stopped: [{}]", createStorageInfo())
+                        format("Transaction state storage is stopped: [{}]", createStorageInfo())
                 );
             case REBALANCE:
                 throw createStorageInProgressOfRebalanceException();
             case CLEANUP:
                 throw new IgniteInternalException(
                         TX_STATE_STORAGE_ERR,
-                        IgniteStringFormatter.format("Storage is in the process of cleanup: [{}]", createStorageInfo())
+                        format("Storage is in the process of cleanup: [{}]", createStorageInfo())
                 );
             default:
                 throw new IgniteInternalException(
                         TX_STATE_STORAGE_ERR,
-                        IgniteStringFormatter.format("Unexpected state: [{}, state={}]", createStorageInfo(), state)
+                        format("Unexpected state: [{}, state={}]", createStorageInfo(), state)
                 );
         }
     }

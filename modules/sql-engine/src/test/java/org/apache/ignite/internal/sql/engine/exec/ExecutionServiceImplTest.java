@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
@@ -24,6 +25,7 @@ import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFI
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_LEFT_ERR;
@@ -43,6 +45,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.isA;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
@@ -63,7 +66,6 @@ import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.calcite.jdbc.CalciteSchema;
@@ -71,6 +73,12 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.handlers.StopNodeFailureHandler;
+import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.metrics.MetricManager;
@@ -81,6 +89,7 @@ import org.apache.ignite.internal.sql.engine.NodeLeftException;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.QueryPrefetchCallback;
+import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionServiceImplTest.TestCluster.TestNode;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ExecutionTarget;
@@ -95,7 +104,6 @@ import org.apache.ignite.internal.sql.engine.exec.rel.ScanNode;
 import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
-import org.apache.ignite.internal.sql.engine.framework.TestTable;
 import org.apache.ignite.internal.sql.engine.message.ExecutionContextAwareMessage;
 import org.apache.ignite.internal.sql.engine.message.MessageListener;
 import org.apache.ignite.internal.sql.engine.message.MessageService;
@@ -105,35 +113,28 @@ import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
+import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPrunerImpl;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
-import org.apache.ignite.internal.sql.engine.schema.CatalogColumnDescriptor;
-import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
-import org.apache.ignite.internal.sql.engine.schema.DefaultValueStrategy;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
-import org.apache.ignite.internal.sql.engine.schema.TableDescriptorImpl;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserService;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.BaseQueryContext;
 import org.apache.ignite.internal.sql.engine.util.EmptyCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
-import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -164,7 +165,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
             nodeNames.get(2), List.of(new Object[]{2, 2}, new Object[]{5, 5}, new Object[]{8, 8})
     );
 
-    private final TestTable table = TestBuilders.table()
+    private final IgniteTable table = TestBuilders.table()
             .name("TEST_TBL")
             .addColumn("ID", NativeTypes.INT32)
             .addColumn("VAL", NativeTypes.INT32)
@@ -192,7 +193,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         executionServices = nodeNames.stream().map(this::create).collect(Collectors.toList());
         prepareService = new PrepareServiceImpl("test", 0, CaffeineCacheFactory.INSTANCE, null, PLANNING_TIMEOUT, PLANNING_THREAD_COUNT,
                 new MetricManager());
-        parserService = new ParserServiceImpl(0, EmptyCacheFactory.INSTANCE);
+        parserService = new ParserServiceImpl();
 
         prepareService.start();
     }
@@ -464,6 +465,26 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         assertTrue(batchFut.toCompletableFuture().isCompletedExceptionally());
     }
 
+
+    /**
+     * Emulate exception during initialization of context. Cursor shouldn't hung.
+     */
+    @Test
+    public void testErrorOnContextInitialization() {
+        ExecutionService execService = executionServices.get(0);
+        BaseQueryContext ctx = spy(createContext());
+        when(ctx.timeZoneId())
+                .thenCallRealMethod()
+                .thenThrow(new ExceptionInInitializerError());
+
+        QueryPlan plan = prepare("SELECT 1", ctx);
+
+        InternalTransaction tx = new NoOpTransaction(nodeNames.get(0));
+        AsyncCursor<InternalSqlRow> cursor = execService.executePlan(tx, plan, ctx);
+
+        assertThrows(ExceptionInInitializerError.class, () -> await(cursor.requestNextAsync(1), 2, TimeUnit.SECONDS));
+    }
+
     /**
      * Read all data from the cursor. Requested amount is less than size of the result set.
      */
@@ -651,17 +672,6 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         AtomicReference<AssertionError> errHolder = new AtomicReference<>();
         ExecutionService execService = executionServices.get(0);
 
-        Function<QueryPrefetchCallback, BaseQueryContext> createCtx = (callback) -> BaseQueryContext.builder()
-                .queryId(UUID.randomUUID())
-                .cancel(new QueryCancel())
-                .prefetchCallback(callback)
-                .frameworkConfig(
-                        Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
-                                .defaultSchema(wrap(schema))
-                                .build()
-                )
-                .build();
-
         QueryPrefetchCallback prefetchListener = new QueryPrefetchCallback() {
             @Override
             public void onPrefetchComplete(@Nullable Throwable err) {
@@ -672,7 +682,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
                     assertThat(sql, notNullValue());
 
-                    BaseQueryContext ctx = createCtx.apply(queriesQueue.isEmpty() ? null : this);
+                    BaseQueryContext ctx = createContext(queriesQueue.isEmpty() ? null : this);
                     InternalTransaction tx = new NoOpTransaction(nodeNames.get(0));
                     QueryPlan plan = prepare(sql, ctx);
 
@@ -698,7 +708,11 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         assertEquals(queries.size(), resultCursors.size());
 
-        resultCursors.forEach(AsyncCursor::closeAsync);
+        CompletableFuture<?>[] closeFutures = resultCursors.stream()
+                .map(AsyncCursor::closeAsync)
+                .toArray(CompletableFuture[]::new);
+
+        assertThat(allOf(closeFutures), willCompleteSuccessfully());
     }
 
     /**
@@ -709,17 +723,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         ExecutionService execService = executionServices.get(0);
         CompletableFuture<Void> prefetchFut = new CompletableFuture<>();
         IgniteInternalException expectedException = new IgniteInternalException(Common.INTERNAL_ERR, "Expected exception");
-
-        BaseQueryContext ctx = BaseQueryContext.builder()
-                .queryId(UUID.randomUUID())
-                .cancel(new QueryCancel())
-                .prefetchCallback(prefetchFut::completeExceptionally)
-                .frameworkConfig(
-                        Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
-                                .defaultSchema(wrap(schema))
-                                .build()
-                )
-                .build();
+        BaseQueryContext ctx = createContext(prefetchFut::completeExceptionally);
 
         testCluster.node(nodeNames.get(2)).interceptor((nodeName, msg, original) -> {
             if (msg instanceof QueryStartRequest) {
@@ -741,7 +745,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         assertThat(prefetchFut, willThrow(equalTo(expectedException)));
 
-        cursor.closeAsync();
+        assertThat(cursor.closeAsync(), willCompleteSuccessfully());
     }
 
     /**
@@ -832,7 +836,8 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
             throw new IllegalArgumentException(format("Node id should be one of {}, but was '{}'", nodeNames, nodeName));
         }
 
-        var taskExecutor = new QueryTaskExecutorImpl(nodeName, 4);
+        var failureProcessor = new FailureProcessor(nodeName, new StopNodeFailureHandler());
+        var taskExecutor = new QueryTaskExecutorImpl(nodeName, 4, failureProcessor);
         executers.add(taskExecutor);
 
         var node = testCluster.addNode(nodeName, taskExecutor);
@@ -843,7 +848,10 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         var mailboxRegistry = new CapturingMailboxRegistry(new MailboxRegistryImpl());
         mailboxes.add(mailboxRegistry);
 
-        var exchangeService = new ExchangeServiceImpl(mailboxRegistry, messageService);
+        HybridClock clock = new HybridClockImpl();
+        ClockService clockService = new TestClockService(clock);
+
+        var exchangeService = new ExchangeServiceImpl(mailboxRegistry, messageService, clockService);
 
         var schemaManagerMock = mock(SqlSchemaManager.class);
 
@@ -885,7 +893,8 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
             }
         };
 
-        var mappingService = new MappingServiceImpl(nodeName, targetProvider, EmptyCacheFactory.INSTANCE, 0, taskExecutor);
+        var partitionPruner = new PartitionPrunerImpl();
+        var mappingService = new MappingServiceImpl(nodeName, targetProvider, EmptyCacheFactory.INSTANCE, 0, partitionPruner, taskExecutor);
 
         List<LogicalNode> logicalNodes = nodeNames.stream()
                 .map(name -> new LogicalNode(name, name, NetworkAddress.from("127.0.0.1:10000")))
@@ -904,6 +913,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 executableTableRegistry,
                 dependencyResolver,
                 (ctx, deps) -> node.implementor(ctx, mailboxRegistry, exchangeService, deps),
+                clockService,
                 SHUTDOWN_TIMEOUT
         );
 
@@ -915,14 +925,20 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     private BaseQueryContext createContext() {
+        return createContext(null);
+    }
+
+    private BaseQueryContext createContext(@Nullable QueryPrefetchCallback prefetchCallback) {
         return BaseQueryContext.builder()
                 .queryId(UUID.randomUUID())
                 .cancel(new QueryCancel())
+                .prefetchCallback(prefetchCallback)
                 .frameworkConfig(
                         Frameworks.newConfigBuilder(FRAMEWORK_CONFIG)
                                 .defaultSchema(wrap(schema))
                                 .build()
                 )
+                .timeZoneId(SqlQueryProcessor.DEFAULT_TIME_ZONE_ID)
                 .build();
     }
 
@@ -1127,39 +1143,6 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         interface MessageInterceptor {
             CompletableFuture<Void> intercept(String senderNodeName, NetworkMessage msg, MessageListener original);
         }
-    }
-
-    /**
-     * Creates test table with given params.
-     *
-     * @param name   Name of the table.
-     * @param size   Required size of the table.
-     * @param distr  Distribution of the table.
-     * @param fields List of the required fields. Every odd item should be a string representing a column name, every even item should be a
-     *               class representing column's type. E.g. {@code createTable("MY_TABLE", 500, distribution, "ID", Integer.class, "VAL",
-     *               String.class)}.
-     * @return Instance of the {@link TestTable}.
-     */
-    private static TestTable createTable(String name, int size, IgniteDistribution distr, Object... fields) {
-        if (ArrayUtils.nullOrEmpty(fields) || fields.length % 2 != 0) {
-            throw new IllegalArgumentException("'fields' should be non-null array with even number of elements");
-        }
-
-        List<ColumnDescriptor> columns = new ArrayList<>();
-
-        for (int i = 0; i < fields.length; i += 2) {
-            NativeType nativeType = (NativeType) fields[i + 1];
-            ColumnType columnType = nativeType.spec().asColumnType();
-
-            columns.add(
-                    new CatalogColumnDescriptor(
-                            (String) fields[i], false, true, i,
-                            columnType, 0, 0, 0, DefaultValueStrategy.DEFAULT_NULL, null
-                    )
-            );
-        }
-
-        return new TestTable(1, new TableDescriptorImpl(columns, distr), name, size, List.of());
     }
 
     private static class CapturingMailboxRegistry implements MailboxRegistry {

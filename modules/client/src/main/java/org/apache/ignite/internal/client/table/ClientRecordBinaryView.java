@@ -29,7 +29,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
 import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
+import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -47,9 +49,10 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
      * Constructor.
      *
      * @param tbl Table.
+     * @param sql Sql.
      */
-    public ClientRecordBinaryView(ClientTable tbl) {
-        super(tbl);
+    public ClientRecordBinaryView(ClientTable tbl, ClientSql sql) {
+        super(tbl, sql);
 
         ser = new ClientTupleSerializer(tbl.tableId());
     }
@@ -93,6 +96,24 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
                 Collections.emptyList(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, keyRecs.iterator().next())
         );
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean contains(@Nullable Transaction tx, Tuple key) {
+        return sync(containsAsync(tx, key));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Boolean> containsAsync(@Nullable Transaction tx, Tuple key) {
+        Objects.requireNonNull(key);
+
+        return tbl.doSchemaOutOpAsync(
+                ClientOp.TUPLE_CONTAINS_KEY,
+                (s, w) -> ser.writeTuple(tx, key, s, w, true),
+                r -> r.in().unpackBoolean(),
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, key));
     }
 
     /** {@inheritDoc} */
@@ -358,7 +379,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> streamData(Publisher<Tuple> publisher, @Nullable DataStreamerOptions options) {
+    public CompletableFuture<Void> streamData(Publisher<DataStreamerItem<Tuple>> publisher, @Nullable DataStreamerOptions options) {
         Objects.requireNonNull(publisher);
 
         var provider = new TupleStreamerPartitionAwarenessProvider(tbl);

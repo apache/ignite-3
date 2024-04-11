@@ -154,14 +154,8 @@ public class IgniteRpcServer implements RpcServer<Void> {
      */
     public class RpcMessageHandler implements NetworkMessageHandler {
         /** {@inheritDoc} */
-        @Override public void onReceived(NetworkMessage message, String senderConsistentId, @Nullable Long correlationId) {
+        @Override public void onReceived(NetworkMessage message, ClusterNode sender, @Nullable Long correlationId) {
             Class<? extends NetworkMessage> cls = message.getClass();
-
-            ClusterNode sender = clusterService().topologyService().getByConsistentId(senderConsistentId);
-
-            if (sender == null) {
-                throw new UnresolvableConsistentIdException("No node by consistent ID " + senderConsistentId);
-            }
 
             RpcProcessor<NetworkMessage> prc = getProcessor(cls, cls);
 

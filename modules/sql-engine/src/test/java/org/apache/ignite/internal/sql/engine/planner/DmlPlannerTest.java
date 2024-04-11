@@ -21,10 +21,10 @@ import java.util.List;
 import java.util.stream.Stream;
 import org.apache.calcite.sql.validate.SqlValidatorException;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
-import org.apache.ignite.internal.sql.engine.framework.TestTable;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
+import org.apache.ignite.internal.sql.engine.rel.IgniteTrimExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteValues;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
@@ -69,7 +69,7 @@ public class DmlPlannerTest extends AbstractPlannerTest {
                 nodeOrAnyChild(isInstanceOf(IgniteExchange.class)
                         .and(e -> e.distribution().equals(IgniteDistributions.single())))
                         .and(nodeOrAnyChild(isInstanceOf(IgniteTableModify.class))
-                                .and(hasChildThat(isInstanceOf(IgniteExchange.class).and(e -> distribution.equals(e.distribution()))))),
+                                .and(hasChildThat(isInstanceOf(IgniteTrimExchange.class).and(e -> distribution.equals(e.distribution()))))),
                 DISABLE_KEY_VALUE_MODIFY_RULES
         );
     }
@@ -231,7 +231,7 @@ public class DmlPlannerTest extends AbstractPlannerTest {
     @ParameterizedTest
     @MethodSource("updatePrimaryKey")
     public void testDoNotAllowToModifyPrimaryKeyColumns(String query) {
-        TestTable test = TestBuilders.table()
+        IgniteTable test = TestBuilders.table()
                 .name("TEST")
                 .addKeyColumn("ID", NativeTypes.INT32)
                 .addColumn("VAL", NativeTypes.INT32)
@@ -256,7 +256,7 @@ public class DmlPlannerTest extends AbstractPlannerTest {
     }
 
     // Class name is fully-qualified because AbstractPlannerTest defines a class with the same name.
-    private static TestTable newTestTable(String tableName, IgniteDistribution distribution) {
+    private static IgniteTable newTestTable(String tableName, IgniteDistribution distribution) {
         return TestBuilders.table()
                 .name(tableName)
                 .addColumn("C1", NativeTypes.INT32)

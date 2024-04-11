@@ -133,8 +133,8 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
         ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
         when(clusterService.topologyService().localMember().address()).thenReturn(DummyInternalTableImpl.ADDR);
 
-        intTable = new DummyInternalTableImpl(
-                mock(ReplicaService.class, RETURNS_DEEP_STUBS), schema, txConfiguration, storageUpdateConfiguration);
+        intTable = new DummyInternalTableImpl(mock(ReplicaService.class, RETURNS_DEEP_STUBS), schema, txConfiguration,
+                storageUpdateConfiguration);
 
         SchemaRegistry schemaRegistry = new DummySchemaManagerImpl(schema);
 
@@ -142,7 +142,7 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
 
         SchemaVersions schemaVersions = new ConstantSchemaVersions(schemaVersion);
 
-        table = new TableImpl(intTable, schemaRegistry, new HeapLockManager(), schemaVersions, mock(IgniteSql.class));
+        table = new TableImpl(intTable, schemaRegistry, new HeapLockManager(), schemaVersions, mock(IgniteSql.class), -1);
 
         kvBinView = table.keyValueView();
         kvView =  table.keyValueView(Mapper.of(Long.class, "id"), Mapper.of(Value.class));
@@ -155,7 +155,7 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
      */
     @Test
     public void ensureAllTypesTested() {
-        SchemaTestUtils.ensureAllTypesChecked(Arrays.stream(schema.valueColumns().columns()));
+        SchemaTestUtils.ensureAllTypesChecked(schema.valueColumns().stream());
     }
 
     @AfterEach
@@ -375,7 +375,7 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
     private Tuple createTuple(int id, boolean nulls) {
         Tuple res = Tuple.create();
 
-        for (Column col : schema.valueColumns().columns()) {
+        for (Column col : schema.valueColumns()) {
             if (!nulls && col.nullable()) {
                 continue;
             }
@@ -442,7 +442,7 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
         Tuple expected = createTuple(id, nulls);
         expected.set("id", (long) id);
 
-        for (Column col : schema.valueColumns().columns()) {
+        for (Column col : schema.valueColumns()) {
             if (!nulls && col.nullable()) {
                 continue;
             }
@@ -601,6 +601,46 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
                     && Objects.equals(fdecimal, value.fdecimal) && Objects.equals(fdecimalN, value.fdecimalN)
                     && Objects.equals(fbitmask, value.fbitmask) && Objects.equals(fbitmaskN, value.fbitmaskN);
         }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(
+                    fboolean,
+                    fbooleanN,
+                    fint8,
+                    fint8N,
+                    fint16,
+                    fint16N,
+                    fint32,
+                    fint32N,
+                    fint64,
+                    fint64N,
+                    ffloat,
+                    ffloatN,
+                    fdouble,
+                    fdoubleN,
+                    fuuid,
+                    fuuidN,
+                    fstring,
+                    fstringN,
+                    fbytes,
+                    fbytesN,
+                    fdate,
+                    fdateN,
+                    ftime,
+                    ftimeN,
+                    fdatetime,
+                    fdatetimeN,
+                    ftimestamp,
+                    ftimestampN,
+                    fnumber,
+                    fnumberN,
+                    fdecimal,
+                    fdecimalN,
+                    fbitmask,
+                    fbitmaskN
+            );
+        }
     }
 
     /**
@@ -717,6 +757,47 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
                     && Objects.equals(fnumberN, row.fnumberN) && Objects.equals(fdecimal, row.fdecimal)
                     && Objects.equals(fdecimalN, row.fdecimalN) && Objects.equals(fbitmask, row.fbitmask)
                     && Objects.equals(fbitmaskN, row.fbitmaskN);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(
+                    id,
+                    fboolean,
+                    fbooleanN,
+                    fint8,
+                    fint8N,
+                    fint16,
+                    fint16N,
+                    fint32,
+                    fint32N,
+                    fint64,
+                    fint64N,
+                    ffloat,
+                    ffloatN,
+                    fdouble,
+                    fdoubleN,
+                    fuuid,
+                    fuuidN,
+                    fstring,
+                    fstringN,
+                    fbytes,
+                    fbytesN,
+                    fdate,
+                    fdateN,
+                    ftime,
+                    ftimeN,
+                    fdatetime,
+                    fdatetimeN,
+                    ftimestamp,
+                    ftimestampN,
+                    fnumber,
+                    fnumberN,
+                    fdecimal,
+                    fdecimalN,
+                    fbitmask,
+                    fbitmaskN
+            );
         }
     }
 }

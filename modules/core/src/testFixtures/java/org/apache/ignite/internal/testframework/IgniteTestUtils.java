@@ -20,6 +20,7 @@ package org.apache.ignite.internal.testframework;
 import static java.lang.Thread.sleep;
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.WRITE;
+import static java.util.function.Function.identity;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -27,8 +28,6 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.IOException;
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.VarHandle;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -55,6 +54,7 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -62,7 +62,9 @@ import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.ThreadOperation;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteException;
 import org.hamcrest.CustomMatcher;
@@ -78,17 +80,6 @@ public final class IgniteTestUtils {
     private static final IgniteLogger LOG = Loggers.forClass(IgniteTestUtils.class);
 
     private static final int TIMEOUT_SEC = 30;
-
-    private static final VarHandle MODIFIERS;
-
-    static {
-        try {
-            MethodHandles.Lookup lookup = MethodHandles.privateLookupIn(Field.class, MethodHandles.lookup());
-            MODIFIERS = lookup.findVarHandle(Field.class, "modifiers", int.class);
-        } catch (IllegalAccessException | NoSuchFieldException ex) {
-            throw new ExceptionInInitializerError(ex);
-        }
-    }
 
     /**
      * Set object field value via reflection.
@@ -160,10 +151,6 @@ public final class IgniteTestUtils {
              */
             if (isFinal && isStatic) {
                 throw new IgniteInternalException("Modification of static final field through reflection.");
-            }
-
-            if (isFinal) {
-                MODIFIERS.set(field, field.getModifiers() & ~Modifier.FINAL);
             }
 
             field.set(obj, val);
@@ -303,10 +290,19 @@ public final class IgniteTestUtils {
         try {
             run.execute();
         } catch (Throwable throwable) {
-            assertInstanceOf(expectedClass, throwable);
+            try {
+                assertInstanceOf(expectedClass, throwable);
+            } catch (AssertionError err) {
+                // An AssertionError from assertInstanceOf has nothing but a class name of the original exception.
+                AssertionError assertionError = new AssertionError(err);
+
+                assertionError.addSuppressed(throwable);
+
+                throw assertionError;
+            }
 
             IgniteException igniteException = (IgniteException) throwable;
-            assertEquals(expectedErrorCode, igniteException.code());
+            assertEquals(expectedErrorCode, igniteException.code(), "Invalid error code: " + igniteException.codeAsString());
 
             if (errorMessageFragment != null) {
                 assertThat(throwable.getMessage(), containsString(errorMessageFragment));
@@ -456,7 +452,7 @@ public final class IgniteTestUtils {
      * @param task Runnable.
      * @return Future with task result.
      */
-    public static CompletableFuture<?> runAsync(RunnableX task) {
+    public static CompletableFuture<Void> runAsync(RunnableX task) {
         return runAsync(task, "async-runnable-runner");
     }
 
@@ -466,7 +462,7 @@ public final class IgniteTestUtils {
      * @param task Runnable.
      * @return Future with task result.
      */
-    public static CompletableFuture<?> runAsync(RunnableX task, String threadName) {
+    public static CompletableFuture<Void> runAsync(RunnableX task, String threadName) {
         return runAsync(() -> {
             try {
                 task.run();
@@ -496,7 +492,7 @@ public final class IgniteTestUtils {
      * @return Future with task result.
      */
     public static <T> CompletableFuture<T> runAsync(Callable<T> task, String threadName) {
-        NamedThreadFactory thrFactory = new NamedThreadFactory(threadName, LOG);
+        ThreadFactory thrFactory = IgniteThreadFactory.withPrefix(threadName, LOG, ThreadOperation.values());
 
         CompletableFuture<T> fut = new CompletableFuture<T>();
 
@@ -512,6 +508,35 @@ public final class IgniteTestUtils {
         }).start();
 
         return fut;
+    }
+
+    /**
+     * Executes an asynchronous operation in a thread that is allowed to execute any thread operation.
+     *
+     * @param operation Operation to execute.
+     * @return Whatever the operation returns.
+     */
+    public static <T> CompletableFuture<T> bypassingThreadAssertionsAsync(Supplier<CompletableFuture<T>> operation) {
+        return runAsync(operation::get).thenCompose(identity());
+    }
+
+    /**
+     * Executes a synchronous operation in a thread that is allowed to execute any thread operation.
+     *
+     * @param operation Operation to execute.
+     * @return Whatever the operation returns.
+     */
+    public static <T> T bypassingThreadAssertions(Supplier<T> operation) {
+        return await(runAsync(operation::get));
+    }
+
+    /**
+     * Executes a synchronous operation in a thread that is allowed to execute any thread operation.
+     *
+     * @param operation Operation to execute.
+     */
+    public static void bypassingThreadAssertions(Runnable operation) {
+        await(runAsync(operation::run));
     }
 
     /**
@@ -828,6 +853,10 @@ public final class IgniteTestUtils {
      */
     public static void runRace(long timeoutMillis, RunnableX... actions) {
         int length = actions.length;
+
+        if (length == 0) {
+            return; // Nothing to run.
+        }
 
         CyclicBarrier barrier = new CyclicBarrier(length);
 

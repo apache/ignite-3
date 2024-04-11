@@ -17,7 +17,7 @@
 
 package org.apache.ignite.distributed;
 
-import static org.apache.ignite.internal.replicator.ReplicaManager.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
+import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
@@ -25,13 +25,15 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
@@ -44,7 +46,9 @@ import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.tx.impl.HeapLockManager.LockState;
 import org.apache.ignite.internal.tx.impl.HeapUnboundedLockManager;
+import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
+import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -83,7 +87,7 @@ public class ItLockTableTest extends IgniteAbstractTest {
 
     protected final TestInfo testInfo;
 
-    //TODO fsync can be turned on again after https://issues.apache.org/jira/browse/IGNITE-20195
+    // TODO fsync can be turned on again after https://issues.apache.org/jira/browse/IGNITE-20195
     @InjectConfiguration("mock: { fsync: false }")
     protected static RaftConfiguration raftConfiguration;
 
@@ -92,6 +96,9 @@ public class ItLockTableTest extends IgniteAbstractTest {
 
     @InjectConfiguration
     protected static TransactionConfiguration txConfiguration;
+
+    @InjectConfiguration
+    protected static ReplicationConfiguration replicationConfiguration;
 
     @InjectConfiguration
     protected static StorageUpdateConfiguration storageUpdateConfiguration;
@@ -120,16 +127,20 @@ public class ItLockTableTest extends IgniteAbstractTest {
                 1,
                 1,
                 false,
-                timestampTracker
+                timestampTracker,
+                replicationConfiguration
         ) {
             @Override
             protected TxManagerImpl newTxManager(
                     ClusterService clusterService,
                     ReplicaService replicaSvc,
-                    HybridClock clock,
+                    ClockService clockService,
                     TransactionIdGenerator generator,
                     ClusterNode node,
-                    PlacementDriver placementDriver
+                    PlacementDriver placementDriver,
+                    RemotelyTriggeredResourceRegistry resourcesRegistry,
+                    TransactionInflights transactionInflights,
+                    LowWatermark lowWatermark
             ) {
                 return new TxManagerImpl(
                         txConfiguration,
@@ -140,11 +151,14 @@ public class ItLockTableTest extends IgniteAbstractTest {
                                 HeapLockManager.SLOTS,
                                 CACHE_SIZE,
                                 new HeapUnboundedLockManager()),
-                        clock,
+                        clockService,
                         generator,
                         placementDriver,
                         () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
-                        new TestLocalRwTxCounter()
+                        new TestLocalRwTxCounter(),
+                        resourcesRegistry,
+                        transactionInflights,
+                        lowWatermark
                 );
             }
         };

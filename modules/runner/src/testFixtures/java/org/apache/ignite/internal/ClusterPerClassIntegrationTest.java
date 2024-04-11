@@ -17,50 +17,51 @@
 
 package org.apache.ignite.internal;
 
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_STORAGE_ENGINE;
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_PROFILE_NAME;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.file.Path;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.commands.CatalogUtils;
+import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.sql.Statement;
+import org.apache.ignite.sql.Statement.StatementBuilder;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.TestInstance;
 
 /**
  * Abstract basic integration test that starts a cluster once for all the tests it runs.
  */
+@SuppressWarnings("resource")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTest {
     /** Test default table name. */
@@ -74,28 +75,23 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
             + "      netClusterNodes: [ {} ]\n"
             + "    }\n"
             + "  },\n"
+            + "  storage.profiles: {"
+            + "        " + DEFAULT_TEST_PROFILE_NAME + ".engine: test, "
+            + "        " + DEFAULT_AIPERSIST_PROFILE_NAME + ".engine: aipersist, "
+            + "        " + DEFAULT_AIMEM_PROFILE_NAME + ".engine: aimem, "
+            + "        " + DEFAULT_ROCKSDB_PROFILE_NAME + ".engine: rocksDb"
+            + "  },\n"
             + "  clientConnector: { port:{} },\n"
-            + "  rest.port: {}\n"
+            + "  rest.port: {},\n"
+            + "  compute.threadPoolSize: 1\n"
             + "}";
 
     /** Cluster nodes. */
     protected static Cluster CLUSTER;
 
-    private static final boolean DEFAULT_WAIT_FOR_INDEX_AVAILABLE = true;
-
-    /** Whether to wait for indexes to become available or not. Default is {@code true}. */
-    private static final AtomicBoolean AWAIT_INDEX_AVAILABILITY = new AtomicBoolean(DEFAULT_WAIT_FOR_INDEX_AVAILABLE);
-
     /** Work directory. */
     @WorkDirectory
     protected static Path WORK_DIR;
-
-    /** Reset {@link #AWAIT_INDEX_AVAILABILITY}. */
-    @BeforeEach
-    @AfterEach
-    void resetIndexAvailabilityFlag() {
-        setAwaitIndexAvailability(DEFAULT_WAIT_FOR_INDEX_AVAILABLE);
-    }
 
     /**
      * Before all.
@@ -154,6 +150,19 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
         }
     }
 
+    /** Drops all visible zones. */
+    protected static void dropAllZonesExceptDefaultOne() {
+        CatalogManager catalogManager = CLUSTER.aliveNode().catalogManager();
+        int latestCatalogVersion = catalogManager.latestCatalogVersion();
+        for (CatalogZoneDescriptor z : catalogManager.zones(latestCatalogVersion)) {
+            String zoneName = z.name();
+            if (CatalogService.DEFAULT_ZONE_NAME.equals(zoneName)) {
+                continue;
+            }
+            sql("DROP ZONE " + zoneName);
+        }
+    }
+
     /**
      * Creates a table.
      *
@@ -186,12 +195,12 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      * @param zoneName Zone name.
      * @param replicas Replica factor.
      * @param partitions Partitions count.
-     * @param storageEngine Storage engine, {@code null} to use {@link CatalogUtils#DEFAULT_STORAGE_ENGINE}.
+     * @param storageProfile Storage profile.
      */
-    protected static void createZoneOnlyIfNotExists(String zoneName, int replicas, int partitions, @Nullable String storageEngine) {
+    protected static void createZoneOnlyIfNotExists(String zoneName, int replicas, int partitions, String storageProfile) {
         sql(format(
-                "CREATE ZONE IF NOT EXISTS {} ENGINE {} WITH REPLICAS={}, PARTITIONS={};",
-                zoneName, Objects.requireNonNullElse(storageEngine, DEFAULT_STORAGE_ENGINE), replicas, partitions
+                "CREATE ZONE IF NOT EXISTS {} WITH REPLICAS={}, PARTITIONS={}, STORAGE_PROFILES='{}';",
+                zoneName, replicas, partitions, storageProfile
         ));
     }
 
@@ -204,7 +213,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      * @param partitions Partitions count.
      */
     protected static Table createZoneAndTable(String zoneName, String tableName, int replicas, int partitions) {
-        createZoneOnlyIfNotExists(zoneName, replicas, partitions, null);
+        createZoneOnlyIfNotExists(zoneName, replicas, partitions, DEFAULT_STORAGE_PROFILE);
 
         return createTableOnly(tableName, zoneName);
     }
@@ -216,16 +225,16 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      * @param tableName Table name.
      * @param replicas Replica factor.
      * @param partitions Partitions count.
-     * @param storageEngine Storage engine, {@code null} to use {@link CatalogUtils#DEFAULT_STORAGE_ENGINE}.
+     * @param storageProfile Storage profile.
      */
     protected static Table createZoneAndTable(
             String zoneName,
             String tableName,
             int replicas,
             int partitions,
-            @Nullable String storageEngine
+            String storageProfile
     ) {
-        createZoneOnlyIfNotExists(zoneName, replicas, partitions, storageEngine);
+        createZoneOnlyIfNotExists(zoneName, replicas, partitions, storageProfile);
 
         return createTableOnly(tableName, zoneName);
     }
@@ -316,15 +325,6 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
         sql(format("DROP INDEX {}", indexName));
     }
 
-    /**
-     * Sets whether to wait for indexes to become available.
-     *
-     * @param value Whether to wait for indexes to become available.
-     */
-    protected static void setAwaitIndexAvailability(boolean value) {
-        AWAIT_INDEX_AVAILABILITY.set(value);
-    }
-
     protected static void insertData(String tblName, List<String> columnNames, Object[]... tuples) {
         Transaction tx = CLUSTER.node(0).transactions().begin();
 
@@ -355,15 +355,22 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      *
      * @param node Ignite instance to run a query.
      * @param tx Transaction to run a given query. Can be {@code null} to run within implicit transaction.
-     * @param sql Query to be run.
+     * @param zoneId Client time zone.
+     * @param query Query to be run.
      * @param args Dynamic parameters for a given query.
      * @return List of lists, where outer list represents a rows, internal lists represents a columns.
      */
-    public static List<List<Object>> sql(Ignite node, @Nullable Transaction tx, String sql, Object... args) {
-        try (
-                Session session = node.sql().createSession();
-                ResultSet<SqlRow> rs = session.execute(tx, sql, args)
-        ) {
+    public static List<List<Object>> sql(Ignite node, @Nullable Transaction tx, @Nullable ZoneId zoneId, String query, Object... args) {
+        IgniteSql sql = node.sql();
+        StatementBuilder builder = sql.statementBuilder()
+                .query(query);
+
+        if (zoneId != null) {
+            builder.timeZoneId(zoneId);
+        }
+
+        Statement statement = builder.build();
+        try (ResultSet<SqlRow> rs = sql.execute(tx, statement, args)) {
             return getAllResultSet(rs);
         }
     }
@@ -373,13 +380,11 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
     }
 
     protected static List<List<Object>> sql(int nodeIndex, @Nullable Transaction tx, String sql, Object[] args) {
-        IgniteImpl node = CLUSTER.node(nodeIndex);
+        return sql(nodeIndex, tx, null, sql, args);
+    }
 
-        if (!AWAIT_INDEX_AVAILABILITY.get()) {
-            return sql(node, tx, sql, args);
-        } else {
-            return executeAwaitingIndexes(node, (n) -> sql(n, tx, sql, args));
-        }
+    protected static List<List<Object>> sql(int nodeIndex, @Nullable Transaction tx, @Nullable ZoneId zoneId, String sql, Object[] args) {
+        return sql(CLUSTER.node(nodeIndex), tx, zoneId, sql, args);
     }
 
     private static List<List<Object>> getAllResultSet(ResultSet<SqlRow> resultSet) {
@@ -440,63 +445,12 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
      */
     protected static void waitForReadTimestampThatObservesMostRecentCatalog()  {
         // See TxManagerImpl::currentReadTimestamp.
-        long delay = HybridTimestamp.CLOCK_SKEW + TestIgnitionManager.DEFAULT_PARTITION_IDLE_SYNC_TIME_INTERVAL_MS;
+        long delay = TestIgnitionManager.DEFAULT_MAX_CLOCK_SKEW_MS + TestIgnitionManager.DEFAULT_PARTITION_IDLE_SYNC_TIME_INTERVAL_MS;
 
         try {
             TimeUnit.MILLISECONDS.sleep(delay);
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
-        }
-    }
-
-    private static List<List<Object>> executeAwaitingIndexes(IgniteImpl node, Function<IgniteImpl, List<List<Object>>> statement) {
-        CatalogManager catalogManager = node.catalogManager();
-
-        // Get existing indexes
-        Set<Integer> existing = catalogManager.indexes(catalogManager.latestCatalogVersion()).stream()
-                .map(CatalogObjectDescriptor::id)
-                .collect(Collectors.toSet());
-
-        List<List<Object>> result = statement.apply(node);
-
-        // Get indexes after a statement and compute the difference
-        List<Integer> difference = catalogManager.indexes(catalogManager.latestCatalogVersion()).stream()
-                .map(CatalogObjectDescriptor::id)
-                .filter(id -> !existing.contains(id))
-                .collect(Collectors.toList());
-
-        if (difference.isEmpty()) {
-            return result;
-        }
-
-        // If there are new indexes, wait for them to become available.
-        HybridClock clock = node.clock();
-
-        try {
-            assertTrue(waitForCondition(
-                    () -> {
-                        // Using the timestamp instead of the latest Catalog version, because the index update is set in the future and
-                        // we must wait for the activation delay to pass.
-                        long now = clock.nowLong();
-
-                        return difference.stream()
-                                .map(id -> catalogManager.index(id, now))
-                                .allMatch(indexDescriptor -> indexDescriptor != null && indexDescriptor.status() == AVAILABLE);
-                    },
-                    10_000L
-            ));
-
-            // We have no knowledge whether the next transaction is readonly or not,
-            // so we have to assume that the next transaction is read only transaction.
-            // otherwise the statements in that transaction may not observe
-            // the latest catalog version.
-            waitForReadTimestampThatObservesMostRecentCatalog();
-
-            return result;
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-
-            throw new IllegalStateException(e);
         }
     }
 
@@ -510,7 +464,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
         CatalogManager catalogManager = ignite.catalogManager();
         HybridClock clock = ignite.clock();
 
-        CatalogIndexDescriptor indexDescriptor = catalogManager.index(indexName, clock.nowLong());
+        CatalogIndexDescriptor indexDescriptor = catalogManager.aliveIndex(indexName, clock.nowLong());
 
         return indexDescriptor != null && indexDescriptor.status() == AVAILABLE;
     }

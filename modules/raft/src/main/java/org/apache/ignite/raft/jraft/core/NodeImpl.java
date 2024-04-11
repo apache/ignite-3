@@ -544,7 +544,7 @@ public class NodeImpl implements Node, RaftServerService {
                     }
                     break;
                 case STAGE_NONE:
-                    // noinspection ConstantConditions
+                    //noinspection ConstantConditions
                     Requires.requireTrue(false, "Can't reach here");
                     break;
             }
@@ -1247,6 +1247,7 @@ public class NodeImpl implements Node, RaftServerService {
                 opts.getRaftOptions().getDisruptorBufferSize(),
                 () -> new FSMCallerImpl.ApplyTask(),
                 opts.getStripes(),
+                false,
                 false
             ));
         } else if (ownFsmCallerExecutorDisruptorConfig != null) {
@@ -1256,6 +1257,7 @@ public class NodeImpl implements Node, RaftServerService {
                 opts.getRaftOptions().getDisruptorBufferSize(),
                 () -> new FSMCallerImpl.ApplyTask(),
                 ownFsmCallerExecutorDisruptorConfig.getStripes(),
+                false,
                 false
             ));
         }
@@ -1267,6 +1269,7 @@ public class NodeImpl implements Node, RaftServerService {
                 opts.getRaftOptions().getDisruptorBufferSize(),
                 () -> new NodeImpl.LogEntryAndClosure(),
                 opts.getStripes(),
+                false,
                 false
             ));
         }
@@ -1278,6 +1281,7 @@ public class NodeImpl implements Node, RaftServerService {
                 opts.getRaftOptions().getDisruptorBufferSize(),
                 () -> new ReadOnlyServiceImpl.ReadIndexEvent(),
                 opts.getStripes(),
+                false,
                 false
             ));
         }
@@ -1288,11 +1292,12 @@ public class NodeImpl implements Node, RaftServerService {
                 "JRaft-LogManager-Disruptor",
                 opts.getRaftOptions().getDisruptorBufferSize(),
                 () -> new LogManagerImpl.StableClosureEvent(),
-                opts.getStripes(),
-                logStorage instanceof RocksDbSharedLogStorage
+                opts.getLogStripesCount(),
+                logStorage instanceof RocksDbSharedLogStorage,
+                opts.isLogYieldStrategy()
             ));
 
-            opts.setLogStripes(IntStream.range(0, opts.getStripes()).mapToObj(i -> new Stripe()).collect(toList()));
+            opts.setLogStripes(IntStream.range(0, opts.getLogStripesCount()).mapToObj(i -> new Stripe()).collect(toList()));
         }
     }
 
@@ -1880,7 +1885,7 @@ public class NodeImpl implements Node, RaftServerService {
                         "Parse candidateId failed: %s.", request.serverId());
             }
             boolean granted = false;
-            // noinspection ConstantConditions
+            //noinspection ConstantConditions
             do {
                 if (!this.conf.contains(candidateId)) {
                     LOG.warn("Node {} ignore PreVoteRequest from {} as it is not in conf <{}>.", getNodeId(),
@@ -1984,7 +1989,7 @@ public class NodeImpl implements Node, RaftServerService {
                         "Parse candidateId failed: %s.", request.serverId());
             }
 
-            // noinspection ConstantConditions
+            //noinspection ConstantConditions
             do {
                 // check term
                 if (request.term() >= this.currTerm) {
@@ -2725,6 +2730,28 @@ public class NodeImpl implements Node, RaftServerService {
         this.readLock.lock();
         try {
             return this.currTerm;
+        }
+        finally {
+            this.readLock.unlock();
+        }
+    }
+
+    @Override
+    public boolean isInstallingSnapshot() {
+        this.readLock.lock();
+        try {
+            return snapshotExecutor.isInstallingSnapshot();
+        }
+        finally {
+            this.readLock.unlock();
+        }
+    }
+
+    @Override
+    public long lastLogIndex() {
+        this.readLock.lock();
+        try {
+            return logManager.getLastLogIndex();
         }
         finally {
             this.readLock.unlock();

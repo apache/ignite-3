@@ -19,7 +19,8 @@ package org.apache.ignite.raft.jraft.rpc.impl.cli;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Executor;
-import org.apache.ignite.internal.tracing.TracingManager;import org.apache.ignite.raft.jraft.RaftMessagesFactory;
+import org.apache.ignite.internal.tracing.TracingManager;
+import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.Node;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.PeerId;
@@ -93,7 +94,7 @@ public class GetLeaderRequestProcessor extends BaseCliRequestProcessor<GetLeader
                 }
             }
             return RaftRpcFactory.DEFAULT //
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-21415 Investigate correct RaftError
+
             .newResponse(msgFactory(), RaftError.UNKNOWN, "Unknown leader");
         });
     }

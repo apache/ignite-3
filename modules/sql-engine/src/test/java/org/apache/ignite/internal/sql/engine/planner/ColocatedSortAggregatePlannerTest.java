@@ -18,11 +18,13 @@
 package org.apache.ignite.internal.sql.engine.planner;
 
 import static java.util.function.Predicate.not;
+import static org.apache.ignite.internal.sql.engine.trait.IgniteDistributions.single;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Predicate;
 import org.apache.calcite.rel.RelCollation;
+import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
@@ -32,7 +34,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteMergeJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSort;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteColocatedSortAggregate;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.junit.jupiter.api.Test;
@@ -270,6 +272,7 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
                 not(nodeOrAnyChild(isInstanceOf(IgniteSort.class)))
                         .and(nodeOrAnyChild(input(1, isInstanceOf(IgniteColocatedSortAggregate.class)
                                         .and(input(isInstanceOf(IgniteExchange.class)
+                                                .and(hasDistribution(single()))
                                                 .and(input(isIndexScan("TEST", "idx_val0")))
                                         ))
                                 ))
@@ -280,6 +283,7 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
                 not(nodeOrAnyChild(isInstanceOf(IgniteSort.class)))
                         .and(nodeOrAnyChild(input(1, isInstanceOf(IgniteColocatedSortAggregate.class)
                                         .and(input(isInstanceOf(IgniteExchange.class)
+                                                .and(hasDistribution(single()))
                                                 .and(input(isIndexScan("TEST", "idx_val0")))
                                         ))
                                 ))
@@ -311,6 +315,7 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
                         .and(input(1, isInstanceOf(IgniteColocatedSortAggregate.class)
                                 .and(input(isInstanceOf(IgniteLimit.class)
                                         .and(input(isInstanceOf(IgniteExchange.class)
+                                                .and(hasDistribution(single()))
                                                 .and(input(isInstanceOf(IgniteSort.class)
                                                         .and(input(isTableScan("TEST")))
                                                 ))
@@ -325,6 +330,7 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
                         .and(input(1, isInstanceOf(IgniteColocatedSortAggregate.class)
                                 .and(input(isInstanceOf(IgniteLimit.class)
                                         .and(input(isInstanceOf(IgniteExchange.class)
+                                                .and(hasDistribution(single()))
                                                 .and(input(isInstanceOf(IgniteSort.class)
                                                         .and(input(isTableScan("TEST")))
                                                 ))
@@ -436,7 +442,7 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
         Predicate<IgniteColocatedSortAggregate> checkPlan = isInstanceOf(IgniteColocatedSortAggregate.class)
                 .and(in -> hasAggregates(countMap).test(in.getAggCallList()))
                 .and(input(isInstanceOf(IgniteExchange.class)
-                        .and(hasDistribution(IgniteDistributions.single()))));
+                        .and(hasDistribution(single()))));
 
         assertPlan(TestCase.CASE_22, checkPlan, disableRules);
         assertPlan(TestCase.CASE_22A, checkPlan, disableRules);
@@ -454,7 +460,7 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
         Predicate<IgniteColocatedSortAggregate> checkPlan = isInstanceOf(IgniteColocatedSortAggregate.class)
                 .and(in -> hasAggregates(countMap).test(in.getAggCallList()))
                 .and(input(isInstanceOf(IgniteExchange.class)
-                        .and(hasDistribution(IgniteDistributions.single()))));
+                        .and(hasDistribution(single()))));
 
         assertPlan(TestCase.CASE_23, checkPlan, disableRules);
         assertPlan(TestCase.CASE_23A, checkPlan, disableRules);
@@ -483,6 +489,26 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
         checkCountDistinctHash(TestCase.CASE_24_1C);
         checkCountDistinctHash(TestCase.CASE_24_1D);
         checkCountDistinctHash(TestCase.CASE_24_1E);
+    }
+
+    /**
+     * Validates a plan for a query with aggregate and with groups and sorting by the same column set in descending order.
+     */
+    @Test
+    public void groupsWithOrderByGroupColumnDescending() throws Exception {
+        checkDerivedCollationWithOrderByGroupColumnSingle(TestCase.CASE_25);
+
+        checkDerivedCollationWithOrderByGroupColumnHash(TestCase.CASE_25A);
+    }
+
+    /**
+     * Validates a plan for a query with aggregate and with sorting in descending order by a subset of grouping column.
+     */
+    @Test
+    public void groupsWithOrderBySubsetOfGroupColumnDescending() throws Exception {
+        checkDerivedCollationWithOrderBySubsetOfGroupColumnsSingle(TestCase.CASE_26);
+
+        checkDerivedCollationWithOrderBySubsetOfGroupColumnsHash(TestCase.CASE_26A);
     }
 
     private void checkSimpleAggSingle(TestCase testCase) throws Exception {
@@ -528,6 +554,7 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
                         .and(hasAggregate())
                         .and(hasGroups())
                         .and(input(isInstanceOf(IgniteExchange.class)
+                                .and(hasDistribution(single()))
                                 .and(input(isInstanceOf(IgniteSort.class)
                                         .and(input(isTableScan("TEST")))
                                 ))
@@ -578,6 +605,7 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
                         .and(hasDistinctAggregate())
                         .and(hasGroups())
                         .and(input(isInstanceOf(IgniteExchange.class)
+                                .and(hasDistribution(single()))
                                 .and(input(isInstanceOf(IgniteSort.class)
                                         .and(input(isTableScan("TEST")))
                                 ))
@@ -602,6 +630,7 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
                 nodeOrAnyChild(isInstanceOf(IgniteColocatedSortAggregate.class)
                         .and(hasAggregate())
                         .and(input(isInstanceOf(IgniteExchange.class)
+                                .and(hasDistribution(single()))
                                 .and(input(isIndexScan("TEST", "idx_grp0_grp1")))
                         ))
                 ),
@@ -612,6 +641,7 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
     private void checkAggWithColocatedGroupByIndexColumnsHash(TestCase testCase) throws Exception {
         assertPlan(testCase,
                 nodeOrAnyChild(isInstanceOf(IgniteExchange.class)
+                        .and(hasDistribution(single()))
                         .and(nodeOrAnyChild(isInstanceOf(IgniteColocatedSortAggregate.class)
                                 .and(hasAggregate())
                                 .and(input(isIndexScan("TEST", "idx_grp0_grp1")))
@@ -651,6 +681,7 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
                         .and(not(hasAggregate()))
                         .and(hasGroups())
                         .and(input(isInstanceOf(IgniteExchange.class)
+                                .and(hasDistribution(single()))
                                 .and(input(isIndexScan("TEST", "idx_grp0_grp1")))
                         ))
                 ),
@@ -661,6 +692,7 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
     private void checkColocatedGroupWithNoAggregateUseIndexHash(TestCase testCase) throws Exception {
         assertPlan(testCase,
                 nodeOrAnyChild(isInstanceOf(IgniteExchange.class)
+                        .and(hasDistribution(single()))
                         .and(input(isInstanceOf(IgniteColocatedSortAggregate.class)
                                 .and(not(hasAggregate()))
                                 .and(hasGroups())
@@ -677,6 +709,7 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
                         .and(not(hasAggregate()))
                         .and(hasGroups())
                         .and(input(isInstanceOf(IgniteExchange.class)
+                                .and(hasDistribution(single()))
                                 .and(input(isInstanceOf(IgniteSort.class)
                                         .and(input(isTableScan("TEST")))
                                 ))
@@ -712,6 +745,7 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
         assertPlan(testCase,
                 isInstanceOf(IgniteColocatedSortAggregate.class)
                         .and(input(isInstanceOf(IgniteExchange.class)
+                                .and(hasDistribution(single()))
                                 .and(input(isInstanceOf(IgniteSort.class)
                                         .and(s -> s.collation().equals(collation))
                                         .and(input(isTableScan("TEST")))
@@ -741,6 +775,7 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
                         .and(s -> s.collation().equals(TraitUtils.createCollation(List.of(0, 1, 2))))
                         .and(input(isInstanceOf(IgniteColocatedSortAggregate.class)
                                 .and(input(isInstanceOf(IgniteExchange.class)
+                                        .and(hasDistribution(single()))
                                         .and(input(isInstanceOf(IgniteSort.class)
                                                 .and(s -> s.collation().equals(TraitUtils.createCollation(List.of(0, 1))))
                                                 .and(input(isTableScan("TEST")))
@@ -755,8 +790,66 @@ public class ColocatedSortAggregatePlannerTest extends AbstractAggregatePlannerT
         assertPlan(testCase, isInstanceOf(IgniteColocatedSortAggregate.class)
                 .and(hasNoGroupSets(IgniteColocatedSortAggregate::getGroupSets))
                 .and(input(isInstanceOf(IgniteExchange.class)
-                        .and(hasDistribution(IgniteDistributions.single()))
+                        .and(hasDistribution(single()))
                         .and(input(isInstanceOf(IgniteTableScan.class))))
                 ), disableRules);
+    }
+
+    private void checkDerivedCollationWithOrderByGroupColumnSingle(TestCase testCase) throws Exception {
+        RelCollation requiredCollation = RelCollations.of(TraitUtils.createFieldCollation(0, Collation.DESC_NULLS_FIRST));
+
+        assertPlan(testCase, nodeOrAnyChild(isInstanceOf(IgniteColocatedSortAggregate.class)
+                .and(hasAggregate())
+                .and(input(isInstanceOf(IgniteSort.class)
+                        .and(hasCollation(requiredCollation))
+                ))
+        ), disableRules);
+    }
+
+    private void checkDerivedCollationWithOrderByGroupColumnHash(TestCase testCase) throws Exception {
+        RelCollation requiredCollation = RelCollations.of(TraitUtils.createFieldCollation(0, Collation.DESC_NULLS_FIRST));
+
+        assertPlan(testCase, nodeOrAnyChild(isInstanceOf(IgniteColocatedSortAggregate.class)
+                .and(hasAggregate())
+                .and(input(isInstanceOf(IgniteExchange.class)
+                        .and(hasDistribution(single()))
+                        .and(input(isInstanceOf(IgniteSort.class)
+                                .and(hasCollation(requiredCollation))
+                        ))
+                ))
+        ), disableRules);
+    }
+
+    private void checkDerivedCollationWithOrderBySubsetOfGroupColumnsSingle(TestCase testCase) throws Exception {
+        RelCollation requiredCollation = RelCollations.of(
+                TraitUtils.createFieldCollation(1, Collation.DESC_NULLS_FIRST),
+                TraitUtils.createFieldCollation(0, Collation.ASC_NULLS_LAST)
+        );
+
+        assertPlan(testCase,
+                isInstanceOf(IgniteColocatedSortAggregate.class)
+                        .and(hasCollation(requiredCollation))
+                        .and(input(isInstanceOf(IgniteSort.class)
+                                .and(hasCollation(requiredCollation))
+                        )),
+                disableRules);
+    }
+
+    private void checkDerivedCollationWithOrderBySubsetOfGroupColumnsHash(TestCase testCase) throws Exception {
+        RelCollation requiredCollation = RelCollations.of(
+                TraitUtils.createFieldCollation(1, Collation.DESC_NULLS_FIRST),
+                TraitUtils.createFieldCollation(0, Collation.ASC_NULLS_LAST)
+        );
+
+        assertPlan(testCase,
+                isInstanceOf(IgniteColocatedSortAggregate.class)
+                        .and(hasCollation(requiredCollation))
+                        .and(input(isInstanceOf(IgniteExchange.class)
+                                .and(hasDistribution(single()))
+                                .and(input(isInstanceOf(IgniteSort.class)
+                                        .and(hasCollation(requiredCollation))
+                                ))
+                        )),
+                disableRules);
     }
 }

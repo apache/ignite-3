@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.schemasync;
 
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
@@ -27,7 +28,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.replicator.IncompatibleSchemaException;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxState;
@@ -37,7 +37,6 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -93,7 +92,7 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
 
         IgniteException ex;
 
-        int tableId = ((TableViewInternal) table).tableId();
+        int tableId = unwrapTableViewInternal(table).tableId();
 
         if (operation.sql()) {
             ex = assertThrows(IgniteException.class, () -> operation.execute(table, tx, cluster));
@@ -121,15 +120,11 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
     }
 
     private void createTable() {
-        cluster.doInSession(0, session -> {
-            executeUpdate("CREATE TABLE " + TABLE_NAME + " (id int PRIMARY KEY, val varchar)", session);
-        });
+        executeUpdate("CREATE TABLE " + TABLE_NAME + " (id int, val varchar, PRIMARY KEY USING HASH (id))", node.sql());
     }
 
     private void alterTable(String tableName) {
-        cluster.doInSession(0, session -> {
-            executeUpdate("ALTER TABLE " + tableName + " ADD COLUMN added int", session);
-        });
+        executeUpdate("ALTER TABLE " + tableName + " ADD COLUMN added int", node.sql());
     }
 
     private static void putPreExistingValueTo(Table table) {
@@ -226,7 +221,6 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
 
     @ParameterizedTest
     @EnumSource(Operation.class)
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20680")
     void readWriteOperationAfterDroppingTargetTableIsRejected(Operation operation) {
         createTable();
 
@@ -242,7 +236,7 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
 
         IgniteException ex;
 
-        int tableId = ((TableViewInternal) table).tableId();
+        int tableId = unwrapTableViewInternal(table).tableId();
 
         if (operation.sql()) {
             ex = assertThrows(IgniteException.class, () -> operation.execute(table, tx, cluster));

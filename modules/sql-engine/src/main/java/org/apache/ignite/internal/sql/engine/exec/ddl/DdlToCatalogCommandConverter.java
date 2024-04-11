@@ -17,11 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.exec.ddl;
 
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_DATA_REGION;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_STORAGE_ENGINE;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseStorageProfiles;
 
 import java.util.List;
-import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.calcite.rel.type.RelDataType;
@@ -32,21 +30,26 @@ import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommand;
 import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.AlterTableDropColumnCommand;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
+import org.apache.ignite.internal.catalog.commands.AlterZoneSetDefaultCatalogCommand;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.CreateHashIndexCommand;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexCommand;
-import org.apache.ignite.internal.catalog.commands.DataStorageParams;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.RenameZoneCommand;
+import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
+import org.apache.ignite.internal.catalog.commands.TablePrimaryKey;
+import org.apache.ignite.internal.catalog.commands.TableSortedPrimaryKey;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterColumnCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableAddCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterTableDropCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterZoneRenameCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterZoneSetCommand;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.AlterZoneSetDefaultCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.ColumnDefinition;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateIndexCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateTableCommand;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateTableCommand.PrimaryKeyIndexType;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.CreateZoneCommand;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DefaultValueDefinition;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.DropIndexCommand;
@@ -63,15 +66,39 @@ class DdlToCatalogCommandConverter {
     static CatalogCommand convert(CreateTableCommand cmd) {
         List<ColumnParams> columns = cmd.columns().stream().map(DdlToCatalogCommandConverter::convert).collect(Collectors.toList());
 
+        PrimaryKeyIndexType pkIndexType = cmd.primaryIndexType();
+        TablePrimaryKey primaryKey;
+
+        switch (pkIndexType) {
+            case SORTED:
+                List<CatalogColumnCollation> collations = cmd.primaryKeyCollations().stream()
+                        .map(DdlToCatalogCommandConverter::convert)
+                        .collect(Collectors.toList());
+
+                primaryKey = TableSortedPrimaryKey.builder()
+                        .columns(cmd.primaryKeyColumns())
+                        .collations(collations)
+                        .build();
+                break;
+            case HASH:
+                primaryKey = TableHashPrimaryKey.builder()
+                        .columns(cmd.primaryKeyColumns())
+                        .build();
+                break;
+            default:
+                throw new IllegalArgumentException("Unexpected primary key index type: " + pkIndexType);
+        }
+
         return org.apache.ignite.internal.catalog.commands.CreateTableCommand.builder()
                 .schemaName(cmd.schemaName())
                 .tableName(cmd.tableName())
 
                 .columns(columns)
-                .primaryKeyColumns(cmd.primaryKeyColumns())
+                .primaryKey(primaryKey)
                 .colocationColumns(cmd.colocationColumns())
 
                 .zone(cmd.zone())
+                .storageProfile(cmd.storageProfile())
 
                 .build();
     }
@@ -84,10 +111,6 @@ class DdlToCatalogCommandConverter {
     }
 
     static CatalogCommand convert(CreateZoneCommand cmd) {
-        // TODO: IGNITE-19719 We need to define the default engine differently and the parameters should depend on the engine
-        String engine = Objects.requireNonNullElse(cmd.dataStorage(), DEFAULT_STORAGE_ENGINE);
-        String dataRegion = (String) cmd.dataStorageOptions().getOrDefault("dataRegion", DEFAULT_DATA_REGION);
-
         return org.apache.ignite.internal.catalog.commands.CreateZoneCommand.builder()
                 .zoneName(cmd.zoneName())
                 .partitions(cmd.partitions())
@@ -96,7 +119,7 @@ class DdlToCatalogCommandConverter {
                 .dataNodesAutoAdjust(cmd.dataNodesAutoAdjust())
                 .dataNodesAutoAdjustScaleUp(cmd.dataNodesAutoAdjustScaleUp())
                 .dataNodesAutoAdjustScaleDown(cmd.dataNodesAutoAdjustScaleDown())
-                .dataStorageParams(DataStorageParams.builder().engine(engine).dataRegion(dataRegion).build())
+                .storageProfilesParams(parseStorageProfiles(cmd.storageProfiles()))
                 .build();
     }
 
@@ -122,6 +145,12 @@ class DdlToCatalogCommandConverter {
                 .dataNodesAutoAdjust(cmd.dataNodesAutoAdjust())
                 .dataNodesAutoAdjustScaleUp(cmd.dataNodesAutoAdjustScaleUp())
                 .dataNodesAutoAdjustScaleDown(cmd.dataNodesAutoAdjustScaleDown())
+                .build();
+    }
+
+    static CatalogCommand convert(AlterZoneSetDefaultCommand cmd) {
+        return AlterZoneSetDefaultCatalogCommand.builder()
+                .zoneName(cmd.zoneName())
                 .build();
     }
 

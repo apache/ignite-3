@@ -128,6 +128,9 @@ namespace Apache.Ignite.Internal.Proto
         ComputeCancel = 60,
 
         /** Change compute job priority. */
-        ComputeChangePriority = 61
+        ComputeChangePriority = 61,
+
+        /** Send streamer batch. */
+        StreamerBatchSend = 62
     }
 }

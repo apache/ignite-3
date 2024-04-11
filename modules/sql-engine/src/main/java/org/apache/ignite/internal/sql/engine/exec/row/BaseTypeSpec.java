@@ -38,7 +38,7 @@ public class BaseTypeSpec extends TypeSpec {
     public BaseTypeSpec(NativeType nativeType, boolean nullable) {
         super(nullable);
         // TODO Uncomment his check after https://issues.apache.org/jira/browse/IGNITE-20163 is fixed
-        //this.nativeType = Objects.requireNonNull(nativeType, "native type has not been specified.");
+        // this.nativeType = Objects.requireNonNull(nativeType, "native type has not been specified.");
         this.nativeType = nativeType;
     }
 

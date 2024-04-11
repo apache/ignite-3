@@ -18,6 +18,9 @@
 package org.apache.ignite.internal.sql.engine.metadata;
 
 import org.apache.calcite.plan.volcano.RelSubset;
+import org.apache.calcite.rel.RelNode;
+import org.apache.calcite.rel.core.Aggregate;
+import org.apache.calcite.rel.metadata.CyclicMetadataException;
 import org.apache.calcite.rel.metadata.ReflectiveRelMetadataProvider;
 import org.apache.calcite.rel.metadata.RelMdDistinctRowCount;
 import org.apache.calcite.rel.metadata.RelMetadataProvider;
@@ -25,6 +28,8 @@ import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.BuiltInMethod;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.NumberUtil;
+import org.checkerframework.checker.nullness.qual.Nullable;
 
 /**
  * IgniteMdDistinctRowCount.
@@ -36,6 +41,11 @@ public class IgniteMdDistinctRowCount extends RelMdDistinctRowCount {
             ReflectiveRelMetadataProvider.reflectiveSource(
                     BuiltInMethod.DISTINCT_ROW_COUNT.method, new IgniteMdDistinctRowCount());
 
+    @Override
+    public Double getDistinctRowCount(Aggregate rel, RelMetadataQuery mq, ImmutableBitSet groupKey, @Nullable RexNode predicate) {
+        return rel.estimateRowCount(mq);
+    }
+
     /** {@inheritDoc} */
     @Override
     public Double getDistinctRowCount(
@@ -44,14 +54,22 @@ public class IgniteMdDistinctRowCount extends RelMdDistinctRowCount {
             ImmutableBitSet groupKey,
             RexNode predicate
     ) {
-        if (groupKey.cardinality() == 0) {
-            return 1d;
+        RelNode best = rel.getBest();
+        if (best != null) {
+            return mq.getDistinctRowCount(best, groupKey, predicate);
         }
 
-        double rowCount = mq.getRowCount(rel);
+        Double d = null;
+        for (RelNode r2 : rel.getRels()) {
+            try {
+                Double d2 = mq.getDistinctRowCount(r2, groupKey, predicate);
+                d = NumberUtil.min(d, d2);
+            } catch (CyclicMetadataException e) {
+                // Ignore this relational expression; there will be non-cyclic ones
+                // in this set.
+            }
+        }
 
-        rowCount *= 1.0 - Math.pow(.5, groupKey.cardinality());
-
-        return rowCount;
+        return d;
     }
 }

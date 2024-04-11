@@ -234,7 +234,7 @@ class ItConnectWithBasicAuthenticationCommandTest extends ItConnectToClusterTest
 
         // And prompt is still disconnected
         assertThat(getPrompt()).isEqualTo("[disconnected]> ");
-        //Previous correct values restored in config
+        // Previous correct values restored in config
         assertEquals("admin", getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_USERNAME));
         assertEquals("password", getConfigProperty(CliConfigKeys.BASIC_AUTHENTICATION_PASSWORD));
     }

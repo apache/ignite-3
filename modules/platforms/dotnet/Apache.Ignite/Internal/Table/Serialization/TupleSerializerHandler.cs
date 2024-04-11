@@ -19,7 +19,6 @@ namespace Apache.Ignite.Internal.Table.Serialization
 {
     using System;
     using System.Collections.Generic;
-    using System.Diagnostics;
     using System.Linq;
     using Common;
     using Ignite.Table;
@@ -49,20 +48,17 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// </summary>
         /// <param name="buf">Buffer.</param>
         /// <param name="schema">Schema.</param>
-        /// <param name="count">Column count to read.</param>
+        /// <param name="keyOnly">Whether to read only the key columns.</param>
         /// <returns>Tuple.</returns>
-        public static IgniteTuple ReadTuple(ReadOnlySpan<byte> buf, Schema schema, int count)
+        public static IgniteTuple ReadTuple(ReadOnlySpan<byte> buf, Schema schema, bool keyOnly)
         {
-            Debug.Assert(count <= schema.Columns.Count, "count <= schema.Columns.Count");
+            var columns = schema.GetColumnsFor(keyOnly);
+            var tuple = new IgniteTuple(columns.Length);
+            var tupleReader = new BinaryTupleReader(buf, columns.Length);
 
-            var tuple = new IgniteTuple(count);
-            var tupleReader = new BinaryTupleReader(buf, count);
-            var columns = schema.Columns;
-
-            for (var index = 0; index < count; index++)
+            foreach (var column in columns)
             {
-                var column = columns[index];
-                tuple[column.Name] = tupleReader.GetObject(index, column.Type, column.Scale);
+                tuple[column.Name] = tupleReader.GetObject(column.GetBinaryTupleIndex(keyOnly), column.Type, column.Scale);
             }
 
             return tuple;
@@ -73,13 +69,14 @@ namespace Apache.Ignite.Internal.Table.Serialization
         /// </summary>
         /// <param name="buf">Binary tuple buffer.</param>
         /// <param name="schema">Schema.</param>
-        /// <param name="count">Column count.</param>
+        /// <param name="keyOnly">Whether <paramref name="buf"/> is a key-only binary tuple.</param>
         /// <param name="index">Column index.</param>
         /// <returns>Column value.</returns>
-        public static object? ReadObject(ReadOnlySpan<byte> buf, Schema schema, int count, int index)
+        public static object? ReadObject(ReadOnlySpan<byte> buf, Schema schema, bool keyOnly, int index)
         {
-            var tupleReader = new BinaryTupleReader(buf, count);
-            var column = schema.Columns[index];
+            var columns = schema.GetColumnsFor(keyOnly);
+            var tupleReader = new BinaryTupleReader(buf, columns.Length);
+            var column = columns[index];
 
             return tupleReader.GetObject(index, column.Type, column.Scale);
         }
@@ -89,16 +86,16 @@ namespace Apache.Ignite.Internal.Table.Serialization
             new BinaryTupleIgniteTupleAdapter(
                 data: reader.ReadBinary().ToArray(),
                 schema: schema,
-                fieldCount: keyOnly ? schema.KeyColumnCount : schema.Columns.Count);
+                keyOnly);
 
         /// <inheritdoc/>
-        public void Write(ref BinaryTupleBuilder tupleBuilder, IIgniteTuple record, Schema schema, int columnCount, Span<byte> noValueSet)
+        public void Write(ref BinaryTupleBuilder tupleBuilder, IIgniteTuple record, Schema schema, bool keyOnly, Span<byte> noValueSet)
         {
             int written = 0;
+            var columns = keyOnly ? schema.KeyColumns : schema.Columns;
 
-            for (var index = 0; index < columnCount; index++)
+            foreach (var col in columns)
             {
-                var col = schema.Columns[index];
                 var colIdx = record.GetOrdinal(col.Name);
 
                 if (colIdx >= 0)
@@ -112,7 +109,7 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 }
             }
 
-            ValidateMappedCount(record, schema, columnCount, written);
+            ValidateMappedCount(record, schema, columns.Length, written);
         }
 
         private static void ValidateMappedCount(IIgniteTuple record, Schema schema, int columnCount, int written)
@@ -130,12 +127,10 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 {
                     var name = record.GetName(i);
 
-                    if (extraColumns.Contains(name))
+                    if (!extraColumns.Add(name))
                     {
                         throw new ArgumentException("Duplicate column in Tuple: " + name, nameof(record));
                     }
-
-                    extraColumns.Add(name);
                 }
 
                 for (var i = 0; i < columnCount; i++)

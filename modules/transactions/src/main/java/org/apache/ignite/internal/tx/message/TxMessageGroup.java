@@ -73,4 +73,15 @@ public class TxMessageGroup {
      * Message type for {@link TxCleanupMessageErrorResponse}.
      */
     public static final short TX_CLEANUP_MSG_ERR_RESPONSE = 9;
+
+    /**
+     * Message type for {@link FinishedTransactionsBatchMessage}.
+     */
+    public static final short TX_FINISHED_BATCH = 10;
+
+    /**
+     * Message type for {@link TxCleanupRecoveryRequest}.
+     */
+    public static final short TX_CLEANUP_RECOVERY = 11;
+
 }

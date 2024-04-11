@@ -369,7 +369,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             try {
                 T res = pendingReq.payloadReader.apply(new PayloadInputChannel(this, unpacker, pendingReq.notificationFut));
                 pendingReq.complete(res);
-            } catch (Exception e) {
+            } catch (Throwable e) {
                 log.error("Failed to deserialize server response [remoteAddress=" + cfg.getAddress() + "]: " + e.getMessage(), e);
 
                 pendingReq.completeExceptionally(
@@ -637,7 +637,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             var addr = sock.remoteAddress();
             var clusterNode = new ClientClusterNode(clusterNodeId, clusterNodeName, new NetworkAddress(addr.getHostName(), addr.getPort()));
             var clusterId = unpacker.unpackUuid();
-            unpacker.unpackString(); // cluster name
+            var clusterName = unpacker.unpackString();
 
             unpacker.unpackByte(); // cluster version major
             unpacker.unpackByte(); // cluster version minor
@@ -652,7 +652,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             unpacker.skipValues(extensionsLen);
 
             protocolCtx = new ProtocolContext(
-                    srvVer, ProtocolBitmaskFeature.allFeaturesAsEnumSet(), serverIdleTimeout, clusterNode, clusterId);
+                    srvVer, ProtocolBitmaskFeature.allFeaturesAsEnumSet(), serverIdleTimeout, clusterNode, clusterId, clusterName);
 
             return null;
         } catch (Exception e) {

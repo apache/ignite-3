@@ -28,7 +28,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Function;
-import org.apache.ignite.internal.client.sql.ClientSessionBuilder;
+import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.client.sql.ClientStatementBuilder;
 import org.apache.ignite.internal.table.criteria.CursorAdapter;
 import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncCursor;
@@ -36,7 +36,6 @@ import org.apache.ignite.internal.table.criteria.SqlSerializer;
 import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.lang.Cursor;
 import org.apache.ignite.sql.ResultSetMetadata;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.table.criteria.Criteria;
@@ -51,33 +50,33 @@ import org.jetbrains.annotations.Nullable;
 abstract class AbstractClientView<T> implements CriteriaQuerySource<T> {
     /** Underlying table. */
     protected final ClientTable tbl;
+    protected final ClientSql sql;
 
     /**
      * Constructor.
      *
      * @param tbl Underlying table.
+     * @param sql Sql facade.
      */
-    AbstractClientView(ClientTable tbl) {
+    AbstractClientView(ClientTable tbl, ClientSql sql) {
         assert tbl != null;
+        assert sql != null;
 
         this.tbl = tbl;
+        this.sql = sql;
     }
 
     /**
      * Map columns to it's names.
      *
      * @param columns Target columns.
-     * @param startInclusive The first index to cover.
-     * @param endExclusive Index immediately past the last index to cover.
      * @return Column names.
      */
-    protected static String[] columnNames(ClientColumn[] columns, int startInclusive, int endExclusive) {
-        int sz = endExclusive - startInclusive;
+    protected static String[] columnNames(ClientColumn[] columns) {
+        String[] columnNames = new String[columns.length];
 
-        String[] columnNames = new String[sz];
-
-        for (int i = 0; i < sz; i++) {
-            columnNames[i] = columns[startInclusive + i].name();
+        for (int i = 0; i < columns.length; i++) {
+            columnNames[i] = columns[i].name();
         }
 
         return columnNames;
@@ -136,20 +135,14 @@ abstract class AbstractClientView<T> implements CriteriaQuerySource<T> {
                     SqlSerializer ser = createSqlSerializer(tbl.name(), schema.columns(), criteria);
 
                     Statement statement = new ClientStatementBuilder().query(ser.toString()).pageSize(opts0.pageSize()).build();
-                    Session session = new ClientSessionBuilder(tbl.channel(), tbl.marshallers()).build();
 
-                    return session.executeAsync(tx, statement, ser.getArguments())
+                    return sql.executeAsync(tx, statement, ser.getArguments())
                             .<AsyncCursor<T>>thenApply(resultSet -> {
                                 ResultSetMetadata meta = resultSet.metadata();
 
                                 assert meta != null : "Metadata can't be null.";
 
-                                return new QueryCriteriaAsyncCursor<>(resultSet, queryMapper(meta, schema), session::closeAsync);
-                            })
-                            .whenComplete((ignore, err) -> {
-                                if (err != null) {
-                                    session.closeAsync();
-                                }
+                                return new QueryCriteriaAsyncCursor<>(resultSet, queryMapper(meta, schema), () -> {/* NO-OP */});
                             });
                 })
                 .exceptionally(th -> {

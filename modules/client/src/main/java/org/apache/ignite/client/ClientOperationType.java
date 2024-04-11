@@ -20,7 +20,10 @@ package org.apache.ignite.client;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
+import org.apache.ignite.sql.BatchedArguments;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.async.AsyncResultSet;
+import org.apache.ignite.table.DataStreamerTarget;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.apache.ignite.tx.Transaction;
@@ -125,7 +128,7 @@ public enum ClientOperationType {
     TUPLE_CONTAINS_KEY,
 
     /**
-     * Compute Execute ({@link org.apache.ignite.compute.IgniteCompute#executeAsync(Set, List, String, Object...)}).
+     * Compute Execute ({@link org.apache.ignite.compute.IgniteCompute#submit(Set, List, String, Object...)}).
      */
     COMPUTE_EXECUTE,
 
@@ -145,12 +148,12 @@ public enum ClientOperationType {
     COMPUTE_CHANGE_PRIORITY,
 
     /**
-     * SQL Execute ({@link org.apache.ignite.sql.Session#executeAsync(Transaction, String, Object...)}).
+     * SQL Execute ({@link IgniteSql#executeAsync(Transaction, String, Object...)}).
      */
     SQL_EXECUTE,
 
     /**
-     * SQL Execute ({@link org.apache.ignite.sql.Session#executeScriptAsync(String, Object...)}).
+     * SQL Execute ({@link IgniteSql#executeScriptAsync(String, Object...)}).
      */
     SQL_EXECUTE_SCRIPT,
 
@@ -160,7 +163,12 @@ public enum ClientOperationType {
     SQL_CURSOR_NEXT_PAGE,
 
     /**
-     * Send streamer batch ({@link org.apache.ignite.table.DataStreamerTarget#streamData}).
+     * Send streamer batch ({@link DataStreamerTarget#streamData}).
      */
-    STREAMER_BATCH_SEND
+    STREAMER_BATCH_SEND,
+
+    /**
+     * SQL Execute batch ({@link IgniteSql#executeBatchAsync(Transaction, String, BatchedArguments)}).
+     */
+    SQL_EXECUTE_BATCH
 }

@@ -17,86 +17,32 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
-import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.index.HashIndexStorage;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.rocksdb.index.RocksDbHashIndexStorage;
-import org.apache.ignite.internal.util.IgniteUtils;
-import org.jetbrains.annotations.Nullable;
-import org.rocksdb.RocksDBException;
-import org.rocksdb.WriteBatch;
 
 /**
  * Class that represents a Hash Index defined for all partitions of a Table.
  */
-class HashIndex {
-    private final ColumnFamily indexCf;
-
+class HashIndex extends Index<RocksDbHashIndexStorage> {
     private final StorageHashIndexDescriptor descriptor;
-
-    private final ConcurrentMap<Integer, RocksDbHashIndexStorage> storages = new ConcurrentHashMap<>();
 
     private final RocksDbMetaStorage indexMetaStorage;
 
-    HashIndex(ColumnFamily indexCf, StorageHashIndexDescriptor descriptor, RocksDbMetaStorage indexMetaStorage) {
-        this.indexCf = indexCf;
+    HashIndex(
+            int tableId,
+            ColumnFamily indexCf,
+            StorageHashIndexDescriptor descriptor,
+            RocksDbMetaStorage indexMetaStorage
+    ) {
+        super(tableId, descriptor.id(), indexCf);
+
         this.descriptor = descriptor;
         this.indexMetaStorage = indexMetaStorage;
     }
 
-    /**
-     * Creates a new Hash Index storage or returns an existing one.
-     */
-    HashIndexStorage getOrCreateStorage(RocksDbMvPartitionStorage partitionStorage) {
-        return storages.computeIfAbsent(
-                partitionStorage.partitionId(),
-                partId -> new RocksDbHashIndexStorage(descriptor, indexCf, partitionStorage.helper(), indexMetaStorage)
-        );
-    }
-
-    /**
-     * Removes all data associated with the index.
-     */
-    void destroy() {
-        storages.values().forEach(RocksDbHashIndexStorage::destroy);
-    }
-
-    /**
-     * Deletes the data associated with the partition in the index, using passed write batch for the operation.
-     * Index storage instance is closed after this method, if it ever existed.
-     *
-     * @throws RocksDBException If failed to delete data.
-     */
-    void destroy(int partitionId, WriteBatch writeBatch) throws RocksDBException {
-        RocksDbHashIndexStorage hashIndex = storages.remove(partitionId);
-
-        if (hashIndex != null) {
-            hashIndex.close();
-
-            hashIndex.destroyData(writeBatch);
-        }
-    }
-
-    /**
-     * Returns hash index storage for partition.
-     *
-     * @param partitionId Partition ID.
-     */
-    @Nullable RocksDbHashIndexStorage get(int partitionId) {
-        return storages.get(partitionId);
-    }
-
-    /**
-     * Closes all index storages.
-     */
-    void close() {
-        try {
-            IgniteUtils.closeAll(storages.values().stream().map(index -> index::close));
-        } catch (Exception e) {
-            throw new StorageException("Failed to close index storages: " + descriptor.id(), e);
-        }
+    @Override
+    RocksDbHashIndexStorage createStorage(int partitionId) {
+        return new RocksDbHashIndexStorage(descriptor, tableId(), partitionId, columnFamily(), indexMetaStorage);
     }
 }

@@ -155,6 +155,87 @@ public:
     [[nodiscard]] std::int32_t read_int32() { return read_object<std::int32_t>(); }
 
     /**
+     * Read timestamp.
+     *
+     * @return Timestamp.
+     */
+    [[nodiscard]] ignite_timestamp read_timestamp() {
+        auto seconds = read_int64();
+        auto nanos = read_int32();
+        return {seconds, nanos};
+    }
+
+    /**
+     * Read timestamp or null.
+     *
+     * @return Timestamp or std::nullopt.
+     */
+    [[nodiscard]] std::optional<ignite_timestamp> read_timestamp_opt() {
+        if (try_read_nil())
+            return std::nullopt;
+
+        return {read_timestamp()};
+    }
+
+    /**
+     * Read array of int32.
+     *
+     * @return Value.
+     */
+    [[nodiscard]] std::vector<std::int32_t> read_int32_array() {
+        auto length = read_int32();
+        std::vector<std::int32_t> values(length);
+
+        for (auto i = 0; i < length; i++) {
+            values[i] = read_int32();
+        }
+
+        return values;
+    }
+
+    /**
+     * Read array of int32.
+     *
+     * @return Value or nullopt.
+     */
+    [[nodiscard]] std::optional<std::vector<std::int32_t>> read_int32_array_nullable() {
+        if (try_read_nil()) {
+            return std::nullopt;
+        }
+
+        return read_int32_array();
+    }
+
+    /**
+     * Read array of int64.
+     *
+     * @return Value or nullopt.
+     */
+    [[nodiscard]] std::vector<std::int64_t> read_int64_array() {
+        auto length = read_int32();
+        std::vector<std::int64_t> values(length);
+
+        for (auto i = 0; i < length; i++) {
+            values[i] = read_int64();
+        }
+
+        return values;
+    }
+
+    /**
+     * Read array of int64.
+     *
+     * @return Value or nullopt.
+     */
+    [[nodiscard]] std::optional<std::vector<std::int64_t>> read_int64_array_nullable() {
+        if (try_read_nil()) {
+            return std::nullopt;
+        }
+
+        return read_int64_array();
+    }
+
+    /**
      * Read int32 or nullopt.
      *
      * @return Value or nullopt if the next value in stream is not integer.
@@ -174,6 +255,13 @@ public:
      * @return Value or nullopt if the next value in stream is nil.
      */
     [[nodiscard]] std::optional<std::uint8_t> read_uint8_nullable() { return read_object_nullable<std::uint8_t>(); }
+
+    /**
+     * Read int16 or nullopt.
+     *
+     * @return Value or nullopt if the next value in stream is nil.
+     */
+    [[nodiscard]] std::optional<std::int16_t> read_int16_nullable() { return read_object_nullable<std::int16_t>(); }
 
     /**
      * Read int64 number.

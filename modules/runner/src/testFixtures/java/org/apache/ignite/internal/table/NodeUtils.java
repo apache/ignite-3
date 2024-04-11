@@ -18,25 +18,20 @@
 package org.apache.ignite.internal.table;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.IntFunction;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
-import org.apache.ignite.internal.raft.Peer;
-import org.apache.ignite.internal.raft.service.RaftGroupService;
-import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.table.Tuple;
+import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
+import org.apache.ignite.internal.placementdriver.message.StopLeaseProlongationMessage;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -47,104 +42,72 @@ public class NodeUtils {
 
     private static final int AWAIT_PRIMARY_REPLICA_TIMEOUT = 10;
 
+    private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
+
     /**
      * Transfers the primary rights to another node.
      *
-     * @param tbl Table.
+     * @param nodes Nodes collection.
+     * @param groupId Group id.
      * @param preferablePrimary Primary replica name which is preferred for being primary or {@code null}.
-     * @return Future which points to a new primary replica name.
+     * @return New primary replica name.
      * @throws InterruptedException If failed.
      */
-    // TODO: IGNITE-20365: Replace this method when proper primary change method is implemented.
-    public static String transferPrimary(TableViewInternal tbl, @Nullable String preferablePrimary, IntFunction<IgniteImpl> nodes)
-            throws InterruptedException {
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), 0);
+    public static String transferPrimary(
+            Collection<IgniteImpl> nodes,
+            ReplicationGroupId groupId,
+            @Nullable String preferablePrimary
+    ) throws InterruptedException {
+        LOG.info("Moving the primary replica [preferablePrimary=" + preferablePrimary + "].");
 
-        CompletableFuture<ReplicaMeta> primaryReplicaFut = nodes.apply(0).placementDriver().awaitPrimaryReplica(
-                tblReplicationGrp,
-                nodes.apply(0).clock().now(),
+        IgniteImpl node = nodes.stream().findAny().orElseThrow();
+
+        ReplicaMeta currentLeaseholder = leaseholder(node, groupId);
+
+        IgniteImpl leaseholderNode = nodes.stream()
+                .filter(n -> n.id().equals(currentLeaseholder.getLeaseholderId()))
+                .findFirst().orElseThrow();
+
+        if (preferablePrimary == null) {
+            preferablePrimary = nodes.stream()
+                    .map(IgniteImpl::name)
+                    .filter(n -> n.equals(currentLeaseholder.getLeaseholder()))
+                    .findFirst()
+                    .orElseThrow();
+        }
+
+        String finalPreferablePrimary = preferablePrimary;
+
+        StopLeaseProlongationMessage msg = PLACEMENT_DRIVER_MESSAGES_FACTORY.stopLeaseProlongationMessage()
+                .groupId(groupId)
+                .redirectProposal(preferablePrimary)
+                .build();
+
+        nodes.forEach(
+                n -> leaseholderNode.clusterService().messagingService().send(n.clusterService().topologyService().localMember(), msg)
+        );
+
+        assertTrue(waitForCondition(() -> {
+            ReplicaMeta newPrimaryReplica = leaseholder(node, groupId);
+
+            return newPrimaryReplica.getLeaseholder().equals(finalPreferablePrimary);
+        }, 10_000));
+
+        LOG.info("Primary replica moved successfully.");
+
+        return finalPreferablePrimary;
+    }
+
+    private static ReplicaMeta leaseholder(IgniteImpl node, ReplicationGroupId groupId) {
+        CompletableFuture<ReplicaMeta> leaseholderFuture = node.placementDriver().awaitPrimaryReplica(
+                groupId,
+                node.clock().now(),
                 AWAIT_PRIMARY_REPLICA_TIMEOUT,
                 SECONDS
         );
 
-        assertThat(primaryReplicaFut, willCompleteSuccessfully());
+        assertThat(leaseholderFuture, willCompleteSuccessfully());
 
-        String primary = primaryReplicaFut.join().getLeaseholder();
-
-        if (preferablePrimary != null && preferablePrimary.equals(primary)) {
-            return primary;
-        }
-
-        // Change leader for the replication group.
-
-        RaftGroupService raftSrvc = tbl.internalTable().partitionRaftGroupService(0);
-
-        raftSrvc.refreshLeader();
-
-        Peer leader = raftSrvc.leader();
-
-        Peer newLeader = null;
-
-        if (preferablePrimary != null) {
-            for (Peer peer : raftSrvc.peers()) {
-                if (peer.consistentId().equals(preferablePrimary)) {
-                    newLeader = peer;
-                }
-            }
-        }
-
-        if (newLeader == null) {
-            for (Peer peer : raftSrvc.peers()) {
-                if (!leader.equals(peer)) {
-                    newLeader = peer;
-                }
-            }
-        }
-
-        assertNotNull(newLeader);
-
-        assertThat(raftSrvc.transferLeadership(newLeader), willCompleteSuccessfully());
-
-        LOG.info("Leader moved [from={}, to={}]", leader, newLeader);
-
-        // Leader changed.
-
-        AtomicReference<String> newLeaseholder = new AtomicReference<>();
-
-        AtomicLong lastInsertAttempt = new AtomicLong();
-
-        assertTrue(IgniteTestUtils.waitForCondition(() -> {
-            CompletableFuture<ReplicaMeta> newPrimaryReplicaFut = nodes.apply(0).placementDriver().awaitPrimaryReplica(
-                    tblReplicationGrp,
-                    nodes.apply(0).clock().now(),
-                    AWAIT_PRIMARY_REPLICA_TIMEOUT,
-                    SECONDS
-            );
-
-            assertThat(newPrimaryReplicaFut, willCompleteSuccessfully());
-
-            if (!primary.equals(newPrimaryReplicaFut.join().getLeaseholder())) {
-                newLeaseholder.set(newPrimaryReplicaFut.join().getLeaseholder());
-
-                return true;
-            } else {
-                // Insert is needed to notify the placement driver about a leader for the group was changed.
-                try {
-                    long lastTs = lastInsertAttempt.get();
-
-                    if (coarseCurrentTimeMillis() - lastTs > 1_000 && lastInsertAttempt.compareAndSet(lastTs, coarseCurrentTimeMillis())) {
-                        tbl.recordView().upsert(null, Tuple.create().set("key", 1).set("val", "val 1"));
-                    }
-                } catch (Exception e) {
-                    LOG.error("Failed to perform insert", e);
-                }
-
-                return false;
-            }
-        }, 60_000));
-
-        LOG.info("Primary replica moved [from={}, to={}]", primary, newLeaseholder.get());
-
-        return newLeaseholder.get();
+        return leaseholderFuture.join();
     }
 }

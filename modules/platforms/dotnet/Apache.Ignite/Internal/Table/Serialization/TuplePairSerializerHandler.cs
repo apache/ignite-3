@@ -47,21 +47,32 @@ internal sealed class TuplePairSerializerHandler : IRecordSerializerHandler<KvPa
     /// <inheritdoc/>
     public KvPair<IIgniteTuple, IIgniteTuple> Read(ref MsgPackReader reader, Schema schema, bool keyOnly = false)
     {
-        var columns = schema.Columns;
-        var count = keyOnly ? schema.KeyColumnCount : columns.Count;
-        var keyTuple = new IgniteTuple(count);
-        var valTuple = keyOnly ? null! : new IgniteTuple(schema.ValueColumnCount);
-        var tupleReader = new BinaryTupleReader(reader.ReadBinary(), count);
-
-        for (var index = 0; index < count; index++)
+        if (keyOnly)
         {
-            var column = columns[index];
+            var keyTuple = new IgniteTuple(schema.KeyColumns.Length);
+            var tupleReader = new BinaryTupleReader(reader.ReadBinary(), schema.KeyColumns.Length);
 
-            var tuple = index < schema.KeyColumnCount ? keyTuple : valTuple;
-            tuple[column.Name] = tupleReader.GetObject(index, column.Type, column.Scale);
+            foreach (var column in schema.KeyColumns)
+            {
+                keyTuple[column.Name] = tupleReader.GetObject(column.KeyIndex, column.Type, column.Scale);
+            }
+
+            return new(keyTuple);
         }
+        else
+        {
+            var keyTuple = new IgniteTuple(schema.KeyColumns.Length);
+            var valTuple = new IgniteTuple(schema.ValColumns.Length);
+            var tupleReader = new BinaryTupleReader(reader.ReadBinary(), schema.Columns.Length);
 
-        return new(keyTuple, valTuple);
+            foreach (var column in schema.Columns)
+            {
+                var tuple = column.IsKey ? keyTuple : valTuple;
+                tuple[column.Name] = tupleReader.GetObject(column.SchemaIndex, column.Type, column.Scale);
+            }
+
+            return new(keyTuple, valTuple);
+        }
     }
 
     /// <inheritdoc/>
@@ -69,7 +80,7 @@ internal sealed class TuplePairSerializerHandler : IRecordSerializerHandler<KvPa
         ref BinaryTupleBuilder tupleBuilder,
         KvPair<IIgniteTuple, IIgniteTuple> record,
         Schema schema,
-        int columnCount,
+        bool keyOnly,
         Span<byte> noValueSet)
     {
         var key = record.Key;
@@ -77,17 +88,17 @@ internal sealed class TuplePairSerializerHandler : IRecordSerializerHandler<KvPa
 
         IgniteArgumentCheck.NotNull(key);
 
-        if (columnCount > schema.KeyColumnCount)
+        if (!keyOnly)
         {
             IgniteArgumentCheck.NotNull(val);
         }
 
         int written = 0;
+        var columns = schema.GetColumnsFor(keyOnly);
 
-        for (var index = 0; index < columnCount; index++)
+        foreach (var col in columns)
         {
-            var col = schema.Columns[index];
-            var rec = index < schema.KeyColumnCount ? key : val;
+            var rec = col.IsKey ? key : val;
             var colIdx = rec.GetOrdinal(col.Name);
 
             if (colIdx >= 0)
@@ -101,7 +112,7 @@ internal sealed class TuplePairSerializerHandler : IRecordSerializerHandler<KvPa
             }
         }
 
-        ValidateMappedCount(record, schema, columnCount, written);
+        ValidateMappedCount(record, schema, columns.Length, written);
     }
 
     private static void ValidateMappedCount(KvPair<IIgniteTuple, IIgniteTuple> record, Schema schema, int columnCount, int written)

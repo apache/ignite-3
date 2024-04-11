@@ -24,12 +24,14 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.IntStream;
 import org.apache.calcite.rel.core.TableModify;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.UpdatableTable;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -50,7 +52,7 @@ import org.jetbrains.annotations.Nullable;
  * </ol>
  * , where <ul>
  *     <li>[insert row type] is the same as [full row type]</li>
- *     <li>[delete row type] is the type of the row defined by {@link TableDescriptor#deleteRowType(IgniteTypeFactory)}</li>
+ *     <li>[delete row type] is the type of the row defined by {@link IgniteTable#rowTypeForDelete(IgniteTypeFactory)}</li>
  *     <li>[columns to update] is the projection of [full row type] having only columns enumerated in
  *         {@link #updateColumns} (with respect to the order of the enumeration)</li>
  * </ul>
@@ -401,14 +403,14 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
      * Creates a mapping to inline updates into the row.
      *
      * <p>The row passed to the modify node contains columns specified by
-     * {@link TableDescriptor#selectForUpdateRowType(IgniteTypeFactory)} followed by {@link #updateColumns}. Here is an example:
+     * {@link IgniteTable#getRowType(RelDataTypeFactory)} followed by {@link #updateColumns}. Here is an example:
      *
      * <pre>
      *     CREATE TABLE t (a INT, b INT, c INT);
      *     INSERT INTO t VALUES (2, 2, 2);
      *
      *     UPDATE t SET b = b + 10, c = c * 10;
-     *     -- If selectForUpdateRowType specifies all the table columns,
+     *     -- If getRowType specifies all the table columns,
      *     -- then the following row should be passed to ModifyNode:
      *     -- [2, 2, 2, 12, 20], where first three values is the original values
      *     -- of columns A, B, and C respectively, 12 is the computed value for column B,

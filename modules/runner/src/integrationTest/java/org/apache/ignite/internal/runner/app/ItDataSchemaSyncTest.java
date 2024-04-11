@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.runner.app;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
@@ -45,21 +46,20 @@ import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * There is a test of table schema synchronization.
  */
-@ExtendWith(WorkDirectoryExtension.class)
+@ExtendWith({WorkDirectoryExtension.class})
 public class ItDataSchemaSyncTest extends IgniteAbstractTest {
     public static final String TABLE_NAME = "tbl1";
 
@@ -115,6 +115,12 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
                 .destinationNodeName(metaStorageNode)
                 .metaStorageNodeNames(List.of(metaStorageNode))
                 .clusterName("cluster")
+                .clusterConfiguration("{\n"
+                        + "  \"replication\": {\n"
+                        + "  \"rpcTimeout\": 3000\n"
+                        + "  }\n"
+                        + "}\n"
+                )
                 .build();
 
         TestIgnitionManager.init(initParameters);
@@ -198,18 +204,23 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
 
         createTable(ignite0, TABLE_NAME);
 
-        WatchListenerInhibitor listenerInhibitor = WatchListenerInhibitor.metastorageEventsInhibitor(ignite1);
+        WatchListenerInhibitor node1Inhibitor = WatchListenerInhibitor.metastorageEventsInhibitor(ignite1);
 
-        listenerInhibitor.startInhibit();
+        CompletableFuture<ResultSet<SqlRow>> createIndexFuture;
 
-        sql(ignite0, "CREATE INDEX idx1 ON " + TABLE_NAME + "(valint)");
+        node1Inhibitor.startInhibit();
+        try {
+            createIndexFuture = runAsync(() -> sql(ignite0, "CREATE INDEX idx1 ON " + TABLE_NAME + "(valint)"));
 
-        assertThat(
-                runAsync(() -> sql(ignite0, "SELECT * FROM " + TABLE_NAME + " WHERE valint > 0")),
-                willTimeoutIn(1, TimeUnit.SECONDS)
-        );
+            assertThat(
+                    runAsync(() -> sql(ignite0, "SELECT * FROM " + TABLE_NAME + " WHERE valint > 0")),
+                    willTimeoutIn(1, TimeUnit.SECONDS)
+            );
+        } finally {
+            node1Inhibitor.stopInhibit();
+        }
 
-        listenerInhibitor.stopInhibit();
+        assertThat(createIndexFuture, willCompleteSuccessfully());
 
         // only check that request is executed without timeout.
         try (ResultSet<SqlRow> rs = sql(ignite0, "SELECT * FROM " + TABLE_NAME + " WHERE valint > 0")) {
@@ -221,7 +232,6 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
      * Test correctness of schemes recovery after node restart.
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21400")
     public void checkSchemasCorrectlyRestore() {
         Ignite ignite1 = clusterNodes.get(1);
 
@@ -250,29 +260,29 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
 
         ignite1 = ignite1Fut.join();
 
-        try (Session ses = ignite1.sql().createSession()) {
-            ResultSet<SqlRow> res = ses.execute(null, "SELECT valint2 FROM tbl1");
+        IgniteSql sql = ignite1.sql();
 
-            for (int i = 0; i < 10; ++i) {
-                assertNotNull(res.next().iterator().next());
-            }
+        ResultSet<SqlRow> res = sql.execute(null, "SELECT valint2 FROM tbl1");
 
-            for (int i = 10; i < 20; ++i) {
-                sql(ignite1, String.format("INSERT INTO " + TABLE_NAME + " VALUES(%d, %d, %d, %d)", i, i, i, i));
-            }
-
-            sql(ignite1, "ALTER TABLE " + TABLE_NAME + " DROP COLUMN valint3");
-
-            sql(ignite1, "ALTER TABLE " + TABLE_NAME + " ADD COLUMN valint5 INT");
-
-            res.close();
-
-            res = ses.execute(null, "SELECT sum(valint4) FROM tbl1");
-
-            assertEquals(10L * (10 + 19) / 2, res.next().iterator().next());
-
-            res.close();
+        for (int i = 0; i < 10; ++i) {
+            assertNotNull(res.next().iterator().next());
         }
+
+        for (int i = 10; i < 20; ++i) {
+            sql(ignite1, String.format("INSERT INTO " + TABLE_NAME + " VALUES(%d, %d, %d, %d)", i, i, i, i));
+        }
+
+        sql(ignite1, "ALTER TABLE " + TABLE_NAME + " DROP COLUMN valint3");
+
+        sql(ignite1, "ALTER TABLE " + TABLE_NAME + " ADD COLUMN valint5 INT");
+
+        res.close();
+
+        res = sql.execute(null, "SELECT sum(valint4) FROM tbl1");
+
+        assertEquals(10L * (10 + 19) / 2, res.next().iterator().next());
+
+        res.close();
     }
 
     /**
@@ -351,10 +361,7 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
     }
 
     protected ResultSet<SqlRow> sql(Ignite node, String query, Object... args) {
-        ResultSet<SqlRow> rs = null;
-        try (Session session = node.sql().createSession()) {
-            rs = session.execute(null, query, args);
-        }
+        ResultSet<SqlRow> rs = node.sql().execute(null, query, args);
         return rs;
     }
 
@@ -363,6 +370,6 @@ public class ItDataSchemaSyncTest extends IgniteAbstractTest {
 
         assertThat(tableFuture, willCompleteSuccessfully());
 
-        return (TableViewInternal) tableFuture.join();
+        return unwrapTableViewInternal(tableFuture.join());
     }
 }

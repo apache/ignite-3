@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.compute;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.compute.ClassLoaderExceptionsMapper.mapClassLoaderExceptions;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -53,6 +54,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.TopologyService;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Implementation of {@link ComputeComponent}.
@@ -195,17 +197,32 @@ public class ComputeComponentImpl implements ComputeComponent {
 
     @Override
     public CompletableFuture<@Nullable JobStatus> statusAsync(UUID jobId) {
-        return messaging.broadcastStatusAsync(jobId);
+        return executionManager.statusAsync(jobId).thenCompose(jobStatus -> {
+            if (jobStatus != null) {
+                return completedFuture(jobStatus);
+            }
+            return messaging.broadcastStatusAsync(jobId);
+        });
     }
 
     @Override
     public CompletableFuture<@Nullable Boolean> cancelAsync(UUID jobId) {
-        return messaging.broadcastCancelAsync(jobId);
+        return executionManager.cancelAsync(jobId).thenCompose(result -> {
+            if (result != null) {
+                return completedFuture(result);
+            }
+            return messaging.broadcastCancelAsync(jobId);
+        });
     }
 
     @Override
     public CompletableFuture<@Nullable Boolean> changePriorityAsync(UUID jobId, int newPriority) {
-        return messaging.broadcastChangePriorityAsync(jobId, newPriority);
+        return executionManager.changePriorityAsync(jobId, newPriority).thenCompose(result -> {
+            if (result != null) {
+                return completedFuture(result);
+            }
+            return messaging.broadcastChangePriorityAsync(jobId, newPriority);
+        });
     }
 
     /** {@inheritDoc} */
@@ -240,5 +257,10 @@ public class ComputeComponentImpl implements ComputeComponent {
                 ComputeUtils.jobClass(context.classLoader(), jobClassName),
                 args
         );
+    }
+
+    @TestOnly
+    ExecutionManager executionManager() {
+        return executionManager;
     }
 }

@@ -74,7 +74,7 @@ public class ClientTableCommon {
             return;
         }
 
-        var colCnt = schema.columnNames().size();
+        var colCnt = schema.columns().size();
         packer.packInt(colCnt);
 
         for (var colIdx = 0; colIdx < colCnt; colIdx++) {
@@ -83,9 +83,9 @@ public class ClientTableCommon {
             packer.packInt(7);
             packer.packString(col.name());
             packer.packInt(getColumnType(col.type().spec()).ordinal());
-            packer.packBoolean(schema.isKeyColumn(colIdx));
+            packer.packInt(col.positionInKey());
             packer.packBoolean(col.nullable());
-            packer.packInt(schema.colocationIndex(col));
+            packer.packInt(col.positionInColocation());
             packer.packInt(getDecimalScale(col.type()));
             packer.packInt(getPrecision(col.type()));
         }
@@ -138,7 +138,7 @@ public class ClientTableCommon {
         assert tuple instanceof BinaryTupleContainer : "Tuple must be a BinaryTupleContainer: " + tuple.getClass();
         BinaryTupleReader binaryTuple = ((BinaryTupleContainer) tuple).binaryTuple();
 
-        int elementCount = part == TuplePart.KEY ? schema.keyColumns().length() : schema.length();
+        int elementCount = part == TuplePart.KEY ? schema.keyColumns().size() : schema.length();
 
         if (binaryTuple != null) {
             assert elementCount == binaryTuple.elementCount() :
@@ -288,7 +288,7 @@ public class ClientTableCommon {
             boolean keyOnly,
             SchemaDescriptor schema
     ) {
-        var cnt = keyOnly ? schema.keyColumns().length() : schema.length();
+        var cnt = keyOnly ? schema.keyColumns().size() : schema.length();
 
         // NOTE: noValueSet is only present for client -> server communication.
         // It helps disambiguate two cases: 1 - column value is not set, 2 - column value is set to null explicitly.
@@ -297,7 +297,7 @@ public class ClientTableCommon {
         var noValueSet = unpacker.unpackBitSet();
         var binaryTupleReader = new BinaryTupleReader(cnt, unpacker.readBinary());
 
-        return new ClientTuple(schema, noValueSet, binaryTupleReader, 0, cnt);
+        return new ClientHandlerTuple(schema, noValueSet, binaryTupleReader, keyOnly);
     }
 
     /**
@@ -350,7 +350,16 @@ public class ClientTableCommon {
         int tableId = unpacker.unpackInt();
 
         try {
-            return ((IgniteTablesInternal) tables).tableAsync(tableId)
+            IgniteTablesInternal tablesInternal = (IgniteTablesInternal) tables;
+
+            // Fast path - in most cases, the table is already in the startedTables cache.
+            // This method can return a table that is being stopped, but it's not a problem - any operation on such table will fail.
+            TableViewInternal cachedTable = tablesInternal.cachedTable(tableId);
+            if (cachedTable != null) {
+                return CompletableFuture.completedFuture(cachedTable);
+            }
+
+            return tablesInternal.tableAsync(tableId)
                     .thenApply(t -> {
                         if (t == null) {
                             throw tableIdNotFoundException(tableId);

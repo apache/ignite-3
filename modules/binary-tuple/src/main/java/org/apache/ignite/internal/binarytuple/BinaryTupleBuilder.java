@@ -315,7 +315,28 @@ public class BinaryTupleBuilder {
      * @return {@code this} for chaining.
      */
     public BinaryTupleBuilder appendDecimalNotNull(BigDecimal value, int scale) {
-        putBytes(value.setScale(scale, RoundingMode.HALF_UP).unscaledValue().toByteArray());
+        if (value.scale() > scale) {
+            value = value.setScale(scale, RoundingMode.HALF_UP);
+        }
+
+        BigDecimal noZeros = value.stripTrailingZeros();
+        if (noZeros.scale() <= Short.MAX_VALUE && noZeros.scale() >= Short.MIN_VALUE) {
+            // Use more compact representation if possible.
+            value = noZeros;
+        }
+
+        // See CatalogUtils.MAX_DECIMAL_SCALE = Short.MAX_VALUE
+        if (value.scale() > Short.MAX_VALUE) {
+            throw new BinaryTupleFormatException("Decimal scale is too large: " + value.scale() + " > " + Short.MAX_VALUE);
+        }
+
+        if (value.scale() < Short.MIN_VALUE) {
+            throw new BinaryTupleFormatException("Decimal scale is too small: " + value.scale() + " < " + Short.MIN_VALUE);
+        }
+
+        putShort((short) value.scale());
+        putBytes(value.unscaledValue().toByteArray());
+
         return proceed();
     }
 
@@ -794,7 +815,7 @@ public class BinaryTupleBuilder {
 
     /** Proceed to the next tuple element. */
     private BinaryTupleBuilder proceed() {
-        assert elementIndex < numElements;
+        assert elementIndex < numElements : "Element index overflow: " + elementIndex + " >= " + numElements;
 
         int offset = buffer.position() - valueBase;
         switch (entrySize) {

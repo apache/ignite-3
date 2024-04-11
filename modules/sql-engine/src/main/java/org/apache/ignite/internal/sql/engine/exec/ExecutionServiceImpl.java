@@ -25,10 +25,12 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -55,6 +57,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.ignite.configuration.ConfigurationChangeException;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -74,6 +77,7 @@ import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappedFragment;
+import org.apache.ignite.internal.sql.engine.exec.mapping.MappingParameters;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingService;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
 import org.apache.ignite.internal.sql.engine.exec.rel.AsyncRootNode;
@@ -130,7 +134,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
     private static final List<InternalSqlRow> NOT_APPLIED_ANSWER = List.of(new InternalSqlRowSingleBoolean(false));
 
     private static final FragmentDescription DUMMY_DESCRIPTION = new FragmentDescription(
-            0, true, Long2ObjectMaps.emptyMap(), null, null
+            0, true, Long2ObjectMaps.emptyMap(), null, null, null
     );
 
     private final MessageService messageService;
@@ -159,6 +163,50 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
     private final long shutdownTimeout;
 
+    private final ClockService clockService;
+
+    /**
+     * Constructor.
+     *
+     * @param messageService Message service.
+     * @param topSrvc Topology service.
+     * @param mappingService Nodes mapping calculation service.
+     * @param sqlSchemaManager Schema manager.
+     * @param ddlCmdHnd Handler of the DDL commands.
+     * @param taskExecutor Task executor.
+     * @param handler Row handler.
+     * @param implementorFactory Relational node implementor factory.
+     * @param clockService Clock service.
+     */
+    public ExecutionServiceImpl(
+            MessageService messageService,
+            TopologyService topSrvc,
+            MappingService mappingService,
+            SqlSchemaManager sqlSchemaManager,
+            DdlCommandHandler ddlCmdHnd,
+            QueryTaskExecutor taskExecutor,
+            RowHandler<RowT> handler,
+            ExecutableTableRegistry tableRegistry,
+            ExecutionDependencyResolver dependencyResolver,
+            ImplementorFactory<RowT> implementorFactory,
+            ClockService clockService,
+            long shutdownTimeout
+    ) {
+        this.localNode = topSrvc.localMember();
+        this.handler = handler;
+        this.messageService = messageService;
+        this.mappingService = mappingService;
+        this.topSrvc = topSrvc;
+        this.sqlSchemaManager = sqlSchemaManager;
+        this.taskExecutor = taskExecutor;
+        this.ddlCmdHnd = ddlCmdHnd;
+        this.tableRegistry = tableRegistry;
+        this.dependencyResolver = dependencyResolver;
+        this.implementorFactory = implementorFactory;
+        this.clockService = clockService;
+        this.shutdownTimeout = shutdownTimeout;
+    }
+
     /**
      * Creates the execution services.
      *
@@ -185,6 +233,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             MappingService mappingService,
             ExecutableTableRegistry tableRegistry,
             ExecutionDependencyResolver dependencyResolver,
+            ClockService clockService,
             long shutdownTimeout
     ) {
         return new ExecutionServiceImpl<>(
@@ -202,47 +251,9 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                         mailboxRegistry,
                         exchangeSrvc,
                         deps),
+                clockService,
                 shutdownTimeout
         );
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param messageService Message service.
-     * @param topSrvc Topology service.
-     * @param mappingService Nodes mapping calculation service.
-     * @param sqlSchemaManager Schema manager.
-     * @param ddlCmdHnd Handler of the DDL commands.
-     * @param taskExecutor Task executor.
-     * @param handler Row handler.
-     * @param implementorFactory Relational node implementor factory.
-     */
-    public ExecutionServiceImpl(
-            MessageService messageService,
-            TopologyService topSrvc,
-            MappingService mappingService,
-            SqlSchemaManager sqlSchemaManager,
-            DdlCommandHandler ddlCmdHnd,
-            QueryTaskExecutor taskExecutor,
-            RowHandler<RowT> handler,
-            ExecutableTableRegistry tableRegistry,
-            ExecutionDependencyResolver dependencyResolver,
-            ImplementorFactory<RowT> implementorFactory,
-            long shutdownTimeout
-    ) {
-        this.localNode = topSrvc.localMember();
-        this.handler = handler;
-        this.messageService = messageService;
-        this.mappingService = mappingService;
-        this.topSrvc = topSrvc;
-        this.sqlSchemaManager = sqlSchemaManager;
-        this.taskExecutor = taskExecutor;
-        this.ddlCmdHnd = ddlCmdHnd;
-        this.tableRegistry = tableRegistry;
-        this.dependencyResolver = dependencyResolver;
-        this.implementorFactory = implementorFactory;
-        this.shutdownTimeout = shutdownTimeout;
     }
 
     /** {@inheritDoc} */
@@ -270,7 +281,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         return queryManager.execute(tx, plan);
     }
 
-    private BaseQueryContext createQueryContext(UUID queryId, int schemaVersion, Object[] params) {
+    private BaseQueryContext createQueryContext(UUID queryId, int schemaVersion, ZoneId timeZoneId, Object[] params) {
         return BaseQueryContext.builder()
                 .queryId(queryId)
                 .parameters(params)
@@ -279,6 +290,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                                 .defaultSchema(sqlSchemaManager.schema(schemaVersion))
                                 .build()
                 )
+                .timeZoneId(timeZoneId)
                 .build();
     }
 
@@ -342,7 +354,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 DUMMY_DESCRIPTION,
                 handler,
                 Commons.parametersMap(ctx.parameters()),
-                TxAttributes.fromTx(tx)
+                TxAttributes.fromTx(tx),
+                ctx.timeZoneId()
         );
 
         return plan.execute(ectx, tx, tableRegistry, callback);
@@ -372,7 +385,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         }
 
         if (e instanceof IgniteInternalCheckedException) {
-            return new IgniteInternalException(INTERNAL_ERR, "Failed to execute DDL statement [stmt=" /*+ qry.sql()*/
+            return new IgniteInternalException(INTERNAL_ERR, "Failed to execute DDL statement [stmt=" /* + qry.sql() */
                     + ", err=" + e.getMessage() + ']', e);
         }
 
@@ -509,7 +522,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
     private DistributedQueryManager getOrCreateQueryManager(String coordinatorNodeName, QueryStartRequest msg) {
         return queryManagerMap.computeIfAbsent(msg.queryId(), key -> {
-            BaseQueryContext ctx = createQueryContext(key, msg.schemaVersion(), msg.parameters());
+            BaseQueryContext ctx = createQueryContext(key, msg.schemaVersion(), ZoneId.of(msg.timeZoneId()), msg.parameters());
 
             return new DistributedQueryManager(coordinatorNodeName, ctx);
         });
@@ -711,6 +724,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     .parameters(ctx.parameters())
                     .txAttributes(txAttributes)
                     .schemaVersion(ctx.schemaVersion())
+                    .timeZoneId(ctx.timeZoneId().getId())
+                    .timestampLong(clockService.nowLong())
                     .build();
 
             return messageService.send(targetNodeName, request);
@@ -797,7 +812,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     desc,
                     handler,
                     Commons.parametersMap(ctx.parameters()),
-                    txAttributes
+                    txAttributes,
+                    ctx.timeZoneId()
             );
         }
 
@@ -808,13 +824,12 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 FragmentDescription desc,
                 TxAttributes txAttributes
         ) {
-            // Because fragment execution runs on specific thread selected by taskExecutor,
-            // we should complete dependency resolution on the same thread
-            // that is going to be used for fragment execution.
-            ExecutionContext<RowT> context = createContext(initiatorNode, desc, txAttributes);
-            Executor exec = (r) -> context.execute(r::run, err -> handleError(err, initiatorNode, desc.fragmentId()));
-
             try {
+                // Because fragment execution runs on specific thread selected by taskExecutor,
+                // we should complete dependency resolution on the same thread
+                // that is going to be used for fragment execution.
+                ExecutionContext<RowT> context = createContext(initiatorNode, desc, txAttributes);
+                Executor exec = (r) -> context.execute(r::run, err -> handleError(err, initiatorNode, desc.fragmentId()));
                 IgniteRel treeRoot = relationalTreeFromJsonString(schemaVersion, fragmentString, ctx);
 
                 dependencyResolver.resolveDependencies(List.of(treeRoot), schemaVersion)
@@ -824,7 +839,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
                             return null;
                         });
-            } catch (Exception ex) {
+            } catch (Throwable ex) {
                 handleError(ex, initiatorNode, desc.fragmentId());
             }
         }
@@ -851,7 +866,9 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         private AsyncCursor<InternalSqlRow> execute(InternalTransaction tx, MultiStepPlan multiStepPlan) {
             assert root != null;
 
-            mappingService.map(multiStepPlan).whenCompleteAsync((mappedFragments, mappingErr) -> {
+            MappingParameters mappingParameters = MappingParameters.create(ctx.parameters());
+
+            mappingService.map(multiStepPlan, mappingParameters).whenCompleteAsync((mappedFragments, mappingErr) -> {
                 if (mappingErr != null) {
                     if (!root.completeExceptionally(mappingErr)) {
                         root.thenAccept(root -> root.onError(mappingErr));
@@ -905,7 +922,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                                 !fragment.correlated(),
                                 mappedFragment.groupsBySourceId(),
                                 mappedFragment.target(),
-                                mappedFragment.sourcesByExchangeId()
+                                mappedFragment.sourcesByExchangeId(),
+                                mappedFragment.partitionPruningMetadata()
                         );
 
                         for (String nodeName : mappedFragment.nodes()) {
@@ -1036,7 +1054,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     return super.visit(rel);
                 }
 
-                private void enlist(int tableId, List<NodeWithConsistencyToken> assignments) {
+                private void enlist(int tableId, Int2ObjectMap<NodeWithConsistencyToken> assignments) {
                     if (assignments.isEmpty()) {
                         return;
                     }
@@ -1045,10 +1063,10 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
                     tx.assignCommitPartition(new TablePartitionId(tableId, ThreadLocalRandom.current().nextInt(partsCnt)));
 
-                    for (int p = 0; p < partsCnt; p++) {
-                        TablePartitionId tablePartId = new TablePartitionId(tableId, p);
+                    for (Map.Entry<Integer, NodeWithConsistencyToken> partWithToken : assignments.int2ObjectEntrySet()) {
+                        TablePartitionId tablePartId = new TablePartitionId(tableId, partWithToken.getKey());
 
-                        NodeWithConsistencyToken assignment = assignments.get(p);
+                        NodeWithConsistencyToken assignment = partWithToken.getValue();
 
                         tx.enlist(tablePartId,
                                 new IgniteBiTuple<>(
@@ -1062,7 +1080,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     int tableId = rel.getTable().unwrap(IgniteTable.class).id();
 
                     ColocationGroup colocationGroup = mappedFragment.groupsBySourceId().get(rel.sourceId());
-                    List<NodeWithConsistencyToken> assignments = colocationGroup.assignments();
+                    Int2ObjectMap<NodeWithConsistencyToken> assignments = colocationGroup.assignments();
 
                     enlist(tableId, assignments);
                 }

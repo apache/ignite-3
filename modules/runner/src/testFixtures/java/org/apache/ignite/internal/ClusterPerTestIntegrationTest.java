@@ -17,6 +17,11 @@
 
 package org.apache.ignite.internal;
 
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_PROFILE_NAME;
+
 import java.nio.file.Path;
 import java.util.List;
 import java.util.stream.Stream;
@@ -46,12 +51,16 @@ public abstract class ClusterPerTestIntegrationTest extends IgniteIntegrationTes
             + "      netClusterNodes: [ {} ]\n"
             + "    }\n"
             + "  },\n"
+            + "  storage.profiles: {"
+            + "        " + DEFAULT_TEST_PROFILE_NAME + ".engine: test, "
+            + "        " + DEFAULT_AIPERSIST_PROFILE_NAME + ".engine: aipersist, "
+            + "        " + DEFAULT_AIMEM_PROFILE_NAME + ".engine: aimem, "
+            + "        " + DEFAULT_ROCKSDB_PROFILE_NAME + ".engine: rocksDb"
+            + "  },\n"
             + "  clientConnector: { port:{} },\n"
-            + "  rest.port: {}\n"
-            + "  compute: {\n"
-            + "    threadPoolSize: 1\n"
-            + "  }\n"
-            + "}\n";
+            + "  rest.port: {},\n"
+            + "  compute.threadPoolSize: 1\n"
+            + "}";
 
     /** Template for node bootstrap config with Scalecube settings for fast failure detection. */
     public static final String FAST_FAILURE_DETECTION_NODE_BOOTSTRAP_CFG_TEMPLATE = "{\n"
@@ -215,6 +224,6 @@ public abstract class ClusterPerTestIntegrationTest extends IgniteIntegrationTes
     protected final List<List<Object>> executeSql(int nodeIndex, String sql, Object... args) {
         IgniteImpl ignite = node(nodeIndex);
 
-        return ClusterPerClassIntegrationTest.sql(ignite, null, sql, args);
+        return ClusterPerClassIntegrationTest.sql(ignite, null, null, sql, args);
     }
 }

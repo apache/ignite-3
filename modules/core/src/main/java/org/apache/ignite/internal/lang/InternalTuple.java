@@ -160,7 +160,8 @@ public interface InternalTuple {
      * Reads value from specified column.
      *
      * @param col Column index.
-     * @param decimalScale Decimal scale.
+     * @param decimalScale Decimal scale. If equal to {@link Integer#MIN_VALUE}, then the value will be returned with whatever scale
+     *         it is stored in.
      * @return Column value.
      */
     BigDecimal decimalValue(int col, int decimalScale);

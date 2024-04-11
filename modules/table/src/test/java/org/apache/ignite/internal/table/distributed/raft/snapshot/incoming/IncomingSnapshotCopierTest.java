@@ -20,6 +20,8 @@ package org.apache.ignite.internal.table.distributed.raft.snapshot.incoming;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
+import static org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.SnapshotMetaUtils.snapshotMetaAt;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -38,6 +40,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -50,6 +53,7 @@ import static org.mockito.Mockito.when;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -61,6 +65,9 @@ import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
+import org.apache.ignite.internal.lowwatermark.message.GetLowWatermarkRequest;
+import org.apache.ignite.internal.lowwatermark.message.LowWatermarkMessagesFactory;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -80,6 +87,7 @@ import org.apache.ignite.internal.table.distributed.gc.MvGc;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.table.distributed.raft.RaftGroupConfigurationConverter;
+import org.apache.ignite.internal.table.distributed.raft.snapshot.FullStateTransferIndexChooser;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionAccessImpl;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionKey;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.PartitionSnapshotStorage;
@@ -91,7 +99,9 @@ import org.apache.ignite.internal.table.distributed.raft.snapshot.message.Snapsh
 import org.apache.ignite.internal.table.distributed.raft.snapshot.message.SnapshotTxDataRequest;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryRowMessage;
+import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.tx.TransactionIds;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
@@ -101,7 +111,6 @@ import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.TopologyService;
-import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.error.RaftError;
@@ -114,27 +123,25 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.mockito.Answers;
 
-/**
- * For {@link IncomingSnapshotCopier} testing.
- */
+/** For {@link IncomingSnapshotCopier} testing. */
 public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
     private static final int TABLE_ID = 1;
 
     private static final String NODE_NAME = "node";
 
-    private static final int TEST_PARTITION = 0;
+    private static final int PARTITION_ID = 0;
 
-    private static final SchemaDescriptor SCHEMA_DESCRIPTOR = new SchemaDescriptor(
+    private static final SchemaDescriptor SCHEMA = new SchemaDescriptor(
             1,
             new Column[]{new Column("key", NativeTypes.stringOf(256), false)},
             new Column[]{new Column("value", NativeTypes.stringOf(256), false)}
     );
 
-    private static final HybridClock HYBRID_CLOCK = new HybridClockImpl();
+    private static final HybridClock CLOCK = new HybridClockImpl();
 
     private static final TableMessagesFactory TABLE_MSG_FACTORY = new TableMessagesFactory();
 
-    private static final RaftMessagesFactory RAFT_MSG_FACTORY = new RaftMessagesFactory();
+    private static final LowWatermarkMessagesFactory LWM_MSG_FACTORY = new LowWatermarkMessagesFactory();
 
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
 
@@ -148,7 +155,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
     private final CatalogService catalogService = mock(CatalogService.class);
 
-    private final MvPartitionStorage outgoingMvPartitionStorage = new TestMvPartitionStorage(TEST_PARTITION);
+    private final MvPartitionStorage outgoingMvPartitionStorage = new TestMvPartitionStorage(PARTITION_ID);
     private final TxStateStorage outgoingTxStatePartitionStorage = new TestTxStateStorage();
 
     private final MvTableStorage incomingMvTableStorage = spy(new TestMvTableStorage(TABLE_ID, DEFAULT_PARTITION_COUNT));
@@ -160,6 +167,14 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
     private final List<RowId> rowIds = generateRowIds();
     private final List<UUID> txIds = generateTxIds();
+
+    private final IndexUpdateHandler indexUpdateHandler = mock(IndexUpdateHandler.class);
+
+    private final int indexId = 1;
+
+    private final RowId nextRowIdToBuildIndex = new RowId(PARTITION_ID);
+
+    private final TestLowWatermark lowWatermark = spy(new TestLowWatermark());
 
     @BeforeEach
     void setUp() {
@@ -189,6 +204,10 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
                 messagingService
         );
 
+        HybridTimestamp newLowWatermarkValue = CLOCK.now();
+        assertThat(lowWatermark.updateAndNotify(newLowWatermarkValue), willCompleteSuccessfully());
+        clearInvocations(lowWatermark);
+
         SnapshotCopier snapshotCopier = partitionSnapshotStorage.startToCopyFrom(
                 SnapshotUri.toStringUri(snapshotId, NODE_NAME),
                 mock(SnapshotCopierOptions.class)
@@ -198,13 +217,13 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
         assertEquals(Status.OK().getCode(), snapshotCopier.getCode());
 
-        TablePartitionId tablePartitionId = new TablePartitionId(TABLE_ID, TEST_PARTITION);
+        TablePartitionId tablePartitionId = new TablePartitionId(TABLE_ID, PARTITION_ID);
 
         verify(mvGc, times(1)).removeStorage(eq(tablePartitionId));
         verify(mvGc, times(1)).addStorage(eq(tablePartitionId), any(GcUpdateHandler.class));
 
-        MvPartitionStorage incomingMvPartitionStorage = incomingMvTableStorage.getMvPartition(TEST_PARTITION);
-        TxStateStorage incomingTxStatePartitionStorage = incomingTxStateTableStorage.getTxStateStorage(TEST_PARTITION);
+        MvPartitionStorage incomingMvPartitionStorage = incomingMvTableStorage.getMvPartition(PARTITION_ID);
+        TxStateStorage incomingTxStatePartitionStorage = incomingTxStateTableStorage.getTxStateStorage(PARTITION_ID);
 
         assertEquals(expLastAppliedIndex, outgoingMvPartitionStorage.lastAppliedIndex());
         assertEquals(expLastAppliedTerm, outgoingMvPartitionStorage.lastAppliedTerm());
@@ -218,13 +237,17 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
         assertEqualsMvRows(outgoingMvPartitionStorage, incomingMvPartitionStorage, rowIds);
         assertEqualsTxStates(outgoingTxStatePartitionStorage, incomingTxStatePartitionStorage, txIds);
 
-        verify(incomingMvTableStorage, times(1)).startRebalancePartition(eq(TEST_PARTITION));
+        verify(incomingMvTableStorage, times(1)).startRebalancePartition(eq(PARTITION_ID));
         verify(incomingTxStatePartitionStorage, times(1)).startRebalance();
+
+        verify(indexUpdateHandler).setNextRowIdToBuildIndex(eq(indexId), eq(nextRowIdToBuildIndex));
+
+        verify(lowWatermark).updateLowWatermark(eq(newLowWatermarkValue));
     }
 
     private void createTargetStorages() {
-        assertThat(incomingMvTableStorage.createMvPartition(TEST_PARTITION), willCompleteSuccessfully());
-        incomingTxStateTableStorage.getOrCreateTxStateStorage(TEST_PARTITION);
+        assertThat(incomingMvTableStorage.createMvPartition(PARTITION_ID), willCompleteSuccessfully());
+        incomingTxStateTableStorage.getOrCreateTxStateStorage(PARTITION_ID);
     }
 
     private void fillOriginalStorages() {
@@ -260,6 +283,12 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
             return completedFuture(TABLE_MSG_FACTORY.snapshotTxDataResponse().txIds(txIds).txMeta(txMetas).finish(true).build());
         });
 
+        when(messagingService.invoke(eq(clusterNode), any(GetLowWatermarkRequest.class), anyLong())).thenAnswer(invocation -> {
+            long lowWatermarkValue = hybridTimestampToLong(lowWatermark.getLowWatermark());
+
+            return completedFuture(LWM_MSG_FACTORY.getLowWatermarkResponse().lowWatermark(lowWatermarkValue).build());
+        });
+
         return messagingService;
     }
 
@@ -275,17 +304,13 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
     private SnapshotMetaResponse snapshotMetaResponse(int requiredCatalogVersion) {
         return TABLE_MSG_FACTORY.snapshotMetaResponse()
-                .meta(
-                        RAFT_MSG_FACTORY.snapshotMeta()
-                                .lastIncludedIndex(expLastAppliedIndex)
-                                .lastIncludedTerm(expLastAppliedTerm)
-                                .peersList(expLastGroupConfig.peers())
-                                .learnersList(expLastGroupConfig.learners())
-                                .oldPeersList(expLastGroupConfig.oldPeers())
-                                .oldLearnersList(expLastGroupConfig.oldLearners())
-                                .requiredCatalogVersion(requiredCatalogVersion)
-                                .build()
-                )
+                .meta(snapshotMetaAt(
+                        expLastAppliedIndex,
+                        expLastAppliedTerm,
+                        expLastGroupConfig,
+                        requiredCatalogVersion,
+                        Map.of(indexId, nextRowIdToBuildIndex.uuid())
+                ))
                 .build();
     }
 
@@ -309,12 +334,15 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
                 SnapshotUri.toStringUri(snapshotId, NODE_NAME),
                 mock(RaftOptions.class),
                 spy(new PartitionAccessImpl(
-                        new PartitionKey(TABLE_ID, TEST_PARTITION),
+                        new PartitionKey(TABLE_ID, PARTITION_ID),
                         incomingTableStorage,
                         incomingTxStateTableStorage,
                         mvGc,
-                        mock(IndexUpdateHandler.class),
-                        mock(GcUpdateHandler.class)
+                        indexUpdateHandler,
+                        mock(GcUpdateHandler.class),
+                        mock(FullStateTransferIndexChooser.class),
+                        new DummySchemaManagerImpl(SCHEMA),
+                        lowWatermark
                 )),
                 catalogService,
                 mock(SnapshotMeta.class),
@@ -336,10 +364,10 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
             for (int i = 0; i < rowIds.size(); i++) {
                 if (i % 2 == 0) {
                     // Writes committed version.
-                    storage.addWriteCommitted(rowIds.get(i), createRow("k" + i, "v" + i), HYBRID_CLOCK.now());
+                    storage.addWriteCommitted(rowIds.get(i), createRow("k" + i, "v" + i), CLOCK.now());
                 } else {
                     // Writes an intent to write (uncommitted version).
-                    storage.addWrite(rowIds.get(i), createRow("k" + i, "v" + i), UUID.randomUUID(), 999, TEST_PARTITION);
+                    storage.addWrite(rowIds.get(i), createRow("k" + i, "v" + i), generateTxId(), 999, PARTITION_ID);
                 }
             }
 
@@ -359,10 +387,12 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
     ) {
         assertEquals(0, txIds.size() % 2, "size=" + txIds.size());
 
+        int tableId = 2;
+
         for (int i = 0; i < txIds.size(); i++) {
             TxState txState = i % 2 == 0 ? COMMITTED : ABORTED;
 
-            storage.put(txIds.get(i), new TxMeta(txState, HYBRID_CLOCK.now()));
+            storage.put(txIds.get(i), new TxMeta(txState,  List.of(new TablePartitionId(tableId, PARTITION_ID)), CLOCK.now()));
         }
 
         storage.lastApplied(lastAppliedIndex, lastAppliedTerm);
@@ -417,7 +447,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
     }
 
     private static BinaryRow createRow(String key, String value) {
-        return new RowAssembler(SCHEMA_DESCRIPTOR, -1)
+        return new RowAssembler(SCHEMA, -1)
                 .appendStringNotNull(key)
                 .appendStringNotNull(value)
                 .build();
@@ -436,8 +466,8 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
                 String msg = "RowId=" + rowId + ", i=" + i;
 
-                BinaryTupleReader expTuple = new BinaryTupleReader(SCHEMA_DESCRIPTOR.length(), expReadResult.binaryRow().tupleSlice());
-                BinaryTupleReader actTuple = new BinaryTupleReader(SCHEMA_DESCRIPTOR.length(), actReadResult.binaryRow().tupleSlice());
+                BinaryTupleReader expTuple = new BinaryTupleReader(SCHEMA.length(), expReadResult.binaryRow().tupleSlice());
+                BinaryTupleReader actTuple = new BinaryTupleReader(SCHEMA.length(), actReadResult.binaryRow().tupleSlice());
 
                 assertEquals(expTuple.stringValue(0), actTuple.stringValue(0), msg);
                 assertEquals(expTuple.stringValue(1), actTuple.stringValue(1), msg);
@@ -564,7 +594,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
             return null;
         }).when(partitionSnapshotStorage.partition())
-                .addWrite(any(RowId.class), any(BinaryRow.class), any(UUID.class), anyInt(), anyInt());
+                .addWrite(any(RowId.class), any(BinaryRow.class), any(UUID.class), anyInt(), anyInt(), anyInt());
 
         // Let's start rebalancing.
         SnapshotCopier snapshotCopier = partitionSnapshotStorage.startToCopyFrom(
@@ -608,7 +638,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
         // Let's add an error on the rebalance.
         doThrow(StorageException.class).when(partitionSnapshotStorage.partition())
-                .addWrite(any(RowId.class), any(BinaryRow.class), any(UUID.class), anyInt(), anyInt());
+                .addWrite(any(RowId.class), any(BinaryRow.class), any(UUID.class), anyInt(), anyInt(), anyInt());
 
         // Let's start rebalancing.
         SnapshotCopier snapshotCopier = partitionSnapshotStorage.startToCopyFrom(
@@ -621,7 +651,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
         verify(partitionSnapshotStorage.partition()).abortRebalance();
 
-        TablePartitionId tablePartitionId = new TablePartitionId(TABLE_ID, TEST_PARTITION);
+        TablePartitionId tablePartitionId = new TablePartitionId(TABLE_ID, PARTITION_ID);
 
         verify(mvGc, times(1)).removeStorage(eq(tablePartitionId));
         verify(mvGc, times(1)).addStorage(eq(tablePartitionId), any(GcUpdateHandler.class));
@@ -649,19 +679,19 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
     private static List<RowId> generateRowIds() {
         return List.of(
-                new RowId(TEST_PARTITION),
-                new RowId(TEST_PARTITION),
-                new RowId(TEST_PARTITION),
-                new RowId(TEST_PARTITION)
+                new RowId(PARTITION_ID),
+                new RowId(PARTITION_ID),
+                new RowId(PARTITION_ID),
+                new RowId(PARTITION_ID)
         );
     }
 
     private static List<UUID> generateTxIds() {
         return List.of(
-                UUID.randomUUID(),
-                UUID.randomUUID(),
-                UUID.randomUUID(),
-                UUID.randomUUID()
+                generateTxId(),
+                generateTxId(),
+                generateTxId(),
+                generateTxId()
         );
     }
 
@@ -716,8 +746,8 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
             MvTableStorage incomingMvTableStorage,
             TxStateTableStorage incomingTxStateTableStorage
     ) {
-        MvPartitionStorage incomingMvPartitionStorage = incomingMvTableStorage.getMvPartition(TEST_PARTITION);
-        TxStateStorage incomingTxStatePartitionStorage = incomingTxStateTableStorage.getTxStateStorage(TEST_PARTITION);
+        MvPartitionStorage incomingMvPartitionStorage = incomingMvTableStorage.getMvPartition(PARTITION_ID);
+        TxStateStorage incomingTxStatePartitionStorage = incomingTxStateTableStorage.getTxStateStorage(PARTITION_ID);
 
         assertEquals(0L, incomingMvPartitionStorage.lastAppliedIndex());
         assertEquals(0L, incomingMvPartitionStorage.lastAppliedTerm());
@@ -730,5 +760,9 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
 
         assertFalse(incomingMvPartitionStorage.scan(HybridTimestamp.MAX_VALUE).hasNext());
         assertFalse(incomingTxStatePartitionStorage.scan().hasNext());
+    }
+
+    private static UUID generateTxId() {
+        return TransactionIds.transactionId(CLOCK.now(), 1);
     }
 }

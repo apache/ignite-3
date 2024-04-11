@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
+import static java.util.stream.Collectors.toUnmodifiableMap;
 import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.readArray;
 import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.writeArray;
 
@@ -25,7 +26,6 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
@@ -36,7 +36,7 @@ import org.jetbrains.annotations.Nullable;
 
 /** Schema definition contains database schema objects. */
 public class CatalogSchemaDescriptor extends CatalogObjectDescriptor {
-    public static CatalogObjectSerializer<CatalogSchemaDescriptor> SERIALIZER = new SchemaDescriptorSerializer();
+    public static final CatalogObjectSerializer<CatalogSchemaDescriptor> SERIALIZER = new SchemaDescriptorSerializer();
 
     private final CatalogTableDescriptor[] tables;
     private final CatalogIndexDescriptor[] indexes;
@@ -86,7 +86,13 @@ public class CatalogSchemaDescriptor extends CatalogObjectDescriptor {
         return tablesMap.get(name);
     }
 
-    public @Nullable CatalogIndexDescriptor index(String name) {
+    /**
+     * Returns an <em>alive</em> index with the given name, that is an index that has not been dropped yet.
+     *
+     * <p>This effectively means that the index must be present in the schema and not in the {@link CatalogIndexStatus#STOPPING}
+     * state.
+     */
+    public @Nullable CatalogIndexDescriptor aliveIndex(String name) {
         return indexesMap.get(name);
     }
 
@@ -95,10 +101,11 @@ public class CatalogSchemaDescriptor extends CatalogObjectDescriptor {
     }
 
     private void rebuildMaps() {
-        tablesMap = Arrays.stream(tables).collect(Collectors.toUnmodifiableMap(CatalogObjectDescriptor::name, Function.identity()));
-        indexesMap = Arrays.stream(indexes).collect(Collectors.toUnmodifiableMap(CatalogObjectDescriptor::name, Function.identity()));
-        systemViewsMap = Arrays.stream(systemViews)
-                .collect(Collectors.toUnmodifiableMap(CatalogObjectDescriptor::name, Function.identity()));
+        tablesMap = Arrays.stream(tables).collect(toUnmodifiableMap(CatalogObjectDescriptor::name, Function.identity()));
+        indexesMap = Arrays.stream(indexes)
+                .filter(index -> index.status().isAlive())
+                .collect(toUnmodifiableMap(CatalogObjectDescriptor::name, Function.identity()));
+        systemViewsMap = Arrays.stream(systemViews).collect(toUnmodifiableMap(CatalogObjectDescriptor::name, Function.identity()));
     }
 
     @Override

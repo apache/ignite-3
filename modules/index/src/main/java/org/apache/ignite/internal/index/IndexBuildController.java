@@ -19,7 +19,6 @@ package org.apache.ignite.internal.index;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.BUILDING;
 import static org.apache.ignite.internal.index.IndexManagementUtils.AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC;
@@ -41,7 +40,7 @@ import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.RemoveIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.StartBuildingIndexEventParameters;
 import org.apache.ignite.internal.close.ManuallyCloseable;
-import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -84,7 +83,7 @@ class IndexBuildController implements ManuallyCloseable {
 
     private final PlacementDriver placementDriver;
 
-    private final HybridClock clock;
+    private final ClockService clockService;
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -99,14 +98,14 @@ class IndexBuildController implements ManuallyCloseable {
             CatalogService catalogService,
             ClusterService clusterService,
             PlacementDriver placementDriver,
-            HybridClock clock
+            ClockService clockService
     ) {
         this.indexBuilder = indexBuilder;
         this.indexManager = indexManager;
         this.catalogService = catalogService;
         this.clusterService = clusterService;
         this.placementDriver = placementDriver;
-        this.clock = clock;
+        this.clockService = clockService;
 
         addListeners();
     }
@@ -123,27 +122,15 @@ class IndexBuildController implements ManuallyCloseable {
     }
 
     private void addListeners() {
-        catalogService.listen(CatalogEvent.INDEX_BUILDING, (parameters, exception) -> {
-            if (exception != null) {
-                return failedFuture(exception);
-            }
-
-            return onIndexBuilding((StartBuildingIndexEventParameters) parameters).thenApply(unused -> false);
+        catalogService.listen(CatalogEvent.INDEX_BUILDING, (StartBuildingIndexEventParameters parameters) -> {
+            return onIndexBuilding(parameters).thenApply(unused -> false);
         });
 
-        catalogService.listen(CatalogEvent.INDEX_REMOVED, (parameters, exception) -> {
-            if (exception != null) {
-                return failedFuture(exception);
-            }
-
-            return onIndexRemoved((RemoveIndexEventParameters) parameters).thenApply(unused -> false);
+        catalogService.listen(CatalogEvent.INDEX_REMOVED, (RemoveIndexEventParameters parameters) -> {
+            return onIndexRemoved(parameters).thenApply(unused -> false);
         });
 
-        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, (parameters, exception) -> {
-            if (exception != null) {
-                return failedFuture(exception);
-            }
-
+        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, parameters -> {
             return onPrimaryReplicaElected(parameters).thenApply(unused -> false);
         });
     }
@@ -157,7 +144,7 @@ class IndexBuildController implements ManuallyCloseable {
             for (TablePartitionId primaryReplicaId : primaryReplicaIds) {
                 if (primaryReplicaId.tableId() == indexDescriptor.tableId()) {
                     CompletableFuture<?> startBuildIndexFuture = getMvTableStorageFuture(parameters.causalityToken(), primaryReplicaId)
-                            .thenCompose(mvTableStorage -> awaitPrimaryReplica(primaryReplicaId, clock.now())
+                            .thenCompose(mvTableStorage -> awaitPrimaryReplica(primaryReplicaId, clockService.now())
                                     .thenAccept(replicaMeta -> tryScheduleBuildIndex(
                                             primaryReplicaId,
                                             indexDescriptor,
@@ -312,7 +299,7 @@ class IndexBuildController implements ManuallyCloseable {
                 mvPartition,
                 localNode(),
                 enlistmentConsistencyToken,
-                indexDescriptor.creationCatalogVersion()
+                indexDescriptor.txWaitCatalogVersion()
         );
     }
 
@@ -321,7 +308,7 @@ class IndexBuildController implements ManuallyCloseable {
     }
 
     private boolean isLeaseExpire(ReplicaMeta replicaMeta) {
-        return !isPrimaryReplica(replicaMeta, localNode(), clock.now());
+        return !isPrimaryReplica(replicaMeta, localNode(), clockService.now());
     }
 
     private static long enlistmentConsistencyToken(ReplicaMeta replicaMeta) {

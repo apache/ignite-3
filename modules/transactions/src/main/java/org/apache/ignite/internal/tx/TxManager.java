@@ -17,12 +17,11 @@
 
 package org.apache.ignite.internal.tx;
 
+import java.util.Collection;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
-import java.util.function.Supplier;
-import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -93,7 +92,7 @@ public interface TxManager extends IgniteComponent {
      * @return Updated transaction state.
      */
     @Nullable
-    <T extends TxStateMeta> T updateTxMeta(UUID txId, Function<TxStateMeta, TxStateMeta> updater);
+    <T extends TxStateMeta> T updateTxMeta(UUID txId, Function<@Nullable TxStateMeta, TxStateMeta> updater);
 
     /**
      * Returns lock manager.
@@ -105,20 +104,12 @@ public interface TxManager extends IgniteComponent {
     LockManager lockManager();
 
     /**
-     * Execute transaction cleanup asynchronously.
+     * Execute write intent switch asynchronously.
      *
-     * @param runnable Cleanup action.
-     * @return Future that completes once the cleanup action finishes.
+     * @param runnable Write intent switch action.
+     * @return Future that completes once the write intent switch action finishes.
      */
-    CompletableFuture<Void> executeCleanupAsync(Runnable runnable);
-
-    /**
-     * Execute transaction cleanup asynchronously.
-     *
-     * @param action Cleanup action.
-     * @return Future that completes once the cleanup action finishes.
-     */
-    CompletableFuture<?> executeCleanupAsync(Supplier<CompletableFuture<?>> action);
+    CompletableFuture<Void> executeWriteIntentSwitchAsync(Runnable runnable);
 
     /**
      * Finishes a one-phase committed transaction. This method doesn't contain any distributed communication.
@@ -152,7 +143,9 @@ public interface TxManager extends IgniteComponent {
     /**
      * Sends cleanup request to the cluster nodes that hosts primary replicas for the enlisted partitions.
      *
-     * @param enlistedPartitions Enlisted partition groups.
+     * <p>The nodes to send the request to are taken from the mapping `partition id -> partition primary`.
+     *
+     * @param enlistedPartitions Map of partition groups to their primary nodes.
      * @param commit {@code true} if a commit requested.
      * @param commitTimestamp Commit timestamp ({@code null} if it's an abort).
      * @param txId Transaction id.
@@ -166,6 +159,24 @@ public interface TxManager extends IgniteComponent {
     );
 
     /**
+     * Sends cleanup request to the cluster nodes that hosts primary replicas for the enlisted partitions.
+     *
+     * <p>The nodes to sends the request to are calculated by the placement driver.
+     *
+     * @param enlistedPartitions Enlisted partition groups.
+     * @param commit {@code true} if a commit requested.
+     * @param commitTimestamp Commit timestamp ({@code null} if it's an abort).
+     * @param txId Transaction id.
+     * @return Completable future of Void.
+     */
+    CompletableFuture<Void> cleanup(
+            Collection<TablePartitionId> enlistedPartitions,
+            boolean commit,
+            @Nullable HybridTimestamp commitTimestamp,
+            UUID txId
+    );
+
+    /**
      * Sends cleanup request to the nodes than initiated recovery.
      *
      * @param node Target node.
@@ -173,6 +184,9 @@ public interface TxManager extends IgniteComponent {
      * @return Completable future of Void.
      */
     CompletableFuture<Void> cleanup(String node, UUID txId);
+
+    /** Locally vacuums no longer needed transactional resources, like txnState both persistent and volatile. */
+    void vacuum();
 
     /**
      * Returns a number of finished transactions.
@@ -189,32 +203,4 @@ public interface TxManager extends IgniteComponent {
      */
     @TestOnly
     int pending();
-
-    /**
-     * Updates the low watermark, the value is expected to only increase.
-     *
-     * <p>All new read-only transactions will need to be created with a read time greater than this value.
-     *
-     * @param newLowWatermark New low watermark.
-     * @return Future of all read-only transactions with read timestamp less or equals the given new low watermark.
-     */
-    CompletableFuture<Void> updateLowWatermark(HybridTimestamp newLowWatermark);
-
-    /**
-     * Registers the infligh update for a transaction.
-     *
-     * @param txId The transaction id.
-     * @return {@code True} if the inflight was registered. The update must be failed on false.
-     */
-    boolean addInflight(UUID txId);
-
-    /**
-     * Unregisters the inflight for a transaction.
-     *
-     * @param txId The transction id
-     */
-    void removeInflight(UUID txId);
-
-    /** Returns the node's hybrid clock. */
-    HybridClock clock();
 }

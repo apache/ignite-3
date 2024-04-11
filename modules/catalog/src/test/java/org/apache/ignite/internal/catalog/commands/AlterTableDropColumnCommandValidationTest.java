@@ -20,6 +20,7 @@ package org.apache.ignite.internal.catalog.commands;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.sql.ColumnType.INT32;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.HashSet;
@@ -31,6 +32,7 @@ import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -152,7 +154,7 @@ public class AlterTableDropColumnCommandValidationTest extends AbstractCommandVa
                 .schemaName(SCHEMA_NAME)
                 .tableName(tableName)
                 .columns(List.of(ColumnParams.builder().name(columnName).type(INT32).build()))
-                .primaryKeyColumns(List.of(columnName))
+                .primaryKey(primaryKey(columnName))
         );
 
         AlterTableDropColumnCommandBuilder builder = AlterTableDropColumnCommand.builder()
@@ -179,7 +181,7 @@ public class AlterTableDropColumnCommandValidationTest extends AbstractCommandVa
                         ColumnParams.builder().name(columnName1).type(INT32).build(),
                         ColumnParams.builder().name(columnName2).type(INT32).build()
                 ))
-                .primaryKeyColumns(List.of(columnName1, columnName2))
+                .primaryKey(primaryKey(columnName1, columnName2))
         );
 
         AlterTableDropColumnCommandBuilder builder = AlterTableDropColumnCommand.builder()
@@ -212,13 +214,12 @@ public class AlterTableDropColumnCommandValidationTest extends AbstractCommandVa
 
     @Test
     void rightExceptionIsThrownIfSameColumnNameBelongsToIndexesForDifferentTables() {
-        Catalog catalog =  catalog(List.of(
+        Catalog catalog = catalog(
                 createTableCommand(TABLE_NAME),
                 createIndexCommand(TABLE_NAME, "TEST_IDX"),
                 createTableCommand(TABLE_NAME + "_1"),
                 createIndexCommand(TABLE_NAME + "_1", "TEST_IDX" + "_1")
-        ));
-
+        );
 
         Set<String> indexes = catalog.indexes().stream()
                 .filter(index -> ((CatalogHashIndexDescriptor) index).columns().contains("VAL"))
@@ -252,5 +253,24 @@ public class AlterTableDropColumnCommandValidationTest extends AbstractCommandVa
                 CatalogValidationException.class,
                 "Operations with reserved schemas are not allowed"
         );
+    }
+
+    @Test
+    void noExceptionIsThrownIfColumnBelongsToStoppingIndex() {
+        String indexName = "TEST_IDX";
+
+        Catalog catalog = catalogWithIndex(indexName);
+
+        CatalogCommand dropColumnCommand = AlterTableDropColumnCommand.builder()
+                .schemaName(SCHEMA_NAME)
+                .tableName(TABLE_NAME)
+                .columns(Set.of("VAL"))
+                .build();
+
+        Assertions.assertThrows(CatalogValidationException.class, () -> applyCommandsToCatalog(catalog, dropColumnCommand));
+
+        Catalog newCatalog = transitionIndexToStoppingState(catalog, indexName);
+
+        assertDoesNotThrow(() -> applyCommandsToCatalog(newCatalog, dropColumnCommand));
     }
 }

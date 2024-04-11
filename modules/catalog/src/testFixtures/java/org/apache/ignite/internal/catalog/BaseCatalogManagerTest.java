@@ -38,12 +38,19 @@ import org.apache.ignite.internal.catalog.commands.CreateHashIndexCommand;
 import org.apache.ignite.internal.catalog.commands.CreateSortedIndexCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommandBuilder;
+import org.apache.ignite.internal.catalog.commands.DropIndexCommand;
+import org.apache.ignite.internal.catalog.commands.DropTableCommand;
 import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
+import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
+import org.apache.ignite.internal.catalog.commands.TablePrimaryKey;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
+import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStorage;
@@ -61,17 +68,20 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
 
     protected static final String TABLE_NAME = "test_table";
     protected static final String TABLE_NAME_2 = "test_table_2";
+    protected static final String TABLE_NAME_3 = "test_table_3";
 
     protected static final String INDEX_NAME = "myIndex";
     protected static final String INDEX_NAME_2 = "myIndex2";
 
     final HybridClock clock = new HybridClockImpl();
 
+    ClockWaiter clockWaiter;
+
+    ClockService clockService;
+
     private MetaStorageManager metastore;
 
     UpdateLog updateLog;
-
-    ClockWaiter clockWaiter;
 
     protected CatalogManagerImpl manager;
 
@@ -86,9 +96,11 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
         updateLog = spy(new UpdateLogImpl(metastore));
         clockWaiter = spy(new ClockWaiter(NODE_NAME, clock));
 
+        clockService = new TestClockService(clock, clockWaiter);
+
         manager = new CatalogManagerImpl(
                 updateLog,
-                clockWaiter,
+                clockService,
                 delayDuration::get,
                 () -> CatalogManagerImpl.DEFAULT_PARTITION_IDLE_SAFE_TIME_PROPAGATION_PERIOD
         );
@@ -186,12 +198,16 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
             List<ColumnParams> columns,
             List<String> primaryKeys, @Nullable List<String> colocationColumns) {
 
+        TablePrimaryKey primaryKey = TableHashPrimaryKey.builder()
+                .columns(primaryKeys)
+                .build();
+
         return CreateTableCommand.builder()
                 .schemaName(DEFAULT_SCHEMA_NAME)
                 .zone(DEFAULT_ZONE_NAME)
                 .tableName(tableName)
                 .columns(columns)
-                .primaryKeyColumns(primaryKeys)
+                .primaryKey(primaryKey)
                 .colocationColumns(colocationColumns);
     }
 
@@ -218,5 +234,19 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
 
     protected static CatalogCommand startBuildingIndexCommand(int indexId) {
         return StartBuildingIndexCommand.builder().indexId(indexId).build();
+    }
+
+    protected static CatalogCommand dropTableCommand(String tableName) {
+        return DropTableCommand.builder()
+                .schemaName(DEFAULT_SCHEMA_NAME)
+                .tableName(tableName)
+                .build();
+    }
+
+    protected static CatalogCommand dropIndexCommand(String indexName) {
+        return DropIndexCommand.builder()
+                .schemaName(DEFAULT_SCHEMA_NAME)
+                .indexName(indexName)
+                .build();
     }
 }

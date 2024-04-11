@@ -223,9 +223,11 @@ public final class IgniteStringFormatter {
 
             sbuf.append(s);
         } catch (Throwable t) {
-            sbuf.append("Failed toString() invocation on an object of type [cls=" + o.getClass().getName()
-                    + ", errMsg=" + t.getClass().getName()
-                    + ", errMsg=" + t.getMessage() + ']');
+            sbuf.append("Failed toString() invocation on an object of type [cls=")
+                    .append(o.getClass().getName())
+                    .append(", errMsg=").append(t.getClass().getName())
+                    .append(", errMsg=").append(t.getMessage())
+                    .append(']');
         }
     }
 

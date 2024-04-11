@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.client.table;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.marshaller.BinaryMode;
 import org.apache.ignite.internal.marshaller.Marshaller;
@@ -35,16 +37,19 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Client schema.
  */
-@SuppressWarnings({"rawtypes", "AssignmentOrReturnOfFieldWithMutableType", "unchecked"})
+@SuppressWarnings({"rawtypes", "AssignmentOrReturnOfFieldWithMutableType"})
 public class ClientSchema {
+    private static final ClientColumn[] EMPTY_COLUMNS = new ClientColumn[0];
+
     /** Schema version. Incremented on each schema modification. */
     private final int ver;
 
-    /** Key columns count. */
-    private final int keyColumnCount;
-
     /** Columns. */
     private final ClientColumn[] columns;
+
+    private final ClientColumn[] keyColumns;
+
+    private final ClientColumn[] valColumns;
 
     /** Colocation columns. */
     private final ClientColumn[] colocationColumns;
@@ -63,35 +68,66 @@ public class ClientSchema {
      *
      * @param ver Schema version.
      * @param columns Columns.
-     * @param colocationColumns Colocation columns. When null, all key columns are used.
      * @param marshallers Marshallers provider.
      */
-    public ClientSchema(int ver, ClientColumn[] columns, ClientColumn @Nullable [] colocationColumns, MarshallersProvider marshallers) {
+    public ClientSchema(
+            int ver,
+            ClientColumn[] columns,
+            MarshallersProvider marshallers) {
         assert ver >= 0;
         assert columns != null;
 
         this.ver = ver;
         this.columns = columns;
         this.marshallers = marshallers;
-        var keyCnt = 0;
+
+        int keyColumnCount = 0;
+        int colocationColumnCount = 0;
+
+        for (var col : columns) {
+            ClientColumn existing = map.put(col.name(), col);
+            assert existing == null : "Duplicate column name: " + col.name();
+
+            if (col.key()) {
+                keyColumnCount++;
+            }
+
+            if (col.colocationIndex() >= 0) {
+                colocationColumnCount++;
+            }
+        }
+
+        int valColumnCount = columns.length - keyColumnCount;
+
+        this.keyColumns = keyColumnCount == 0 ? EMPTY_COLUMNS : new ClientColumn[keyColumnCount];
+        this.colocationColumns = colocationColumnCount == 0 ? keyColumns : new ClientColumn[colocationColumnCount];
+        this.valColumns = valColumnCount == 0 ? EMPTY_COLUMNS : new ClientColumn[valColumnCount];
 
         for (var col : columns) {
             if (col.key()) {
-                keyCnt++;
+                assert this.keyColumns[col.keyIndex()] == null : "Duplicate key index: name=" + col.name() + ", keyIndex=" + col.keyIndex()
+                        + ", other.name=" + this.keyColumns[col.keyIndex()].name();
+
+                this.keyColumns[col.keyIndex()] = col;
+            } else {
+                assert this.valColumns[col.valIndex()] == null : "Duplicate val index: name=" + col.name() + ", valIndex=" + col.valIndex()
+                        + ", other.name=" + this.valColumns[col.valIndex()].name();
+
+                this.valColumns[col.valIndex()] = col;
             }
 
-            map.put(col.name(), col);
+            if (col.colocationIndex() >= 0) {
+                assert this.colocationColumns[col.colocationIndex()] == null
+                        : "Duplicate colocation index: name=" + col.name() + ", colocationIndex=" + col.colocationIndex()
+                        + ", other.name=" + this.colocationColumns[col.colocationIndex()].name();
+
+                this.colocationColumns[col.colocationIndex()] = col;
+            }
         }
 
-        keyColumnCount = keyCnt;
-
-        if (colocationColumns == null) {
-            this.colocationColumns = new ClientColumn[keyCnt];
-
-            System.arraycopy(columns, 0, this.colocationColumns, 0, keyCnt);
-        } else {
-            this.colocationColumns = colocationColumns;
-        }
+        assert Arrays.stream(keyColumns).allMatch(Objects::nonNull) : "Some key columns are missing";
+        assert Arrays.stream(valColumns).allMatch(Objects::nonNull) : "Some val columns are missing";
+        assert Arrays.stream(colocationColumns).allMatch(Objects::nonNull) : "Some colocation columns are missing";
     }
 
     /**
@@ -110,6 +146,41 @@ public class ClientSchema {
      */
     public ClientColumn[] columns() {
         return columns;
+    }
+
+    /**
+     * Returns columns for the specified tuple part.
+     *
+     * @return Partial columns.
+     */
+    public ClientColumn[] columns(TuplePart part) {
+        if (part == TuplePart.KEY) {
+            return keyColumns;
+        }
+
+        if (part == TuplePart.VAL) {
+            return valColumns;
+        }
+
+        return columns;
+    }
+
+    /**
+     * Returns key columns.
+     *
+     * @return Key columns.
+     */
+    ClientColumn[] keyColumns() {
+        return keyColumns;
+    }
+
+    /**
+     * Returns key columns.
+     *
+     * @return Key columns.
+     */
+    ClientColumn[] valColumns() {
+        return valColumns;
     }
 
     /**
@@ -144,20 +215,11 @@ public class ClientSchema {
      * @param name Column name.
      * @return Column by name.
      */
-    public @Nullable ClientColumn columnSafe(String name) {
+    @Nullable ClientColumn columnSafe(String name) {
         return map.get(name);
     }
 
-    /**
-     * Returns key column count.
-     *
-     * @return Key column count.
-     */
-    public int keyColumnCount() {
-        return keyColumnCount;
-    }
-
-    public <T> Marshaller getMarshaller(Mapper mapper, TuplePart part) {
+    <T> Marshaller getMarshaller(Mapper mapper, TuplePart part) {
         return getMarshaller(mapper, part, part == TuplePart.KEY);
     }
 
@@ -182,25 +244,31 @@ public class ClientSchema {
     }
 
     private MarshallerColumn[] toMarshallerColumns(TuplePart part) {
-        int colCount = columns.length;
-        int firstColIdx = 0;
+        if (part == TuplePart.VAL) {
+            var res = new MarshallerColumn[columns.length - keyColumns.length];
+            int idx = 0;
 
-        if (part == TuplePart.KEY) {
-            colCount = keyColumnCount;
-        } else if (part == TuplePart.VAL) {
-            colCount = columns.length - keyColumnCount;
-            firstColIdx = keyColumnCount;
+            for (var col : columns) {
+                if (!col.key()) {
+                    res[idx++] = marshallerColumn(col);
+                }
+            }
+
+            return res;
         }
 
-        MarshallerColumn[] cols = new MarshallerColumn[colCount];
+        ClientColumn[] cols = part == TuplePart.KEY_AND_VAL ? columns : keyColumns;
+        var res = new MarshallerColumn[cols.length];
 
-        for (int i = 0; i < colCount; i++) {
-            var col = columns[i  + firstColIdx];
-
-            cols[i] = new MarshallerColumn(col.name(), mode(col.type()), null, col.scale());
+        for (int i = 0; i < cols.length; i++) {
+            res[i] = marshallerColumn(cols[i]);
         }
 
-        return cols;
+        return res;
+    }
+
+    private static MarshallerColumn marshallerColumn(ClientColumn col) {
+        return new MarshallerColumn(col.schemaIndex(), col.name(), mode(col.type()), null, col.scale());
     }
 
     private static BinaryMode mode(ColumnType dataType) {

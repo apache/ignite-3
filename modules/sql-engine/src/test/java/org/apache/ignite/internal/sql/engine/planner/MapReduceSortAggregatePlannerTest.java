@@ -18,9 +18,7 @@
 package org.apache.ignite.internal.sql.engine.planner;
 
 import static java.util.function.Predicate.not;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsString;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.apache.ignite.internal.sql.engine.trait.IgniteDistributions.single;
 
 import java.util.List;
 import java.util.Objects;
@@ -30,16 +28,16 @@ import org.apache.calcite.rel.RelCollations;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Aggregate;
 import org.apache.calcite.rel.core.AggregateCall;
+import org.apache.calcite.rel.core.Project;
 import org.apache.ignite.internal.sql.engine.rel.IgniteCorrelatedNestedLoopJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteLimit;
 import org.apache.ignite.internal.sql.engine.rel.IgniteMergeJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
-import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSort;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapSortAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceSortAggregate;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.junit.jupiter.api.Test;
@@ -276,6 +274,7 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
         assertPlan(TestCase.CASE_16A,
                 nodeOrAnyChild(isInstanceOf(IgniteReduceSortAggregate.class)
                         .and(input(isInstanceOf(IgniteExchange.class)
+                                .and(hasDistribution(single()))
                                 .and(input(isInstanceOf(IgniteMapSortAggregate.class)
                                         .and(input(isIndexScan("TEST", "idx_val0")))
                                 ))
@@ -286,6 +285,7 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
         assertPlan(TestCase.CASE_16B,
                 nodeOrAnyChild(isInstanceOf(IgniteReduceSortAggregate.class)
                         .and(input(isInstanceOf(IgniteExchange.class)
+                                .and(hasDistribution(single()))
                                 .and(input(isInstanceOf(IgniteMapSortAggregate.class)
                                         .and(input(isIndexScan("TEST", "idx_val0")))
                                 ))
@@ -321,6 +321,7 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
                                 .and(input(isInstanceOf(IgniteMapSortAggregate.class)
                                         .and(input(isInstanceOf(IgniteLimit.class)
                                                 .and(input(isInstanceOf(IgniteExchange.class)
+                                                        .and(hasDistribution(single()))
                                                         .and(input(isInstanceOf(IgniteSort.class)
                                                                 .and(input(isTableScan("TEST")))
                                                         ))
@@ -337,6 +338,7 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
                                 .and(input(isInstanceOf(IgniteMapSortAggregate.class)
                                         .and(input(isInstanceOf(IgniteLimit.class)
                                                 .and(input(isInstanceOf(IgniteExchange.class)
+                                                        .and(hasDistribution(single()))
                                                         .and(input(isInstanceOf(IgniteSort.class)
                                                                 .and(input(isTableScan("TEST")))
                                                         ))
@@ -431,6 +433,7 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
                                 .and(not(hasAggregate()))
                                 .and(hasGroups())
                                 .and(input(isInstanceOf(IgniteExchange.class)
+                                        .and(hasDistribution(single()))
                                         .and(input(isInstanceOf(IgniteMapSortAggregate.class)
                                                 .and(not(hasAggregate()))
                                                 .and(hasGroups())
@@ -463,6 +466,7 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
         Predicate<RelNode> nonColocated = hasChildThat(isInstanceOf(IgniteReduceSortAggregate.class)
                 .and(in -> hasAggregates(countReduce).test(in.getAggregateCalls()))
                 .and(input(isInstanceOf(IgniteExchange.class)
+                        .and(hasDistribution(single()))
                         .and(input(isInstanceOf(IgniteMapSortAggregate.class)
                                         .and(in -> hasAggregates(countMap).test(in.getAggCallList()))
                                 )
@@ -476,25 +480,38 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
     }
 
     /**
-     * Validates that AVG can not be used as two phase mode. Should be fixed with TODO https://issues.apache.org/jira/browse/IGNITE-20009
+     * Validates that AVG aggregate is split into multiple expressions:
+     * SUM(col) as s, COUNT(col) as c on map phase and then SUM(s)/SUM0(c) on reduce phase.
      */
     @Test
-    public void testAvgAgg() {
-        RuntimeException e = assertThrows(RuntimeException.class,
-                () -> assertPlan(TestCase.CASE_23, isInstanceOf(IgniteRel.class), disableRules));
-        assertThat(e.getMessage(), containsString("There are not enough rules to produce a node with desired properties"));
+    public void twoPhaseAvgAgg() throws Exception {
+        Predicate<AggregateCall> sumMap = (a) ->
+                Objects.equals(a.getAggregation().getName(), "SUM") && a.getArgList().equals(List.of(1));
 
-        e = assertThrows(RuntimeException.class,
-                () -> assertPlan(TestCase.CASE_23A, isInstanceOf(IgniteRel.class), disableRules));
-        assertThat(e.getMessage(), containsString("There are not enough rules to produce a node with desired properties"));
+        Predicate<AggregateCall> countMap = (a) ->
+                Objects.equals(a.getAggregation().getName(), "COUNT") && a.getArgList().equals(List.of(1));
 
-        e = assertThrows(RuntimeException.class,
-                () -> assertPlan(TestCase.CASE_23B, isInstanceOf(IgniteRel.class), disableRules));
-        assertThat(e.getMessage(), containsString("There are not enough rules to produce a node with desired properties"));
+        Predicate<AggregateCall> sumReduce = (a) ->
+                Objects.equals(a.getAggregation().getName(), "SUM") && a.getArgList().equals(List.of(1));
 
-        e = assertThrows(RuntimeException.class,
-                () -> assertPlan(TestCase.CASE_23C, isInstanceOf(IgniteRel.class), disableRules));
-        assertThat(e.getMessage(), containsString("There are not enough rules to produce a node with desired properties"));
+        Predicate<AggregateCall> sum0Reduce = (a) ->
+                Objects.equals(a.getAggregation().getName(), "$SUM0") && a.getArgList().equals(List.of(2));
+
+        Predicate<RelNode> nonColocated = hasChildThat(isInstanceOf(IgniteReduceSortAggregate.class)
+                .and(in -> hasAggregates(sumReduce, sum0Reduce).test(in.getAggregateCalls()))
+                .and(input(isInstanceOf(IgniteProject.class)
+                        .and(input(isInstanceOf(IgniteExchange.class)
+                        .and(hasDistribution(single()))
+                        .and(input(isInstanceOf(IgniteMapSortAggregate.class)
+                                        .and(in -> hasAggregates(sumMap, countMap).test(in.getAggCallList()))
+                                )
+                        ))
+                ))));
+
+        assertPlan(TestCase.CASE_23, nonColocated, disableRules);
+        assertPlan(TestCase.CASE_23A, nonColocated, disableRules);
+        assertPlan(TestCase.CASE_23B, nonColocated, disableRules);
+        assertPlan(TestCase.CASE_23C, nonColocated, disableRules);
     }
 
     /**
@@ -505,13 +522,10 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
         Predicate<IgniteReduceSortAggregate> inputAgg = isInstanceOf(IgniteReduceSortAggregate.class)
                 .and(hasGroupSets(IgniteReduceSortAggregate::getGroupSets, 0))
                 .and(hasCollation(RelCollations.of(0)))
-                .and(input(isInstanceOf(IgniteExchange.class)
-                        .and(hasCollation(RelCollations.of(0)))
-                        .and(hasDistribution(IgniteDistributions.single()))
                         .and(input(isInstanceOf(IgniteMapSortAggregate.class)
-                                .and(hasCollation(RelCollations.of(1)))
-                                .and(hasGroupSets(Aggregate::getGroupSets, 1))
-                ))));
+                        .and(hasCollation(RelCollations.of(1)))
+                        .and(hasGroupSets(Aggregate::getGroupSets, 1))
+                ));
 
         assertPlan(TestCase.CASE_24_1, nodeOrAnyChild(isInstanceOf(IgniteReduceSortAggregate.class)
                         .and(hasNoGroupSets(IgniteReduceSortAggregate::getGroupSets))
@@ -537,6 +551,26 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
         checkCountDistinctHash(TestCase.CASE_24_1E);
     }
 
+    /**
+     * Validates a plan for a query with aggregate and with groups and sorting by the same column set in descending order.
+     */
+    @Test
+    public void groupsWithOrderByGroupColumnDescending() throws Exception {
+        checkDerivedCollationWithOrderByGroupColumnSingle(TestCase.CASE_25);
+
+        checkDerivedCollationWithOrderByGroupColumnHash(TestCase.CASE_25A);
+    }
+
+    /**
+     * Validates a plan for a query with aggregate and with sorting in descending order by a subset of grouping column.
+     */
+    @Test
+    public void groupsWithOrderBySubsetOfGroupColumnDescending() throws Exception {
+        checkDerivedCollationWithOrderBySubsetOfGroupColumnsSingle(TestCase.CASE_26);
+
+        checkDerivedCollationWithOrderBySubsetOfGroupColumnsHash(TestCase.CASE_26A);
+    }
+
     private void checkSimpleAggSingle(TestCase testCase) throws Exception {
         assertPlan(testCase,
                 nodeOrAnyChild(isInstanceOf(IgniteReduceSortAggregate.class)
@@ -554,6 +588,7 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
         assertPlan(testCase,
                 nodeOrAnyChild(isInstanceOf(IgniteReduceSortAggregate.class)
                         .and(input(isInstanceOf(IgniteExchange.class)
+                                .and(hasDistribution(single()))
                                 .and(input(isInstanceOf(IgniteMapSortAggregate.class)
                                         .and(hasAggregate())
                                         .and(hasGroups())
@@ -584,6 +619,7 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
         assertPlan(testCase,
                 nodeOrAnyChild(isInstanceOf(IgniteReduceSortAggregate.class)
                         .and(input(isInstanceOf(IgniteExchange.class)
+                                .and(hasDistribution(single()))
                                 .and(input(isInstanceOf(IgniteMapSortAggregate.class)
                                         .and(hasAggregate())
                                         .and(hasGroups())
@@ -632,6 +668,7 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
                                         .and(not(hasAggregate()))
                                         .and(hasGroups())
                                         .and(input(isInstanceOf(IgniteExchange.class)
+                                                .and(hasDistribution(single()))
                                                 .and(input(isInstanceOf(IgniteMapSortAggregate.class)
                                                         .and(not(hasAggregate()))
                                                         .and(input(isInstanceOf(IgniteSort.class)
@@ -679,6 +716,7 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
                                         .and(not(hasAggregate()))
                                         .and(hasGroups())
                                         .and(input(isInstanceOf(IgniteExchange.class)
+                                                .and(hasDistribution(single()))
                                                 .and(input(isInstanceOf(IgniteMapSortAggregate.class)
                                                         .and(not(hasAggregate()))
                                                         .and(hasGroups())
@@ -711,6 +749,7 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
         assertPlan(testCase,
                 nodeOrAnyChild(isInstanceOf(IgniteReduceSortAggregate.class)
                         .and(input(isInstanceOf(IgniteExchange.class)
+                                .and(hasDistribution(single()))
                                 .and(input(isInstanceOf(IgniteMapSortAggregate.class)
                                         .and(hasAggregate())
                                         .and(input(isIndexScan("TEST", "idx_grp0_grp1")))
@@ -744,6 +783,7 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
                         .and(not(hasAggregate()))
                         .and(hasGroups())
                         .and(input(isInstanceOf(IgniteExchange.class)
+                                .and(hasDistribution(single()))
                                 .and(input(isInstanceOf(IgniteMapSortAggregate.class)
                                         .and(not(hasAggregate()))
                                         .and(hasGroups())
@@ -778,6 +818,7 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
                         .and(not(hasAggregate()))
                         .and(hasGroups())
                         .and(input(isInstanceOf(IgniteExchange.class)
+                                .and(hasDistribution(single()))
                                 .and(input(isInstanceOf(IgniteMapSortAggregate.class)
                                         .and(not(hasAggregate()))
                                         .and(hasGroups())
@@ -793,8 +834,6 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
         assertPlan(testCase,
                 nodeOrAnyChild(isInstanceOf(IgniteReduceSortAggregate.class)
                         .and(input(isInstanceOf(IgniteMapSortAggregate.class)
-                                //TODO: https://issues.apache.org/jira/browse/IGNITE-20095
-                                // Why can't Map be pushed down to under 'exchange'.
                                 .and(input(isInstanceOf(IgniteSort.class)
                                         .and(s -> s.collation().equals(collation))
                                         .and(input(isTableScan("TEST")))
@@ -807,10 +846,9 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
     private void checkGroupsWithOrderBySubsetOfGroupColumnsHash(TestCase testCase, RelCollation collation) throws Exception {
         assertPlan(testCase,
                 nodeOrAnyChild(isInstanceOf(IgniteReduceSortAggregate.class)
-                        .and(input(isInstanceOf(IgniteMapSortAggregate.class)
-                                //TODO: https://issues.apache.org/jira/browse/IGNITE-20095
-                                // Why can't Map be pushed down to under 'exchange'.
-                                .and(input(isInstanceOf(IgniteExchange.class)
+                        .and(input(isInstanceOf(IgniteExchange.class)
+                                .and(hasDistribution(single()))
+                                .and(input(isInstanceOf(IgniteMapSortAggregate.class)
                                         .and(input(isInstanceOf(IgniteSort.class)
                                                 .and(s -> s.collation().equals(collation))
                                                 .and(input(isTableScan("TEST")))
@@ -828,8 +866,6 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
                         .and(input(isInstanceOf(IgniteProject.class)
                                 .and(input(isInstanceOf(IgniteReduceSortAggregate.class)
                                         .and(input(isInstanceOf(IgniteMapSortAggregate.class)
-                                                //TODO: https://issues.apache.org/jira/browse/IGNITE-20095
-                                                // Why can't Map be pushed down to under 'exchange'.
                                                 .and(input(isInstanceOf(IgniteSort.class)
                                                         .and(s -> s.collation().equals(collation))
                                                         .and(input(isTableScan("TEST")
@@ -848,10 +884,9 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
                         .and(s -> s.collation().equals(TraitUtils.createCollation(List.of(0, 1, 2))))
                         .and(input(isInstanceOf(IgniteProject.class)
                                 .and(input(isInstanceOf(IgniteReduceSortAggregate.class)
-                                        .and(input(isInstanceOf(IgniteMapSortAggregate.class)
-                                                //TODO: https://issues.apache.org/jira/browse/IGNITE-20095
-                                                // Why can't Map be pushed down to under 'exchange'.
-                                                .and(input(isInstanceOf(IgniteExchange.class)
+                                        .and(input(isInstanceOf(IgniteExchange.class)
+                                                .and(hasDistribution(single()))
+                                                .and(input(isInstanceOf(IgniteMapSortAggregate.class)
                                                         .and(input(isInstanceOf(IgniteSort.class)
                                                                 .and(s -> s.collation().equals(collation))
                                                                 .and(input(isTableScan("TEST")
@@ -870,7 +905,7 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
                 .and(hasGroupSets(IgniteReduceSortAggregate::getGroupSets, 0))
                 .and(hasCollation(RelCollations.of(0)))
                 .and(input(isInstanceOf(IgniteExchange.class)
-                        .and(hasDistribution(IgniteDistributions.single()))
+                        .and(hasDistribution(single()))
                         .and(hasCollation(RelCollations.of(0)))
                         .and(input(isInstanceOf(IgniteMapSortAggregate.class)
                                 .and(hasGroupSets(Aggregate::getGroupSets, 1))
@@ -884,6 +919,82 @@ public class MapReduceSortAggregatePlannerTest extends AbstractAggregatePlannerT
                                 .and(hasNoGroupSets(IgniteMapSortAggregate::getGroupSets))
                                 .and(hasCollation(RelCollations.EMPTY))
                                 .and(input(isInstanceOf(IgniteProject.class).and(input(inputAgg)))
+                                ))
+                        )),
+                disableRules);
+    }
+
+    private void checkDerivedCollationWithOrderByGroupColumnSingle(TestCase testCase) throws Exception {
+        RelCollation requiredCollation = RelCollations.of(TraitUtils.createFieldCollation(0, Collation.DESC_NULLS_FIRST));
+
+        assertPlan(testCase, nodeOrAnyChild(isInstanceOf(IgniteReduceSortAggregate.class)
+                .and(hasAggregate())
+                .and(input(isInstanceOf(IgniteMapSortAggregate.class)
+                        .and(hasAggregate())
+                        .and(input(isInstanceOf(IgniteSort.class)
+                                .and(hasCollation(requiredCollation))
+                        ))
+                ))
+
+        ), disableRules);
+    }
+
+    private void checkDerivedCollationWithOrderByGroupColumnHash(TestCase testCase) throws Exception {
+        RelCollation requiredCollation = RelCollations.of(TraitUtils.createFieldCollation(0, Collation.DESC_NULLS_FIRST));
+
+        assertPlan(testCase, nodeOrAnyChild(isInstanceOf(IgniteReduceSortAggregate.class)
+                .and(hasAggregate())
+                .and(input(isInstanceOf(IgniteExchange.class)
+                        .and(hasDistribution(single()))
+                        .and(input(isInstanceOf(IgniteMapSortAggregate.class)
+                                .and(hasAggregate())
+                                .and(input(isInstanceOf(IgniteSort.class)
+                                        .and(hasCollation(requiredCollation))
+                                ))
+                        ))
+                ))
+        ), disableRules);
+    }
+
+    private void checkDerivedCollationWithOrderBySubsetOfGroupColumnsSingle(TestCase testCase) throws Exception {
+        RelCollation requiredCollation = RelCollations.of(
+                TraitUtils.createFieldCollation(1, Collation.DESC_NULLS_FIRST),
+                TraitUtils.createFieldCollation(0, Collation.ASC_NULLS_LAST)
+        );
+        RelCollation outputCollation = RelCollations.of(
+                TraitUtils.createFieldCollation(1, Collation.DESC_NULLS_FIRST)
+        );
+
+        assertPlan(testCase, isInstanceOf(Project.class)
+                        .and(hasCollation(outputCollation))
+                        .and(input(isInstanceOf(IgniteReduceSortAggregate.class)
+                                .and(input(isInstanceOf(IgniteMapSortAggregate.class)
+                                        .and(hasChildThat(hasCollation(requiredCollation)))
+                                ))
+                        )),
+                disableRules);
+    }
+
+    private void checkDerivedCollationWithOrderBySubsetOfGroupColumnsHash(TestCase testCase) throws Exception {
+        RelCollation requiredCollation = RelCollations.of(
+                TraitUtils.createFieldCollation(1, Collation.DESC_NULLS_FIRST),
+                TraitUtils.createFieldCollation(0, Collation.ASC_NULLS_LAST)
+        );
+        RelCollation outputCollation = RelCollations.of(
+                TraitUtils.createFieldCollation(1, Collation.DESC_NULLS_FIRST)
+        );
+
+        assertPlan(testCase,
+                isInstanceOf(IgniteProject.class)
+                        .and(hasCollation(outputCollation))
+                        .and(input(isInstanceOf(IgniteReduceSortAggregate.class)
+                                .and(input(isInstanceOf(IgniteExchange.class)
+                                        .and(hasDistribution(single()))
+                                        .and(input(isInstanceOf(IgniteMapSortAggregate.class)
+                                                .and(input(isInstanceOf(IgniteSort.class)
+                                                        .and(hasCollation(requiredCollation))
+                                                ))
+                                        ))
                                 ))
                         )),
                 disableRules);

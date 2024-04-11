@@ -19,8 +19,9 @@ package org.apache.ignite.internal.table;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toMap;
-import static org.apache.ignite.internal.replicator.ReplicaManager.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
+import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.schema.SchemaTestUtils.specToType;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -60,9 +61,12 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
@@ -89,6 +93,7 @@ import org.apache.ignite.internal.table.distributed.replication.request.ReadWrit
 import org.apache.ignite.internal.table.distributed.replication.request.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.schema.ConstantSchemaVersions;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
+import org.apache.ignite.internal.table.distributed.storage.TableRaftServiceImpl;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -96,7 +101,9 @@ import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
+import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStateTableStorage;
 import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
@@ -161,16 +168,25 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
         ReplicaService replicaService = mock(ReplicaService.class, RETURNS_DEEP_STUBS);
 
+        RemotelyTriggeredResourceRegistry resourcesRegistry = new RemotelyTriggeredResourceRegistry();
+
+        PlacementDriver placementDriver = new TestPlacementDriver(clusterNode);
+
+        TransactionInflights transactionInflights = new TransactionInflights(placementDriver);
+
         txManager = new TxManagerImpl(
                 txConfiguration,
                 clusterService,
                 replicaService,
                 new HeapLockManager(),
-                new HybridClockImpl(),
+                new TestClockService(new HybridClockImpl()),
                 new TransactionIdGenerator(0xdeadbeef),
-                new TestPlacementDriver(clusterNode),
+                placementDriver,
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
-                new TestLocalRwTxCounter()
+                new TestLocalRwTxCounter(),
+                resourcesRegistry,
+                transactionInflights,
+                new TestLowWatermark()
         ) {
             @Override
             public CompletableFuture<Void> finish(
@@ -183,7 +199,8 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 return nullCompletedFuture();
             }
         };
-        txManager.start();
+
+        assertThat(txManager.start(), willCompleteSuccessfully());
 
         Int2ObjectMap<RaftGroupService> partRafts = new Int2ObjectOpenHashMap<>();
         Map<ReplicationGroupId, RaftGroupService> groupRafts = new HashMap<>();
@@ -269,7 +286,6 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
         intTable = new InternalTableImpl(
                 "PUBLIC.TEST",
                 tblId,
-                partRafts,
                 PARTS,
                 new SingleClusterNodeResolver(clusterNode),
                 txManager,
@@ -278,7 +294,12 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 replicaService,
                 new HybridClockImpl(),
                 observableTimestampTracker,
-                new TestPlacementDriver(clusterNode)
+                new TestPlacementDriver(clusterNode),
+                new TableRaftServiceImpl("PUBLIC.TEST", PARTS, partRafts, new SingleClusterNodeResolver(clusterNode)),
+                transactionInflights,
+                3_000,
+                0,
+                null
         );
     }
 
@@ -424,20 +445,19 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
     private void init(NativeTypeSpec t0, NativeTypeSpec t1) {
         schema = new SchemaDescriptor(1,
-                new Column[]{
+                List.of(
                         new Column("ID", NativeTypes.INT64, false),
                         new Column("ID0", specToType(t0), false),
-                        new Column("ID1", specToType(t1), false)
-                },
-                new String[]{"ID1", "ID0"},
-                new Column[]{
+                        new Column("ID1", specToType(t1), false),
                         new Column("VAL", NativeTypes.INT64, true)
-                }
+                ),
+                List.of("ID", "ID0", "ID1"),
+                List.of("ID1", "ID0")
         );
 
         schemaRegistry = new DummySchemaManagerImpl(schema);
 
-        tbl = new TableImpl(intTable, schemaRegistry, new HeapLockManager(), new ConstantSchemaVersions(1), mock(IgniteSql.class));
+        tbl = new TableImpl(intTable, schemaRegistry, new HeapLockManager(), new ConstantSchemaVersions(1), mock(IgniteSql.class), -1);
 
         marshaller = new TupleMarshallerImpl(schema);
     }

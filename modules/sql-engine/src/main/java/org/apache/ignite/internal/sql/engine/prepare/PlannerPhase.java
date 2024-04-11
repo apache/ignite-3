@@ -57,6 +57,7 @@ import org.apache.ignite.internal.sql.engine.rule.ProjectConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.SetOpConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.SortAggregateConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.SortConverterRule;
+import org.apache.ignite.internal.sql.engine.rule.SortExchangeTransposeRule;
 import org.apache.ignite.internal.sql.engine.rule.TableFunctionScanConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.TableModifyConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.TableModifyToKeyValuePutRule;
@@ -66,6 +67,7 @@ import org.apache.ignite.internal.sql.engine.rule.ValuesConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.logical.ExposeIndexRule;
 import org.apache.ignite.internal.sql.engine.rule.logical.FilterScanMergeRule;
 import org.apache.ignite.internal.sql.engine.rule.logical.IgniteJoinConditionPushRule;
+import org.apache.ignite.internal.sql.engine.rule.logical.LogicalOrToUnionRule;
 import org.apache.ignite.internal.sql.engine.rule.logical.ProjectScanMergeRule;
 
 /**
@@ -184,6 +186,8 @@ public enum PlannerPhase {
                             b.operand(LogicalSort.class)
                                     .anyInputs()).toRule(),
 
+            SortExchangeTransposeRule.INSTANCE,
+
             CoreRules.UNION_MERGE,
             CoreRules.MINUS_MERGE,
             CoreRules.INTERSECT_MERGE,
@@ -213,8 +217,7 @@ public enum PlannerPhase {
             FilterScanMergeRule.INDEX_SCAN,
             FilterScanMergeRule.SYSTEM_VIEW_SCAN,
 
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-21287
-            // LogicalOrToUnionRule.INSTANCE,
+            LogicalOrToUnionRule.INSTANCE,
 
             // TODO: https://issues.apache.org/jira/browse/IGNITE-16334 join rules ordering is significant here.
             MergeJoinConverterRule.INSTANCE,

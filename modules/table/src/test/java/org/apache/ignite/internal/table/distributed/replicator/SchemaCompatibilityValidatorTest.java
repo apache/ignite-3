@@ -432,14 +432,14 @@ class SchemaCompatibilityValidatorTest extends BaseIgniteAbstractTest {
                 ))
         )),
         // TODO: https://issues.apache.org/jira/browse/IGNITE-20948 - uncomment this.
-        //RENAME_COLUMN(List.of(
+        // RENAME_COLUMN(List.of(
         //        tableSchema(1, List.of(
         //                intColumn("col1")
         //        )),
         //        tableSchema(2, List.of(
         //                intColumn("col2")
         //        ))
-        //)),
+        // )),
         DROP_NOT_NULL(List.of(
                 tableSchema(1, List.of(
                         intColumn("col1")

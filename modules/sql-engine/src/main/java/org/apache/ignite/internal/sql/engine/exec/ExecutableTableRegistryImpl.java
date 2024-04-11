@@ -18,12 +18,11 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import com.github.benmanes.caffeine.cache.Caffeine;
-import java.util.BitSet;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
@@ -34,7 +33,6 @@ import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.distributed.TableManager;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Implementation of {@link ExecutableTableRegistry}.
@@ -49,20 +47,26 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry {
 
     private final ReplicaService replicaService;
 
-    private final HybridClock clock;
+    private final ClockService clockService;
 
     /** Executable tables cache. */
     final ConcurrentMap<CacheKey, CompletableFuture<ExecutableTable>> tableCache;
 
     /** Constructor. */
-    public ExecutableTableRegistryImpl(TableManager tableManager, SchemaManager schemaManager, SqlSchemaManager sqlSchemaManager,
-            ReplicaService replicaService, HybridClock clock, int cacheSize) {
+    public ExecutableTableRegistryImpl(
+            TableManager tableManager,
+            SchemaManager schemaManager,
+            SqlSchemaManager sqlSchemaManager,
+            ReplicaService replicaService,
+            ClockService clockService,
+            int cacheSize
+    ) {
 
         this.sqlSchemaManager = sqlSchemaManager;
         this.tableManager = tableManager;
         this.schemaManager = schemaManager;
         this.replicaService = replicaService;
-        this.clock = clock;
+        this.clockService = clockService;
         this.tableCache = Caffeine.newBuilder()
                 .maximumSize(cacheSize)
                 .<CacheKey, ExecutableTable>buildAsync().asMap();
@@ -76,24 +80,24 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry {
         return tableCache.computeIfAbsent(cacheKey(tableId, sqlTable.version()), (k) -> loadTable(sqlTable));
     }
 
+    // TODO https://issues.apache.org/jira/browse/IGNITE-21584 Remove future.
     private CompletableFuture<ExecutableTable> loadTable(IgniteTable sqlTable) {
-        return tableManager.tableAsync(sqlTable.id())
+        return CompletableFuture.completedFuture(tableManager.cachedTable(sqlTable.id()))
                 .thenApply((table) -> {
                     TableDescriptor tableDescriptor = sqlTable.descriptor();
 
                     SchemaRegistry schemaRegistry = schemaManager.schemaRegistry(sqlTable.id());
-                    // TODO Can be removed after https://issues.apache.org/jira/browse/IGNITE-20680
-                    assert schemaRegistry != null : "SchemaRegistry does not exist: " + sqlTable.id();
-
                     SchemaDescriptor schemaDescriptor = schemaRegistry.schema(sqlTable.version());
-                    TableRowConverterFactory converterFactory = new TableRowConverterFactoryImpl(schemaRegistry, schemaDescriptor);
+                    TableRowConverterFactory converterFactory = new TableRowConverterFactoryImpl(
+                            sqlTable.keyColumns(), schemaRegistry, schemaDescriptor
+                    );
 
                     InternalTable internalTable = table.internalTable();
                     ScannableTable scannableTable = new ScannableTableImpl(internalTable, converterFactory);
                     TableRowConverter rowConverter = converterFactory.create(null);
 
                     UpdatableTableImpl updatableTable = new UpdatableTableImpl(sqlTable.id(), tableDescriptor, internalTable.partitions(),
-                            internalTable, replicaService, clock, rowConverter);
+                            internalTable, replicaService, clockService, rowConverter);
 
                     return new ExecutableTableImpl(scannableTable, updatableTable, sqlTable.partitionCalculator());
                 });
@@ -172,29 +176,4 @@ public class ExecutableTableRegistryImpl implements ExecutableTableRegistry {
         }
     }
 
-    private static class TableRowConverterFactoryImpl implements TableRowConverterFactory {
-        private final SchemaRegistry schemaRegistry;
-        private final SchemaDescriptor schemaDescriptor;
-        private final TableRowConverter fullRowConverter;
-
-        private TableRowConverterFactoryImpl(SchemaRegistry schemaRegistry, SchemaDescriptor schemaDescriptor) {
-            this.schemaRegistry = schemaRegistry;
-            this.schemaDescriptor = schemaDescriptor;
-
-            fullRowConverter = new TableRowConverterImpl(
-                    schemaRegistry, schemaDescriptor, null
-            );
-        }
-
-        @Override
-        public TableRowConverter create(@Nullable BitSet requiredColumns) {
-            if (requiredColumns == null || requiredColumns.cardinality() == schemaDescriptor.length()) {
-                return fullRowConverter;
-            }
-
-            return new TableRowConverterImpl(
-                    schemaRegistry, schemaDescriptor, requiredColumns
-            );
-        }
-    }
 }

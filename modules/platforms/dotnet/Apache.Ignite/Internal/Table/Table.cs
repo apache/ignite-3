@@ -196,12 +196,6 @@ namespace Apache.Ignite.Internal.Table
 
             var assignment = await GetPartitionAssignmentAsync().ConfigureAwait(false);
 
-            if (assignment == null || assignment.Length == 0)
-            {
-                // Happens on table drop.
-                return default;
-            }
-
             var partition = Math.Abs(colocationHash % assignment.Length);
             var nodeConsistentId = assignment[partition];
 
@@ -212,7 +206,7 @@ namespace Apache.Ignite.Internal.Table
         /// Gets the partition assignment.
         /// </summary>
         /// <returns>Partition assignment.</returns>
-        internal async ValueTask<string?[]?> GetPartitionAssignmentAsync()
+        internal async ValueTask<string?[]> GetPartitionAssignmentAsync()
         {
             var latestKnownTimestamp = _socket.PartitionAssignmentTimestamp;
             var assignment = _partitionAssignment;
@@ -236,18 +230,18 @@ namespace Apache.Ignite.Internal.Table
                 }
 
                 var res = await LoadPartitionAssignmentAsync(latestKnownTimestamp).ConfigureAwait(false);
-                if (res == null)
+
+                if (res.Timestamp != 0)
                 {
-                    // Assignment for the given timestamp is not available yet (some nodes can lag behind).
-                    return null;
+                    Debug.Assert(
+                        res.Timestamp >= latestKnownTimestamp,
+                        "Timestamp is older than requested: " + res.Timestamp + " < " + latestKnownTimestamp);
+
+                    _partitionAssignment = res.Assignment;
+                    Interlocked.Exchange(ref _partitionAssignmentTimestamp, res.Timestamp);
                 }
 
-                Debug.Assert(res.Value.Timestamp >= latestKnownTimestamp, "res.Value.Timestamp >= socketTimestamp");
-
-                _partitionAssignment = res.Value.Assignment;
-                Interlocked.Exchange(ref _partitionAssignmentTimestamp, res.Value.Timestamp);
-
-                return res.Value.Assignment;
+                return res.Assignment;
             }
             finally
             {
@@ -332,8 +326,6 @@ namespace Apache.Ignite.Internal.Table
         {
             var schemaVersion = r.ReadInt32();
             var columnCount = r.ReadInt32();
-            var keyColumnCount = 0;
-            var colocationColumnCount = 0;
 
             var columns = new Column[columnCount];
 
@@ -346,7 +338,7 @@ namespace Apache.Ignite.Internal.Table
 
                 var name = r.ReadString();
                 var type = r.ReadInt32();
-                var isKey = r.ReadBoolean();
+                var keyIndex = r.ReadInt32();
                 var isNullable = r.ReadBoolean();
                 var colocationIndex = r.ReadInt32();
                 var scale = r.ReadInt32();
@@ -354,27 +346,10 @@ namespace Apache.Ignite.Internal.Table
 
                 r.Skip(propertyCount - expectedCount);
 
-                var column = new Column(name, (ColumnType)type, isNullable, isKey, colocationIndex, i, scale, precision);
-
-                columns[i] = column;
-
-                if (isKey)
-                {
-                    keyColumnCount++;
-                }
-
-                if (colocationIndex >= 0)
-                {
-                    colocationColumnCount++;
-                }
+                columns[i] = new Column(name, (ColumnType)type, isNullable, keyIndex, colocationIndex, i, scale, precision);
             }
 
-            var schema = new Schema(
-                Version: schemaVersion,
-                TableId: Id,
-                KeyColumnCount: keyColumnCount,
-                ColocationColumnCount: colocationColumnCount,
-                Columns: columns);
+            var schema = Schema.CreateInstance(schemaVersion, Id, columns);
 
             _schemas[schemaVersion] = Task.FromResult(schema);
 
@@ -395,7 +370,7 @@ namespace Apache.Ignite.Internal.Table
         /// Loads the partition assignment.
         /// </summary>
         /// <returns>Partition assignment.</returns>
-        private async Task<(string?[]? Assignment, long Timestamp)?> LoadPartitionAssignmentAsync(long timestamp)
+        private async Task<(string?[] Assignment, long Timestamp)> LoadPartitionAssignmentAsync(long timestamp)
         {
             using var writer = ProtoCommon.GetMessageWriter();
             Write(writer.MessageWriter);
@@ -409,18 +384,23 @@ namespace Apache.Ignite.Internal.Table
                 w.Write(timestamp);
             }
 
-            (string?[] Assignment, long Timestamp)? Read()
+            (string?[] Assignment, long Timestamp) Read()
             {
                 var r = resBuf.GetReader();
-                var count = r.ReadInt32();
 
-                if (count == 0)
+                var count = r.ReadInt32();
+                Debug.Assert(count > 0, $"Invalid partition count: {count}");
+                var res = new string?[count];
+
+                var assignmentAvailable = r.ReadBoolean();
+                if (!assignmentAvailable)
                 {
-                    return null;
+                    // Return empty array so that per-partition batches can be initialized.
+                    // We'll get the actual assignment on the next call.
+                    return (res, 0);
                 }
 
                 var resTimestamp = r.ReadInt64();
-                var res = new string?[count];
 
                 for (int i = 0; i < count; i++)
                 {

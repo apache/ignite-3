@@ -19,7 +19,8 @@ package org.apache.ignite.internal.distributionzones.rebalance;
 
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.affinity.AffinityUtils.calculateAssignmentForPartition;
-import static org.apache.ignite.internal.util.ByteUtils.toBytes;
+import static org.apache.ignite.internal.affinity.Assignments.toBytes;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -37,6 +38,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.affinity.Assignment;
+import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -59,7 +61,6 @@ import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -92,7 +93,8 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
             0,
             List.of(new CatalogTableColumnDescriptor("k1", ColumnType.INT32, false, 0, 0, 0, null)),
             List.of("k1"),
-            null
+            null,
+            DEFAULT_STORAGE_PROFILE
     );
 
     private static final int partNum = 2;
@@ -494,21 +496,21 @@ public class RebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         Set<Assignment> actualStableAssignments = null;
 
         if (actualStableBytes != null) {
-            actualStableAssignments = ByteUtils.fromBytes(actualStableBytes);
+            actualStableAssignments = Assignments.fromBytes(actualStableBytes).nodes();
         }
 
         byte[] actualPendingBytes = keyValueStorage.get(RebalanceUtil.pendingPartAssignmentsKey(tablePartitionId).bytes()).value();
         Set<Assignment> actualPendingAssignments = null;
 
         if (actualPendingBytes != null) {
-            actualPendingAssignments = ByteUtils.fromBytes(actualPendingBytes);
+            actualPendingAssignments = Assignments.fromBytes(actualPendingBytes).nodes();
         }
 
         byte[] actualPlannedBytes = keyValueStorage.get(RebalanceUtil.plannedPartAssignmentsKey(tablePartitionId).bytes()).value();
         Set<Assignment> actualPlannedAssignments = null;
 
         if (actualPlannedBytes != null) {
-            actualPlannedAssignments = ByteUtils.fromBytes(actualPlannedBytes);
+            actualPlannedAssignments = Assignments.fromBytes(actualPlannedBytes).nodes();
         }
 
         LOG.info("stableAssignments " + actualStableAssignments);

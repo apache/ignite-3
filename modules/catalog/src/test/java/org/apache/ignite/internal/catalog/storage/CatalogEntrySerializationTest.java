@@ -29,13 +29,14 @@ import java.util.Set;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
-import org.apache.ignite.internal.catalog.descriptors.CatalogDataStorageDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfileDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfilesDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSystemViewDescriptor.SystemViewType;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
@@ -130,14 +131,19 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
                 snapshotEntry();
                 break;
 
+            case RENAME_INDEX:
+                renameIndexEntry();
+                break;
+
             default:
                 throw new UnsupportedOperationException("Test not implemented " + type);
         }
     }
 
     private void alterZoneEntry() {
-        CatalogDataStorageDescriptor storage = new CatalogDataStorageDescriptor("test-engine", "region");
-        UpdateEntry entry1 = new AlterZoneEntry(newCatalogZoneDescriptor("zone1", storage));
+        CatalogStorageProfilesDescriptor profiles =
+                new CatalogStorageProfilesDescriptor(List.of(new CatalogStorageProfileDescriptor("default")));
+        UpdateEntry entry1 = new AlterZoneEntry(newCatalogZoneDescriptor("zone1", profiles));
 
         VersionedUpdate update = newVersionedUpdate(entry1, entry1);
 
@@ -145,11 +151,11 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
     }
 
     private void newZoneEntry() {
-        CatalogDataStorageDescriptor storage1 = new CatalogDataStorageDescriptor("test-engine1", "region");
-        CatalogDataStorageDescriptor storage2 = new CatalogDataStorageDescriptor("test-engine2", null);
+        CatalogStorageProfilesDescriptor profiles =
+                new CatalogStorageProfilesDescriptor(List.of(new CatalogStorageProfileDescriptor("default")));
 
-        UpdateEntry entry1 = new NewZoneEntry(newCatalogZoneDescriptor("zone1", storage1));
-        UpdateEntry entry2 = new NewZoneEntry(newCatalogZoneDescriptor("zone2", storage2));
+        UpdateEntry entry1 = new NewZoneEntry(newCatalogZoneDescriptor("zone1", profiles));
+        UpdateEntry entry2 = new NewZoneEntry(newCatalogZoneDescriptor("zone2", profiles));
         VersionedUpdate update = newVersionedUpdate(entry1, entry2);
 
         assertVersionedUpdate(update, serialize(update));
@@ -328,13 +334,24 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
                 new CatalogSystemViewDescriptor(1, "view2", columns, SystemViewType.CLUSTER)
         };
 
+        CatalogStorageProfilesDescriptor profiles =
+                new CatalogStorageProfilesDescriptor(List.of(new CatalogStorageProfileDescriptor("default")));
+
         SnapshotEntry entry = new SnapshotEntry(new Catalog(2, 0L, 1,
-                List.of(newCatalogZoneDescriptor("zone1", new CatalogDataStorageDescriptor("test-engine1", "region"))),
+                List.of(newCatalogZoneDescriptor("zone1", profiles)),
                 List.of(new CatalogSchemaDescriptor(1, "desc", tables, indexes, views, 1))));
 
         SnapshotEntry deserialized = (SnapshotEntry) marshaller.unmarshall(marshaller.marshall(entry));
 
         BDDAssertions.assertThat(deserialized).usingRecursiveComparison().isEqualTo(entry);
+    }
+
+    private void renameIndexEntry() {
+        var entry = new RenameIndexEntry(1, "newName");
+
+        VersionedUpdate update = newVersionedUpdate(entry);
+
+        assertVersionedUpdate(update, serialize(update));
     }
 
     private VersionedUpdate serialize(VersionedUpdate update) {
@@ -358,7 +375,8 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         }
     }
 
-    private static CatalogZoneDescriptor newCatalogZoneDescriptor(String zoneName, CatalogDataStorageDescriptor storage) {
+    private static CatalogZoneDescriptor newCatalogZoneDescriptor(
+            String zoneName, CatalogStorageProfilesDescriptor profiles) {
         int zoneId = 1;
         int partitions = 3;
 
@@ -371,7 +389,7 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
                 2,
                 3,
                 DEFAULT_FILTER,
-                storage
+                profiles
         );
     }
 
@@ -419,7 +437,8 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
                 17,
                 columns,
                 pkCols,
-                colCols
+                colCols,
+                "default"
         );
     }
 

@@ -21,8 +21,8 @@ plugins {
     id('idea')
     alias(libs.plugins.ideaext)
     alias(libs.plugins.javacc) apply false
-    alias(libs.plugins.modernizer) apply false
     alias(libs.plugins.aggregateJavadoc)
+    alias(libs.plugins.spotbugs) apply false
 }
 
 apply from: "$rootDir/buildscripts/javadoc.gradle"
@@ -55,6 +55,7 @@ ext {
             "--add-opens=java.base/java.util=ALL-UNNAMED",
             "--add-opens=java.base/java.time=ALL-UNNAMED",
             "--add-opens=java.base/jdk.internal.misc=ALL-UNNAMED",
+            "--add-opens=java.base/jdk.internal.access=ALL-UNNAMED",
             "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
             "--add-opens=java.base/sun.security.x509=ALL-UNNAMED",
             "-Dio.netty.tryReflectionSetAccessible=true",

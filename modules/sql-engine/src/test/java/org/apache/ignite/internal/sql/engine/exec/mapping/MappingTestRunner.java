@@ -43,6 +43,8 @@ import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.ParameterMetadata;
 import org.apache.ignite.internal.sql.engine.prepare.PlanId;
+import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruner;
+import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPrunerImpl;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
@@ -191,10 +193,12 @@ final class MappingTestRunner {
             LogicalTopologySnapshot snapshot,
             MultiStepPlan plan) {
 
+        PartitionPruner partitionPruner = new PartitionPrunerImpl();
         MappingServiceImpl mappingService = new MappingServiceImpl(nodeName,
                 targetProvider,
                 EmptyCacheFactory.INSTANCE,
                 0,
+                partitionPruner,
                 Runnable::run
         );
         mappingService.onTopologyLeap(snapshot);
@@ -202,16 +206,15 @@ final class MappingTestRunner {
         List<MappedFragment> mappedFragments;
 
         try {
-            mappedFragments = await(mappingService.map(plan));
+            mappedFragments = await(mappingService.map(plan, MappingParameters.EMPTY));
         } catch (Exception e) {
-            StringBuilder sb = new StringBuilder();
-            sb.append(System.lineSeparator());
-            sb.append(RelOptUtil.toString(plan.root()));
-            sb.append(System.lineSeparator());
+            String explanation = System.lineSeparator()
+                    + RelOptUtil.toString(plan.root())
+                    + System.lineSeparator();
 
             Throwable cause = e instanceof CompletionException ? e.getCause() : e;
 
-            throw new IllegalStateException("Failed to map a plan: " + sb, cause);
+            throw new IllegalStateException("Failed to map a plan: " + explanation, cause);
         }
 
         if (mappedFragments == null) {
@@ -295,16 +298,17 @@ final class MappingTestRunner {
             testCaseStr.append(System.lineSeparator());
         }
 
-        testCaseStr.append(testCaseDef.nodeName);
-        testCaseStr.append(System.lineSeparator());
-        testCaseStr.append(testCaseDef.sql);
-        testCaseStr.append(System.lineSeparator());
-        testCaseStr.append("---");
-        testCaseStr.append(System.lineSeparator());
-        testCaseStr.append(result);
-        testCaseStr.append(System.lineSeparator());
-        testCaseStr.append("---");
-        testCaseStr.append(System.lineSeparator());
+        testCaseStr
+                .append(testCaseDef.nodeName)
+                .append(System.lineSeparator())
+                .append(testCaseDef.sql)
+                .append(System.lineSeparator())
+                .append("---")
+                .append(System.lineSeparator())
+                .append(result)
+                .append(System.lineSeparator())
+                .append("---")
+                .append(System.lineSeparator());
     }
 
     enum ParseState {

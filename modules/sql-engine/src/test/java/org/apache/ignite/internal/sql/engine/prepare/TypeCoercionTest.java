@@ -58,6 +58,7 @@ import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.framework.TestStatistic;
 import org.apache.ignite.internal.sql.engine.planner.AbstractPlannerTest;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
@@ -70,6 +71,7 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeCoercionRules;
+import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
@@ -562,8 +564,8 @@ public class TypeCoercionTest extends AbstractPlannerTest {
         return TYPE_FACTORY.createTypeWithNullability(relDataType, true);
     }
 
-    //TODO https://issues.apache.org/jira/browse/IGNITE-15200 Replace with TestTable from test framework.
-    //TODO: https://issues.apache.org/jira/browse/IGNITE-17373: Remove when INTERVAL type will be supported natively,
+    // TODO https://issues.apache.org/jira/browse/IGNITE-15200 Replace with TestTable from test framework.
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-17373: Remove when INTERVAL type will be supported natively,
     // or this issue is resolved.
 
     /** Test table. */
@@ -673,6 +675,26 @@ public class TypeCoercionTest extends AbstractPlannerTest {
                 return cls.cast(this);
             }
             return null;
+        }
+
+        @Override
+        public boolean isUpdateAllowed(int colIdx) {
+            return false;
+        }
+
+        @Override
+        public ImmutableIntList keyColumns() {
+            throw new AssertionError();
+        }
+
+        @Override
+        public RelDataType rowTypeForInsert(IgniteTypeFactory factory) {
+            throw new AssertionError();
+        }
+
+        @Override
+        public RelDataType rowTypeForDelete(IgniteTypeFactory factory) {
+            throw new AssertionError();
         }
     }
 }

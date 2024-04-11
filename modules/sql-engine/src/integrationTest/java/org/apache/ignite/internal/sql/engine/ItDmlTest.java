@@ -17,9 +17,13 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsSubPlan;
+import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTableScan;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import java.math.BigDecimal;
@@ -31,6 +35,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.handlers.FailureHandler;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.exec.rel.AbstractNode;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
@@ -43,6 +49,7 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
@@ -496,12 +503,12 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
     public void testInsertDefaultValue() {
         checkDefaultValue(defaultValueArgs().collect(Collectors.toList()));
 
-        checkWrongDefault("VARCHAR", "10");
+        checkWrongDefault("VARCHAR(1)", "10");
         checkWrongDefault("INT", "'10'");
         checkWrongDefault("INT", "TRUE");
         checkWrongDefault("DATE", "10");
         checkWrongDefault("DATE", "TIME '01:01:01'");
-        checkWrongDefault("TIME", "TIMESTAMP '2021-01-01 01:01:01'");
+        checkWrongDefault("TIMESTAMP", "TIME '01:01:01'");
         checkWrongDefault("BOOLEAN", "1");
 
         // TODO: IGNITE-17373
@@ -517,7 +524,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
         checkDefaultValue(defaultValueArgs()
                 .filter(a -> !a.sqlType.endsWith("NOT NULL"))
                 // TODO: uncomment after https://issues.apache.org/jira/browse/IGNITE-21243
-                //.map(a -> new DefaultValueArg(a.sqlType, "NULL", null))
+                // .map(a -> new DefaultValueArg(a.sqlType, "NULL", null))
                 .collect(Collectors.toList()));
     }
 
@@ -579,7 +586,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
         try {
             assertThrowsSqlException(
                     Sql.STMT_VALIDATION_ERR,
-                    "Unable convert literal",
+                    "Invalid default value for column 'VAL'",
                     () -> sql("CREATE TABLE test (id INT PRIMARY KEY, val " + sqlType + " DEFAULT " + sqlVal + ")")
             );
         } finally {
@@ -707,6 +714,108 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
         }
     }
 
+    @ParameterizedTest
+    @CsvSource(value = {
+            "id1,id2; id1",
+            "id1,id2; id2",
+            "id1,id2; id1,id2",
+            "id1,id2; id2,id1",
+            "id2,id1; id1",
+            "id2,id1; id2",
+            "id2,id1; id1,id2",
+            "id2,id1; id2,id1",
+    }, delimiter = ';')
+    void insertGetDeleteComplexKey(String pkDefinition, String colocateByDefinition) {
+        // We are using hash indexes here to make plans across all given pkDefinition stable.
+        // Because by default index is sorted and using a sorted index can be cheaper than a table scan,
+        sql(format(
+                "CREATE TABLE test1 (id1 INT, id2 INT, val INT, PRIMARY KEY USING HASH ({})) COLOCATE BY ({})",
+                pkDefinition, colocateByDefinition
+        ));
+        sql(format(
+                "CREATE TABLE test2 (id1 INT, id2 INT, val INT, PRIMARY KEY USING HASH ({})) COLOCATE BY ({})",
+                pkDefinition, colocateByDefinition
+        ));
+
+        int tableSize = 10;
+
+        // kv put
+        for (int i = 0; i < tableSize; i++) {
+            assertQuery("INSERT INTO test1 VALUES (?, ?, ?)")
+                    .withParams(i, i, i)
+                    .matches(containsSubPlan("KeyValueModify"))
+                    .returns(1L)
+                    .check();
+        }
+
+        // multistep insert
+        assertQuery("INSERT INTO test2 SELECT * FROM test1")
+                .matches(containsSubPlan("TableModify"))
+                .returns((long) tableSize)
+                .check();
+
+        // multistep get
+        for (int i = 0; i < tableSize; i++) {
+            assertQuery("SELECT * FROM test2 WHERE id1=?")
+                    .matches(containsTableScan("PUBLIC", "TEST2"))
+                    .withParams(i)
+                    .returns(i, i, i)
+                    .check();
+        }
+
+        // multistep delete
+        assertQuery("DELETE FROM test2")
+                .matches(containsSubPlan("TableModify"))
+                .returns((long) tableSize)
+                .check();
+
+        // kv get
+        for (int i = 0; i < tableSize; i++) {
+            assertQuery("SELECT * FROM test1 WHERE id1=? AND id2=?")
+                    .withParams(i, i)
+                    .matches(containsSubPlan("KeyValueGet"))
+                    .returns(i, i, i)
+                    .check();
+        }
+
+        // although it's basically kv delete, such optimization is not supported
+        // at the moment, thus expected plan should contain IgniteTableModify
+        for (int i = 0; i < tableSize; i++) {
+            assertQuery("DELETE FROM test1 WHERE id1=? AND id2=?")
+                    .withParams(i, i)
+                    .matches(containsSubPlan("TableModify"))
+                    .returns(1L)
+                    .check();
+        }
+
+        assertQuery("SELECT count(*) FROM test1")
+                .returns(0L)
+                .check();
+        assertQuery("SELECT count(*) FROM test2")
+                .returns(0L)
+                .check();
+    }
+
+    @Test
+    public void testNoFailHandlerForRuntimeSqlError() {
+        InterceptFailHandler interceptor = new InterceptFailHandler();
+        CLUSTER.runningNodes().forEach(node -> node.failureProcessor().setInterceptor(interceptor));
+        try {
+            sql("CREATE TABLE test_tbl(ID INT PRIMARY KEY, VAL TINYINT)");
+            sql("INSERT INTO test_tbl VALUES (1, 1);");
+
+            assertThrowsSqlException(Sql.RUNTIME_ERR, "TINYINT out of range",
+                    () -> sql("INSERT INTO test_tbl (ID, VAL) VALUES (2, (SELECT SUM(VAL)+300 FROM test_tbl WHERE VAL > 0))"));
+
+            assertThrowsSqlException(Sql.RUNTIME_ERR, "Subquery returned more than 1 value",
+                    () -> sql("INSERT INTO test_tbl (ID, VAL) VALUES (2, (SELECT * FROM TABLE(SYSTEM_RANGE(0, 10))))"));
+        } finally {
+            CLUSTER.runningNodes().forEach(node -> node.failureProcessor().setInterceptor(null));
+        }
+
+        assertTrue(interceptor.getFails().isEmpty(), "Expected no fail handler invocation");
+    }
+
     private static Stream<Arguments> decimalLimits() {
         return Stream.of(
                 arguments(SqlTypeName.BIGINT.getName(), Long.MAX_VALUE, Long.MIN_VALUE),
@@ -714,5 +823,20 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
                 arguments(SqlTypeName.SMALLINT.getName(), Short.MAX_VALUE, Short.MIN_VALUE),
                 arguments(SqlTypeName.TINYINT.getName(), Byte.MAX_VALUE, Byte.MIN_VALUE)
         );
+    }
+
+    private class InterceptFailHandler implements FailureHandler {
+        ArrayList<FailureContext> interceptedFailsList = new ArrayList<>();
+
+        public ArrayList<FailureContext> getFails() {
+            return interceptedFailsList;
+        }
+
+        @Override
+        public boolean onFailure(String nodeName, FailureContext failureCtx) {
+            interceptedFailsList.add(failureCtx);
+
+            return false;
+        }
     }
 }

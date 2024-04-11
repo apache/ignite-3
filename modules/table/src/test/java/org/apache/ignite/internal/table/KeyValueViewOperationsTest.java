@@ -726,8 +726,8 @@ public class KeyValueViewOperationsTest extends TableKvOperationsTestBase {
                 internalTable,
                 new DummySchemaManagerImpl(schema),
                 schemaVersions,
-                marshallers,
                 mock(IgniteSql.class),
+                marshallers,
                 keyMapper,
                 valMapper
         );

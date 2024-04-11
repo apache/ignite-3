@@ -19,17 +19,21 @@ package org.apache.ignite.internal.sql.engine.framework;
 
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.convertSqlRows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.time.temporal.ChronoUnit;
 import java.util.BitSet;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
@@ -255,6 +259,57 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
         }
     }
 
+    /** Checks the propagation of hybrid logical time from the initiator to other nodes. */
+    @Test
+    public void testHybridTimestampPropagationFromInitiator() {
+        cluster.start();
+
+        TestNode initiator = cluster.node("N1");
+
+        HybridClock initiatorClock = initiator.clock();
+        HybridClock otherNodeClock = cluster.node("N2").clock();
+
+        initiatorClock.update(initiatorClock.now().addPhysicalTime(ChronoUnit.YEARS.getDuration().toMillis()));
+
+        assertTrue(initiator.clockService().after(initiatorClock.now(), otherNodeClock.now()));
+
+        QueryPlan plan = initiator.prepare("SELECT * FROM t1");
+
+        AsyncCursor<InternalSqlRow> cur = initiator.executePlan(plan);
+
+        await(cur.requestNextAsync(1));
+
+        assertEquals(initiator.clock().now().getPhysical(), otherNodeClock.now().getPhysical());
+
+        await(cur.closeAsync());
+    }
+
+    /** Checks the propagation of hybrid logical time from other nodes to the initiator. */
+    @Test
+    public void testHybridTimestampPropagationToInitiator() {
+        cluster.start();
+
+        TestNode initiator = cluster.node("N1");
+        TestNode otherNode = cluster.node("N2");
+
+        HybridClock initiatorClock = initiator.clock();
+        HybridClock otherNodeClock = otherNode.clock();
+
+        otherNodeClock.update(otherNodeClock.now().addPhysicalTime(ChronoUnit.YEARS.getDuration().toMillis()));
+
+        assertTrue(otherNode.clockService().after(otherNodeClock.now(), initiatorClock.now()));
+
+        QueryPlan plan = initiator.prepare("SELECT * FROM t1");
+
+        AsyncCursor<InternalSqlRow> cur = initiator.executePlan(plan);
+
+        await(cur.requestNextAsync(10_000));
+
+        assertEquals(otherNodeClock.now().getPhysical(), initiatorClock.now().getPhysical());
+
+        await(cur.closeAsync());
+    }
+
     private static IgniteRel lastNode(IgniteRel root) {
         while (!root.getInputs().isEmpty()) {
             root = (IgniteRel) root.getInput(0);
@@ -274,5 +329,17 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
         List<List<Object>> rows = convertSqlRows(results.items());
 
         assertEquals(List.of(List.of(42L, "mango", "N2", 42)), rows);
+    }
+
+    @Test
+    public void testNodeInitSchema() {
+        cluster.start();
+
+        TestNode gatewayNode = cluster.node("N1");
+
+        gatewayNode.initSchema("CREATE INDEX T1_NEW_HASH_VAK_IDX ON T1 USING HASH (VAL)");
+
+        MultiStepPlan plan = (MultiStepPlan) gatewayNode.prepare("SELECT * FROM t1 WHERE val = ?");
+        assertThat(plan.explain(), containsString("index=[T1_NEW_HASH_VAK_IDX], type=[HASH]"));
     }
 }

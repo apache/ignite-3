@@ -22,6 +22,7 @@ import org.apache.ignite.Ignite;
 /**
  * Integration test for server-side data streamer API.
  */
+// Disabling thread assertions as DataStreamer uses common pool on which ReplicaManager executes its requests.
 public class ItServerDataStreamerTest extends ItAbstractDataStreamerTest {
     @Override
     Ignite ignite() {

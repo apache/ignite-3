@@ -28,7 +28,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * An {@link ExecutorService} that executes submitted tasks using pooled grid threads.
  */
-public class StripedThreadPoolExecutor extends AbstractStripedThreadPoolExecutor<ExecutorService> {
+public class StripedThreadPoolExecutor extends AbstractStripedThreadPoolExecutor<ExecutorService> implements StripedExecutor {
     /**
      * Create striped thread pool.
      *
@@ -43,7 +43,8 @@ public class StripedThreadPoolExecutor extends AbstractStripedThreadPoolExecutor
             int concurrencyLvl,
             ThreadFactory threadFactory,
             boolean allowCoreThreadTimeOut,
-            long keepAliveTime) {
+            long keepAliveTime
+    ) {
         super(createExecutors(concurrencyLvl, threadFactory, allowCoreThreadTimeOut, keepAliveTime));
     }
 
@@ -51,7 +52,8 @@ public class StripedThreadPoolExecutor extends AbstractStripedThreadPoolExecutor
             int concurrencyLvl,
             ThreadFactory threadFactory,
             boolean allowCoreThreadTimeOut,
-            long keepAliveTime) {
+            long keepAliveTime
+    ) {
         ExecutorService[] execs = new ExecutorService[concurrencyLvl];
 
         for (int i = 0; i < concurrencyLvl; i++) {

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.rel;
 
-import static org.apache.calcite.rel.RelCollations.EMPTY;
 import static org.apache.calcite.rel.RelCollations.containsOrderless;
 import static org.apache.calcite.rel.core.JoinRelType.FULL;
 import static org.apache.calcite.rel.core.JoinRelType.LEFT;
@@ -54,6 +53,8 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
  * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
  */
 public class IgniteMergeJoin extends AbstractIgniteJoin {
+    private static final String REL_TYPE_NAME = "MergeJoin";
+
     /**
      * Collation of a left child. Keep it here to restore after deserialization.
      */
@@ -298,6 +299,12 @@ public class IgniteMergeJoin extends AbstractIgniteJoin {
                 .item("rightCollation", rightCollation);
     }
 
+    /** {@inheritDoc} */
+    @Override
+    public String getRelTypeName() {
+        return REL_TYPE_NAME;
+    }
+
     /**
      * Get collation of a left child.
      */
@@ -320,7 +327,7 @@ public class IgniteMergeJoin extends AbstractIgniteJoin {
             RelTraitSet rightInputTraits
     ) {
         return Pair.of(
-                nodeTraits.replace(EMPTY),
+                nodeTraits.replace(RelCollations.EMPTY),
                 List.of(
                         leftInputTraits.replace(RelCollations.of(joinInfo.leftKeys)),
                         rightInputTraits.replace(RelCollations.of(joinInfo.rightKeys))

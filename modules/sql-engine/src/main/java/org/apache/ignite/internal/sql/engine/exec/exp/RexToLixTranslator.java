@@ -399,10 +399,11 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                 switch (sourceType.getSqlTypeName()) {
                     case CHAR:
                     case VARCHAR:
+                        // By default Calcite for this type requires that the time zone be explicitly specified.
+                        // Since this type implies a local timezone, its explicit indication seems redundant,
+                        // so we prohibit the user from explicitly setting a timezone.
                         convert =
-                                Expressions.call(
-                                        BuiltInMethod.STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE.method,
-                                        operand);
+                                Expressions.call(IgniteMethod.STRING_TO_TIMESTAMP.method(), operand);
                         break;
                     case DATE:
                         convert =
@@ -449,8 +450,9 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                                         BuiltInMethod.TIMESTAMP_STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE.method,
                                         RexImpTable.optimize2(operand,
                                                 Expressions.call(
-                                                        BuiltInMethod.UNIX_TIMESTAMP_TO_STRING.method,
-                                                        operand)),
+                                                        IgniteMethod.UNIX_TIMESTAMP_TO_STRING_PRECISION_AWARE.method(),
+                                                        operand,
+                                                        Expressions.constant(targetType.getPrecision()))),
                                         Expressions.call(BuiltInMethod.TIME_ZONE.method, root));
                         break;
                     default:
@@ -482,8 +484,9 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                     case TIME:
                         convert =
                                 RexImpTable.optimize2(operand,
-                                        Expressions.call(BuiltInMethod.UNIX_TIME_TO_STRING.method,
-                                                operand));
+                                        Expressions.call(IgniteMethod.UNIX_TIME_TO_STRING_PRECISION_AWARE.method(),
+                                                operand,
+                                                Expressions.constant(sourceType.getPrecision())));
                         break;
                     case TIME_WITH_LOCAL_TIME_ZONE:
                         convert =
@@ -496,8 +499,10 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                     case TIMESTAMP:
                         convert =
                                 RexImpTable.optimize2(operand,
-                                        Expressions.call(BuiltInMethod.UNIX_TIMESTAMP_TO_STRING.method,
-                                                operand));
+                                        Expressions.call(
+                                                IgniteMethod.UNIX_TIMESTAMP_TO_STRING_PRECISION_AWARE.method(),
+                                                operand,
+                                                Expressions.constant(sourceType.getPrecision())));
                         break;
                     case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
                         convert =
@@ -845,6 +850,15 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                         Expressions.constant(type.getPrecision()),
                         Expressions.constant(type.getScale())
                 );
+            case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
+                Object val = literal.getValueAs(Long.class);
+
+                // Literal was parsed as UTC timestamp, now we need to adjust it to the client's time zone.
+                return Expressions.call(
+                        IgniteMethod.SUBTRACT_TIMEZONE_OFFSET.method(),
+                        Expressions.constant(val, long.class),
+                        Expressions.call(BuiltInMethod.TIME_ZONE.method, DataContext.ROOT)
+                );
             case DATE:
             case TIME:
             case TIME_WITH_LOCAL_TIME_ZONE:
@@ -855,7 +869,6 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                 javaClass = int.class;
                 break;
             case TIMESTAMP:
-            case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
             case INTERVAL_DAY:
             case INTERVAL_DAY_HOUR:
             case INTERVAL_DAY_MINUTE:

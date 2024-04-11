@@ -25,7 +25,7 @@ import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 /**
  * Class responsible for pages storage and handling.
  */
-//TODO IGNITE-16350 Improve javadoc in this class.
+// TODO IGNITE-16350 Improve javadoc in this class.
 public interface PageMemory extends PageIdAllocator, PageSupport {
     /**
      * Starts page memory.
@@ -49,13 +49,13 @@ public interface PageMemory extends PageIdAllocator, PageSupport {
      *
      * @param groupId Group id.
      */
-    //TODO IGNITE-16350 Consider renaming.
+    // TODO IGNITE-16350 Consider renaming.
     int realPageSize(int groupId);
 
     /**
      * Returns a page's size with system overhead, in bytes.
      */
-    //TODO IGNITE-16350 Consider renaming.
+    // TODO IGNITE-16350 Consider renaming.
     int systemPageSize();
 
     /**

@@ -391,6 +391,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
 
         RowSchema rowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
         RowFactory<RowT> rowFactory = ctx.rowHandler().factory(rowSchema);
+        PartitionProvider<RowT> partitionProvider = ctx.getPartitionProvider(rel.sourceId(), group, tbl);
 
         return new IndexScanNode<>(
                 ctx,
@@ -398,7 +399,7 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
                 idx,
                 scannableTable,
                 tbl.descriptor(),
-                group.partitionsWithConsistencyTokens(ctx.localNode().name()),
+                partitionProvider,
                 comp,
                 ranges,
                 filters,
@@ -424,7 +425,8 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         Predicate<RowT> filters = condition == null ? null : expressionFactory.predicate(condition, rowType);
         Function<RowT, RowT> prj = projects == null ? null : expressionFactory.project(projects, rowType);
 
-        ColocationGroup group = ctx.group(rel.sourceId());
+        long sourceId = rel.sourceId();
+        ColocationGroup group = ctx.group(sourceId);
 
         assert group != null;
 
@@ -435,11 +437,13 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         RowSchema rowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
         RowFactory<RowT> rowFactory = ctx.rowHandler().factory(rowSchema);
 
+        PartitionProvider<RowT> partitionProvider = ctx.getPartitionProvider(rel.sourceId(), group, tbl);
+
         return new TableScanNode<>(
                 ctx,
                 rowFactory,
                 scannableTable,
-                group.partitionsWithConsistencyTokens(ctx.localNode().name()),
+                partitionProvider,
                 filters,
                 prj,
                 requiredColumns == null ? null : requiredColumns.toBitSet()
@@ -740,7 +744,10 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         RelDataType rowType = rel.getRowType();
 
         Supplier<List<AccumulatorWrapper<RowT>>> accFactory = expressionFactory.accumulatorsFactory(
-                type, rel.getAggregateCalls(), null);
+                type,
+                rel.getAggregateCalls(),
+                rel.getInput().getRowType()
+        );
 
         RowSchema rowSchema = rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(rowType));
         RowFactory<RowT> rowFactory = ctx.rowHandler().factory(rowSchema);

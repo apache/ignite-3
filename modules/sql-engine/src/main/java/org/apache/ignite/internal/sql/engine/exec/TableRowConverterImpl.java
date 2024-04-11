@@ -17,11 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import java.util.ArrayList;
 import java.util.BitSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
 import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -45,72 +41,36 @@ public class TableRowConverterImpl implements TableRowConverter {
 
     private final BinaryTupleSchema fullTupleSchema;
 
-    private final BinaryTupleSchema keyTupleSchema;
-
     /**
      * Mapping of required columns to their indexes in physical schema.
      */
     private final int[] requiredColumnsMapping;
 
-    /**
-     * Mapping of all columns to their indexes in physical schema.
-     */
-    private final int[] fullMapping;
-
-    /**
-     * Mapping of key column indexes to its ordinals in the ordered list.
-     * It is used during a delete operation to assemble key-only binary row from
-     * "truncated" relational node row containing only primary key columns.
-     */
-    private final int[] keyMapping;
-
-    private final boolean skipReshuffling;
+    private final boolean skipTrimming;
 
     /** Constructor. */
     TableRowConverterImpl(
             SchemaRegistry schemaRegistry,
+            BinaryTupleSchema fullTupleSchema,
             SchemaDescriptor schemaDescriptor,
             @Nullable BitSet requiredColumns
     ) {
         this.schemaRegistry = schemaRegistry;
         this.schemaDescriptor = schemaDescriptor;
+        this.fullTupleSchema = fullTupleSchema;
 
-        this.fullTupleSchema = BinaryTupleSchema.createRowSchema(schemaDescriptor);
-        this.keyTupleSchema = BinaryTupleSchema.createKeySchema(schemaDescriptor);
+        this.skipTrimming = requiredColumns == null;
 
-        this.skipReshuffling = requiredColumns == null && schemaDescriptor.physicalOrderMatchesLogical();
-
-        int elementCount = schemaDescriptor.length();
-        int size = requiredColumns == null ? elementCount : requiredColumns.cardinality();
+        int size = requiredColumns == null
+                ? schemaDescriptor.length()
+                : requiredColumns.cardinality();
 
         requiredColumnsMapping = new int[size];
-        fullMapping = new int[elementCount];
 
-        List<Map.Entry<Integer, Column>> tableOrder = new ArrayList<>(elementCount);
-
-        for (int i = 0; i < elementCount; i++) {
-            Column column = schemaDescriptor.column(i);
-            tableOrder.add(Map.entry(column.columnOrder(), column));
-        }
-
-        tableOrder.sort(Entry.comparingByKey());
-
-        int keyIndex = 0;
         int requiredIndex = 0;
-        keyMapping = new int[schemaDescriptor.keyColumns().length()];
-
-        for (Map.Entry<Integer, Column> e : tableOrder) {
-            Column column = e.getValue();
-            int i = column.schemaIndex();
-
-            fullMapping[i] = column.columnOrder();
-
-            if (schemaDescriptor.isKeyColumn(i)) {
-                keyMapping[keyIndex++] = i;
-            }
-
-            if (requiredColumns == null || requiredColumns.get(column.columnOrder())) {
-                requiredColumnsMapping[requiredIndex++] = i;
+        for (Column column : schemaDescriptor.columns()) {
+            if (requiredColumns == null || requiredColumns.get(column.positionInRow())) {
+                requiredColumnsMapping[requiredIndex++] = column.positionInRow();
             }
         }
     }
@@ -120,19 +80,7 @@ public class TableRowConverterImpl implements TableRowConverter {
     public <RowT> BinaryRowEx toBinaryRow(ExecutionContext<RowT> ectx, RowT row, boolean key) {
         BinaryTuple binaryTuple = ectx.rowHandler().toBinaryTuple(row);
 
-        if (!key) {
-            InternalTuple tuple = schemaDescriptor.physicalOrderMatchesLogical()
-                    ? binaryTuple
-                    : new FormatAwareProjectedTuple(binaryTuple, fullMapping);
-
-            return SqlOutputBinaryRow.newRow(tuple, schemaDescriptor, fullTupleSchema);
-        } else {
-            InternalTuple tuple = schemaDescriptor.physicalOrderMatchesLogical()
-                    ? binaryTuple
-                    : new FormatAwareProjectedTuple(binaryTuple, keyMapping);
-
-            return SqlOutputBinaryRow.newRow(tuple, schemaDescriptor, keyTupleSchema);
-        }
+        return SqlOutputBinaryRow.newRow(schemaDescriptor, key, binaryTuple);
     }
 
     /** {@inheritDoc} */
@@ -146,7 +94,7 @@ public class TableRowConverterImpl implements TableRowConverter {
         if (tableRow.schemaVersion() == schemaDescriptor.version()) {
             InternalTuple tableTuple = new BinaryTuple(schemaDescriptor.length(), tableRow.tupleSlice());
 
-            tuple = skipReshuffling
+            tuple = skipTrimming
                     ? tableTuple
                     : new FormatAwareProjectedTuple(tableTuple, requiredColumnsMapping);
         } else {

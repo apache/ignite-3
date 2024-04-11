@@ -23,9 +23,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
  * Event parameters for an 'index removed from the Catalog' event (don't confuse it with {@link StoppingIndexEventParameters}
  * that is about switching the index to the {@link CatalogIndexStatus#STOPPING} state).
  */
-public class RemoveIndexEventParameters extends CatalogEventParameters {
-    private final int indexId;
-
+public class RemoveIndexEventParameters extends IndexEventParameters {
     /**
      * Constructor.
      *
@@ -34,13 +32,6 @@ public class RemoveIndexEventParameters extends CatalogEventParameters {
      * @param indexId Index ID.
      */
     public RemoveIndexEventParameters(long causalityToken, int catalogVersion, int indexId) {
-        super(causalityToken, catalogVersion);
-
-        this.indexId = indexId;
-    }
-
-    /** Returns index ID. */
-    public int indexId() {
-        return indexId;
+        super(causalityToken, catalogVersion, indexId);
     }
 }

@@ -19,12 +19,14 @@ package org.apache.ignite.internal.table;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow.Publisher;
+import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.streamer.StreamerOptions;
 import org.apache.ignite.internal.streamer.StreamerPartitionAwarenessProvider;
 import org.apache.ignite.internal.streamer.StreamerSubscriber;
+import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.jetbrains.annotations.Nullable;
 
@@ -32,13 +34,19 @@ class DataStreamer {
     private static final IgniteLogger LOG = Loggers.forClass(DataStreamer.class);
 
     static <R> CompletableFuture<Void> streamData(
-            Publisher<R> publisher,
+            Publisher<DataStreamerItem<R>> publisher,
             @Nullable DataStreamerOptions options,
             StreamerBatchSender<R, Integer> batchSender,
-            StreamerPartitionAwarenessProvider<R, Integer> partitionAwarenessProvider) {
+            StreamerPartitionAwarenessProvider<R, Integer> partitionAwarenessProvider,
+            ScheduledExecutorService flushExecutor) {
         StreamerOptions streamerOpts = streamerOptions(options);
         StreamerSubscriber<R, Integer> subscriber = new StreamerSubscriber<>(
-                batchSender, partitionAwarenessProvider, streamerOpts, LOG, null);
+                batchSender,
+                partitionAwarenessProvider,
+                streamerOpts,
+                flushExecutor,
+                LOG,
+                null);
 
         publisher.subscribe(subscriber);
 
@@ -55,8 +63,8 @@ class DataStreamer {
             }
 
             @Override
-            public int perNodeParallelOperations() {
-                return options0.perNodeParallelOperations();
+            public int perPartitionParallelOperations() {
+                return options0.perPartitionParallelOperations();
             }
 
             @Override

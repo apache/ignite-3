@@ -21,6 +21,8 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
+import static java.util.function.Function.identity;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.tracing.TracingManager.span;
@@ -35,10 +37,10 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_PRIMARY_REPLICA_EXPIRED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_READ_ONLY_TOO_OLD_ERR;
 
 import java.io.IOException;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -46,35 +48,35 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentNavigableMap;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.event.EventListener;
-import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.lowwatermark.LowWatermark;
+import org.apache.ignite.internal.lowwatermark.LowWatermarkChangedListener;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessageHandler;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
-import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -102,12 +104,15 @@ import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.TxStateMetaFinishing;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
+import org.apache.ignite.internal.tx.impl.TransactionInflights.ReadWriteTxContext;
+import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicatedInfo;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.TopologyService;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * A transaction manager implementation.
@@ -118,20 +123,16 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(TxManagerImpl.class);
 
-    /** Hint for maximum concurrent txns. */
-    private static final int MAX_CONCURRENT_TXNS = 1024;
-
     /** Transaction configuration. */
     private final TransactionConfiguration txConfig;
 
     /** Lock manager. */
     private final LockManager lockManager;
 
-    /** Executor that runs async transaction cleanup actions. */
-    private final ExecutorService cleanupExecutor;
+    /** Executor that runs async write intent switch actions. */
+    private final ExecutorService writeIntentSwitchPool;
 
-    /** A hybrid logical clock. */
-    private final HybridClock clock;
+    private final ClockService clockService;
 
     /** Generates transaction IDs. */
     private final TransactionIdGenerator transactionIdGenerator;
@@ -139,19 +140,13 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /** The local state storage. */
     private final VolatileTxStateMetaStorage txStateVolatileStorage = new VolatileTxStateMetaStorage();
 
-    /** Txn contexts. */
-    private final ConcurrentHashMap<UUID, TxContext> txCtxMap = new ConcurrentHashMap<>(MAX_CONCURRENT_TXNS);
-
     /** Future of a read-only transaction by it {@link TxIdAndTimestamp}. */
     private final ConcurrentNavigableMap<TxIdAndTimestamp, CompletableFuture<Void>> readOnlyTxFutureById = new ConcurrentSkipListMap<>(
             Comparator.comparing(TxIdAndTimestamp::getReadTimestamp).thenComparing(TxIdAndTimestamp::getTxId)
     );
 
-    /**
-     * Low watermark, does not allow creating read-only transactions less than or equal to this value, {@code null} means it has never been
-     * updated yet.
-     */
-    private final AtomicReference<HybridTimestamp> lowWatermark = new AtomicReference<>();
+    /** Low watermark. */
+    private final LowWatermark lowWatermark;
 
     private final PlacementDriver placementDriver;
 
@@ -184,7 +179,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /** Topology service. */
     private final TopologyService topologyService;
 
-    /** Cluster service. */
+    /** Messaging service. */
     private final MessagingService messagingService;
 
     /** Local node network identity. This id is available only after the network has started. */
@@ -199,71 +194,154 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /** Transaction message sender. */
     private final TxMessageSender txMessageSender;
 
-    private final EventListener<PrimaryReplicaEventParameters> primaryReplicaEventListener;
+    private final EventListener<PrimaryReplicaEventParameters> primaryReplicaExpiredListener;
+
+    private final EventListener<PrimaryReplicaEventParameters> primaryReplicaElectedListener;
+
+    private final LowWatermarkChangedListener lowWatermarkChangedListener = this::onLwnChanged;
 
     /** Counter of read-write transactions that were created and completed locally on the node. */
     private final LocalRwTxCounter localRwTxCounter;
 
+    private final Executor partitionOperationsExecutor;
+
+    private final TransactionInflights transactionInflights;
+
     /**
-     * The constructor.
+     * Test-only constructor.
      *
      * @param txConfig Transaction configuration.
      * @param clusterService Cluster service.
      * @param replicaService Replica service.
      * @param lockManager Lock manager.
-     * @param clock A hybrid logical clock.
+     * @param clockService Clock service.
      * @param transactionIdGenerator Used to generate transaction IDs.
      * @param placementDriver Placement driver.
      * @param idleSafeTimePropagationPeriodMsSupplier Used to get idle safe time propagation period in ms.
      * @param localRwTxCounter Counter of read-write transactions that were created and completed locally on the node.
+     * @param resourcesRegistry Resources registry.
+     * @param transactionInflights Transaction inflights.
+     * @param lowWatermark Low watermark.
      */
+    @TestOnly
     public TxManagerImpl(
             TransactionConfiguration txConfig,
             ClusterService clusterService,
             ReplicaService replicaService,
             LockManager lockManager,
-            HybridClock clock,
+            ClockService clockService,
             TransactionIdGenerator transactionIdGenerator,
             PlacementDriver placementDriver,
             LongSupplier idleSafeTimePropagationPeriodMsSupplier,
-            LocalRwTxCounter localRwTxCounter
+            LocalRwTxCounter localRwTxCounter,
+            RemotelyTriggeredResourceRegistry resourcesRegistry,
+            TransactionInflights transactionInflights,
+            LowWatermark lowWatermark
+    ) {
+        this(
+                clusterService.nodeName(),
+                txConfig,
+                clusterService.messagingService(),
+                clusterService.topologyService(),
+                replicaService,
+                lockManager,
+                clockService,
+                transactionIdGenerator,
+                placementDriver,
+                idleSafeTimePropagationPeriodMsSupplier,
+                localRwTxCounter,
+                ForkJoinPool.commonPool(),
+                resourcesRegistry,
+                transactionInflights,
+                lowWatermark
+        );
+    }
+
+    /**
+     * The constructor.
+     *
+     * @param txConfig Transaction configuration.
+     * @param messagingService Messaging service.
+     * @param topologyService Topology service.
+     * @param replicaService Replica service.
+     * @param lockManager Lock manager.
+     * @param clockService Clock service.
+     * @param transactionIdGenerator Used to generate transaction IDs.
+     * @param placementDriver Placement driver.
+     * @param idleSafeTimePropagationPeriodMsSupplier Used to get idle safe time propagation period in ms.
+     * @param localRwTxCounter Counter of read-write transactions that were created and completed locally on the node.
+     * @param partitionOperationsExecutor Executor on which partition operations will be executed, if needed.
+     * @param resourcesRegistry Resources registry.
+     * @param transactionInflights Transaction inflights.
+     * @param lowWatermark Low watermark.
+     */
+    public TxManagerImpl(
+            String nodeName,
+            TransactionConfiguration txConfig,
+            MessagingService messagingService,
+            TopologyService topologyService,
+            ReplicaService replicaService,
+            LockManager lockManager,
+            ClockService clockService,
+            TransactionIdGenerator transactionIdGenerator,
+            PlacementDriver placementDriver,
+            LongSupplier idleSafeTimePropagationPeriodMsSupplier,
+            LocalRwTxCounter localRwTxCounter,
+            Executor partitionOperationsExecutor,
+            RemotelyTriggeredResourceRegistry resourcesRegistry,
+            TransactionInflights transactionInflights,
+            LowWatermark lowWatermark
     ) {
         this.txConfig = txConfig;
         this.lockManager = lockManager;
-        this.clock = clock;
+        this.clockService = clockService;
         this.transactionIdGenerator = transactionIdGenerator;
         this.placementDriver = placementDriver;
         this.idleSafeTimePropagationPeriodMsSupplier = idleSafeTimePropagationPeriodMsSupplier;
-        this.topologyService = clusterService.topologyService();
-        this.messagingService = clusterService.messagingService();
-        this.primaryReplicaEventListener = this::primaryReplicaEventListener;
+        this.topologyService = topologyService;
+        this.messagingService = messagingService;
+        this.primaryReplicaExpiredListener = this::primaryReplicaExpiredListener;
+        this.primaryReplicaElectedListener = this::primaryReplicaElectedListener;
         this.localRwTxCounter = localRwTxCounter;
+        this.partitionOperationsExecutor = partitionOperationsExecutor;
+        this.transactionInflights = transactionInflights;
+        this.lowWatermark = lowWatermark;
 
-        placementDriverHelper = new PlacementDriverHelper(placementDriver, clock);
+        placementDriverHelper = new PlacementDriverHelper(placementDriver, clockService);
 
         int cpus = Runtime.getRuntime().availableProcessors();
 
-        cleanupExecutor = new ThreadPoolExecutor(
+        writeIntentSwitchPool = new ThreadPoolExecutor(
                 cpus,
                 cpus,
                 100,
                 TimeUnit.MILLISECONDS,
                 new LinkedBlockingQueue<>(),
-                IgniteThreadFactory.create(clusterService.nodeName(), "tx-async-cleanup", LOG, STORAGE_READ, STORAGE_WRITE)
+                IgniteThreadFactory.create(nodeName, "tx-async-write-intent", LOG, STORAGE_READ, STORAGE_WRITE)
         );
 
         orphanDetector = new OrphanDetector(topologyService, replicaService, placementDriverHelper, lockManager);
 
-        txMessageSender = new TxMessageSender(messagingService, replicaService, clock);
+        txMessageSender = new TxMessageSender(messagingService, replicaService, clockService, txConfig);
 
         var writeIntentSwitchProcessor = new WriteIntentSwitchProcessor(placementDriverHelper, txMessageSender, topologyService);
 
-        txCleanupRequestHandler = new TxCleanupRequestHandler(messagingService, lockManager, clock, writeIntentSwitchProcessor);
+        txCleanupRequestHandler = new TxCleanupRequestHandler(
+                messagingService,
+                lockManager,
+                clockService,
+                writeIntentSwitchProcessor,
+                resourcesRegistry
+        );
 
-        txCleanupRequestSender = new TxCleanupRequestSender(txMessageSender, placementDriverHelper, writeIntentSwitchProcessor);
+        txCleanupRequestSender =
+                new TxCleanupRequestSender(txMessageSender, placementDriverHelper, txStateVolatileStorage);
     }
 
-    private CompletableFuture<Boolean> primaryReplicaEventListener(PrimaryReplicaEventParameters eventParameters, Throwable err) {
+    private CompletableFuture<Boolean> primaryReplicaEventListener(
+            PrimaryReplicaEventParameters eventParameters,
+            Consumer<TablePartitionId> action
+    ) {
         return inBusyLock(busyLock, () -> {
             if (!(eventParameters.groupId() instanceof TablePartitionId)) {
                 return falseCompletedFuture();
@@ -271,20 +349,22 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
             TablePartitionId groupId = (TablePartitionId) eventParameters.groupId();
 
-            for (Map.Entry<UUID, TxContext> ctxEntry : txCtxMap.entrySet()) {
-                TxContext txContext = ctxEntry.getValue();
-
-                if (txContext.isTxFinishing()) {
-                    IgniteBiTuple<ClusterNode, Long> nodeAndToken = txContext.enlistedGroups.get(groupId);
-
-                    if (nodeAndToken != null) {
-                        txContext.cancelWaitingInflights(groupId, nodeAndToken.get2());
-                    }
-                }
-            }
+            action.accept(groupId);
 
             return falseCompletedFuture();
         });
+    }
+
+    private CompletableFuture<Boolean> primaryReplicaElectedListener(PrimaryReplicaEventParameters eventParameters) {
+        return primaryReplicaEventListener(eventParameters, groupId -> {
+            String localNodeName = topologyService.localMember().name();
+
+            txMessageSender.sendRecoveryCleanup(localNodeName, groupId);
+        });
+    }
+
+    private CompletableFuture<Boolean> primaryReplicaExpiredListener(PrimaryReplicaEventParameters eventParameters) {
+        return primaryReplicaEventListener(eventParameters, transactionInflights::cancelWaitingInflights);
     }
 
     @Override
@@ -305,7 +385,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             span.addAttribute("timestampTracker", timestampTracker::toString);
             span.addAttribute("readOnly", () -> String.valueOf(readOnly));
 
-            HybridTimestamp beginTimestamp = readOnly ? clock.now() : createBeginTimestampWithIncrementRwTxCounter();
+            HybridTimestamp beginTimestamp = readOnly ? clockService.now() : createBeginTimestampWithIncrementRwTxCounter();
             UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp, priority);
             startedTxs.incrementAndGet();
 
@@ -328,7 +408,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             CompletableFuture<Void> oldFuture = readOnlyTxFutureById.put(txIdAndTimestamp, txFuture);
             assert oldFuture == null : "previous transaction has not completed yet: " + txIdAndTimestamp;
 
-            HybridTimestamp lowWatermark = this.lowWatermark.get();
+            HybridTimestamp lowWatermark = this.lowWatermark.getLowWatermark();
 
             if (lowWatermark != null && readTimestamp.compareTo(lowWatermark) <= 0) {
                 // "updateLowWatermark" method updates "this.lowWatermark" field, and only then scans "this.readOnlyTxFutureById" for old
@@ -361,7 +441,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
      */
     private HybridTimestamp currentReadTimestamp(HybridTimestamp beginTx) {
         return beginTx.subtractPhysicalTime(
-                idleSafeTimePropagationPeriodMsSupplier.getAsLong() + HybridTimestamp.CLOCK_SKEW
+                idleSafeTimePropagationPeriodMsSupplier.getAsLong() + clockService.maxClockSkewMillis()
         );
     }
 
@@ -371,7 +451,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     }
 
     @Override
-    public @Nullable <T extends TxStateMeta> T updateTxMeta(UUID txId, Function<TxStateMeta, TxStateMeta> updater) {
+    public @Nullable <T extends TxStateMeta> T updateTxMeta(UUID txId, Function<@Nullable TxStateMeta, TxStateMeta> updater) {
         return txStateVolatileStorage.updateMeta(txId, updater);
     }
 
@@ -382,21 +462,27 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
             finishedTxs.incrementAndGet();
             if (commit) {
-                timestampTracker.update(clock.now());
+                timestampTracker.update(clockService.now());
 
                 finalState = COMMITTED;
             } else {
                 finalState = ABORTED;
             }
 
-            updateTxMeta(txId, old -> new TxStateMeta(finalState, old.txCoordinatorId(), old.commitPartitionId(), old.commitTimestamp()));
+            updateTxMeta(txId, old ->
+                new TxStateMeta(
+                        finalState,
+                        old == null ? null : old.txCoordinatorId(),
+                        old == null ? null : old.commitPartitionId(),
+                        old == null ? null : old.commitTimestamp()
+                ));
 
             decrementRwTxCount(txId);
         }
     }
 
     private @Nullable HybridTimestamp commitTimestamp(boolean commit) {
-        return commit ? clock.now() : null;
+        return commit ? clockService.now() : null;
     }
 
     @Override
@@ -453,7 +539,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             }
         }
 
-        TxContext txContext = lockTxForNewUpdates(txId, enlistedGroups);
+        ReadWriteTxContext txContext = transactionInflights.lockTxForNewUpdates(txId, enlistedGroups);
 
         // Wait for commit acks first, then proceed with the finish request.
         return txContext.performFinish(commitIntent, commit ->
@@ -469,21 +555,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             if (localNodeId.equals(finishingStateMeta.txCoordinatorId())) {
                 decrementRwTxCount(txId);
             }
-        });
-    }
-
-    private TxContext lockTxForNewUpdates(UUID txId, Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups) {
-        return txCtxMap.compute(txId, (uuid, tuple0) -> {
-            if (tuple0 == null) {
-                tuple0 = new TxContext(placementDriver); // No writes enlisted.
-            }
-
-            assert !tuple0.isTxFinishing() : "Transaction is already finished [id=" + uuid + "].";
-
-            tuple0.finishTx(enlistedGroups);
-
-            return tuple0;
-        });
+        }).whenComplete((unused, throwable) -> transactionInflights.removeTxContext(txId));
     }
 
     private static CompletableFuture<Void> checkTxOutcome(boolean commit, UUID txId, TransactionMeta stateMeta) {
@@ -531,7 +603,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                                     commitTimestamp,
                                     txFinishFuture);
                         })
-                .thenCompose(Function.identity())
+                .thenCompose(identity())
                 // Verification future is added in order to share the proper verification exception with the client.
                 .thenCompose(r -> verificationFuture);
     }
@@ -573,7 +645,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                             TxStateMeta updatedMeta = updateTxMeta(txId, old ->
                                     new TxStateMeta(
                                             result.transactionState(),
-                                            old.txCoordinatorId(),
+                                            old == null ? null : old.txCoordinatorId(),
                                             commitPartition,
                                             result.commitTimestamp()
                                     )
@@ -587,7 +659,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                         if (TransactionFailureHandler.isRecoverable(cause)) {
                             LOG.warn("Failed to finish Tx. The operation will be retried [txId={}].", ex, txId);
 
-                            return durableFinish(
+                            return supplyAsync(() -> durableFinish(
                                     observableTimestampTracker,
                                     commitPartition,
                                     commit,
@@ -595,7 +667,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                                     txId,
                                     commitTimestamp,
                                     txFinishFuture
-                            );
+                            ), partitionOperationsExecutor).thenCompose(identity());
                         } else {
                             LOG.warn("Failed to finish Tx [txId={}].", ex, txId);
 
@@ -605,7 +677,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
                     return CompletableFutures.<Void>nullCompletedFuture();
                 })
-                .thenCompose(Function.identity()));
+                .thenCompose(identity()));
     }
 
     private CompletableFuture<Void> makeFinishRequest(
@@ -638,7 +710,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                             new TxStateMeta(
                                     txResult.transactionState(),
                                     localNodeId,
-                                    old.commitPartitionId(),
+                                    old == null ? null : old.commitPartitionId(),
                                     txResult.commitTimestamp()
                             ));
 
@@ -681,19 +753,27 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     @Override
     public CompletableFuture<Void> start() {
-        localNodeId = topologyService.localMember().id();
+        return inBusyLockAsync(busyLock, () -> {
+            localNodeId = topologyService.localMember().id();
 
-        messagingService.addMessageHandler(ReplicaMessageGroup.class, this);
+            messagingService.addMessageHandler(ReplicaMessageGroup.class, this);
 
-        txStateVolatileStorage.start();
+            txStateVolatileStorage.start();
 
-        orphanDetector.start(txStateVolatileStorage, txConfig.abandonedCheckTs());
+            orphanDetector.start(txStateVolatileStorage, txConfig.abandonedCheckTs());
 
-        txCleanupRequestHandler.start();
+            txCleanupRequestSender.start();
 
-        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, primaryReplicaEventListener);
+            txCleanupRequestHandler.start();
 
-        return nullCompletedFuture();
+            placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, primaryReplicaExpiredListener);
+
+            placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, primaryReplicaElectedListener);
+
+            lowWatermark.addUpdateListener(lowWatermarkChangedListener);
+
+            return nullCompletedFuture();
+        });
     }
 
     @Override
@@ -713,9 +793,13 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         txCleanupRequestHandler.stop();
 
-        placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, primaryReplicaEventListener);
+        placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, primaryReplicaExpiredListener);
 
-        shutdownAndAwaitTermination(cleanupExecutor, 10, TimeUnit.SECONDS);
+        placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, primaryReplicaElectedListener);
+
+        lowWatermark.removeUpdateListener(lowWatermarkChangedListener);
+
+        shutdownAndAwaitTermination(writeIntentSwitchPool, 10, TimeUnit.SECONDS);
     }
 
     @Override
@@ -734,18 +818,30 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     }
 
     @Override
+    public CompletableFuture<Void> cleanup(
+            Collection<TablePartitionId> enlistedPartitions,
+            boolean commit,
+            @Nullable HybridTimestamp commitTimestamp,
+            UUID txId
+    ) {
+        return txCleanupRequestSender.cleanup(enlistedPartitions, commit, commitTimestamp, txId);
+    }
+
+    @Override
     public CompletableFuture<Void> cleanup(String node, UUID txId) {
         return txCleanupRequestSender.cleanup(node, txId);
     }
 
     @Override
-    public CompletableFuture<Void> executeCleanupAsync(Runnable runnable) {
-        return runAsync(runnable, cleanupExecutor);
+    public void vacuum() {
+        long vacuumObservationTimestamp = System.currentTimeMillis();
+
+        txStateVolatileStorage.vacuum(vacuumObservationTimestamp, txConfig.txnResourceTtl().value());
     }
 
     @Override
-    public CompletableFuture<?> executeCleanupAsync(Supplier<CompletableFuture<?>> action) {
-        return supplyAsync(action, cleanupExecutor).thenCompose(f -> f);
+    public CompletableFuture<Void> executeWriteIntentSwitchAsync(Runnable runnable) {
+        return runAsync(runnable, writeIntentSwitchPool);
     }
 
     CompletableFuture<Void> completeReadOnlyTransactionFuture(TxIdAndTimestamp txIdAndTimestamp) {
@@ -757,74 +853,25 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         readOnlyTxFuture.complete(null);
 
+        UUID txId = txIdAndTimestamp.getTxId();
+
+        transactionInflights.markReadOnlyTxFinished(txId);
+
         return readOnlyTxFuture;
     }
 
-    @Override
-    public CompletableFuture<Void> updateLowWatermark(HybridTimestamp newLowWatermark) {
-        lowWatermark.updateAndGet(previousLowWatermark -> {
-            if (previousLowWatermark == null) {
-                return newLowWatermark;
-            }
+    private CompletableFuture<Void> onLwnChanged(HybridTimestamp newLowWatermark) {
+        return inBusyLockAsync(busyLock, () -> {
+            TxIdAndTimestamp upperBound = new TxIdAndTimestamp(newLowWatermark, new UUID(Long.MAX_VALUE, Long.MAX_VALUE));
 
-            assert newLowWatermark.compareTo(previousLowWatermark) > 0 :
-                    "lower watermark should be growing: [previous=" + previousLowWatermark + ", new=" + newLowWatermark + ']';
+            List<CompletableFuture<Void>> readOnlyTxFutures = List.copyOf(readOnlyTxFutureById.headMap(upperBound, true).values());
 
-            return newLowWatermark;
+            return allOf(readOnlyTxFutures.toArray(CompletableFuture[]::new));
         });
-
-        TxIdAndTimestamp upperBound = new TxIdAndTimestamp(newLowWatermark, new UUID(Long.MAX_VALUE, Long.MAX_VALUE));
-
-        List<CompletableFuture<Void>> readOnlyTxFutures = List.copyOf(readOnlyTxFutureById.headMap(upperBound, true).values());
-
-        return allOf(readOnlyTxFutures.toArray(CompletableFuture[]::new));
     }
 
     @Override
-    public boolean addInflight(UUID txId) {
-        boolean[] res = {true};
-
-        txCtxMap.compute(txId, (uuid, tuple) -> {
-            if (tuple == null) {
-                tuple = new TxContext(placementDriver);
-            }
-
-            if (tuple.isTxFinishing()) {
-                res[0] = false;
-                return tuple;
-            } else {
-                //noinspection NonAtomicOperationOnVolatileField
-                tuple.inflights++;
-            }
-
-            return tuple;
-        });
-
-        return res[0];
-    }
-
-    @Override
-    public void removeInflight(UUID txId) {
-        TxContext tuple = txCtxMap.compute(txId, (uuid, ctx) -> {
-            assert ctx != null && ctx.inflights > 0 : ctx;
-
-            //noinspection NonAtomicOperationOnVolatileField
-            ctx.inflights--;
-
-            return ctx;
-        });
-
-        // Avoid completion under lock.
-        tuple.onRemovedInflights();
-    }
-
-    @Override
-    public HybridClock clock() {
-        return clock;
-    }
-
-    @Override
-    public void onReceived(NetworkMessage message, String senderConsistentId, @Nullable Long correlationId) {
+    public void onReceived(NetworkMessage message, ClusterNode sender, @Nullable Long correlationId) {
         if (!(message instanceof ReplicaResponse) || correlationId != null) {
             return;
         }
@@ -843,8 +890,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             try (var span = span("TxManagerImpl.removeInflight")) {
                 span.addAttribute("res", response::toString);
 
-                removeInflight((UUID) result);
+                transactionInflights.removeInflight((UUID) result);
             }
+        }
+
+        if (result instanceof WriteIntentSwitchReplicatedInfo) {
+            txCleanupRequestHandler.writeIntentSwitchReplicated((WriteIntentSwitchReplicatedInfo) result);
         }
     }
 
@@ -880,7 +931,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                             );
                         } else {
                             assert commitTimestamp.compareTo(currentPrimaryReplica.getExpirationTime()) <= 0 :
-                                    IgniteStringFormatter.format(
+                                    format(
                                             "Commit timestamp is greater than primary replica expiration timestamp:"
                                                     + " [groupId = {}, commit timestamp = {}, primary replica expiration timestamp = {}]",
                                             groupId, commitTimestamp, currentPrimaryReplica.getExpirationTime());
@@ -889,102 +940,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         }
 
         return allOf(verificationFutures);
-    }
-
-    private static class TxContext {
-        volatile long inflights = 0; // Updated under lock.
-        private final CompletableFuture<Void> waitRepFut = new CompletableFuture<>();
-        private final PlacementDriver placementDriver;
-        volatile CompletableFuture<Void> finishInProgressFuture = null;
-        volatile Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups;
-
-        private TxContext(PlacementDriver placementDriver) {
-            this.placementDriver = placementDriver;
-        }
-
-        CompletableFuture<Void> performFinish(boolean commit, Function<Boolean, CompletableFuture<Void>> finishAction) {
-            wrap(waitReadyToFinish(commit))
-                    .whenComplete((ignoredReadyToFinish, readyException) -> finishAction.apply(commit && readyException == null)
-                            .whenComplete((ignoredFinishActionResult, finishException) ->
-                                    completeFinishInProgressFuture(commit, readyException, finishException))
-                    );
-
-            return finishInProgressFuture;
-        }
-
-        private void completeFinishInProgressFuture(
-                boolean commit,
-                @Nullable Throwable readyToFinishException,
-                @Nullable Throwable finishException
-        ) {
-            if (readyToFinishException == null) {
-                if (finishException == null) {
-                    finishInProgressFuture.complete(null);
-                } else {
-                    finishInProgressFuture.completeExceptionally(finishException);
-                }
-            } else {
-                if (commit && readyToFinishException instanceof PrimaryReplicaExpiredException) {
-                    finishInProgressFuture.completeExceptionally(new MismatchingTransactionOutcomeException(
-                            TX_PRIMARY_REPLICA_EXPIRED_ERR,
-                            "Failed to commit the transaction.",
-                            new TransactionResult(ABORTED, null),
-                            readyToFinishException
-                    ));
-                } else {
-                    finishInProgressFuture.completeExceptionally(readyToFinishException);
-                }
-            }
-        }
-
-        private CompletableFuture<Void> waitReadyToFinish(boolean commit) {
-            if (commit) {
-                for (Map.Entry<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> e : enlistedGroups.entrySet()) {
-                    ReplicaMeta replicaMeta = placementDriver.currentLease(e.getKey());
-
-                    Long enlistmentConsistencyToken = e.getValue().get2();
-
-                    if (replicaMeta == null || !enlistmentConsistencyToken.equals(replicaMeta.getStartTime().longValue())) {
-                        return failedFuture(new PrimaryReplicaExpiredException(e.getKey(), enlistmentConsistencyToken, null, replicaMeta));
-                    }
-                }
-
-                return waitNoInflights();
-            } else {
-                return nullCompletedFuture();
-            }
-        }
-
-        private CompletableFuture<Void> waitNoInflights() {
-            if (inflights == 0) {
-                waitRepFut.complete(null);
-            }
-            return waitRepFut;
-        }
-
-        private void cancelWaitingInflights(TablePartitionId groupId, Long enlistmentConsistencyToken) {
-            waitRepFut.completeExceptionally(new PrimaryReplicaExpiredException(groupId, enlistmentConsistencyToken, null, null));
-        }
-
-        void onRemovedInflights() {
-            if (inflights == 0 && finishInProgressFuture != null) {
-                waitRepFut.complete(null);
-            }
-        }
-
-        void finishTx(Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups) {
-            this.enlistedGroups = enlistedGroups;
-            finishInProgressFuture = new CompletableFuture<>();
-        }
-
-        boolean isTxFinishing() {
-            return finishInProgressFuture != null;
-        }
-
-        @Override
-        public String toString() {
-            return "TxContext [inflights=" + inflights + ", waitRepFut=" + waitRepFut + ", finishFut=" + finishInProgressFuture + ']';
-        }
     }
 
     static class TransactionFailureHandler {
@@ -1021,7 +976,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     private HybridTimestamp createBeginTimestampWithIncrementRwTxCounter() {
         return localRwTxCounter.inUpdateRwTxCountLock(() -> {
-            HybridTimestamp beginTs = clock.now();
+            HybridTimestamp beginTs = clockService.now();
 
             localRwTxCounter.incrementRwTxCount(beginTs);
 

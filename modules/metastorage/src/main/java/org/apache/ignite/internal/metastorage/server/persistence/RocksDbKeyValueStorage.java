@@ -64,6 +64,7 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.LongConsumer;
 import java.util.function.Predicate;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -235,10 +236,10 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
      * @param nodeName Node name.
      * @param dbPath RocksDB path.
      */
-    public RocksDbKeyValueStorage(String nodeName, Path dbPath) {
+    public RocksDbKeyValueStorage(String nodeName, Path dbPath, FailureProcessor failureProcessor) {
         this.dbPath = dbPath;
 
-        this.watchProcessor = new WatchProcessor(nodeName, this::get);
+        this.watchProcessor = new WatchProcessor(nodeName, this::get, failureProcessor);
 
         this.snapshotExecutor = Executors.newFixedThreadPool(2, NamedThreadFactory.create(nodeName, "metastorage-snapshot-executor", LOG));
     }
@@ -1034,9 +1035,9 @@ public class RocksDbKeyValueStorage implements KeyValueStorage {
     public void compact(HybridTimestamp lowWatermark) {
         rwLock.writeLock().lock();
 
-        byte[] tsBytes = hybridTsToArray(lowWatermark);
 
         try (WriteBatch batch = new WriteBatch()) {
+            byte[] tsBytes = hybridTsToArray(lowWatermark);
             long maxRevision;
 
             // Find a revision with timestamp lesser or equal to the watermark.

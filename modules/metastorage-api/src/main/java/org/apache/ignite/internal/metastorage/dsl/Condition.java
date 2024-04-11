@@ -26,4 +26,24 @@ import org.apache.ignite.internal.network.NetworkMessage;
  * @see SimpleCondition
  * @see CompoundCondition
  */
-public interface Condition extends NetworkMessage {}
+public interface Condition extends NetworkMessage {
+    /**
+     * Shortcut for {@link Conditions#and(Condition, Condition)}.
+     *
+     * @param other Other condition.
+     * @return Conjunction of two conditions.
+     */
+    default Condition and(Condition other) {
+        return Conditions.and(this, other);
+    }
+
+    /**
+     * Shortcut for {@link Conditions#or(Condition, Condition)}.
+     *
+     * @param other Other condition.
+     * @return Disjunction of two conditions.
+     */
+    default Condition or(Condition other) {
+        return Conditions.or(this, other);
+    }
+}

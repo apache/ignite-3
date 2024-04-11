@@ -87,7 +87,6 @@ import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
-import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeCoercionRules;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -109,7 +108,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
     public static final String NUMERIC_FIELD_OVERFLOW_ERROR = "Numeric field overflow";
 
-    //approximate and exact numeric types
+    // Approximate and exact numeric types.
     private static final Pattern NUMERIC = Pattern.compile("^\\s*\\d+(\\.{1}\\d*)\\s*$");
 
     static {
@@ -399,12 +398,11 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         final SqlIdentifier targetTable = (SqlIdentifier) call.getTargetTable();
 
         IgniteTable igniteTable = getTableForModification(targetTable);
-        TableDescriptor descriptor = igniteTable.descriptor();
 
         SqlIdentifier alias = call.getAlias() != null ? call.getAlias() :
                 new SqlIdentifier(deriveAlias(targetTable, 0), SqlParserPos.ZERO);
 
-        descriptor.selectForUpdateRowType((IgniteTypeFactory) typeFactory)
+        igniteTable.getRowType(typeFactory)
                 .getFieldNames().stream()
                 .map(name -> alias.plus(name, SqlParserPos.ZERO))
                 .forEach(selectList::add);
@@ -443,9 +441,8 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         final SqlIdentifier targetTable = (SqlIdentifier) call.getTargetTable();
 
         IgniteTable igniteTable = getTableForModification(targetTable);
-        TableDescriptor descriptor = igniteTable.descriptor();
 
-        descriptor.deleteRowType((IgniteTypeFactory) typeFactory)
+        igniteTable.rowTypeForDelete((IgniteTypeFactory) typeFactory)
                 .getFieldNames().stream()
                 .map(name -> new SqlIdentifier(name, SqlParserPos.ZERO))
                 .forEach(selectList::add);
@@ -690,7 +687,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             BigDecimal max = (BigDecimal) toType.getSqlTypeName().getLimit(true, Limit.OVERFLOW, false, precision, scale);
             BigDecimal min = (BigDecimal) toType.getSqlTypeName().getLimit(false, Limit.OVERFLOW, false, precision, scale);
 
-            String litValue = Objects.requireNonNull(literal.toValue());
+            String litValue = requireNonNull(literal.toValue());
 
             BigDecimal litValueToDecimal = null;
 
@@ -830,9 +827,8 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
     private SqlNodeList inferColumnList(IgniteTable igniteTable) {
         SqlNodeList columnList = new SqlNodeList(SqlParserPos.ZERO);
-        TableDescriptor descriptor = igniteTable.descriptor();
 
-        for (RelDataTypeField field : descriptor.insertRowType(typeFactory()).getFieldList()) {
+        for (RelDataTypeField field : igniteTable.rowTypeForInsert(typeFactory()).getFieldList()) {
             columnList.add(new SqlIdentifier(field.getName(), SqlParserPos.ZERO));
         }
 
@@ -847,7 +843,6 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         final SqlValidatorNamespace ns = validatedNamespace(call, unknownType);
         final SqlValidatorTable table = table(ns);
         IgniteTable igniteTable = getIgniteTableForModification((SqlIdentifier) call.getTargetTable(), table);
-        TableDescriptor descriptor = igniteTable.descriptor();
 
         final RelDataType baseType = table.getRowType();
         final RelOptTable relOptTable = relOptTable(ns);
@@ -863,7 +858,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
                         RESOURCE.unknownTargetColumn(id.toString()));
             }
 
-            if (!descriptor.isUpdateAllowed(relOptTable, target.getIndex())) {
+            if (!igniteTable.isUpdateAllowed(target.getIndex())) {
                 throw newValidationError(id,
                         IgniteResource.INSTANCE.cannotUpdateField(id.toString()));
             }

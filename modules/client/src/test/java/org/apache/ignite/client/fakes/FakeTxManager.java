@@ -19,11 +19,11 @@ package org.apache.ignite.client.fakes;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import java.util.Collection;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
@@ -174,13 +174,8 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
-    public CompletableFuture<Void> executeCleanupAsync(Runnable runnable) {
+    public CompletableFuture<Void> executeWriteIntentSwitchAsync(Runnable runnable) {
         return CompletableFuture.runAsync(runnable);
-    }
-
-    @Override
-    public CompletableFuture<?> executeCleanupAsync(Supplier<CompletableFuture<?>> action) {
-        return action.get();
     }
 
     @Override
@@ -209,8 +204,23 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
+    public CompletableFuture<Void> cleanup(
+            Collection<TablePartitionId> enlistedPartitions,
+            boolean commit,
+            @Nullable HybridTimestamp commitTimestamp,
+            UUID txId
+    ) {
+        return nullCompletedFuture();
+    }
+
+    @Override
     public CompletableFuture<Void> cleanup(String node, UUID txId) {
         return nullCompletedFuture();
+    }
+
+    @Override
+    public void vacuum() {
+        // No-op.
     }
 
     @Override
@@ -221,25 +231,5 @@ public class FakeTxManager implements TxManager {
     @Override
     public int pending() {
         return 0;
-    }
-
-    @Override
-    public CompletableFuture<Void> updateLowWatermark(HybridTimestamp newLowWatermark) {
-        return null;
-    }
-
-    @Override
-    public boolean addInflight(UUID txId) {
-        return false;
-    }
-
-    @Override
-    public void removeInflight(UUID txId) {
-        // No-op.
-    }
-
-    @Override
-    public HybridClock clock() {
-        return clock;
     }
 }

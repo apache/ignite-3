@@ -23,6 +23,7 @@ import com.lmax.disruptor.EventFactory;
 import com.lmax.disruptor.EventHandler;
 import com.lmax.disruptor.ExceptionHandler;
 import com.lmax.disruptor.RingBuffer;
+import com.lmax.disruptor.YieldingWaitStrategy;
 import com.lmax.disruptor.dsl.Disruptor;
 import com.lmax.disruptor.dsl.ProducerType;
 import java.util.ArrayList;
@@ -67,7 +68,7 @@ public class StripedDisruptor<T extends NodeIdAware> {
      * If {@code false}, this stripe will always pass {@code true} into {@link EventHandler#onEvent(Object, long, boolean)}.
      * Otherwise, the data will be provided with batches.
      */
-    //TODO: IGNITE-15568 endOfBatch should be set to true to prevent caching tasks until IGNITE-15568 has fixed.
+    // TODO: IGNITE-15568 endOfBatch should be set to true to prevent caching tasks until IGNITE-15568 has fixed.
     private final boolean supportsBatches;
 
     /**
@@ -78,6 +79,7 @@ public class StripedDisruptor<T extends NodeIdAware> {
      * @param stripes Amount of stripes.
      * @param supportsBatches If {@code false}, this stripe will always pass {@code true} into
      *      {@link EventHandler#onEvent(Object, long, boolean)}. Otherwise, the data will be provided with batches.
+     * @param useYieldStrategy If {@code true}, the yield strategy is to be used, otherwise the blocking strategy.
      */
     public StripedDisruptor(
             String nodeName,
@@ -85,7 +87,8 @@ public class StripedDisruptor<T extends NodeIdAware> {
             int bufferSize,
             EventFactory<T> eventFactory,
             int stripes,
-            boolean supportsBatches
+            boolean supportsBatches,
+            boolean useYieldStrategy
     ) {
         this(
                 nodeName,
@@ -94,7 +97,8 @@ public class StripedDisruptor<T extends NodeIdAware> {
                 bufferSize,
                 eventFactory,
                 stripes,
-                supportsBatches
+                supportsBatches,
+                useYieldStrategy
         );
     }
 
@@ -107,6 +111,7 @@ public class StripedDisruptor<T extends NodeIdAware> {
      * @param stripes Amount of stripes.
      * @param supportsBatches If {@code false}, this stripe will always pass {@code true} into
      *      {@link EventHandler#onEvent(Object, long, boolean)}. Otherwise, the data will be provided with batches.
+     * @param useYieldStrategy If {@code true}, the yield strategy is to be used, otherwise the blocking strategy.
      */
     public StripedDisruptor(
             String nodeName,
@@ -115,7 +120,8 @@ public class StripedDisruptor<T extends NodeIdAware> {
             int bufferSize,
             EventFactory<T> eventFactory,
             int stripes,
-            boolean supportsBatches
+            boolean supportsBatches,
+            boolean useYieldStrategy
     ) {
         disruptors = new Disruptor[stripes];
         queues = new RingBuffer[stripes];
@@ -133,7 +139,7 @@ public class StripedDisruptor<T extends NodeIdAware> {
                 .setEventFactory(eventFactory)
                 .setThreadFactory(threadFactorySupplier.apply(nodeName, stripeName))
                 .setProducerType(ProducerType.MULTI)
-                .setWaitStrategy(new BlockingWaitStrategy())
+                .setWaitStrategy(useYieldStrategy ? new YieldingWaitStrategy() : new BlockingWaitStrategy())
                 .build();
 
             eventHandlers.add(new StripeEntryHandler());

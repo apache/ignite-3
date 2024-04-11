@@ -32,6 +32,7 @@ import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.table.criteria.SqlRowProjection;
@@ -39,6 +40,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
@@ -59,9 +61,10 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
      * Constructor.
      *
      * @param tbl Table.
+     * @param sql Sql.
      */
-    public ClientKeyValueBinaryView(ClientTable tbl) {
-        super(tbl);
+    public ClientKeyValueBinaryView(ClientTable tbl, ClientSql sql) {
+        super(tbl, sql);
 
         ser = new ClientTupleSerializer(tbl.tableId());
     }
@@ -445,7 +448,9 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> streamData(Publisher<Entry<Tuple, Tuple>> publisher, @Nullable DataStreamerOptions options) {
+    public CompletableFuture<Void> streamData(
+            Publisher<DataStreamerItem<Entry<Tuple, Tuple>>> publisher,
+            @Nullable DataStreamerOptions options) {
         Objects.requireNonNull(publisher);
 
         var provider = new KeyValueTupleStreamerPartitionAwarenessProvider(tbl);
@@ -466,8 +471,8 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
     /** {@inheritDoc} */
     @Override
     protected Function<SqlRow, Entry<Tuple, Tuple>> queryMapper(ResultSetMetadata meta, ClientSchema schema) {
-        String[] keyCols = columnNames(schema.columns(), 0, schema.keyColumnCount());
-        String[] valCols = columnNames(schema.columns(), schema.keyColumnCount(), schema.columns().length);
+        String[] keyCols = columnNames(schema.keyColumns());
+        String[] valCols = columnNames(schema.valColumns());
 
         return (row) -> new IgniteBiTuple<>(new SqlRowProjection(row, meta, keyCols), new SqlRowProjection(row, meta, valCols));
     }

@@ -35,7 +35,7 @@ public class DefaultDecoratorRegistry extends DecoratorRegistry {
      * Constructor.
      */
     public DefaultDecoratorRegistry() {
-        add(JsonString.class, new JsonDecorator());
+        add(JsonString.class, new JsonDecorator(false));
         add(Profile.class, new ProfileDecorator());
         add(ProfileList.class, new ProfileListDecorator());
         add(Table.class, new TableDecorator(false));

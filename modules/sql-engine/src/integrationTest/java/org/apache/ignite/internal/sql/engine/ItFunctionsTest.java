@@ -28,22 +28,30 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.time.temporal.Temporal;
+import java.util.List;
 import java.util.function.Function;
 import java.util.stream.Stream;
 import org.apache.calcite.sql.validate.SqlValidatorException;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
+import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnType;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Test Ignite SQL functions.
@@ -75,25 +83,42 @@ public class ItFunctionsTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT OCTET_LENGTH(NULL)").returns(NULL_RESULT).check();
     }
 
-    @Test
-    public void testCurrentDateTimeTimeStamp() {
-        checkDateTimeQuery("SELECT CURRENT_DATE", Clock.DATE_CLOCK, LocalDate.class);
-        checkDateTimeQuery("SELECT CURRENT_TIME", Clock.TIME_CLOCK, LocalTime.class);
-        checkDateTimeQuery("SELECT CURRENT_TIMESTAMP", Clock.DATE_TIME_CLOCK, LocalDateTime.class);
-        checkDateTimeQuery("SELECT LOCALTIME", Clock.TIME_CLOCK, LocalTime.class);
-        checkDateTimeQuery("SELECT LOCALTIMESTAMP", Clock.DATE_TIME_CLOCK, LocalDateTime.class);
-        checkDateTimeQuery("SELECT {fn CURDATE()}", Clock.DATE_CLOCK, LocalDate.class);
-        checkDateTimeQuery("SELECT {fn CURTIME()}", Clock.TIME_CLOCK, LocalTime.class);
-        checkDateTimeQuery("SELECT {fn NOW()}", Clock.DATE_TIME_CLOCK, LocalDateTime.class);
+    @ParameterizedTest(name = "use default time zone: {0}")
+    @ValueSource(booleans = {true, false})
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18647")
+    public void testCurrentDateTimeTimeStamp(boolean useDefaultTimeZone) {
+        ZoneId zoneId = ZoneId.systemDefault();
+
+        if (!useDefaultTimeZone) {
+            ZoneId utcZone = ZoneId.ofOffset("GMT", ZoneOffset.UTC);
+            Instant now = Instant.now();
+
+            if (now.atZone(zoneId).toLocalDateTime().equals(now.atZone(utcZone).toLocalDateTime())) {
+                zoneId = ZoneId.ofOffset("GMT", ZoneOffset.of("+01:00"));
+            } else {
+                zoneId = utcZone;
+            }
+        }
+
+        checkDateTimeQuery("SELECT CURRENT_DATE", Clock.DATE_CLOCK, LocalDate.class, zoneId);
+        checkDateTimeQuery("SELECT CURRENT_TIME", Clock.TIME_CLOCK, LocalTime.class, zoneId);
+        checkDateTimeQuery("SELECT CURRENT_TIMESTAMP", Clock.DATE_TIME_CLOCK, LocalDateTime.class, zoneId);
+        checkDateTimeQuery("SELECT LOCALTIME", Clock.TIME_CLOCK, LocalTime.class, zoneId);
+        checkDateTimeQuery("SELECT LOCALTIMESTAMP", Clock.DATE_TIME_CLOCK, LocalDateTime.class, zoneId);
+        checkDateTimeQuery("SELECT {fn CURDATE()}", Clock.DATE_CLOCK, LocalDate.class, zoneId);
+        checkDateTimeQuery("SELECT {fn CURTIME()}", Clock.TIME_CLOCK, LocalTime.class, zoneId);
+        checkDateTimeQuery("SELECT {fn NOW()}", Clock.DATE_TIME_CLOCK, LocalDateTime.class, zoneId);
     }
 
-    private static <T extends Temporal & Comparable<? super T>> void checkDateTimeQuery(String sql, Clock<T> clock, Class<T> cls) {
+    private static <T extends Temporal & Comparable<? super T>> void checkDateTimeQuery(
+            String sql, Clock<T> clock, Class<T> cls, ZoneId timeZone
+    ) {
         while (true) {
-            T tsBeg = clock.now();
+            T tsBeg = clock.now(timeZone);
 
-            var res = sql(sql);
+            List<List<Object>> res = sql(0, null, timeZone, sql, ArrayUtils.OBJECT_EMPTY_ARRAY);
 
-            T tsEnd = clock.now();
+            T tsEnd = clock.now(timeZone);
 
             // Date changed, time comparison may return wrong result.
             if (tsBeg.compareTo(tsEnd) > 0) {
@@ -560,7 +585,7 @@ public class ItFunctionsTest extends BaseSqlIntegrationTest {
         /**
          * A clock reporting a local time.
          */
-        Clock<LocalTime> TIME_CLOCK = LocalTime::now;
+        Clock<LocalTime> TIME_CLOCK = zoneId -> LocalTime.now(zoneId).truncatedTo(ChronoUnit.MILLIS);
 
         /**
          * A clock reporting a local date.
@@ -570,13 +595,13 @@ public class ItFunctionsTest extends BaseSqlIntegrationTest {
         /**
          * A clock reporting a local datetime.
          */
-        Clock<LocalDateTime> DATE_TIME_CLOCK = LocalDateTime::now;
+        Clock<LocalDateTime> DATE_TIME_CLOCK = zoneId -> LocalDateTime.now(zoneId).truncatedTo(ChronoUnit.MILLIS);
 
         /**
          * Returns a temporal value representing the current moment.
          *
          * @return Current moment representing by a temporal value.
          */
-        T now();
+        T now(ZoneId zoneId);
     }
 }

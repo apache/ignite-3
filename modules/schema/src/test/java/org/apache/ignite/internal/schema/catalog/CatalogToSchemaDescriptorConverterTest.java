@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.schema.catalog;
 
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.schema.SchemaTestUtils.specToType;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -92,7 +93,7 @@ public class CatalogToSchemaDescriptorConverterTest extends AbstractSchemaConver
         String columnName = arg.type.spec().name();
         CatalogTableColumnDescriptor columnDescriptor = TestColumnDescriptors.forType(arg);
 
-        Column column = CatalogToSchemaDescriptorConverter.convert(0, columnDescriptor);
+        Column column = CatalogToSchemaDescriptorConverter.convert(columnDescriptor);
 
         assertThat(column.name(), equalTo(columnName));
         assertThat(column.type(), equalTo(arg.type));
@@ -117,7 +118,7 @@ public class CatalogToSchemaDescriptorConverterTest extends AbstractSchemaConver
                 defaultValue
         );
 
-        Column column = CatalogToSchemaDescriptorConverter.convert(0, columnDescriptor);
+        Column column = CatalogToSchemaDescriptorConverter.convert(columnDescriptor);
 
         assertThat(column.name(), equalTo(columnName));
         assertThat(column.type(), equalTo(NativeTypes.UUID));
@@ -140,19 +141,20 @@ public class CatalogToSchemaDescriptorConverterTest extends AbstractSchemaConver
                         new CatalogTableColumnDescriptor("K1", ColumnType.INT32, false, 0, 0, 0, null)
                 ),
                 List.of("K1", "K2"),
-                List.of("K2")
+                List.of("K2"),
+                DEFAULT_STORAGE_PROFILE
         );
 
         SchemaDescriptor schema = CatalogToSchemaDescriptorConverter.convert(tableDescriptor, tableDescriptor.tableVersion());
 
-        assertThat(schema.keyColumns().length(), equalTo(2));
-        assertThat(schema.keyColumns().column(0).name(), equalTo("K1"));
-        assertThat(schema.keyColumns().column(1).name(), equalTo("K2"));
-        assertThat(schema.valueColumns().length(), equalTo(2));
-        assertThat(schema.valueColumns().column(0).name(), equalTo("C1"));
-        assertThat(schema.valueColumns().column(1).name(), equalTo("C2"));
-        assertThat(schema.colocationColumns().length, equalTo(1));
-        assertThat(schema.colocationColumns()[0].name(), equalTo("K2"));
+        assertThat(schema.keyColumns().size(), equalTo(2));
+        assertThat(schema.keyColumns().get(0).name(), equalTo("K1"));
+        assertThat(schema.keyColumns().get(1).name(), equalTo("K2"));
+        assertThat(schema.valueColumns().size(), equalTo(2));
+        assertThat(schema.valueColumns().get(0).name(), equalTo("C1"));
+        assertThat(schema.valueColumns().get(1).name(), equalTo("C2"));
+        assertThat(schema.colocationColumns().size(), equalTo(1));
+        assertThat(schema.colocationColumns().get(0).name(), equalTo("K2"));
     }
 
     private static Iterable<DefaultValueArg> generateTestArguments() {

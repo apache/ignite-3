@@ -76,8 +76,11 @@ namespace Apache.Ignite
             /// <summary> NodeLeft error. </summary>
             public const int NodeLeft = (GroupCode << 16) | (5 & 0xFFFF);
 
-            /// <summary> CursorClosed error. </summary>
-            public const int CursorClosed = (GroupCode << 16) | (6 & 0xFFFF);
+            /// <summary> CursorAlreadyClosed error. </summary>
+            public const int CursorAlreadyClosed = (GroupCode << 16) | (6 & 0xFFFF);
+
+            /// <summary> ResourceClosing error. </summary>
+            public const int ResourceClosing = (GroupCode << 16) | (7 & 0xFFFF);
 
             /// <summary> Internal error. </summary>
             public const int Internal = (GroupCode << 16) | (65535 & 0xFFFF);
@@ -187,14 +190,11 @@ namespace Apache.Ignite
             /// <summary> PlanningTimeout error. </summary>
             public const int PlanningTimeout = (GroupCode << 16) | (10 & 0xFFFF);
 
-            /// <summary> SessionClosed error. </summary>
-            public const int SessionClosed = (GroupCode << 16) | (11 & 0xFFFF);
-
             /// <summary> Mapping error. </summary>
-            public const int Mapping = (GroupCode << 16) | (12 & 0xFFFF);
+            public const int Mapping = (GroupCode << 16) | (11 & 0xFFFF);
 
             /// <summary> TxControlInsideExternalTx error. </summary>
-            public const int TxControlInsideExternalTx = (GroupCode << 16) | (13 & 0xFFFF);
+            public const int TxControlInsideExternalTx = (GroupCode << 16) | (12 & 0xFFFF);
         }
 
         /// <summary> MetaStorage errors. </summary>
@@ -353,6 +353,9 @@ namespace Apache.Ignite
 
             /// <summary> StorageRebalance error. </summary>
             public const int StorageRebalance = (GroupCode << 16) | (4 & 0xFFFF);
+
+            /// <summary> AlreadyDestroyed error. </summary>
+            public const int AlreadyDestroyed = (GroupCode << 16) | (5 & 0xFFFF);
         }
 
         /// <summary> DistributionZones errors. </summary>
@@ -385,6 +388,9 @@ namespace Apache.Ignite
 
             /// <summary> RecipientLeft error. </summary>
             public const int RecipientLeft = (GroupCode << 16) | (5 & 0xFFFF);
+
+            /// <summary> AddressUnresolved error. </summary>
+            public const int AddressUnresolved = (GroupCode << 16) | (6 & 0xFFFF);
         }
 
         /// <summary> NodeConfiguration errors. </summary>
@@ -510,6 +516,9 @@ namespace Apache.Ignite
 
             /// <summary> ChangeJobPriority error. </summary>
             public const int ChangeJobPriority = (GroupCode << 16) | (13 & 0xFFFF);
+
+            /// <summary> NodeNotFound error. </summary>
+            public const int NodeNotFound = (GroupCode << 16) | (14 & 0xFFFF);
         }
 
         /// <summary> Catalog errors. </summary>

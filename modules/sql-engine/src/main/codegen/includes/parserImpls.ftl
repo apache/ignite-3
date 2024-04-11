@@ -48,7 +48,11 @@ void CreateTableOption(List<SqlNode> list) :
 {
     key = SimpleIdentifier() { s = span(); }
     <EQ>
-    val = Literal()
+    (
+        val = Literal()
+    |
+        val = SimpleIdentifier()
+    )
     {
         list.add(new IgniteSqlCreateTableOption(key, val, s.end(this)));
     }
@@ -96,11 +100,12 @@ void TableElement(List<SqlNode> list) :
 {
     final SqlDataTypeSpec type;
     final Boolean nullable;
-    final SqlNodeList columnList;
     final Span s = Span.of();
     final ColumnStrategy strategy;
     final SqlNode dflt;
     SqlIdentifier id = null;
+    SqlNodeList columnList = new SqlNodeList(s.end(this));
+    IgniteSqlPrimaryKeyIndexType primaryIndexType = IgniteSqlPrimaryKeyIndexType.IMPLICIT_HASH;
 }
 {
     id = SimpleIdentifier() type = DataTypeEx() nullable = NullableOptDefaultNull()
@@ -126,7 +131,7 @@ void TableElement(List<SqlNode> list) :
     [
         <PRIMARY> { s.add(this); } <KEY> {
             columnList = SqlNodeList.of(id);
-            list.add(SqlDdlNodes.primary(s.end(columnList), null, columnList));
+            list.add(new IgniteSqlPrimaryKeyConstraint(s.end(columnList), null, columnList, primaryIndexType));
         }
     ]
     {
@@ -137,8 +142,24 @@ void TableElement(List<SqlNode> list) :
 |
     [ <CONSTRAINT> { s.add(this); } id = SimpleIdentifier() ]
     <PRIMARY> { s.add(this); } <KEY>
-    columnList = ParenthesizedSimpleIdentifierList() {
-        list.add(SqlDdlNodes.primary(s.end(columnList), id, columnList));
+    (
+        LOOKAHEAD(2)
+        <USING> <SORTED> {
+            s.add(this);
+            primaryIndexType = IgniteSqlPrimaryKeyIndexType.SORTED;
+        }
+        columnList = ColumnNameWithSortDirectionList()
+     |
+        LOOKAHEAD(2)
+        <USING> <HASH> {
+            s.add(this);
+            primaryIndexType = IgniteSqlPrimaryKeyIndexType.HASH;
+        }
+        columnList = ColumnNameList()
+    |
+       columnList = ParenthesizedSimpleIdentifierList()
+    ) {
+       list.add(new IgniteSqlPrimaryKeyConstraint(s.end(columnList), id, columnList, primaryIndexType));
     }
 }
 
@@ -209,16 +230,6 @@ SqlNode ColumnNameWithSortDirection() :
         <ASC>
     |   <DESC> {
             col = SqlStdOperatorTable.DESC.createCall(getPos(), col);
-        }
-    )?
-    (
-        LOOKAHEAD(2)
-        <NULLS> <FIRST> {
-            col = SqlStdOperatorTable.NULLS_FIRST.createCall(getPos(), col);
-        }
-    |
-        <NULLS> <LAST> {
-            col = SqlStdOperatorTable.NULLS_LAST.createCall(getPos(), col);
         }
     )?
     {
@@ -499,20 +510,16 @@ SqlCreate SqlCreateZone(Span s, boolean replace) :
         final boolean ifNotExists;
         final SqlIdentifier id;
         SqlNodeList optionList = null;
-        SqlIdentifier engine = null;
 }
 {
     <ZONE> { s.add(this); }
         ifNotExists = IfNotExistsOpt()
         id = CompoundIdentifier()
     [
-            <ENGINE> { s.add(this); } engine = SimpleIdentifier()
-    ]
-    [
         <WITH> { s.add(this); } optionList = CreateZoneOptionList()
     ]
     {
-        return new IgniteSqlCreateZone(s.end(this), ifNotExists, id, optionList, engine);
+        return new IgniteSqlCreateZone(s.end(this), ifNotExists, id, optionList);
     }
 }
 
@@ -576,9 +583,16 @@ SqlNode SqlAlterZone() :
         return new IgniteSqlAlterZoneRenameTo(s.end(this), zoneId, newZoneId, ifExists);
       }
       |
-      <SET> { s.add(this); } optionList = AlterZoneOptions() {
-        return new IgniteSqlAlterZoneSet(s.end(this), zoneId, optionList, ifExists);
-      }
+      <SET>
+      (
+        <DEFAULT_> {
+          return new IgniteSqlAlterZoneSetDefault(s.end(this), zoneId, ifExists);
+        }
+        |
+        { s.add(this); } optionList = AlterZoneOptions() {
+          return new IgniteSqlAlterZoneSet(s.end(this), zoneId, optionList, ifExists);
+        }
+      )
     )
 }
 
@@ -615,12 +629,13 @@ void AlterZoneOption(List<SqlNode> list) :
 /**
 * Parse datetime types: date, time, timestamp.
 *
-* TODO Method doesn't recognize '*_WITH_LOCAL_TIME_ZONE' types and should be removed after IGNITE-19274.
+* TODO Method doesn't recognize 'TIME_WITH_LOCAL_TIME_ZONE' type and should be removed after IGNITE-21555.
 */
 SqlTypeNameSpec IgniteDateTimeTypeName() :
 {
     int precision = -1;
     SqlTypeName typeName;
+    boolean withLocalTimeZone = false;
     final Span s;
 }
 {
@@ -638,8 +653,13 @@ SqlTypeNameSpec IgniteDateTimeTypeName() :
 |
     <TIMESTAMP> { s = span(); }
     precision = PrecisionOpt()
+    withLocalTimeZone = TimeZoneOpt()
     {
-        typeName = SqlTypeName.TIMESTAMP;
+        if (withLocalTimeZone) {
+            typeName = SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE;
+        } else {
+            typeName = SqlTypeName.TIMESTAMP;
+        }
         return new SqlBasicTypeNameSpec(typeName, precision, s.end(this));
     }
 }

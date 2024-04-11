@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.prepare;
 import static org.apache.ignite.internal.sql.engine.prepare.CacheKey.EMPTY_CLASS_ARRAY;
 import static org.apache.ignite.internal.sql.engine.prepare.PlannerHelper.optimize;
 import static org.apache.ignite.internal.sql.engine.trait.TraitUtils.distributionPresent;
+import static org.apache.ignite.internal.thread.ThreadOperation.NOTHING_ALLOWED;
 import static org.apache.ignite.lang.ErrorGroups.Sql.PLANNING_TIMEOUT_ERR;
 
 import java.util.ArrayList;
@@ -41,7 +42,6 @@ import org.apache.calcite.sql.SqlDdl;
 import org.apache.calcite.sql.SqlExplain;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
-import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.lang.SqlExceptionMapperUtil;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -64,7 +64,7 @@ import org.apache.ignite.internal.sql.engine.util.cache.Cache;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.internal.sql.metrics.SqlPlanCacheMetricSource;
 import org.apache.ignite.internal.storage.DataStorageManager;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Sql;
@@ -116,7 +116,6 @@ public class PrepareServiceImpl implements PrepareService {
      * @param nodeName Name of the current Ignite node. Will be used in thread factory as part of the thread name.
      * @param cacheFactory A factory to create cache of query plans.
      * @param dataStorageManager Data storage manager.
-     * @param dataStorageFields Data storage fields. Mapping: Data storage name -> field name -> field type.
      * @param metricManager Metric manager.
      * @param clusterCfg  Cluster SQL configuration.
      * @param nodeCfg Node SQL configuration.
@@ -125,7 +124,6 @@ public class PrepareServiceImpl implements PrepareService {
             String nodeName,
             CacheFactory cacheFactory,
             DataStorageManager dataStorageManager,
-            Map<String, Map<String, Class<?>>> dataStorageFields,
             MetricManager metricManager,
             SqlDistributedConfiguration clusterCfg,
             SqlLocalConfiguration nodeCfg
@@ -134,7 +132,7 @@ public class PrepareServiceImpl implements PrepareService {
                 nodeName,
                 clusterCfg.planner().estimatedNumberOfQueries().value(),
                 cacheFactory,
-                new DdlSqlToCommandConverter(dataStorageFields, () -> CatalogUtils.DEFAULT_STORAGE_ENGINE),
+                new DdlSqlToCommandConverter(),
                 clusterCfg.planner().maxPlanningTime().value(),
                 nodeCfg.planner().threadCount().value(),
                 metricManager
@@ -180,7 +178,7 @@ public class PrepareServiceImpl implements PrepareService {
                 THREAD_TIMEOUT_MS,
                 TimeUnit.MILLISECONDS,
                 new LinkedBlockingQueue<>(),
-                NamedThreadFactory.create(nodeName, "sql-planning-pool", LOG)
+                IgniteThreadFactory.create(nodeName, "sql-planning-pool", LOG, NOTHING_ALLOWED)
         );
 
         planningPool.allowCoreThreadTimeOut(true);
@@ -349,7 +347,13 @@ public class PrepareServiceImpl implements PrepareService {
                     );
                 }
 
-                return new MultiStepPlan(nextPlanId(), SqlQueryType.QUERY, clonedTree, resultSetMetadata, parameterMetadata);
+                var plan = new MultiStepPlan(nextPlanId(), SqlQueryType.QUERY, clonedTree, resultSetMetadata, parameterMetadata);
+
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("Plan prepared: \n{}\n{}", parsedResult.originalQuery(), plan.explain());
+                }
+
+                return plan;
             }, planningPool));
 
             return planFut.thenApply(Function.identity());

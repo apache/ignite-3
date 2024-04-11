@@ -31,6 +31,7 @@ import java.util.function.Function;
 import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.TuplePart;
+import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.marshaller.TupleReader;
@@ -38,6 +39,7 @@ import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.table.criteria.SqlRowProjection;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.mapper.Mapper;
@@ -55,10 +57,11 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
      * Constructor.
      *
      * @param tbl Underlying table.
+     * @param sql Sql.
      * @param recMapper Mapper.
      */
-    ClientRecordView(ClientTable tbl, Mapper<R> recMapper) {
-        super(tbl);
+    ClientRecordView(ClientTable tbl, ClientSql sql, Mapper<R> recMapper) {
+        super(tbl, sql);
 
         ser = new ClientRecordSerializer<>(tbl.tableId(), recMapper);
     }
@@ -102,6 +105,24 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
                 Collections.emptyList(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(tx, ser.mapper(), keyRecs.iterator().next())
         );
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean contains(@Nullable Transaction tx, R key) {
+        return sync(containsAsync(tx, key));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Boolean> containsAsync(@Nullable Transaction tx, R key) {
+        Objects.requireNonNull(key);
+
+        return tbl.doSchemaOutOpAsync(
+                ClientOp.TUPLE_CONTAINS_KEY,
+                (s, w) -> ser.writeRec(tx, key, s, w, TuplePart.KEY),
+                r -> r.in().unpackBoolean(),
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, ser.mapper(), key));
     }
 
     /** {@inheritDoc} */
@@ -363,7 +384,7 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> streamData(Publisher<R> publisher, @Nullable DataStreamerOptions options) {
+    public CompletableFuture<Void> streamData(Publisher<DataStreamerItem<R>> publisher, @Nullable DataStreamerOptions options) {
         Objects.requireNonNull(publisher);
 
         var provider = new PojoStreamerPartitionAwarenessProvider<>(tbl, ser.mapper());
@@ -384,7 +405,7 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
     /** {@inheritDoc} */
     @Override
     protected Function<SqlRow, R> queryMapper(ResultSetMetadata meta, ClientSchema schema) {
-        String[] cols = columnNames(schema.columns(), 0, schema.columns().length);
+        String[] cols = columnNames(schema.columns());
         Marshaller marsh = schema.getMarshaller(ser.mapper(), TuplePart.KEY_AND_VAL, true);
 
         return (row) -> {

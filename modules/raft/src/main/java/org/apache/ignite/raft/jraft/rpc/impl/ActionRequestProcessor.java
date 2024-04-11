@@ -320,12 +320,17 @@ public class ActionRequestProcessor implements RpcProcessor<ActionRequest> {
     private void sendRaftError(RpcContext ctx, Status status, Node node) {
         RaftError raftError = status.getRaftError();
 
-        Message response;
+        Message response = null;
 
-        if (raftError == RaftError.EPERM && node.getLeaderId() != null)
-            response = RaftRpcFactory.DEFAULT
-                .newResponse(node.getLeaderId().toString(), factory, RaftError.EPERM, status.getErrorMsg());
-        else
+        if (raftError == RaftError.EPERM) {
+            PeerId leaderId = node.getLeaderId();
+
+            if (leaderId != null)
+                response = RaftRpcFactory.DEFAULT
+                    .newResponse(leaderId.toString(), factory, RaftError.EPERM, status.getErrorMsg());
+        }
+
+        if (response == null)
             response = RaftRpcFactory.DEFAULT
                 .newResponse(factory, raftError, status.getErrorMsg());
 

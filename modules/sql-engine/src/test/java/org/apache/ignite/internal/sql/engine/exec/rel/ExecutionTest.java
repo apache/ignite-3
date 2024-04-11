@@ -496,8 +496,11 @@ public class ExecutionTest extends AbstractExecutionTest<Object[]> {
 
         join.register(Arrays.asList(left, right));
 
+        FilterNode<Object[]> filter = new FilterNode<>(ctx, r -> true);
+        filter.register(join);
+
         RootNode<Object[]> root = new RootNode<>(ctx);
-        root.register(join);
+        root.register(filter);
 
         int cnt = 0;
         while (root.hasNext()) {
@@ -577,11 +580,11 @@ public class ExecutionTest extends AbstractExecutionTest<Object[]> {
     }
 
     /**
-     * Test verifies that an AssertionError thrown from an execution node properly handled by a task executor.
+     * Test verifies that an Error thrown from an execution node properly handled by a task executor.
      */
     @Test
     @SuppressWarnings({"ResultOfMethodCallIgnored", "ThrowableNotThrown"})
-    public void assertionHandlingTest() {
+    public void errorHandlingTest() {
         ExecutionContext<Object[]> ctx = executionContext();
 
         CorruptedNode<Object[]> node = new CorruptedNode<>();
@@ -603,7 +606,7 @@ public class ExecutionTest extends AbstractExecutionTest<Object[]> {
 
         watchDog.start();
 
-        assertThrowsWithCause(root::hasNext, AssertionError.class);
+        assertThrowsWithCause(root::hasNext, IllegalAccessError.class);
 
         watchDog.interrupt();
     }
@@ -615,31 +618,31 @@ public class ExecutionTest extends AbstractExecutionTest<Object[]> {
     }
 
     /**
-     * Node that always throws assertion error except for {@link #close()} and {@link #onRegister(Downstream)} methods.
+     * Node that always throws {@link IllegalAccessError} except for {@link #close()} and {@link #onRegister(Downstream)} methods.
      */
     static class CorruptedNode<T> implements Node<T> {
         /** {@inheritDoc} */
         @Override
         public ExecutionContext<T> context() {
-            throw new AssertionError();
+            throw new IllegalAccessError();
         }
 
         /** {@inheritDoc} */
         @Override
         public Downstream<T> downstream() {
-            throw new AssertionError();
+            throw new IllegalAccessError();
         }
 
         /** {@inheritDoc} */
         @Override
         public void register(List<Node<T>> sources) {
-            throw new AssertionError();
+            throw new IllegalAccessError();
         }
 
         /** {@inheritDoc} */
         @Override
         public List<Node<T>> sources() {
-            throw new AssertionError();
+            throw new IllegalAccessError();
         }
 
         /** {@inheritDoc} */
@@ -651,13 +654,13 @@ public class ExecutionTest extends AbstractExecutionTest<Object[]> {
         /** {@inheritDoc} */
         @Override
         public void request(int rowsCnt) {
-            throw new AssertionError();
+            throw new IllegalAccessError();
         }
 
         /** {@inheritDoc} */
         @Override
         public void rewind() {
-            throw new AssertionError();
+            throw new IllegalAccessError();
         }
 
         /** {@inheritDoc} */

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.jdbc;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.jdbc.util.JdbcTestUtils.assertThrowsSqlException;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -585,14 +586,14 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
         ResultSet rs = stmt.executeQuery(sqlText);
 
         assertTrue(rs.next());
-        assertFalse(rs.next()); //max rows reached
+        assertFalse(rs.next()); // Max rows reached.
 
         stmt.close();
 
-        // Call on a closed statement
+        // Call on a closed statement.
         checkStatementClosed(() -> stmt.getMaxRows());
 
-        // Call on a closed statement
+        // Call on a closed statement.
         checkStatementClosed(() -> stmt.setMaxRows(maxRows));
     }
 
@@ -807,34 +808,29 @@ public class ItJdbcStatementSelfTest extends ItJdbcAbstractStatementSelfTest {
 
     @Test
     public void testOpenCursorsPureQuery() throws Exception {
-        int initial = openResources();
-
         stmt.execute("SELECT 1; SELECT 2;");
         ResultSet rs = stmt.getResultSet();
         stmt.execute("SELECT 3;");
         assertTrue(rs.isClosed());
 
         assertTrue(populateStmtCnt < 100);
-        //more than one fetch request
+        // More than one fetch request.
         for (int i = populateStmtCnt; i < stmt.getMaxRows() + 100; ++i) {
             stmt.execute(String.format("INSERT INTO TEST VALUES (%d, '1')", i));
         }
 
         stmt.close();
-        assertEquals(0, openResources() - initial);
-        assertEquals(0, openCursors());
+        assertTrue(waitForCondition(() -> openCursors() == 0, 5_000));
     }
 
     @Test
     public void testOpenCursorsWithDdl() throws Exception {
-        int initial = openResources();
-
         stmt.execute("CREATE TABLE T1(ID INT PRIMARY KEY, AGE INT, NAME VARCHAR)");
         stmt.getResultSet();
         stmt.execute("SELECT 3;");
         stmt.execute("DROP TABLE T1");
         stmt.getResultSet();
 
-        assertEquals(0, openResources() - initial);
+        assertTrue(waitForCondition(() -> openCursors() == 0, 5_000));
     }
 }

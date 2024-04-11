@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.getFieldV
 import java.lang.reflect.Field;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.locks.ReadWriteLock;
+import java.util.function.Supplier;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -66,7 +67,7 @@ public class WatchListenerInhibitor {
     public static WatchListenerInhibitor metastorageEventsInhibitor(MetaStorageManager metaStorageManager) {
         var metaStorageManager0 = metaStorageManager;
 
-        //TODO: IGNITE-15723 After a component factory is implemented, need to got rid of reflection here.
+        // TODO: IGNITE-15723 After a component factory is implemented, need to got rid of reflection here.
         var storage = (RocksDbKeyValueStorage) getFieldValue(metaStorageManager0, MetaStorageManagerImpl.class, "storage");
 
         var watchProcessor = (WatchProcessor) getFieldValue(storage, RocksDbKeyValueStorage.class, "watchProcessor");
@@ -110,5 +111,50 @@ public class WatchListenerInhibitor {
      */
     public void stopInhibit() {
         inhibitFuture.complete(null);
+    }
+
+    /**
+     * Executes an action enclosed in watch inhibition: that is, before execution inhibition gets started, and after the execution
+     * it gets stopped.
+     *
+     * @param action Action to execute.
+     * @return Action result.
+     */
+    public <T> T withInhibition(Supplier<? extends T> action) {
+        startInhibit();
+
+        try {
+            return action.get();
+        } finally {
+            stopInhibit();
+        }
+    }
+
+    /**
+     * Executes an action enclosed in watch inhibition: that is, before execution inhibition gets started, and after the execution
+     * it gets stopped.
+     *
+     * @param action Action to execute.
+     */
+    public void withInhibition(Runnable action) {
+        startInhibit();
+
+        try {
+            action.run();
+        } finally {
+            stopInhibit();
+        }
+    }
+
+    /**
+     * Executes an action enclosed in watch inhibition: that is, before execution inhibition gets started, and after the execution
+     * it gets stopped.
+     *
+     * @param ignite Node on which to inhibit watch processing.
+     * @param action Action to execute.
+     * @return Action result.
+     */
+    public static <T> T withInhibition(Ignite ignite, Supplier<? extends T> action) {
+        return metastorageEventsInhibitor(ignite).withInhibition(action);
     }
 }

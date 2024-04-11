@@ -49,9 +49,11 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
 import org.apache.ignite.internal.catalog.commands.StartBuildingIndexCommand;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.leases.Lease;
@@ -81,6 +83,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
 
     private final HybridClock clock = new HybridClockImpl();
 
+    private final ClockService clockService = new TestClockService(clock);
+
     @BeforeEach
     void setUp() {
         indexBuilder = mock(IndexBuilder.class);
@@ -101,7 +105,14 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         catalogManager = createTestCatalogManager(NODE_NAME, clock);
         assertThat(catalogManager.start(), willCompleteSuccessfully());
 
-        indexBuildController = new IndexBuildController(indexBuilder, indexManager, catalogManager, clusterService, placementDriver, clock);
+        indexBuildController = new IndexBuildController(
+                indexBuilder,
+                indexManager,
+                catalogManager,
+                clusterService,
+                placementDriver,
+                clockService
+        );
 
         createTable(catalogManager, TABLE_NAME, COLUMN_NAME);
     }
@@ -305,6 +316,6 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
     }
 
     private int indexCreationCatalogVersion(String indexName) {
-        return getIndexStrict(catalogManager, indexName, clock.nowLong()).creationCatalogVersion();
+        return getIndexStrict(catalogManager, indexName, clock.nowLong()).txWaitCatalogVersion();
     }
 }

@@ -28,11 +28,11 @@ import org.apache.ignite.client.handler.NotificationSender;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionOptions;
+import org.apache.ignite.compute.NodeNotFoundException;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.network.ClusterService;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 
 /**
@@ -65,29 +65,39 @@ public class ClientComputeExecuteRequest {
 
         JobExecution<Object> execution = compute.executeAsyncWithFailover(candidates, deploymentUnits, jobClassName, options, args);
         sendResultAndStatus(execution, notificationSender);
+
+        //noinspection DataFlowIssue
         return execution.idAsync().thenAccept(out::packUuid);
     }
 
     private static Set<ClusterNode> unpackCandidateNodes(ClientMessageUnpacker in, ClusterService cluster) {
         int size = in.unpackInt();
+
+        if (size < 1) {
+            throw new IllegalArgumentException("nodes must not be empty.");
+        }
+
+        Set<String> nodeNames = new HashSet<>(size);
         Set<ClusterNode> nodes = new HashSet<>(size);
 
         for (int i = 0; i < size; i++) {
             String nodeName = in.unpackString();
+            nodeNames.add(nodeName);
             ClusterNode node = cluster.topologyService().getByConsistentId(nodeName);
-
-            if (node == null) {
-                throw new IgniteException("Specified node is not present in the cluster: " + nodeName);
+            if (node != null) {
+                nodes.add(node);
             }
+        }
 
-            nodes.add(node);
+        if (nodes.isEmpty()) {
+            throw new NodeNotFoundException(nodeNames);
         }
 
         return nodes;
     }
 
-    static void sendResultAndStatus(JobExecution<Object> execution, NotificationSender notificationSender) {
-        execution.resultAsync().whenComplete((val, err) ->
+    static CompletableFuture<Object> sendResultAndStatus(JobExecution<Object> execution, NotificationSender notificationSender) {
+        return execution.resultAsync().whenComplete((val, err) ->
                 execution.statusAsync().whenComplete((status, errStatus) ->
                         notificationSender.sendNotification(w -> {
                             w.packObjectAsBinaryTuple(val);

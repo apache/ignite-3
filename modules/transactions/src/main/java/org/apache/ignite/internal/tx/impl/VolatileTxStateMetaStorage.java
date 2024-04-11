@@ -23,7 +23,10 @@ import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
 import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.jetbrains.annotations.Nullable;
@@ -32,6 +35,7 @@ import org.jetbrains.annotations.Nullable;
  * The class represents volatile transaction state storage that stores a transaction state meta until the node stops.
  */
 public class VolatileTxStateMetaStorage {
+    private static final IgniteLogger LOG = Loggers.forClass(VolatileTxStateMetaStorage.class);
     /** The local map for tx states. */
     private ConcurrentHashMap<UUID, TxStateMeta> txStateMap;
 
@@ -68,7 +72,7 @@ public class VolatileTxStateMetaStorage {
      * @param updater Transaction meta updater.
      * @return Updated transaction state.
      */
-    public @Nullable <T extends TxStateMeta> T updateMeta(UUID txId, Function<TxStateMeta, TxStateMeta> updater) {
+    public @Nullable <T extends TxStateMeta> T updateMeta(UUID txId, Function<@Nullable TxStateMeta, TxStateMeta> updater) {
         return (T) txStateMap.compute(txId, (k, oldMeta) -> {
             TxStateMeta newMeta = updater.apply(oldMeta);
 
@@ -99,5 +103,66 @@ public class VolatileTxStateMetaStorage {
      */
     public Collection<TxStateMeta> states() {
         return txStateMap.values();
+    }
+
+    /**
+     * Locally vacuums no longer needed transactional resource.
+     * For each finished (COMMITTED or ABORTED) transactions:
+     * <ol>
+     *     <li> Removes it from the volatile storage if txnResourcesTTL == 0 or if
+     *     txnState.initialVacuumObservationTimestamp + txnResourcesTTL < vacuumObservationTimestamp.</li>
+     *     <li>Updates txnState.initialVacuumObservationTimestamp by setting it to vacuumObservationTimestamp
+     *     if it's not already initialized.</li>
+     * </ol>
+     *
+     * @param vacuumObservationTimestamp Timestamp of the vacuum attempt.
+     * @param txnResourceTtl Transactional resource time to live in milliseconds.
+     */
+    public void vacuum(long vacuumObservationTimestamp, long txnResourceTtl) {
+        LOG.info("Vacuum started [vacuumObservationTimestamp={}, txnResourceTtl={}].", vacuumObservationTimestamp, txnResourceTtl);
+
+        AtomicInteger vacuumizedTxnsCount = new AtomicInteger(0);
+        AtomicInteger markedAsInitiallyDetectedTxnsCount = new AtomicInteger(0);
+        AtomicInteger alreadyMarkedTxnsCount = new AtomicInteger(0);
+        AtomicInteger skippedFotFurtherProcessingUnfinishedTxnsCount = new AtomicInteger(0);
+
+        txStateMap.forEach((txId, meta) -> {
+            txStateMap.computeIfPresent(txId, (txId0, meta0) -> {
+                if (TxState.isFinalState(meta0.txState())) {
+                    if (txnResourceTtl == 0) {
+                        vacuumizedTxnsCount.incrementAndGet();
+                        return null;
+                    } else if (meta0.initialVacuumObservationTimestamp() == null) {
+                        markedAsInitiallyDetectedTxnsCount.incrementAndGet();
+                        return new TxStateMeta(
+                                meta0.txState(),
+                                meta0.txCoordinatorId(),
+                                meta0.commitPartitionId(),
+                                meta0.commitTimestamp(),
+                                vacuumObservationTimestamp
+                        );
+                    } else if (meta0.initialVacuumObservationTimestamp() + txnResourceTtl < vacuumObservationTimestamp) {
+                        vacuumizedTxnsCount.incrementAndGet();
+                        return null;
+                    } else {
+                        alreadyMarkedTxnsCount.incrementAndGet();
+                        return meta0;
+                    }
+                } else {
+                    skippedFotFurtherProcessingUnfinishedTxnsCount.incrementAndGet();
+                    return meta0;
+                }
+            });
+        });
+
+        LOG.info("Vacuum finished [vacuumObservationTimestamp={}, txnResourceTtl={}, vacuumizedTxnsCount={},"
+                + " markedAsInitiallyDetectedTxnsCount={}, alreadyMarkedTxnsCount={}, skippedFotFurtherProcessingUnfinishedTxnsCount={}].",
+                vacuumObservationTimestamp,
+                txnResourceTtl,
+                vacuumizedTxnsCount,
+                markedAsInitiallyDetectedTxnsCount,
+                alreadyMarkedTxnsCount,
+                skippedFotFurtherProcessingUnfinishedTxnsCount
+        );
     }
 }

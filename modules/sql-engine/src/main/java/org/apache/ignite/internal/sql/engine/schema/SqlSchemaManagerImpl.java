@@ -20,15 +20,10 @@ package org.apache.ignite.internal.sql.engine.schema;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
-import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
-import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
-import it.unimi.dsi.fastutil.ints.IntArraySet;
-import it.unimi.dsi.fastutil.ints.IntSet;
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
 import it.unimi.dsi.fastutil.objects.Object2IntOpenHashMap;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.LinkedHashMap;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -58,6 +53,7 @@ import org.apache.ignite.internal.schema.DefaultValueGenerator;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.cache.Cache;
 import org.apache.ignite.internal.sql.engine.util.cache.CacheFactory;
 import org.apache.ignite.lang.ErrorGroups.Common;
@@ -144,14 +140,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 throw new IgniteInternalException(Common.INTERNAL_ERR, "Table with given id not found: " + tableId);
             }
 
-            int zoneId = tableDescriptor.zoneId();
-            CatalogZoneDescriptor zoneDescriptor = catalog.zone(zoneId);
-
-            if (zoneDescriptor == null) {
-                throw new IgniteInternalException(Common.INTERNAL_ERR, "Zone with given id not found: " + zoneId);
-            }
-
-            return createTable(tableDescriptor, createTableDescriptorForTable(tableDescriptor), Map.of(), zoneDescriptor.partitions());
+            return createTable(catalog, tableDescriptor);
         });
     }
 
@@ -178,52 +167,12 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
         int numTables = schemaDescriptor.tables().length;
         List<IgniteDataSource> schemaDataSources = new ArrayList<>(numTables);
-        Int2ObjectMap<TableDescriptor> tableDescriptorMap = new Int2ObjectOpenHashMap<>(numTables);
-        IntSet pkIndexes = new IntArraySet(numTables);
 
         // Assemble sql-engine.TableDescriptors as they are required by indexes.
         for (CatalogTableDescriptor tableDescriptor : schemaDescriptor.tables()) {
-            TableDescriptor descriptor = createTableDescriptorForTable(tableDescriptor);
-            tableDescriptorMap.put(tableDescriptor.id(), descriptor);
-            pkIndexes.add(tableDescriptor.primaryKeyIndexId());
-        }
-
-        Int2ObjectMap<Map<String, IgniteIndex>> schemaTableIndexes = new Int2ObjectOpenHashMap<>(schemaDescriptor.indexes().length);
-
-        // Assemble indexes as they are required by tables.
-        for (CatalogIndexDescriptor indexDescriptor : schemaDescriptor.indexes()) {
-            if (indexDescriptor.status() != AVAILABLE) {
-                continue;
-            }
-
-            int tableId = indexDescriptor.tableId();
-            TableDescriptor tableDescriptor = tableDescriptorMap.get(tableId);
-            assert tableDescriptor != null : "Table is not found in schema: " + tableId;
-
-            String indexName = indexDescriptor.name();
-            Map<String, IgniteIndex> tableIndexes = schemaTableIndexes.computeIfAbsent(tableId, id -> new LinkedHashMap<>());
-
-            IgniteIndex schemaIndex = createSchemaIndex(indexDescriptor, tableDescriptor, pkIndexes.contains(indexDescriptor.id()));
-            tableIndexes.put(indexName, schemaIndex);
-
-            schemaTableIndexes.put(tableId, tableIndexes);
-        }
-
-        // Assemble tables.
-        for (CatalogTableDescriptor tableDescriptor : schemaDescriptor.tables()) {
-            int tableId = tableDescriptor.id();
-            TableDescriptor descriptor = tableDescriptorMap.get(tableId);
-            assert descriptor != null;
-
-            Map<String, IgniteIndex> tableIndexMap = schemaTableIndexes.getOrDefault(tableId, Collections.emptyMap());
-
-            int zoneId = tableDescriptor.zoneId();
-            CatalogZoneDescriptor zoneDescriptor = catalog.zone(zoneId);
-            assert zoneDescriptor != null : "Zone is not found in schema: " + zoneId;
-
-            IgniteTable schemaTable = createTable(tableDescriptor, descriptor, tableIndexMap, zoneDescriptor.partitions());
-
-            schemaDataSources.add(schemaTable);
+            schemaDataSources.add(
+                    createTable(catalog, tableDescriptor)
+            );
         }
 
         for (CatalogSystemViewDescriptor systemViewDescriptor : schemaDescriptor.systemViews()) {
@@ -286,7 +235,36 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         int tableId = descriptor.id();
         IgniteDistribution distribution = IgniteDistributions.affinity(colocationColumns, tableId, tableId);
 
+        if (Commons.implicitPkEnabled()) {
+            colDescriptors = colDescriptors.stream()
+                    .map(column -> {
+                        if (Commons.IMPLICIT_PK_COL_NAME.equals(column.name())) {
+                            return injectDefault(column);
+                        }
+
+                        return column;
+                    })
+                    .collect(Collectors.toList());
+        }
+
         return new TableDescriptorImpl(colDescriptors, distribution);
+    }
+
+    private static ColumnDescriptor injectDefault(ColumnDescriptor desc) {
+        assert Commons.implicitPkEnabled() && Commons.IMPLICIT_PK_COL_NAME.equals(desc.name()) : desc;
+
+        return new ColumnDescriptorImpl(
+                desc.name(),
+                desc.key(),
+                true,
+                desc.nullable(),
+                desc.logicalIndex(),
+                desc.physicalType(),
+                DefaultValueStrategy.DEFAULT_COMPUTED,
+                () -> {
+                    throw new AssertionError("Implicit primary key is generated by a function");
+                }
+        );
     }
 
     private static TableDescriptor createTableDescriptorForSystemView(CatalogSystemViewDescriptor descriptor) {
@@ -369,6 +347,36 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
     }
 
     private static IgniteTable createTable(
+            Catalog catalog,
+            CatalogTableDescriptor tableDescriptor
+    ) {
+        TableDescriptor descriptor = createTableDescriptorForTable(tableDescriptor);
+
+        Map<String, IgniteIndex> tableIndexes = new HashMap<>();
+        for (CatalogIndexDescriptor indexDescriptor : catalog.indexes(tableDescriptor.id())) {
+            if (indexDescriptor.status() != AVAILABLE) {
+                continue;
+            }
+
+            String indexName = indexDescriptor.name();
+
+            IgniteIndex schemaIndex = createSchemaIndex(
+                    indexDescriptor,
+                    descriptor,
+                    indexDescriptor.id() == tableDescriptor.primaryKeyIndexId()
+            );
+
+            tableIndexes.put(indexName, schemaIndex);
+        }
+
+        int zoneId = tableDescriptor.zoneId();
+        CatalogZoneDescriptor zoneDescriptor = catalog.zone(zoneId);
+        assert zoneDescriptor != null : "Zone is not found in schema: " + zoneId;
+
+        return createTable(tableDescriptor, descriptor, tableIndexes, zoneDescriptor.partitions());
+    }
+
+    private static IgniteTable createTable(
             CatalogTableDescriptor catalogTableDescriptor,
             TableDescriptor tableDescriptor,
             Map<String, IgniteIndex> indexes,
@@ -377,15 +385,21 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         int tableId = catalogTableDescriptor.id();
         String tableName = catalogTableDescriptor.name();
 
-        //TODO IGNITE-19558: The table is not available at planning stage.
+        // TODO IGNITE-19558: The table is not available at planning stage.
         // Let's fix table statistics keeping in mind IGNITE-19558 issue.
         IgniteStatistic statistic = new IgniteStatistic(() -> 0.0d, tableDescriptor.distribution());
+
+        IgniteIndex primaryIndex = indexes.values().stream()
+                .filter(IgniteIndex::primaryKey)
+                .findFirst()
+                .orElseThrow();
 
         return new IgniteTableImpl(
                 tableName,
                 tableId,
                 catalogTableDescriptor.tableVersion(),
                 tableDescriptor,
+                primaryIndex.collation().getKeys(),
                 statistic,
                 indexes,
                 parititions

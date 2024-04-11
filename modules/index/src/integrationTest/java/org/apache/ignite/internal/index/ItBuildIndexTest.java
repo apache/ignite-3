@@ -18,7 +18,10 @@
 package org.apache.ignite.internal.index;
 
 import static java.util.stream.Collectors.joining;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.raft.util.OptimizedMarshaller.NO_POOL;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -47,7 +50,6 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
-import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
 import org.apache.ignite.internal.raft.Command;
@@ -55,7 +57,6 @@ import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.storage.index.IndexStorage;
-import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
@@ -66,7 +67,6 @@ import org.apache.ignite.table.Table;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -79,12 +79,6 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
     private static final String TABLE_NAME = "TEST_TABLE";
 
     private static final String INDEX_NAME = "TEST_INDEX";
-
-    @BeforeEach
-    void setup() {
-        // Do not wait for indexes to become available.
-        setAwaitIndexAvailability(false);
-    }
 
     @AfterEach
     void tearDown() {
@@ -105,7 +99,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
 
         checkIndexBuild(partitions, replicas, INDEX_NAME);
 
-        assertQuery(IgniteStringFormatter.format("SELECT * FROM {} WHERE i1 > 0", TABLE_NAME))
+        assertQuery(format("SELECT * FROM {} WHERE i1 > 0", TABLE_NAME))
                 .matches(containsIndexScan("PUBLIC", TABLE_NAME, INDEX_NAME))
                 .returns(1, 1)
                 .returns(2, 2)
@@ -186,23 +180,23 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
     }
 
     private static void createAndPopulateTable(int replicas, int partitions) {
-        sql(IgniteStringFormatter.format("CREATE ZONE IF NOT EXISTS {} WITH REPLICAS={}, PARTITIONS={}",
-                ZONE_NAME, replicas, partitions
+        sql(format("CREATE ZONE IF NOT EXISTS {} WITH REPLICAS={}, PARTITIONS={}, STORAGE_PROFILES='{}'",
+                ZONE_NAME, replicas, partitions, DEFAULT_STORAGE_PROFILE
         ));
 
-        sql(IgniteStringFormatter.format(
+        sql(format(
                 "CREATE TABLE {} (i0 INTEGER PRIMARY KEY, i1 INTEGER) WITH PRIMARY_ZONE='{}'",
                 TABLE_NAME, ZONE_NAME
         ));
 
-        sql(IgniteStringFormatter.format(
+        sql(format(
                 "INSERT INTO {} VALUES {}",
                 TABLE_NAME, toValuesString(List.of(1, 1), List.of(2, 2), List.of(3, 3), List.of(4, 4), List.of(5, 5))
         ));
     }
 
     private static void createIndex(String indexName) throws Exception {
-        sql(IgniteStringFormatter.format("CREATE INDEX {} ON {} (i1)", indexName, TABLE_NAME));
+        sql(format("CREATE INDEX {} ON {} (i1)", indexName, TABLE_NAME));
 
         waitForIndex(indexName);
     }
@@ -223,7 +217,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
         TableViewInternal table = getTableView(node, TABLE_NAME);
         assertNotNull(table);
 
-        return table.internalTable().partitionRaftGroupService(partitionId);
+        return table.internalTable().tableRaftService().partitionRaftGroupService(partitionId);
     }
 
     /**
@@ -281,7 +275,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
     }
 
     private static void checkIndexBuild(int partitions, int replicas, String indexName) throws Exception {
-        // TODO: IGNITE-19150 We are waiting for schema synchronization to avoid races to create and destroy indexes
+        // TODO: IGNITE-20525 We are waiting for schema synchronization to avoid races to create and destroy indexes
         Map<Integer, List<Ignite>> nodesWithBuiltIndexesByPartitionId = waitForIndexBuild(TABLE_NAME, indexName);
 
         // Check that the number of nodes with built indexes is equal to the number of replicas.
@@ -291,7 +285,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
             assertEquals(
                     replicas,
                     entry.getValue().size(),
-                    IgniteStringFormatter.format("p={}, nodes={}", entry.getKey(), entry.getValue())
+                    format("p={}, nodes={}", entry.getKey(), entry.getValue())
             );
         }
 
@@ -318,26 +312,19 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
      * @param tableName Table name.
      * @param indexName Index name.
      * @return Nodes on which the partition index was built.
-     * @throws Exception If failed.
      */
     private static Map<Integer, List<Ignite>> waitForIndexBuild(String tableName, String indexName) {
         Map<Integer, List<Ignite>> partitionIdToNodes = new HashMap<>();
 
         CLUSTER.runningNodes().forEach(clusterNode -> {
             try {
-                TableViewInternal table = getTableView(clusterNode, tableName);
+                InternalTable internalTable = getTableView(clusterNode, tableName).internalTable();
+                CatalogIndexDescriptor indexDescriptor = getIndexDescriptor(clusterNode, indexName);
 
-                assertNotNull(table, clusterNode.name() + " : " + tableName);
-
-                InternalTable internalTable = table.internalTable();
-
-                assertTrue(
-                        waitForCondition(() -> getIndexDescriptor(clusterNode, indexName) != null, 10, TimeUnit.SECONDS.toMillis(10)),
-                        String.format("node=%s, tableName=%s, indexName=%s", clusterNode.name(), tableName, indexName)
-                );
+                assertNotNull(indexDescriptor);
 
                 for (int partitionId = 0; partitionId < internalTable.partitions(); partitionId++) {
-                    RaftGroupService raftGroupService = internalTable.partitionRaftGroupService(partitionId);
+                    RaftGroupService raftGroupService = internalTable.tableRaftService().partitionRaftGroupService(partitionId);
 
                     List<Peer> allPeers = raftGroupService.peers();
 
@@ -346,20 +333,14 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
                         continue;
                     }
 
-                    CatalogTableDescriptor tableDescriptor = getTableDescriptor(clusterNode, tableName);
-                    CatalogIndexDescriptor indexDescriptor = getIndexDescriptor(clusterNode, indexName);
-
-                    IndexStorage index = internalTable.storage().getOrCreateIndex(
-                            partitionId,
-                            StorageIndexDescriptor.create(tableDescriptor, indexDescriptor)
-                    );
+                    IndexStorage index = internalTable.storage().getIndex(partitionId, indexDescriptor.id());
 
                     assertTrue(waitForCondition(() -> index.getNextRowIdToBuild() == null, 10, TimeUnit.SECONDS.toMillis(10)));
 
                     partitionIdToNodes.computeIfAbsent(partitionId, p -> new ArrayList<>()).add(clusterNode);
                 }
             } catch (InterruptedException e) {
-                throw new RuntimeException(e);
+                throw new RuntimeException("Node operation failed: node=" + clusterNode.name(), e);
             }
         });
 
@@ -389,7 +370,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
 
         assertThat(tableFuture, willSucceedFast());
 
-        return (TableViewInternal) tableFuture.join();
+        return unwrapTableViewInternal(tableFuture.join());
     }
 
     /**
@@ -401,7 +382,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
     private static @Nullable CatalogIndexDescriptor getIndexDescriptor(Ignite node, String indexName) {
         IgniteImpl nodeImpl = (IgniteImpl) node;
 
-        return nodeImpl.catalogManager().index(indexName, nodeImpl.clock().nowLong());
+        return nodeImpl.catalogManager().aliveIndex(indexName, nodeImpl.clock().nowLong());
     }
 
     /**
@@ -418,7 +399,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
         CatalogManager catalogManager = ignite.catalogManager();
         HybridClock clock = ignite.clock();
 
-        CatalogIndexDescriptor indexDescriptor = catalogManager.index(indexName, clock.nowLong());
+        CatalogIndexDescriptor indexDescriptor = catalogManager.aliveIndex(indexName, clock.nowLong());
 
         return indexDescriptor != null && indexDescriptor.status() == AVAILABLE;
     }

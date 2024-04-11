@@ -20,9 +20,12 @@ package org.apache.ignite.internal.jdbc;
 import java.io.Serializable;
 import java.sql.DriverPropertyInfo;
 import java.sql.SQLException;
+import java.time.DateTimeException;
+import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.Properties;
 import java.util.StringTokenizer;
+import java.util.TimeZone;
 import java.util.stream.Collectors;
 import org.apache.ignite.client.ClientAuthenticationMode;
 import org.apache.ignite.client.IgniteClientConfiguration;
@@ -124,11 +127,15 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
     private final StringProperty password = new StringProperty("password",
             "Password", null, null, false, null);
 
+    /** Client connection time zone ID. This property can be used by the client to change the time zone of the "session" on the server. */
+    private final TimeZoneProperty connectionTimeZone = new TimeZoneProperty("connectionTimeZone",
+            "Client connection time zone ID", TimeZone.getDefault().toZoneId(), null, false, null);
+
     /** Properties array. */
     private final ConnectionProperty[] propsArray = {
             qryTimeout, connTimeout, trustStorePath, trustStorePassword,
             sslEnabled, clientAuth, ciphers, keyStorePath, keyStorePassword,
-            username, password
+            username, password, connectionTimeZone
     };
 
     /** {@inheritDoc} */
@@ -344,6 +351,16 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
         this.password.setValue(password);
     }
 
+    @Override
+    public ZoneId getConnectionTimeZone() {
+        return connectionTimeZone.value();
+    }
+
+    @Override
+    public void setConnectionTimeZone(ZoneId timeZoneId) {
+        connectionTimeZone.setValue(timeZoneId);
+    }
+
     /**
      * Init connection properties.
      *
@@ -394,9 +411,9 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
      */
     private void parseUrl0(String url, Properties props) throws SQLException {
         // Determine mode - semicolon or ampersand.
-        int semicolonPos = url.indexOf(";");
-        int slashPos = url.indexOf("/");
-        int queryPos = url.indexOf("?");
+        int semicolonPos = url.indexOf(';');
+        int slashPos = url.indexOf('/');
+        int queryPos = url.indexOf('?');
 
         boolean semicolonMode;
 
@@ -553,7 +570,7 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
                     insideBrace = true;
                 }
             } else {
-                val += delimChar + token;
+                val += delimChar + token; // NOPMD
             }
 
             if (val.endsWith("}")) {
@@ -1040,6 +1057,54 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
             }
 
             val = Boolean.parseBoolean(str);
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        String valueObject() {
+            return String.valueOf(val);
+        }
+    }
+
+    /**
+     * Time zone property.
+     */
+    private static class TimeZoneProperty extends ConnectionProperty {
+        private static final long serialVersionUID = 0L;
+
+        private ZoneId val;
+
+        TimeZoneProperty(String name, String desc, ZoneId dfltVal, String[] choices, boolean required,
+                PropertyValidator validator) {
+            super(name, desc, dfltVal, choices, required, validator);
+
+            val = dfltVal;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        void init(String str) throws SQLException {
+            if (str == null) {
+                val = dfltVal != null ? (ZoneId) dfltVal : null;
+
+                return;
+            }
+
+            try {
+                val = ZoneId.of(str);
+            } catch (DateTimeException e) {
+                throw new SQLException("Failed to set time zone property [value=" + str + ']', SqlStateCode.CLIENT_CONNECTION_FAILED, e);
+            }
+        }
+
+        /** Sets the property value. */
+        void setValue(ZoneId val) {
+            this.val = val;
+        }
+
+        /** Returns property value. */
+        ZoneId value() {
+            return val;
         }
 
         /** {@inheritDoc} */

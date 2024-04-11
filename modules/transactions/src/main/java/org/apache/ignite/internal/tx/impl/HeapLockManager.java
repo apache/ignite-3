@@ -302,10 +302,10 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
         locks.compute(key, (k, v) -> {
             if (v == null) {
-                if (empty.isEmpty()) {
+                v = empty.poll();
+                if (v == null) {
                     res[0] = slots[index];
                 } else {
-                    v = empty.poll();
                     v.markedForRemove = false;
                     v.key = k;
                     res[0] = v;
@@ -344,7 +344,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
         return parentLockManager.isEmpty();
     }
 
-    private CompletableFuture<Boolean> parentLockConflictListener(LockEventParameters params, Throwable e) {
+    private CompletableFuture<Boolean> parentLockConflictListener(LockEventParameters params) {
         return fireEvent(LockEvent.LOCK_CONFLICT, params).thenApply(v -> false);
     }
 

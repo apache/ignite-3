@@ -32,12 +32,14 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.TimeZone;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.apache.calcite.DataContext;
+import org.apache.calcite.DataContext.Variable;
 import org.apache.calcite.adapter.enumerable.EnumUtils;
 import org.apache.calcite.linq4j.function.Function1;
 import org.apache.calcite.linq4j.tree.BlockBuilder;
@@ -48,6 +50,7 @@ import org.apache.calcite.linq4j.tree.ParameterExpression;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelFieldCollation;
+import org.apache.calcite.rel.RelFieldCollation.Direction;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -143,28 +146,38 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
         return (o1, o2) -> {
             RowHandler<RowT> hnd = ctx.rowHandler();
+            List<RelFieldCollation> collations = collation.getFieldCollations();
 
-            for (RelFieldCollation field : collation.getFieldCollations()) {
-                int fieldIdx = field.getFieldIndex();
-                int nullComparison = field.nullDirection.nullComparison;
+            int colsCountRow1 = hnd.columnCount(o1);
+            int colsCountRow2 = hnd.columnCount(o2);
 
-                if (o1 == null || o2 == null) {
-                    if (o1 == o2) {
-                        return 0;
-                    } else if (o1 == null) {
-                        return nullComparison;
-                    } else {
-                        return -nullComparison;
-                    }
+            // The index range condition can contain the prefix of the index columns (not all index columns).
+            int maxCols = Math.min(Math.max(colsCountRow1, colsCountRow2), collations.size());
+
+            for (int i = 0; i < maxCols; i++) {
+                RelFieldCollation field = collations.get(i);
+                boolean ascending = field.direction == Direction.ASCENDING;
+
+                if (i == colsCountRow1) {
+                    // There is no more values in first row.
+                    return ascending ? -1 : 1;
                 }
+
+                if (i == colsCountRow2) {
+                    // There is no more values in second row.
+                    return ascending ? 1 : -1;
+                }
+
+                int fieldIdx = field.getFieldIndex();
 
                 Object c1 = hnd.get(fieldIdx, o1);
                 Object c2 = hnd.get(fieldIdx, o2);
 
-                int res = (field.direction == RelFieldCollation.Direction.ASCENDING)
-                        ?
-                        compare(c1, c2, nullComparison) :
-                        compare(c2, c1, -nullComparison);
+                int nullComparison = field.nullDirection.nullComparison;
+
+                int res = ascending
+                        ? compare(c1, c2, nullComparison)
+                        : compare(c2, c1, -nullComparison);
 
                 if (res != 0) {
                     return res;
@@ -316,6 +329,11 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                 RexLiteral literal = values.get(i);
                 Object val = literal.getValueAs(types.get(field));
 
+                // Literal was parsed as UTC timestamp, now we need to adjust it to the client's time zone.
+                if (val != null && literal.getTypeName() == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE) {
+                    val = IgniteSqlFunctions.subtractTimeZoneOffset((long) val, (TimeZone) ctx.get(Variable.TIME_ZONE.camelName));
+                }
+
                 rowBuilder.addField(val);
             }
 
@@ -324,7 +342,6 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
 
         return rows;
     }
-
 
     /** {@inheritDoc} */
     @Override
@@ -427,14 +444,12 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
                     .factory(TypeUtils.rowSchemaFromRelTypes(RelOptUtil.getFieldTypeList(upperType)));
 
             ranges.add(new RangeConditionImpl(
-                    curLower,
-                    curUpper,
+                    nullOrEmpty(curLower) ? null : scalar(curLower, lowerType),
+                    nullOrEmpty(curUpper) ? null : scalar(curUpper, upperType),
                     lowerInclude,
                     upperInclude,
-                    lowerType,
-                    upperType,
-                    lowerFactory,
-                    upperFactory
+                    lowerFactory.rowBuilder(),
+                    upperFactory.rowBuilder()
             ));
 
             return;
@@ -637,9 +652,8 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             }.apply(node);
         }
 
-        b.append(", biParam=").append(biParam);
-
-        b.append(']');
+        b.append(", biParam=").append(biParam)
+                .append(']');
 
         if (type != null) {
             b.append(':').append(type.getFullTypeString());
@@ -804,22 +818,20 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
         private final RowBuilder<RowT> upperRowBuilder;
 
         private RangeConditionImpl(
-                List<RexNode> lower,
-                List<RexNode> upper,
+                @Nullable SingleScalar lowerScalar,
+                @Nullable SingleScalar upperScalar,
                 boolean lowerInclude,
                 boolean upperInclude,
-                RelDataType rowTypeLower,
-                RelDataType rowTypeUpper,
-                RowFactory<RowT> lowerFactory,
-                RowFactory<RowT> upperFactory
+                RowBuilder<RowT> lowerRowBuilder,
+                RowBuilder<RowT> upperRowBuilder
         ) {
-            this.lowerBound = nullOrEmpty(lower) ? null : scalar(lower, rowTypeLower);
-            this.upperBound = nullOrEmpty(upper) ? null : scalar(upper, rowTypeUpper);
+            this.lowerBound = lowerScalar;
+            this.upperBound = upperScalar;
             this.lowerInclude = lowerInclude;
             this.upperInclude = upperInclude;
 
-            this.lowerRowBuilder = lowerFactory.rowBuilder();
-            this.upperRowBuilder = upperFactory.rowBuilder();
+            this.lowerRowBuilder = lowerRowBuilder;
+            this.upperRowBuilder = upperRowBuilder;
         }
 
         /** {@inheritDoc} */
@@ -869,7 +881,7 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
     }
 
     private class RangeIterableImpl implements RangeIterable<RowT> {
-        private final List<RangeCondition<RowT>> ranges;
+        private List<RangeCondition<RowT>> ranges;
 
         private final @Nullable Comparator<RowT> comparator;
 
@@ -902,11 +914,133 @@ public class ExpressionFactoryImpl<RowT> implements ExpressionFactory<RowT> {
             // Do not sort again if ranges already were sorted before, different values of correlated variables
             // should not affect ordering.
             if (!sorted && comparator != null) {
-                ranges.sort((o1, o2) -> comparator.compare(o1.lower(), o2.lower()));
+                ranges.sort(this::compareRanges);
+
+                List<RangeCondition<RowT>> ranges0 = new ArrayList<>(ranges.size());
+
+                RangeConditionImpl prevRange = null;
+
+                for (RangeCondition<RowT> range0 : ranges) {
+                    RangeConditionImpl range = (RangeConditionImpl) range0;
+
+                    if (compareLowerAndUpperBounds(range.lower(), range.upper()) > 0) {
+                        // Invalid range (low > up).
+                        continue;
+                    }
+
+                    if (prevRange != null) {
+                        RangeConditionImpl merged = tryMerge(prevRange, range);
+
+                        if (merged == null) {
+                            ranges0.add(prevRange);
+                        } else {
+                            range = merged;
+                        }
+                    }
+
+                    prevRange = range;
+                }
+
+                if (prevRange != null) {
+                    ranges0.add(prevRange);
+                }
+
+                ranges = ranges0;
                 sorted = true;
             }
 
             return ranges.iterator();
+        }
+
+        private int compareRanges(RangeCondition<RowT> first, RangeCondition<RowT> second) {
+            int cmp = compareBounds(first.lower(), second.lower(), true);
+
+            if (cmp != 0) {
+                return cmp;
+            }
+
+            return compareBounds(first.upper(), second.upper(), false);
+        }
+
+        private int compareBounds(@Nullable RowT row1, @Nullable RowT row2, boolean lower) {
+            assert comparator != null;
+
+            if (row1 == null || row2 == null) {
+                if (row1 == row2) {
+                    return 0;
+                }
+
+                RowT row = lower ? row2 : row1;
+
+                return row == null ? 1 : -1;
+            }
+
+            return comparator.compare(row1, row2);
+        }
+
+        private int compareLowerAndUpperBounds(@Nullable RowT lower, @Nullable RowT upper) {
+            assert comparator != null;
+
+            if (lower == null || upper == null) {
+                if (lower == upper) {
+                    return 0;
+                } else {
+                    // lower = null -> lower < any upper
+                    // upper = null -> upper > any lower
+                    return -1;
+                }
+            }
+
+            return comparator.compare(lower, upper);
+        }
+
+        /** Returns combined range if the provided ranges intersect, {@code null} otherwise. */
+        @Nullable RangeConditionImpl tryMerge(RangeConditionImpl first, RangeConditionImpl second) {
+            if (compareLowerAndUpperBounds(first.lower(), second.upper()) > 0
+                    || compareLowerAndUpperBounds(second.lower(), first.upper()) > 0) {
+                // Ranges are not intersect.
+                return null;
+            }
+
+            SingleScalar newLowerBound;
+            RowT newLowerRow;
+            boolean newLowerInclude;
+
+            int cmp = compareBounds(first.lower(), second.lower(), true);
+
+            if (cmp < 0 || (cmp == 0 && first.lowerInclude())) {
+                newLowerBound = first.lowerBound;
+                newLowerRow = first.lower();
+                newLowerInclude = first.lowerInclude();
+            } else {
+                newLowerBound = second.lowerBound;
+                newLowerRow = second.lower();
+                newLowerInclude = second.lowerInclude();
+            }
+
+            SingleScalar newUpperBound;
+            RowT newUpperRow;
+            boolean newUpperInclude;
+
+            cmp = compareBounds(first.upper(), second.upper(), false);
+
+            if (cmp > 0 || (cmp == 0 && first.upperInclude())) {
+                newUpperBound = first.upperBound;
+                newUpperRow = first.upper();
+                newUpperInclude = first.upperInclude();
+            } else {
+                newUpperBound = second.upperBound;
+                newUpperRow = second.upper();
+                newUpperInclude = second.upperInclude();
+            }
+
+            RangeConditionImpl newRangeCondition = new RangeConditionImpl(newLowerBound, newUpperBound,
+                    newLowerInclude, newUpperInclude, first.lowerRowBuilder, first.upperRowBuilder);
+
+            newRangeCondition.lowerRow = newLowerRow;
+            newRangeCondition.upperRow = newUpperRow;
+
+            return newRangeCondition;
         }
     }
 

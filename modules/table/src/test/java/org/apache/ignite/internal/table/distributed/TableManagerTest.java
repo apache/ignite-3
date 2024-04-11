@@ -25,6 +25,8 @@ import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_DROP;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
+import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.CompletableFutures.emptySetCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -33,7 +35,9 @@ import static org.apache.ignite.sql.ColumnType.INT64;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -41,6 +45,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.atMost;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -58,8 +63,12 @@ import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Flow.Subscription;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.Phaser;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
@@ -69,6 +78,7 @@ import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -77,8 +87,10 @@ import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
@@ -103,24 +115,24 @@ import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataStorageModule;
-import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.table.distributed.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
+import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
+import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.CursorUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
-import org.apache.ignite.internal.vault.VaultManager;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.TopologyService;
@@ -197,12 +209,15 @@ public class TableManagerTest extends IgniteAbstractTest {
     @InjectConfiguration
     private GcConfiguration gcConfig;
 
+    @InjectConfiguration
+    private TransactionConfiguration txConfig;
+
     /** Storage update configuration. */
     @InjectConfiguration
     private StorageUpdateConfiguration storageUpdateConfiguration;
 
-    @InjectConfiguration
-    private PersistentPageMemoryStorageEngineConfiguration storageEngineConfig;
+    @InjectConfiguration("mock = {profiles.default = {engine = \"aipersist\"}}")
+    private StorageConfiguration storageConfiguration;
 
     @Mock
     private ConfigurationRegistry configRegistry;
@@ -232,10 +247,13 @@ public class TableManagerTest extends IgniteAbstractTest {
     /** Catalog manager. */
     private CatalogManager catalogManager;
 
-    private StripedThreadPoolExecutor partitionOperationsExecutor;
+    private ExecutorService partitionOperationsExecutor;
+
+    private TestLowWatermark lowWatermark;
 
     @BeforeEach
     void before() throws NodeStoppingException {
+        lowWatermark = new TestLowWatermark();
         catalogMetastore = StandaloneMetaStorageManager.create(new SimpleInMemoryKeyValueStorage(NODE_NAME));
         catalogManager = CatalogTestUtils.createTestCatalogManager(NODE_NAME, clock, catalogMetastore);
 
@@ -262,11 +280,11 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         mockMetastore();
 
-        partitionOperationsExecutor = new StripedThreadPoolExecutor(
-                5,
-                NamedThreadFactory.create("test", "partition-operations", log),
-                false,
-                0
+        partitionOperationsExecutor = new ThreadPoolExecutor(
+                0, 5,
+                0, TimeUnit.SECONDS,
+                new LinkedBlockingQueue<>(),
+                IgniteThreadFactory.create("test", "partition-operations", log, STORAGE_READ, STORAGE_WRITE)
         );
     }
 
@@ -307,8 +325,6 @@ public class TableManagerTest extends IgniteAbstractTest {
         assertEquals(1, tableManager.tables().size());
 
         assertNotNull(tableManager.table(PRECONFIGURED_TABLE_NAME));
-
-        checkTableDataStorage(allTableDescriptors(), PersistentPageMemoryStorageEngine.ENGINE_NAME);
     }
 
     /**
@@ -323,8 +339,6 @@ public class TableManagerTest extends IgniteAbstractTest {
         assertNotNull(table);
 
         assertSame(table, tblManagerFut.join().table(DYNAMIC_TABLE_NAME));
-
-        checkTableDataStorage(allTableDescriptors(), PersistentPageMemoryStorageEngine.ENGINE_NAME);
     }
 
     /**
@@ -340,13 +354,48 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         dropTable(DYNAMIC_TABLE_FOR_DROP_NAME);
 
+        assertNull(tableManager.table(DYNAMIC_TABLE_FOR_DROP_NAME));
+        assertEquals(0, tableManager.tables().size());
+
+        verify(mvTableStorage, atMost(0)).destroy();
+        verify(txStateTableStorage, atMost(0)).destroy();
+        verify(replicaMgr, atMost(0)).stopReplica(any());
+
+        assertThat(fireDestroyEvent(), willCompleteSuccessfully());
+
         verify(mvTableStorage, timeout(TimeUnit.SECONDS.toMillis(10))).destroy();
         verify(txStateTableStorage, timeout(TimeUnit.SECONDS.toMillis(10))).destroy();
-        verify(replicaMgr, times(PARTITIONS)).stopReplica(any());
+        verify(replicaMgr, timeout(TimeUnit.SECONDS.toMillis(10)).times(PARTITIONS)).stopReplica(any());
+    }
 
-        assertNull(tableManager.table(DYNAMIC_TABLE_FOR_DROP_NAME));
+    /**
+     * Tests create a table through public API right after another table with the same name was dropped.
+     *
+     * @throws Exception If failed.
+     */
+    @Test
+    public void testReCreateTableWithSameName() throws Exception {
+        mockManagersAndCreateTable(DYNAMIC_TABLE_NAME, tblManagerFut);
 
-        assertEquals(0, tableManager.tables().size());
+        TableManager tableManager = tblManagerFut.join();
+
+        TableViewInternal table = (TableViewInternal) tableManager.table(DYNAMIC_TABLE_NAME);
+
+        assertNotNull(table);
+
+        int oldTableId = table.tableId();
+
+        dropTable(DYNAMIC_TABLE_NAME);
+        createTable(DYNAMIC_TABLE_NAME);
+
+        table = tableManager.tableView(DYNAMIC_TABLE_NAME);
+
+        assertNotNull(table);
+        assertNotEquals(oldTableId, table.tableId());
+
+        assertNotNull(tableManager.cachedTable(oldTableId));
+        assertNotNull(tableManager.cachedTable(table.tableId()));
+        assertNotSame(tableManager.cachedTable(oldTableId), tableManager.cachedTable(table.tableId()));
     }
 
     /**
@@ -561,7 +610,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         doReturn(mock(PartitionTimestampCursor.class)).when(mvPartitionStorage).scan(any());
         when(txStateStorage.clear()).thenReturn(nullCompletedFuture());
 
-        when(msm.recoveryFinishedFuture()).thenReturn(completedFuture(1L));
+        when(msm.recoveryFinishedFuture()).thenReturn(completedFuture(2L));
 
         // For some reason, "when(something).thenReturn" does not work on spies, but this notation works.
         createTableManager(tblManagerFut, (mvTableStorage) -> {
@@ -659,13 +708,13 @@ public class TableManagerTest extends IgniteAbstractTest {
         int tablesBeforeCreation = tableManager.tables().size();
 
         if (phaser != null) {
-            catalogManager.listen(TABLE_CREATE, (parameters, exception) -> {
+            catalogManager.listen(TABLE_CREATE, parameters -> {
                 phaser.arriveAndAwaitAdvance();
 
                 return falseCompletedFuture();
             });
 
-            catalogManager.listen(TABLE_DROP, (parameters, exception) -> {
+            catalogManager.listen(TABLE_DROP, parameters -> {
                 phaser.arriveAndAwaitAdvance();
 
                 return falseCompletedFuture();
@@ -700,37 +749,41 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     private TableManager createTableManager(CompletableFuture<TableManager> tblManagerFut, Consumer<MvTableStorage> tableStorageDecorator,
             Consumer<TxStateTableStorage> txStateTableStorageDecorator) {
-        VaultManager vaultManager = mock(VaultManager.class);
-
         TableManager tableManager = new TableManager(
                 NODE_NAME,
                 revisionUpdater,
                 gcConfig,
+                txConfig,
                 storageUpdateConfiguration,
-                clusterService,
+                clusterService.messagingService(),
+                clusterService.topologyService(),
+                clusterService.serializationRegistry(),
                 rm,
                 replicaMgr,
                 null,
                 null,
                 tm,
-                dsm = createDataStorageManager(configRegistry, workDir, storageEngineConfig),
+                dsm = createDataStorageManager(configRegistry, workDir),
                 workDir,
                 msm,
-                sm = new SchemaManager(revisionUpdater, catalogManager, msm),
+                sm = new SchemaManager(revisionUpdater, catalogManager),
                 budgetView -> new LocalLogStorageFactory(),
                 partitionOperationsExecutor,
                 partitionOperationsExecutor,
                 clock,
+                new TestClockService(clock),
                 new OutgoingSnapshotsManager(clusterService.messagingService()),
                 mock(TopologyAwareRaftGroupServiceFactory.class),
-                vaultManager,
                 distributionZoneManager,
                 new AlwaysSyncedSchemaSyncService(),
                 catalogManager,
                 new HybridTimestampTracker(),
                 new TestPlacementDriver(node),
                 () -> mock(IgniteSql.class),
-                mock(FailureProcessor.class)
+                new RemotelyTriggeredResourceRegistry(),
+                mock(ScheduledExecutorService.class),
+                lowWatermark,
+                mock(TransactionInflights.class)
         ) {
 
             @Override
@@ -764,15 +817,24 @@ public class TableManagerTest extends IgniteAbstractTest {
 
     private DataStorageManager createDataStorageManager(
             ConfigurationRegistry mockedRegistry,
-            Path storagePath,
-            PersistentPageMemoryStorageEngineConfiguration config
+            Path storagePath
     ) {
-        when(mockedRegistry.getConfiguration(PersistentPageMemoryStorageEngineConfiguration.KEY)).thenReturn(config);
+        when(mockedRegistry.getConfiguration(StorageConfiguration.KEY)).thenReturn(storageConfiguration);
 
-        DataStorageModules dataStorageModules = new DataStorageModules(List.of(new PersistentPageMemoryDataStorageModule()));
+        DataStorageModules dataStorageModules = new DataStorageModules(
+                List.of(new PersistentPageMemoryDataStorageModule())
+        );
 
         DataStorageManager manager = new DataStorageManager(
-                dataStorageModules.createStorageEngines(NODE_NAME, mockedRegistry, storagePath, null, mock(FailureProcessor.class))
+                dataStorageModules.createStorageEngines(
+                        NODE_NAME,
+                        mockedRegistry,
+                        storagePath,
+                        null,
+                        mock(FailureProcessor.class),
+                        mock(LogSyncer.class)
+                ),
+                storageConfiguration
         );
 
         assertThat(manager.start(), willCompleteSuccessfully());
@@ -780,22 +842,8 @@ public class TableManagerTest extends IgniteAbstractTest {
         return manager;
     }
 
-    private void checkTableDataStorage(Collection<CatalogTableDescriptor> tableDescriptors, String expDataStorage) {
-        assertFalse(tableDescriptors.isEmpty());
-
-        for (CatalogTableDescriptor tableDescriptor : tableDescriptors) {
-            assertEquals(getZoneDataStorage(tableDescriptor.zoneId()), expDataStorage, tableDescriptor.name());
-        }
-    }
-
     private void createZone(int partitions, int replicas) {
         DistributionZonesTestUtil.createZone(catalogManager, ZONE_NAME, partitions, replicas);
-    }
-
-    private @Nullable String getZoneDataStorage(int zoneId) {
-        CatalogZoneDescriptor zoneDescriptor = DistributionZonesTestUtil.getZoneById(catalogManager, zoneId, clock.nowLong());
-
-        return zoneDescriptor == null ? null : zoneDescriptor.dataStorage().engine();
     }
 
     private void createTable(String tableName) {
@@ -818,5 +866,9 @@ public class TableManagerTest extends IgniteAbstractTest {
 
     private Collection<CatalogTableDescriptor> allTableDescriptors() {
         return catalogManager.tables(catalogManager.latestCatalogVersion());
+    }
+
+    private CompletableFuture<Void> fireDestroyEvent() {
+        return lowWatermark.updateAndNotify(clock.now());
     }
 }

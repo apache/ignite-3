@@ -28,7 +28,6 @@ import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.ResultSet;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -166,13 +165,12 @@ public class ItMetadataTest extends BaseSqlIntegrationTest {
                 // ANSI`99 syntax "WITH TIME ZONE" is not supported,
                 // a "WITH LOCAL TIME ZONE" syntax MUST be used instead.
                 + "DATE_C DATE, " + "TIME_C TIME, " + "TIME_C2 TIME(9), "
-                // TODO: IGNITE-19274 Ignite doesn't support the client's time zone yet.
+                // TODO: IGNITE-21555 Ignite doesn't support TIME_WITH_LOCAL_TIME_ZONE data type.
                 // + "TIME_LTZ_C TIME WITH LOCAL TIME ZONE, "
                 // + "TIME_LTZ_C2 TIME(9) WITH LOCAL TIME ZONE, "
                 + "DATETIME_C TIMESTAMP, " + "DATETIME_C2 TIMESTAMP(9), "
-                // TODO: IGNITE-19274 Ignite doesn't support the client's time zone yet.
-                // + "TIMESTAMP_C TIMESTAMP WITH LOCAL TIME ZONE, "
-                // + "TIMESTAMP_C2 TIMESTAMP(9) WITH LOCAL TIME ZONE, "
+                 + "TIMESTAMP_C TIMESTAMP WITH LOCAL TIME ZONE, "
+                 + "TIMESTAMP_C2 TIMESTAMP(9) WITH LOCAL TIME ZONE, "
 
                 // Interval types
                 // TODO: IGNITE-17373: Ignite doesn't support interval types yet.
@@ -231,14 +229,13 @@ public class ItMetadataTest extends BaseSqlIntegrationTest {
                         new MetadataMatcher().name("DATE_C").type(ColumnType.DATE).precision(0).scale(UNDEFINED_SCALE),
                         new MetadataMatcher().name("TIME_C").type(ColumnType.TIME).precision(0).scale(UNDEFINED_SCALE),
                         new MetadataMatcher().name("TIME_C2").type(ColumnType.TIME).precision(9).scale(UNDEFINED_SCALE),
-                        // TODO: IGNITE-19274 Ignite doesn't support the client's time zone yet.
+                        // TODO: IGNITE-21555 Ignite doesn't support TIME_WITH_LOCAL_TIME_ZONE data type.
                         // new MetadataMatcher().name("TIME_LTZ_C").type(ColumnType.TIME).precision(0).scale(UNDEFINED_SCALE),
                         // new MetadataMatcher().name("TIME_LTZ_C2").type(ColumnType.TIME).precision(9).scale(UNDEFINED_SCALE),
                         new MetadataMatcher().name("DATETIME_C").type(ColumnType.DATETIME).precision(6).scale(UNDEFINED_SCALE),
                         new MetadataMatcher().name("DATETIME_C2").type(ColumnType.DATETIME).precision(9).scale(UNDEFINED_SCALE),
-                        // TODO: IGNITE-19274 Ignite doesn't support the client's time zone yet.
-                        // new MetadataMatcher().name("TIMESTAMP_C").type(ColumnType.TIMESTAMP).precision(6).scale(UNDEFINED_SCALE),
-                        // new MetadataMatcher().name("TIMESTAMP_C2").type(ColumnType.TIMESTAMP).precision(9).scale(UNDEFINED_SCALE),
+                        new MetadataMatcher().name("TIMESTAMP_C").type(ColumnType.TIMESTAMP).precision(6).scale(UNDEFINED_SCALE),
+                        new MetadataMatcher().name("TIMESTAMP_C2").type(ColumnType.TIMESTAMP).precision(9).scale(UNDEFINED_SCALE),
 
                         // Interval types
                         // TODO: IGNITE-17373: Ignite doesn't support interval types yet.
@@ -277,8 +274,7 @@ public class ItMetadataTest extends BaseSqlIntegrationTest {
 
         sql("INSERT INTO sens VALUES (1, 1, 1, 1)");
 
-        Session ses = igniteSql().createSession();
-        ResultSet<SqlRow> res = ses.execute(null, "select * from sens");
+        ResultSet<SqlRow> res = igniteSql().execute(null, "select * from sens");
         SqlRow row = res.next();
         assertNotNull(row.intValue("\"Col1\""));
         assertThrows(IllegalArgumentException.class, () -> row.intValue("col1"));

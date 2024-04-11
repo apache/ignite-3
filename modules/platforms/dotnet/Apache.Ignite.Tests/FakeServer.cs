@@ -115,7 +115,7 @@ namespace Apache.Ignite.Tests
 
         public Dictionary<string, object?> LastSqlScriptProps { get; private set; } = new();
 
-        public long UpsertAllRowCount { get; set; }
+        public long StreamerRowCount { get; set; }
 
         public long DroppedConnectionCount { get; set; }
 
@@ -236,6 +236,7 @@ namespace Apache.Ignite.Tests
                         using var arrayBufferWriter = new PooledArrayBuffer();
                         var writer = new MsgPackWriter(arrayBufferWriter);
                         writer.Write(PartitionAssignment.Length);
+                        writer.Write(true); // Assignment available.
                         writer.Write(DateTime.UtcNow.Ticks); // Timestamp
 
                         foreach (var nodeId in PartitionAssignment)
@@ -278,11 +279,6 @@ namespace Apache.Ignite.Tests
                         if (MultiRowOperationDelayPerRow > TimeSpan.Zero)
                         {
                             Thread.Sleep(MultiRowOperationDelayPerRow * count);
-                        }
-
-                        if (opCode == ClientOp.TupleUpsertAll)
-                        {
-                            UpsertAllRowCount += count;
                         }
 
                         Send(handler, requestId, new byte[] { 1, 0 }.AsMemory());
@@ -331,6 +327,13 @@ namespace Apache.Ignite.Tests
 
                     case ClientOp.Heartbeat:
                         Thread.Sleep(HeartbeatDelay);
+                        Send(handler, requestId, Array.Empty<byte>());
+                        continue;
+
+                    case ClientOp.StreamerBatchSend:
+                        reader.Skip(4);
+                        StreamerRowCount += reader.ReadInt32();
+
                         Send(handler, requestId, Array.Empty<byte>());
                         continue;
                 }
@@ -571,7 +574,7 @@ namespace Apache.Ignite.Tests
                 writer.Write(7); // Column props.
                 writer.Write("ID");
                 writer.Write((int)ColumnType.Int32);
-                writer.Write(true); // Key.
+                writer.Write(0); // Key index.
                 writer.Write(false); // Nullable.
                 writer.Write(0); // Colocation index.
                 writer.Write(0); // Scale.
@@ -584,7 +587,7 @@ namespace Apache.Ignite.Tests
                 writer.Write(7); // Column props.
                 writer.Write("IdStr");
                 writer.Write((int)ColumnType.String);
-                writer.Write(true); // Key.
+                writer.Write(0); // Key index.
                 writer.Write(false); // Nullable.
                 writer.Write(0); // Colocation index.
                 writer.Write(0); // Scale.
@@ -593,7 +596,7 @@ namespace Apache.Ignite.Tests
                 writer.Write(7); // Column props.
                 writer.Write("IdGuid");
                 writer.Write((int)ColumnType.Uuid);
-                writer.Write(true); // Key.
+                writer.Write(1); // Key index.
                 writer.Write(false); // Nullable.
                 writer.Write(1); // Colocation index.
                 writer.Write(0); // Scale.
@@ -606,7 +609,7 @@ namespace Apache.Ignite.Tests
                 writer.Write(7); // Column props.
                 writer.Write("IdStr");
                 writer.Write((int)ColumnType.String);
-                writer.Write(true); // Key.
+                writer.Write(0); // Key index.
                 writer.Write(false); // Nullable.
                 writer.Write(0); // Colocation index.
                 writer.Write(0); // Scale.
@@ -615,7 +618,7 @@ namespace Apache.Ignite.Tests
                 writer.Write(7); // Column props.
                 writer.Write("IdGuid");
                 writer.Write((int)ColumnType.Uuid);
-                writer.Write(true); // Key.
+                writer.Write(1); // Key index.
                 writer.Write(false); // Nullable.
                 writer.Write(-1); // Colocation index.
                 writer.Write(0); // Scale.
@@ -650,13 +653,17 @@ namespace Apache.Ignite.Tests
             }
 
             var jobClassName = reader.ReadString();
+            var priority = reader.ReadInt32();
+            var maxRetries = reader.ReadInt64();
 
             object? resObj = jobClassName == GetDetailsJob
                 ? new
                 {
                     NodeName = Node.Name,
                     Units = units.Select(u => $"{u.Name}|{u.Version}").StringJoin(),
-                    jobClassName
+                    jobClassName,
+                    priority,
+                    maxRetries
                 }.ToString()
                 : Node.Name;
 

@@ -30,13 +30,11 @@ using Table.Serialization;
 /// </summary>
 internal sealed class BinaryTupleIgniteTupleAdapter : IIgniteTuple, IEquatable<BinaryTupleIgniteTupleAdapter>, IEquatable<IIgniteTuple>
 {
-    private readonly int _schemaFieldCount; // Key-only tuples have less fields than schema.
+    private readonly bool _keyOnly;
 
     private Memory<byte> _data;
 
     private Schema? _schema;
-
-    private Dictionary<string, int>? _indexes;
 
     private IgniteTuple? _tuple;
 
@@ -45,25 +43,25 @@ internal sealed class BinaryTupleIgniteTupleAdapter : IIgniteTuple, IEquatable<B
     /// </summary>
     /// <param name="data">Binary tuple data.</param>
     /// <param name="schema">Schema.</param>
-    /// <param name="fieldCount">Field count.</param>
-    public BinaryTupleIgniteTupleAdapter(Memory<byte> data, Schema schema, int fieldCount)
+    /// <param name="keyOnly">Whether only the key part should be exposed.</param>
+    public BinaryTupleIgniteTupleAdapter(Memory<byte> data, Schema schema, bool keyOnly)
     {
-        Debug.Assert(fieldCount <= schema.Columns.Count, "fieldCount <= schema.Columns.Count");
-
         _data = data;
         _schema = schema;
-        _schemaFieldCount = fieldCount;
+        _keyOnly = keyOnly;
     }
 
     /// <inheritdoc/>
-    public int FieldCount => _tuple?.FieldCount ?? _schemaFieldCount;
+    public int FieldCount => _tuple?.FieldCount ?? Columns.Count;
+
+    private IReadOnlyCollection<Column> Columns => _schema!.GetColumnsFor(_keyOnly);
 
     /// <inheritdoc/>
     public object? this[int ordinal]
     {
         get => _tuple != null
             ? _tuple[ordinal]
-            : TupleSerializerHandler.ReadObject(_data.Span, _schema!, _schemaFieldCount, ordinal);
+            : TupleSerializerHandler.ReadObject(_data.Span, _schema!, _keyOnly, ordinal);
 
         set => InitTuple()[ordinal] = value;
     }
@@ -93,17 +91,13 @@ internal sealed class BinaryTupleIgniteTupleAdapter : IIgniteTuple, IEquatable<B
             return _tuple.GetOrdinal(name);
         }
 
-        if (_indexes == null)
+        var column = _schema!.GetColumn(name);
+        if (column == null)
         {
-            _indexes = new Dictionary<string, int>(_schema!.Columns.Count);
-
-            for (var i = 0; i < _schema.Columns.Count; i++)
-            {
-                _indexes[IgniteTupleCommon.ParseColumnName(_schema.Columns[i].Name)] = i;
-            }
+            return -1;
         }
 
-        return _indexes.TryGetValue(IgniteTupleCommon.ParseColumnName(name), out var index) ? index : -1;
+        return _keyOnly ? column.KeyIndex : column.SchemaIndex;
     }
 
     /// <inheritdoc/>
@@ -131,11 +125,10 @@ internal sealed class BinaryTupleIgniteTupleAdapter : IIgniteTuple, IEquatable<B
         Debug.Assert(_schema != null, "_schema != null");
 
         // Copy data to a mutable IgniteTuple.
-        _tuple = TupleSerializerHandler.ReadTuple(_data.Span, _schema, _schemaFieldCount);
+        _tuple = TupleSerializerHandler.ReadTuple(_data.Span, _schema, _keyOnly);
 
         // Release schema and data.
         _schema = default;
-        _indexes = default;
         _data = default;
 
         return _tuple;

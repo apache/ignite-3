@@ -21,10 +21,14 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.AFTER_REPLICA_STARTED;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.BEFORE_REPLICA_STOPPED;
+import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
+import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
+import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
+import static org.apache.ignite.internal.thread.ThreadOperation.TX_STATE_STORAGE_ACCESS;
 import static org.apache.ignite.internal.tracing.TracingManager.span;
+import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
-import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.io.IOException;
@@ -34,6 +38,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -46,7 +51,7 @@ import java.util.function.Consumer;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.event.AbstractEventProducer;
-import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -74,8 +79,10 @@ import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
+import org.apache.ignite.internal.thread.ExecutorChooser;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
+import org.apache.ignite.internal.thread.PublicApiThreading;
+import org.apache.ignite.internal.thread.ThreadAttributes;
 import org.apache.ignite.internal.tracing.TraceSpan;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -91,9 +98,6 @@ import org.jetbrains.annotations.TestOnly;
  * <p>Only a single instance of the class exists in Ignite node.
  */
 public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, LocalReplicaEventParameters> implements IgniteComponent {
-    /** Default Idle safe time propagation period for tests. */
-    public static final int DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS = 1000;
-
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ReplicaManager.class);
 
@@ -131,17 +135,12 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     /** Replicas. */
     private final ConcurrentHashMap<ReplicationGroupId, CompletableFuture<Replica>> replicas = new ConcurrentHashMap<>();
 
-    /** A hybrid logical clock. */
-    private final HybridClock clock;
-
-    /**
-     * On this pool, a stripe is chosen using {@link ReplicationGroupStripes#stripeFor(ReplicationGroupId, StripedThreadPoolExecutor)}
-     * so that requests concerning the same {@link ReplicationGroupId} are executed on the same thread.
-     */
-    private final StripedThreadPoolExecutor requestsExecutor;
+    private final ClockService clockService;
 
     /** Scheduled executor for idle safe time sync. */
     private final ScheduledExecutorService scheduledIdleSafeTimeSyncExecutor;
+
+    private final Executor requestsExecutor;
 
     /** Set of message groups to handler as replica requests. */
     private final Set<Class<?>> messageGroupsToHandle;
@@ -158,7 +157,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param nodeName Node name.
      * @param clusterNetSvc Cluster network service.
      * @param cmgMgr Cluster group manager.
-     * @param clock A hybrid logical clock.
+     * @param clockService Clock service.
      * @param messageGroupsToHandle Message handlers.
      * @param placementDriver A placement driver.
      */
@@ -167,16 +166,16 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             String nodeName,
             ClusterService clusterNetSvc,
             ClusterManagementGroupManager cmgMgr,
-            HybridClock clock,
+            ClockService clockService,
             Set<Class<?>> messageGroupsToHandle,
             PlacementDriver placementDriver,
-            StripedThreadPoolExecutor requestsExecutor
+            Executor requestsExecutor
     ) {
         this(
                 nodeName,
                 clusterNetSvc,
                 cmgMgr,
-                clock,
+                clockService,
                 messageGroupsToHandle,
                 placementDriver,
                 requestsExecutor,
@@ -190,7 +189,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param nodeName Node name.
      * @param clusterNetSvc Cluster network service.
      * @param cmgMgr Cluster group manager.
-     * @param clock A hybrid logical clock.
+     * @param clockService Clock service.
      * @param messageGroupsToHandle Message handlers.
      * @param placementDriver A placement driver.
      * @param requestsExecutor Executor that will be used to execute requests by replicas.
@@ -200,15 +199,15 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             String nodeName,
             ClusterService clusterNetSvc,
             ClusterManagementGroupManager cmgMgr,
-            HybridClock clock,
+            ClockService clockService,
             Set<Class<?>> messageGroupsToHandle,
             PlacementDriver placementDriver,
-            StripedThreadPoolExecutor requestsExecutor,
+            Executor requestsExecutor,
             LongSupplier idleSafeTimePropagationPeriodMsSupplier
     ) {
         this.clusterNetSvc = clusterNetSvc;
         this.cmgMgr = cmgMgr;
-        this.clock = clock;
+        this.clockService = clockService;
         this.messageGroupsToHandle = messageGroupsToHandle;
         this.handler = this::onReplicaMessageReceived;
         this.placementDriverMessageHandler = this::onPlacementDriverMessageReceived;
@@ -233,7 +232,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         );
     }
 
-    private void onReplicaMessageReceived(NetworkMessage message, String senderConsistentId, @Nullable Long correlationId) {
+    private void onReplicaMessageReceived(NetworkMessage message, ClusterNode sender, @Nullable Long correlationId) {
         if (!(message instanceof ReplicaRequest)) {
             return;
         }
@@ -242,11 +241,37 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         ReplicaRequest request = (ReplicaRequest) message;
 
-        ExecutorService stripeExecutor = ReplicationGroupStripes.stripeFor(request.groupId(), requestsExecutor);
-        stripeExecutor.execute(() -> handleReplicaRequest(request, senderConsistentId, correlationId));
+        // If the request actually came from the network, we are already in the correct thread that has permissions to do storage reads
+        // and writes.
+        // But if this is a local call (in the same Ignite instance), we might still be in a thread that does not have those permissions.
+        if (shouldSwitchToRequestsExecutor()) {
+            requestsExecutor.execute(() -> handleReplicaRequest(request, sender, correlationId));
+        } else {
+            handleReplicaRequest(request, sender, correlationId);
+        }
     }
 
-    private void handleReplicaRequest(ReplicaRequest request, String senderConsistentId, @Nullable Long correlationId) {
+    private static boolean shouldSwitchToRequestsExecutor() {
+        if (Thread.currentThread() instanceof ThreadAttributes) {
+            ThreadAttributes thread = (ThreadAttributes) Thread.currentThread();
+            return !thread.allows(STORAGE_READ) || !thread.allows(STORAGE_WRITE) || !thread.allows(TX_STATE_STORAGE_ACCESS);
+        } else {
+            if (PublicApiThreading.executingSyncPublicApi()) {
+                // It's a user thread, it executes a sync public API call, so it can do anything, no switch is needed.
+                return false;
+            }
+            if (PublicApiThreading.executingAsyncPublicApi()) {
+                // It's a user thread, it executes an async public API call, so it cannot do anything, a switch is needed.
+                return true;
+            }
+
+            // It's something else: either a JRE thread or an Ignite thread not marked with ThreadAttributes. As we are not sure,
+            // let's switch: false negative can produce assertion errors.
+            return true;
+        }
+    }
+
+    private void handleReplicaRequest(ReplicaRequest request, ClusterNode sender, @Nullable Long correlationId) {
         if (!busyLock.enterBusy()) {
             if (LOG.isInfoEnabled()) {
                 LOG.info("Failed to process replica request (the node is stopping) [request={}].", request);
@@ -254,6 +279,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
             return;
         }
+
+        String senderConsistentId = sender.name();
 
         try {
             // Notify the sender that the Replica is created and ready to process requests.
@@ -274,10 +301,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                                 .build(),
                                         correlationId);
                             } else {
-                                createdReplica.ready().thenRun(() -> inBusyLock(
-                                        busyLock,
-                                        () -> sendAwaitReplicaResponse(senderConsistentId, correlationId)
-                                ));
+                                sendAwaitReplicaResponse(senderConsistentId, correlationId);
                             }
                         });
                     } else {
@@ -293,25 +317,20 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
             HybridTimestamp requestTimestamp = extractTimestamp(request);
 
-            if (replicaFut == null || !replicaFut.isDone() || !replicaFut.join().ready().isDone()) {
+            if (replicaFut == null || !replicaFut.isDone()) {
                 sendReplicaUnavailableErrorResponse(senderConsistentId, correlationId, request.groupId(), requestTimestamp);
 
                 return;
             }
 
             if (requestTimestamp != null) {
-                clock.update(requestTimestamp);
+                clockService.updateClock(requestTimestamp);
             }
 
             boolean sendTimestamp = request instanceof TimestampAware || request instanceof ReadOnlyDirectReplicaRequest;
 
             // replicaFut is always completed here.
             Replica replica = replicaFut.join();
-
-            // TODO IGNITE-20296 Id of the node should come along with the message itself.
-            ClusterNode sender = clusterNetSvc.topologyService().getByConsistentId(senderConsistentId);
-
-            assert sender != null : "The sender is undefined (should be fixed by https://issues.apache.org/jira/browse/IGNITE-20296 )";
 
             String senderId = sender.id();
 
@@ -335,19 +354,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 span("sendReplicaResponse", (Consumer<TraceSpan>) (span) -> clusterNetSvc.messagingService().respond(senderConsistentId,
                         msg, correlationId));
 
-                if (request instanceof PrimaryReplicaRequest) {
-                    ClusterNode localNode = clusterNetSvc.topologyService().localMember();
-
-                    if (!localNode.name().equals(replica.proposedPrimary())) {
-                        stopLeaseProlongation(request.groupId(), replica.proposedPrimary());
-                    } else if (isConnectivityRelatedException(ex)) {
-                        stopLeaseProlongation(request.groupId(), null);
-                    }
+                if (request instanceof PrimaryReplicaRequest && isConnectivityRelatedException(ex)) {
+                    stopLeaseProlongation(request.groupId(), null);
                 }
 
                 if (ex == null && res.replicationFuture() != null) {
-                    assert request instanceof PrimaryReplicaRequest;
-
                     res.replicationFuture().whenComplete((res0, ex0) -> {
                         NetworkMessage msg0;
 
@@ -390,10 +401,12 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         return ex instanceof TimeoutException || ex instanceof IOException;
     }
 
-    private void onPlacementDriverMessageReceived(NetworkMessage msg0, String senderConsistentId, @Nullable Long correlationId) {
+    private void onPlacementDriverMessageReceived(NetworkMessage msg0, ClusterNode sender, @Nullable Long correlationId) {
         if (!(msg0 instanceof PlacementDriverReplicaMessage)) {
             return;
         }
+
+        String senderConsistentId = sender.name();
 
         assert correlationId != null;
 
@@ -438,7 +451,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 ClusterNode node = clusterNetSvc.topologyService().getByConsistentId(nodeId);
 
                 if (node != null) {
-                    //TODO: IGNITE-19441 Stop lease prolongation message might be sent several
+                    // TODO: IGNITE-19441 Stop lease prolongation message might be sent several
                     clusterNetSvc.messagingService().send(node, PLACEMENT_DRIVER_MESSAGES_FACTORY.stopLeaseProlongationMessage()
                             .groupId(groupId)
                             .redirectProposal(redirectNodeId)
@@ -452,7 +465,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * Starts a replica. If a replica with the same partition id already exists, the method throws an exception.
      *
      * @param replicaGrpId Replication group id.
-     * @param whenReplicaReady Future that completes when the replica become ready.
      * @param listener Replica listener.
      * @param raftClient Topology aware Raft client.
      * @param storageIndexTracker Storage index tracker.
@@ -462,7 +474,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      */
     public CompletableFuture<Replica> startReplica(
             ReplicationGroupId replicaGrpId,
-            CompletableFuture<Void> whenReplicaReady,
             ReplicaListener listener,
             TopologyAwareRaftGroupService raftClient,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker
@@ -472,7 +483,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         }
 
         try {
-            return startReplicaInternal(replicaGrpId, whenReplicaReady, listener, raftClient, storageIndexTracker);
+            return startReplicaInternal(replicaGrpId, listener, raftClient, storageIndexTracker);
         } finally {
             busyLock.leaveBusy();
         }
@@ -482,38 +493,40 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * Internal method for starting a replica.
      *
      * @param replicaGrpId Replication group id.
-     * @param whenReplicaReady Future that completes when the replica become ready.
      * @param listener Replica listener.
      * @param raftClient Topology aware Raft client.
      * @param storageIndexTracker Storage index tracker.
      */
     private CompletableFuture<Replica> startReplicaInternal(
             ReplicationGroupId replicaGrpId,
-            CompletableFuture<Void> whenReplicaReady,
             ReplicaListener listener,
             TopologyAwareRaftGroupService raftClient,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker
     ) {
+        LOG.info("Replica is about to start [replicationGroupId={}].", replicaGrpId);
+
         ClusterNode localNode = clusterNetSvc.topologyService().localMember();
 
         Replica newReplica = new Replica(
                 replicaGrpId,
-                whenReplicaReady,
                 listener,
                 storageIndexTracker,
                 raftClient,
                 localNode,
                 executor,
-                placementDriver
+                placementDriver,
+                clockService
         );
 
         CompletableFuture<Replica> replicaFuture = replicas.compute(replicaGrpId, (k, existingReplicaFuture) -> {
             if (existingReplicaFuture == null || existingReplicaFuture.isDone()) {
                 assert existingReplicaFuture == null || isCompletedSuccessfully(existingReplicaFuture);
+                LOG.info("Replica is started [replicationGroupId={}].", replicaGrpId);
 
                 return completedFuture(newReplica);
             } else {
                 existingReplicaFuture.complete(newReplica);
+                LOG.info("Replica is started, existing replica waiter was completed [replicationGroupId={}].", replicaGrpId);
 
                 return existingReplicaFuture;
             }
@@ -528,10 +541,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     return null;
                 })
                 .thenCompose(v -> replicaFuture);
-    }
-
-    private static boolean isCompletedSuccessfully(CompletableFuture<?> future) {
-        return future.isDone() && !future.isCompletedExceptionally();
     }
 
     /**
@@ -612,9 +621,13 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> start() {
-        clusterNetSvc.messagingService().addMessageHandler(ReplicaMessageGroup.class, handler);
+        ExecutorChooser<NetworkMessage> replicaMessagesExecutorChooser = message -> requestsExecutor;
+
+        clusterNetSvc.messagingService().addMessageHandler(ReplicaMessageGroup.class, replicaMessagesExecutorChooser, handler);
         clusterNetSvc.messagingService().addMessageHandler(PlacementDriverMessageGroup.class, placementDriverMessageHandler);
-        messageGroupsToHandle.forEach(mg -> clusterNetSvc.messagingService().addMessageHandler(mg, handler));
+        messageGroupsToHandle.forEach(
+                mg -> clusterNetSvc.messagingService().addMessageHandler(mg, replicaMessagesExecutorChooser, handler)
+        );
         scheduledIdleSafeTimeSyncExecutor.scheduleAtFixedRate(
                 this::idleSafeTimeSync,
                 0,
@@ -686,7 +699,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                             groupId,
                                             clusterNetSvc.topologyService().localMember())
                             )
-                            .timestampLong(clock.update(requestTimestamp).longValue())
+                            .timestampLong(clockService.updateClock(requestTimestamp).longValue())
                             .build(),
                     correlationId);
         } else {
@@ -724,7 +737,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             return REPLICA_MESSAGES_FACTORY
                     .timestampAwareReplicaResponse()
                     .result(result)
-                    .timestampLong(clock.nowLong())
+                    .timestampLong(clockService.nowLong())
                     .build();
         } else {
             return REPLICA_MESSAGES_FACTORY
@@ -742,7 +755,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             return REPLICA_MESSAGES_FACTORY
                     .errorTimestampAwareReplicaResponse()
                     .throwable(ex)
-                    .timestampLong(clock.nowLong())
+                    .timestampLong(clockService.nowLong())
                     .build();
         } else {
             return REPLICA_MESSAGES_FACTORY
@@ -774,6 +787,18 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @return True if the replica is started.
      */
     public boolean isReplicaStarted(ReplicationGroupId replicaGrpId) {
+        CompletableFuture<Replica> replicaFuture = replicas.get(replicaGrpId);
+        return replicaFuture != null && isCompletedSuccessfully(replicaFuture);
+    }
+
+    /**
+     * Check if replica was touched by an any actor. Touched here means either replica creation or replica waiter registration.
+     *
+     * @param replicaGrpId Replication group id.
+     * @return True if the replica was touched.
+     */
+    @TestOnly
+    public boolean isReplicaTouched(ReplicationGroupId replicaGrpId) {
         return replicas.containsKey(replicaGrpId);
     }
 
@@ -784,6 +809,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      */
     @TestOnly
     public Set<ReplicationGroupId> startedGroups() {
-        return replicas.keySet();
+        return replicas.entrySet().stream()
+                .filter(entry -> isCompletedSuccessfully(entry.getValue()))
+                .map(Entry::getKey)
+                .collect(toSet());
     }
 }

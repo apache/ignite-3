@@ -17,15 +17,21 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
+import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readSchema;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
-import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuples;
+import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
 
+import java.util.ArrayList;
 import java.util.BitSet;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.table.RecordBinaryViewImpl;
+import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.manager.IgniteTables;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Client streamer batch request.
@@ -47,7 +53,7 @@ public class ClientStreamerBatchSendRequest {
         return readTableAsync(in, tables).thenCompose(table -> {
             int partition = in.unpackInt();
             BitSet deleted = in.unpackBitSetNullable();
-            return readTuples(in, table, false).thenCompose(tuples -> {
+            return readTuples(in, table, deleted).thenCompose(tuples -> {
                 RecordBinaryViewImpl recordView = (RecordBinaryViewImpl) table.recordView();
 
                 return recordView.updateAll(partition, tuples, deleted)
@@ -55,4 +61,22 @@ public class ClientStreamerBatchSendRequest {
             });
         });
     }
+
+    private static CompletableFuture<List<Tuple>> readTuples(
+            ClientMessageUnpacker unpacker,
+            TableViewInternal table,
+            @Nullable BitSet deleted) {
+        return readSchema(unpacker, table).thenApply(schema -> {
+            var rowCnt = unpacker.unpackInt();
+            var res = new ArrayList<Tuple>(rowCnt);
+
+            for (int i = 0; i < rowCnt; i++) {
+                var keyOnly = deleted != null && deleted.get(i);
+                res.add(readTuple(unpacker, keyOnly, schema));
+            }
+
+            return res;
+        });
+    }
+
 }

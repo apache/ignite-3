@@ -21,6 +21,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
@@ -50,6 +51,9 @@ public interface CatalogService extends EventProducer<CatalogEvent, CatalogEvent
 
     String DEFAULT_ZONE_NAME = "Default";
 
+    /** Default storage profile. */
+    String DEFAULT_STORAGE_PROFILE = "default";
+
     @Nullable Catalog catalog(int catalogVersion);
 
     @Nullable CatalogTableDescriptor table(String tableName, long timestamp);
@@ -60,7 +64,13 @@ public interface CatalogService extends EventProducer<CatalogEvent, CatalogEvent
 
     Collection<CatalogTableDescriptor> tables(int catalogVersion);
 
-    @Nullable CatalogIndexDescriptor index(String indexName, long timestamp);
+    /**
+     * Returns an <em>alive</em> index with the given name, that is an index that has not been dropped yet at a given point in time.
+     *
+     * <p>This effectively means that the index must be present in the Catalog and not in the {@link CatalogIndexStatus#STOPPING}
+     * state.
+     */
+    @Nullable CatalogIndexDescriptor aliveIndex(String indexName, long timestamp);
 
     @Nullable CatalogIndexDescriptor index(int indexId, long timestamp);
 

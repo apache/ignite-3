@@ -39,11 +39,14 @@ import java.util.stream.Stream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.handlers.StopNodeFailureHandler;
 import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
+import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
@@ -71,7 +74,8 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
 
     @BeforeEach
     public void beforeTest() {
-        taskExecutor = new QueryTaskExecutorImpl("no_node", 4);
+        var failureProcessor = new FailureProcessor("no_node", new StopNodeFailureHandler());
+        taskExecutor = new QueryTaskExecutorImpl("no_node", 4, failureProcessor);
         taskExecutor.start();
     }
 
@@ -96,14 +100,18 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
                     false,
                     0);
 
-            StripedThreadPoolExecutor stripedThreadPoolExecutor = (StripedThreadPoolExecutor) IgniteTestUtils.getFieldValue(
+            StripedThreadPoolExecutor stripedThreadPoolExecutor = IgniteTestUtils.getFieldValue(
                     taskExecutor,
                     QueryTaskExecutorImpl.class,
                     "stripedThreadPoolExecutor"
             );
-            stripedThreadPoolExecutor.shutdown();
 
-            IgniteTestUtils.setFieldValue(taskExecutor, "stripedThreadPoolExecutor", testExecutor);
+            // change it once on startup
+            if (!(stripedThreadPoolExecutor instanceof IgniteTestStripedThreadPoolExecutor)) {
+                stripedThreadPoolExecutor.shutdown();
+
+                IgniteTestUtils.setFieldValue(taskExecutor, "stripedThreadPoolExecutor", testExecutor);
+            }
         }
 
         FragmentDescription fragmentDesc = getFragmentDescription();
@@ -116,12 +124,13 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
                 fragmentDesc,
                 rowHandler(),
                 Map.of(),
-                TxAttributes.fromTx(new NoOpTransaction("fake-test-node"))
+                TxAttributes.fromTx(new NoOpTransaction("fake-test-node")),
+                SqlQueryProcessor.DEFAULT_TIME_ZONE_ID
         );
     }
 
     protected FragmentDescription getFragmentDescription() {
-        return new FragmentDescription(0, true, Long2ObjectMaps.emptyMap(), null, null);
+        return new FragmentDescription(0, true, Long2ObjectMaps.emptyMap(), null, null, null);
     }
 
     protected Object[] row(Object... fields) {

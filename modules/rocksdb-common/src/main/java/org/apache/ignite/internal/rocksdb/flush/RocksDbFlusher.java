@@ -28,8 +28,10 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.IntSupplier;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.tracing.TracingManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.rocksdb.AbstractEventListener;
@@ -86,6 +88,8 @@ public class RocksDbFlusher {
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock;
 
+    private final RocksDbFlushListener flushListener;
+
     /**
      * Instance of the latest scheduled flush closure.
      *
@@ -113,6 +117,7 @@ public class RocksDbFlusher {
             ScheduledExecutorService scheduledPool,
             ExecutorService threadPool,
             IntSupplier delaySupplier,
+            LogSyncer logSyncer,
             Runnable onFlushCompleted
     ) {
         this.busyLock = busyLock;
@@ -120,14 +125,15 @@ public class RocksDbFlusher {
         this.threadPool = threadPool;
         this.delaySupplier = delaySupplier;
         this.onFlushCompleted = onFlushCompleted;
+        this.flushListener = new RocksDbFlushListener(this, logSyncer);
     }
 
     /**
      * Returns an instance of {@link AbstractEventListener} to process actual RocksDB events. Returned listener must be set into
-     * {@link Options#setListeners(List)} before database is started. Otherwise, no events would occurre.
+     * {@link Options#setListeners(List)} before database is started. Otherwise, no events would occur.
      */
     public AbstractEventListener listener() {
-        return new RocksDbFlushListener(this);
+        return flushListener;
     }
 
     /**
@@ -175,8 +181,8 @@ public class RocksDbFlusher {
      * enabled.
      *
      * @param schedule {@code true} if {@link RocksDB#flush(FlushOptions)} should be explicitly triggerred in the near future. Please refer
-     *      to {@link RocksDbFlusher#RocksDbFlusher(IgniteSpinBusyLock, ScheduledExecutorService, ExecutorService, IntSupplier, Runnable)}
-     *      parameters description to see what's really happening in this case.
+     *      to {@link RocksDbFlusher#RocksDbFlusher(IgniteSpinBusyLock, ScheduledExecutorService, ExecutorService, IntSupplier, LogSyncer,
+     *      Runnable)} parameters description to see what's really happening in this case.
      *
      * @see #scheduleFlush()
      */
@@ -265,7 +271,7 @@ public class RocksDbFlusher {
             future.cancel(false);
         }
 
-        flushOptions.close();
+        RocksUtils.closeAll(flushListener, flushOptions);
     }
 
     /**

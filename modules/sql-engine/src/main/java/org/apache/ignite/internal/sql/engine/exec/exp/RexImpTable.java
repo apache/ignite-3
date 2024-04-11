@@ -441,6 +441,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
  *
  * <p>Immutable.
  */
+@SuppressWarnings("PMD.UnnecessaryFullyQualifiedName")
 public class RexImpTable {
   /** The singleton instance. */
   public static final RexImpTable INSTANCE =
@@ -1016,6 +1017,7 @@ public class RexImpTable {
       defineMethod(ROUND, IgniteMethod.ROUND.method(), NullPolicy.STRICT);
       defineMethod(TRUNCATE, IgniteMethod.TRUNCATE.method(), NullPolicy.STRICT);
       defineMethod(IgniteSqlOperatorTable.SUBSTRING, IgniteMethod.SUBSTRING.method(), NullPolicy.STRICT);
+      defineMethod(IgniteSqlOperatorTable.DECIMAL_DIVIDE, IgniteMethod.DECIMAL_DIVIDE.method(), NullPolicy.ARG0);
 
       map.put(TYPEOF, systemFunctionImplementor);
       map.put(SYSTEM_RANGE, systemFunctionImplementor);
@@ -2006,7 +2008,7 @@ public class RexImpTable {
         WinAggAddContext add) {
       Expression acc = add.accumulator().get(0);
       // This is an example of the generated code
-      if (false) {
+      if (false) { // NOPMD
         new Object() {
           int curentPosition; // position in for-win-agg-loop
           int startIndex;     // index of start of window
@@ -2014,7 +2016,7 @@ public class RexImpTable {
           @SuppressWarnings("nullness")
           void sample() {
             if (curentPosition > startIndex) {
-              if (rows[curentPosition - 1].compareTo(rows[curentPosition])
+              if (rows[curentPosition - 1].compareTo(rows[curentPosition]) // NOPMD
                   > 0) {
                 // update rank
               }
@@ -2782,7 +2784,7 @@ public class RexImpTable {
       Expression errorBehavior = Expressions.constant(SqlJsonValueEmptyOrErrorBehavior.NULL);
       Expression defaultValueOnError = Expressions.constant(null);
       // Patched up with user defines.
-      if (leftExprs.size() > 0) {
+      if (!leftExprs.isEmpty()) {
         for (int i = 0; i < leftExprs.size(); i++) {
           Expression expr = leftExprs.get(i);
           final Object exprVal = translator.getLiteralValue(expr);
@@ -3542,6 +3544,7 @@ public class RexImpTable {
       case DATE:
         switch (typeName) {
         case TIMESTAMP:
+        case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
           trop0 =
               Expressions.convert_(
                   IgniteExpressions.multiplyExact(trop0,

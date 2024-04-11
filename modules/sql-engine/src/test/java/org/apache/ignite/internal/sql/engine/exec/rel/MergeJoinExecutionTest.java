@@ -40,6 +40,7 @@ import org.apache.calcite.rel.core.JoinRelType;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.validate.SqlConformanceEnum;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
@@ -484,8 +485,8 @@ public class MergeJoinExecutionTest extends AbstractExecutionTest<Object[]> {
         ScanNode<Object[]> rightNode = new ScanNode<>(ctx, Arrays.asList(right));
 
         ExecutionContext<Object[]> ectx =
-                new ExecutionContext<>(null, null, null,
-                        null, null, ArrayRowHandler.INSTANCE, null, null);
+                new ExecutionContext<>(null, null, null, null, null,
+                        ArrayRowHandler.INSTANCE, null, null, SqlQueryProcessor.DEFAULT_TIME_ZONE_ID);
 
         ExpressionFactoryImpl<Object[]> expFactory = new ExpressionFactoryImpl<>(ectx, SqlConformanceEnum.DEFAULT);
 

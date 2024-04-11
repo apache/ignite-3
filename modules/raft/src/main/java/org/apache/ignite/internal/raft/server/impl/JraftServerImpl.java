@@ -40,10 +40,12 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
+import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
@@ -224,6 +226,11 @@ public class JraftServerImpl implements RaftServer {
         return new StoreOptions();
     }
 
+    /** Returns write-ahead log synchronizer. */
+    public LogSyncer getLogSyncer() {
+        return logStorageFactory;
+    }
+
     /**
      * Sets {@link AppendEntriesRequestInterceptor} to use. Should only be called from the same thread that is used
      * to {@link #start()} the component.
@@ -303,6 +310,7 @@ public class JraftServerImpl implements RaftServer {
                     opts.getRaftOptions().getDisruptorBufferSize(),
                     ApplyTask::new,
                     opts.getStripes(),
+                    false,
                     false
             ));
         }
@@ -314,6 +322,7 @@ public class JraftServerImpl implements RaftServer {
                     opts.getRaftOptions().getDisruptorBufferSize(),
                     LogEntryAndClosure::new,
                     opts.getStripes(),
+                    false,
                     false
             ));
         }
@@ -325,6 +334,7 @@ public class JraftServerImpl implements RaftServer {
                     opts.getRaftOptions().getDisruptorBufferSize(),
                     ReadIndexEvent::new,
                     opts.getStripes(),
+                    false,
                     false
             ));
         }
@@ -335,11 +345,12 @@ public class JraftServerImpl implements RaftServer {
                     "JRaft-LogManager-Disruptor",
                     opts.getRaftOptions().getDisruptorBufferSize(),
                     StableClosureEvent::new,
-                    opts.getStripes(),
-                    true
+                    opts.getLogStripesCount(),
+                    true,
+                    opts.isLogYieldStrategy()
             ));
 
-            opts.setLogStripes(IntStream.range(0, opts.getStripes()).mapToObj(i -> new Stripe()).collect(toList()));
+            opts.setLogStripes(IntStream.range(0, opts.getLogStripesCount()).mapToObj(i -> new Stripe()).collect(toList()));
         }
 
         logStorageFactory.start();
@@ -567,6 +578,32 @@ public class JraftServerImpl implements RaftServer {
                 return false;
             }
         });
+    }
+
+    /**
+     * Performs a {@code resetPeers} operation on raft node.
+     *
+     * @param raftNodeId Raft node ID.
+     * @param peersAndLearners New node configuration.
+     */
+    public void resetPeers(RaftNodeId raftNodeId, PeersAndLearners peersAndLearners) {
+        RaftGroupService raftGroupService = nodes.get(raftNodeId);
+
+        List<PeerId> peerIds = peersAndLearners.peers().stream().map(PeerId::fromPeer).collect(toList());
+
+        List<PeerId> learnerIds = peersAndLearners.learners().stream().map(PeerId::fromPeer).collect(toList());
+
+        raftGroupService.getRaftNode().resetPeers(new Configuration(peerIds, learnerIds));
+    }
+
+    /**
+     * Iterates over all currently started raft services. Doesn't block the starting or stopping of other services, so consumer may
+     * accidentally receive stopped service.
+     *
+     * @param consumer Closure to process each service.
+     */
+    public void forEach(BiConsumer<RaftNodeId, RaftGroupService> consumer) {
+        nodes.forEach(consumer);
     }
 
     /** {@inheritDoc} */

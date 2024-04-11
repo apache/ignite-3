@@ -260,7 +260,11 @@ sql_result data_query::make_request_execute() {
             tx = m_connection.get_transaction_id();
             assert(tx);
         }
-        auto response = m_connection.sync_request(protocol::client_operation::SQL_EXEC, [&](protocol::writer &writer) {
+
+        bool single = m_params.get_param_set_size() <= 1;
+        auto client_op = single ? protocol::client_operation::SQL_EXEC : protocol::client_operation::SQL_EXEC_BATCH;
+
+        auto response = m_connection.sync_request(client_op, [&](protocol::writer &writer) {
             if (tx)
                 writer.write(*tx);
             else
@@ -281,7 +285,12 @@ sql_result data_query::make_request_execute() {
 
             writer.write(m_query);
 
-            m_params.write(writer);
+            if (single) {
+                m_params.write(writer);
+            } else {
+                m_params.write(writer, 0, m_params.get_param_set_size(), true);
+            }
+
             writer.write(m_connection.get_observable_timestamp());
         });
 
@@ -293,16 +302,48 @@ sql_result data_query::make_request_execute() {
         m_has_rowset = reader->read_bool();
         m_has_more_pages = reader->read_bool();
         m_was_applied = reader->read_bool();
-        m_rows_affected = reader->read_int64();
+        if (single) {
+            m_rows_affected = reader->read_int64();
 
-        if (m_has_rowset) {
-            auto columns = read_result_set_meta(*reader);
-            set_resultset_meta(std::move(columns));
-            auto page = std::make_unique<result_page>(std::move(response), std::move(reader));
-            m_cursor = std::make_unique<cursor>(std::move(page));
+            if (m_has_rowset) {
+                auto columns = read_result_set_meta(*reader);
+                set_resultset_meta(std::move(columns));
+                auto page = std::make_unique<result_page>(std::move(response), std::move(reader));
+                m_cursor = std::make_unique<cursor>(std::move(page));
+            }
+
+            m_executed = true;
+        } else {
+            auto affected_rows = reader->read_int64_array();
+            auto status_ptr = m_params.get_params_status_ptr();
+
+            m_rows_affected = 0;
+            for (auto &ar : affected_rows) {
+                m_rows_affected += ar;
+            }
+            m_params.set_params_processed(affected_rows.size());
+
+            if (status_ptr) {
+                for (auto i = 0; i < m_params.get_param_set_size(); i++) {
+                    status_ptr[i] = (std::size_t(i) < affected_rows.size()) ? SQL_PARAM_SUCCESS : SQL_PARAM_ERROR;
+                }
+            }
+
+            // Batch query, set attribute if it's set
+            if (auto affected = m_params.get_params_processed_ptr(); affected) {
+                *affected = m_rows_affected;
+            }
+
+            m_executed = true;
+
+            // Check error if this is a batch query
+            if (auto error_code = reader->read_int16_nullable(); error_code) {
+                auto error_message = reader->read_string();
+                throw odbc_error(error_code_to_sql_state(error::code(error_code.value())), error_message);
+            } else {
+                reader->skip(); // error message
+            }
         }
-
-        m_executed = true;
     });
 
     return success ? sql_result::AI_SUCCESS : sql_result::AI_ERROR;

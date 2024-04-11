@@ -19,7 +19,10 @@ package org.apache.ignite.client.handler;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.tableIdNotFoundException;
-import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
+import static org.apache.ignite.internal.event.EventListener.fromConsumer;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -34,14 +37,16 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.event.EventListener;
-import org.apache.ignite.internal.event.EventParameters;
-import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.NodeStoppingException;
+import org.apache.ignite.internal.lowwatermark.LowWatermark;
+import org.apache.ignite.internal.lowwatermark.LowWatermarkChangedListener;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.table.LongPriorityQueue;
 import org.apache.ignite.internal.table.distributed.schema.SchemaSyncService;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -68,18 +73,28 @@ import org.jetbrains.annotations.Nullable;
  *       load it from the placement driver. Wait for a limited amount of time (in getPrimaryReplica) and return what we have.
  *       Don't block the client for too long, it is better to miss the primary than to delay the request.
  */
-public class ClientPrimaryReplicaTracker implements EventListener<EventParameters> {
+public class ClientPrimaryReplicaTracker {
     private final ConcurrentHashMap<TablePartitionId, ReplicaHolder> primaryReplicas = new ConcurrentHashMap<>();
 
     private final AtomicLong maxStartTime = new AtomicLong();
 
     private final PlacementDriver placementDriver;
 
-    private final HybridClock clock;
+    private final ClockService clockService;
 
     private final CatalogService catalogService;
 
     private final SchemaSyncService schemaSyncService;
+
+    private final LowWatermark lowWatermark;
+
+    private final LowWatermarkChangedListener lwmListener = this::onLwmChanged;
+    private final EventListener<DropTableEventParameters> dropTableEventListener = fromConsumer(this::onTableDrop);
+    private final EventListener<PrimaryReplicaEventParameters> primaryReplicaEventListener = fromConsumer(this::onPrimaryReplicaChanged);
+
+    /** A queue for deferred table destruction events. */
+    private final LongPriorityQueue<DestroyTableEvent> destructionEventsQueue =
+            new LongPriorityQueue<>(DestroyTableEvent::catalogVersion);
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -90,19 +105,22 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
      *
      * @param placementDriver Placement driver.
      * @param catalogService Catalog.
-     * @param clock Hybrid clock.
+     * @param clockService Clock service.
      * @param schemaSyncService Schema synchronization service.
+     * @param lowWatermark Low watermark.
      */
     public ClientPrimaryReplicaTracker(
             PlacementDriver placementDriver,
             CatalogService catalogService,
-            HybridClock clock,
-            SchemaSyncService schemaSyncService
+            ClockService clockService,
+            SchemaSyncService schemaSyncService,
+            LowWatermark lowWatermark
     ) {
         this.placementDriver = placementDriver;
         this.catalogService = catalogService;
-        this.clock = clock;
+        this.clockService = clockService;
         this.schemaSyncService = schemaSyncService;
+        this.lowWatermark = lowWatermark;
     }
 
     /**
@@ -132,7 +150,7 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
      * @return Primary replicas for the table, or null when not yet known.
      */
     private CompletableFuture<PrimaryReplicasResult> primaryReplicasAsyncInternal(int tableId, @Nullable Long maxStartTime) {
-        HybridTimestamp timestamp = clock.now();
+        HybridTimestamp timestamp = clockService.now();
 
         if (maxStartTime == null) {
             maxStartTime = this.maxStartTime.get();
@@ -148,7 +166,7 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
         }
 
         // Request primary for all partitions.
-        CompletableFuture<Void> partitionsFut = partitionsAsync(tableId, timestamp).thenCompose(partitions -> {
+        CompletableFuture<Integer> partitionsFut = partitionsAsync(tableId, timestamp).thenCompose(partitions -> {
             CompletableFuture<?>[] futures = new CompletableFuture<?>[partitions];
 
             for (int partition = 0; partition < partitions; partition++) {
@@ -161,13 +179,13 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
                 });
             }
 
-            return CompletableFuture.allOf(futures);
+            return CompletableFuture.allOf(futures).thenApply(v -> partitions);
         });
 
         // Wait for all futures, check condition again.
         // Give up (return null) if we don't have replicas with specified maxStartTime - the client will retry later.
         long maxStartTime0 = maxStartTime;
-        return partitionsFut.handle((v, err) -> {
+        return partitionsFut.handle((partitions, err) -> {
             if (err != null) {
                 var cause = ExceptionUtils.unwrapCause(err);
 
@@ -178,7 +196,13 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
                 assert false : "Unexpected error: " + err;
             }
 
-            return primaryReplicasNoWait(tableId, maxStartTime0, timestamp, true);
+            PrimaryReplicasResult res = primaryReplicasNoWait(tableId, maxStartTime0, timestamp, true);
+            if (res != null) {
+                return res;
+            }
+
+            // Return partition count to the client so that batching can be initialized.
+            return new PrimaryReplicasResult(partitions);
         });
     }
 
@@ -244,16 +268,15 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
         return maxStartTime.get();
     }
 
-    @SuppressWarnings({"rawtypes", "unchecked"})
     void start() {
         // This could be newer than the actual max start time, but we are on the safe side here.
-        maxStartTime.set(clock.nowLong());
+        maxStartTime.set(clockService.nowLong());
 
-        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, (EventListener) this);
-        catalogService.listen(CatalogEvent.TABLE_DROP, (EventListener) this);
+        placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, primaryReplicaEventListener);
+        catalogService.listen(CatalogEvent.TABLE_DROP, dropTableEventListener);
+        lowWatermark.addUpdateListener(lwmListener);
     }
 
-    @SuppressWarnings({"rawtypes", "unchecked"})
     void stop() {
         if (!stopGuard.compareAndSet(false, true)) {
             return;
@@ -261,65 +284,52 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
 
         busyLock.block();
 
-        catalogService.removeListener(CatalogEvent.TABLE_DROP, (EventListener) this);
-        placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, (EventListener) this);
+        lowWatermark.removeUpdateListener(lwmListener);
+        catalogService.removeListener(CatalogEvent.TABLE_DROP, dropTableEventListener);
+        placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, primaryReplicaEventListener);
         primaryReplicas.clear();
     }
 
-    @Override
-    public CompletableFuture<Boolean> notify(EventParameters parameters, @Nullable Throwable exception) {
-        if (!busyLock.enterBusy()) {
-            return CompletableFuture.failedFuture(new NodeStoppingException());
-        }
-
-        try {
-            if (exception != null) {
-                return falseCompletedFuture();
+    private void onPrimaryReplicaChanged(PrimaryReplicaEventParameters primaryReplicaEvent) {
+        inBusyLock(busyLock, () -> {
+            if (!(primaryReplicaEvent.groupId() instanceof TablePartitionId)) {
+                return;
             }
 
-            return notifyInternal(parameters);
-        } finally {
-            busyLock.leaveBusy();
-        }
+            TablePartitionId tablePartitionId = (TablePartitionId) primaryReplicaEvent.groupId();
+
+            updatePrimaryReplica(tablePartitionId, primaryReplicaEvent.startTime(), primaryReplicaEvent.leaseholder());
+        });
     }
 
-    private CompletableFuture<Boolean> notifyInternal(EventParameters parameters) {
-        if (parameters instanceof DropTableEventParameters) {
-            removeTable((DropTableEventParameters) parameters);
+    private void onTableDrop(DropTableEventParameters parameters) {
+        inBusyLock(busyLock, () -> {
+            int tableId = parameters.tableId();
+            int catalogVersion = parameters.catalogVersion();
+            int previousVersion = catalogVersion - 1;
 
-            return falseCompletedFuture();
-        }
+            // Retrieve descriptor during synchronous call, before the previous catalog version could be concurrently compacted.
+            int partitions = getTablePartitionsFromCatalog(catalogService, previousVersion, tableId);
 
-        if (!(parameters instanceof PrimaryReplicaEventParameters)) {
-            assert false : "Unexpected event parameters: " + parameters.getClass();
-
-            return falseCompletedFuture();
-        }
-
-        PrimaryReplicaEventParameters primaryReplicaEvent = (PrimaryReplicaEventParameters) parameters;
-        if (!(primaryReplicaEvent.groupId() instanceof TablePartitionId)) {
-            return falseCompletedFuture();
-        }
-
-        TablePartitionId tablePartitionId = (TablePartitionId) primaryReplicaEvent.groupId();
-
-        updatePrimaryReplica(tablePartitionId, primaryReplicaEvent.startTime(), primaryReplicaEvent.leaseholder());
-
-        return falseCompletedFuture(); // false: don't remove listener.
+            destructionEventsQueue.enqueue(new DestroyTableEvent(catalogVersion, tableId, partitions));
+        });
     }
 
-    private void removeTable(DropTableEventParameters dropTableEvent) {
-        // Use previous version of the catalog to get the dropped table.
-        int prevCatalogVersion = dropTableEvent.catalogVersion() - 1;
+    private CompletableFuture<Void> onLwmChanged(HybridTimestamp ts) {
+        return inBusyLockAsync(busyLock, () -> {
+            int earliestVersion = catalogService.activeCatalogVersion(HybridTimestamp.hybridTimestampToLong(ts));
 
-        CatalogTableDescriptor table = catalogService.table(dropTableEvent.tableId(), prevCatalogVersion);
-        assert table != null : "Table from DropTableEventParameters not found: " + dropTableEvent.tableId();
+            List<DestroyTableEvent> events = destructionEventsQueue.drainUpTo(earliestVersion);
 
-        CatalogZoneDescriptor zone = catalogService.zone(table.zoneId(), prevCatalogVersion);
-        assert zone != null : "Zone from DropTableEventParameters not found: " + table.zoneId();
+            events.forEach(event -> removeTable(event.tableId(), event.partitions()));
 
-        for (int partition = 0; partition < zone.partitions(); partition++) {
-            TablePartitionId tablePartitionId = new TablePartitionId(dropTableEvent.tableId(), partition);
+            return nullCompletedFuture();
+        });
+    }
+
+    private void removeTable(int tableId, int partitions) {
+        for (int partition = 0; partition < partitions; partition++) {
+            TablePartitionId tablePartitionId = new TablePartitionId(tableId, partition);
             primaryReplicas.remove(tablePartitionId);
         }
     }
@@ -340,6 +350,18 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
         maxStartTime.updateAndGet(value -> Math.max(value, startTimeLong));
     }
 
+    private static int getTablePartitionsFromCatalog(CatalogService catalogService, int catalogVersion, int tableId) {
+        CatalogTableDescriptor tableDescriptor = catalogService.table(tableId, catalogVersion);
+        assert tableDescriptor != null : "tableId=" + tableId + ", catalogVersion=" + catalogVersion;
+
+        int zoneId = tableDescriptor.zoneId();
+
+        CatalogZoneDescriptor zoneDescriptor = catalogService.zone(zoneId, catalogVersion);
+        assert zoneDescriptor != null : "zoneId=" + zoneId + ", catalogVersion=" + catalogVersion;
+
+        return zoneDescriptor.partitions();
+    }
+
     private static class ReplicaHolder {
         final String nodeName;
 
@@ -355,21 +377,60 @@ public class ClientPrimaryReplicaTracker implements EventListener<EventParameter
      * Primary replicas per partition with timestamp.
      */
     public static class PrimaryReplicasResult {
+        private final int partitions;
+
+        @Nullable
         private final List<String> nodeNames;
 
         private final long timestamp;
 
+        PrimaryReplicasResult(int partitions) {
+            this.partitions = partitions;
+            this.nodeNames = null;
+            this.timestamp = 0;
+        }
+
         PrimaryReplicasResult(List<String> nodeNames, long timestamp) {
+            this.partitions = nodeNames.size();
             this.nodeNames = nodeNames;
             this.timestamp = timestamp;
         }
 
-        public List<String> nodeNames() {
+        public @Nullable List<String> nodeNames() {
             return nodeNames;
         }
 
         public long timestamp() {
             return timestamp;
+        }
+
+        public int partitions() {
+            return partitions;
+        }
+    }
+
+    /** Internal event. */
+    private static class DestroyTableEvent {
+        final int catalogVersion;
+        final int tableId;
+        final int partitions;
+
+        DestroyTableEvent(int catalogVersion, int tableId, int partitions) {
+            this.catalogVersion = catalogVersion;
+            this.tableId = tableId;
+            this.partitions = partitions;
+        }
+
+        public int catalogVersion() {
+            return catalogVersion;
+        }
+
+        public int tableId() {
+            return tableId;
+        }
+
+        public int partitions() {
+            return partitions;
         }
     }
 }

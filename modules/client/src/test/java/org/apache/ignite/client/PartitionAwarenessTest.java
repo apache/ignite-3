@@ -41,9 +41,11 @@ import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.streamer.SimplePublisher;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
@@ -207,15 +209,8 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     public void testCustomColocationKey() {
         RecordView<Tuple> recordView = table(FakeIgniteTables.TABLE_COLOCATION_KEY).recordView();
 
-        // COLO-2 is nullable and not set.
-        assertOpOnNode("server-1", "get", x -> recordView.get(null, Tuple.create().set("ID", 0).set("COLO-1", "0")));
-        assertOpOnNode("server-1", "get", x -> recordView.get(null, Tuple.create().set("ID", 2).set("COLO-1", "0")));
-        assertOpOnNode("server-1", "get", x -> recordView.get(null, Tuple.create().set("ID", 3).set("COLO-1", "0")));
-        assertOpOnNode("server-2", "get", x -> recordView.get(null, Tuple.create().set("ID", 3).set("COLO-1", "4")));
-
-        // COLO-2 is set.
-        assertOpOnNode("server-2", "get", x -> recordView.get(null, Tuple.create().set("ID", 0).set("COLO-1", "0").set("COLO-2", 1)));
-        assertOpOnNode("server-1", "get", x -> recordView.get(null, Tuple.create().set("ID", 0).set("COLO-1", "0").set("COLO-2", 8)));
+        assertOpOnNode("server-2", "get", x -> recordView.get(null, Tuple.create().set("ID", 0).set("COLO-1", "0").set("COLO-2", 4L)));
+        assertOpOnNode("server-1", "get", x -> recordView.get(null, Tuple.create().set("ID", 0).set("COLO-1", "0").set("COLO-2", 8L)));
     }
 
     @Test
@@ -445,8 +440,8 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         Tuple t1 = Tuple.create().set("ID", 1L);
         Tuple t2 = Tuple.create().set("ID", 2L);
 
-        assertThat(compute().executeColocatedAsync(table.name(), t1, List.of(), "job").resultAsync(), willBe(nodeKey1));
-        assertThat(compute().executeColocatedAsync(table.name(), t2, List.of(), "job").resultAsync(), willBe(nodeKey2));
+        assertThat(compute().executeColocatedAsync(table.name(), t1, List.of(), "job"), willBe(nodeKey1));
+        assertThat(compute().executeColocatedAsync(table.name(), t2, List.of(), "job"), willBe(nodeKey2));
     }
 
     @Test
@@ -454,8 +449,8 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         var mapper = Mapper.of(Long.class);
         Table table = defaultTable();
 
-        assertThat(compute().executeColocatedAsync(table.name(), 1L, mapper, List.of(), "job").resultAsync(), willBe(nodeKey1));
-        assertThat(compute().executeColocatedAsync(table.name(), 2L, mapper, List.of(), "job").resultAsync(), willBe(nodeKey2));
+        assertThat(compute().executeColocatedAsync(table.name(), 1L, mapper, List.of(), "job"), willBe(nodeKey1));
+        assertThat(compute().executeColocatedAsync(table.name(), 2L, mapper, List.of(), "job"), willBe(nodeKey2));
     }
 
     @Test
@@ -465,7 +460,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         Consumer<Tuple> stream = t -> {
             CompletableFuture<Void> fut;
 
-            try (SubmissionPublisher<Tuple> publisher = new SubmissionPublisher<>()) {
+            try (SimplePublisher<Tuple> publisher = new SimplePublisher<>()) {
                 fut = recordView.streamData(publisher, null);
                 publisher.submit(t);
             }
@@ -486,7 +481,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         Consumer<PersonPojo> stream = t -> {
             CompletableFuture<Void> fut;
 
-            try (SubmissionPublisher<PersonPojo> publisher = new SubmissionPublisher<>()) {
+            try (SimplePublisher<PersonPojo> publisher = new SimplePublisher<>()) {
                 fut = pojoView.streamData(publisher, null);
                 publisher.submit(t);
             }
@@ -507,7 +502,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         Consumer<Tuple> stream = t -> {
             CompletableFuture<Void> fut;
 
-            try (SubmissionPublisher<Entry<Tuple, Tuple>> publisher = new SubmissionPublisher<>()) {
+            try (SimplePublisher<Entry<Tuple, Tuple>> publisher = new SimplePublisher<>()) {
                 fut = recordView.streamData(publisher, null);
                 publisher.submit(Map.entry(t, Tuple.create()));
             }
@@ -528,7 +523,7 @@ public class PartitionAwarenessTest extends AbstractClientTest {
         Consumer<Long> stream = t -> {
             CompletableFuture<Void> fut;
 
-            try (SubmissionPublisher<Entry<Long, String>> publisher = new SubmissionPublisher<>()) {
+            try (SimplePublisher<Entry<Long, String>> publisher = new SimplePublisher<>()) {
                 fut = kvView.streamData(publisher, null);
                 publisher.submit(Map.entry(t, t.toString()));
             }
@@ -546,20 +541,20 @@ public class PartitionAwarenessTest extends AbstractClientTest {
     public void testDataStreamerReceivesPartitionAssignmentUpdates() {
         DataStreamerOptions options = DataStreamerOptions.builder()
                 .pageSize(1)
-                .perNodeParallelOperations(1)
+                .perPartitionParallelOperations(1)
                 .autoFlushFrequency(50)
                 .build();
 
         CompletableFuture<Void> fut;
 
         RecordView<Tuple> recordView = defaultTable().recordView();
-        try (SubmissionPublisher<Tuple> publisher = new SubmissionPublisher<>()) {
+        try (SubmissionPublisher<DataStreamerItem<Tuple>> publisher = new SubmissionPublisher<>()) {
             fut = recordView.streamData(publisher, options);
 
             Consumer<Long> submit = id -> {
                 try {
                     lastOpServerName = null;
-                    publisher.submit(Tuple.create().set("ID", id));
+                    publisher.submit(DataStreamerItem.of(Tuple.create().set("ID", id)));
                     assertTrue(IgniteTestUtils.waitForCondition(() -> lastOpServerName != null, 1000));
                 } catch (InterruptedException e) {
                     throw new RuntimeException(e);

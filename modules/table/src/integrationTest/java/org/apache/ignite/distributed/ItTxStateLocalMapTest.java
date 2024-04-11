@@ -33,6 +33,7 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
@@ -61,7 +62,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 public class ItTxStateLocalMapTest extends IgniteAbstractTest {
     private static final int NODES = 3;
 
-    //TODO fsync can be turned on again after https://issues.apache.org/jira/browse/IGNITE-20195
+    // TODO fsync can be turned on again after https://issues.apache.org/jira/browse/IGNITE-20195
     @InjectConfiguration("mock: { fsync: false }")
     private RaftConfiguration raftConfig;
 
@@ -70,6 +71,9 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
 
     @InjectConfiguration
     private StorageUpdateConfiguration storageUpdateConfiguration;
+
+    @InjectConfiguration
+    private ReplicationConfiguration replicationConfiguration;
 
     private final TestInfo testInfo;
 
@@ -103,7 +107,8 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
                 NODES,
                 NODES,
                 false,
-                new HybridTimestampTracker()
+                new HybridTimestampTracker(),
+                replicationConfiguration
         );
 
         testCluster.prepareCluster();
@@ -161,7 +166,7 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
                         commit ? COMMITTED : ABORTED,
                         coordinatorId,
                         tx.commitPartition(),
-                        commit ? testCluster.clocks.get(coord.name()).now() : null
+                        commit ? testCluster.clockServices.get(coord.name()).now() : null
                 )
         );
     }

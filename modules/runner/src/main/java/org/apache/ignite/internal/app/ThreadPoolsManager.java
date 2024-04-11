@@ -21,6 +21,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
+import static org.apache.ignite.internal.thread.ThreadOperation.TX_STATE_STORAGE_ACCESS;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.concurrent.CompletableFuture;
@@ -34,7 +35,6 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.util.IgniteUtils;
 
 /**
@@ -49,7 +49,10 @@ public class ThreadPoolsManager implements IgniteComponent {
      */
     private final ExecutorService tableIoExecutor;
 
-    private final StripedThreadPoolExecutor partitionOperationsExecutor;
+    /**
+     * Executor on which partition operations are executed. Might do storage reads and writes (so it's expected to execute disk I/O).
+     */
+    private final ExecutorService partitionOperationsExecutor;
 
     private final ScheduledExecutorService commonScheduler;
 
@@ -67,11 +70,13 @@ public class ThreadPoolsManager implements IgniteComponent {
                 new LinkedBlockingQueue<>(),
                 IgniteThreadFactory.create(nodeName, "tableManager-io", LOG, STORAGE_READ, STORAGE_WRITE));
 
-        partitionOperationsExecutor = new StripedThreadPoolExecutor(
-                Math.min(cpus * 3, 25),
-                IgniteThreadFactory.create(nodeName, "partition-operations", LOG, STORAGE_READ, STORAGE_WRITE),
-                false,
-                0
+        int partitionsOperationsThreads = Math.min(cpus * 3, 25);
+        partitionOperationsExecutor = new ThreadPoolExecutor(
+                partitionsOperationsThreads,
+                partitionsOperationsThreads,
+                0, SECONDS,
+                new LinkedBlockingQueue<>(),
+                IgniteThreadFactory.create(nodeName, "partition-operations", LOG, STORAGE_READ, STORAGE_WRITE, TX_STATE_STORAGE_ACCESS)
         );
 
         commonScheduler = Executors.newSingleThreadScheduledExecutor(NamedThreadFactory.create(nodeName, "common-scheduler", LOG));
@@ -100,7 +105,7 @@ public class ThreadPoolsManager implements IgniteComponent {
     /**
      * Returns the executor of partition operations.
      */
-    public StripedThreadPoolExecutor partitionOperationsExecutor() {
+    public ExecutorService partitionOperationsExecutor() {
         return partitionOperationsExecutor;
     }
 

@@ -24,6 +24,7 @@ import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import org.apache.ignite.compute.version.Version;
 import org.apache.ignite.internal.deployunit.DeploymentStatus;
 import org.apache.ignite.internal.deployunit.metastore.status.SerializeUtils;
@@ -39,19 +40,19 @@ import org.junit.jupiter.params.provider.MethodSource;
 public class UnitStatusesSerializerTest {
     private static List<Arguments> nodeStatusProvider() {
         return List.of(
-                arguments(null, null, null, 0, null),
-                arguments("id", null, null, 0, null),
-                arguments("id", Version.LATEST, null, 0, null),
-                arguments("id", Version.LATEST, UPLOADING, 10, "node1")
+                arguments(null, null, null, null, null),
+                arguments("id", null, null, UUID.randomUUID(), null),
+                arguments("id", Version.LATEST, null, UUID.randomUUID(), null),
+                arguments("id", Version.LATEST, UPLOADING, UUID.randomUUID(), "node1")
         );
     }
 
     private static List<Arguments> clusterStatusProvider() {
         return List.of(
-                arguments("id", Version.LATEST, UPLOADING, 0, Set.of()),
-                arguments("id", Version.LATEST, UPLOADING, 1, Set.of("node1")),
-                arguments("id", Version.LATEST, UPLOADING, 1, Set.of("node1", "node2")),
-                arguments("id", Version.LATEST, UPLOADING, 1, Set.of("node1", "node2", "node3"))
+                arguments("id", Version.LATEST, UPLOADING, null, Set.of()),
+                arguments("id", Version.LATEST, UPLOADING, UUID.randomUUID(), Set.of("node1")),
+                arguments("id", Version.LATEST, UPLOADING, UUID.randomUUID(), Set.of("node1", "node2")),
+                arguments("id", Version.LATEST, UPLOADING, UUID.randomUUID(), Set.of("node1", "node2", "node3"))
         );
     }
 
@@ -61,7 +62,7 @@ public class UnitStatusesSerializerTest {
             String id,
             Version version,
             DeploymentStatus status,
-            long opId,
+            UUID opId,
             String nodeId
     ) {
         UnitNodeStatus nodeStatus = new UnitNodeStatus(id, version, status, opId, nodeId);
@@ -77,7 +78,7 @@ public class UnitStatusesSerializerTest {
             String id,
             Version version,
             DeploymentStatus status,
-            long opId,
+            UUID opId,
             Set<String> consistentIdLocation
     ) {
         UnitClusterStatus nodeStatus = new UnitClusterStatus(id, version, status, opId, consistentIdLocation);

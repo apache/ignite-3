@@ -17,27 +17,24 @@
 
 package org.apache.ignite.internal.sql.engine.planner;
 
-import static org.hamcrest.CoreMatchers.equalTo;
+import static org.apache.ignite.internal.sql.engine.trait.IgniteDistributions.single;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.notNullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.hasSize;
 
-import java.util.List;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
-import org.apache.ignite.internal.sql.engine.framework.TestTable;
 import org.apache.ignite.internal.sql.engine.rel.IgniteExchange;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteMergeJoin;
-import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSort;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -52,7 +49,7 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void joinSameTableSimpleAff() throws Exception {
-        TestTable tbl = simpleTable("TEST_TBL", DEFAULT_TBL_SIZE);
+        IgniteTable tbl = simpleTable("TEST_TBL", DEFAULT_TBL_SIZE);
 
         IgniteSchema schema = createSchema(tbl);
 
@@ -77,7 +74,7 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void joinSameTableComplexAff() throws Exception {
-        TestTable tbl = complexTbl("TEST_TBL");
+        IgniteTable tbl = complexTbl("TEST_TBL");
 
         IgniteSchema schema = createSchema(tbl);
 
@@ -104,10 +101,10 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void joinComplexToSimpleAff() throws Exception {
-        TestTable complexTbl = complexTbl("COMPLEX_TBL", 2 * DEFAULT_TBL_SIZE,
+        IgniteTable complexTbl = complexTbl("COMPLEX_TBL", 2 * DEFAULT_TBL_SIZE,
                 IgniteDistributions.affinity(ImmutableIntList.of(0, 1), nextTableId(), DEFAULT_ZONE_ID));
 
-        TestTable simpleTbl = simpleTable("SIMPLE_TBL", DEFAULT_TBL_SIZE);
+        IgniteTable simpleTbl = simpleTable("SIMPLE_TBL", DEFAULT_TBL_SIZE);
 
         IgniteSchema schema = createSchema(complexTbl, simpleTbl);
 
@@ -115,23 +112,19 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
                 + "from COMPLEX_TBL t1 "
                 + "join SIMPLE_TBL t2 on t1.id1 = t2.id and t1.id2 = t2.id2";
 
-        RelNode phys = physicalPlan(sql, schema, "NestedLoopJoinConverter", "CorrelatedNestedLoopJoin");
-
-        IgniteMergeJoin join = findFirstNode(phys, byClass(IgniteMergeJoin.class));
-
-        String invalidPlanMsg = "Invalid plan:\n" + RelOptUtil.toString(phys);
-
-        assertThat(invalidPlanMsg, join, notNullValue());
-        assertThat(invalidPlanMsg, join.distribution().function().affinity(), is(true));
-
-        List<IgniteExchange> exchanges = findNodes(phys, node -> node instanceof IgniteExchange
-                && ((IgniteRel) node).distribution().function().affinity());
-
-        assertThat(invalidPlanMsg, exchanges, hasSize(1));
-        assertThat(invalidPlanMsg, exchanges.get(0).getInput(0), instanceOf(IgniteSort.class));
-        assertThat(invalidPlanMsg, exchanges.get(0).getInput(0).getInput(0), instanceOf(IgniteTableScan.class));
-        assertThat(invalidPlanMsg, exchanges.get(0).getInput(0).getInput(0)
-                .getTable().unwrap(TestTable.class), equalTo(simpleTbl));
+        assertPlan(sql, schema, nodeOrAnyChild(isInstanceOf(IgniteMergeJoin.class)
+                .and(hasDistribution(complexTbl.distribution()))
+                .and(input(0, isInstanceOf(IgniteIndexScan.class)
+                        .and(scan -> complexTbl.equals(scan.getTable().unwrap(IgniteTable.class)))
+                ))
+                .and(input(1, isInstanceOf(IgniteSort.class)
+                        .and(input(isInstanceOf(IgniteExchange.class)
+                                .and(input(isInstanceOf(IgniteTableScan.class)
+                                        .and(scan -> simpleTbl.equals(scan.getTable().unwrap(IgniteTable.class)))
+                                ))
+                        ))
+                ))
+        ), "NestedLoopJoinConverter", "CorrelatedNestedLoopJoin");
     }
 
     /**
@@ -141,12 +134,12 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void joinComplexToComplexAffWithDifferentOrder() throws Exception {
-        TestTable complexTblDirect = complexTbl(
+        IgniteTable complexTblDirect = complexTbl(
                 "COMPLEX_TBL_DIRECT",
                 2 * DEFAULT_TBL_SIZE,
                 IgniteDistributions.affinity(ImmutableIntList.of(0, 1), nextTableId(), DEFAULT_ZONE_ID));
 
-        TestTable complexTblIndirect = complexTbl(
+        IgniteTable complexTblIndirect = complexTbl(
                 "COMPLEX_TBL_INDIRECT",
                 DEFAULT_TBL_SIZE,
                 IgniteDistributions.affinity(ImmutableIntList.of(1, 0), nextTableId(), DEFAULT_ZONE_ID));
@@ -157,25 +150,22 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
                 + "from COMPLEX_TBL_DIRECT t1 "
                 + "join COMPLEX_TBL_INDIRECT t2 on t1.id1 = t2.id1 and t1.id2 = t2.id2";
 
-        RelNode phys = physicalPlan(sql, schema, "NestedLoopJoinConverter", "CorrelatedNestedLoopJoin");
-
-        IgniteMergeJoin join = findFirstNode(phys, byClass(IgniteMergeJoin.class));
-
-        String invalidPlanMsg = "Invalid plan:\n" + RelOptUtil.toString(phys);
-
-        assertThat(invalidPlanMsg, join, notNullValue());
-        assertThat(invalidPlanMsg, join.distribution().function().affinity(), is(true));
-
-        List<IgniteExchange> exchanges = findNodes(phys, node -> node instanceof IgniteExchange
-                && ((IgniteRel) node).distribution().function().affinity());
-
-        assertThat(invalidPlanMsg, exchanges, hasSize(1));
-        assertThat(invalidPlanMsg, exchanges.get(0).getInput(0), instanceOf(IgniteIndexScan.class));
-        assertThat(invalidPlanMsg, exchanges.get(0).getInput(0)
-                .getTable().unwrap(TestTable.class), equalTo(complexTblIndirect));
+        assertPlan(sql, schema, nodeOrAnyChild(isInstanceOf(IgniteMergeJoin.class)
+                .and(hasDistribution(single()))
+                .and(input(0, isInstanceOf(IgniteExchange.class)
+                        .and(input(isInstanceOf(IgniteIndexScan.class)
+                                .and(scan -> complexTblDirect.equals(scan.getTable().unwrap(IgniteTable.class)))
+                        ))
+                ))
+                .and(input(1, isInstanceOf(IgniteExchange.class)
+                        .and(input(isInstanceOf(IgniteIndexScan.class)
+                                .and(scan -> complexTblIndirect.equals(scan.getTable().unwrap(IgniteTable.class)))
+                        ))
+                ))
+        ), "NestedLoopJoinConverter", "CorrelatedNestedLoopJoin");
     }
 
-    private static TestTable simpleTable(String tableName, int size) {
+    private static IgniteTable simpleTable(String tableName, int size) {
         return TestBuilders.table()
                 .name(tableName)
                 .size(size)
@@ -190,12 +180,12 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
                 .build();
     }
 
-    private static TestTable complexTbl(String tableName) {
+    private static IgniteTable complexTbl(String tableName) {
         return complexTbl(tableName, DEFAULT_TBL_SIZE,
                 IgniteDistributions.affinity(ImmutableIntList.of(0, 1), nextTableId(), DEFAULT_ZONE_ID));
     }
 
-    private static TestTable complexTbl(String tableName, int size, IgniteDistribution distribution) {
+    private static IgniteTable complexTbl(String tableName, int size, IgniteDistribution distribution) {
         return TestBuilders.table()
                 .name(tableName)
                 .size(size)

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsAnyProject;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsAnyScan;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
@@ -28,18 +29,20 @@ import static org.hamcrest.Matchers.not;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
+import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueGet;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 /**
  * Basic index tests.
  */
 public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
-    private static final String PK_SORTED_IDX = "PK_SORTED_IDX";
-
     private static final String DEPID_IDX = "DEPID_IDX";
 
     private static final String NAME_CITY_IDX = "NAME_CITY_IDX";
@@ -48,17 +51,19 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
 
     private static final String NAME_DATE_IDX = "NAME_DATE_IDX";
 
+    private static final AtomicInteger TABLE_IDX = new AtomicInteger();
+
     /**
      * Before all.
      */
     @BeforeAll
     static void initTestData() {
-        sql("CREATE TABLE developer (id INT PRIMARY KEY, name VARCHAR, depid INT, city VARCHAR, age INT)");
+        sql("CREATE TABLE developer (id INT, name VARCHAR, depid INT, city VARCHAR, age INT, PRIMARY KEY USING SORTED (id))");
         sql("CREATE INDEX " + DEPID_IDX + " ON developer (depid)");
         sql("CREATE INDEX " + NAME_CITY_IDX + " ON developer (name DESC, city DESC)");
         sql("CREATE INDEX " + NAME_DEPID_CITY_IDX + " ON developer (name DESC, depid DESC, city DESC)");
 
-        sql("CREATE TABLE birthday (id INT PRIMARY KEY, name VARCHAR, birthday DATE)");
+        sql("CREATE TABLE birthday (id INT, name VARCHAR, birthday DATE, PRIMARY KEY USING SORTED (id))");
         sql("CREATE INDEX " + NAME_DATE_IDX + " ON birthday (name, birthday)");
 
         insertData("BIRTHDAY", List.of("ID", "NAME", "BIRTHDAY"), new Object[][]{
@@ -98,17 +103,10 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
                 {23, "Musorgskii", 22, "", -1}
         });
 
-        sql("CREATE TABLE unwrap_pk(f1 VARCHAR, f2 BIGINT, f3 BIGINT, f4 BIGINT, primary key(f2, f1))");
-        sql("CREATE INDEX " + PK_SORTED_IDX + " ON unwrap_pk(f2, f1)");
+        sql("CREATE TABLE assignments(developer_id INT, project_id INT, primary key(developer_id, project_id))");
 
-        insertData("UNWRAP_PK", List.of("F1", "F2", "F3", "F4"), new Object[][]{
-                {"Petr", 1L, 2L, 3L},
-                {"Ivan", 2L, 2L, 4L},
-                {"Ivan1", 21L, 2L, 4L},
-                {"Ivan2", 22L, 2L, 4L},
-                {"Ivan3", 23L, 2L, 4L},
-                {"Ivan4", 24L, 2L, 4L},
-                {"Ivan5", 25L, 2L, 4L},
+        insertData("ASSIGNMENTS", List.of("DEVELOPER_ID", "PROJECT_ID"), new Object[][]{
+                {1, 1}, {1, 2}, {2, 3}, {4, 1}, {4, 2}, {5, 6},
         });
 
         sql("CREATE TABLE t1 (id INT PRIMARY KEY, val INT)");
@@ -126,19 +124,11 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    public void testEqualsFilterWithUnwrpKey() {
-        assertQuery("SELECT F1 FROM UNWRAP_PK WHERE F2=2")
-                .matches(containsIndexScan("PUBLIC", "UNWRAP_PK", PK_SORTED_IDX))
-                .returns("Ivan")
-                .check();
-    }
-
-    @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-21286")
     public void testIndexLoopJoin() {
         assertQuery("SELECT /*+ DISABLE_RULE('MergeJoinConverter', 'NestedLoopJoinConverter') */ d1.name, d2.name "
                 + "FROM Developer d1, Developer d2 WHERE d1.id = d2.id")
-                .matches(containsSubPlan("IgniteCorrelatedNestedLoopJoin"))
+                .matches(containsSubPlan("CorrelatedNestedLoopJoin"))
                 .returns("Bach", "Bach")
                 .returns("Beethoven", "Beethoven")
                 .returns("Mozart", "Mozart")
@@ -202,7 +192,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     @Test
     public void testKeyEqualsFilter() {
         assertQuery("SELECT * FROM Developer WHERE id=2")
-                .matches(containsSubPlan("IgniteKeyValueGet(table=[[PUBLIC, DEVELOPER]]"))
+                .matches(containsSubPlan("KeyValueGet(table=[[PUBLIC, DEVELOPER]]"))
                 .returns(2, "Beethoven", 2, "Vienna", 44)
                 .check();
     }
@@ -211,7 +201,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     public void testKeyGreaterThanFilter() {
         assertQuery("SELECT * FROM Developer WHERE id>? and id<?")
                 .withParams(3, 12)
-                .matches(containsTableScan("PUBLIC", "DEVELOPER"))
+                .matches(containsIndexScan("PUBLIC", "DEVELOPER", "DEVELOPER_PK"))
                 .returns(4, "Strauss", 2, "Munich", 66)
                 .returns(5, "Vagner", 4, "Leipzig", 70)
                 .returns(6, "Chaikovsky", 5, "Votkinsk", 53)
@@ -226,7 +216,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     @Test
     public void testKeyGreaterThanOrEqualsFilter() {
         assertQuery("SELECT * FROM Developer WHERE id>=3 and id<12")
-                .matches(containsTableScan("PUBLIC", "DEVELOPER"))
+                .matches(containsIndexScan("PUBLIC", "DEVELOPER", "DEVELOPER_PK"))
                 .returns(3, "Bach", 1, "Leipzig", 55)
                 .returns(4, "Strauss", 2, "Munich", 66)
                 .returns(5, "Vagner", 4, "Leipzig", 70)
@@ -242,7 +232,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     @Test
     public void testKeyLessThanFilter() {
         assertQuery("SELECT * FROM Developer WHERE id<3")
-                .matches(containsTableScan("PUBLIC", "DEVELOPER"))
+                .matches(containsIndexScan("PUBLIC", "DEVELOPER", "DEVELOPER_PK"))
                 .returns(1, "Mozart", 3, "Vienna", 33)
                 .returns(2, "Beethoven", 2, "Vienna", 44)
                 .check();
@@ -251,7 +241,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     @Test
     public void testKeyLessThanOrEqualsFilter() {
         assertQuery("SELECT * FROM Developer WHERE id<=2")
-                .matches(containsTableScan("PUBLIC", "DEVELOPER"))
+                .matches(containsIndexScan("PUBLIC", "DEVELOPER", "DEVELOPER_PK"))
                 .returns(1, "Mozart", 3, "Vienna", 33)
                 .returns(2, "Beethoven", 2, "Vienna", 44)
                 .check();
@@ -570,18 +560,15 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21287")
     public void testOrCondition4() {
         assertQuery("SELECT * FROM Developer WHERE depId=1 OR (name='Mozart' AND depId=3)")
-                .matches(containsUnion(true))
-                .matches(containsIndexScan("PUBLIC", "DEVELOPER", NAME_DEPID_CITY_IDX))
+                .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX))
                 .returns(1, "Mozart", 3, "Vienna", 33)
                 .returns(3, "Bach", 1, "Leipzig", 55)
                 .check();
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-21287")
     public void testOrCondition5() {
         assertQuery("SELECT * FROM Developer WHERE depId=1 OR name='Mozart'")
                 .matches(containsUnion(true))
@@ -596,8 +583,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     @Test
     public void testOrderByKey() {
         assertQuery("SELECT * FROM Developer WHERE id<=4 ORDER BY id")
-                .matches(containsTableScan("PUBLIC", "DEVELOPER"))
-                .matches(containsSubPlan("IgniteSort"))
+                .matches(containsIndexScan("PUBLIC", "DEVELOPER", "DEVELOPER_PK"))
                 .returns(1, "Mozart", 3, "Vienna", 33)
                 .returns(2, "Beethoven", 2, "Vienna", 44)
                 .returns(3, "Bach", 1, "Leipzig", 55)
@@ -610,31 +596,31 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     public void testOrderByDepId() {
         assertQuery("SELECT depid FROM Developer ORDER BY depId")
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", DEPID_IDX))
-                .matches(not(containsSubPlan("IgniteSort")))
-                .returns(1) //Bach
-                .returns(2) //Beethoven or Strauss
-                .returns(2) //Strauss or Beethoven
-                .returns(3) //Mozart
-                .returns(4) //Vagner
-                .returns(5) //Chaikovsky
-                .returns(6) //Verdy
-                .returns(7) //Stravinsky
-                .returns(8) //Rahmaninov
-                .returns(9) //Shubert
-                .returns(10) //Glinka
+                .matches(not(containsSubPlan("Sort")))
+                .returns(1) // Bach
+                .returns(2) // Beethoven or Strauss
+                .returns(2) // Strauss or Beethoven
+                .returns(3) // Mozart
+                .returns(4) // Vagner
+                .returns(5) // Chaikovsky
+                .returns(6) // Verdy
+                .returns(7) // Stravinsky
+                .returns(8) // Rahmaninov
+                .returns(9) // Shubert
+                .returns(10) // Glinka
 
-                .returns(11) //Einaudi
-                .returns(12) //Glass
-                .returns(13) //Rihter
-                .returns(14) //Marradi
-                .returns(15) //Zimmer
-                .returns(16) //Hasaishi
-                .returns(17) //Arnalds
-                .returns(18) //Yiruma
-                .returns(19) //O'Halloran
-                .returns(20) //Cacciapaglia
-                .returns(21) //Prokofiev
-                .returns(22) //Musorgskii
+                .returns(11) // Einaudi
+                .returns(12) // Glass
+                .returns(13) // Rihter
+                .returns(14) // Marradi
+                .returns(15) // Zimmer
+                .returns(16) // Hasaishi
+                .returns(17) // Arnalds
+                .returns(18) // Yiruma
+                .returns(19) // O'Halloran
+                .returns(20) // Cacciapaglia
+                .returns(21) // Prokofiev
+                .returns(22) // Musorgskii
 
                 .ordered()
                 .check();
@@ -645,7 +631,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
         assertQuery("SELECT * FROM Developer ORDER BY name, city")
                 .matches(containsAnyScan("PUBLIC", "DEVELOPER"))
                 .matches(containsAnyScan("PUBLIC", "DEVELOPER"))
-                .matches(containsSubPlan("IgniteSort"))
+                .matches(containsSubPlan("Sort"))
                 .returns(18, "Arnalds", 17, "", -1)
                 .returns(3, "Bach", 1, "Leipzig", 55)
                 .returns(2, "Beethoven", 2, "Vienna", 44)
@@ -677,7 +663,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     public void testOrderByNameCityDesc() {
         assertQuery("SELECT ID, NAME, DEPID, CITY, AGE FROM Developer ORDER BY name DESC, city DESC")
                 .matches(containsIndexScan("PUBLIC", "DEVELOPER", NAME_CITY_IDX))
-                .matches(not(containsSubPlan("IgniteSort")))
+                .matches(not(containsSubPlan("Sort")))
                 .returns(16, "Zimmer", 15, "", -1)
                 .returns(19, "Yiruma", 18, "", -1)
                 .returns(7, "Verdy", 6, "Rankola", 88)
@@ -709,7 +695,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     public void testOrderByNoIndexedColumn() {
         assertQuery("SELECT * FROM Developer ORDER BY age DESC, depid ASC")
                 .matches(containsAnyProject("PUBLIC", "DEVELOPER"))
-                .matches(containsSubPlan("IgniteSort"))
+                .matches(containsSubPlan("Sort"))
                 .returns(8, "Stravinsky", 7, "Spt", 89)
                 .returns(7, "Verdy", 6, "Rankola", 88)
                 .returns(5, "Vagner", 4, "Leipzig", 70)
@@ -838,7 +824,10 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
 
     @Test
     public void testNotNullCondition() {
-        assertQuery("SELECT * FROM T1 WHERE val is not null")
+        // IS NOT NULL predicate has low selectivity, thus, given the cost of the index scan,
+        // it's considered cheaper to scan the whole table instead. Let's force planner to use
+        // index of interest
+        assertQuery("SELECT /*+ FORCE_INDEX(t1_idx) */ t1.* FROM T1 WHERE val is not null")
                 .matches(containsIndexScan("PUBLIC", "T1", "T1_IDX"))
                 .matches(not(containsUnion()))
                 .returns(3, 3)
@@ -928,7 +917,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
 
             assertQuery(sql)
                     .disableRules("NestedLoopJoinConverter", "MergeJoinConverter")
-                    .matches(containsSubPlan("IgniteCorrelatedNestedLoopJoin"))
+                    .matches(containsSubPlan("CorrelatedNestedLoopJoin"))
                     .matches(containsIndexScan("PUBLIC", "T", "T_IDX"))
                     .returns(0, null)
                     .returns(1, null)
@@ -1114,5 +1103,54 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
         } finally {
             sql("DROP TABLE IF EXISTS t_false");
         }
+    }
+
+    /**
+     * Regression test to ensure predicate by part of the primary key and
+     * trimming of all other fields won't cause optimizer to choose
+     * {@link IgniteKeyValueGet Key Value Lookup node}.
+     */
+    @Test
+    void lookupByPartialKey() {
+        assertQuery("SELECT developer_id FROM ASSIGNMENTS WHERE developer_id = 1")
+                .matches(containsTableScan("PUBLIC", "ASSIGNMENTS"))
+                .returns(1)
+                .returns(1)
+                .check();
+    }
+
+    @ParameterizedTest
+    @CsvSource(value = {
+            // type, literal
+            "TINYINT;50",
+            "TINYINT;50::BIGINT",
+            "TINYINT;50::DECIMAL(10)",
+            "TINYINT;50::REAL",
+
+            "REAL;50.00",
+            "REAL;50.00::REAL",
+            "REAL;50.00::DOUBLE",
+            "REAL;50",
+
+            "DOUBLE;50.00",
+            "DOUBLE;50.00::REAL",
+            "DOUBLE;50.00::DECIMAL(10,2)",
+            "DOUBLE;50",
+
+            "DECIMAL(10, 2);50.00", // DECIMAL(10,2)
+            "DECIMAL(10, 2);50.00::REAL",
+            "DECIMAL(10, 2);50.00::DOUBLE",
+            "DECIMAL(10, 2);50",
+    }, delimiter = ';')
+    public void testTypeCastsIndexBounds(String type, String val) {
+        int id = TABLE_IDX.getAndIncrement();
+
+        sql(format("create table tt_{}(id INTEGER PRIMARY KEY, field_1 {})", id, type, val));
+
+        sql(format("SELECT * FROM tt_{} WHERE field_1 = {}", id, val));
+
+        sql(format("CREATE INDEX tt_idx_{} ON tt_{} (field_1)", id, id));
+
+        sql(format("SELECT * FROM tt_{} WHERE field_1 = {}", id, val));
     }
 }

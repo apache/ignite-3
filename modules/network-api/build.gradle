@@ -29,6 +29,8 @@ dependencies {
 
     testImplementation libs.hamcrest.core
     testImplementation libs.mockito.core
+    testImplementation libs.mockito.junit
+    testImplementation testFixtures(project(':ignite-core'))
 }
 
 description = 'ignite-network-api'

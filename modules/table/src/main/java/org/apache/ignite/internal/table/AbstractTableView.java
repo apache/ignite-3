@@ -26,11 +26,13 @@ import static org.apache.ignite.internal.util.ExceptionUtils.isOrCausedBy;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.schema.Column;
@@ -39,15 +41,15 @@ import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.table.criteria.CursorAdapter;
 import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncCursor;
 import org.apache.ignite.internal.table.criteria.SqlSerializer;
+import org.apache.ignite.internal.table.criteria.SqlSerializer.Builder;
+import org.apache.ignite.internal.table.distributed.replicator.IncompatibleSchemaException;
 import org.apache.ignite.internal.table.distributed.replicator.InternalSchemaVersionMismatchException;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.lang.Cursor;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSetMetadata;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.table.criteria.Criteria;
@@ -83,34 +85,52 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
      * @param sql Ignite SQL facade.
      * @param marshallers Marshallers provider.
      */
-    AbstractTableView(InternalTable tbl, SchemaVersions schemaVersions, SchemaRegistry schemaReg, IgniteSql sql,
-            MarshallersProvider marshallers) {
+    AbstractTableView(
+            InternalTable tbl,
+            SchemaVersions schemaVersions,
+            SchemaRegistry schemaReg,
+            IgniteSql sql,
+            MarshallersProvider marshallers
+    ) {
         this.tbl = tbl;
         this.schemaVersions = schemaVersions;
         this.sql = sql;
+        this.marshallers = marshallers;
 
         this.rowConverter = new TableViewRowConverter(schemaReg);
-        this.marshallers = marshallers;
     }
 
     /**
      * Waits for operation completion.
      *
-     * @param fut Future to wait to.
+     * @param future Future to wait to.
      * @param <T> Future result type.
      * @return Future result.
      */
-    protected final <T> T sync(CompletableFuture<T> fut) {
+    protected static <T> T sync(CompletableFuture<T> future) {
         try {
-            return fut.get();
+            return future.get();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt(); // Restore interrupt flag.
 
             throw sneakyThrow(IgniteExceptionMapperUtil.mapToPublicException(e));
         } catch (ExecutionException e) {
-            Throwable cause = ExceptionUtils.unwrapCause(e);
+            Throwable cause = unwrapCause(e);
             throw sneakyThrow(cause);
         }
+    }
+
+    /**
+     * Combines the effect of {@link #withSchemaSync(Transaction, KvAction)} and
+     * {@link IgniteExceptionMapperUtil#convertToPublicFuture(CompletableFuture)}.
+     *
+     * @param <T> Type of the data the action returns.
+     * @param tx Transaction or {@code null}.
+     * @param action Action to execute.
+     * @return Future of whatever the action returns.
+     */
+    protected final <T> CompletableFuture<T> doOperation(@Nullable Transaction tx, KvAction<T> action) {
+        return convertToPublicFuture(withSchemaSync(tx, action));
     }
 
     /**
@@ -140,26 +160,44 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
                 ? schemaVersions.schemaVersionAtNow(tbl.tableId())
                 : schemaVersions.schemaVersionAt(((InternalTransaction) tx).startTimestamp(), tbl.tableId());
 
-        CompletableFuture<T> future = schemaVersionFuture
+        return schemaVersionFuture
                 .thenCompose(schemaVersion -> action.act(schemaVersion)
                         .handle((res, ex) -> {
                             return span("withSchemaSync.handle", (span) -> {
+                                if (ex == null) {
+                                    return completedFuture(res);
+                                }
+
                                 if (isOrCausedBy(InternalSchemaVersionMismatchException.class, ex)) {
+                                    // There is no transaction, and table version was changed between taking the table version (that was used
+                                    // to marshal inputs and would be used to unmarshal outputs) and starting an implicit transaction
+                                    // in InternalTable. A transaction must always work with binary rows of the same table version matching the
+                                    // version corresponding to the transaction creation moment, so this mismatch is not tolerable: we need
+                                    // to retry the operation here.
+
                                     assert tx == null : "Only for implicit transactions a retry might be requested";
-                                    assert previousSchemaVersion == null || !Objects.equals(schemaVersion, previousSchemaVersion)
-                                            : "Same schema version (" + schemaVersion
-                                            + ") on a retry: something is wrong, is this caused by the test setup?";
+                                    assertSchemaVersionIncreased(previousSchemaVersion, schemaVersion);
 
                                     // Repeat.
                                     return withSchemaSync(tx, schemaVersion, action);
+                                } else if (tx == null && isOrCausedBy(IncompatibleSchemaException.class, ex)) {
+                                    // Table version was changed while we were executing an implicit transaction (between it had been created
+                                    // and the moment when the operation actually touched the partition), let's retry.
+                                    assertSchemaVersionIncreased(previousSchemaVersion, schemaVersion);
+
+                                    return withSchemaSync(tx, schemaVersion, action);
                                 } else {
-                                    return ex == null ? completedFuture(res) : CompletableFuture.<T>failedFuture(ex);
+                                    return CompletableFuture.<T>failedFuture(ex);
                                 }
                             });
                         }))
                 .thenCompose(identity());
+    }
 
-        return convertToPublicFuture(future);
+    private static void assertSchemaVersionIncreased(@Nullable Integer previousSchemaVersion, Integer schemaVersion) {
+        assert previousSchemaVersion == null || !Objects.equals(schemaVersion, previousSchemaVersion)
+                : "Same schema version (" + schemaVersion
+                + ") on a retry: something is wrong, is this caused by the test setup?";
     }
 
     /**
@@ -168,11 +206,11 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
      * @param columns Target columns.
      * @return Column names.
      */
-    protected static String[] columnNames(Column[] columns) {
-        String[] columnNames = new String[columns.length];
+    protected static String[] columnNames(List<Column> columns) {
+        String[] columnNames = new String[columns.size()];
 
-        for (int i = 0; i < columns.length; i++) {
-            columnNames[i] = columns[i].name();
+        for (int i = 0; i < columns.size(); i++) {
+            columnNames[i] = columns.get(i).name();
         }
 
         return columnNames;
@@ -205,45 +243,48 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
     ) {
         CriteriaQueryOptions opts0 = opts == null ? CriteriaQueryOptions.DEFAULT : opts;
 
-        return withSchemaSync(tx, (schemaVersion) -> {
+        CompletableFuture<AsyncCursor<R>> future = doOperation(tx, (schemaVersion) -> {
             SchemaDescriptor schema = rowConverter.registry().schema(schemaVersion);
 
-            SqlSerializer ser = new SqlSerializer.Builder()
+            SqlSerializer ser = new Builder()
                     .tableName(tbl.name())
-                    .columns(schema.columnNames())
+                    .columns(
+                            schema.columns().stream()
+                                    .map(Column::name)
+                                    .collect(Collectors.toList())
+                    )
                     .indexName(indexName)
                     .where(criteria)
                     .build();
 
             Statement statement = sql.statementBuilder().query(ser.toString()).pageSize(opts0.pageSize()).build();
-            Session session = sql.createSession();
 
-            return session.executeAsync(tx, statement, ser.getArguments())
-                    .<AsyncCursor<R>>thenApply(resultSet -> {
+            return sql.executeAsync(tx, statement, ser.getArguments())
+                    .thenApply(resultSet -> {
                         ResultSetMetadata meta = resultSet.metadata();
 
                         assert meta != null : "Metadata can't be null.";
 
-                        return new QueryCriteriaAsyncCursor<>(resultSet, queryMapper(meta, schema), session::closeAsync);
-                    })
-                    .whenComplete((ignore, err) -> {
-                        if (err != null) {
-                            session.closeAsync();
-                        }
+                        return new QueryCriteriaAsyncCursor<>(
+                                resultSet,
+                                queryMapper(meta, schema),
+                                () -> {/* NO-OP */}
+                        );
                     });
-        })
-                .exceptionally(th -> {
-                    throw new CompletionException(mapToPublicCriteriaException(unwrapCause(th)));
-                });
+        });
+
+        return future.exceptionally(th -> {
+            throw new CompletionException(mapToPublicCriteriaException(unwrapCause(th)));
+        });
     }
 
 
     /**
      * Action representing some KV operation. When executed, the action is supplied with schema version corresponding
-     * to the operation timestamp (see {@link #withSchemaSync(Transaction, KvAction)} for details).
+     * to the operation timestamp (see {@link #doOperation(Transaction, KvAction)} for details).
      *
      * @param <R> Type of the result.
-     * @see #withSchemaSync(Transaction, KvAction)
+     * @see #doOperation(Transaction, KvAction)
      */
     @FunctionalInterface
     protected interface KvAction<R> {

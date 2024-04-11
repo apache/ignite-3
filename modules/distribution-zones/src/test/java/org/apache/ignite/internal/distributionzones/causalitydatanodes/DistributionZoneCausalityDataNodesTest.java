@@ -20,6 +20,7 @@ package org.apache.ignite.internal.distributionzones.causalitydatanodes;
 import static java.util.Collections.emptySet;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
@@ -29,12 +30,13 @@ import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_DROP;
 import static org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl.LOGICAL_TOPOLOGY_KEY;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesFromManager;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertValueInStorage;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.extractZoneId;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesDataNodesPrefix;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyPrefix;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractZoneId;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -52,6 +54,7 @@ import static org.mockito.Mockito.doAnswer;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -79,6 +82,7 @@ import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -101,14 +105,26 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
     private static final String ZONE_NAME_4 = "zone4";
 
-    private static final LogicalNode NODE_0 =
-            new LogicalNode("node_id_0", "node_name_0", new NetworkAddress("localhost", 123));
+    private static final LogicalNode NODE_0 = new LogicalNode(
+            new ClusterNodeImpl("node_id_0", "node_name_0", new NetworkAddress("localhost", 123)),
+            Map.of(),
+            Map.of(),
+            List.of(DEFAULT_STORAGE_PROFILE)
+    );
 
-    private static final LogicalNode NODE_1 =
-            new LogicalNode("node_id_1", "node_name_1", new NetworkAddress("localhost", 123));
+    private static final LogicalNode NODE_1 = new LogicalNode(
+            new ClusterNodeImpl("node_id_1", "node_name_1", new NetworkAddress("localhost", 123)),
+            Map.of(),
+            Map.of(),
+            List.of(DEFAULT_STORAGE_PROFILE)
+    );
 
-    private static final LogicalNode NODE_2 =
-            new LogicalNode("node_id_2", "node_name_2", new NetworkAddress("localhost", 123));
+    private static final LogicalNode NODE_2 = new LogicalNode(
+            new ClusterNodeImpl("node_id_2", "node_name_2", new NetworkAddress("localhost", 123)),
+            Map.of(),
+            Map.of(),
+            List.of(DEFAULT_STORAGE_PROFILE)
+    );
 
     private static final Set<LogicalNode> ONE_NODE = Set.of(NODE_0);
     private static final Set<String> ONE_NODE_NAME = Set.of(NODE_0.name());
@@ -582,9 +598,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         AtomicBoolean reached = new AtomicBoolean();
 
-        catalogManager.listen(ZONE_CREATE, (parameters, exception) ->  {
-            assert exception == null : parameters;
-
+        catalogManager.listen(ZONE_CREATE, parameters ->  {
             CreateZoneEventParameters params = (CreateZoneEventParameters) parameters;
 
             return CompletableFuture.runAsync(() -> {
@@ -1484,7 +1498,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
                     if (startsWith(e.key(), zoneDataNodesKey().bytes())) {
                         revision = e.revision();
 
-                        zoneId = extractZoneId(e.key());
+                        zoneId = extractZoneId(e.key(), DISTRIBUTION_ZONE_DATA_NODES_VALUE_PREFIX);
 
                         byte[] dataNodesBytes = e.value();
 
@@ -1512,7 +1526,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
     }
 
     private void addCatalogZoneEventListeners() {
-        catalogManager.listen(ZONE_CREATE, (parameters, exception) -> {
+        catalogManager.listen(ZONE_CREATE, parameters -> {
             String zoneName = ((CreateZoneEventParameters) parameters).zoneDescriptor().name();
 
             completeRevisionFuture(createZoneRevisions.remove(zoneName), parameters.causalityToken());
@@ -1520,7 +1534,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
             return falseCompletedFuture();
         });
 
-        catalogManager.listen(ZONE_DROP, (parameters, exception) -> {
+        catalogManager.listen(ZONE_DROP, parameters -> {
             completeRevisionFuture(dropZoneRevisions.remove(((DropZoneEventParameters) parameters).zoneId()), parameters.causalityToken());
 
             return falseCompletedFuture();

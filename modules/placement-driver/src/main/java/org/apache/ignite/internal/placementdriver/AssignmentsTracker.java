@@ -28,6 +28,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.affinity.Assignment;
+import org.apache.ignite.internal.affinity.Assignments;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -38,8 +39,6 @@ import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.util.ByteUtils;
-import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.Cursor;
 
 /**
@@ -97,10 +96,14 @@ public class AssignmentsTracker {
 
                     TablePartitionId grpId = TablePartitionId.fromString(strKey);
 
-                    Set<Assignment> assignments = ByteUtils.fromBytes(entry.value());
+                    Set<Assignment> assignments = Assignments.fromBytes(entry.value()).nodes();
 
                     groupAssignments.put(grpId, assignments);
                 }
+            }
+        }).whenComplete((res, ex) -> {
+            if (ex != null) {
+                LOG.error("Cannot do recovery", ex);
             }
         });
 
@@ -138,25 +141,18 @@ public class AssignmentsTracker {
                                 .collect(Collectors.joining(",")));
             }
 
-            boolean leaseRenewalRequired = false;
-
             for (EntryEvent evt : event.entryEvents()) {
-                var replicationGrpId = TablePartitionId.fromString(
-                        new String(evt.newEntry().key(), StandardCharsets.UTF_8).replace(STABLE_ASSIGNMENTS_PREFIX, ""));
+                Entry entry = evt.newEntry();
 
-                if (evt.newEntry().tombstone()) {
+                var replicationGrpId = TablePartitionId.fromString(
+                        new String(entry.key(), StandardCharsets.UTF_8).replace(STABLE_ASSIGNMENTS_PREFIX, ""));
+
+                if (entry.tombstone()) {
                     groupAssignments.remove(replicationGrpId);
                 } else {
-                    Set<Assignment> prevAssignment = groupAssignments.put(replicationGrpId, ByteUtils.fromBytes(evt.newEntry().value()));
-
-                    if (CollectionUtils.nullOrEmpty(prevAssignment)) {
-                        leaseRenewalRequired = true;
-                    }
+                    Set<Assignment> newAssignments = Assignments.fromBytes(entry.value()).nodes();
+                    groupAssignments.put(replicationGrpId, newAssignments);
                 }
-            }
-
-            if (leaseRenewalRequired) {
-                triggerToRenewLeases();
             }
 
             return nullCompletedFuture();
@@ -165,12 +161,5 @@ public class AssignmentsTracker {
         @Override
         public void onError(Throwable e) {
         }
-    }
-
-    /**
-     * Triggers to renew leases forcibly. The method wakes up the monitor of {@link LeaseUpdater}.
-     */
-    private void triggerToRenewLeases() {
-        //TODO: IGNITE-18879 Implement lease maintenance.
     }
 }

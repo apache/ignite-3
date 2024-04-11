@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
@@ -25,7 +26,9 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.anEmptyMap;
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.sameInstance;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
@@ -40,7 +43,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
@@ -48,7 +52,6 @@ import java.util.regex.Pattern;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureProcessor;
-import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.messages.AllTypesMessageImpl;
 import org.apache.ignite.internal.network.messages.InstantContainer;
@@ -71,6 +74,7 @@ import org.apache.ignite.internal.network.serialization.UserObjectSerializationC
 import org.apache.ignite.internal.network.serialization.marshal.DefaultUserObjectMarshaller;
 import org.apache.ignite.internal.network.serialization.marshal.UserObjectMarshaller;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.worker.CriticalWorkerRegistry;
 import org.apache.ignite.network.ClusterNode;
@@ -112,13 +116,13 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
     private final MessageSerializationRegistry messageSerializationRegistry = defaultSerializationRegistry();
 
     private final ClusterNode senderNode = new ClusterNodeImpl(
-            "sender",
+            UUID.randomUUID().toString(),
             "sender",
             new NetworkAddress("localhost", SENDER_PORT)
     );
 
     private final ClusterNode receiverNode = new ClusterNodeImpl(
-            "receiver",
+            UUID.randomUUID().toString(),
             "receiver",
             new NetworkAddress("localhost", RECEIVER_PORT)
     );
@@ -153,7 +157,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
 
             allowSendLatch.countDown();
 
-            assertTrue(messagesDeliveredLatch.await(1, TimeUnit.SECONDS));
+            assertTrue(messagesDeliveredLatch.await(1, SECONDS));
 
             assertThat(payloads, contains("one", "two"));
         }
@@ -195,7 +199,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
                     TestMessageTypes.class,
                     (message, sender, correlationId) -> {
                         try {
-                            barrier.await(10, TimeUnit.SECONDS);
+                            barrier.await(10, SECONDS);
                         } catch (InterruptedException e) {
                             Thread.currentThread().interrupt();
                             throw new RuntimeException(e);
@@ -212,7 +216,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
             senderServices.messagingService.send(receiverNode, TEST_CHANNEL, TestMessageImpl.builder().build());
 
             assertTrue(
-                    bothDelivered.await(1, TimeUnit.SECONDS),
+                    bothDelivered.await(1, SECONDS),
                     "Did not see both messages delivered in time (probably, they ended up in the same inbound thread)"
             );
         }
@@ -235,7 +239,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
             operation.sendAction.send(senderServices.messagingService, TestMessageImpl.builder().build(), receiverNode);
 
             assertTrue(
-                    waitForCondition(() -> channelId.get() != Integer.MAX_VALUE, TimeUnit.SECONDS.toMillis(10)),
+                    waitForCondition(() -> channelId.get() != Integer.MAX_VALUE, SECONDS.toMillis(10)),
                     "Did not get any message in time"
             );
 
@@ -256,7 +260,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
                     TestMessageTypes.class,
                     (message, sender, correlationId) -> {
                         try {
-                            invokeFuturePrepared.await(10, TimeUnit.SECONDS);
+                            invokeFuturePrepared.await(10, SECONDS);
                         } catch (InterruptedException ignored) {
                             // No-op.
                         }
@@ -264,7 +268,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
                         operation.respondAction.respond(
                                 receiverServices.messagingService,
                                 message,
-                                Objects.requireNonNull(topologyService.getByConsistentId(sender)),
+                                sender,
                                 Objects.requireNonNull(correlationId)
                         );
                     }
@@ -312,7 +316,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
             Instant sentInstant = Instant.now();
             CompletableFuture<Instant> receivedInstant = new CompletableFuture<>();
 
-            receiverServices.messagingService.addMessageHandler(TestMessageTypes.class, (message, senderConsistentId, correlationId) -> {
+            receiverServices.messagingService.addMessageHandler(TestMessageTypes.class, (message, sender, correlationId) -> {
                 if (message instanceof MessageWithInstant) {
                     receivedInstant.complete(((MessageWithInstant) message).instantContainer().instant());
                 }
@@ -324,6 +328,122 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
             );
 
             assertThat(receivedInstant, willBe(sentInstant));
+        }
+    }
+
+    @Test
+    void handlersSubscribingWithoutExecutorChooserGetNotifiedInInboundThreads() throws Exception {
+        try (
+                Services senderServices = createMessagingService(senderNode, senderNetworkConfig);
+                Services receiverServices = createMessagingService(receiverNode, receiverNetworkConfig)
+        ) {
+            CompletableFuture<Thread> handlerThreadFuture = new CompletableFuture<>();
+
+            receiverServices.messagingService.addMessageHandler(TestMessageTypes.class, (message, sender, correlationId) -> {
+                handlerThreadFuture.complete(Thread.currentThread());
+            });
+
+            senderServices.messagingService.send(receiverNode, testMessage("test"));
+
+            assertThat(handlerThreadFuture, willCompleteSuccessfully());
+            assertThat(handlerThreadFuture.join().getName(), containsString("MessagingService-inbound"));
+        }
+    }
+
+    @Test
+    void executorChooserChoosesHandlingThread() throws Exception {
+        ExecutorService executor = Executors.newSingleThreadExecutor(NamedThreadFactory.create("test", "custom-pool", log));
+
+        try (
+                Services senderServices = createMessagingService(senderNode, senderNetworkConfig);
+                Services receiverServices = createMessagingService(receiverNode, receiverNetworkConfig)
+        ) {
+            CompletableFuture<Thread> handlerThreadFuture = new CompletableFuture<>();
+
+            receiverServices.messagingService.addMessageHandler(
+                    TestMessageTypes.class,
+                    message -> executor,
+                    (message, sender, correlationId) -> handlerThreadFuture.complete(Thread.currentThread())
+            );
+
+            senderServices.messagingService.send(receiverNode, testMessage("test"));
+
+            assertThat(handlerThreadFuture, willCompleteSuccessfully());
+            assertThat(handlerThreadFuture.join().getName(), containsString("custom-pool"));
+        } finally {
+            IgniteUtils.shutdownAndAwaitTermination(executor, 10, SECONDS);
+        }
+    }
+
+    @Test
+    void multipleHandlersChooseExecutors() throws Exception {
+        ExecutorService customExecutor = Executors.newSingleThreadExecutor(NamedThreadFactory.create("test", "custom-pool", log));
+
+        try (
+                Services senderServices = createMessagingService(senderNode, senderNetworkConfig);
+                Services receiverServices = createMessagingService(receiverNode, receiverNetworkConfig)
+        ) {
+            CompletableFuture<Thread> handler1ThreadFuture = new CompletableFuture<>();
+            CompletableFuture<Thread> handler2ThreadFuture = new CompletableFuture<>();
+            CompletableFuture<Thread> handler3ThreadFuture = new CompletableFuture<>();
+
+            receiverServices.messagingService.addMessageHandler(
+                    TestMessageTypes.class,
+                    (message, sender, correlationId) -> handler1ThreadFuture.complete(Thread.currentThread())
+            );
+            receiverServices.messagingService.addMessageHandler(
+                    TestMessageTypes.class,
+                    (message, sender, correlationId) -> {
+                        if (!handler1ThreadFuture.isDone()) {
+                            handler2ThreadFuture.completeExceptionally(new AssertionError("Second handler invoked before first handler"));
+                        } else {
+                            handler2ThreadFuture.complete(Thread.currentThread());
+                        }
+                    }
+            );
+            receiverServices.messagingService.addMessageHandler(
+                    TestMessageTypes.class,
+                    message -> customExecutor,
+                    (message, sender, correlationId) -> handler3ThreadFuture.complete(Thread.currentThread())
+            );
+
+            senderServices.messagingService.send(receiverNode, testMessage("test"));
+
+            assertThat(handler1ThreadFuture, willCompleteSuccessfully());
+            assertThat(handler1ThreadFuture.join().getName(), containsString("MessagingService-inbound"));
+
+            assertThat(handler2ThreadFuture, willCompleteSuccessfully());
+            assertThat(handler2ThreadFuture.join(), is(sameInstance(handler1ThreadFuture.join())));
+
+            assertThat(handler3ThreadFuture, willCompleteSuccessfully());
+            assertThat(handler3ThreadFuture.join().getName(), containsString("custom-pool"));
+        } finally {
+            IgniteUtils.shutdownAndAwaitTermination(customExecutor, 10, SECONDS);
+        }
+    }
+
+    @Test
+    void invokeResponseIsProcessedInInboundThreadIfNoChooserSupplied() throws Exception {
+        try (
+                Services senderServices = createMessagingService(senderNode, senderNetworkConfig);
+                Services receiverServices = createMessagingService(receiverNode, receiverNetworkConfig)
+        ) {
+            CompletableFuture<Thread> responseHandlingThreadFuture = new CompletableFuture<>();
+
+            receiverServices.messagingService.addMessageHandler(
+                    TestMessageTypes.class,
+                    (message, sender, correlationId) -> {
+                        if (correlationId != null) {
+                            receiverServices.messagingService.respond(sender, message, correlationId);
+                        }
+                    }
+            );
+
+            senderServices.messagingService.invoke(receiverNode, testMessage("test"), 10_000)
+                    .whenComplete((res, ex) -> responseHandlingThreadFuture.complete(Thread.currentThread()));
+
+            assertThat(responseHandlingThreadFuture, willCompleteSuccessfully());
+            assertThat(responseHandlingThreadFuture.join().getName(), containsString("MessagingService-inbound"));
         }
     }
 
@@ -379,11 +499,9 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         NettyBootstrapFactory bootstrapFactory = new NettyBootstrapFactory(networkConfig, eventLoopGroupNamePrefix);
         bootstrapFactory.start();
 
-        UUID launchId = UUID.randomUUID();
         ConnectionManager connectionManager = new ConnectionManager(
                 networkConfig.value(),
                 serializationService,
-                launchId,
                 node.name(),
                 bootstrapFactory,
                 staleIdDetector,
@@ -391,6 +509,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
                 failureProcessor
         );
         connectionManager.start();
+        connectionManager.setLocalNode(node);
 
         messagingService.setConnectionManager(connectionManager);
 
@@ -405,14 +524,12 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         return new RecoveryClientHandshakeManagerFactory() {
             @Override
             public RecoveryClientHandshakeManager create(
-                    UUID launchId,
-                    String consistentId,
+                    ClusterNode localNode,
                     short connectionId,
                     RecoveryDescriptorProvider recoveryDescriptorProvider
             ) {
                 return new RecoveryClientHandshakeManager(
-                        launchId,
-                        consistentId,
+                        localNode,
                         connectionId,
                         recoveryDescriptorProvider,
                         bootstrapFactory,

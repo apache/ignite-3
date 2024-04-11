@@ -39,6 +39,7 @@ import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
+import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
@@ -67,6 +68,8 @@ public class ClientTable implements Table {
     private final ReliableChannel ch;
 
     private final MarshallersProvider marshallers;
+
+    private final ClientSql sql;
 
     private final ConcurrentHashMap<Integer, CompletableFuture<ClientSchema>> schemas = new ConcurrentHashMap<>();
 
@@ -100,6 +103,7 @@ public class ClientTable implements Table {
         this.id = id;
         this.name = name;
         this.log = ClientUtils.logger(ch.configuration(), ClientTable.class);
+        this.sql = new ClientSql(ch, marshallers);
     }
 
     /**
@@ -120,15 +124,6 @@ public class ClientTable implements Table {
         return ch;
     }
 
-    /**
-     * Gets the marshallers provider.
-     *
-     * @return Marshallers provider.
-     */
-    MarshallersProvider marshallers() {
-        return marshallers;
-    }
-
     /** {@inheritDoc} */
     @Override
     public String name() {
@@ -140,12 +135,12 @@ public class ClientTable implements Table {
     public <R> RecordView<R> recordView(Mapper<R> recMapper) {
         Objects.requireNonNull(recMapper);
 
-        return new ClientRecordView<>(this, recMapper);
+        return new ClientRecordView<>(this, sql, recMapper);
     }
 
     @Override
     public RecordView<Tuple> recordView() {
-        return new ClientRecordBinaryView(this);
+        return new ClientRecordBinaryView(this, sql);
     }
 
     /** {@inheritDoc} */
@@ -154,13 +149,13 @@ public class ClientTable implements Table {
         Objects.requireNonNull(keyMapper);
         Objects.requireNonNull(valMapper);
 
-        return new ClientKeyValueView<>(this, keyMapper, valMapper);
+        return new ClientKeyValueView<>(this, sql, keyMapper, valMapper);
     }
 
     /** {@inheritDoc} */
     @Override
     public KeyValueView<Tuple, Tuple> keyValueView() {
-        return new ClientKeyValueBinaryView(this);
+        return new ClientKeyValueBinaryView(this, sql);
     }
 
     CompletableFuture<ClientSchema> getLatestSchema() {
@@ -220,7 +215,7 @@ public class ClientTable implements Table {
         var schemaVer = in.unpackInt();
         var colCnt = in.unpackInt();
         var columns = new ClientColumn[colCnt];
-        int colocationColumnCnt = 0;
+        int valCnt = 0;
 
         for (int i = 0; i < colCnt; i++) {
             var propCnt = in.unpackInt();
@@ -229,35 +224,22 @@ public class ClientTable implements Table {
 
             var name = in.unpackString();
             var type = ColumnTypeConverter.fromIdOrThrow(in.unpackInt());
-            var isKey = in.unpackBoolean();
+            var keyIndex = in.unpackInt();
             var isNullable = in.unpackBoolean();
             var colocationIndex = in.unpackInt();
             var scale = in.unpackInt();
             var precision = in.unpackInt();
 
+            var valIndex = keyIndex < 0 ? valCnt++ : -1;
+
             // Skip unknown extra properties, if any.
             in.skipValues(propCnt - 7);
 
-            var column = new ClientColumn(name, type, isNullable, isKey, colocationIndex, i, scale, precision);
+            var column = new ClientColumn(name, type, isNullable, keyIndex, valIndex, colocationIndex, i, scale, precision);
             columns[i] = column;
-
-            if (colocationIndex >= 0) {
-                colocationColumnCnt++;
-            }
         }
 
-        var colocationColumns = colocationColumnCnt > 0 ? new ClientColumn[colocationColumnCnt] : null;
-        if (colocationColumns != null) {
-            for (ClientColumn col : columns) {
-                int idx = col.colocationIndex();
-                if (idx >= 0) {
-                    colocationColumns[idx] = col;
-                }
-            }
-        }
-
-        var schema = new ClientSchema(schemaVer, columns, colocationColumns, marshallers);
-
+        var schema = new ClientSchema(schemaVer, columns, marshallers);
         schemas.put(schemaVer, CompletableFuture.completedFuture(schema));
 
         synchronized (latestSchemaLock) {
@@ -570,42 +552,54 @@ public class ClientTable implements Table {
         }
     }
 
-    private boolean isPartitionAssignmentValid(long timestamp) {
-        return partitionAssignment != null
-                && partitionAssignment.timestamp >= timestamp
-                && !partitionAssignment.partitionsFut.isCompletedExceptionally();
+    private static boolean isPartitionAssignmentValid(PartitionAssignment pa, long timestamp) {
+        return pa != null
+                && pa.timestamp >= timestamp
+                && !pa.partitionsFut.isCompletedExceptionally();
     }
 
     synchronized CompletableFuture<List<String>> getPartitionAssignment() {
         long timestamp = ch.partitionAssignmentTimestamp();
+        PartitionAssignment pa = partitionAssignment;
 
-        if (isPartitionAssignmentValid(timestamp)) {
-            return partitionAssignment.partitionsFut;
+        if (isPartitionAssignmentValid(pa, timestamp)) {
+            return pa.partitionsFut;
         }
 
         synchronized (partitionAssignmentLock) {
-            if (isPartitionAssignmentValid(timestamp)) {
-                return partitionAssignment.partitionsFut;
+            pa = partitionAssignment;
+            if (isPartitionAssignmentValid(pa, timestamp)) {
+                return pa.partitionsFut;
             }
 
-            partitionAssignment = new PartitionAssignment();
-            partitionAssignment.timestamp = timestamp;
-            partitionAssignment.partitionsFut = ch.serviceAsync(ClientOp.PARTITION_ASSIGNMENT_GET,
+            // Request assignment, save requested timestamp and future.
+            // This way multiple calls to getPartitionAssignment() will return the same future and won't send multiple requests.
+            PartitionAssignment newAssignment = new PartitionAssignment();
+            newAssignment.timestamp = timestamp;
+            newAssignment.partitionsFut = ch.serviceAsync(ClientOp.PARTITION_ASSIGNMENT_GET,
                     w -> {
                         w.out().packInt(id);
                         w.out().packLong(timestamp);
                     },
                     r -> {
                         int cnt = r.in().unpackInt();
-                        if (cnt == 0) {
-                            return List.of();
+                        assert cnt >= 0 : "Invalid partition count: " + cnt;
+
+                        boolean assignmentAvailable = r.in().unpackBoolean();
+                        if (!assignmentAvailable) {
+                            // Invalidate current assignment so that we can retry on the next call.
+                            newAssignment.timestamp = HybridTimestamp.NULL_HYBRID_TIMESTAMP;
+
+                            // Return empty array so that per-partition batches can be initialized.
+                            // We'll get the actual assignment on the next call.
+                            return new ArrayList<>(cnt);
                         }
 
                         // Returned timestamp can be newer than requested.
                         long ts = r.in().unpackLong();
                         assert ts >= timestamp : "Returned timestamp is older than requested: " + ts + " < " + timestamp;
 
-                        partitionAssignment.timestamp = ts;
+                        newAssignment.timestamp = ts;
 
                         List<String> res = new ArrayList<>(cnt);
                         for (int i = 0; i < cnt; i++) {
@@ -615,7 +609,9 @@ public class ClientTable implements Table {
                         return res;
                     });
 
-            return partitionAssignment.partitionsFut;
+            partitionAssignment = newAssignment;
+
+            return newAssignment.partitionsFut;
         }
     }
 

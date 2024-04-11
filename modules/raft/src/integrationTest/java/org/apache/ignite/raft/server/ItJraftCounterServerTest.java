@@ -67,7 +67,6 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.core.StateMachineAdapter;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
-import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftException;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.messages.TestRaftMessagesFactory;
@@ -91,6 +90,12 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
      * Counter group name 1.
      */
     private static final TestReplicationGroupId COUNTER_GROUP_1 = new TestReplicationGroupId("counter1");
+
+    /** Amount of stripes for disruptors that are used by JRAFT. */
+    private static final int RAFT_STRIPES = 3;
+
+    /** Amount of stripes for disruptors that are used by the log service for JRAFT. */
+    private static final int RAFT_LOG_STRIPES = 1;
 
     /**
      * Listener factory.
@@ -135,7 +140,11 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
             var nodeId = new RaftNodeId(new TestReplicationGroupId("test_raft_group"), initialMembersConf.peer(localNodeName));
 
             raftServer.startRaftNode(nodeId, initialMembersConf, listenerFactory.get(), groupOptions(raftServer));
-        }, opts -> {});
+        }, opts -> {
+            opts.setStripes(RAFT_STRIPES);
+            opts.setLogStripesCount(RAFT_LOG_STRIPES);
+            opts.setLogYieldStrategy(true);
+        });
 
         Set<Thread> threads = getAllDisruptorCurrentThreads();
 
@@ -143,7 +152,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
         Set<String> threadNamesBefore = threads.stream().map(Thread::getName).collect(toSet());
 
-        assertEquals(NodeOptions.DEFAULT_STRIPES * 4/*services*/, threadsBefore, "Started thread names: " + threadNamesBefore);
+        assertEquals(RAFT_STRIPES * 3/* services */ + RAFT_LOG_STRIPES, threadsBefore, "Started thread names: " + threadNamesBefore);
 
         servers.forEach(srv -> {
             String localNodeName = srv.clusterService().topologyService().localMember().name();

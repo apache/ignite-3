@@ -20,6 +20,7 @@ package org.apache.ignite.internal.compute.utils;
 import static org.apache.ignite.compute.JobState.CANCELED;
 import static org.apache.ignite.compute.JobState.COMPLETED;
 import static org.apache.ignite.compute.JobState.EXECUTING;
+import static org.apache.ignite.compute.JobState.QUEUED;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.JobStatusMatcher.jobStatusWithState;
@@ -105,10 +106,21 @@ public class TestingJobExecution<R> implements JobExecution<R> {
     /**
      * Checks that the job execution object has EXECUTING state.
      */
-    public void assertExecuting() {
-        await().until(() -> jobExecution.statusAsync().get(10, TimeUnit.SECONDS).state() == EXECUTING);
+    public void assertQueued() {
+        await().until(jobExecution::statusAsync, willBe(jobStatusWithState(QUEUED)));
 
-        assertThat(jobExecution.resultAsync().isDone(), equalTo(false));
+        assertThat(resultAsync().isDone(), equalTo(false));
+
+        assertThat(idAsync(), willBe(notNullValue()));
+    }
+
+    /**
+     * Checks that the job execution object has EXECUTING state.
+     */
+    public void assertExecuting() {
+        await().until(jobExecution::statusAsync, willBe(jobStatusWithState(EXECUTING)));
+
+        assertThat(resultAsync().isDone(), equalTo(false));
 
         assertThat(idAsync(), willBe(notNullValue()));
     }
@@ -117,16 +129,18 @@ public class TestingJobExecution<R> implements JobExecution<R> {
      * Checks that the job execution object is cancelled.
      */
     public void assertCancelled() {
+        await().until(jobExecution::statusAsync, willBe(jobStatusWithState(CANCELED)));
+
         assertThat(resultAsync(), willThrow(IgniteException.class));
-        assertThat(statusAsync(), willBe(jobStatusWithState(CANCELED)));
     }
 
     /**
      * Checks that the job execution object is completed successfully.
      */
     public void assertCompleted() {
+        await().until(jobExecution::statusAsync, willBe(jobStatusWithState(COMPLETED)));
+
         assertThat(resultAsync(), willBe("Done"));
-        assertThat(statusAsync(), willBe(jobStatusWithState(COMPLETED)));
     }
 
     /**

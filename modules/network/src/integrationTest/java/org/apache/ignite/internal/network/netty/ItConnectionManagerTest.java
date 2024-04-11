@@ -58,6 +58,7 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.future.OrderingFuture;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.network.ChannelType;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
@@ -73,6 +74,7 @@ import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.serialization.UserObjectSerializationContext;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.RepeatedTest;
@@ -525,7 +527,6 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
             var manager = new ConnectionManager(
                     cfg,
                     new SerializationService(registry, mock(UserObjectSerializationContext.class)),
-                    launchId,
                     consistentId,
                     bootstrapFactory,
                     new AllIdsAreFresh(),
@@ -533,6 +534,11 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
             );
 
             manager.start();
+            manager.setLocalNode(new ClusterNodeImpl(
+                    launchId.toString(),
+                    consistentId,
+                    new NetworkAddress(manager.localAddress().getHostName(), port)
+            ));
 
             var wrapper = new ConnectionManagerWrapper(manager, bootstrapFactory);
 

@@ -23,9 +23,12 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.catalog.IgniteCatalog;
+import org.apache.ignite.catalog.Options;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.IgniteClientConfiguration;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.internal.catalog.sql.IgniteCatalogSqlImpl;
 import org.apache.ignite.internal.client.compute.ClientCompute;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.sql.ClientSql;
@@ -74,6 +77,11 @@ public class TcpIgniteClient implements IgniteClient {
 
     /** Marshallers provider. */
     private final ReflectionMarshallersProvider marshallers = new ReflectionMarshallersProvider();
+
+    /**
+     * Cluster name.
+     */
+    private String clusterName;
 
     /**
      * Constructor.
@@ -126,7 +134,11 @@ public class TcpIgniteClient implements IgniteClient {
      * @return Future representing pending completion of the operation.
      */
     private CompletableFuture<ClientChannel> initAsync() {
-        return ch.channelsInitAsync();
+        return ch.channelsInitAsync().whenComplete((channel, throwable) -> {
+            if (throwable == null) {
+                clusterName = channel.protocolContext().clusterName();
+            }
+        });
     }
 
     /**
@@ -195,6 +207,11 @@ public class TcpIgniteClient implements IgniteClient {
         });
     }
 
+    @Override
+    public IgniteCatalog catalog(Options options) {
+        return new IgniteCatalogSqlImpl(sql(), options);
+    }
+
     /** {@inheritDoc} */
     @Override
     public void close() throws Exception {
@@ -221,6 +238,15 @@ public class TcpIgniteClient implements IgniteClient {
     @Override
     public List<ClusterNode> connections() {
         return ch.connections();
+    }
+
+    /**
+     * Returns the name of the cluster to which this client is connected to.
+     *
+     * @return Cluster name.
+     */
+    public String clusterName() {
+        return clusterName;
     }
 
     @TestOnly

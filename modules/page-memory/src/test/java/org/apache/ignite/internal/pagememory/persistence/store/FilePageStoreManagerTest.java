@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.pagememory.persistence.store;
 
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.function.Predicate.not;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager.DEL_PART_FILE_TEMPLATE;
@@ -40,6 +41,7 @@ import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.emptyArray;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -525,13 +527,35 @@ public class FilePageStoreManagerTest extends BaseIgniteAbstractTest {
         );
     }
 
-    private FilePageStoreManager createManager() throws Exception {
+    @Test
+    void testDestroyGroupIfExists() throws Exception {
+        FilePageStoreManager manager = createManager();
+
+        manager.start();
+
+        int groupId = 1;
+
+        Path dbDir = workDir.resolve("db");
+
+        // Directory does not exist.
+        assertDoesNotThrow(() -> manager.destroyGroupIfExists(groupId));
+        assertThat(collectAllSubFileAndDirs(dbDir), empty());
+
+        createAndAddFilePageStore(manager, new GroupPartitionId(groupId, 0));
+        assertThat(collectAllSubFileAndDirs(dbDir), not(empty()));
+
+        manager.destroyGroupIfExists(groupId);
+        assertThat(collectAllSubFileAndDirs(dbDir), empty());
+    }
+
+    private FilePageStoreManager createManager() {
         FilePageStoreManager manager = new FilePageStoreManager(
                 "test",
                 workDir,
                 new RandomAccessFileIoFactory(),
                 PAGE_SIZE,
-                mock(FailureProcessor.class));
+                mock(FailureProcessor.class)
+        );
 
         managers.add(manager);
 
@@ -541,6 +565,12 @@ public class FilePageStoreManagerTest extends BaseIgniteAbstractTest {
     private static List<Path> collectFilesOnly(Path start) throws Exception {
         try (Stream<Path> fileStream = Files.find(start, Integer.MAX_VALUE, (path, basicFileAttributes) -> Files.isRegularFile(path))) {
             return fileStream.collect(toList());
+        }
+    }
+
+    private static List<Path> collectAllSubFileAndDirs(Path start) throws Exception {
+        try (Stream<Path> fileStream = Files.walk(start)) {
+            return fileStream.filter(not(start::equals)).collect(toList());
         }
     }
 

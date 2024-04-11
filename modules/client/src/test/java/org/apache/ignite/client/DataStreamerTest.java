@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -37,7 +38,9 @@ import java.util.function.Function;
 import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.fakes.FakeIgnite;
 import org.apache.ignite.client.fakes.FakeIgniteTables;
+import org.apache.ignite.internal.streamer.SimplePublisher;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
@@ -68,7 +71,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
 
         CompletableFuture<Void> streamerFut;
 
-        try (var publisher = new SubmissionPublisher<Tuple>()) {
+        try (var publisher = new SimplePublisher<Tuple>()) {
             var options = DataStreamerOptions.builder().pageSize(batchSize).build();
             streamerFut = view.streamData(publisher, options);
 
@@ -90,7 +93,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
         RecordView<PersonPojo> view = defaultTable().recordView(PersonPojo.class);
         CompletableFuture<Void> streamerFut;
 
-        try (var publisher = new SubmissionPublisher<PersonPojo>()) {
+        try (var publisher = new SimplePublisher<PersonPojo>()) {
             streamerFut = view.streamData(publisher, null);
 
             publisher.submit(new PersonPojo(1L, "foo"));
@@ -106,7 +109,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
         KeyValueView<Tuple, Tuple> view = defaultTable().keyValueView();
         CompletableFuture<Void> streamerFut;
 
-        try (var publisher = new SubmissionPublisher<Map.Entry<Tuple, Tuple>>()) {
+        try (var publisher = new SimplePublisher<Entry<Tuple, Tuple>>()) {
             streamerFut = view.streamData(publisher, null);
 
             publisher.submit(Map.entry(tupleKey(1L), tupleVal("foo")));
@@ -122,7 +125,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
         KeyValueView<Long, PersonValPojo> view = defaultTable().keyValueView(Mapper.of(Long.class), Mapper.of(PersonValPojo.class));
         CompletableFuture<Void> streamerFut;
 
-        try (var publisher = new SubmissionPublisher<Map.Entry<Long, PersonValPojo>>()) {
+        try (var publisher = new SimplePublisher<Entry<Long, PersonValPojo>>()) {
             streamerFut = view.streamData(publisher, null);
 
             publisher.submit(Map.entry(1L, new PersonValPojo("foo")));
@@ -137,7 +140,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
     public void testAutoFlushByTimer() throws InterruptedException {
         RecordView<Tuple> view = this.defaultTable().recordView();
 
-        try (var publisher = new SubmissionPublisher<Tuple>()) {
+        try (var publisher = new SimplePublisher<Tuple>()) {
             var options = DataStreamerOptions.builder().autoFlushFrequency(100).build();
             view.streamData(publisher, options);
 
@@ -150,7 +153,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
     public void testAutoFlushDisabled() throws InterruptedException {
         RecordView<Tuple> view = this.defaultTable().recordView();
 
-        try (var publisher = new SubmissionPublisher<Tuple>()) {
+        try (var publisher = new SimplePublisher<Tuple>()) {
             var options = DataStreamerOptions.builder().autoFlushFrequency(-1).build();
             view.streamData(publisher, options);
 
@@ -170,10 +173,10 @@ public class DataStreamerTest extends AbstractClientTableTest {
         RecordView<Tuple> view = defaultTableView(ignite2, client2);
 
         var bufferSize = 2;
-        try (var publisher = new SubmissionPublisher<Tuple>(ForkJoinPool.commonPool(), bufferSize)) {
+        try (var publisher = new SubmissionPublisher<DataStreamerItem<Tuple>>(ForkJoinPool.commonPool(), bufferSize)) {
             var options = DataStreamerOptions.builder()
                     .pageSize(bufferSize)
-                    .perNodeParallelOperations(1)
+                    .perPartitionParallelOperations(1)
                     .build();
 
             var streamerFut = view.streamData(publisher, options);
@@ -181,7 +184,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
             // Stream 20 items (5 per partition) while buffer capacity is 2 to trigger back pressure.
             var submitFut = CompletableFuture.runAsync(() -> {
                 for (long i = 0; i < 20; i++) {
-                    publisher.submit(tuple(i, "foo_" + i));
+                    publisher.submit(DataStreamerItem.of(tuple(i, "foo_" + i)));
                 }
             });
 
@@ -208,8 +211,12 @@ public class DataStreamerTest extends AbstractClientTableTest {
         RecordView<Tuple> view = defaultTableView(ignite2, client2);
         CompletableFuture<Void> streamFut;
 
-        try (var publisher = new SubmissionPublisher<Tuple>()) {
-            var options = DataStreamerOptions.builder().pageSize(2).build();
+        try (var publisher = new SimplePublisher<Tuple>()) {
+            var options = DataStreamerOptions.builder()
+                    .pageSize(2)
+                    .perPartitionParallelOperations(4)
+                    .build();
+
             streamFut = view.streamData(publisher, options);
 
             for (long i = 0; i < 1000; i++) {
@@ -240,7 +247,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
         RecordView<Tuple> view = defaultTableView(ignite2, client2);
         CompletableFuture<Void> streamFut;
 
-        try (var publisher = new SubmissionPublisher<Tuple>()) {
+        try (var publisher = new SimplePublisher<Tuple>()) {
             var options = DataStreamerOptions.builder().pageSize(2).retryLimit(3).build();
             streamFut = view.streamData(publisher, options);
 
@@ -271,7 +278,7 @@ public class DataStreamerTest extends AbstractClientTableTest {
         RecordView<Tuple> view = defaultTableView(ignite2, client2);
         CompletableFuture<Void> streamFut;
 
-        try (var publisher = new SubmissionPublisher<Tuple>()) {
+        try (var publisher = new SimplePublisher<Tuple>()) {
             var options = DataStreamerOptions.builder().retryLimit(0).build();
             streamFut = view.streamData(publisher, options);
             publisher.submit(tuple(1L, "foo"));
@@ -279,6 +286,38 @@ public class DataStreamerTest extends AbstractClientTableTest {
 
         assertThrows(ExecutionException.class, () -> streamFut.get(5, TimeUnit.SECONDS));
         logger.assertLogContains("Failed to refresh schemas and partition assignment");
+    }
+
+    @Test
+    public void testAddUpdateRemove() {
+        RecordView<Tuple> view = defaultTable().recordView();
+        view.delete(null, tupleKey(1L));
+        view.upsert(null, tuple(2L, "foo"));
+        view.upsert(null, tuple(3L, "bar"));
+
+        CompletableFuture<Void> streamerFut;
+
+        try (var publisher = new SubmissionPublisher<DataStreamerItem<Tuple>>()) {
+            streamerFut = view.streamData(publisher, null);
+
+            // Add.
+            publisher.submit(DataStreamerItem.of(tuple(1L, "foo")));
+
+            // Update.
+            publisher.submit(DataStreamerItem.of(tuple(2L, "bar2")));
+
+            // Remove.
+            publisher.submit(DataStreamerItem.removed(tupleKey(3L)));
+            publisher.submit(DataStreamerItem.removed(tuple(4L, "x")));
+        }
+
+        streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+
+        assertNotNull(view.get(null, tupleKey(1L)));
+        assertNotNull(view.get(null, tupleKey(2L)));
+        assertNull(view.get(null, tupleKey(3L)));
+
+        assertEquals("bar2", view.get(null, tupleKey(2L)).stringValue("name"));
     }
 
     private static RecordView<Tuple> defaultTableView(FakeIgnite server, IgniteClient client) {

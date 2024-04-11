@@ -23,15 +23,37 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Flow.Publisher;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.function.LongFunction;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.table.DataStreamerItem;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 class StreamerSubscriberTest extends BaseIgniteAbstractTest {
+    private static ScheduledExecutorService flushExecutor;
+
+    @BeforeAll
+    public static void flushExecutorInit() {
+        flushExecutor = Executors.newSingleThreadScheduledExecutor(
+                new NamedThreadFactory("flushExecutor", Loggers.forClass(StreamerSubscriberTest.class)));
+    }
+
+    @AfterAll
+    public static void flushExecutorShutdown() {
+        if (flushExecutor != null) {
+            flushExecutor.shutdown();
+        }
+    }
+
     private static class Metrics implements StreamerMetricSink {
         private final LongAdder batchesSent = new LongAdder();
         private final LongAdder itemsSent = new LongAdder();
@@ -61,12 +83,12 @@ class StreamerSubscriberTest extends BaseIgniteAbstractTest {
 
     private static class Options implements StreamerOptions {
         private final int batchSize;
-        private final int perNodeParallelOperations;
+        private final int perPartitionParallelOperations;
         private final int autoFlushFrequency;
 
-        Options(int batchSize, int perNodeParallelOperations, int autoFlushFrequency) {
+        Options(int batchSize, int perPartitionParallelOperations, int autoFlushFrequency) {
             this.batchSize = batchSize;
-            this.perNodeParallelOperations = perNodeParallelOperations;
+            this.perPartitionParallelOperations = perPartitionParallelOperations;
             this.autoFlushFrequency = autoFlushFrequency;
         }
 
@@ -76,8 +98,8 @@ class StreamerSubscriberTest extends BaseIgniteAbstractTest {
         }
 
         @Override
-        public int perNodeParallelOperations() {
-            return perNodeParallelOperations;
+        public int perPartitionParallelOperations() {
+            return perPartitionParallelOperations;
         }
 
         @Override
@@ -89,7 +111,7 @@ class StreamerSubscriberTest extends BaseIgniteAbstractTest {
     /**
      * Publisher that generates a {@code limit} number of items and dispatches them in the same thread.
      */
-    private static class LimitedPublisher<T> implements Publisher<T> {
+    private static class LimitedPublisher<T> implements Publisher<DataStreamerItem<T>> {
         private final long limit;
 
         private final LongFunction<T> generator;
@@ -100,7 +122,7 @@ class StreamerSubscriberTest extends BaseIgniteAbstractTest {
         }
 
         @Override
-        public void subscribe(Subscriber<? super T> subscriber) {
+        public void subscribe(Subscriber<? super DataStreamerItem<T>> subscriber) {
             subscriber.onSubscribe(new Subscription() {
                 private long produced = 0;
 
@@ -112,7 +134,8 @@ class StreamerSubscriberTest extends BaseIgniteAbstractTest {
                     } else if (produced < limit) {
                         for (int i = 0; i < Math.min(n, limit - produced); i++) {
                             produced++;
-                            subscriber.onNext(generator.apply(produced));
+                            T item = generator.apply(produced);
+                            subscriber.onNext(DataStreamerItem.of(item));
                         }
                     }
                 }
@@ -155,6 +178,7 @@ class StreamerSubscriberTest extends BaseIgniteAbstractTest {
                 (part, batch, deleted) -> sendFuture,
                 partitionProvider,
                 options,
+                flushExecutor,
                 log,
                 metrics
         );

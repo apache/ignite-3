@@ -53,6 +53,8 @@ import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.TestClockService;
+import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterService;
@@ -205,7 +207,7 @@ public class TestServer implements AutoCloseable {
         if (securityConfiguration == null) {
             authenticationManager = new DummyAuthenticationManager();
         } else {
-            authenticationManager = new AuthenticationManagerImpl(securityConfiguration);
+            authenticationManager = new AuthenticationManagerImpl(securityConfiguration, ign -> {});
             authenticationManager.start();
         }
 
@@ -214,10 +216,11 @@ public class TestServer implements AutoCloseable {
                 .clusterId(clusterId)
                 .build();
 
+        ClientConnectorConfiguration clientConnectorConfiguration = cfg.getConfiguration(ClientConnectorConfiguration.KEY);
+
         module = shouldDropConnection != null
                 ? new TestClientHandlerModule(
                 ignite,
-                cfg,
                 bootstrapFactory,
                 shouldDropConnection,
                 responseDelay,
@@ -227,24 +230,25 @@ public class TestServer implements AutoCloseable {
                 metrics,
                 authenticationManager,
                 clock,
-                placementDriver)
+                placementDriver,
+                clientConnectorConfiguration)
                 : new ClientHandlerModule(
                         ((FakeIgnite) ignite).queryEngine(),
                         (IgniteTablesInternal) ignite.tables(),
                         (IgniteTransactionsImpl) ignite.transactions(),
-                        cfg,
                         compute,
                         clusterService,
                         bootstrapFactory,
-                        ignite.sql(),
                         () -> CompletableFuture.completedFuture(tag),
                         mock(MetricManager.class),
                         metrics,
                         authenticationManager,
-                        clock,
+                        new TestClockService(clock),
                         new AlwaysSyncedSchemaSyncService(),
                         new FakeCatalogService(FakeInternalTable.PARTITIONS),
-                        placementDriver
+                        placementDriver,
+                        clientConnectorConfiguration,
+                        new TestLowWatermark()
                 );
 
         module.start().join();

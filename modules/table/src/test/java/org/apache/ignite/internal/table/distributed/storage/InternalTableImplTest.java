@@ -46,6 +46,7 @@ import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.storage.state.TxStateTableStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
@@ -61,7 +62,6 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
         InternalTableImpl internalTable = new InternalTableImpl(
                 "test",
                 1,
-                Int2ObjectMaps.emptyMap(),
                 1,
                 new SingleClusterNodeResolver(mock(ClusterNode.class)),
                 mock(TxManager.class),
@@ -70,7 +70,12 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 mock(ReplicaService.class),
                 mock(HybridClock.class),
                 new HybridTimestampTracker(),
-                mock(PlacementDriver.class)
+                mock(PlacementDriver.class),
+                new TableRaftServiceImpl("test", 1, Int2ObjectMaps.emptyMap(), new SingleClusterNodeResolver(mock(ClusterNode.class))),
+                mock(TransactionInflights.class),
+                3_000,
+                0,
+                null
         );
 
         // Let's check the empty table.
@@ -107,7 +112,6 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
         InternalTableImpl internalTable = new InternalTableImpl(
                 "test",
                 1,
-                Int2ObjectMaps.emptyMap(),
                 3,
                 new SingleClusterNodeResolver(mock(ClusterNode.class)),
                 mock(TxManager.class),
@@ -116,7 +120,12 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 mock(ReplicaService.class),
                 mock(HybridClock.class),
                 new HybridTimestampTracker(),
-                mock(PlacementDriver.class)
+                mock(PlacementDriver.class),
+                new TableRaftServiceImpl("test", 3, Int2ObjectMaps.emptyMap(), new SingleClusterNodeResolver(mock(ClusterNode.class))),
+                mock(TransactionInflights.class),
+                3_000,
+                0,
+                null
         );
 
         List<BinaryRowEx> originalRows = List.of(

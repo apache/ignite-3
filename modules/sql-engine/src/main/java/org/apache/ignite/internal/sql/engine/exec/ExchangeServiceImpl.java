@@ -24,10 +24,10 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.exec.rel.Inbox;
 import org.apache.ignite.internal.sql.engine.exec.rel.Outbox;
 import org.apache.ignite.internal.sql.engine.message.MessageService;
@@ -37,6 +37,7 @@ import org.apache.ignite.internal.sql.engine.message.SqlQueryMessageGroup;
 import org.apache.ignite.internal.sql.engine.message.SqlQueryMessagesFactory;
 import org.apache.ignite.internal.table.distributed.replication.request.BinaryTupleMessage;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TraceableException;
 import org.jetbrains.annotations.Nullable;
 
@@ -51,19 +52,23 @@ public class ExchangeServiceImpl implements ExchangeService {
 
     private final MailboxRegistry mailboxRegistry;
     private final MessageService messageService;
+    private final ClockService clockService;
 
     /**
      * Creates the object.
      *
      * @param mailboxRegistry A registry of mailboxes created on the node.
      * @param messageService A messaging service to exchange messages between mailboxes.
+     * @param clockService Clock service.
      */
     public ExchangeServiceImpl(
             MailboxRegistry mailboxRegistry,
-            MessageService messageService
+            MessageService messageService,
+            ClockService clockService
     ) {
         this.mailboxRegistry = mailboxRegistry;
         this.messageService = messageService;
+        this.clockService = clockService;
     }
 
     /** {@inheritDoc} */
@@ -87,6 +92,7 @@ public class ExchangeServiceImpl implements ExchangeService {
                         .batchId(batchId)
                         .last(last)
                         .rows(rows)
+                        .timestampLong(clockService.nowLong())
                         .build()
         );
     }
@@ -114,9 +120,7 @@ public class ExchangeServiceImpl implements ExchangeService {
 
         if (!(traceableErr instanceof TraceableException)) {
             traceableErr = error = new IgniteInternalException(INTERNAL_ERR, error);
-        }
 
-        if (!(traceableErr instanceof QueryCancelledException)) {
             LOG.info(format("Failed to execute query fragment: traceId={}, queryId={}, fragmentId={}",
                     ((TraceableException) traceableErr).traceId(), queryId, fragmentId), error);
         } else if (LOG.isDebugEnabled()) {
@@ -170,7 +174,11 @@ public class ExchangeServiceImpl implements ExchangeService {
             } catch (Throwable e) {
                 inbox.onError(e);
 
-                throw new IgniteInternalException(INTERNAL_ERR, "Unexpected exception", e);
+                if (e instanceof IgniteException) {
+                    return;
+                }
+
+                LOG.warn("Unexpected exception", e);
             }
         } else if (LOG.isDebugEnabled()) {
             LOG.debug("Stale batch message received: [nodeName={}, queryId={}, fragmentId={}, exchangeId={}, batchId={}]",

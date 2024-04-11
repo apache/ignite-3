@@ -28,9 +28,17 @@ import org.apache.ignite.configuration.validation.Range;
  */
 @ConfigurationRoot(rootName = "replication", type = ConfigurationType.DISTRIBUTED)
 public class ReplicationConfigurationSchema {
+    /** Default value for {@link #idleSafeTimePropagationDuration}. */
+    public static final long DEFAULT_IDLE_SAFE_TIME_PROP_DURATION = TimeUnit.SECONDS.toMillis(1);
+
     /** Idle safe time propagation duration (ms) for partitions. */
     @Value(hasDefault = true)
     @Range(min = 0)
     // TODO: IGNITE-19792 - make @Immutable when it gets being handled property for distributed config.
-    public long idleSafeTimePropagationDuration = TimeUnit.SECONDS.toMillis(1);
+    public long idleSafeTimePropagationDuration = DEFAULT_IDLE_SAFE_TIME_PROP_DURATION;
+
+    /** Replication request processing timeout.  */
+    @Value(hasDefault = true)
+    @Range(min = 1000)
+    public long rpcTimeout = TimeUnit.SECONDS.toMillis(60);
 }

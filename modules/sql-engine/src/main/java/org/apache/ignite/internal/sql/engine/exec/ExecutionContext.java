@@ -21,6 +21,8 @@ import static org.apache.ignite.internal.sql.engine.util.Commons.FRAMEWORK_CONFI
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.lang.reflect.Type;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -41,8 +43,13 @@ import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactory;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
+import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningColumns;
+import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningMetadata;
+import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
@@ -51,8 +58,6 @@ import org.jetbrains.annotations.Nullable;
  */
 public class ExecutionContext<RowT> implements DataContext {
     private static final IgniteLogger LOG = Loggers.forClass(ExecutionContext.class);
-
-    private static final TimeZone TIME_ZONE = TimeZone.getDefault(); // TODO DistributedSqlConfiguration#timeZone
 
     /**
      * TODO: https://issues.apache.org/jira/browse/IGNITE-15276 Support other locales.
@@ -85,6 +90,8 @@ public class ExecutionContext<RowT> implements DataContext {
 
     private final TxAttributes txAttributes;
 
+    private final ZoneId timeZoneId;
+
     private SharedState sharedState = new SharedState();
 
     /**
@@ -92,9 +99,13 @@ public class ExecutionContext<RowT> implements DataContext {
      *
      * @param executor Task executor.
      * @param qryId Query ID.
+     * @param localNode Local node.
+     * @param originatingNodeName Name of the node that initiated the query.
      * @param description Partitions information.
      * @param handler Row handler.
      * @param params Parameters.
+     * @param txAttributes Transaction attributes.
+     * @param timeZoneId Session time zone ID.
      */
     @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
     public ExecutionContext(
@@ -105,7 +116,8 @@ public class ExecutionContext<RowT> implements DataContext {
             FragmentDescription description,
             RowHandler<RowT> handler,
             Map<String, Object> params,
-            TxAttributes txAttributes
+            TxAttributes txAttributes,
+            ZoneId timeZoneId
     ) {
         this.executor = executor;
         this.qryId = qryId;
@@ -115,14 +127,15 @@ public class ExecutionContext<RowT> implements DataContext {
         this.localNode = localNode;
         this.originatingNodeName = originatingNodeName;
         this.txAttributes = txAttributes;
+        this.timeZoneId = timeZoneId;
 
         expressionFactory = new ExpressionFactoryImpl<>(
                 this,
                 FRAMEWORK_CONFIG.getParserConfig().conformance()
         );
 
-        long ts = System.currentTimeMillis();
-        startTs = ts + TIME_ZONE.getOffset(ts);
+        Instant nowUtc = Instant.now();
+        startTs = nowUtc.plusSeconds(this.timeZoneId.getRules().getOffset(nowUtc).getTotalSeconds()).toEpochMilli();
 
         if (LOG.isTraceEnabled()) {
             LOG.trace("Context created [qryId={}, fragmentId={}]", qryId, fragmentId());
@@ -238,6 +251,10 @@ public class ExecutionContext<RowT> implements DataContext {
             return LOCALE;
         }
 
+        if (Variable.TIME_ZONE.camelName.equals(name)) {
+            return TimeZone.getTimeZone(timeZoneId);
+        }
+
         if (name.startsWith("?")) {
             Object val = params.get(name);
             return val != null ? TypeUtils.toInternal(val, val.getClass()) : null;
@@ -308,9 +325,14 @@ public class ExecutionContext<RowT> implements DataContext {
                     task.run();
                 }
             } catch (Throwable e) {
-                onError.accept(e);
+                Throwable unwrappedException = ExceptionUtils.unwrapCause(e);
+                onError.accept(unwrappedException);
 
-                throw new IgniteInternalException(INTERNAL_ERR, "Unexpected exception", e);
+                if (unwrappedException instanceof IgniteException) {
+                    return;
+                }
+
+                LOG.warn("Unexpected exception", e);
             }
         });
     }
@@ -358,6 +380,19 @@ public class ExecutionContext<RowT> implements DataContext {
 
     public boolean isCancelled() {
         return cancelFlag.get();
+    }
+
+    /** Creates {@link PartitionProvider} for the given source table. */
+    public PartitionProvider<RowT> getPartitionProvider(long sourceId, ColocationGroup group, IgniteTable table) {
+        PartitionPruningMetadata metadata = description.partitionPruningMetadata();
+        PartitionPruningColumns columns = metadata != null ? metadata.get(sourceId) : null;
+        String nodeName = localNode.name();
+
+        if (columns == null) {
+            return new StaticPartitionProvider<>(nodeName, group, sourceId);
+        } else {
+            return new DynamicPartitionProvider<>(nodeName, group.assignments(), columns, table);
+        }
     }
 
     /** {@inheritDoc} */

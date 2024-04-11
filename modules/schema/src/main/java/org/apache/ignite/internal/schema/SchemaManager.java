@@ -17,18 +17,18 @@
 
 package org.apache.ignite.internal.schema;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
@@ -44,7 +44,6 @@ import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.IgniteComponent;
-import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.schema.catalog.CatalogToSchemaDescriptorConverter;
 import org.apache.ignite.internal.schema.registry.SchemaRegistryImpl;
 import org.apache.ignite.internal.tracing.TracingManager;
@@ -65,21 +64,16 @@ public class SchemaManager implements IgniteComponent {
 
     private final CatalogService catalogService;
 
-    /** Versioned store for tables by ID. */
-    private final IncrementalVersionedValue<Map<Integer, SchemaRegistryImpl>> registriesVv;
+    /** Versioned value for linearizing index partition changing events. */
+    private final IncrementalVersionedValue<Void> registriesVv;
 
-    /** Meta storage manager. */
-    private final MetaStorageManager metastorageMgr;
+    /** Schema registries by table ID. */
+    private final Map<Integer, SchemaRegistryImpl> registriesById = new ConcurrentHashMap<>();
 
     /** Constructor. */
-    public SchemaManager(
-            Consumer<LongFunction<CompletableFuture<?>>> registry,
-            CatalogService catalogService,
-            MetaStorageManager metastorageMgr
-    ) {
-        this.registriesVv = new IncrementalVersionedValue<>(registry, HashMap::new);
+    public SchemaManager(Consumer<LongFunction<CompletableFuture<?>>> registry, CatalogService catalogService) {
+        this.registriesVv = new IncrementalVersionedValue<>(registry);
         this.catalogService = catalogService;
-        this.metastorageMgr = metastorageMgr;
     }
 
     @Override
@@ -93,60 +87,45 @@ public class SchemaManager implements IgniteComponent {
     }
 
     private void registerExistingTables() {
-        long causalityToken = metastorageMgr.appliedRevision();
-
         for (int catalogVer = catalogService.latestCatalogVersion(); catalogVer >= catalogService.earliestCatalogVersion(); catalogVer--) {
             Collection<CatalogTableDescriptor> tables = catalogService.tables(catalogVer);
 
-            registriesVv.update(causalityToken, (registries, throwable) -> {
-                for (CatalogTableDescriptor tableDescriptor : tables) {
-                    int tableId = tableDescriptor.id();
+            for (CatalogTableDescriptor tableDescriptor : tables) {
+                int tableId = tableDescriptor.id();
 
-                    if (registries.containsKey(tableId)) {
-                        continue;
-                    }
-
-                    SchemaDescriptor prevSchema = null;
-                    CatalogTableSchemaVersions schemaVersions = tableDescriptor.schemaVersions();
-                    for (int tableVer = schemaVersions.earliestVersion(); tableVer <= schemaVersions.latestVersion(); tableVer++) {
-                        SchemaDescriptor newSchema = CatalogToSchemaDescriptorConverter.convert(tableDescriptor, tableVer);
-
-                        if (prevSchema != null) {
-                            newSchema.columnMapping(SchemaUtils.columnMapper(prevSchema, newSchema));
-                        }
-
-                        prevSchema = newSchema;
-                        registries = registerSchema(registries, tableId, newSchema);
-                    }
+                if (registriesById.containsKey(tableId)) {
+                    continue;
                 }
 
-                return completedFuture(registries);
-            });
-        }
+                SchemaDescriptor prevSchema = null;
+                CatalogTableSchemaVersions schemaVersions = tableDescriptor.schemaVersions();
+                for (int tableVer = schemaVersions.earliestVersion(); tableVer <= schemaVersions.latestVersion(); tableVer++) {
+                    SchemaDescriptor newSchema = CatalogToSchemaDescriptorConverter.convert(tableDescriptor, tableVer);
 
-        registriesVv.complete(causalityToken);
+                    if (prevSchema != null) {
+                        newSchema.columnMapping(SchemaUtils.columnMapper(prevSchema, newSchema));
+                    }
+
+                    prevSchema = newSchema;
+
+                    registerSchema(tableId, newSchema);
+                }
+            }
+        }
     }
 
-    private CompletableFuture<Boolean> onTableCreated(CatalogEventParameters event, @Nullable Throwable ex) {
+    private CompletableFuture<Boolean> onTableCreated(CatalogEventParameters event) {
         return TracingManager.span("SchemaManager.onTableCreated", (span) -> {
-            if (ex != null) {
-                return failedFuture(ex);
-            }
-
             CreateTableEventParameters creationEvent = (CreateTableEventParameters) event;
 
             return onTableCreatedOrAltered(creationEvent.tableDescriptor(), creationEvent.causalityToken());
         });
     }
 
-    private CompletableFuture<Boolean> onTableAltered(CatalogEventParameters event, @Nullable Throwable ex) {
+    private CompletableFuture<Boolean> onTableAltered(CatalogEventParameters event) {
+        assert event instanceof TableEventParameters;
+
         return TracingManager.span("SchemaManager.onTableAltered", (span) -> {
-            if (ex != null) {
-                return failedFuture(ex);
-            }
-
-            assert event instanceof TableEventParameters;
-
             TableEventParameters tableEvent = ((TableEventParameters) event);
 
             CatalogTableDescriptor tableDescriptor = catalogService.table(tableEvent.tableId(), tableEvent.catalogVersion());
@@ -190,7 +169,9 @@ public class SchemaManager implements IgniteComponent {
                         );
                     }
 
-                    return completedFuture(registerSchema(registries, tableId, newSchema));
+                    registerSchema(tableId, newSchema);
+
+                return nullCompletedFuture();
                 })).thenApply(ignored -> false);
             } finally {
                 busyLock.leaveBusy();
@@ -244,30 +225,23 @@ public class SchemaManager implements IgniteComponent {
     /**
      * Registers the new schema in the registries.
      *
-     * @param registries Registries before registering this schema.
      * @param tableId ID of the table to which the schema belongs.
      * @param schema The schema to register.
-     * @return Registries after registering this schema.
      */
-    private Map<Integer, SchemaRegistryImpl> registerSchema(
-            Map<Integer, SchemaRegistryImpl> registries,
+    private void registerSchema(
             int tableId,
             SchemaDescriptor schema
     ) {
-        return TracingManager.span("SchemaManager.registerSchema", (span) -> {
-            SchemaRegistryImpl reg = registries.get(tableId);
+        TracingManager.span("SchemaManager.registerSchema", (span) -> {
+            registriesById.compute(tableId, (tableId0, reg) -> {
+                if (reg == null) {
+                    return createSchemaRegistry(tableId0, schema);
+                }
 
-            if (reg == null) {
-                Map<Integer, SchemaRegistryImpl> copy = new HashMap<>(registries);
-
-                copy.put(tableId, createSchemaRegistry(tableId, schema));
-
-                return copy;
-            } else {
                 reg.onSchemaRegistered(schema);
 
-                return registries;
-            }
+                return reg;
+            });
         });
     }
 
@@ -293,7 +267,7 @@ public class SchemaManager implements IgniteComponent {
      * @return Descriptor if required schema found, or {@code null} otherwise.
      */
     private @Nullable SchemaDescriptor searchSchemaByVersion(int tblId, int schemaVer) {
-        SchemaRegistry registry = registriesVv.latest().get(tblId);
+        SchemaRegistry registry = registriesById.get(tblId);
 
         if (registry != null && schemaVer <= registry.lastKnownSchemaVersion()) {
             return registry.schema(schemaVer);
@@ -318,7 +292,7 @@ public class SchemaManager implements IgniteComponent {
 
         try {
             return registriesVv.get(causalityToken)
-                    .thenApply(regs -> inBusyLock(busyLock, () -> regs.get(tableId)));
+                    .thenApply(unused -> inBusyLock(busyLock, () -> registriesById.get(tableId)));
         } finally {
             busyLock.leaveBusy();
         }
@@ -331,29 +305,21 @@ public class SchemaManager implements IgniteComponent {
      * @return Schema registry.
      */
     public SchemaRegistry schemaRegistry(int tableId) {
-        return registriesVv.latest().get(tableId);
+        return registriesById.get(tableId);
     }
 
     /**
      * Drops schema registry for the given table id (along with the corresponding schemas).
      *
-     * @param causalityToken Causality token.
      * @param tableId Table id.
      */
-    public CompletableFuture<?> dropRegistry(long causalityToken, int tableId) {
-        return registriesVv.update(causalityToken, (registries, e) -> inBusyLock(busyLock, () -> {
-            if (e != null) {
-                return failedFuture(new IgniteInternalException(
-                        format("Cannot remove a schema registry for the table [tblId={}]", tableId), e));
-            }
-
-            Map<Integer, SchemaRegistryImpl> regs = new HashMap<>(registries);
-
-            SchemaRegistryImpl removedRegistry = regs.remove(tableId);
+    public CompletableFuture<?> dropRegistryAsync(int tableId) {
+        return inBusyLockAsync(busyLock, () -> {
+            SchemaRegistryImpl removedRegistry = registriesById.remove(tableId);
             removedRegistry.close();
 
-            return completedFuture(regs);
-        }));
+            return falseCompletedFuture();
+        });
     }
 
     @Override
@@ -365,6 +331,6 @@ public class SchemaManager implements IgniteComponent {
         busyLock.block();
 
         //noinspection ConstantConditions
-        IgniteUtils.closeAllManually(registriesVv.latest().values());
+        IgniteUtils.closeAllManually(registriesById.values());
     }
 }

@@ -17,19 +17,26 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
+import static org.apache.ignite.internal.thread.ThreadOperation.NOTHING_ALLOWED;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.IgniteException;
 
 /**
  * Implementation of query task executor for any SQL related execution stage.
  */
-public class QueryTaskExecutorImpl implements QueryTaskExecutor, Thread.UncaughtExceptionHandler {
+public class QueryTaskExecutorImpl implements QueryTaskExecutor {
     private static final IgniteLogger LOG = Loggers.forClass(QueryTaskExecutorImpl.class);
 
     private static final UUID QUERY_ID_STUB = UUID.randomUUID();
@@ -40,17 +47,19 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor, Thread.Uncaught
 
     private final int concurrencyLevel;
 
-    private Thread.UncaughtExceptionHandler exHnd;
+    private final FailureProcessor failureProcessor;
 
     /**
      * Constructor.
      *
      * @param nodeName Node name.
      * @param concurrencyLevel concurrency Level for execution thread pool.
+     * @param failureProcessor Failure processor.
      */
-    public QueryTaskExecutorImpl(String nodeName, int concurrencyLevel) {
+    public QueryTaskExecutorImpl(String nodeName, int concurrencyLevel, FailureProcessor failureProcessor) {
         this.nodeName = nodeName;
         this.concurrencyLevel = concurrencyLevel;
+        this.failureProcessor = failureProcessor;
     }
 
     /** {@inheritDoc} */
@@ -58,19 +67,10 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor, Thread.Uncaught
     public void start() {
         this.stripedThreadPoolExecutor = new StripedThreadPoolExecutor(
                 concurrencyLevel,
-                NamedThreadFactory.create(nodeName, "sql-execution-pool", LOG),
+                IgniteThreadFactory.create(nodeName, "sql-execution-pool", LOG, NOTHING_ALLOWED),
                 false,
                 0
         );
-    }
-
-    /**
-     * Set uncaught exception handler.
-     *
-     * @param exHnd Uncaught exception handler.
-     */
-    public void exceptionHandler(Thread.UncaughtExceptionHandler exHnd) {
-        this.exHnd = exHnd;
     }
 
     /** {@inheritDoc} */
@@ -82,14 +82,20 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor, Thread.Uncaught
                     try {
                         qryTask.run();
                     } catch (Throwable e) {
-                        LOG.debug("Uncaught exception", e);
-
                         /*
                          * No exceptions are rethrown here to preserve the current thread from being destroyed,
                          * because other queries may be pinned to the current thread id.
-                         * However, unrecoverable errors must be processed by FailureHandler.
+                         * However, any exception here considered as Unexpected and must be processed by FailureHandler.
                          */
-                        uncaughtException(Thread.currentThread(), e);
+
+                        String message = String.format(
+                                "Unexpected error during execute fragment %d of query %s",
+                                fragmentId,
+                                qryId);
+
+                        failureProcessor.process(
+                                new FailureContext(CRITICAL_ERROR, new IgniteException(INTERNAL_ERR, message, e))
+                        );
                     }
                 },
                 commandIdx
@@ -110,14 +116,6 @@ public class QueryTaskExecutorImpl implements QueryTaskExecutor, Thread.Uncaught
     @Override
     public CompletableFuture<?> submit(UUID qryId, long fragmentId, Runnable qryTask) {
         return stripedThreadPoolExecutor.submit(qryTask, hash(qryId, fragmentId));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public void uncaughtException(Thread t, Throwable e) {
-        if (exHnd != null) {
-            exHnd.uncaughtException(t, e);
-        }
     }
 
     private static int hash(UUID qryId, long fragmentId) {

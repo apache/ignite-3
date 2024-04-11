@@ -32,6 +32,7 @@ import org.jetbrains.annotations.Nullable;
  * Logical relational expression for reading data from a system view.
  */
 public class IgniteLogicalSystemViewScan extends ProjectableFilterableTableScan {
+    private static final String REL_TYPE_NAME = "LogicalSystemViewScan";
 
     /**
      * Creates asSystem view scan.
@@ -67,5 +68,11 @@ public class IgniteLogicalSystemViewScan extends ProjectableFilterableTableScan 
     public IgniteLogicalSystemViewScan withHints(List<RelHint> hintList) {
         return new IgniteLogicalSystemViewScan(getCluster(), getTraitSet(), hintList, getTable(),
                 projects, condition, requiredColumns);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 }

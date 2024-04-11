@@ -110,7 +110,7 @@ public class ColumnFamilyUtils {
      *
      * @see #comparatorFromCfName(byte[])
      */
-    static byte[] sortedIndexCfName(List<StorageSortedIndexColumnDescriptor> columns) {
+    public static byte[] sortedIndexCfName(List<StorageSortedIndexColumnDescriptor> columns) {
         ByteBuffer buf = ByteBuffer.allocate(SORTED_INDEX_CF_PREFIX.length() + columns.size() * 2);
 
         buf.put(SORTED_INDEX_CF_PREFIX.getBytes(UTF_8));
@@ -163,15 +163,15 @@ public class ColumnFamilyUtils {
                     break;
 
                 case INT8:
-                    nativeType = NativeTypes.INT8; //TODO IGNITE-19751 Only use INT64.
+                    nativeType = NativeTypes.INT8; // TODO IGNITE-19751 Only use INT64.
                     break;
 
                 case INT16:
-                    nativeType = NativeTypes.INT16; //TODO IGNITE-19751 Only use INT64.
+                    nativeType = NativeTypes.INT16; // TODO IGNITE-19751 Only use INT64.
                     break;
 
                 case INT32:
-                    nativeType = NativeTypes.INT32; //TODO IGNITE-19751 Only use INT64.
+                    nativeType = NativeTypes.INT32; // TODO IGNITE-19751 Only use INT64.
                     break;
 
                 case INT64:
@@ -179,7 +179,7 @@ public class ColumnFamilyUtils {
                     break;
 
                 case FLOAT:
-                    nativeType = NativeTypes.FLOAT; //TODO IGNITE-19751 Only use DOUBLE? Maybe.
+                    nativeType = NativeTypes.FLOAT; // TODO IGNITE-19751 Only use DOUBLE? Maybe.
                     break;
 
                 case DOUBLE:

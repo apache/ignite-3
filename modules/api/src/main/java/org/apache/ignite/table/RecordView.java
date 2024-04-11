@@ -20,6 +20,7 @@ package org.apache.ignite.table;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.table.criteria.CriteriaQuerySource;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -70,6 +71,26 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
      *      element at the corresponding index of the resulting collection is {@code null}.
      */
     CompletableFuture<List<R>> getAllAsync(@Nullable Transaction tx, Collection<R> keyRecs);
+
+    /**
+     * Determines whether a table contains an entry for the specified key.
+     *
+     * @param tx Transaction or {@code null} to auto-commit.
+     * @param keyRec A record with key columns set. The key cannot be {@code null}.
+     * @return {@code True} if a value exists for the specified key, {@code false} otherwise.
+     * @throws MarshallerException if the key doesn't match the schema.
+     */
+    boolean contains(@Nullable Transaction tx, R keyRec);
+
+    /**
+     * Determines whether a table contains an entry for the specified key.
+     *
+     * @param tx Transaction or {@code null} to auto-commit.
+     * @param keyRec A record with key columns set. The key cannot be {@code null}.
+     * @return Future that represents the pending completion of the operation.
+     * @throws MarshallerException if the key doesn't match the schema.
+     */
+    CompletableFuture<Boolean> containsAsync(@Nullable Transaction tx, R keyRec);
 
     /**
      * Inserts a record into a table, if it does not exist, or replaces an existing one.
@@ -260,7 +281,7 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
      *
      * @param tx     Transaction or {@code null} to auto-commit.
      * @param keyRec Record with the key columns set. The record cannot be {@code null}.
-     * @return Removed record or {@code null} if it dod not exist.
+     * @return Removed record or {@code null} if it did not exist.
      */
     R getAndDelete(@Nullable Transaction tx, R keyRec);
 

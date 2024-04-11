@@ -33,6 +33,8 @@ import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.internal.sql.engine.QueryProperty;
+import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.tracing.TraceSpan;
@@ -40,8 +42,8 @@ import org.apache.ignite.internal.tracing.configuration.TracingConfiguration;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.sql.IgniteSql;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.sql.Statement;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -212,22 +214,14 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
     /**
      * Benchmark state for {@link #sqlGet(SqlState, Blackhole)}.
      *
-     * <p>Holds {@link Session}.
+     * <p>Holds {@link IgniteSql}.
      */
     @State(Scope.Benchmark)
     public static class SqlState {
-        private final Session session = clusterNode.sql().createSession();
-
-        /**
-         * Closes resources.
-         */
-        @TearDown
-        public void tearDown() throws Exception {
-            IgniteUtils.closeAll(session);
-        }
+        private final IgniteSql sql = clusterNode.sql();
 
         private org.apache.ignite.sql.ResultSet<SqlRow> sql(String sql, Object... args) {
-            return session.execute(null, sql, args);
+            return this.sql.execute(null, sql, args);
         }
     }
 
@@ -237,26 +231,31 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
      */
     @State(Scope.Benchmark)
     public static class SqlInternalApiState {
-        private final SqlProperties properties = SqlPropertiesHelper.emptyProperties();
+        private final SqlProperties properties = SqlPropertiesHelper.newBuilder()
+                .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.SINGLE_STMT_TYPES)
+                .build();
+
+        private final SqlProperties scriptProperties = SqlPropertiesHelper.newBuilder()
+                .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.ALL)
+                .build();
+
         private final QueryProcessor queryProc = clusterNode.queryEngine();
         private int pageSize;
 
         /** Initializes session. */
         @Setup
         public void setUp() throws Exception {
-            Session session = clusterNode.sql().createSession();
-
-            pageSize = session.defaultPageSize();
-
-            IgniteUtils.closeAll(session);
+            try (Statement statement = clusterNode.sql().createStatement("SELECT 1")) {
+                pageSize = statement.pageSize();
+            }
         }
 
         private Iterator<InternalSqlRow> query(String sql, Object... args) {
-            return handleFirstBatch(queryProc.querySingleAsync(properties, clusterNode.transactions(), null, sql, args));
+            return handleFirstBatch(queryProc.queryAsync(properties, clusterNode.transactions(), null, sql, args));
         }
 
         private Iterator<InternalSqlRow> script(String sql, Object... args) {
-            return handleFirstBatch(queryProc.queryScriptAsync(properties, clusterNode.transactions(), null, sql, args));
+            return handleFirstBatch(queryProc.queryAsync(scriptProperties, clusterNode.transactions(), null, sql, args));
         }
 
         private Iterator<InternalSqlRow> handleFirstBatch(CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursorFut) {
@@ -272,12 +271,12 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
     /**
      * Benchmark state for {@link #sqlThinGet(SqlThinState, Blackhole)}.
      *
-     * <p>Holds {@link IgniteClient} and {@link Session}.
+     * <p>Holds {@link IgniteClient} and {@link IgniteSql}.
      */
     @State(Scope.Benchmark)
     public static class SqlThinState {
         private IgniteClient client;
-        private Session session;
+        private IgniteSql sql;
 
         /**
          * Initializes session and statement.
@@ -286,9 +285,7 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
         public void setUp() {
             client = IgniteClient.builder().addresses("127.0.0.1:10800").build();
 
-            IgniteSql sql = client.sql();
-
-            session = sql.createSession();
+            sql = client.sql();
         }
 
         /**
@@ -296,11 +293,11 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
          */
         @TearDown
         public void tearDown() throws Exception {
-            IgniteUtils.closeAll(session, client);
+            IgniteUtils.closeAll(client);
         }
 
         org.apache.ignite.sql.ResultSet<SqlRow> sql(String query, Object... args) {
-            return session.execute(null, query, args);
+            return sql.execute(null, query, args);
         }
     }
 

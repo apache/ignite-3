@@ -22,12 +22,9 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.lang.ErrorGroups.Sql;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.is;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.MetricSet;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
@@ -35,11 +32,12 @@ import org.apache.ignite.internal.sql.metrics.SqlClientMetricSource;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.sql.Statement;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 
@@ -66,7 +64,6 @@ public class ItSqlClientMetricsTest extends BaseSqlIntegrationTest {
     @AfterEach
     void afterEach() throws Exception {
         assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 0);
-        assertFalse(hasOpenSessions());
     }
 
     @Override
@@ -75,51 +72,33 @@ public class ItSqlClientMetricsTest extends BaseSqlIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18647")
     public void testNormalFlow() throws Exception {
-        try (Session session = sql.createSession()) {
-            session.execute(null, "SELECT * from " + DEFAULT_TABLE_NAME);
+        sql.execute(null, "SELECT * from " + DEFAULT_TABLE_NAME);
 
-            // default pageSize greater than number of rows in a table, thus cursor will be closed immediately
-            assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 0);
-        }
+        // default pageSize greater than number of rows in a table, thus cursor will be closed immediately
+        assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 0);
 
-        Session session = sql.sessionBuilder()
-                .defaultPageSize(1)
+        Statement statement = sql.statementBuilder()
+                .query("SELECT * from " + DEFAULT_TABLE_NAME)
+                .pageSize(1)
                 .build();
 
-        ResultSet<SqlRow> rs1 = session.execute(null, "SELECT * from " + DEFAULT_TABLE_NAME);
+        ResultSet<SqlRow> rs1 = sql.execute(null, statement);
 
         assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 1);
         rs1.forEachRemaining(c -> {});
         assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 0);
 
-        ResultSet<SqlRow> rs2 = session.execute(null, "SELECT * from " + DEFAULT_TABLE_NAME);
-        session.execute(null, "SELECT * from " + DEFAULT_TABLE_NAME);
+        ResultSet<SqlRow> rs2 = sql.execute(null, "SELECT * from " + DEFAULT_TABLE_NAME);
+        ResultSet<SqlRow> rs3 = sql.execute(null, "SELECT * from " + DEFAULT_TABLE_NAME);
         assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 2);
 
         rs2.close();
         assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 1);
 
-        session.close();
+        rs3.close();
         assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 0);
-    }
-
-    @Test
-    public void testMetricsDuringTimeouts() throws Exception {
-        Session session = sql.sessionBuilder()
-                .defaultPageSize(1)
-                .idleTimeout(1, TimeUnit.SECONDS)
-                .build();
-
-        session.execute(null, "SELECT * from " + DEFAULT_TABLE_NAME);
-        assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 1);
-
-        assertTrue(waitForCondition(() -> !hasOpenSessions(), 10_000));
-
-        assertInternalSqlException("Session is closed", () -> session.execute(null, "SELECT * from " + DEFAULT_TABLE_NAME));
-
-        assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 0);
-        assertThat(session.closed(), is(true));
     }
 
     private static void assertInternalSqlException(String expectedText, Executable executable) {
@@ -129,22 +108,13 @@ public class ItSqlClientMetricsTest extends BaseSqlIntegrationTest {
 
     @Test
     public void testErroneousFlow() throws Exception {
-        Session session = sql.createSession();
-
         assertThrowsSqlException(
                 Sql.STMT_PARSE_ERR,
                 "Failed to parse query",
-                () -> session.execute(null, "SELECT * ODINfrom " + DEFAULT_TABLE_NAME));
+                () -> sql.execute(null, "SELECT * ODINfrom " + DEFAULT_TABLE_NAME));
         assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 0);
 
-        assertInternalSqlException("Column 'A' not found in any table", () -> session.execute(null, "SELECT a from " + DEFAULT_TABLE_NAME));
-        assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 0);
-
-        session.close();
-        assertThrowsSqlException(
-                Sql.SESSION_CLOSED_ERR,
-                "Session is closed",
-                () -> session.execute(null, "SELECT * from " + DEFAULT_TABLE_NAME));
+        assertInternalSqlException("Column 'A' not found in any table", () -> sql.execute(null, "SELECT a from " + DEFAULT_TABLE_NAME));
         assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 0);
     }
 
@@ -154,9 +124,5 @@ public class ItSqlClientMetricsTest extends BaseSqlIntegrationTest {
                         () -> expectedValue.toString().equals(metricSet.get(metricName).getValueAsString()),
                         1000)
         );
-    }
-
-    private boolean hasOpenSessions() {
-        return !((IgniteSqlImpl) sql).sessions().isEmpty();
     }
 }

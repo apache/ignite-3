@@ -19,10 +19,10 @@ package org.apache.ignite.internal.worker;
 
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.THREAD_ASSERTIONS_ENABLED;
 
-import java.util.Set;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.thread.ThreadAttributes;
 import org.apache.ignite.internal.thread.ThreadOperation;
 
@@ -32,13 +32,6 @@ import org.apache.ignite.internal.thread.ThreadOperation;
 public class ThreadAssertions {
     private static final IgniteLogger LOG = Loggers.forClass(ThreadAssertions.class);
 
-    /** Names of theads on which the assertions are skipped. */
-    private static final Set<String> BLACKLISTED_THREAD_NAMES = Set.of(
-            "main",
-            // JUnit worker thread name
-            "Test worker"
-    );
-
     /**
      * Returns {@code true} if thread assertions are enabled.
      */
@@ -47,40 +40,53 @@ public class ThreadAssertions {
     }
 
     /**
-     * Assert that the current thread allows to perform {@link ThreadOperation#STORAGE_WRITE} operations.
+     * Asserts that the current thread allows to perform {@link ThreadOperation#STORAGE_WRITE} operations.
      */
     public static void assertThreadAllowsToWrite() {
         assertThreadAllowsTo(ThreadOperation.STORAGE_WRITE);
     }
 
     /**
-     * Assert that the current thread allows to perform {@link ThreadOperation#STORAGE_READ} operations.
+     * Asserts that the current thread allows to perform {@link ThreadOperation#STORAGE_READ} operations.
      */
     public static void assertThreadAllowsToRead() {
         assertThreadAllowsTo(ThreadOperation.STORAGE_READ);
     }
 
-    private static void assertThreadAllowsTo(ThreadOperation requestedOperation) {
+    /**
+     * Asserts that the current thread allows to perform the requested operation.
+     */
+    public static void assertThreadAllowsTo(ThreadOperation requestedOperation) {
         Thread currentThread = Thread.currentThread();
 
-        if (BLACKLISTED_THREAD_NAMES.contains(currentThread.getName())) {
-            return;
-        }
-
         if (!(currentThread instanceof ThreadAttributes)) {
-            LOG.warn("Thread {} does not have allowed operations", trackerException(), currentThread);
+            if (PublicApiThreading.executingSyncPublicApi()) {
+                // Allow everything if we ride a user thread while executing a public API call.
 
-            throw new AssertionError("Thread does not have allowed operations");
+                return;
+            }
+
+            AssertionError error = new AssertionError("Thread " + currentThread.getName() + " does not have allowed operations");
+
+            if (logBeforeThrowing()) {
+                LOG.warn("Thread {} does not have allowed operations", error, currentThread);
+            }
+
+            throw error;
         }
 
         if (!((ThreadAttributes) currentThread).allows(requestedOperation)) {
-            LOG.warn("Thread {} is not allowed to do {}", trackerException(), currentThread, requestedOperation);
+            AssertionError error = new AssertionError("Thread " + currentThread.getName() + " is not allowed to do " + requestedOperation);
 
-            throw new AssertionError("Thread is not allowed to do " + requestedOperation);
+            if (logBeforeThrowing()) {
+                LOG.warn("Thread {} is not allowed to do {}", error, currentThread, requestedOperation);
+            }
+
+            throw error;
         }
     }
 
-    private static Exception trackerException() {
-        return new Exception("Tracker");
+    private static boolean logBeforeThrowing() {
+        return IgniteSystemProperties.getBoolean(IgniteSystemProperties.THREAD_ASSERTIONS_LOG_BEFORE_THROWING, true);
     }
 }

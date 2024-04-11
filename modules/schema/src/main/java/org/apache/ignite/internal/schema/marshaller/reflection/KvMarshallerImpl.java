@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.schema.marshaller.reflection;
 
+import java.util.List;
 import org.apache.ignite.internal.marshaller.Marshaller;
 import org.apache.ignite.internal.marshaller.MarshallerException;
 import org.apache.ignite.internal.marshaller.MarshallerSchema;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
+import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
 import org.apache.ignite.internal.schema.row.Row;
@@ -50,6 +52,12 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
     /** Value type. */
     private final Class<V> valClass;
 
+    /** Positions of key fields in the schema. */
+    private final int[] keyPositions;
+
+    /** Positions of value fields in the schema. */
+    private final int[] valPositions;
+
     /**
      * Creates KV marshaller.
      *
@@ -67,6 +75,8 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
         MarshallerSchema marshallerSchema = schema.marshallerSchema();
         keyMarsh = marshallers.getKeysMarshaller(marshallerSchema, keyMapper, true, false);
         valMarsh = marshallers.getValuesMarshaller(marshallerSchema, valueMapper, true, false);
+        keyPositions = schema.keyColumns().stream().mapToInt(Column::positionInRow).toArray();
+        valPositions = schema.valueColumns().stream().mapToInt(Column::positionInRow).toArray();
     }
 
     /** {@inheritDoc} */
@@ -93,20 +103,38 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
         assert keyClass.isInstance(key);
         assert val == null || valClass.isInstance(val);
 
+        List<Column> columns = schema.columns();
         RowAssembler asm = createAssembler(key, val);
 
         var writer = new RowWriter(asm);
 
-        keyMarsh.writeObject(key, writer);
-        valMarsh.writeObject(val, writer);
+        for (Column column : columns) {
+            if (column.positionInKey() >= 0) {
+                keyMarsh.writeField(key, writer, column.positionInKey());
+            } else {
+                valMarsh.writeField(val, writer, column.positionInValue());
+            }
+        }
 
         return Row.wrapBinaryRow(schema, asm.build());
     }
 
     /** {@inheritDoc} */
     @Override
-    public K unmarshalKey(Row row) throws MarshallerException {
+    public K unmarshalKeyOnly(Row row) throws MarshallerException {
+        assert row.elementCount() == keyPositions.length : "Number of key columns does not match";
+
         Object o = keyMarsh.readObject(new RowReader(row), null);
+
+        assert keyClass.isInstance(o);
+
+        return (K) o;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public K unmarshalKey(Row row) throws MarshallerException {
+        Object o = keyMarsh.readObject(new RowReader(row, keyPositions), null);
 
         assert keyClass.isInstance(o);
 
@@ -117,7 +145,7 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
     @Nullable
     @Override
     public V unmarshalValue(Row row) throws MarshallerException {
-        Object o = valMarsh.readObject(new RowReader(row, schema.keyColumns().length()), null);
+        Object o = valMarsh.readObject(new RowReader(row, valPositions), null);
 
         assert o == null || valClass.isInstance(o);
 
@@ -127,9 +155,10 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
     /** {@inheritDoc} */
     @Override
     public @Nullable Object value(Object obj, int fldIdx) {
-        return schema.isKeyColumn(fldIdx)
-                ? keyMarsh.value(obj, fldIdx)
-                : valMarsh.value(obj, fldIdx - schema.keyColumns().length());
+        Column column = schema.column(fldIdx);
+        return column.positionInKey() >= 0
+                ? keyMarsh.value(obj, column.positionInKey())
+                : valMarsh.value(obj, column.positionInValue());
     }
 
     /**

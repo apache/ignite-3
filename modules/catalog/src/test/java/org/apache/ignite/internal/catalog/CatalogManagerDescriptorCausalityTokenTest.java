@@ -19,21 +19,19 @@ package org.apache.ignite.internal.catalog;
 
 import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.addColumnParams;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParams;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParamsBuilder;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.dropColumnParams;
-import static org.apache.ignite.internal.catalog.CatalogTestUtils.dropTableCommand;
 import static org.apache.ignite.internal.catalog.commands.DefaultValue.constant;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.ASC_NULLS_LAST;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.DESC_NULLS_FIRST;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.apache.ignite.sql.ColumnType.STRING;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -47,6 +45,7 @@ import java.util.List;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
 import org.apache.ignite.internal.catalog.commands.CreateZoneCommand;
 import org.apache.ignite.internal.catalog.commands.RenameZoneCommand;
+import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
 import org.apache.ignite.internal.catalog.descriptors.CatalogHashIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
@@ -96,7 +95,7 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
                         List.of("key1", "key2"),
                         List.of("key2")
                 )),
-                willBe(nullValue())
+                willCompleteSuccessfully()
         );
 
         // Validate catalog version from the past.
@@ -127,7 +126,7 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
         assertEquals(table.updateToken(), schema.updateToken());
 
         // Validate another table creation.
-        assertThat(manager.execute(simpleTable(TABLE_NAME_2)), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME_2)), willCompleteSuccessfully());
 
         // Validate actual catalog. has both tables.
         schema = manager.schema(2);
@@ -154,12 +153,12 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
 
     @Test
     public void testDropTable() {
-        assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
-        assertThat(manager.execute(simpleTable(TABLE_NAME_2)), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
+        assertThat(manager.execute(simpleTable(TABLE_NAME_2)), willCompleteSuccessfully());
 
         long beforeDropTimestamp = clock.nowLong();
 
-        assertThat(manager.execute(dropTableCommand(TABLE_NAME)), willBe(nullValue()));
+        assertThat(manager.execute(dropTableCommand(TABLE_NAME)), willCompleteSuccessfully());
 
         // Validate catalog version from the past.
         CatalogSchemaDescriptor schema = manager.schema(2);
@@ -198,7 +197,7 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
 
     @Test
     public void testAddColumn() {
-        assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
 
         long beforeAddedTimestamp = clock.nowLong();
 
@@ -206,7 +205,7 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
                 manager.execute(addColumnParams(TABLE_NAME,
                         columnParamsBuilder(NEW_COLUMN_NAME, STRING, 11, true).defaultValue(constant("Ignite!")).build()
                 )),
-                willBe(nullValue())
+                willCompleteSuccessfully()
         );
 
         // Validate catalog version from the past.
@@ -238,11 +237,11 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
 
     @Test
     public void testDropColumn() {
-        assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
 
         long beforeAddedTimestamp = clock.nowLong();
 
-        assertThat(manager.execute(dropColumnParams(TABLE_NAME, "VAL")), willBe(nullValue()));
+        assertThat(manager.execute(dropColumnParams(TABLE_NAME, "VAL")), willCompleteSuccessfully());
 
         // Validate catalog version from the past.
         CatalogSchemaDescriptor schema = manager.activeSchema(beforeAddedTimestamp);
@@ -271,16 +270,16 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
 
     @Test
     public void testCreateHashIndex() {
-        assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
 
-        assertThat(manager.execute(createHashIndexCommand(INDEX_NAME, List.of("VAL", "ID"))), willBe(nullValue()));
+        assertThat(manager.execute(createHashIndexCommand(INDEX_NAME, List.of("VAL", "ID"))), willCompleteSuccessfully());
 
         // Validate catalog version from the past.
         CatalogSchemaDescriptor schema = manager.schema(1);
 
         assertNotNull(schema);
-        assertNull(schema.index(INDEX_NAME));
-        assertNull(manager.index(INDEX_NAME, 123L));
+        assertNull(schema.aliveIndex(INDEX_NAME));
+        assertNull(manager.aliveIndex(INDEX_NAME, 123L));
 
         long schemaCausalityToken = schema.updateToken();
 
@@ -289,10 +288,10 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
         // Validate actual catalog.
         schema = manager.schema(2);
 
-        CatalogHashIndexDescriptor index = (CatalogHashIndexDescriptor) schema.index(INDEX_NAME);
+        CatalogHashIndexDescriptor index = (CatalogHashIndexDescriptor) schema.aliveIndex(INDEX_NAME);
 
         assertNotNull(schema);
-        assertSame(index, manager.index(INDEX_NAME, clock.nowLong()));
+        assertSame(index, manager.aliveIndex(INDEX_NAME, clock.nowLong()));
         assertSame(index, manager.index(index.id(), clock.nowLong()));
         assertTrue(schema.updateToken() > schemaCausalityToken);
 
@@ -304,7 +303,7 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
 
     @Test
     public void testCreateSortedIndex() {
-        assertThat(manager.execute(simpleTable(TABLE_NAME)), willBe(nullValue()));
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
 
         CatalogCommand command = createSortedIndexCommand(
                 INDEX_NAME,
@@ -313,14 +312,14 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
                 List.of(DESC_NULLS_FIRST, ASC_NULLS_LAST)
         );
 
-        assertThat(manager.execute(command), willBe(nullValue()));
+        assertThat(manager.execute(command), willCompleteSuccessfully());
 
         // Validate catalog version from the past.
         CatalogSchemaDescriptor schema = manager.schema(1);
 
         assertNotNull(schema);
-        assertNull(schema.index(INDEX_NAME));
-        assertNull(manager.index(INDEX_NAME, 123L));
+        assertNull(schema.aliveIndex(INDEX_NAME));
+        assertNull(manager.aliveIndex(INDEX_NAME, 123L));
 
         long schemaCausalityToken = schema.updateToken();
         assertTrue(schemaCausalityToken > INITIAL_CAUSALITY_TOKEN);
@@ -328,10 +327,10 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
         // Validate actual catalog.
         schema = manager.schema(2);
 
-        CatalogSortedIndexDescriptor index = (CatalogSortedIndexDescriptor) schema.index(INDEX_NAME);
+        CatalogSortedIndexDescriptor index = (CatalogSortedIndexDescriptor) schema.aliveIndex(INDEX_NAME);
 
         assertNotNull(schema);
-        assertSame(index, manager.index(INDEX_NAME, clock.nowLong()));
+        assertSame(index, manager.aliveIndex(INDEX_NAME, clock.nowLong()));
         assertSame(index, manager.index(index.id(), clock.nowLong()));
         assertTrue(schema.updateToken() > schemaCausalityToken);
 
@@ -345,7 +344,10 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
     public void testCreateZone() {
         String zoneName = ZONE_NAME + 1;
 
-        CatalogCommand cmd = CreateZoneCommand.builder().zoneName(zoneName).build();
+        CatalogCommand cmd = CreateZoneCommand.builder()
+                .zoneName(zoneName)
+                .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile(DEFAULT_STORAGE_PROFILE).build()))
+                .build();
 
         assertThat(manager.execute(cmd), willCompleteSuccessfully());
 
@@ -368,7 +370,10 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
     public void testRenameZone() {
         String zoneName = ZONE_NAME + 1;
 
-        CatalogCommand cmd = CreateZoneCommand.builder().zoneName(zoneName).build();
+        CatalogCommand cmd = CreateZoneCommand.builder()
+                .zoneName(zoneName)
+                .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile(DEFAULT_STORAGE_PROFILE).build()))
+                .build();
 
         assertThat(manager.execute(cmd), willCompleteSuccessfully());
 
@@ -414,9 +419,14 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
                 .dataNodesAutoAdjustScaleUp(3)
                 .dataNodesAutoAdjustScaleDown(4)
                 .filter("newExpression")
+                .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile(DEFAULT_STORAGE_PROFILE).build()))
                 .build();
 
-        CatalogCommand cmd = CreateZoneCommand.builder().zoneName(zoneName).filter("expression").build();
+        CatalogCommand cmd = CreateZoneCommand.builder()
+                .zoneName(zoneName)
+                .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile(DEFAULT_STORAGE_PROFILE).build()))
+                .filter("expression")
+                .build();
 
         assertThat(manager.execute(cmd), willCompleteSuccessfully());
         CatalogZoneDescriptor zone = manager.zone(zoneName, clock.nowLong());

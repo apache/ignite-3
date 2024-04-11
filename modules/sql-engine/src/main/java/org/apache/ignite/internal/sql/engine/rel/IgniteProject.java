@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.sql.engine.rel;
 
 import static org.apache.calcite.rel.RelDistribution.Type.HASH_DISTRIBUTED;
+import static org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable.GEN_RANDOM_UUID;
+import static org.apache.ignite.internal.sql.engine.trait.IgniteDistributions.broadcast;
 import static org.apache.ignite.internal.sql.engine.trait.IgniteDistributions.hash;
 import static org.apache.ignite.internal.sql.engine.trait.IgniteDistributions.single;
 import static org.apache.ignite.internal.sql.engine.trait.TraitUtils.changeTraits;
@@ -39,11 +41,15 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Project;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexSlot;
+import org.apache.calcite.rex.RexVisitor;
+import org.apache.calcite.rex.RexVisitorImpl;
 import org.apache.calcite.util.ImmutableIntList;
 import org.apache.calcite.util.Pair;
+import org.apache.calcite.util.Util;
 import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
@@ -54,6 +60,8 @@ import org.apache.ignite.internal.sql.engine.trait.TraitsAwareIgniteRel;
  * Relational expression that computes a set of 'select expressions' from its input relational expression.
  */
 public class IgniteProject extends Project implements TraitsAwareIgniteRel {
+    private static final String REL_TYPE_NAME = "Project";
+
     /**
      * Creates a Project.
      *
@@ -173,7 +181,36 @@ public class IgniteProject extends Project implements TraitsAwareIgniteRel {
         IgniteDistribution distribution = TraitUtils.projectDistribution(
                 TraitUtils.distribution(in), getProjects(), getInput().getRowType());
 
+        boolean uuidFound = exps.stream().anyMatch(IgniteProject::containsUuidFunc);
+
+        // Projection with random UUID function need to have single distribution trait
+        if (uuidFound) {
+            if (distribution == broadcast()) {
+                distribution = single();
+            }
+        }
+
         return List.of(Pair.of(nodeTraits.replace(distribution), List.of(in)));
+    }
+
+    private static boolean containsUuidFunc(RexNode node) {
+        RexVisitor<Void> v = new RexVisitorImpl<>(true) {
+            @Override
+            public Void visitCall(RexCall call) {
+                if (call.getOperator() == GEN_RANDOM_UUID) {
+                    throw Util.FoundOne.NULL;
+                }
+                return super.visitCall(call);
+            }
+        };
+
+        try {
+            node.accept(v);
+
+            return false;
+        } catch (Util.FoundOne e) {
+            return true;
+        }
     }
 
     /** {@inheritDoc} */
@@ -192,12 +229,26 @@ public class IgniteProject extends Project implements TraitsAwareIgniteRel {
     public RelOptCost computeSelfCost(RelOptPlanner planner, RelMetadataQuery mq) {
         double rowCount = mq.getRowCount(getInput());
 
-        return planner.getCostFactory().makeCost(rowCount, rowCount * IgniteCost.ROW_PASS_THROUGH_COST, 0);
+        RelOptCost cost = planner.getCostFactory().makeCost(rowCount, rowCount * IgniteCost.ROW_PASS_THROUGH_COST, 0);
+
+        if (distribution() == single()) {
+            // make single distributed projection slightly more expensive to help
+            // planner prefer distributed option, if exists
+            cost = cost.plus(planner.getCostFactory().makeTinyCost());
+        }
+
+        return cost;
     }
 
     /** {@inheritDoc} */
     @Override
     public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
         return new IgniteProject(cluster, getTraitSet(), sole(inputs), getProjects(), getRowType());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 }

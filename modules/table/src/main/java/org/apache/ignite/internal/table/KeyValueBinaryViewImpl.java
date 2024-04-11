@@ -17,9 +17,11 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertToPublicFuture;
 import static org.apache.ignite.internal.tracing.TracingManager.span;
 
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -40,6 +42,7 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.table.criteria.SqlRowProjection;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
+import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.tracing.TraceSpan;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -49,6 +52,7 @@ import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
@@ -70,15 +74,15 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
      * @param tbl Table storage.
      * @param schemaReg Schema registry.
      * @param schemaVersions Schema versions access.
-     * @param marshallers Marshallers provider.
      * @param sql Ignite SQL facade.
+     * @param marshallers Marshallers provider.
      */
     public KeyValueBinaryViewImpl(
             InternalTable tbl,
             SchemaRegistry schemaReg,
             SchemaVersions schemaVersions,
-            MarshallersProvider marshallers,
-            IgniteSql sql
+            IgniteSql sql,
+            MarshallersProvider marshallers
     ) {
         super(tbl, schemaVersions, schemaReg, sql, marshallers);
 
@@ -97,7 +101,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
         Objects.requireNonNull(key);
 
         return span("KeyValueBinaryViewImpl.getAsync", (span) -> {
-            return withSchemaSync(tx, (schemaVersion) -> {
+            return doOperation(tx, (schemaVersion) -> {
                 Row keyRow = marshal(key, null, schemaVersion);
 
                 return tbl.get(keyRow, (InternalTransaction) tx).thenApply(row -> unmarshalValue(row, schemaVersion));
@@ -137,7 +141,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
         Objects.requireNonNull(key);
 
         return span("KeyValueBinaryViewImpl.getOrDefaultAsync", (span) -> {
-            return withSchemaSync(tx, (schemaVersion) -> {
+            return doOperation(tx, (schemaVersion) -> {
                 BinaryRowEx keyRow = marshal(key, null, schemaVersion);
 
                 return tbl.get(keyRow, (InternalTransaction) tx)
@@ -158,7 +162,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
         checkKeysForNulls(keys);
 
         return span("KeyValueBinaryViewImpl.getAllAsync", (span) -> {
-            return withSchemaSync(tx, (schemaVersion) -> {
+            return doOperation(tx, (schemaVersion) -> {
                 List<BinaryRowEx> keyRows = marshalKeys(keys, schemaVersion);
 
                 return tbl.getAll(keyRows, (InternalTransaction) tx).thenApply(rows -> unmarshalValues(rows, schemaVersion));
@@ -199,7 +203,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
         Objects.requireNonNull(val);
 
         return span("KeyValueBinaryViewImpl.putAsync", (span) -> {
-            return withSchemaSync(tx, (schemaVersion) -> {
+            return doOperation(tx, (schemaVersion) -> {
                 Row row = marshal(key, val, schemaVersion);
 
                 return tbl.upsert(row, (InternalTransaction) tx);
@@ -223,8 +227,8 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
         }
 
         return span("KeyValueBinaryViewImpl.putAllAsync", (span) -> {
-            return withSchemaSync(tx, (schemaVersion) -> {
-                return tbl.upsertAll(marshalPairs(pairs.entrySet(), schemaVersion), (InternalTransaction) tx);
+            return doOperation(tx, (schemaVersion) -> {
+                return tbl.upsertAll(marshalPairs(pairs.entrySet(), schemaVersion, null), (InternalTransaction) tx);
             });
         });
     }
@@ -242,7 +246,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
         Objects.requireNonNull(val);
 
         return span("KeyValueBinaryViewImpl.getAndPutAsync", (span) -> {
-            return withSchemaSync(tx, (schemaVersion) -> {
+            return doOperation(tx, (schemaVersion) -> {
                 Row row = marshal(key, val, schemaVersion);
 
                 return tbl.getAndUpsert(row, (InternalTransaction) tx).thenApply(resultRow -> unmarshalValue(resultRow, schemaVersion));
@@ -284,7 +288,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
         Objects.requireNonNull(val);
 
         return span("KeyValueBinaryViewImpl.putIfAbsentAsync", (span) -> {
-            return withSchemaSync(tx, (schemaVersion) -> {
+            return doOperation(tx, (schemaVersion) -> {
                 Row row = marshal(key, val, schemaVersion);
 
                 return tbl.insert(row, (InternalTransaction) tx);
@@ -310,7 +314,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
         Objects.requireNonNull(key);
 
         return span("KeyValueBinaryViewImpl.removeAsync", (span) -> {
-            return withSchemaSync(tx, (schemaVersion) -> {
+            return doOperation(tx, (schemaVersion) -> {
                 Row row = marshal(key, null, schemaVersion);
 
                 return tbl.delete(row, (InternalTransaction) tx);
@@ -325,7 +329,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
         Objects.requireNonNull(val);
 
         return span("KeyValueBinaryViewImpl.removeAsync", (span) -> {
-            return withSchemaSync(tx, (schemaVersion) -> {
+            return doOperation(tx, (schemaVersion) -> {
                 Row row = marshal(key, val, schemaVersion);
 
                 return tbl.deleteExact(row, (InternalTransaction) tx);
@@ -345,7 +349,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
         checkKeysForNulls(keys);
 
         return span("KeyValueBinaryViewImpl.removeAllAsync", (span) -> {
-            return withSchemaSync(tx, (schemaVersion) -> {
+            return doOperation(tx, (schemaVersion) -> {
                 List<BinaryRowEx> keyRows = marshalKeys(keys, schemaVersion);
 
                 return tbl.deleteAll(keyRows, (InternalTransaction) tx).thenApply(rows -> unmarshalKeys(rows, schemaVersion));
@@ -367,7 +371,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
         Objects.requireNonNull(key);
 
         return span("KeyValueBinaryViewImpl.getAndRemoveAsync", (span) -> {
-            return withSchemaSync(tx, (schemaVersion) -> {
+            return doOperation(tx, (schemaVersion) -> {
                 return tbl.getAndDelete(marshal(key, null, schemaVersion), (InternalTransaction) tx)
                         .thenApply(row -> unmarshalValue(row, schemaVersion));
             });
@@ -413,7 +417,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
         Objects.requireNonNull(val);
 
         return span("KeyValueBinaryViewImpl.replaceAsync", (span) -> {
-            return withSchemaSync(tx, (schemaVersion) -> {
+            return doOperation(tx, (schemaVersion) -> {
                 Row row = marshal(key, val, schemaVersion);
 
                 return tbl.replace(row, (InternalTransaction) tx);
@@ -434,7 +438,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
         Objects.requireNonNull(newVal);
 
         return span("KeyValueBinaryViewImpl.replaceAsync", (span) -> {
-            return withSchemaSync(tx, (schemaVersion) -> {
+            return doOperation(tx, (schemaVersion) -> {
                 Row oldRow = marshal(key, oldVal, schemaVersion);
                 Row newRow = marshal(key, newVal, schemaVersion);
 
@@ -456,7 +460,7 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
         Objects.requireNonNull(val);
 
         return span("KeyValueBinaryViewImpl.getAndReplaceAsync", (span) -> {
-            return withSchemaSync(tx, (schemaVersion) -> {
+            return doOperation(tx, (schemaVersion) -> {
                 return tbl.getAndReplace(marshal(key, val, schemaVersion), (InternalTransaction) tx)
                         .thenApply(row -> unmarshalValue(row, schemaVersion));
             });
@@ -479,8 +483,11 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
      * @throws UnsupportedOperationException unconditionally.
      */
     @Override
-    public CompletableFuture<NullableValue<Tuple>> getNullableAndReplaceAsync(@Nullable Transaction tx, Tuple key,
-            Tuple val) {
+    public CompletableFuture<NullableValue<Tuple>> getNullableAndReplaceAsync(
+            @Nullable Transaction tx,
+            Tuple key,
+            Tuple val
+    ) {
         throw new UnsupportedOperationException("Binary view doesn't allow null tuples.");
     }
 
@@ -580,24 +587,32 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> streamData(Publisher<Entry<Tuple, Tuple>> publisher, @Nullable DataStreamerOptions options) {
+    public CompletableFuture<Void> streamData(
+            Publisher<DataStreamerItem<Entry<Tuple, Tuple>>> publisher,
+            @Nullable DataStreamerOptions options) {
         Objects.requireNonNull(publisher);
 
         var partitioner = new KeyValueTupleStreamerPartitionAwarenessProvider(rowConverter.registry(), tbl.partitions());
         StreamerBatchSender<Entry<Tuple, Tuple>, Integer> batchSender = (partitionId, items, deleted) ->
-                withSchemaSync(
+                PublicApiThreading.execUserAsyncOperation(() -> withSchemaSync(
                         null,
-                        schemaVersion -> this.tbl.updateAll(marshalPairs(items, schemaVersion), deleted, partitionId));
+                        schemaVersion -> this.tbl.updateAll(marshalPairs(items, schemaVersion, deleted), deleted, partitionId)
+                ));
 
-        return DataStreamer.streamData(publisher, options, batchSender, partitioner);
+        CompletableFuture<Void> future = DataStreamer.streamData(publisher, options, batchSender, partitioner, tbl.streamerFlushExecutor());
+        return convertToPublicFuture(future);
     }
 
-    private List<BinaryRowEx> marshalPairs(Collection<Entry<Tuple, Tuple>> pairs, int schemaVersion) {
+    private List<BinaryRowEx> marshalPairs(Collection<Entry<Tuple, Tuple>> pairs, int schemaVersion, @Nullable BitSet deleted) {
         List<BinaryRowEx> rows = new ArrayList<>(pairs.size());
 
         for (Entry<Tuple, Tuple> pair : pairs) {
-            Row row = marshal(Objects.requireNonNull(pair.getKey()), Objects.requireNonNull(pair.getValue()), schemaVersion);
+            boolean isDeleted = deleted != null && deleted.get(rows.size());
 
+            Tuple key = Objects.requireNonNull(pair.getKey());
+            Tuple val = isDeleted ? null : Objects.requireNonNull(pair.getValue());
+
+            Row row = marshal(key, val, schemaVersion);
             rows.add(row);
         }
 
@@ -608,8 +623,8 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
     @Override
     protected Function<SqlRow, Entry<Tuple, Tuple>> queryMapper(ResultSetMetadata meta, SchemaDescriptor schema) {
         return (row) -> new IgniteBiTuple<>(
-                new SqlRowProjection(row, meta, columnNames(schema.keyColumns().columns())),
-                new SqlRowProjection(row, meta, columnNames(schema.valueColumns().columns()))
+                new SqlRowProjection(row, meta, columnNames(schema.keyColumns())),
+                new SqlRowProjection(row, meta, columnNames(schema.valueColumns()))
         );
     }
 }

@@ -26,7 +26,6 @@ import java.util.List;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.lang.ErrorGroups.Sql;
-import org.apache.ignite.sql.Session;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -48,40 +47,38 @@ public class ItLimitOffsetTest extends BaseSqlIntegrationTest {
     /** Tests correctness of fetch / offset params. */
     @Test
     public void testInvalidLimitOffset() {
-        Session session = igniteSql().createSession();
-
         String bigInt = BigDecimal.valueOf(10000000000L).toString();
 
         assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal value of offset",
-                () -> session.execute(null, "SELECT * FROM test OFFSET " + bigInt + " ROWS"));
+                () -> igniteSql().execute(null, "SELECT * FROM test OFFSET " + bigInt + " ROWS"));
 
         assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal value of fetch / limit",
-                () -> session.execute(null, "SELECT * FROM test FETCH FIRST " + bigInt + " ROWS ONLY"));
+                () -> igniteSql().execute(null, "SELECT * FROM test FETCH FIRST " + bigInt + " ROWS ONLY"));
 
         assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal value of fetch / limit",
-                () -> session.execute(null, "SELECT * FROM test LIMIT " + bigInt));
+                () -> igniteSql().execute(null, "SELECT * FROM test LIMIT " + bigInt));
 
         assertThrowsSqlException(Sql.STMT_PARSE_ERR,
                 "Failed to parse query: Encountered \"-\"",
-                () -> session.execute(null, "SELECT * FROM test OFFSET -1 ROWS FETCH FIRST -1 ROWS ONLY"));
+                () -> igniteSql().execute(null, "SELECT * FROM test OFFSET -1 ROWS FETCH FIRST -1 ROWS ONLY"));
 
         assertThrowsSqlException(Sql.STMT_PARSE_ERR,
                 "Failed to parse query: Encountered \"-\"",
-                () -> session.execute(null, "SELECT * FROM test OFFSET -1 ROWS"));
+                () -> igniteSql().execute(null, "SELECT * FROM test OFFSET -1 ROWS"));
 
         assertThrowsSqlException(Sql.STMT_PARSE_ERR,
                 "Failed to parse query: Encountered \"+\"",
-                () -> session.execute(null, "SELECT * FROM test OFFSET 2+1 ROWS"));
+                () -> igniteSql().execute(null, "SELECT * FROM test OFFSET 2+1 ROWS"));
 
         // Check with parameters
         assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal value of fetch / limit",
-                () -> session.execute(null, "SELECT * FROM test OFFSET ? ROWS FETCH FIRST ? ROWS ONLY", -1, -1));
+                () -> igniteSql().execute(null, "SELECT * FROM test OFFSET ? ROWS FETCH FIRST ? ROWS ONLY", -1, -1));
 
         assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal value of offset",
-                () -> session.execute(null, "SELECT * FROM test OFFSET ? ROWS", -1));
+                () -> igniteSql().execute(null, "SELECT * FROM test OFFSET ? ROWS", -1));
 
         assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal value of fetch / limit",
-                () -> session.execute(null, "SELECT * FROM test FETCH FIRST ? ROWS ONLY", -1));
+                () -> igniteSql().execute(null, "SELECT * FROM test FETCH FIRST ? ROWS ONLY", -1));
     }
 
     /**

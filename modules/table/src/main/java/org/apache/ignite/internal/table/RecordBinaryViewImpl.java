@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
+import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertToPublicFuture;
 import static org.apache.ignite.internal.tracing.TracingManager.span;
 
 import java.util.ArrayList;
@@ -36,10 +37,12 @@ import org.apache.ignite.internal.schema.marshaller.TupleMarshallerException;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
+import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -58,15 +61,15 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
      * @param tbl The table.
      * @param schemaRegistry Table schema registry.
      * @param schemaVersions Schema versions access.
-     * @param marshallers Marshallers provider.
      * @param sql Ignite SQL facade.
+     * @param marshallers Marshallers provider.
      */
     public RecordBinaryViewImpl(
             InternalTable tbl,
             SchemaRegistry schemaRegistry,
             SchemaVersions schemaVersions,
-            MarshallersProvider marshallers,
-            IgniteSql sql
+            IgniteSql sql,
+            MarshallersProvider marshallers
     ) {
         super(tbl, schemaVersions, schemaRegistry, sql, marshallers);
 
@@ -87,7 +90,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
         Objects.requireNonNull(keyRec);
 
         return span("PartitionListener.onWrite", (span) -> {
-            return withSchemaSync(tx, (schemaVersion) -> {
+            return doOperation(tx, (schemaVersion) -> {
                 Row keyRow = marshal(keyRec, schemaVersion, true); // Convert to portable format to pass TX/storage layer.
 
                 return tbl.get(keyRow, (InternalTransaction) tx).thenApply(row -> wrap(row, schemaVersion));
@@ -114,10 +117,28 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
         Objects.requireNonNull(keyRecs);
 
         return span("RecordBinaryViewImpl.getAllAsync", (span) -> {
-            return withSchemaSync(tx, (schemaVersion) -> {
+            return doOperation(tx, (schemaVersion) -> {
                 return tbl.getAll(mapToBinary(keyRecs, schemaVersion, true), (InternalTransaction) tx)
                         .thenApply(binaryRows -> wrap(binaryRows, schemaVersion, true));
             });
+        });
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean contains(@Nullable Transaction tx, Tuple keyRec) {
+        return sync(containsAsync(tx, keyRec));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Boolean> containsAsync(@Nullable Transaction tx, Tuple keyRec) {
+        Objects.requireNonNull(keyRec);
+
+        return doOperation(tx, (schemaVersion) -> {
+            Row keyRow = marshal(keyRec, schemaVersion, true); // Convert to portable format to pass TX/storage layer.
+
+            return tbl.get(keyRow, (InternalTransaction) tx).thenApply(Objects::nonNull);
         });
     }
 
@@ -133,11 +154,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
         Objects.requireNonNull(rec);
 
         return span("RecordBinaryViewImpl.upsertAsync", (span) -> {
-            if (tx != null) {
-                span.addAttribute("tx", tx::toString);
-            }
-
-            return withSchemaSync(tx, (schemaVersion) -> {
+            return doOperation(tx, (schemaVersion) -> {
                 Row row = marshal(rec, schemaVersion, false);
 
                 return tbl.upsert(row, (InternalTransaction) tx);
@@ -157,11 +174,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
         Objects.requireNonNull(recs);
 
         return span("RecordBinaryViewImpl.upsertAllAsync", (span) -> {
-            if (tx != null) {
-                span.addAttribute("tx", tx::toString);
-            }
-
-            return withSchemaSync(tx, (schemaVersion) -> {
+            return doOperation(tx, (schemaVersion) -> {
                 return tbl.upsertAll(mapToBinary(recs, schemaVersion, false), (InternalTransaction) tx);
             });
         });
@@ -179,11 +192,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
         Objects.requireNonNull(rec);
 
         return span("RecordBinaryViewImpl.getAndUpsertAsync", (span) -> {
-            if (tx != null) {
-                span.addAttribute("tx", tx::toString);
-            }
-
-            return withSchemaSync(tx, (schemaVersion) -> {
+            return doOperation(tx, (schemaVersion) -> {
                 Row row = marshal(rec, schemaVersion, false);
 
                 return tbl.getAndUpsert(row, (InternalTransaction) tx).thenApply(resultRow -> wrap(resultRow, schemaVersion));
@@ -203,11 +212,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
         Objects.requireNonNull(rec);
 
         return span("RecordBinaryViewImpl.insertAsync", (span) -> {
-            if (tx != null) {
-                span.addAttribute("tx", tx::toString);
-            }
-
-            return withSchemaSync(tx, (schemaVersion) -> {
+            return doOperation(tx, (schemaVersion) -> {
                 Row row = marshal(rec, schemaVersion, false);
 
                 return tbl.insert(row, (InternalTransaction) tx);
@@ -227,11 +232,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
         Objects.requireNonNull(recs);
 
         return span("RecordBinaryViewImpl.insertAllAsync", (span) -> {
-            if (tx != null) {
-                span.addAttribute("tx", tx::toString);
-            }
-
-            return withSchemaSync(tx, (schemaVersion) -> {
+            return doOperation(tx, (schemaVersion) -> {
                 return tbl.insertAll(mapToBinary(recs, schemaVersion, false), (InternalTransaction) tx)
                         .thenApply(rows -> wrap(rows, schemaVersion, false));
             });
@@ -256,7 +257,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
         Objects.requireNonNull(rec);
 
         return span("RecordBinaryViewImpl.getAllAsync", (span) -> {
-            return withSchemaSync(tx, (schemaVersion) -> {
+            return doOperation(tx, (schemaVersion) -> {
                 Row row = marshal(rec, schemaVersion, false);
 
                 return tbl.replace(row, (InternalTransaction) tx);
@@ -271,11 +272,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
         Objects.requireNonNull(newRec);
 
         return span("RecordBinaryViewImpl.replaceAsync", (span) -> {
-            if (tx != null) {
-                span.addAttribute("tx", tx::toString);
-            }
-
-            return withSchemaSync(tx, (schemaVersion) -> {
+            return doOperation(tx, (schemaVersion) -> {
                 Row oldRow = marshal(oldRec, schemaVersion, false);
                 Row newRow = marshal(newRec, schemaVersion, false);
 
@@ -296,11 +293,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
         Objects.requireNonNull(rec);
 
         return span("RecordBinaryViewImpl.replaceAsync", (span) -> {
-            if (tx != null) {
-                span.addAttribute("tx", tx::toString);
-            }
-
-            return withSchemaSync(tx, (schemaVersion) -> {
+            return doOperation(tx, (schemaVersion) -> {
                 Row row = marshal(rec, schemaVersion, false);
 
                 return tbl.getAndReplace(row, (InternalTransaction) tx).thenApply(resultRow -> wrap(resultRow, schemaVersion));
@@ -320,11 +313,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
         Objects.requireNonNull(keyRec);
 
         return span("RecordBinaryViewImpl.deleteAsync", (span) -> {
-            if (tx != null) {
-                span.addAttribute("tx", tx::toString);
-            }
-
-            return withSchemaSync(tx, (schemaVersion) -> {
+            return doOperation(tx, (schemaVersion) -> {
                 Row keyRow = marshal(keyRec, schemaVersion, true);
 
                 return tbl.delete(keyRow, (InternalTransaction) tx);
@@ -344,11 +333,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
         Objects.requireNonNull(rec);
 
         return span("RecordBinaryViewImpl.deleteExactAsync", (span) -> {
-            if (tx != null) {
-                span.addAttribute("tx", tx::toString);
-            }
-
-            return withSchemaSync(tx, (schemaVersion) -> {
+            return doOperation(tx, (schemaVersion) -> {
                 Row row = marshal(rec, schemaVersion, false);
 
                 return tbl.deleteExact(row, (InternalTransaction) tx);
@@ -368,11 +353,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
         Objects.requireNonNull(keyRec);
 
         return span("RecordBinaryViewImpl.getAndDeleteAsync", (span) -> {
-            if (tx != null) {
-                span.addAttribute("tx", tx::toString);
-            }
-
-            return withSchemaSync(tx, (schemaVersion) -> {
+            return doOperation(tx, (schemaVersion) -> {
                 Row keyRow = marshal(keyRec, schemaVersion, true);
 
                 return tbl.getAndDelete(keyRow, (InternalTransaction) tx).thenApply(row -> wrap(row, schemaVersion));
@@ -392,11 +373,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
         Objects.requireNonNull(keyRecs);
 
         return span("RecordBinaryViewImpl.deleteAllAsync", (span) -> {
-            if (tx != null) {
-                span.addAttribute("tx", tx::toString);
-            }
-
-            return withSchemaSync(tx, (schemaVersion) -> {
+            return doOperation(tx, (schemaVersion) -> {
                 return tbl.deleteAll(mapToBinary(keyRecs, schemaVersion, true), (InternalTransaction) tx)
                         .thenApply(rows -> wrapKeys(rows, schemaVersion));
             });
@@ -415,11 +392,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
         Objects.requireNonNull(recs);
 
         return span("RecordBinaryViewImpl.deleteAllExactAsync", (span) -> {
-            if (tx != null) {
-                span.addAttribute("tx", tx::toString);
-            }
-
-            return withSchemaSync(tx, (schemaVersion) -> {
+            return doOperation(tx, (schemaVersion) -> {
                 return tbl.deleteAllExact(mapToBinary(recs, schemaVersion, false), (InternalTransaction) tx)
                         .thenApply(rows -> wrap(rows, schemaVersion, false));
             });
@@ -438,16 +411,30 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
     private Row marshal(Tuple tuple, int schemaVersion, boolean keyOnly) throws IgniteException {
         return span("RecordBinaryViewImpl.marshal", (span) -> {
             TupleMarshaller marshaller = marshaller(schemaVersion);
-            try {
-                if (keyOnly) {
-                    return marshaller.marshalKey(tuple);
-                } else {
-                    return marshaller.marshal(tuple);
-                }
-            } catch (TupleMarshallerException ex) {
-                throw new MarshallerException(ex);
-            }
+
+            return marshal(tuple, marshaller, keyOnly);
         });
+    }
+
+    /**
+     * Marshal a tuple to a row.
+     *
+     * @param tuple The tuple.
+     * @param marshaller Marshaller.
+     * @param keyOnly Marshal key part only if {@code true}, otherwise marshal both, key and value parts.
+     * @return Row.
+     * @throws IgniteException If failed to marshal tuple.
+     */
+    private static Row marshal(Tuple tuple, TupleMarshaller marshaller, boolean keyOnly) {
+        try {
+            if (keyOnly) {
+                return marshaller.marshalKey(tuple);
+            } else {
+                return marshaller.marshal(tuple);
+            }
+        } catch (TupleMarshallerException ex) {
+            throw new MarshallerException(ex);
+        }
     }
 
     /**
@@ -517,15 +504,31 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
         return mapped;
     }
 
+    private Collection<BinaryRowEx> mapToBinary(Collection<Tuple> rows, int schemaVersion, @Nullable BitSet deleted) {
+        Collection<BinaryRowEx> mapped = new ArrayList<>(rows.size());
+        TupleMarshaller marshaller = marshaller(schemaVersion);
+
+        for (Tuple row : rows) {
+            boolean key = deleted != null && deleted.get(mapped.size());
+            mapped.add(marshal(row, marshaller, key));
+        }
+
+        return mapped;
+    }
+
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> streamData(Publisher<Tuple> publisher, @Nullable DataStreamerOptions options) {
+    public CompletableFuture<Void> streamData(Publisher<DataStreamerItem<Tuple>> publisher, @Nullable DataStreamerOptions options) {
         Objects.requireNonNull(publisher);
 
         var partitioner = new TupleStreamerPartitionAwarenessProvider(rowConverter.registry(), tbl.partitions());
-        StreamerBatchSender<Tuple, Integer> batchSender = this::updateAll;
+        StreamerBatchSender<Tuple, Integer> batchSender = (partitionId, rows, deleted) ->
+                PublicApiThreading.execUserAsyncOperation(() -> withSchemaSync(null,
+                        schemaVersion -> this.tbl.updateAll(mapToBinary(rows, schemaVersion, deleted), deleted, partitionId)
+                ));
 
-        return DataStreamer.streamData(publisher, options, batchSender, partitioner);
+        CompletableFuture<Void> future = DataStreamer.streamData(publisher, options, batchSender, partitioner, tbl.streamerFlushExecutor());
+        return convertToPublicFuture(future);
     }
 
     /**
@@ -537,7 +540,7 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
      * @return Future that will be completed when the stream is finished.
      */
     public CompletableFuture<Void> updateAll(int partitionId, Collection<Tuple> rows, @Nullable BitSet deleted) {
-        return withSchemaSync(null,
-                schemaVersion -> this.tbl.updateAll(mapToBinary(rows, schemaVersion, false), deleted, partitionId));
+        return doOperation(null,
+                schemaVersion -> this.tbl.updateAll(mapToBinary(rows, schemaVersion, deleted), deleted, partitionId));
     }
 }

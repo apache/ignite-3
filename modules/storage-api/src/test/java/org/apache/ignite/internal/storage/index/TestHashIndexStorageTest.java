@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.storage.index;
 
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
+
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.storage.impl.TestMvTableStorage;
 import org.junit.jupiter.api.BeforeEach;
@@ -29,7 +31,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class TestHashIndexStorageTest extends AbstractHashIndexStorageTest {
     @BeforeEach
     void beforeEach() {
-        var storage = new TestMvTableStorage(1, 10);
+        var storage = new TestMvTableStorage(1, DEFAULT_PARTITION_COUNT);
 
         initialize(storage);
     }

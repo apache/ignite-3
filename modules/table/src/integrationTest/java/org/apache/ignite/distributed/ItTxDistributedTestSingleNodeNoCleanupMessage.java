@@ -18,7 +18,7 @@
 package org.apache.ignite.distributed;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.replicator.ReplicaManager.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
+import static org.apache.ignite.internal.replicator.ReplicatorConstants.DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -34,14 +34,16 @@ import java.util.concurrent.Executor;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.TxAbstractTest;
 import org.apache.ignite.internal.table.distributed.IndexLocker;
@@ -56,7 +58,9 @@ import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
+import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.impl.TransactionIdGenerator;
+import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
@@ -102,31 +106,38 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                 nodes(),
                 replicas(),
                 startClient(),
-                timestampTracker
+                timestampTracker,
+                replicationConfiguration
         ) {
             @Override
             protected TxManagerImpl newTxManager(
                     ClusterService clusterService,
                     ReplicaService replicaSvc,
-                    HybridClock clock,
+                    ClockService clockService,
                     TransactionIdGenerator generator,
                     ClusterNode node,
-                    PlacementDriver placementDriver
+                    PlacementDriver placementDriver,
+                    RemotelyTriggeredResourceRegistry resourcesRegistry,
+                    TransactionInflights transactionInflights,
+                    LowWatermark lowWatermark
             ) {
                 return new TxManagerImpl(
                         txConfiguration,
                         clusterService,
                         replicaSvc,
                         new HeapLockManager(),
-                        clock,
+                        clockService,
                         generator,
                         placementDriver,
                         () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
-                        new TestLocalRwTxCounter()
+                        new TestLocalRwTxCounter(),
+                        resourcesRegistry,
+                        transactionInflights,
+                        lowWatermark
                 ) {
                     @Override
-                    public CompletableFuture<Void> executeCleanupAsync(Runnable runnable) {
-                        CompletableFuture<Void> cleanupFuture = super.executeCleanupAsync(runnable);
+                    public CompletableFuture<Void> executeWriteIntentSwitchAsync(Runnable runnable) {
+                        CompletableFuture<Void> cleanupFuture = super.executeWriteIntentSwitchAsync(runnable);
 
                         cleanupFutures.add(cleanupFuture);
 
@@ -146,7 +157,7 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                     Supplier<Map<Integer, IndexLocker>> indexesLockers,
                     Lazy<TableSchemaAwareIndexStorage> pkIndexStorage,
                     Supplier<Map<Integer, TableSchemaAwareIndexStorage>> secondaryIndexStorages,
-                    HybridClock hybridClock,
+                    ClockService clockService,
                     PendingComparableValuesTracker<HybridTimestamp, Void> safeTime,
                     TxStateStorage txStateStorage,
                     TransactionStateResolver transactionStateResolver,
@@ -156,7 +167,9 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                     SchemaSyncService schemaSyncService,
                     CatalogService catalogService,
                     PlacementDriver placementDriver,
-                    ClusterNodeResolver clusterNodeResolver
+                    ClusterNodeResolver clusterNodeResolver,
+                    RemotelyTriggeredResourceRegistry resourcesRegistry,
+                    SchemaRegistry schemaRegistry
             ) {
                 return new PartitionReplicaListener(
                         mvDataStorage,
@@ -169,7 +182,7 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                         indexesLockers,
                         pkIndexStorage,
                         secondaryIndexStorages,
-                        hybridClock,
+                        clockService,
                         safeTime,
                         txStateStorage,
                         transactionStateResolver,
@@ -179,7 +192,9 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                         schemaSyncService,
                         catalogService,
                         placementDriver,
-                        clusterNodeResolver
+                        clusterNodeResolver,
+                        resourcesRegistry,
+                        schemaRegistry
                 ) {
                     @Override
                     public CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, String senderId) {
@@ -241,7 +256,7 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
 
         tx1.commit();
 
-        //Now start the seconds transaction and make sure write intent resolution is called  by adding a `get` operaiton.
+        // Now start the seconds transaction and make sure write intent resolution is called  by adding a `get` operation.
         InternalTransaction tx2 = (InternalTransaction) igniteTransactions.begin();
 
         assertEquals(100., accounts.recordView().get(tx2, makeKey(1)).doubleValue("balance"));

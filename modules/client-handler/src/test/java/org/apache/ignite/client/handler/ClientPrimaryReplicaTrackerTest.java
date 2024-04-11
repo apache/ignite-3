@@ -28,6 +28,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.client.handler.ClientPrimaryReplicaTracker.PrimaryReplicasResult;
 import org.apache.ignite.internal.TestHybridClock;
+import org.apache.ignite.internal.hlc.TestClockService;
+import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.table.IgniteTablesInternal;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableViewInternal;
@@ -67,8 +69,9 @@ class ClientPrimaryReplicaTrackerTest extends BaseIgniteAbstractTest {
         tracker = new ClientPrimaryReplicaTracker(
                 driver,
                 new FakeCatalogService(PARTITIONS),
-                new TestHybridClock(currentTime::get),
-                new AlwaysSyncedSchemaSyncService()
+                new TestClockService(new TestHybridClock(currentTime::get)),
+                new AlwaysSyncedSchemaSyncService(),
+                new TestLowWatermark()
         );
     }
 

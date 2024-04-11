@@ -21,6 +21,7 @@ import static java.lang.System.currentTimeMillis;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.tracing.TracingManager.span;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.retryOperationUntilSuccess;
 
 import java.util.concurrent.CompletableFuture;
@@ -29,6 +30,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -42,6 +44,8 @@ import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplica
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
+import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.tracing.TraceSpan;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -57,14 +61,13 @@ public class Replica {
     /** Message factory. */
     private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
 
+    private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
+
     /** Replica group identity, this id is the same as the considered partition's id. */
     private final ReplicationGroupId replicaGrpId;
 
     /** Replica listener. */
     private final ReplicaListener listener;
-
-    /** When the future completes the replica become ready to process requests. */
-    private final CompletableFuture<Void> whenReplicaReady;
 
     /** Storage index tracker. */
     private final PendingComparableValuesTracker<Long, Void> storageIndexTracker;
@@ -92,45 +95,40 @@ public class Replica {
 
     private final PlacementDriver placementDriver;
 
+    private final ClockService clockService;
+
     /**
      * The constructor of a replica server.
      *
      * @param replicaGrpId Replication group id.
-     * @param replicaReady Future is determined when the replica become ready.
      * @param listener Replica listener.
      * @param storageIndexTracker Storage index tracker.
      * @param raftClient Topology aware Raft client.
      * @param localNode Instance of the local node.
      * @param executor External executor.
      * @param placementDriver Placement driver.
+     * @param clockService Clock service.
      */
     public Replica(
             ReplicationGroupId replicaGrpId,
-            CompletableFuture<Void> replicaReady,
             ReplicaListener listener,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
             TopologyAwareRaftGroupService raftClient,
             ClusterNode localNode,
             ExecutorService executor,
-            PlacementDriver placementDriver
+            PlacementDriver placementDriver,
+            ClockService clockService
     ) {
         this.replicaGrpId = replicaGrpId;
-        this.whenReplicaReady = replicaReady;
         this.listener = listener;
         this.storageIndexTracker = storageIndexTracker;
         this.raftClient = raftClient;
         this.localNode = localNode;
         this.executor = executor;
         this.placementDriver = placementDriver;
+        this.clockService = clockService;
 
         raftClient.subscribeLeader(this::onLeaderElected);
-    }
-
-    /**
-     * Returns an instance of replica listener, associated with current replica.
-     */
-    ReplicaListener replicaListener() {
-        return listener;
     }
 
     /**
@@ -159,15 +157,6 @@ public class Replica {
         return replicaGrpId;
     }
 
-    /**
-     * Get a future to wait when the replica become ready.
-     *
-     * @return A future to check when the replica is ready.
-     */
-    public CompletableFuture<Void> ready() {
-        return whenReplicaReady;
-    }
-
     private void onLeaderElected(ClusterNode clusterNode, long term) {
         leaderRef.set(clusterNode);
 
@@ -188,7 +177,21 @@ public class Replica {
      */
     public CompletableFuture<? extends NetworkMessage> processPlacementDriverMessage(PlacementDriverReplicaMessage msg) {
         if (msg instanceof LeaseGrantedMessage) {
-            return processLeaseGrantedMessage((LeaseGrantedMessage) msg);
+            return processLeaseGrantedMessage((LeaseGrantedMessage) msg)
+                    .handle((v, e) -> {
+                        if (e != null) {
+                            Throwable ex = unwrapCause(e);
+
+                            LOG.warn("Failed to process the lease granted message [msg={}].", ex, msg);
+
+                            // Just restart the negotiation in case of exception.
+                            return PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse()
+                                    .accepted(false)
+                                    .build();
+                        } else {
+                            return v;
+                        }
+                    });
         }
 
         return failedFuture(new AssertionError("Unknown message type, msg=" + msg));
@@ -201,14 +204,15 @@ public class Replica {
      * @param msg Message to process.
      * @return Future that contains a result.
      */
-    public CompletableFuture<LeaseGrantedMessageResponse> processLeaseGrantedMessage(LeaseGrantedMessage msg) {
+    private CompletableFuture<LeaseGrantedMessageResponse> processLeaseGrantedMessage(LeaseGrantedMessage msg) {
         LOG.info("Received LeaseGrantedMessage for replica belonging to group=" + groupId() + ", force=" + msg.force());
 
         return placementDriver.previousPrimaryExpired(groupId()).thenCompose(unused -> leaderFuture().thenCompose(leader -> {
             HybridTimestamp leaseExpirationTime = this.leaseExpirationTime;
 
             if (leaseExpirationTime != null) {
-                assert msg.leaseExpirationTime().after(leaseExpirationTime) : "Invalid lease expiration time in message, msg=" + msg;
+                assert clockService.after(msg.leaseExpirationTime(), leaseExpirationTime)
+                        : "Invalid lease expiration time in message, msg=" + msg;
             }
 
             if (msg.force()) {
@@ -216,6 +220,7 @@ public class Replica {
                 // group leader are received.
 
                 return waitForActualState(msg.leaseExpirationTime().getPhysical())
+                        .thenCompose(v -> sendPrimaryReplicaChangeToReplicationGroup(msg.leaseStartTime().longValue()))
                         .thenCompose(v -> {
                             CompletableFuture<LeaseGrantedMessageResponse> respFut =
                                     acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime());
@@ -230,12 +235,21 @@ public class Replica {
             } else {
                 if (leader.equals(localNode)) {
                     return waitForActualState(msg.leaseExpirationTime().getPhysical())
+                            .thenCompose(v -> sendPrimaryReplicaChangeToReplicationGroup(msg.leaseStartTime().longValue()))
                             .thenCompose(v -> acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime()));
                 } else {
                     return proposeLeaseRedirect(leader);
                 }
             }
         }));
+    }
+
+    private CompletableFuture<Void> sendPrimaryReplicaChangeToReplicationGroup(long leaseStartTime) {
+        PrimaryReplicaChangeCommand cmd = REPLICA_MESSAGES_FACTORY.primaryReplicaChangeCommand()
+                .leaseStartTime(leaseStartTime)
+                .build();
+
+        return raftClient.run(cmd);
     }
 
     private CompletableFuture<LeaseGrantedMessageResponse> acceptLease(

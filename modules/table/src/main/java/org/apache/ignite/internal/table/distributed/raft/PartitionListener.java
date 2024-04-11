@@ -18,9 +18,6 @@
 package org.apache.ignite.internal.table.distributed.raft;
 
 import static java.util.Objects.requireNonNull;
-import static java.util.function.Predicate.not;
-import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.hlc.HybridTimestamp.CLOCK_SKEW;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.table.distributed.TableUtils.indexIdsAtRwTxBeginTs;
 import static org.apache.ignite.internal.tracing.TracingManager.span;
@@ -41,7 +38,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.SafeTimeReorderException;
@@ -54,16 +55,22 @@ import org.apache.ignite.internal.raft.service.BeforeApplyHandler;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.CommittedConfiguration;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
+import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
+import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.schema.BinaryRowUpgrader;
+import org.apache.ignite.internal.schema.SchemaDescriptor;
+import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.storage.BinaryRowAndRowId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.Locker;
-import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
+import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.command.WriteIntentSwitchCommand;
@@ -74,8 +81,8 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
+import org.apache.ignite.internal.tx.UpdateCommandResult;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
-import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.TrackerClosedException;
 import org.jetbrains.annotations.Nullable;
@@ -85,11 +92,11 @@ import org.jetbrains.annotations.TestOnly;
  * Partition command handler.
  */
 public class PartitionListener implements RaftGroupListener, BeforeApplyHandler {
-    /** Transaction manager. */
-    private final TxManager txManager;
-
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(PartitionListener.class);
+
+    /** Transaction manager. */
+    private final TxManager txManager;
 
     /** Partition storage with access to MV data of a partition. */
     private final PartitionDataStorage storage;
@@ -114,6 +121,10 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
     private final CatalogService catalogService;
 
+    private final SchemaRegistry schemaRegistry;
+
+    private final ClockService clockService;
+
     /**
      * The constructor.
      *
@@ -130,7 +141,9 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
             TxStateStorage txStateStorage,
             PendingComparableValuesTracker<HybridTimestamp, Void> safeTime,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
-            CatalogService catalogService
+            CatalogService catalogService,
+            SchemaRegistry schemaRegistry,
+            ClockService clockService
     ) {
         this.txManager = txManager;
         this.storage = partitionDataStorage;
@@ -139,6 +152,8 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         this.safeTime = safeTime;
         this.storageIndexTracker = storageIndexTracker;
         this.catalogService = catalogService;
+        this.schemaRegistry = schemaRegistry;
+        this.clockService = clockService;
     }
 
     @Override
@@ -180,6 +195,8 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                             + ", mvAppliedIndex=" + storage.lastAppliedIndex()
                             + ", txStateAppliedIndex=" + txStateStorage.lastAppliedIndex() + "]";
 
+            Serializable result = null;
+
             // NB: Make sure that ANY command we accept here updates lastAppliedIndex+term info in one of the underlying
             // storages!
             // Otherwise, a gap between lastAppliedIndex from the point of view of JRaft and our storage might appear.
@@ -191,13 +208,11 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
             storage.acquirePartitionSnapshotsReadLock();
 
-            Serializable result = null;
-
             try {
                 if (command instanceof UpdateCommand) {
-                    handleUpdateCommand((UpdateCommand) command, commandIndex, commandTerm);
+                    result = handleUpdateCommand((UpdateCommand) command, commandIndex, commandTerm);
                 } else if (command instanceof UpdateAllCommand) {
-                    handleUpdateAllCommand((UpdateAllCommand) command, commandIndex, commandTerm);
+                    result = handleUpdateAllCommand((UpdateAllCommand) command, commandIndex, commandTerm);
                 } else if (command instanceof FinishTxCommand) {
                     result = handleFinishTxCommand((FinishTxCommand) command, commandIndex, commandTerm);
                 } else if (command instanceof WriteIntentSwitchCommand) {
@@ -206,15 +221,15 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                     handleSafeTimeSyncCommand((SafeTimeSyncCommand) command, commandIndex, commandTerm);
                 } else if (command instanceof BuildIndexCommand) {
                     handleBuildIndexCommand((BuildIndexCommand) command, commandIndex, commandTerm);
+                } else if (command instanceof PrimaryReplicaChangeCommand) {
+                    handlePrimaryReplicaChangeCommand((PrimaryReplicaChangeCommand) command, commandIndex, commandTerm);
                 } else {
                     assert false : "Command was not found [cmd=" + command + ']';
                 }
-
-                clo.result(result);
             } catch (IgniteInternalException e) {
-                clo.result(e);
+                result = e;
             } catch (CompletionException e) {
-                clo.result(e.getCause());
+                result = e.getCause();
             } catch (Throwable t) {
                 LOG.error(
                         "Unknown error while processing command [commandIndex={}, commandTerm={}, command={}]",
@@ -226,6 +241,10 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
             } finally {
                 storage.releasePartitionSnapshotsReadLock();
             }
+
+            // Completing the closure out of the partition snapshots lock to reduce possibility of deadlocks as it might
+            // trigger other actions taking same locks.
+            clo.result(result);
 
             if (command instanceof SafeTimePropagatingCommand) {
                 SafeTimePropagatingCommand safeTimePropagatingCommand = (SafeTimePropagatingCommand) command;
@@ -248,15 +267,23 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
      * @param commandIndex Index of the RAFT command.
      * @param commandTerm Term of the RAFT command.
      */
-    private void handleUpdateCommand(UpdateCommand cmd, long commandIndex, long commandTerm) {
+    private UpdateCommandResult handleUpdateCommand(UpdateCommand cmd, long commandIndex, long commandTerm) {
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= storage.lastAppliedIndex()) {
-            return;
+            return new UpdateCommandResult(true);
+        }
+
+        if (cmd.leaseStartTime() != null) {
+            long leaseStartTime = requireNonNull(cmd.leaseStartTime(), "Inconsistent lease information in command [cmd=" + cmd + "].");
+
+            if (leaseStartTime != txStateStorage.leaseStartTime()) {
+                return new UpdateCommandResult(false, txStateStorage.leaseStartTime());
+            }
         }
 
         UUID txId = cmd.txId();
 
-        span("PartitionListener.handleUpdateCommand", (span) -> {
+        return span("PartitionListener.handleUpdateCommand", (span) -> {
             span.addAttribute("cmd", cmd::toString);
 
             // TODO: https://issues.apache.org/jira/browse/IGNITE-20124 Proper storage/raft index handling is required.
@@ -271,13 +298,20 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                             () -> storage.lastApplied(commandIndex, commandTerm),
                             cmd.full() ? cmd.safeTime() : null,
                             cmd.lastCommitTimestamp(),
-                            indexIdsAtRwTxBeginTs(catalogService, txId, storage.tableId()));
-                }
+                            indexIdsAtRwTxBeginTs(catalogService, txId, storage.tableId())
+                    );
 
-                updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
+                    updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
+                } else {
+                    // We MUST bump information about last updated index+term.
+                    // See a comment in #onWrite() for explanation.
+                    advanceLastAppliedIndexConsistently(commandIndex, commandTerm);
+                }
             }
 
             replicaTouch(txId, cmd.txCoordinatorId(), cmd.full() ? cmd.safeTime() : null, cmd.full());
+
+            return new UpdateCommandResult(true);
         });
     }
 
@@ -288,10 +322,18 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
      * @param commandIndex Index of the RAFT command.
      * @param commandTerm Term of the RAFT command.
      */
-    private void handleUpdateAllCommand(UpdateAllCommand cmd, long commandIndex, long commandTerm) {
+    private UpdateCommandResult handleUpdateAllCommand(UpdateAllCommand cmd, long commandIndex, long commandTerm) {
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= storage.lastAppliedIndex()) {
-            return;
+            return new UpdateCommandResult(true);
+        }
+
+        if (cmd.leaseStartTime() != null) {
+            long leaseStartTime = requireNonNull(cmd.leaseStartTime(), "Inconsistent lease information in command [cmd=" + cmd + "].");
+
+            if (leaseStartTime != txStateStorage.leaseStartTime()) {
+                return new UpdateCommandResult(false, txStateStorage.leaseStartTime());
+            }
         }
 
         UUID txId = cmd.txId();
@@ -310,10 +352,16 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                 );
 
                 updateTrackerIgnoringTrackerClosedException(safeTime, cmd.safeTime());
+            } else {
+                // We MUST bump information about last updated index+term.
+                // See a comment in #onWrite() for explanation.
+                advanceLastAppliedIndexConsistently(commandIndex, commandTerm);
             }
         }
 
         replicaTouch(txId, cmd.txCoordinatorId(), cmd.full() ? cmd.safeTime() : null, cmd.full());
+
+        return new UpdateCommandResult(true);
     }
 
     /**
@@ -325,7 +373,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
      * @return The actually stored transaction state {@link TransactionResult}.
      * @throws IgniteInternalException if an exception occurred during a transaction state change.
      */
-    private TransactionResult handleFinishTxCommand(FinishTxCommand cmd, long commandIndex, long commandTerm)
+    private @Nullable TransactionResult handleFinishTxCommand(FinishTxCommand cmd, long commandIndex, long commandTerm)
             throws IgniteInternalException {
         // Skips the write command because the storage has already executed it.
         if (commandIndex <= txStateStorage.lastAppliedIndex()) {
@@ -340,7 +388,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
             TxMeta txMetaToSet = new TxMeta(
                     stateToSet,
 
-                    cmd.commitTimestamp()
+    fromPartitionIdMessage(cmd.partitionIds()),                cmd.commitTimestamp()
             );
 
             TxMeta txMetaBeforeCas = txStateStorage.get(txId);
@@ -363,6 +411,16 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
             return new TransactionResult(stateToSet, cmd.commitTimestamp());
         });
+    }
+
+    private static List<TablePartitionId> fromPartitionIdMessage(List<TablePartitionIdMessage> partitionIds) {
+        List<TablePartitionId> list = new ArrayList<>(partitionIds.size());
+
+        for (TablePartitionIdMessage partitionIdMessage : partitionIds) {
+            list.add(partitionIdMessage.asTablePartitionId());
+        }
+
+        return list;
     }
 
     /**
@@ -406,6 +464,10 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
         // We MUST bump information about last updated index+term.
         // See a comment in #onWrite() for explanation.
+        advanceLastAppliedIndexConsistently(commandIndex, commandTerm);
+    }
+
+    private void advanceLastAppliedIndexConsistently(long commandIndex, long commandTerm) {
         storage.runConsistently(locker -> {
             storage.lastApplied(commandIndex, commandTerm);
 
@@ -482,7 +544,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
     @Override
     public void onLeaderStart() {
-        maxObservableSafeTime = txManager.clock().now().addPhysicalTime(CLOCK_SKEW).longValue();
+        maxObservableSafeTime = clockService.now().addPhysicalTime(clockService.maxClockSkewMillis()).longValue();
     }
 
     @Override
@@ -526,8 +588,9 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
             return;
         }
 
-        // It's important to not block any thread while being inside of the "runConsistently" section.
-        storageUpdateHandler.getIndexUpdateHandler().waitForIndex(cmd.indexId());
+        BuildIndexRowVersionChooser rowVersionChooser = createBuildIndexRowVersionChooser(cmd);
+
+        BinaryRowUpgrader binaryRowUpgrader = createBinaryRowUpgrader(cmd);
 
         storage.runConsistently(locker -> {
             List<UUID> rowUuids = new ArrayList<>(cmd.rowIds());
@@ -535,7 +598,12 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
             // Natural UUID order matches RowId order within the same partition.
             Collections.sort(rowUuids);
 
-            Stream<BinaryRowAndRowId> buildIndexRowStream = createBuildIndexRowStream(rowUuids, locker);
+            Stream<BinaryRowAndRowId> buildIndexRowStream = createBuildIndexRowStream(
+                    rowUuids,
+                    locker,
+                    rowVersionChooser,
+                    binaryRowUpgrader
+            );
 
             RowId nextRowIdToBuild = cmd.finish() ? null : toRowId(requireNonNull(last(rowUuids))).increment();
 
@@ -552,6 +620,22 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                     storage.tableId(), storage.partitionId(), cmd.indexId()
             );
         }
+    }
+
+    /**
+     * Handler for {@link PrimaryReplicaChangeCommand}.
+     *
+     * @param cmd Command.
+     * @param commandIndex Command index.
+     * @param commandTerm Command term.
+     */
+    private void handlePrimaryReplicaChangeCommand(PrimaryReplicaChangeCommand cmd, long commandIndex, long commandTerm) {
+        // Skips the write command because the storage has already executed it.
+        if (commandIndex <= storage.lastAppliedIndex()) {
+            return;
+        }
+
+        txStateStorage.updateLease(cmd.leaseStartTime(), commandIndex, commandTerm);
     }
 
     private static void onTxStateStorageCasFail(UUID txId, TxMeta txMetaBeforeCas, TxMeta txMetaToSet) {
@@ -585,20 +669,18 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         }
     }
 
-    private Stream<BinaryRowAndRowId> createBuildIndexRowStream(List<UUID> rowUuids, Locker locker) {
+    private Stream<BinaryRowAndRowId> createBuildIndexRowStream(
+            List<UUID> rowUuids,
+            Locker locker,
+            BuildIndexRowVersionChooser rowVersionChooser,
+            BinaryRowUpgrader binaryRowUpgrader
+    ) {
         return rowUuids.stream()
                 .map(this::toRowId)
                 .peek(locker::lock)
-                .map(rowId -> {
-                    try (Cursor<ReadResult> cursor = storage.scanVersions(rowId)) {
-                        return cursor.stream()
-                                .filter(not(ReadResult::isEmpty))
-                                .map(ReadResult::binaryRow)
-                                .map(binaryRow -> new BinaryRowAndRowId(binaryRow, rowId))
-                                .collect(toList());
-                    }
-                })
-                .flatMap(Collection::stream);
+                .map(rowVersionChooser::chooseForBuildIndex)
+                .flatMap(Collection::stream)
+                .map(binaryRowAndRowId -> upgradeBinaryRow(binaryRowUpgrader, binaryRowAndRowId));
     }
 
     private RowId toRowId(UUID rowUuid) {
@@ -621,5 +703,43 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
                 old == null ? null : old.commitPartitionId(),
                 commit ? commitTimestamp : null
         ));
+    }
+
+    private BuildIndexRowVersionChooser createBuildIndexRowVersionChooser(BuildIndexCommand command) {
+        int indexCreationCatalogVersion = command.creationCatalogVersion();
+        Catalog indexCreationCatalog = catalogService.catalog(indexCreationCatalogVersion);
+
+        assert indexCreationCatalog != null : "indexId=" + command.indexId() + ", catalogVersion=" + indexCreationCatalogVersion;
+
+        int startBuildingIndexCatalogVersion = command.requiredCatalogVersion();
+
+        Catalog startBuildingIndexCatalog = catalogService.catalog(startBuildingIndexCatalogVersion);
+
+        assert startBuildingIndexCatalog != null : "indexId=" + command.indexId() + ", catalogVersion=" + startBuildingIndexCatalogVersion;
+
+        return new BuildIndexRowVersionChooser(storage, indexCreationCatalog.time(), startBuildingIndexCatalog.time());
+    }
+
+    private BinaryRowUpgrader createBinaryRowUpgrader(BuildIndexCommand command) {
+        int indexCreationCatalogVersion = command.creationCatalogVersion();
+
+        CatalogIndexDescriptor indexDescriptor = catalogService.index(command.indexId(), indexCreationCatalogVersion);
+
+        assert indexDescriptor != null : "indexId=" + command.indexId() + ", catalogVersion=" + indexCreationCatalogVersion;
+
+        CatalogTableDescriptor tableDescriptor = catalogService.table(indexDescriptor.tableId(), indexCreationCatalogVersion);
+
+        assert tableDescriptor != null : "tableId=" + indexDescriptor.tableId() + ", catalogVersion=" + indexCreationCatalogVersion;
+
+        SchemaDescriptor schema = schemaRegistry.schema(tableDescriptor.tableVersion());
+
+        return new BinaryRowUpgrader(schemaRegistry, schema);
+    }
+
+    private static BinaryRowAndRowId upgradeBinaryRow(BinaryRowUpgrader upgrader, BinaryRowAndRowId source) {
+        BinaryRow sourceBinaryRow = source.binaryRow();
+        BinaryRow upgradedBinaryRow = upgrader.upgrade(sourceBinaryRow);
+
+        return upgradedBinaryRow == sourceBinaryRow ? source : new BinaryRowAndRowId(upgradedBinaryRow, source.rowId());
     }
 }

@@ -27,7 +27,6 @@ import java.util.concurrent.CountDownLatch;
 import org.apache.ignite.client.fakes.FakeCompute;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.sql.ResultSet;
-import org.apache.ignite.sql.Session;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.Statement;
 import org.apache.ignite.tx.Transaction;
@@ -72,19 +71,16 @@ public class ServerMetricsTest extends AbstractClientTest {
     @Test
     public void testSqlMetrics() {
         Statement statement = client.sql().statementBuilder()
-                .property("hasMorePages", true)
                 .query("select 1")
                 .build();
 
         assertEquals(0, testServer.metrics().cursorsActive());
 
-        try (Session session = client.sql().createSession()) {
-            ResultSet<SqlRow> resultSet = session.execute(null, statement);
-            assertEquals(1, testServer.metrics().cursorsActive());
+        ResultSet<SqlRow> resultSet = client.sql().execute(null, statement);
+        assertEquals(1, testServer.metrics().cursorsActive());
 
-            resultSet.close();
-            assertEquals(0, testServer.metrics().cursorsActive());
-        }
+        resultSet.close();
+        assertEquals(0, testServer.metrics().cursorsActive());
     }
 
     @Test
@@ -93,7 +89,7 @@ public class ServerMetricsTest extends AbstractClientTest {
 
         FakeCompute.latch = new CountDownLatch(1);
 
-        client.compute().executeAsync(getClusterNodes("s1"), List.of(), "job");
+        client.compute().submit(getClusterNodes("s1"), List.of(), "job");
 
         assertTrue(
                 IgniteTestUtils.waitForCondition(() -> testServer.metrics().requestsActive() == 1, 1000),
@@ -110,7 +106,7 @@ public class ServerMetricsTest extends AbstractClientTest {
     public void testRequestsProcessed() throws Exception {
         long processed = testServer.metrics().requestsProcessed();
 
-        client.compute().executeAsync(getClusterNodes("s1"), List.of(), "job");
+        client.compute().submit(getClusterNodes("s1"), List.of(), "job");
 
         assertTrue(
                 IgniteTestUtils.waitForCondition(() -> testServer.metrics().requestsProcessed() == processed + 1, 1000),
@@ -123,7 +119,7 @@ public class ServerMetricsTest extends AbstractClientTest {
 
         FakeCompute.err = new RuntimeException("test");
 
-        client.compute().executeAsync(getClusterNodes("s1"), List.of(), "job");
+        client.compute().submit(getClusterNodes("s1"), List.of(), "job");
 
         assertTrue(
                 IgniteTestUtils.waitForCondition(() -> testServer.metrics().requestsFailed() == 1, 1000),
@@ -137,7 +133,7 @@ public class ServerMetricsTest extends AbstractClientTest {
         assertFalse(testServer.metrics().enabled());
         assertEquals(0, testServer.metrics().requestsProcessed());
 
-        client.compute().executeAsync(getClusterNodes("s1"), List.of(), "job").resultAsync().join();
+        client.compute().execute(getClusterNodes("s1"), List.of(), "job");
 
         assertEquals(0, testServer.metrics().requestsProcessed());
         assertFalse(testServer.metrics().enabled());

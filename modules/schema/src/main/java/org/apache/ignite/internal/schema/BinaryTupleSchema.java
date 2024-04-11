@@ -24,6 +24,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.BitSet;
+import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleFormatException;
@@ -194,7 +195,38 @@ public class BinaryTupleSchema {
      * @return Tuple schema.
      */
     public static BinaryTupleSchema createKeySchema(SchemaDescriptor descriptor) {
-        return createSchema(descriptor, 0, descriptor.keyColumns().length());
+        List<Column> columns = descriptor.keyColumns();
+        Element[] elements = new Element[columns.size()];
+
+        for (int i = 0; i < columns.size(); i++) {
+            Column column = columns.get(i);
+            elements[i] = new Element(column.type(), column.nullable());
+        }
+
+        // Key schema can be converted into a key-only tuple, so this schema should be have convertible = true
+        return new DenseRowSchema(elements, 0, true);
+    }
+
+    /**
+     * Creates a schema for binary tuples that should be used to place key columns into a row.
+     * Unlike {@link #createKeySchema(SchemaDescriptor)} this schema is not convertible, because
+     * key columns might be located at arbitrary positions and in non-consecutive manner.
+     *
+     * @param descriptor Row schema.
+     * @return Tuple schema.
+     */
+    public static BinaryTupleSchema createDestinationKeySchema(SchemaDescriptor descriptor) {
+        List<Column> columns = descriptor.keyColumns();
+        Element[] elements = new Element[columns.size()];
+        int[] positions = new int[columns.size()];
+
+        for (int i = 0; i < columns.size(); i++) {
+            Column column = columns.get(i);
+            elements[i] = new Element(column.type(), column.nullable());
+            positions[i] = column.positionInRow();
+        }
+
+        return new SparseRowSchema(elements, positions);
     }
 
     /**
@@ -204,7 +236,7 @@ public class BinaryTupleSchema {
      * @return Tuple schema.
      */
     public static BinaryTupleSchema createValueSchema(SchemaDescriptor descriptor) {
-        return createSchema(descriptor, descriptor.keyColumns().length(), descriptor.length());
+        return createSchema(descriptor, descriptor.keyColumns().size(), descriptor.length());
     }
 
     /**
@@ -226,7 +258,7 @@ public class BinaryTupleSchema {
         }
 
         boolean fullSize = (colBegin == 0
-                && (colEnd == descriptor.length() || colEnd == descriptor.keyColumns().length()));
+                && (colEnd == descriptor.length() || colEnd == descriptor.keyColumns().size()));
 
         return new DenseRowSchema(elements, colBegin, fullSize);
     }

@@ -27,11 +27,14 @@ import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_TIMEOUT_ERR;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.replicator.exception.ReplicaUnavailableException;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
 import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
@@ -43,17 +46,19 @@ import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.TestOnly;
 
 /** The service is intended to execute requests on replicas. */
 public class ReplicaService {
-    /** Network timeout. */
-    private static final long RPC_TIMEOUT = 3000;
-
     /** Message service. */
     private final MessagingService messagingService;
 
     /** A hybrid logical clock. */
     private final HybridClock clock;
+
+    private final Executor partitionOperationsExecutor;
+
+    private final ReplicationConfiguration replicationConfiguration;
 
     /** Requests to retry. */
     private final Map<String, CompletableFuture<NetworkMessage>> pendingInvokes = new ConcurrentHashMap<>();
@@ -66,13 +71,40 @@ public class ReplicaService {
      *
      * @param messagingService Cluster message service.
      * @param clock A hybrid logical clock.
+     * @param replicationConfiguration Replication configuration.
+     */
+    @TestOnly
+    public ReplicaService(
+            MessagingService messagingService,
+            HybridClock clock,
+            ReplicationConfiguration replicationConfiguration
+    ) {
+        this(
+                messagingService,
+                clock,
+                ForkJoinPool.commonPool(),
+                replicationConfiguration
+        );
+    }
+
+    /**
+     * The constructor of replica client.
+     *
+     * @param messagingService Cluster message service.
+     * @param clock A hybrid logical clock.
+     * @param partitionOperationsExecutor Partition operation executor.
+     * @param replicationConfiguration Replication configuration.
      */
     public ReplicaService(
             MessagingService messagingService,
-            HybridClock clock
+            HybridClock clock,
+            Executor partitionOperationsExecutor,
+            ReplicationConfiguration replicationConfiguration
     ) {
         this.messagingService = messagingService;
         this.clock = clock;
+        this.partitionOperationsExecutor = partitionOperationsExecutor;
+        this.replicationConfiguration = replicationConfiguration;
     }
 
     /**
@@ -88,13 +120,17 @@ public class ReplicaService {
     private <R> CompletableFuture<R> sendToReplica(String targetNodeConsistentId, ReplicaRequest req) {
         CompletableFuture<R> res = new CompletableFuture<>();
 
-        // TODO: IGNITE-17824 Use named executor instead of default one in order to process replica Response.
-        messagingService.invoke(targetNodeConsistentId, req, RPC_TIMEOUT).whenCompleteAsync((response, throwable) -> {
+        messagingService.invoke(
+                targetNodeConsistentId,
+                req,
+                replicationConfiguration.rpcTimeout().value()
+        ).whenComplete((response, throwable) -> {
             if (throwable != null) {
                 throwable = unwrapCause(throwable);
 
                 if (throwable instanceof TimeoutException) {
-                    res.completeExceptionally(new ReplicationTimeoutException(req.groupId()));
+                    // As a timeout has happened, we are probably on the system delayer thread, we should leave it.
+                    partitionOperationsExecutor.execute(() -> res.completeExceptionally(new ReplicationTimeoutException(req.groupId())));
                 } else {
                     res.completeExceptionally(withCause(
                             ReplicationException::new,
@@ -120,7 +156,11 @@ public class ReplicaService {
                                             .groupId(req.groupId())
                                             .build();
 
-                                    return messagingService.invoke(targetNodeConsistentId, awaitReplicaReq, RPC_TIMEOUT);
+                                    return messagingService.invoke(
+                                            targetNodeConsistentId,
+                                            awaitReplicaReq,
+                                            replicationConfiguration.rpcTimeout().value()
+                                    );
                                 }
                         );
 

@@ -72,6 +72,7 @@ import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -161,7 +162,7 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
     protected IgniteTransactions igniteTransactions;
 
-    //TODO fsync can be turned on again after https://issues.apache.org/jira/browse/IGNITE-20195
+    // TODO fsync can be turned on again after https://issues.apache.org/jira/browse/IGNITE-20195
     @InjectConfiguration("mock: { fsync: false }")
     protected RaftConfiguration raftConfiguration;
 
@@ -170,6 +171,9 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
 
     @InjectConfiguration
     protected StorageUpdateConfiguration storageUpdateConfiguration;
+
+    @InjectConfiguration
+    protected ReplicationConfiguration replicationConfiguration;
 
     protected final TestInfo testInfo;
 
@@ -223,7 +227,8 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
                 nodes(),
                 replicas(),
                 startClient(),
-                timestampTracker
+                timestampTracker,
+                replicationConfiguration
         );
         txTestCluster.prepareCluster();
 
@@ -1539,7 +1544,14 @@ public abstract class TxAbstractTest extends IgniteAbstractTest {
      */
     private CompletableFuture<List<Tuple>> scan(InternalTable internalTable, @Nullable InternalTransaction internalTx) {
         Flow.Publisher<BinaryRow> pub = internalTx != null && internalTx.isReadOnly()
-                ? internalTable.scan(0, internalTx.readTimestamp(), internalTable.leaderAssignment(0))
+                ?
+                internalTable.scan(
+                        0,
+                        internalTx.id(),
+                        internalTx.readTimestamp(),
+                        internalTable.tableRaftService().leaderAssignment(0),
+                        internalTx.coordinatorId()
+                )
                 : internalTable.scan(0, internalTx);
 
         List<Tuple> rows = new ArrayList<>();

@@ -107,9 +107,6 @@ public class StorageUpdateHandler {
             @Nullable HybridTimestamp lastCommitTs,
             @Nullable List<Integer> indexIds
     ) {
-        // Not the best solution, but let’s leave it for now; we need on node recovery when applying a replication log and full rebalancing.
-        indexUpdateHandler.waitIndexes();
-
         storage.runConsistently(locker -> {
             int commitTblId = commitPartitionId.tableId();
             int commitPartId = commitPartitionId.partitionId();
@@ -202,9 +199,6 @@ public class StorageUpdateHandler {
         if (nullOrEmpty(rowsToUpdate)) {
             return;
         }
-
-        // Not the best solution, but let’s leave it for now; we need on node recovery when applying a replication log and full rebalancing.
-        indexUpdateHandler.waitIndexes();
 
         int commitTblId = commitPartitionId.tableId();
         int commitPartId = commitPartitionId.partitionId();

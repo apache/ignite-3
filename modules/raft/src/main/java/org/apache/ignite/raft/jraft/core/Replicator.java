@@ -655,7 +655,7 @@ public class Replicator implements ThreadId.OnError {
             this.statInfo.lastTermIncluded = meta.lastIncludedTerm();
 
             setState(State.Snapshot);
-            // noinspection NonAtomicOperationOnVolatileField
+            //noinspection NonAtomicOperationOnVolatileField
             this.installSnapshotCounter++;
             final long monotonicSendTimeMs = Utils.monotonicMs();
             final int stateVersion = this.version;
@@ -683,7 +683,7 @@ public class Replicator implements ThreadId.OnError {
         final InstallSnapshotResponse response) {
         boolean success = true;
         r.releaseReader();
-        // noinspection ConstantConditions
+        //noinspection ConstantConditions
         do {
             final StringBuilder sb = new StringBuilder("Node "). //
                 append(r.options.getGroupId()).append(":").append(r.options.getServerId()). //
@@ -1068,7 +1068,7 @@ public class Replicator implements ThreadId.OnError {
         }
         else {
             id.unlock();
-            // noinspection ConstantConditions
+            //noinspection ConstantConditions
             Requires.requireTrue(false, "Unknown error code for replicator: " + errorCode);
         }
     }

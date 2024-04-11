@@ -19,9 +19,9 @@ package org.apache.ignite.internal.pagememory.persistence;
 
 import static java.lang.System.lineSeparator;
 import static org.apache.ignite.internal.pagememory.FullPageId.NULL_PAGE;
-import static org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfigurationSchema.CLOCK_REPLACEMENT_MODE;
-import static org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfigurationSchema.RANDOM_LRU_REPLACEMENT_MODE;
-import static org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfigurationSchema.SEGMENTED_LRU_REPLACEMENT_MODE;
+import static org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema.CLOCK_REPLACEMENT_MODE;
+import static org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema.RANDOM_LRU_REPLACEMENT_MODE;
+import static org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema.SEGMENTED_LRU_REPLACEMENT_MODE;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getCrc;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getPageId;
 import static org.apache.ignite.internal.pagememory.io.PageIo.getType;
@@ -82,8 +82,8 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.FullPageId;
 import org.apache.ignite.internal.pagememory.PageMemory;
-import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfiguration;
-import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionView;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileView;
 import org.apache.ignite.internal.pagememory.configuration.schema.UnsafeMemoryAllocatorView;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.mem.DirectMemoryProvider;
@@ -156,7 +156,7 @@ public class PersistentPageMemory implements PageMemory {
     public static final int TRY_AGAIN_TAG = -1;
 
     /** Data region configuration view. */
-    private final PersistentPageMemoryDataRegionView dataRegionConfigView;
+    private final PersistentPageMemoryProfileView storageProfileView;
 
     /** Page IO registry. */
     private final PageIoRegistry ioRegistry;
@@ -220,7 +220,7 @@ public class PersistentPageMemory implements PageMemory {
     /**
      * Constructor.
      *
-     * @param dataRegionConfig Data region configuration.
+     * @param storageProfileConfiguration Storage profile configuration.
      * @param ioRegistry IO registry.
      * @param segmentSizes Segments sizes in bytes.
      * @param checkpointBufferSize Checkpoint buffer size in bytes.
@@ -231,7 +231,7 @@ public class PersistentPageMemory implements PageMemory {
      * @param pageSize Page size in bytes.
      */
     public PersistentPageMemory(
-            PersistentPageMemoryDataRegionConfiguration dataRegionConfig,
+            PersistentPageMemoryProfileConfiguration storageProfileConfiguration,
             PageIoRegistry ioRegistry,
             long[] segmentSizes,
             long checkpointBufferSize,
@@ -242,15 +242,15 @@ public class PersistentPageMemory implements PageMemory {
             // TODO: IGNITE-17017 Move to common config
             int pageSize
     ) {
-        this.dataRegionConfigView = dataRegionConfig.value();
+        this.storageProfileView = (PersistentPageMemoryProfileView) storageProfileConfiguration.value();
         this.ioRegistry = ioRegistry;
         this.sizes = concat(segmentSizes, checkpointBufferSize);
         this.pageStoreManager = pageStoreManager;
         this.changeTracker = changeTracker;
         this.checkpointTimeoutLock = checkpointTimeoutLock;
 
-        if (!(dataRegionConfigView.memoryAllocator() instanceof UnsafeMemoryAllocatorView)) {
-            throw new IgniteInternalException("Unexpected memory allocator: " + dataRegionConfigView.memoryAllocator());
+        if (!(storageProfileView.memoryAllocator() instanceof UnsafeMemoryAllocatorView)) {
+            throw new IgniteInternalException("Unexpected memory allocator: " + storageProfileView.memoryAllocator());
         }
 
         directMemoryProvider = new UnsafeMemoryProvider(null);
@@ -259,7 +259,7 @@ public class PersistentPageMemory implements PageMemory {
 
         rwLock = new OffheapReadWriteLock(128);
 
-        String replacementMode = dataRegionConfigView.replacementMode();
+        String replacementMode = storageProfileView.replacementMode();
 
         switch (replacementMode) {
             case RANDOM_LRU_REPLACEMENT_MODE:
@@ -414,7 +414,7 @@ public class PersistentPageMemory implements PageMemory {
             writeTimestamp(absPtr, coarseCurrentTimeMillis());
         }
 
-        assert getCrc(absPtr + PAGE_OVERHEAD) == 0; //TODO IGNITE-16612
+        assert getCrc(absPtr + PAGE_OVERHEAD) == 0; // TODO IGNITE-16612
 
         return absPtr + PAGE_OVERHEAD;
     }
@@ -519,9 +519,10 @@ public class PersistentPageMemory implements PageMemory {
 
         seg.writeLock().lock();
 
-        FullPageId fullId = new FullPageId(pageId, grpId);
 
         try {
+            FullPageId fullId = new FullPageId(pageId, grpId);
+
             long relPtr = seg.loadedPages.get(
                     grpId,
                     effectivePageId(pageId),
@@ -553,7 +554,7 @@ public class PersistentPageMemory implements PageMemory {
 
             rwLock.init(absPtr + PAGE_LOCK_OFFSET, tag(pageId));
 
-            assert getCrc(absPtr + PAGE_OVERHEAD) == 0; //TODO IGNITE-16612
+            assert getCrc(absPtr + PAGE_OVERHEAD) == 0; // TODO IGNITE-16612
 
             assert !isAcquired(absPtr) :
                     "Pin counter must be 0 for a new page [relPtr=" + hexLong(relPtr)
@@ -566,10 +567,10 @@ public class PersistentPageMemory implements PageMemory {
             seg.loadedPages.put(grpId, effectivePageId(pageId), relPtr, seg.partGeneration(grpId, partId));
         } catch (IgniteOutOfMemoryException oom) {
             IgniteOutOfMemoryException e = new IgniteOutOfMemoryException("Out of memory in data region ["
-                    + "name=" + dataRegionConfigView.name()
-                    + ", size=" + readableSize(dataRegionConfigView.size(), false)
+                    + "name=" + storageProfileView.name()
+                    + ", size=" + readableSize(storageProfileView.size(), false)
                     + ", persistence=true] Try the following:" + lineSeparator()
-                    + "  ^-- Increase maximum off-heap memory size (PersistentPageMemoryDataRegionConfigurationSchema.size)"
+                    + "  ^-- Increase maximum off-heap memory size (PersistentPageMemoryProfileConfigurationSchema.size)"
                     + lineSeparator()
                     + "  ^-- Enable eviction or expiration policies"
             );
@@ -860,8 +861,8 @@ public class PersistentPageMemory implements PageMemory {
 
             copyMemory(absPtr + PAGE_OVERHEAD, tmpPtr, pageSize());
 
-            assert getCrc(absPtr + PAGE_OVERHEAD) == 0; //TODO IGNITE-16612
-            assert getCrc(tmpPtr) == 0; //TODO IGNITE-16612
+            assert getCrc(absPtr + PAGE_OVERHEAD) == 0; // TODO IGNITE-16612
+            assert getCrc(tmpPtr) == 0; // TODO IGNITE-16612
         } else {
             byte[] arr = tmpBuf.array();
 
@@ -1096,11 +1097,11 @@ public class PersistentPageMemory implements PageMemory {
             long tmpRelPtr = checkpointPool.borrowOrAllocateFreePage(tag(fullId.pageId()));
 
             if (tmpRelPtr == INVALID_REL_PTR) {
-                rwLock.writeUnlock(absPtr + PAGE_LOCK_OFFSET, OffheapReadWriteLock.TAG_LOCK_ALWAYS);
+                rwLock.writeUnlock(absPtr + PAGE_LOCK_OFFSET, TAG_LOCK_ALWAYS);
 
                 throw new IgniteInternalException(
                         "Failed to allocate temporary buffer for checkpoint (increase checkpointPageBufferSize configuration property): "
-                                + dataRegionConfigView.name());
+                                + storageProfileView.name());
             }
 
             // Pin the page until checkpoint is not finished.
@@ -1125,11 +1126,11 @@ public class PersistentPageMemory implements PageMemory {
             // info for checkpoint buffer cleaner.
             fullPageId(tmpAbsPtr, fullId);
 
-            assert getCrc(absPtr + PAGE_OVERHEAD) == 0; //TODO GG-11480
-            assert getCrc(tmpAbsPtr + PAGE_OVERHEAD) == 0; //TODO GG-11480
+            assert getCrc(absPtr + PAGE_OVERHEAD) == 0; // TODO GG-11480
+            assert getCrc(tmpAbsPtr + PAGE_OVERHEAD) == 0; // TODO GG-11480
         }
 
-        assert getCrc(absPtr + PAGE_OVERHEAD) == 0; //TODO IGNITE-16612
+        assert getCrc(absPtr + PAGE_OVERHEAD) == 0; // TODO IGNITE-16612
 
         return absPtr + PAGE_OVERHEAD;
     }
@@ -1148,7 +1149,7 @@ public class PersistentPageMemory implements PageMemory {
                 changeTracker.apply(page, fullId, this);
             }
 
-            assert getCrc(page + PAGE_OVERHEAD) == 0; //TODO IGNITE-16612
+            assert getCrc(page + PAGE_OVERHEAD) == 0; // TODO IGNITE-16612
 
             if (markDirty) {
                 setDirty(fullId, page, true, false);
@@ -1569,7 +1570,7 @@ public class PersistentPageMemory implements PageMemory {
                 if (pageReplacementWarnedFieldUpdater.compareAndSet(PersistentPageMemory.this, 0, 1)) {
                     LOG.warn("Page replacements started, pages will be rotated with disk, this will affect "
                             + "storage performance (consider increasing PageMemoryDataRegionConfiguration#setMaxSize for "
-                            + "data region) [region={}]", dataRegionConfigView.name());
+                            + "data region) [region={}]", storageProfileView.name());
                 }
             }
 
@@ -1594,10 +1595,10 @@ public class PersistentPageMemory implements PageMemory {
                     + ", dirtyPages=" + dirtyPagesCntr
                     + ", pinned=" + acquiredPages()
                     + ']' + lineSeparator() + "Out of memory in data region ["
-                    + "name=" + dataRegionConfigView.name()
-                    + ", size=" + readableSize(dataRegionConfigView.size(), false)
+                    + "name=" + storageProfileView.name()
+                    + ", size=" + readableSize(storageProfileView.size(), false)
                     + ", persistence=true] Try the following:" + lineSeparator()
-                    + "  ^-- Increase off-heap memory size (PersistentPageMemoryDataRegionConfigurationSchema.size)" + lineSeparator()
+                    + "  ^-- Increase off-heap memory size (PersistentPageMemoryProfileConfigurationSchema.size)" + lineSeparator()
             );
         }
 

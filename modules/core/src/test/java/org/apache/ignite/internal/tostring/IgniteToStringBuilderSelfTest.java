@@ -567,13 +567,13 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
 
         String strRep = wr.toString();
 
-        //field before faulty field was written successfully to string representation
+        // field before faulty field was written successfully to string representation
         assertTrue(strRep.contains("id=12345"));
 
-        //message from RuntimeException was written to string representation
+        // message from RuntimeException was written to string representation
         assertTrue(strRep.contains("toString failed"));
 
-        //field after faulty field was written successfully to string representation
+        // field after faulty field was written successfully to string representation
         assertTrue(strRep.contains("str=str"));
     }
 
@@ -708,24 +708,22 @@ public class IgniteToStringBuilderSelfTest extends IgniteAbstractTest {
          * @return Manual string.
          */
         String toStringManual() {
-            StringBuilder buf = new StringBuilder();
+            StringBuilder buf = new StringBuilder()
+                    .append(getClass().getSimpleName()).append(" [")
+                    .append("id=").append(id).append(", ")
+                    .append("uuidVar=").append(uuidVar).append(", ")
+                    .append("intVar=").append(intVar).append(", ");
 
-            buf.append(getClass().getSimpleName()).append(" [");
-
-            buf.append("id=").append(id).append(", ");
-            buf.append("uuidVar=").append(uuidVar).append(", ");
-            buf.append("intVar=").append(intVar).append(", ");
             if (S.includeSensitive()) {
                 buf.append("longVar=").append(longVar).append(", ");
             }
-            buf.append("boolVar=").append(boolVar).append(", ");
-            buf.append("byteVar=").append(byteVar).append(", ");
-            buf.append("name=").append(name).append(", ");
-            buf.append("finalInt=").append(finalInt).append(", ");
-            buf.append("strMap=").append(strMap).append(", ");
-            buf.append("strListIncl=").append(strListIncl);
-
-            buf.append("]");
+            buf.append("boolVar=").append(boolVar).append(", ")
+                    .append("byteVar=").append(byteVar).append(", ")
+                    .append("name=").append(name).append(", ")
+                    .append("finalInt=").append(finalInt).append(", ")
+                    .append("strMap=").append(strMap).append(", ")
+                    .append("strListIncl=").append(strListIncl)
+                    .append(']');
 
             return buf.toString();
         }

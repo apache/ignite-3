@@ -49,12 +49,15 @@ public class Row extends BinaryTupleReader implements BinaryRowEx, SchemaAware, 
 
     private final BinaryTupleSchema binaryTupleSchema;
 
+    private final boolean keyOnly;
+
     /** Cached colocation hash value. */
     private int colocationHash;
 
-    protected Row(SchemaDescriptor schema, BinaryTupleSchema binaryTupleSchema, BinaryRow row) {
+    protected Row(boolean keyOnly, SchemaDescriptor schema, BinaryTupleSchema binaryTupleSchema, BinaryRow row) {
         super(binaryTupleSchema.elementCount(), row.tupleSlice());
 
+        this.keyOnly = keyOnly;
         this.row = row;
         this.schema = schema;
         this.binaryTupleSchema = binaryTupleSchema;
@@ -67,7 +70,7 @@ public class Row extends BinaryTupleReader implements BinaryRowEx, SchemaAware, 
      * @param binaryRow Binary row.
      */
     public static Row wrapBinaryRow(SchemaDescriptor schema, BinaryRow binaryRow) {
-        return new Row(schema, BinaryTupleSchema.createRowSchema(schema), binaryRow);
+        return new Row(false, schema, BinaryTupleSchema.createRowSchema(schema), binaryRow);
     }
 
     /**
@@ -77,7 +80,7 @@ public class Row extends BinaryTupleReader implements BinaryRowEx, SchemaAware, 
      * @param binaryRow Binary row.
      */
     public static Row wrapKeyOnlyBinaryRow(SchemaDescriptor schema, BinaryRow binaryRow) {
-        return new Row(schema, BinaryTupleSchema.createKeySchema(schema), binaryRow);
+        return new Row(true, schema, BinaryTupleSchema.createKeySchema(schema), binaryRow);
     }
 
     /**
@@ -86,6 +89,15 @@ public class Row extends BinaryTupleReader implements BinaryRowEx, SchemaAware, 
     @Override
     public SchemaDescriptor schema() {
         return schema;
+    }
+
+    /**
+     * Gets a value indicating whether the row contains only key columns.
+     *
+     * @return {@code true} if the row contains only key columns.
+     */
+    public boolean keyOnly() {
+        return keyOnly;
     }
 
     /**
@@ -126,8 +138,14 @@ public class Row extends BinaryTupleReader implements BinaryRowEx, SchemaAware, 
         if (h0 == 0) {
             HashCalculator hashCalc = new HashCalculator();
 
-            for (Column c : schema().colocationColumns()) {
-                ColocationUtils.append(hashCalc, value(c.schemaIndex()), c.type());
+            for (Column c : schema.colocationColumns()) {
+                int idx = keyOnly
+                        ? c.positionInKey()
+                        : c.positionInRow();
+
+                assert idx >= 0 : c;
+
+                ColocationUtils.append(hashCalc, value(idx), c.type());
             }
 
             colocationHash = h0 = hashCalc.hash();

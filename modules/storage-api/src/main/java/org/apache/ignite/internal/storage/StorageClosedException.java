@@ -20,7 +20,7 @@ package org.apache.ignite.internal.storage;
 import org.apache.ignite.lang.ErrorGroups.Storage;
 
 /**
- * Exception that will be thrown when the storage is closed.
+ * Exception that is be thrown when trying to access a closed storage.
  */
 public class StorageClosedException extends StorageException {
     private static final long serialVersionUID = -7988332521347221109L;

@@ -92,7 +92,7 @@ public class RecordBinaryViewOperationsTest extends TableKvOperationsTestBase {
         return new SchemaDescriptor(
                 SCHEMA_VERSION,
                 new Column[]{new Column("id".toUpperCase(), NativeTypes.INT64, false)},
-                new Column[]{new Column("val".toUpperCase(), NativeTypes.INT64, false)}
+                new Column[]{new Column("val".toUpperCase(), NativeTypes.INT64, true)}
         );
     }
 
@@ -344,6 +344,30 @@ public class RecordBinaryViewOperationsTest extends TableKvOperationsTestBase {
     }
 
     @Test
+    public void testContains() {
+        SchemaDescriptor schema = schemaDescriptor();
+        RecordView<Tuple> tbl = createTable(schema).recordView();
+
+        final long keyId = 1L;
+        Tuple rec = Tuple.create()
+                .set("id", keyId)
+                .set("val", 11L);
+        Tuple keyRec = Tuple.create()
+                .set("id", keyId);
+
+        tbl.insert(null, rec);
+        assertTrue(tbl.contains(null, keyRec));
+        assertFalse(tbl.contains(null, Tuple.create().set("id", -1L)));
+
+        tbl.delete(null, keyRec);
+        assertFalse(tbl.contains(null, keyRec));
+
+        Tuple nullValRec = Tuple.create().set("id", 1L).set("val", null);
+        tbl.insert(null, nullValRec);
+        assertTrue(tbl.contains(null, keyRec));
+    }
+
+    @Test
     public void upsertAllAfterInsertAll() {
         SchemaDescriptor schema = schemaDescriptor();
 
@@ -587,7 +611,11 @@ public class RecordBinaryViewOperationsTest extends TableKvOperationsTestBase {
         ReflectionMarshallersProvider marshallers = new ReflectionMarshallersProvider();
 
         RecordView<Tuple> view = new RecordBinaryViewImpl(
-                internalTable, new DummySchemaManagerImpl(schema), schemaVersions, marshallers, mock(IgniteSql.class)
+                internalTable,
+                new DummySchemaManagerImpl(schema),
+                schemaVersions,
+                mock(IgniteSql.class),
+                marshallers
         );
 
         BinaryRow resultRow = new TupleMarshallerImpl(schema).marshal(Tuple.create().set("id", 1L).set("val", 2L));
@@ -625,15 +653,15 @@ public class RecordBinaryViewOperationsTest extends TableKvOperationsTestBase {
     void assertEqualsKeys(SchemaDescriptor schema, Tuple expected, Tuple actual) {
         int nonNullKey = 0;
 
-        for (int i = 0; i < schema.keyColumns().length(); i++) {
-            final Column col = schema.keyColumns().column(i);
+        for (int i = 0; i < schema.keyColumns().size(); i++) {
+            final Column col = schema.keyColumns().get(i);
 
             final Object val1 = expected.value(col.name());
             final Object val2 = actual.value(col.name());
 
-            Assertions.assertEquals(val1, val2, "Value columns equality check failed: colIdx=" + col.schemaIndex());
+            assertEquals(val1, val2, "Value columns equality check failed: " + col);
 
-            if (schema.isKeyColumn(i) && val1 != null) {
+            if (col.positionInKey() != -1 && val1 != null) {
                 nonNullKey++;
             }
         }
@@ -649,16 +677,16 @@ public class RecordBinaryViewOperationsTest extends TableKvOperationsTestBase {
      * @param actual   Actual tuple.
      */
     void assertEqualsValues(SchemaDescriptor schema, Tuple expected, Tuple actual) {
-        for (int i = 0; i < schema.valueColumns().length(); i++) {
-            final Column col = schema.valueColumns().column(i);
+        for (int i = 0; i < schema.valueColumns().size(); i++) {
+            final Column col = schema.valueColumns().get(i);
 
             final Object val1 = expected.value(col.name());
             final Object val2 = actual.value(col.name());
 
             if (val1 instanceof byte[] && val2 instanceof byte[]) {
-                Assertions.assertArrayEquals((byte[]) val1, (byte[]) val2, "Equality check failed: colIdx=" + col.schemaIndex());
+                Assertions.assertArrayEquals((byte[]) val1, (byte[]) val2, "Equality check failed: colIdx=" + col.positionInRow());
             } else {
-                Assertions.assertEquals(val1, val2, "Equality check failed: colIdx=" + col.schemaIndex());
+                assertEquals(val1, val2, "Equality check failed: colIdx=" + col.positionInRow());
             }
         }
     }

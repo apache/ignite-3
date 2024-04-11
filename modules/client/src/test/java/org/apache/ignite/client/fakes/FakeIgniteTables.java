@@ -18,6 +18,7 @@
 package org.apache.ignite.client.fakes;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.mockito.Mockito.mock;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -38,7 +39,9 @@ import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.impl.HeapLockManager;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.Table;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Fake tables.
@@ -162,6 +165,11 @@ public class FakeIgniteTables implements IgniteTablesInternal {
         return completedFuture(tableView(name));
     }
 
+    @Override
+    public @Nullable TableViewInternal cachedTable(int tableId) {
+        return table(tableId);
+    }
+
     private TableViewInternal getNewTable(String name, int id) {
         Function<Integer, SchemaDescriptor> history;
 
@@ -214,7 +222,8 @@ public class FakeIgniteTables implements IgniteTablesInternal {
                         return completedFuture(schemaReg.lastKnownSchemaVersion());
                     }
                 },
-                new FakeIgniteSql()
+                mock(IgniteSql.class),
+                -1
         );
     }
 
@@ -325,19 +334,19 @@ public class FakeIgniteTables implements IgniteTablesInternal {
      */
     private SchemaDescriptor getColocationKeySchema(Integer v) {
         Column colocationCol1 = new Column("COLO-1", NativeTypes.STRING, false);
-        Column colocationCol2 = new Column("COLO-2", NativeTypes.INT64, true);
+        Column colocationCol2 = new Column("COLO-2", NativeTypes.INT64, false);
 
         return new SchemaDescriptor(
                 v,
-                new Column[]{
+                List.of(
                         new Column("ID", NativeTypes.INT32, false),
-                },
-                new String[]{ colocationCol1.name(), colocationCol2.name() },
-                new Column[]{
                         colocationCol1,
                         colocationCol2,
                         new Column("STR", NativeTypes.STRING, true)
-                });
+                ),
+                List.of("ID", colocationCol1.name(), colocationCol2.name()),
+                List.of(colocationCol1.name(), colocationCol2.name())
+        );
     }
 
     /**

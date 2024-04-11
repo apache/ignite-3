@@ -20,12 +20,18 @@ package org.apache.ignite.internal.table.distributed.raft.snapshot.incoming;
 import static java.util.concurrent.CompletableFuture.anyOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
 import static org.apache.ignite.internal.table.distributed.schema.CatalogVersionSufficiency.isMetadataAvailableFor;
+import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -35,8 +41,11 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.lowwatermark.message.GetLowWatermarkResponse;
+import org.apache.ignite.internal.lowwatermark.message.LowWatermarkMessagesFactory;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.ReadResult;
@@ -68,7 +77,9 @@ import org.jetbrains.annotations.Nullable;
 public class IncomingSnapshotCopier extends SnapshotCopier {
     private static final IgniteLogger LOG = Loggers.forClass(IncomingSnapshotCopier.class);
 
-    private static final TableMessagesFactory MSG_FACTORY = new TableMessagesFactory();
+    private static final TableMessagesFactory TABLE_MSG_FACTORY = new TableMessagesFactory();
+
+    private static final LowWatermarkMessagesFactory LWM_MSG_FACTORY = new LowWatermarkMessagesFactory();
 
     private static final long NETWORK_TIMEOUT = Long.MAX_VALUE;
 
@@ -154,10 +165,11 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
             if (metadataSufficient) {
                 return partitionSnapshotStorage.partition().startRebalance()
                         .thenCompose(unused -> {
-                            assert snapshotSender != null;
+                            assert snapshotSender != null : createPartitionInfo();
 
                             return loadSnapshotMvData(snapshotSender, executor)
-                                    .thenCompose(unused1 -> loadSnapshotTxData(snapshotSender, executor));
+                                    .thenCompose(unused1 -> loadSnapshotTxData(snapshotSender, executor))
+                                    .thenRunAsync(this::setNextRowIdToBuildIndexes, executor);
                         });
             } else {
                 return nullCompletedFuture();
@@ -167,7 +179,12 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         joinFuture = metadataSufficiencyFuture.thenCompose(metadataSufficient -> {
             if (metadataSufficient) {
                 return rebalanceFuture.handleAsync((unused, throwable) -> completeRebalance(throwable), executor)
-                        .thenCompose(Function.identity());
+                        .thenCompose(Function.identity())
+                        .thenCompose(unused -> {
+                            assert snapshotSender != null : createPartitionInfo();
+
+                            return tryUpdateLowWatermark(snapshotSender, executor);
+                        });
             } else {
                 return nullCompletedFuture();
             }
@@ -272,7 +289,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         try {
             return partitionSnapshotStorage.outgoingSnapshotsManager().messagingService().invoke(
                     snapshotSender,
-                    MSG_FACTORY.snapshotMetaRequest().id(snapshotUri.snapshotId).build(),
+                    TABLE_MSG_FACTORY.snapshotMetaRequest().id(snapshotUri.snapshotId).build(),
                     NETWORK_TIMEOUT
             ).thenAccept(response -> {
                 snapshotMeta = ((SnapshotMetaResponse) response).meta();
@@ -320,7 +337,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         try {
             return partitionSnapshotStorage.outgoingSnapshotsManager().messagingService().invoke(
                     snapshotSender,
-                    MSG_FACTORY.snapshotMvDataRequest()
+                    TABLE_MSG_FACTORY.snapshotMvDataRequest()
                             .id(snapshotUri.snapshotId)
                             .batchSizeHint(MAX_MV_DATA_PAYLOADS_BATCH_BYTES_HINT)
                             .build(),
@@ -378,7 +395,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         try {
             return partitionSnapshotStorage.outgoingSnapshotsManager().messagingService().invoke(
                     snapshotSender,
-                    MSG_FACTORY.snapshotTxDataRequest()
+                    TABLE_MSG_FACTORY.snapshotTxDataRequest()
                             .id(snapshotUri.snapshotId)
                             .maxTransactionsInBatch(MAX_TX_DATA_BATCH_SIZE)
                             .build(),
@@ -492,16 +509,61 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
         PartitionAccess partition = partitionSnapshotStorage.partition();
 
+        int snapshotCatalogVersion = snapshotMeta.requiredCatalogVersion();
+
         if (i == entry.timestamps().length) {
             // Writes an intent to write (uncommitted version).
             assert entry.txId() != null;
             assert entry.commitTableId() != null;
             assert entry.commitPartitionId() != ReadResult.UNDEFINED_COMMIT_PARTITION_ID;
 
-            partition.addWrite(rowId, binaryRow, entry.txId(), entry.commitTableId(), entry.commitPartitionId());
+            partition.addWrite(rowId, binaryRow, entry.txId(), entry.commitTableId(), entry.commitPartitionId(), snapshotCatalogVersion);
         } else {
             // Writes committed version.
-            partition.addWriteCommitted(rowId, binaryRow, hybridTimestamp(entry.timestamps()[i]));
+            partition.addWriteCommitted(rowId, binaryRow, hybridTimestamp(entry.timestamps()[i]), snapshotCatalogVersion);
+        }
+    }
+
+    private void setNextRowIdToBuildIndexes() {
+        if (!busyLock.enterBusy()) {
+            return;
+        }
+
+        try {
+            Map<Integer, UUID> nextRowIdToBuildByIndexId = snapshotMeta.nextRowIdToBuildByIndexId();
+
+            if (!nullOrEmpty(nextRowIdToBuildByIndexId)) {
+                Map<Integer, RowId> nextRowIdToBuildByIndexId0 = nextRowIdToBuildByIndexId.entrySet().stream()
+                        .collect(toMap(Entry::getKey, e -> new RowId(partId(), e.getValue())));
+
+                partitionSnapshotStorage.partition().setNextRowIdToBuildIndex(nextRowIdToBuildByIndexId0);
+            }
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    private CompletableFuture<Void> tryUpdateLowWatermark(ClusterNode snapshotSender, Executor executor) {
+        if (!busyLock.enterBusy()) {
+            return nullCompletedFuture();
+        }
+
+        try {
+            return partitionSnapshotStorage.outgoingSnapshotsManager().messagingService().invoke(
+                    snapshotSender,
+                    LWM_MSG_FACTORY.getLowWatermarkRequest().build(),
+                    NETWORK_TIMEOUT
+            ).thenAcceptAsync(response -> {
+                GetLowWatermarkResponse getLowWatermarkResponse = (GetLowWatermarkResponse) response;
+
+                HybridTimestamp senderLowWatermark = nullableHybridTimestamp(getLowWatermarkResponse.lowWatermark());
+
+                if (senderLowWatermark != null) {
+                    partitionSnapshotStorage.partition().updateLowWatermark(senderLowWatermark);
+                }
+            }, executor);
+        } finally {
+            busyLock.leaveBusy();
         }
     }
 }

@@ -22,7 +22,6 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 
 import java.sql.DatabaseMetaData;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
@@ -31,10 +30,9 @@ import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcPrimaryKeyMeta;
@@ -49,7 +47,7 @@ import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.table.manager.IgniteTables;
 import org.jetbrains.annotations.Nullable;
 
-//TODO IGNITE-15525 Filter by table type must be added after 'view' type will appear.
+// TODO IGNITE-15525 Filter by table type must be added after 'view' type will appear.
 
 /**
  * Facade over {@link IgniteTables} to get information about database entities in terms of JDBC.
@@ -64,7 +62,7 @@ public class JdbcMetadataCatalog {
     /** Default schema name. */
     private static final String DEFAULT_SCHEMA_NAME = "PUBLIC";
 
-    private final HybridClock clock;
+    private final ClockService clockService;
 
     private final SchemaSyncService schemaSyncService;
 
@@ -73,7 +71,7 @@ public class JdbcMetadataCatalog {
     /** Comparator for {@link Column} by schema then table name then column order. */
     private static final Comparator<Pair<String, Column>> bySchemaThenTabNameThenColOrder
             = Comparator.comparing((Function<Pair<String, Column>, String>) Pair::getFirst)
-            .thenComparingInt(o -> o.getSecond().columnOrder());
+            .thenComparingInt(o -> o.getSecond().positionInRow());
 
     /** Comparator for {@link JdbcTableMeta} by table name. */
     private static final Comparator<CatalogTableDescriptor> byTblTypeThenSchemaThenTblName
@@ -82,12 +80,12 @@ public class JdbcMetadataCatalog {
     /**
      * Initializes info.
      *
-     * @param clock The clock.
+     * @param clockService Clock service.
      * @param schemaSyncService Used to wait for schemas' completeness.
      * @param catalogService Used to get table descriptions.
      */
-    public JdbcMetadataCatalog(HybridClock clock, SchemaSyncService schemaSyncService, CatalogService catalogService) {
-        this.clock = clock;
+    public JdbcMetadataCatalog(ClockService clockService, SchemaSyncService schemaSyncService, CatalogService catalogService) {
+        this.clockService = clockService;
         this.schemaSyncService = schemaSyncService;
         this.catalogService = catalogService;
     }
@@ -114,7 +112,7 @@ public class JdbcMetadataCatalog {
     }
 
     private CompletableFuture<Collection<CatalogTableDescriptor>> tablesAtNow() {
-        HybridTimestamp now = clock.now();
+        HybridTimestamp now = clockService.now();
 
         return schemaSyncService.waitForMetadataCompleteness(now)
                 .thenApply(unused -> catalogService.tables(catalogService.activeCatalogVersion(now.longValue())));
@@ -175,7 +173,7 @@ public class JdbcMetadataCatalog {
                     tbl -> {
                         SchemaDescriptor schema = CatalogToSchemaDescriptorConverter.convert(tbl, tbl.tableVersion());
 
-                        return Stream.concat(Arrays.stream(schema.keyColumns().columns()), Arrays.stream(schema.valueColumns().columns()))
+                        return schema.columns().stream()
                                 .map(column -> new Pair<>(tbl.name(), column));
                     })
                 .filter(e -> matches(e.getSecond().name(), colNameRegex))

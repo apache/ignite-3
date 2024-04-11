@@ -64,7 +64,8 @@ enum class code : underlying_t {
     ILLEGAL_ARGUMENT = 0x10003,
     SSL_CONFIGURATION = 0x10004,
     NODE_LEFT = 0x10005,
-    CURSOR_CLOSED = 0x10006,
+    CURSOR_ALREADY_CLOSED = 0x10006,
+    RESOURCE_CLOSING = 0x10007,
     INTERNAL = 0x1ffff,
 
     // Table group. Group code: 2
@@ -97,9 +98,8 @@ enum class code : underlying_t {
     EXECUTION_CANCELLED = 0x40008,
     RUNTIME = 0x40009,
     PLANNING_TIMEOUT = 0x4000a,
-    SESSION_CLOSED = 0x4000b,
-    MAPPING = 0x4000c,
-    TX_CONTROL_INSIDE_EXTERNAL_TX = 0x4000d,
+    MAPPING = 0x4000b,
+    TX_CONTROL_INSIDE_EXTERNAL_TX = 0x4000c,
 
     // MetaStorage group. Group code: 5
     STARTING_STORAGE = 0x50001,
@@ -146,6 +146,7 @@ enum class code : underlying_t {
     DIRECTORY_CREATION = 0x90002,
     ALREADY_CLOSED = 0x90003,
     STORAGE_REBALANCE = 0x90004,
+    ALREADY_DESTROYED = 0x90005,
 
     // DistributionZones group. Group code: 10
     ZONE_NOT_FOUND = 0xa0001,
@@ -154,6 +155,7 @@ enum class code : underlying_t {
     UNRESOLVABLE_CONSISTENT_ID = 0xb0001,
     PORT_IN_USE = 0xb0002,
     RECIPIENT_LEFT = 0xb0005,
+    ADDRESS_UNRESOLVED = 0xb0006,
 
     // NodeConfiguration group. Group code: 12
     CONFIG_READ = 0xc0001,
@@ -189,6 +191,7 @@ enum class code : underlying_t {
     CHANGE_JOB_PRIORITY_JOB_EXECUTING = 0x10000b,
     PRIMARY_REPLICA_RESOLVE = 0x10000c,
     CHANGE_JOB_PRIORITY = 0x10000d,
+    NODE_NOT_FOUND = 0x10000e,
 
     // Catalog group. Group code: 17
     VALIDATION = 0x110001,

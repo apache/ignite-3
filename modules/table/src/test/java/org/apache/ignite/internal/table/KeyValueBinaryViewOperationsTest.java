@@ -458,7 +458,8 @@ public class KeyValueBinaryViewOperationsTest extends TableKvOperationsTestBase 
                 internalTable,
                 new DummySchemaManagerImpl(schema),
                 schemaVersions,
-                marshallers, mock(IgniteSql.class)
+                mock(IgniteSql.class),
+                marshallers
         );
 
         BinaryRow resultRow = new TupleMarshallerImpl(schema).marshal(Tuple.create().set("ID", 1L).set("VAL", 2L));
@@ -490,13 +491,13 @@ public class KeyValueBinaryViewOperationsTest extends TableKvOperationsTestBase 
      * @param actual Actual tuple.
      */
     void assertEqualsValues(SchemaDescriptor schema, Tuple expected, Tuple actual) {
-        for (int i = 0; i < schema.valueColumns().length(); i++) {
-            final Column col = schema.valueColumns().column(i);
+        for (int i = 0; i < schema.valueColumns().size(); i++) {
+            final Column col = schema.valueColumns().get(i);
 
             final Object val1 = expected.value(col.name());
             final Object val2 = actual.value(col.name());
 
-            assertEquals(val1, val2, "Key columns equality check failed: colIdx=" + col.schemaIndex());
+            assertEquals(val1, val2, "Key columns equality check failed: colIdx=" + col.positionInRow());
         }
     }
 }

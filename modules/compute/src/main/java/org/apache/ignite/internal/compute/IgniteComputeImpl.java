@@ -20,7 +20,9 @@ package org.apache.ignite.internal.compute;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toUnmodifiableMap;
+import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.mapToPublicException;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.util.Collection;
 import java.util.HashSet;
@@ -36,12 +38,14 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobStatus;
+import org.apache.ignite.compute.NodeNotFoundException;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -57,6 +61,7 @@ import org.apache.ignite.network.TopologyService;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Implementation of {@link IgniteCompute}.
@@ -69,8 +74,6 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
     private final IgniteTablesInternal tables;
 
     private final ComputeComponent computeComponent;
-
-    private final ThreadLocalRandom random = ThreadLocalRandom.current();
 
     private final PlacementDriver placementDriver;
 
@@ -91,7 +94,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
 
     /** {@inheritDoc} */
     @Override
-    public <R> JobExecution<R> executeAsync(
+    public <R> JobExecution<R> submit(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
@@ -118,7 +121,17 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
             JobExecutionOptions options,
             Object... args
     ) {
-        Set<ClusterNode> candidates = new HashSet<>(nodes);
+        Set<ClusterNode> candidates = new HashSet<>();
+        for (ClusterNode node : nodes) {
+            if (topologyService.getByConsistentId(node.name()) != null) {
+                candidates.add(node);
+            }
+        }
+        if (candidates.isEmpty()) {
+            Set<String> nodeNames = nodes.stream().map(ClusterNode::name).collect(Collectors.toSet());
+            return new FailedExecution<>(new NodeNotFoundException(nodeNames));
+        }
+
         ClusterNode targetNode = randomNode(candidates);
         candidates.remove(targetNode);
 
@@ -145,14 +158,14 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
             Object... args
     ) {
         try {
-            return this.<R>executeAsync(nodes, units, jobClassName, options, args).resultAsync().join();
+            return this.<R>submit(nodes, units, jobClassName, options, args).resultAsync().join();
         } catch (CompletionException e) {
-            throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
+            throw ExceptionUtils.sneakyThrow(mapToPublicException(unwrapCause(e)));
         }
     }
 
-    private ClusterNode randomNode(Set<ClusterNode> nodes) {
-        int nodesToSkip = random.nextInt(nodes.size());
+    private static ClusterNode randomNode(Set<ClusterNode> nodes) {
+        int nodesToSkip = ThreadLocalRandom.current().nextInt(nodes.size());
 
         Iterator<ClusterNode> iterator = nodes.iterator();
         for (int i = 0; i < nodesToSkip; i++) {
@@ -201,7 +214,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
 
     /** {@inheritDoc} */
     @Override
-    public <R> JobExecution<R> executeColocatedAsync(
+    public <R> JobExecution<R> submitColocated(
             String tableName,
             Tuple tuple,
             List<DeploymentUnit> units,
@@ -217,18 +230,13 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
 
         return new JobExecutionFutureWrapper<>(
                 requiredTable(tableName)
-                        .thenCompose(table -> primaryReplicaForPartitionByTupleKey(table, tuple)
-                                .thenApply(primaryNode -> executeOnOneNodeWithFailover(
-                                        primaryNode,
-                                        new NextColocatedWorkerSelector<>(placementDriver, topologyService, clock, table, tuple),
-                                        units, jobClassName, options, args
-                                )))
+                        .thenCompose(table -> submitColocatedInternal(table, tuple, units, jobClassName, options, args))
         );
     }
 
     /** {@inheritDoc} */
     @Override
-    public <K, R> JobExecution<R> executeColocatedAsync(
+    public <K, R> JobExecution<R> submitColocated(
             String tableName,
             K key,
             Mapper<K> keyMapper,
@@ -266,9 +274,9 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
             Object... args
     ) {
         try {
-            return this.<R>executeColocatedAsync(tableName, key, units, jobClassName, options, args).resultAsync().join();
+            return this.<R>submitColocated(tableName, key, units, jobClassName, options, args).resultAsync().join();
         } catch (CompletionException e) {
-            throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
+            throw ExceptionUtils.sneakyThrow(mapToPublicException(unwrapCause(e)));
         }
     }
 
@@ -284,11 +292,28 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
             Object... args
     ) {
         try {
-            return this.<K, R>executeColocatedAsync(tableName, key, keyMapper, units, jobClassName, options, args).resultAsync()
+            return this.<K, R>submitColocated(tableName, key, keyMapper, units, jobClassName, options, args).resultAsync()
                     .join();
         } catch (CompletionException e) {
-            throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
+            throw ExceptionUtils.sneakyThrow(mapToPublicException(unwrapCause(e)));
         }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public <R> CompletableFuture<JobExecution<R>> submitColocatedInternal(
+            TableViewInternal table,
+            Tuple key,
+            List<DeploymentUnit> units,
+            String jobClassName,
+            JobExecutionOptions options,
+            Object[] args) {
+        return primaryReplicaForPartitionByTupleKey(table, key)
+                .thenApply(primaryNode -> executeOnOneNodeWithFailover(
+                        primaryNode,
+                        new NextColocatedWorkerSelector<>(placementDriver, topologyService, clock, table, key),
+                        units, jobClassName, options, args
+                ));
     }
 
     private CompletableFuture<TableViewInternal> requiredTable(String tableName) {
@@ -330,7 +355,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
 
     /** {@inheritDoc} */
     @Override
-    public <R> Map<ClusterNode, JobExecution<R>> broadcastAsync(
+    public <R> Map<ClusterNode, JobExecution<R>> submitBroadcast(
             Set<ClusterNode> nodes,
             List<DeploymentUnit> units,
             String jobClassName,
@@ -346,8 +371,13 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
                 .collect(toUnmodifiableMap(identity(),
                         // No failover nodes for broadcast. We use failover here in order to complete futures with exceptions
                         // if worker node has left the cluster.
-                        node -> new JobExecutionWrapper<>(executeOnOneNodeWithFailover(node,
-                                CompletableFutures::nullCompletedFuture, units, jobClassName, options, args))));
+                        node -> {
+                            if (topologyService.getByConsistentId(node.name()) == null) {
+                                return new FailedExecution<>(new NodeNotFoundException(Set.of(node.name())));
+                            }
+                            return new JobExecutionWrapper<>(executeOnOneNodeWithFailover(node,
+                                    CompletableFutures::nullCompletedFuture, units, jobClassName, options, args));
+                        }));
     }
 
     @Override
@@ -368,5 +398,10 @@ public class IgniteComputeImpl implements IgniteComputeInternal {
     @Override
     public CompletableFuture<@Nullable Boolean> changePriorityAsync(UUID jobId, int newPriority) {
         return computeComponent.changePriorityAsync(jobId, newPriority);
+    }
+
+    @TestOnly
+    ComputeComponent computeComponent() {
+        return computeComponent;
     }
 }

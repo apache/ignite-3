@@ -30,7 +30,9 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -62,17 +64,21 @@ public class LeaseTrackerTest extends BaseIgniteAbstractTest {
                     listenerRef.set(lsnr);
                     return null;
                 }
-        ).when(msManager).registerPrefixWatch(any(), any());
+        ).when(msManager).registerExactWatch(any(), any());
 
         Entry emptyEntry = EntryImpl.empty(PLACEMENTDRIVER_LEASES_KEY.bytes());
 
         when(msManager.getLocally(any(), anyLong())).thenAnswer(invocation -> emptyEntry);
 
-        LeaseTracker leaseTracker = new LeaseTracker(msManager, mock(ClusterNodeResolver.class));
+        LeaseTracker leaseTracker = new LeaseTracker(
+                msManager,
+                mock(ClusterNodeResolver.class),
+                new TestClockService(new HybridClockImpl())
+        );
         leaseTracker.startTrack(0L);
 
         AtomicReference<PrimaryReplicaEventParameters> parametersRef = new AtomicReference<>();
-        leaseTracker.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, (p, e) -> {
+        leaseTracker.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, p -> {
             parametersRef.set(p);
             return falseCompletedFuture();
         });

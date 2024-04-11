@@ -33,6 +33,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+import java.time.ZoneId;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -102,7 +103,7 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
     void connectOnStoppingNode() {
         resourceRegistry.close();
 
-        JdbcConnectResult result = await(eventHandler.connect());
+        JdbcConnectResult result = await(eventHandler.connect(ZoneId.systemDefault()));
 
         assertThat(result, notNullValue());
         assertThat(result.status(), is(STATUS_FAILED));
@@ -161,7 +162,7 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
 
     @Test
     public void singleTxUsedForMultipleOperations() {
-        when(queryProcessor.querySingleAsync(any(), any(), any(), any(), any(Object[].class)))
+        when(queryProcessor.queryAsync(any(), any(), any(), any(), any(Object[].class)))
                 .thenReturn(CompletableFuture.failedFuture(new RuntimeException("Expected")));
 
         InternalTransaction tx = mock(InternalTransaction.class);
@@ -194,11 +195,11 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
         verify(tx).commitAsync();
 
         verifyNoMoreInteractions(igniteTransactions);
-        verify(queryProcessor, times(5)).querySingleAsync(any(), any(), any(), any(), any(Object[].class));
+        verify(queryProcessor, times(5)).queryAsync(any(), any(), any(), any(), any(Object[].class));
     }
 
     private long acquireConnectionId() {
-        JdbcConnectResult result = await(eventHandler.connect());
+        JdbcConnectResult result = await(eventHandler.connect(ZoneId.systemDefault()));
 
         assertThat(result, notNullValue());
         assertThat(result.status(), is(STATUS_SUCCESS));

@@ -20,11 +20,13 @@ package org.apache.ignite.internal.pagememory.persistence.store;
 import static java.nio.file.Files.createDirectories;
 import static java.nio.file.Files.createFile;
 import static java.nio.file.Files.delete;
+import static java.nio.file.Files.exists;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.MAX_PARTITION_ID;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.partitionId;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
+import static org.apache.ignite.internal.util.IgniteUtils.deleteIfExistsThrowable;
 
 import java.io.File;
 import java.io.IOException;
@@ -116,8 +118,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
      * @param storagePath Storage path.
      * @param filePageStoreFileIoFactory {@link FileIo} factory for file page store.
      * @param pageSize Page size in bytes.
-     * @param failureProcessor Failure processor that is used to handler critical errors
-     * @throws IgniteInternalCheckedException If failed.
+     * @param failureProcessor Failure processor that is used to handler critical errors.
      */
     public FilePageStoreManager(
             String igniteInstanceName,
@@ -126,7 +127,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
             // TODO: IGNITE-17017 Move to common config
             int pageSize,
             FailureProcessor failureProcessor
-    ) throws IgniteInternalCheckedException {
+    ) {
         this.dbDir = storagePath.resolve("db");
         this.failureProcessor = failureProcessor;
 
@@ -352,7 +353,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
     }
 
     private Path ensureGroupWorkDir(int groupId) throws IgniteInternalCheckedException {
-        Path groupWorkDir = dbDir.resolve(GROUP_DIR_PREFIX + groupId);
+        Path groupWorkDir = groupDir(groupId);
 
         try {
             createDirectories(groupWorkDir);
@@ -393,7 +394,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
      * @param index Index of the delta file page store.
      */
     public Path tmpDeltaFilePageStorePath(int groupId, int partitionId, int index) {
-        return dbDir.resolve(GROUP_DIR_PREFIX + groupId).resolve(String.format(TMP_PART_DELTA_FILE_TEMPLATE, partitionId, index));
+        return groupDir(groupId).resolve(String.format(TMP_PART_DELTA_FILE_TEMPLATE, partitionId, index));
     }
 
     /**
@@ -404,7 +405,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
      * @param index Index of the delta file page store.
      */
     public Path deltaFilePageStorePath(int groupId, int partitionId, int index) {
-        return dbDir.resolve(GROUP_DIR_PREFIX + groupId).resolve(String.format(PART_DELTA_FILE_TEMPLATE, partitionId, index));
+        return groupDir(groupId).resolve(String.format(PART_DELTA_FILE_TEMPLATE, partitionId, index));
     }
 
     /**
@@ -434,7 +435,7 @@ public class FilePageStoreManager implements PageReadWriteManager {
 
         return cleanupAsyncExecutor.async((RunnableX) () -> {
             Path partitionDeleteFilePath = createFile(
-                    dbDir.resolve(GROUP_DIR_PREFIX + groupPartitionId.getGroupId())
+                    groupDir(groupPartitionId.getGroupId())
                             .resolve(String.format(DEL_PART_FILE_TEMPLATE, groupPartitionId.getPartitionId()))
             );
 
@@ -481,5 +482,26 @@ public class FilePageStoreManager implements PageReadWriteManager {
 
             return filePageStore;
         });
+    }
+
+    /**
+     * Destroys the group directory with all sub-directories and files if it exists.
+     *
+     * @throws IOException If there was an I/O error when deleting a directory.
+     */
+    public void destroyGroupIfExists(int groupId) throws IOException {
+        Path groupDir = groupDir(groupId);
+
+        try {
+            if (exists(groupDir)) {
+                deleteIfExistsThrowable(groupDir);
+            }
+        } catch (IOException e) {
+            throw new IOException("Failed to delete group directory: " + groupDir, e);
+        }
+    }
+
+    private Path groupDir(int groupId) {
+        return dbDir.resolve(GROUP_DIR_PREFIX + groupId);
     }
 }

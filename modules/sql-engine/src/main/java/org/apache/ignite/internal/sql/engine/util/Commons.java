@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
+import static org.apache.calcite.rel.hint.HintPredicates.AGGREGATE;
+import static org.apache.calcite.rel.hint.HintPredicates.JOIN;
+import static org.apache.ignite.internal.sql.engine.QueryProperty.ALLOWED_QUERY_TYPES;
 import static org.apache.ignite.internal.sql.engine.util.BaseQueryContext.CLUSTER;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
@@ -43,7 +46,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -61,14 +63,18 @@ import org.apache.calcite.plan.ConventionTraitDef;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelTraitDef;
+import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelCollationTraitDef;
 import org.apache.calcite.rel.RelNode;
-import org.apache.calcite.rel.hint.HintPredicates;
 import org.apache.calcite.rel.hint.HintStrategyTable;
+import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexBuilder;
+import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.type.SqlTypeCoercionRule;
+import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.sql.validate.SqlValidator;
 import org.apache.calcite.sql2rel.SqlToRelConverter;
 import org.apache.calcite.tools.FrameworkConfig;
@@ -82,7 +88,8 @@ import org.apache.calcite.util.mapping.Mappings;
 import org.apache.calcite.util.mapping.Mappings.TargetMapping;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
-import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.lang.InternalTuple;
+import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
@@ -94,6 +101,8 @@ import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteConvertletTable;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteTypeCoercion;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
+import org.apache.ignite.internal.sql.engine.property.SqlProperties;
+import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalTableScan;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCommitTransaction;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlConformance;
@@ -137,8 +146,8 @@ public final class Commons {
     @SuppressWarnings("rawtypes")
     public static final List<RelTraitDef> DISTRIBUTED_TRAITS_SET = List.of(
             ConventionTraitDef.INSTANCE,
-            RelCollationTraitDef.INSTANCE,
-            DistributionTraitDef.INSTANCE
+            DistributionTraitDef.INSTANCE,
+            RelCollationTraitDef.INSTANCE
     );
 
     public static final FrameworkConfig FRAMEWORK_CONFIG = Frameworks.newConfigBuilder()
@@ -153,9 +162,9 @@ public final class Commons {
                     .withExpand(false)
                     .withHintStrategyTable(
                             HintStrategyTable.builder()
-                                    .hintStrategy(IgniteHint.ENFORCE_JOIN_ORDER.name(), HintPredicates.JOIN)
+                                    .hintStrategy(IgniteHint.ENFORCE_JOIN_ORDER.name(), JOIN)
                                     .hintStrategy(IgniteHint.DISABLE_RULE.name(), (hint, rel) -> true)
-                                    .hintStrategy(IgniteHint.EXPAND_DISTINCT_AGG.name(), HintPredicates.AGGREGATE)
+                                    .hintStrategy(IgniteHint.EXPAND_DISTINCT_AGG.name(), AGGREGATE)
                                     .hintStrategy(IgniteHint.NO_INDEX.name(), (hint, rel) -> rel instanceof IgniteLogicalTableScan)
                                     .hintStrategy(IgniteHint.FORCE_INDEX.name(), (hint, rel) -> rel instanceof IgniteLogicalTableScan)
                                     .build()
@@ -183,7 +192,7 @@ public final class Commons {
     }
 
     private static SqlTypeCoercionRule standardCompatibleCoercionRules() {
-        return SqlTypeCoercionRule.instance(IgniteCustomAssigmentsRules.instance().getTypeMapping());
+        return SqlTypeCoercionRule.instance(IgniteCustomAssignmentsRules.instance().getTypeMapping());
     }
 
     /**
@@ -198,46 +207,6 @@ public final class Commons {
     public static @Nullable <RowT> Object getFieldFromBiRows(RowHandler<RowT> hnd, int offset, RowT row1, RowT row2) {
         return offset < hnd.columnCount(row1) ? hnd.get(offset, row1) :
             hnd.get(offset - hnd.columnCount(row1), row2);
-    }
-
-    /**
-     * Combines two lists.
-     */
-    public static <T> List<T> combine(List<T> left, List<T> right) {
-        Set<T> set = new HashSet<>(left.size() + right.size());
-
-        set.addAll(left);
-        set.addAll(right);
-
-        return new ArrayList<>(set);
-    }
-
-    /**
-     * Intersects two lists.
-     */
-    public static <T> List<T> intersect(List<T> left, List<T> right) {
-        if (nullOrEmpty(left) || nullOrEmpty(right)) {
-            return Collections.emptyList();
-        }
-
-        return left.size() > right.size()
-                ? intersect(new HashSet<>(right), left)
-                : intersect(new HashSet<>(left), right);
-    }
-
-    /**
-     * Intersects a set and a list.
-     *
-     * @return A List of unique entries that presented in both the given set and the given list.
-     */
-    public static <T> List<T> intersect(Set<T> set, List<T> list) {
-        if (nullOrEmpty(set) || nullOrEmpty(list)) {
-            return Collections.emptyList();
-        }
-
-        return list.stream()
-                .filter(set::contains)
-                .collect(Collectors.toList());
     }
 
     /**
@@ -365,34 +334,6 @@ public final class Commons {
     }
 
     /**
-     * Close.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     *
-     * @param o Object to close.
-     */
-    public static void close(Object o) throws Exception {
-        if (o instanceof AutoCloseable) {
-            ((AutoCloseable) o).close();
-        }
-    }
-
-    /**
-     * Closes given resource logging possible checked exception.
-     *
-     * @param o   Resource to close. If it's {@code null} - it's no-op.
-     * @param log Logger to log possible checked exception.
-     */
-    public static void close(Object o, IgniteLogger log) {
-        if (o instanceof AutoCloseable) {
-            try {
-                ((AutoCloseable) o).close();
-            } catch (Exception e) {
-                log.warn("Failed to close resource", e);
-            }
-        }
-    }
-
-    /**
      * Flat.
      * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
      */
@@ -514,32 +455,46 @@ public final class Commons {
         return mapping;
     }
 
-
     /**
-     * Checks if there is a such permutation of all {@code elems} that is prefix of provided {@code seq}.
+     * Creates mapping from given projection.
      *
-     * @param seq   Sequence.
-     * @param elems Elems.
-     * @return {@code true} if there is a permutation of all {@code elems} that is prefix of {@code seq}.
+     * <p>Projection is a list of integers representing an index of element from source
+     * at desired position.
+     *
+     * @param sourceSize Size of the source.
+     * @param projection Desired projection.
+     * @return Mapping for given projection.
      */
-    public static <T> boolean isPrefix(List<T> seq, Collection<T> elems) {
-        Set<T> elems0 = new HashSet<>(elems);
-
-        if (seq.size() < elems0.size()) {
-            return false;
+    public static Mapping projectedMapping(int sourceSize, ImmutableIntList projection) {
+        Mapping result = Mappings.create(MappingType.INVERSE_SURJECTION, sourceSize, projection.size());
+        for (int i = 0; i < projection.size(); i++) {
+            result.set(projection.getInt(i), i);
         }
+        return result;
+    }
 
-        for (T e : seq) {
-            if (!elems0.remove(e)) {
-                return false;
-            }
-
-            if (elems0.isEmpty()) {
-                break;
-            }
+    /** Reads the value from given tuple according to provided type. */
+    public static @Nullable Object readValue(InternalTuple tuple, NativeType nativeType, int fieldIndex) {
+        switch (nativeType.spec()) {
+            case BOOLEAN: return tuple.booleanValueBoxed(fieldIndex);
+            case INT8: return tuple.byteValueBoxed(fieldIndex);
+            case INT16: return tuple.shortValueBoxed(fieldIndex);
+            case INT32: return tuple.intValueBoxed(fieldIndex);
+            case INT64: return tuple.longValueBoxed(fieldIndex);
+            case FLOAT: return tuple.floatValueBoxed(fieldIndex);
+            case DOUBLE: return tuple.doubleValueBoxed(fieldIndex);
+            case DECIMAL: return tuple.decimalValue(fieldIndex, ((DecimalNativeType) nativeType).scale());
+            case UUID: return tuple.uuidValue(fieldIndex);
+            case STRING: return tuple.stringValue(fieldIndex);
+            case BYTES: return tuple.bytesValue(fieldIndex);
+            case BITMASK: return tuple.bitmaskValue(fieldIndex);
+            case NUMBER: return tuple.numberValue(fieldIndex);
+            case DATE: return tuple.dateValue(fieldIndex);
+            case TIME: return tuple.timeValue(fieldIndex);
+            case DATETIME: return tuple.dateTimeValue(fieldIndex);
+            case TIMESTAMP: return tuple.timestampValue(fieldIndex);
+            default: throw new InvalidTypeException("Unknown element type: " + nativeType);
         }
-
-        return true;
     }
 
     /**
@@ -882,5 +837,73 @@ public final class Commons {
             default:
                 return null;
         }
+    }
+
+    /**
+     * Computes the least restrictive type among the provided inputs and
+     * adds a projection where a cast to the inferred type is needed.
+     *
+     * @param inputs Input relational expressions.
+     * @param cluster Cluster.
+     * @param traits Traits of relational expression.
+     * @return Converted inputs.
+     */
+    public static List<RelNode> castInputsToLeastRestrictiveTypeIfNeeded(List<RelNode> inputs, RelOptCluster cluster, RelTraitSet traits) {
+        List<RelDataType> inputRowTypes = inputs.stream()
+                .map(RelNode::getRowType)
+                .collect(Collectors.toList());
+
+        // Output type of a set operator is equal to leastRestrictive(inputTypes) (see SetOp::deriveRowType)
+
+        RelDataTypeFactory typeFactory = cluster.getTypeFactory();
+        RelDataType resultType = typeFactory.leastRestrictive(inputRowTypes);
+        if (resultType == null) {
+            throw new IllegalArgumentException("Cannot compute compatible row type for arguments to set op: " + inputRowTypes);
+        }
+
+        // Check output type of each input, if input's type does not match the result type,
+        // then add a projection with casts for non-matching fields.
+
+        RexBuilder rexBuilder = cluster.getRexBuilder();
+        List<RelNode> actualInputs = new ArrayList<>(inputs.size());
+
+        for (RelNode input : inputs) {
+            RelDataType inputRowType = input.getRowType();
+
+            // We can ignore nullability because it is always safe to convert from
+            // ROW (T1 nullable, T2 not nullable) to ROW (T1 nullable, T2 nullable)
+            // and leastRestrictive does exactly that.
+            if (SqlTypeUtil.equalAsStructSansNullability(typeFactory, resultType, inputRowType, null)) {
+                actualInputs.add(input);
+
+                continue;
+            }
+
+            List<RexNode> exprs = new ArrayList<>(inputRowType.getFieldCount());
+
+            for (int i = 0; i < resultType.getFieldCount(); i++) {
+                RelDataType fieldType = inputRowType.getFieldList().get(i).getType();
+                RelDataType outFieldType = resultType.getFieldList().get(i).getType();
+                RexNode ref = rexBuilder.makeInputRef(input, i);
+
+                if (fieldType.equals(outFieldType)) {
+                    exprs.add(ref);
+                } else {
+                    RexNode expr = rexBuilder.makeCast(outFieldType, ref, true, false);
+                    exprs.add(expr);
+                }
+            }
+
+            actualInputs.add(new IgniteProject(cluster, traits, input, exprs, resultType));
+        }
+
+        return actualInputs;
+    }
+
+    /** Returns {@code true} if the specified properties allow multi-statement query execution. */
+    public static boolean isMultiStatementQueryAllowed(SqlProperties properties) {
+        Set<SqlQueryType> allowedTypes = properties.get(ALLOWED_QUERY_TYPES);
+
+        return allowedTypes.contains(SqlQueryType.TX_CONTROL);
     }
 }

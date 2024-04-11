@@ -55,6 +55,8 @@ import org.apache.ignite.internal.network.recovery.message.HandshakeRejectedMess
 import org.apache.ignite.internal.network.recovery.message.HandshakeRejectionReason;
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartMessage;
 import org.apache.ignite.internal.network.recovery.message.HandshakeStartResponseMessage;
+import org.apache.ignite.internal.network.recovery.message.ProbeMessage;
+import org.apache.ignite.network.ClusterNode;
 
 /**
  * Recovery protocol handshake manager for a server.
@@ -64,11 +66,7 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
 
     private static final int MAX_CLINCH_TERMINATION_AWAIT_ATTEMPTS = 1000;
 
-    /** Launch id. */
-    private final UUID launchId;
-
-    /** Consistent id. */
-    private final String consistentId;
+    private final ClusterNode localNode;
 
     /** Message factory. */
     private final NetworkMessagesFactory messageFactory;
@@ -76,11 +74,8 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
     /** Handshake completion future. */
     private final CompletableFuture<NettySender> handshakeCompleteFuture = new CompletableFuture<>();
 
-    /** Remote node's launch id. */
-    private UUID remoteLaunchId;
-
-    /** Remote node's consistent id. */
-    private String remoteConsistentId;
+    /** Remote node. */
+    private ClusterNode remoteNode;
 
     private short remoteChannelId;
 
@@ -114,15 +109,13 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
     /**
      * Constructor.
      *
-     * @param launchId Launch id.
-     * @param consistentId Consistent id.
+     * @param localNode {@link ClusterNode} representing this node.
      * @param messageFactory Message factory.
      * @param recoveryDescriptorProvider Recovery descriptor provider.
      * @param stopping Defines whether the corresponding connection manager is stopping.
      */
     public RecoveryServerHandshakeManager(
-            UUID launchId,
-            String consistentId,
+            ClusterNode localNode,
             NetworkMessagesFactory messageFactory,
             RecoveryDescriptorProvider recoveryDescriptorProvider,
             ChannelEventLoopsSource channelEventLoopsSource,
@@ -131,8 +124,7 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
             BooleanSupplier stopping,
             FailureProcessor failureProcessor
     ) {
-        this.launchId = launchId;
-        this.consistentId = consistentId;
+        this.localNode = localNode;
         this.messageFactory = messageFactory;
         this.recoveryDescriptorProvider = recoveryDescriptorProvider;
         this.channelEventLoopsSource = channelEventLoopsSource;
@@ -173,8 +165,7 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
     @Override
     public void onConnectionOpen() {
         HandshakeStartMessage handshakeStartMessage = messageFactory.handshakeStartMessage()
-                .launchId(launchId)
-                .consistentId(consistentId)
+                .serverNode(HandshakeManagerUtils.clusterNodeToMessage(localNode))
                 .build();
 
         ChannelFuture sendFuture = channel.writeAndFlush(new OutNetworkObject(handshakeStartMessage, emptyList(), false));
@@ -191,6 +182,11 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
     /** {@inheritDoc} */
     @Override
     public void onMessage(NetworkMessage message) {
+        if (message instanceof ProbeMessage) {
+            // No action required, just ignore it.
+            return;
+        }
+
         if (message instanceof HandshakeRejectedMessage) {
             onHandshakeRejectedMessage((HandshakeRejectedMessage) message);
 
@@ -206,8 +202,9 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
         // If we are here it means that we acquired the descriptor, we already handled a HandshakeStartresponseMessage and now we are
         // getting unacked messages from another side and acks for our unacked messages that we sent there (if any).
 
-        assert recoveryDescriptor != null : "Wrong server handshake flow";
-        assert recoveryDescriptor.holderChannel() == channel;
+        assert recoveryDescriptor != null : "Wrong server handshake flow, message is " + message;
+        assert recoveryDescriptor.holderChannel() == channel : "Expected " + channel + " but was " + recoveryDescriptor.holderChannel()
+                + ", message is " + message;
 
         if (recoveryDescriptor.unacknowledgedCount() == 0) {
             finishHandshake();
@@ -221,17 +218,16 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
             return;
         }
 
-        this.remoteLaunchId = message.launchId();
-        this.remoteConsistentId = message.consistentId();
+        this.remoteNode = message.clientNode().asClusterNode();
         this.receivedCount = message.receivedCount();
         this.remoteChannelId = message.connectionId();
 
-        ChannelKey channelKey = new ChannelKey(remoteConsistentId, remoteLaunchId, remoteChannelId);
+        ChannelKey channelKey = new ChannelKey(remoteNode.name(), UUID.fromString(remoteNode.id()), remoteChannelId);
         switchEventLoopIfNeeded(channel, channelKey, channelEventLoopsSource, () -> tryAcquireDescriptorAndFinishHandshake(message));
     }
 
     private boolean possiblyRejectHandshakeStartResponse(HandshakeStartResponseMessage message) {
-        if (staleIdDetector.isIdStale(message.launchId().toString())) {
+        if (staleIdDetector.isIdStale(message.clientNode().id())) {
             handleStaleClientId(message);
 
             return true;
@@ -247,13 +243,14 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
     }
 
     private void handleStaleClientId(HandshakeStartResponseMessage msg) {
-        String message = msg.consistentId() + ":" + msg.launchId() + " is stale, client should be restarted to be allowed to connect";
+        String message = msg.clientNode().name() + ":" + msg.clientNode().id()
+                + " is stale, client should be restarted to be allowed to connect";
 
         sendRejectionMessageAndFailHandshake(message, HandshakeRejectionReason.STALE_LAUNCH_ID, HandshakeException::new);
     }
 
     private void handleRefusalToEstablishConnectionDueToStopping(HandshakeStartResponseMessage msg) {
-        String message = msg.consistentId() + ":" + msg.launchId() + " tried to establish a connection with " + consistentId
+        String message = msg.clientNode().name() + ":" + msg.clientNode().id() + " tried to establish a connection with " + localNode.name()
                 + ", but it's stopping";
 
         sendRejectionMessageAndFailHandshake(message, HandshakeRejectionReason.STOPPING, m -> new NodeStoppingException());
@@ -279,18 +276,18 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
 
     private void tryAcquireDescriptorAndFinishHandshake(HandshakeStartResponseMessage handshakeStartResponse, int attempt) {
         if (attempt > MAX_CLINCH_TERMINATION_AWAIT_ATTEMPTS) {
-            throw new IllegalStateException("Too many attempts during handshake from " + remoteConsistentId + "(" + remoteLaunchId
+            throw new IllegalStateException("Too many attempts during handshake from " + remoteNode.name() + "(" + remoteNode.id()
                     + ":" + remoteChannelId + ") via " + ctx.channel());
         }
 
         RecoveryDescriptor descriptor = recoveryDescriptorProvider.getRecoveryDescriptor(
-                this.remoteConsistentId,
-                this.remoteLaunchId,
+                remoteNode.name(),
+                UUID.fromString(remoteNode.id()),
                 this.remoteChannelId
         );
 
         while (!descriptor.tryAcquire(ctx, handshakeCompleteFuture)) {
-            if (shouldCloseChannel(launchId, remoteLaunchId)) {
+            if (shouldCloseChannel(UUID.fromString(localNode.id()), UUID.fromString(remoteNode.id()))) {
                 // A competitor is holding the descriptor and we win the clinch; so we need to wait on the 'clinch resolved' future till
                 // the competitor realises it should terminate (this realization will happen on the other side of the channel), send
                 // the corresponding message to this node, terminate its handshake and complete the 'clinch resolved' future.
@@ -430,7 +427,7 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
      * @return New message handler.
      */
     private MessageHandler createMessageHandler() {
-        return handler.createMessageHandler(remoteLaunchId.toString(), remoteConsistentId, remoteChannelId);
+        return handler.createMessageHandler(remoteNode, remoteChannelId);
     }
 
     /** {@inheritDoc} */
@@ -452,7 +449,7 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
         this.ctx.pipeline().remove(this.handler);
 
         handshakeCompleteFuture.complete(
-                new NettySender(channel, remoteLaunchId.toString(), remoteConsistentId, remoteChannelId, recoveryDescriptor)
+                new NettySender(channel, remoteNode.id(), remoteNode.name(), remoteChannelId, recoveryDescriptor)
         );
     }
 }

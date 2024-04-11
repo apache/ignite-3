@@ -348,6 +348,11 @@ class CheckpointWorkflow {
             public boolean equals(Object o) {
                 return listener == ((IgniteBiTuple<?, ?>) o).getKey();
             }
+
+            @Override
+            public int hashCode() {
+                return listener.hashCode();
+            }
         });
     }
 

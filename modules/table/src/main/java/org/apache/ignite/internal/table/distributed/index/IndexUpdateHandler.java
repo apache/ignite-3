@@ -18,9 +18,9 @@
 package org.apache.ignite.internal.table.distributed.index;
 
 import static org.apache.ignite.internal.tracing.TracingManager.span;
-import static org.apache.ignite.internal.util.CollectionUtils.mapIterable;
 
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
@@ -31,6 +31,8 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.StorageDestroyedException;
+import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.table.distributed.TableIndexStoragesSupplier;
 import org.apache.ignite.internal.table.distributed.TableSchemaAwareIndexStorage;
 import org.apache.ignite.internal.util.Cursor;
@@ -67,9 +69,30 @@ public class IndexUpdateHandler {
 
         span("IndexUpdateHandler.addToIndexes", (ignored) -> {
             for (TableSchemaAwareIndexStorage index : indexes(indexIds)) {
-                index.put(binaryRow, rowId);
+                putToIndex(index, binaryRow, rowId);
             }
         });
+    }
+
+    /**
+     * Adds a binary row to the index, if it's a tombstone then skips such operation.
+     *
+     * <p>Must be called inside a {@link MvPartitionStorage#runConsistently(WriteClosure)} closure.</p>
+     *
+     * @param binaryRow Binary row to insert.
+     * @param rowId Row ID.
+     * @param indexId ID of index that will need to be updated.
+     */
+    public void addToIndex(@Nullable BinaryRow binaryRow, RowId rowId, int indexId) {
+        if (binaryRow == null) { // skip removes
+            return;
+        }
+
+        TableSchemaAwareIndexStorage indexStorage = indexStorageById().get(indexId);
+
+        if (indexStorage != null) {
+            putToIndex(indexStorage, binaryRow, rowId);
+        }
     }
 
     /**
@@ -128,7 +151,7 @@ public class IndexUpdateHandler {
 
         for (TableSchemaAwareIndexStorage index : indexes) {
             if (index != null) {
-                index.remove(rowToRemove, rowId);
+                removeFromIndex(index, rowToRemove, rowId);
             }
         }
     }
@@ -143,72 +166,139 @@ public class IndexUpdateHandler {
      * @param nextRowIdToBuild Row ID for which the index needs to be build next, {@code null} means that the index is build.
      */
     public void buildIndex(int indexId, Stream<BinaryRowAndRowId> rowStream, @Nullable RowId nextRowIdToBuild) {
-        // TODO: IGNITE-19082 Need another way to wait for index creation
-        indexes.addIndexToWaitIfAbsent(indexId);
+        TableSchemaAwareIndexStorage index = indexStorageById().get(indexId);
 
-        TableSchemaAwareIndexStorage index = indexes.get().get(indexId);
+        // We assume that if the index is missing in indexStorageById, then it has begun to be destroyed and we do not need it.
+        if (index == null) {
+            return;
+        }
 
         rowStream.forEach(binaryRowAndRowId -> {
-            assert binaryRowAndRowId.binaryRow() != null;
+            BinaryRow binaryRow = binaryRowAndRowId.binaryRow();
 
-            index.put(binaryRowAndRowId.binaryRow(), binaryRowAndRowId.rowId());
+            assert binaryRow != null : "indexId=" + indexId + ", rowId=" + binaryRowAndRowId.rowId();
+
+            putToIndex(index, binaryRow, binaryRowAndRowId.rowId());
         });
 
-        index.storage().setNextRowIdToBuild(nextRowIdToBuild);
-    }
-
-    /** Waits for indexes to be created. */
-    // TODO: IGNITE-19513 Fix it, we should have already waited for the indexes to be created
-    public void waitIndexes() {
-        indexes.get();
-    }
-
-    /** Waits for the specific index to be created. */
-    public void waitForIndex(int indexId) {
-        indexes.addIndexToWaitIfAbsent(indexId);
-
-        waitIndexes();
+        setNextRowIdToBuildToIndex(index, nextRowIdToBuild);
     }
 
     private Iterable<TableSchemaAwareIndexStorage> indexes(@Nullable List<Integer> indexIds) {
-        Map<Integer, TableSchemaAwareIndexStorage> indexStorageById = indexes.get();
-
-        assert !indexStorageById.isEmpty();
+        Map<Integer, TableSchemaAwareIndexStorage> indexStorageById = indexStorageById();
 
         if (indexIds == null) {
             return indexStorageById.values();
         }
 
-        return mapIterable(indexIds, indexId -> {
-            TableSchemaAwareIndexStorage indexStorage = indexStorageById.get(indexId);
+        var res = new ArrayList<TableSchemaAwareIndexStorage>(indexIds.size());
 
-            assert indexStorage != null : indexId;
+        for (Integer indexId : indexIds) {
+            TableSchemaAwareIndexStorage index = indexStorageById.get(indexId);
 
-            return indexStorage;
-        }, null);
+            // We assume that if the index is missing in indexStorageById, then it has begun to be destroyed and we do not need it.
+            if (index != null) {
+                res.add(index);
+            }
+        }
+
+        return res;
     }
 
     private TableSchemaAwareIndexStorage[] indexesSnapshot(@Nullable List<Integer> indexIds) {
-        Map<Integer, TableSchemaAwareIndexStorage> indexStorageById = indexes.get();
-
-        assert !indexStorageById.isEmpty();
+        Map<Integer, TableSchemaAwareIndexStorage> indexStorageById = indexStorageById();
 
         if (indexIds == null) {
             return indexStorageById.values().toArray(TableSchemaAwareIndexStorage[]::new);
         }
 
-        var res = new TableSchemaAwareIndexStorage[indexIds.size()];
+        var res = new ArrayList<TableSchemaAwareIndexStorage>(indexIds.size());
 
-        for (int i = 0; i < indexIds.size(); i++) {
-            Integer indexId = indexIds.get(i);
+        for (Integer indexId : indexIds) {
+            TableSchemaAwareIndexStorage index = indexStorageById.get(indexId);
 
-            TableSchemaAwareIndexStorage indexStorage = indexStorageById.get(indexId);
-
-            assert indexStorage != null : indexId;
-
-            res[i] = indexStorage;
+            // We assume that if the index is missing in indexStorageById, then it has begun to be destroyed and we do not need it.
+            if (index != null) {
+                res.add(index);
+            }
         }
 
-        return res;
+        return res.toArray(TableSchemaAwareIndexStorage[]::new);
+    }
+
+    /**
+     * Returns the row ID for which the index needs to be built, {@code null} means that the index building has completed.
+     *
+     * @param indexId Index ID of interest.
+     * @throws StorageException If failed to get the row ID.
+     */
+    public @Nullable RowId getNextRowIdToBuildIndex(int indexId) {
+        TableSchemaAwareIndexStorage indexStorage = indexStorageById().get(indexId);
+
+        // We assume that if the index is missing in indexStorageById, then it has begun to be destroyed and we do not need it.
+        if (indexStorage == null) {
+            return null;
+        }
+
+        return getNextRowIdToBuildFromIndex(indexStorage);
+    }
+
+    /**
+     * Sets the row ID for which the index needs to be built, {@code null} means that the index is built.
+     *
+     * <p>Must be called inside a {@link MvPartitionStorage#runConsistently(WriteClosure)} closure.</p>
+     *
+     * @param indexId Index ID of interest.
+     * @param rowId Row ID.
+     * @throws StorageException If failed to set the row ID.
+     */
+    public void setNextRowIdToBuildIndex(int indexId, @Nullable RowId rowId) {
+        TableSchemaAwareIndexStorage indexStorage = indexStorageById().get(indexId);
+
+        // We assume that if the index is missing in indexStorageById, then it has begun to be destroyed and we do not need it.
+        if (indexStorage != null) {
+            setNextRowIdToBuildToIndex(indexStorage, rowId);
+        }
+    }
+
+    private Map<Integer, TableSchemaAwareIndexStorage> indexStorageById() {
+        Map<Integer, TableSchemaAwareIndexStorage> indexStorageById = indexes.get();
+
+        assert !indexStorageById.isEmpty();
+
+        return indexStorageById;
+    }
+
+    private static void putToIndex(TableSchemaAwareIndexStorage indexStorage, BinaryRow binaryRow, RowId rowId) {
+        try {
+            indexStorage.put(binaryRow, rowId);
+        } catch (StorageDestroyedException ignore) {
+            // Index is in the process of being destroyed, which means there is no need to write to it.
+        }
+    }
+
+    private static void removeFromIndex(TableSchemaAwareIndexStorage indexStorage, BinaryRow binaryRow, RowId rowId) {
+        try {
+            indexStorage.remove(binaryRow, rowId);
+        } catch (StorageDestroyedException ignore) {
+            // Index is in the process of being destroyed, which means there is no need to write to it.
+        }
+    }
+
+    private static void setNextRowIdToBuildToIndex(TableSchemaAwareIndexStorage indexStorage, @Nullable RowId nextRowIdToBuild) {
+        try {
+            indexStorage.storage().setNextRowIdToBuild(nextRowIdToBuild);
+        } catch (StorageDestroyedException ignore) {
+            // Index is in the process of being destroyed, which means there is no need to write to it.
+        }
+    }
+
+    private static @Nullable RowId getNextRowIdToBuildFromIndex(TableSchemaAwareIndexStorage indexStorage) {
+        try {
+            return indexStorage.storage().getNextRowIdToBuild();
+        } catch (StorageDestroyedException ignore) {
+            // Index is in the process of being destroyed, which means there is no need to write to it.
+            return null;
+        }
     }
 }

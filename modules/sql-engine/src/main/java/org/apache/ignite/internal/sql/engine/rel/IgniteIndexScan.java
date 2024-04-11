@@ -36,6 +36,8 @@ import org.jetbrains.annotations.Nullable;
  * Relational operator that returns the contents of a table using an index.
  */
 public class IgniteIndexScan extends AbstractIndexScan implements SourceAwareIgniteRel {
+    private static final String REL_TYPE_NAME = "IndexScan";
+
     private final long sourceId;
 
     /** Index collation. Required for proper expanding search bounds and creating index row converter. */
@@ -160,5 +162,11 @@ public class IgniteIndexScan extends AbstractIndexScan implements SourceAwareIgn
     public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
         return new IgniteIndexScan(sourceId, cluster, getTraitSet(), getTable(),
                 idxName, type, collation, projects, condition, searchBounds, requiredColumns);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public String getRelTypeName() {
+        return REL_TYPE_NAME;
     }
 }

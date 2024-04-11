@@ -71,14 +71,14 @@ class AuthenticationManagerImplTest extends BaseIgniteAbstractTest {
 
     private final List<AuthenticationEventParameters> events = new CopyOnWriteArrayList<>();
 
-    private final EventListener<AuthenticationEventParameters> listener = (parameters, exception) -> {
+    private final EventListener<AuthenticationEventParameters> listener = parameters -> {
         events.add(parameters);
         return falseCompletedFuture();
     };
 
     @BeforeEach
     void setUp() {
-        manager = new AuthenticationManagerImpl(securityConfiguration);
+        manager = new AuthenticationManagerImpl(securityConfiguration, ign -> {});
 
         Arrays.stream(AuthenticationEvent.values()).forEach(event -> manager.listen(event, listener));
 

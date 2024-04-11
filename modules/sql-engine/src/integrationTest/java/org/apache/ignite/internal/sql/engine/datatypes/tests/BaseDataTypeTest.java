@@ -91,7 +91,8 @@ public abstract class BaseDataTypeTest<T extends Comparable<T>> extends BaseSqlI
             throw new IllegalArgumentException("Test data should have 3 distinct values but got " + values);
         }
 
-        runSql("CREATE TABLE t(id INTEGER PRIMARY KEY, test_key <type>)");
+        // Use hash index, so primary key is not selected for range scan, when we want to check a specific sorted index.
+        runSql("CREATE TABLE t(id INTEGER, test_key <type>, PRIMARY KEY USING HASH (id))");
     }
 
     @BeforeEach
@@ -112,9 +113,9 @@ public abstract class BaseDataTypeTest<T extends Comparable<T>> extends BaseSqlI
     protected final QueryChecker checkQuery(String query) {
         QueryTemplate queryTemplate = createQueryTemplate(query);
 
-        IgniteImpl node = (IgniteImpl) CLUSTER.aliveNode();
+        IgniteImpl node = CLUSTER.aliveNode();
 
-        return queryCheckerFactory.create(node.queryEngine(), node.transactions(), this::validateMetadata, queryTemplate);
+        return queryCheckerFactory.create(node.name(), node.queryEngine(), node.transactions(), this::validateMetadata, queryTemplate);
     }
 
     private void validateMetadata(ResultSetMetadata metadata) {

@@ -29,17 +29,20 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
@@ -49,7 +52,6 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.thread.StripedThreadPoolExecutor;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.NetworkAddress;
@@ -67,7 +69,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
  */
 @ExtendWith(MockitoExtension.class)
 public class ReplicaManagerTest extends BaseIgniteAbstractTest {
-    private StripedThreadPoolExecutor requestsExecutor;
+    private ExecutorService requestsExecutor;
 
     private ReplicaManager replicaManager;
 
@@ -91,14 +93,22 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
 
         var clock = new HybridClockImpl();
 
-        requestsExecutor = new StripedThreadPoolExecutor(
-                5,
-                NamedThreadFactory.create(nodeName, "partition-operations", log),
-                false,
-                0
+        requestsExecutor = new ThreadPoolExecutor(
+                0, 5,
+                0, TimeUnit.SECONDS,
+                new LinkedBlockingQueue<>(),
+                NamedThreadFactory.create(nodeName, "partition-operations", log)
         );
 
-        replicaManager = new ReplicaManager(nodeName, clusterService, cmgManager, clock, Set.of(), placementDriver, requestsExecutor);
+        replicaManager = new ReplicaManager(
+                nodeName,
+                clusterService,
+                cmgManager,
+                new TestClockService(clock),
+                Set.of(),
+                placementDriver,
+                requestsExecutor
+        );
 
         replicaManager.start();
     }
@@ -134,8 +144,8 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
     ) throws NodeStoppingException {
         when(raftGroupService.unsubscribeLeader()).thenReturn(nullCompletedFuture());
 
-        when(createReplicaListener.notify(any(), any())).thenReturn(falseCompletedFuture());
-        when(removeReplicaListener.notify(any(), any())).thenReturn(falseCompletedFuture());
+        when(createReplicaListener.notify(any())).thenReturn(falseCompletedFuture());
+        when(removeReplicaListener.notify(any())).thenReturn(falseCompletedFuture());
 
         replicaManager.listen(AFTER_REPLICA_STARTED, createReplicaListener);
         replicaManager.listen(BEFORE_REPLICA_STOPPED, removeReplicaListener);
@@ -144,7 +154,6 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
 
         CompletableFuture<Replica> startReplicaFuture = replicaManager.startReplica(
                 groupId,
-                nullCompletedFuture(),
                 replicaListener,
                 raftGroupService,
                 new PendingComparableValuesTracker<>(0L)
@@ -154,14 +163,14 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
 
         var expectedCreateParams = new LocalReplicaEventParameters(groupId);
 
-        verify(createReplicaListener).notify(eq(expectedCreateParams), isNull());
-        verify(removeReplicaListener, never()).notify(any(), any());
+        verify(createReplicaListener).notify(eq(expectedCreateParams));
+        verify(removeReplicaListener, never()).notify(any());
 
         CompletableFuture<Boolean> stopReplicaFuture = replicaManager.stopReplica(groupId);
 
         assertThat(stopReplicaFuture, willBe(true));
 
-        verify(createReplicaListener).notify(eq(expectedCreateParams), isNull());
-        verify(removeReplicaListener).notify(eq(expectedCreateParams), isNull());
+        verify(createReplicaListener).notify(eq(expectedCreateParams));
+        verify(removeReplicaListener).notify(eq(expectedCreateParams));
     }
 }

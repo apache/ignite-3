@@ -24,11 +24,14 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.network.ChannelType;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -44,6 +47,8 @@ public class MessageServiceImpl implements MessageService {
 
     private final IgniteSpinBusyLock busyLock;
 
+    private final ClockService clockService;
+
     private volatile Map<Short, MessageListener> lsnrs;
 
     /**
@@ -54,13 +59,14 @@ public class MessageServiceImpl implements MessageService {
             String localNodeName,
             MessagingService messagingSrvc,
             QueryTaskExecutor taskExecutor,
-            IgniteSpinBusyLock busyLock
+            IgniteSpinBusyLock busyLock,
+            ClockService clockService
     ) {
         this.localNodeName = localNodeName;
         this.messagingSrvc = messagingSrvc;
         this.taskExecutor = taskExecutor;
         this.busyLock = busyLock;
-
+        this.clockService = clockService;
     }
 
     /** {@inheritDoc} */
@@ -112,7 +118,7 @@ public class MessageServiceImpl implements MessageService {
         }
     }
 
-    private void onMessage(NetworkMessage msg, String senderConsistentId, @Nullable Long correlationId) {
+    private void onMessage(NetworkMessage msg, ClusterNode sender, @Nullable Long correlationId) {
         if (!busyLock.enterBusy()) {
             return;
         }
@@ -120,7 +126,12 @@ public class MessageServiceImpl implements MessageService {
         try {
             assert msg.groupType() == GROUP_TYPE : "unexpected message group grpType=" + msg.groupType();
 
-            onMessage(senderConsistentId, msg);
+            // TODO https://issues.apache.org/jira/browse/IGNITE-21709
+            if (msg instanceof TimestampAware) {
+                clockService.updateClock(((TimestampAware) msg).timestamp());
+            }
+
+            onMessage(sender.name(), msg);
         } finally {
             busyLock.leaveBusy();
         }

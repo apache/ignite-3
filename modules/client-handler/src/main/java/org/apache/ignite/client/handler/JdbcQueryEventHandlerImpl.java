@@ -27,6 +27,7 @@ import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import java.sql.Statement;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -123,13 +124,14 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<JdbcConnectResult> connect() {
+    public CompletableFuture<JdbcConnectResult> connect(ZoneId timeZoneId) {
         return span("JdbcQueryEventHandlerImpl.connect", (span) -> {
             try {
                 JdbcConnectionContext connectionContext = new JdbcConnectionContext(
 
-                        igniteTransactions
-                );
+                        igniteTransactions,
+                timeZoneId
+            );
 
                 long connectionId = resources.put(new ClientResource(
                         connectionContext,
@@ -169,27 +171,16 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
             }
 
             InternalTransaction tx = req.autoCommit() ? null : connectionContext.getOrStartTransaction();
-            SqlProperties properties = createProperties(req.getStmtType());
+            SqlProperties properties = createProperties(req.getStmtType(), req.multiStatement(), connectionContext.timeZoneId());
 
-            CompletableFuture<AsyncSqlCursor<InternalSqlRow>> result;
-
-            if (req.multiStatement()) {
-                result = processor.queryScriptAsync(
+            CompletableFuture<AsyncSqlCursor<InternalSqlRow>> result = processor.queryAsync(
                         properties,
                         igniteTransactions,
                         tx,
                         req.sqlQuery(),
                         req.arguments() == null ? OBJECT_EMPTY_ARRAY : req.arguments()
                 );
-            } else {
-                result = processor.querySingleAsync(
-                        properties,
-                        igniteTransactions,
-                        tx,
-                        req.sqlQuery(),
-                        req.arguments() == null ? OBJECT_EMPTY_ARRAY : req.arguments()
-                );
-            }
+
 
             return result.thenCompose(cursor -> createJdbcResult(new JdbcQueryCursor<>(req.maxRows(), cursor), req))
                     .exceptionally(t -> {
@@ -202,12 +193,12 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         });
     }
 
-    private static SqlProperties createProperties(JdbcStatementType stmtType) {
+    private static SqlProperties createProperties(JdbcStatementType stmtType, boolean multiStatement, ZoneId timeZoneId) {
         Set<SqlQueryType> allowedTypes;
 
         switch (stmtType) {
             case ANY_STATEMENT_TYPE:
-                allowedTypes = SqlQueryType.SINGLE_STMT_TYPES;
+                allowedTypes = multiStatement ? SqlQueryType.ALL : SqlQueryType.SINGLE_STMT_TYPES;
                 break;
             case SELECT_STATEMENT_TYPE:
                 allowedTypes = SELECT_STATEMENT_QUERIES;
@@ -221,6 +212,7 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
 
         return SqlPropertiesHelper.newBuilder()
                 .set(QueryProperty.ALLOWED_QUERY_TYPES, allowedTypes)
+                .set(QueryProperty.TIME_ZONE_ID, timeZoneId)
                 .build();
     }
 
@@ -304,9 +296,9 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
             return CompletableFuture.failedFuture(new IgniteInternalException(CONNECTION_ERR, "Connection is closed"));
         }
 
-        SqlProperties properties = createProperties(JdbcStatementType.UPDATE_STATEMENT_TYPE);
+        SqlProperties properties = createProperties(JdbcStatementType.UPDATE_STATEMENT_TYPE, false, context.timeZoneId());
 
-        CompletableFuture<AsyncSqlCursor<InternalSqlRow>> result = processor.querySingleAsync(
+        CompletableFuture<AsyncSqlCursor<InternalSqlRow>> result = processor.queryAsync(
                 properties,
                 igniteTransactions,
                 tx,
@@ -491,12 +483,20 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
 
         private final IgniteTransactions igniteTransactions;
 
+        private final ZoneId timeZoneId;
+
         private @Nullable InternalTransaction tx;
 
         JdbcConnectionContext(
-                IgniteTransactions igniteTransactions
+                IgniteTransactions igniteTransactions,
+                ZoneId timeZoneId
         ) {
             this.igniteTransactions = igniteTransactions;
+            this.timeZoneId = timeZoneId;
+        }
+
+        ZoneId timeZoneId() {
+            return timeZoneId;
         }
 
         /**

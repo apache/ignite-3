@@ -21,8 +21,10 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
+import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.Objects;
+import java.util.TimeZone;
 import java.util.UUID;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.avatica.util.ByteString;
@@ -71,6 +73,9 @@ public enum IgniteMethod {
     SYSTEM_RANGE3(IgniteSqlFunctions.class, "systemRange", Object.class, Object.class, Object.class),
 
     STRING_TO_TIMESTAMP(IgniteSqlFunctions.class, "timestampStringToNumeric", String.class),
+
+    /** See {@link IgniteSqlFunctions#subtractTimeZoneOffset(long, TimeZone)}. **/
+    SUBTRACT_TIMEZONE_OFFSET(IgniteSqlFunctions.class, "subtractTimeZoneOffset", long.class, TimeZone.class),
 
     /** See {@link SqlParserUtil#intervalToMonths(String, SqlIntervalQualifier)}. */
     PARSE_INTERVAL_YEAR_MONTH(SqlParserUtil.class, "intervalToMonths", String.class, SqlIntervalQualifier.class),
@@ -121,7 +126,26 @@ public enum IgniteMethod {
      */
     TRUNCATE(IgniteSqlFunctions.class, "struncate", true),
 
-    SUBSTRING(IgniteSqlFunctions.class, "substring", true);
+    SUBSTRING(IgniteSqlFunctions.class, "substring", true),
+
+    /**
+     * Division operator used by REDUCE phase of AVG aggregate.
+     * See {@link IgniteSqlFunctions#decimalDivide(BigDecimal, BigDecimal, int, int)}.
+     */
+    DECIMAL_DIVIDE(IgniteSqlFunctions.class, "decimalDivide", BigDecimal.class, BigDecimal.class, int.class, int.class),
+
+    /**
+     * Conversion of timestamp to string (precision aware).
+     * See {@link IgniteSqlFunctions#unixTimestampToString(long, int)}.
+     */
+    UNIX_TIMESTAMP_TO_STRING_PRECISION_AWARE(IgniteSqlFunctions.class, "unixTimestampToString", long.class, int.class),
+
+    /**
+     * Conversion of time to string (precision aware).
+     * See {@link IgniteSqlFunctions#unixTimeToString(int, int)}.
+     */
+    UNIX_TIME_TO_STRING_PRECISION_AWARE(IgniteSqlFunctions.class, "unixTimeToString", int.class, int.class),
+    ;
 
     private final Method method;
 

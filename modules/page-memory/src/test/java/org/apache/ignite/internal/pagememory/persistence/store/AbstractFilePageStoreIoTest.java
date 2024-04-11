@@ -41,7 +41,6 @@ import org.apache.ignite.internal.fileio.AsyncFileIoFactory;
 import org.apache.ignite.internal.fileio.FileIo;
 import org.apache.ignite.internal.fileio.FileIoFactory;
 import org.apache.ignite.internal.fileio.RandomAccessFileIoFactory;
-import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
@@ -239,7 +238,7 @@ public abstract class AbstractFilePageStoreIoTest extends BaseIgniteAbstractTest
 
             assertEquals(2 * PAGE_SIZE, testFilePath.toFile().length());
 
-            assertEquals(0, PageIo.getCrc(pageByteBuffer));
+            assertEquals(0, getCrc(pageByteBuffer));
         }
     }
 

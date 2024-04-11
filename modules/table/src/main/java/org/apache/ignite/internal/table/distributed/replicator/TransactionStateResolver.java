@@ -28,7 +28,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
@@ -38,6 +38,7 @@ import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissExcepti
 import org.apache.ignite.internal.tracing.TracingManager;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.TxStateMetaFinishing;
 import org.apache.ignite.internal.tx.impl.PlacementDriverHelper;
@@ -67,7 +68,7 @@ public class TransactionStateResolver {
 
     private final TxManager txManager;
 
-    private final HybridClock clock;
+    private final ClockService clockService;
 
     private final MessagingService messagingService;
 
@@ -80,24 +81,24 @@ public class TransactionStateResolver {
      * The constructor.
      *
      * @param txManager Transaction manager.
-     * @param clock Node clock.
+     * @param clockService Clock service.
      * @param clusterNodeResolver Cluster node resolver.
      * @param messagingService Messaging service.
      * @param placementDriver Placement driver.
      */
     public TransactionStateResolver(
             TxManager txManager,
-            HybridClock clock,
+            ClockService clockService,
             ClusterNodeResolver clusterNodeResolver,
             MessagingService messagingService,
             PlacementDriver placementDriver,
             TxMessageSender txMessageSender
     ) {
         this.txManager = txManager;
-        this.clock = clock;
+        this.clockService = clockService;
         this.clusterNodeResolver = clusterNodeResolver;
         this.messagingService = messagingService;
-        this.placementDriverHelper = new PlacementDriverHelper(placementDriver, clock);
+        this.placementDriverHelper = new PlacementDriverHelper(placementDriver, clockService);
         this.txMessageSender = txMessageSender;
     }
 
@@ -113,7 +114,7 @@ public class TransactionStateResolver {
                         .thenAccept(txStateMeta -> {
                             NetworkMessage response = FACTORY.txStateResponse()
                                     .txStateMeta(txStateMeta)
-                                    .timestampLong(clock.nowLong())
+                                    .timestampLong(clockService.nowLong())
                                     .build();
 
                             messagingService.respond(sender, response, correlationId);
@@ -247,7 +248,7 @@ public class TransactionStateResolver {
      * @param txId Transaction id.
      */
     private void markAbandoned(UUID txId) {
-        txManager.updateTxMeta(txId, TxStateMeta::abandoned);
+        txManager.updateTxMeta(txId, stateMeta -> stateMeta != null ? stateMeta.abandoned() : null);
     }
 
     private void updateLocalTxMapAfterDistributedStateResolved(UUID txId, CompletableFuture<TransactionMeta> future) {
@@ -291,13 +292,13 @@ public class TransactionStateResolver {
 
     /**
      * Processes the transaction state requests that are used for coordinator path based write intent resolution. Can't return
-     * {@link org.apache.ignite.internal.tx.TxState#FINISHING}, it waits for actual completion instead.
+     * {@link TxState#FINISHING}, it waits for actual completion instead.
      *
      * @param request Request.
      * @return Future that should be completed with transaction state meta.
      */
     private CompletableFuture<TransactionMeta> processTxStateRequest(TxStateCoordinatorRequest request) {
-        clock.update(request.readTimestamp());
+        clockService.updateClock(request.readTimestamp());
 
         UUID txId = request.txId();
 

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.index;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -35,14 +36,15 @@ import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.index.message.IndexMessagesFactory;
 import org.apache.ignite.internal.index.message.IsNodeFinishedRwTransactionsStartedBeforeResponse;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
-import org.apache.ignite.internal.storage.impl.TestStorageEngine;
+import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
+import org.apache.ignite.internal.storage.impl.schema.TestProfileConfigurationSchema;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
@@ -54,7 +56,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /** For testing {@link IndexNodeFinishedRwTransactionsChecker}. */
-@WithSystemProperty(key = IgniteSystemProperties.THREAD_ASSERTIONS_ENABLED, value = "false")
 public class ItIndexNodeFinishedRwTransactionsCheckerTest extends ClusterPerClassIntegrationTest {
     private static final IndexMessagesFactory FACTORY = new IndexMessagesFactory();
 
@@ -70,8 +71,8 @@ public class ItIndexNodeFinishedRwTransactionsCheckerTest extends ClusterPerClas
     @BeforeEach
     void setUp() {
         if (node() != null) {
-            createZoneOnlyIfNotExists(zoneName(TABLE_NAME), 1, 2, TestStorageEngine.ENGINE_NAME);
-            createZoneOnlyIfNotExists(zoneNameForUpdateCatalogVersionOnly, 1, 1, TestStorageEngine.ENGINE_NAME);
+            createZoneOnlyIfNotExists(zoneName(TABLE_NAME), 1, 2, TestProfileConfigurationSchema.TEST_PROFILE_NAME);
+            createZoneOnlyIfNotExists(zoneNameForUpdateCatalogVersionOnly, 1, 1, TestProfileConfigurationSchema.TEST_PROFILE_NAME);
             createTableOnly(TABLE_NAME, zoneName(TABLE_NAME));
         }
     }
@@ -219,15 +220,17 @@ public class ItIndexNodeFinishedRwTransactionsCheckerTest extends ClusterPerClas
 
         assertThat(tableFuture, willBe(notNullValue()));
 
-        return (TableImpl) tableFuture.join();
+        return unwrapTableImpl(tableFuture.join());
     }
 
     private static long[] partitionSizes() {
-        InternalTable table = tableImpl().internalTable();
+        return IgniteTestUtils.bypassingThreadAssertions(() -> {
+            InternalTable table = tableImpl().internalTable();
 
-        return IntStream.range(0, table.partitions())
-                .mapToLong(partitionId -> table.storage().getMvPartition(partitionId).rowsCount())
-                .toArray();
+            return IntStream.range(0, table.partitions())
+                    .mapToLong(partitionId -> table.storage().getMvPartition(partitionId).rowsCount())
+                    .toArray();
+        });
     }
 
     private static int differences(long[] partitionSizes0, long[] partitionsSizes1) {
@@ -278,7 +281,10 @@ public class ItIndexNodeFinishedRwTransactionsCheckerTest extends ClusterPerClas
         var awaitStartUpdateAnyMvPartitionStorageFuture = new CompletableFuture<Void>();
 
         for (int partitionId = 0; partitionId < mvTableStorage.getTableDescriptor().getPartitions(); partitionId++) {
-            MvPartitionStorage mvPartitionStorage = mvTableStorage.getMvPartition(partitionId);
+            MvPartitionStorage mvPartitionStorage = Wrappers.unwrapNullable(
+                    mvTableStorage.getMvPartition(partitionId),
+                    TestMvPartitionStorage.class
+            );
 
             doAnswer(invocation -> {
                 awaitStartUpdateAnyMvPartitionStorageFuture.complete(null);

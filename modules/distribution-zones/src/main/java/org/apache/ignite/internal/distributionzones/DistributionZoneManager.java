@@ -61,7 +61,6 @@ import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.ByteUtils.fromBytes;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytes;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
-import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
@@ -80,6 +79,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
@@ -181,7 +181,7 @@ public class DistributionZoneManager implements IgniteComponent {
      *
      * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/distribution-zones/tech-notes/filters.md">Filter documentation</a>
      */
-    private Map<String, Map<String, String>> nodesAttributes = new ConcurrentHashMap<>();
+    private Map<String, NodeWithAttributes> nodesAttributes = new ConcurrentHashMap<>();
 
     /** Watch listener for logical topology keys. */
     private final WatchListener topologyWatchListener;
@@ -194,6 +194,9 @@ public class DistributionZoneManager implements IgniteComponent {
 
     /** Catalog manager. */
     private final CatalogManager catalogManager;
+
+    /** Executor for scheduling rebalances. */
+    private final ScheduledExecutorService rebalanceScheduler;
 
     /**
      * Creates a new distribution zone manager.
@@ -209,13 +212,16 @@ public class DistributionZoneManager implements IgniteComponent {
             Consumer<LongFunction<CompletableFuture<?>>> registry,
             MetaStorageManager metaStorageManager,
             LogicalTopologyService logicalTopologyService,
-            CatalogManager catalogManager
+            CatalogManager catalogManager,
+            ScheduledExecutorService rebalanceScheduler
     ) {
         this.metaStorageManager = metaStorageManager;
         this.logicalTopologyService = logicalTopologyService;
         this.catalogManager = catalogManager;
 
         this.topologyWatchListener = createMetastorageTopologyListener();
+
+        this.rebalanceScheduler = rebalanceScheduler;
 
         executor = createZoneManagerExecutor(
                 Math.min(Runtime.getRuntime().availableProcessors() * 3, 20),
@@ -229,7 +235,8 @@ public class DistributionZoneManager implements IgniteComponent {
                 busyLock,
                 metaStorageManager,
                 this,
-                catalogManager
+                catalogManager,
+                rebalanceScheduler
         );
 
         //noinspection ThisEscapedInObjectConstruction
@@ -283,6 +290,7 @@ public class DistributionZoneManager implements IgniteComponent {
         metaStorageManager.unregisterWatch(topologyWatchListener);
 
         shutdownAndAwaitTermination(executor, 10, SECONDS);
+        shutdownAndAwaitTermination(rebalanceScheduler, 10, SECONDS);
     }
 
     /**
@@ -459,7 +467,7 @@ public class DistributionZoneManager implements IgniteComponent {
             // Max revision from the {@link ZoneState#topologyAugmentationMap()} for node joins.
             Optional<Long> maxScaleUpRevisionOptional = zoneState.highestRevision(true);
 
-            //Max revision from the {@link ZoneState#topologyAugmentationMap()} for node removals.
+            // Max revision from the {@link ZoneState#topologyAugmentationMap()} for node removals.
             Optional<Long> maxScaleDownRevisionOptional = zoneState.highestRevision(false);
 
             maxScaleUpRevisionOptional.ifPresent(
@@ -758,7 +766,7 @@ public class DistributionZoneManager implements IgniteComponent {
             zoneIds.add(zone.id());
         }
 
-        newLogicalTopology.forEach(n -> nodesAttributes.put(n.nodeId(), n.nodeAttributes()));
+        newLogicalTopology.forEach(n -> nodesAttributes.put(n.nodeId(), n));
 
         logicalTopology = newLogicalTopology;
 
@@ -854,7 +862,7 @@ public class DistributionZoneManager implements IgniteComponent {
         List<CompletableFuture<Void>> futures = new ArrayList<>();
 
         if ((nodesAdded || nodesRemoved) && autoAdjust != INFINITE_TIMER_VALUE) {
-            //TODO: IGNITE-18134 Create scheduler with dataNodesAutoAdjust timer.
+            // TODO: IGNITE-18134 Create scheduler with dataNodesAutoAdjust timer.
             throw new UnsupportedOperationException("Data nodes auto adjust is not supported.");
         } else {
             if (nodesAdded) {
@@ -1364,7 +1372,7 @@ public class DistributionZoneManager implements IgniteComponent {
      *
      * @return Mapping {@code nodeId} -> node's attributes.
      */
-    public Map<String, Map<String, String>> nodesAttributes() {
+    public Map<String, NodeWithAttributes> nodesAttributes() {
         return nodesAttributes;
     }
 
@@ -1373,24 +1381,17 @@ public class DistributionZoneManager implements IgniteComponent {
         return zonesState;
     }
 
-    @TestOnly
     public Set<NodeWithAttributes> logicalTopology() {
         return logicalTopology;
     }
 
     private void registerCatalogEventListenersOnStartManagerBusy() {
-        catalogManager.listen(ZONE_CREATE, (parameters, exception) -> inBusyLock(busyLock, () -> {
-            assert exception == null : parameters;
-
-            CreateZoneEventParameters params = (CreateZoneEventParameters) parameters;
-
-            return onCreateZone(params.zoneDescriptor(), params.causalityToken()).thenApply((ignored) -> false);
+        catalogManager.listen(ZONE_CREATE, (CreateZoneEventParameters parameters) -> inBusyLock(busyLock, () -> {
+            return onCreateZone(parameters.zoneDescriptor(), parameters.causalityToken()).thenApply((ignored) -> false);
         }));
 
-        catalogManager.listen(ZONE_DROP, (parameters, exception) -> inBusyLock(busyLock, () -> {
-            assert exception == null : parameters;
-
-            return onDropZoneBusy((DropZoneEventParameters) parameters).thenCompose((ignored) -> falseCompletedFuture());
+        catalogManager.listen(ZONE_DROP, (DropZoneEventParameters parameters) -> inBusyLock(busyLock, () -> {
+            return onDropZoneBusy(parameters).thenApply((ignored) -> false);
         }));
 
         catalogManager.listen(ZONE_ALTER, new ManagerCatalogAlterZoneEventListener());
@@ -1401,7 +1402,7 @@ public class DistributionZoneManager implements IgniteComponent {
 
         List<CompletableFuture<Void>> futures = new ArrayList<>();
 
-        // TODO: IGNITE-20287 Clean up abandoned resources for dropped zones from volt and metastore
+        // TODO: IGNITE-20287 Clean up abandoned resources for dropped tables from vault and metastore
         for (CatalogZoneDescriptor zone : catalogManager.zones(catalogVersion)) {
             futures.add(restoreZoneStateBusy(zone, recoveryRevision));
         }

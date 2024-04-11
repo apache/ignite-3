@@ -17,12 +17,27 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static java.util.concurrent.CompletableFuture.runAsync;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.apache.ignite.internal.IndexTestUtils.waitForIndexToAppearInAnyState;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutIn;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
+import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.IndexExistsValidationException;
 import org.apache.ignite.internal.catalog.IndexNotFoundValidationException;
+import org.apache.ignite.sql.SqlException;
+import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -30,6 +45,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Integration tests for DDL statements that affect indexes.
  */
+@SuppressWarnings({"resource", "ThrowableNotThrown"})
 public class ItIndexDdlTest extends ClusterPerClassIntegrationTest {
     private static final String TABLE_NAME = "TEST_TABLE";
 
@@ -97,5 +113,53 @@ public class ItIndexDdlTest extends ClusterPerClassIntegrationTest {
      */
     private static void tryToDropIndex(String indexName, boolean failIfNotExist) {
         sql(String.format("DROP INDEX %s", failIfNotExist ? indexName : "IF EXISTS " + indexName));
+    }
+
+    private static <T> T preventingIndexBuild(Supplier<T> supplier) {
+        return CLUSTER.aliveNode().transactions().runInTransaction((Function<Transaction, T>) tx -> supplier.get());
+    }
+
+    @Test
+    public void createIndexFutureCompletesWhenIndexBecomesAvailable() {
+        CompletableFuture<Void> creationFuture = preventingIndexBuild(() -> {
+            CompletableFuture<Void> future = runAsync(() -> tryToCreateIndex(TABLE_NAME, INDEX_NAME, true));
+
+            // Make sure the future does not complete (as we don't allow the index to be built while in transaction).
+            assertThat(future, willTimeoutIn(300, MILLISECONDS));
+
+            return future;
+        });
+
+        assertThat(creationFuture, willCompleteSuccessfully());
+    }
+
+    @Test
+    public void createIndexFutureCompletesWhenIndexGetsDropped() {
+        // Prevent index build by starting a transaction.
+        CLUSTER.aliveNode().transactions().begin(new TransactionOptions().readOnly(false));
+
+        CompletableFuture<Void> creationFuture = runAsync(() -> tryToCreateIndex(TABLE_NAME, INDEX_NAME, true));
+
+        // Make sure the future does not complete (as we don't allow the index to be built while in transaction).
+        assertThat(creationFuture, willTimeoutIn(300, MILLISECONDS));
+
+        sql("DROP INDEX " + INDEX_NAME);
+
+        assertThat(creationFuture, willCompleteSuccessfully());
+    }
+
+    @Test
+    public void createIndexFutureFailsIfNodeIsStoppedBeforeIndexIsAvailable() throws Exception {
+        IgniteImpl node = CLUSTER.node(0);
+
+        // Prevent index build by starting a transaction.
+        node.transactions().begin(new TransactionOptions().readOnly(false));
+
+        CompletableFuture<Void> creationFuture = runAsync(() -> tryToCreateIndex(TABLE_NAME, INDEX_NAME, true));
+        waitForIndexToAppearInAnyState(INDEX_NAME, node);
+
+        CLUSTER.restartNode(0);
+
+        assertThat(creationFuture, willThrow(SqlException.class, containsString("Operation has been cancelled (node is stopping).")));
     }
 }

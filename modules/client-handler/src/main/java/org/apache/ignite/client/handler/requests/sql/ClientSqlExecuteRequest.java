@@ -18,11 +18,12 @@
 package org.apache.ignite.client.handler.requests.sql;
 
 import static org.apache.ignite.client.handler.requests.sql.ClientSqlCommon.packCurrentPage;
-import static org.apache.ignite.client.handler.requests.sql.ClientSqlCommon.readSession;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTx;
+import static org.apache.ignite.internal.lang.SqlExceptionMapperUtil.mapToPublicSqlException;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientResource;
@@ -32,14 +33,21 @@ import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.sql.api.AsyncResultSetImpl;
+import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.internal.sql.engine.QueryProperty;
+import org.apache.ignite.internal.sql.engine.SqlQueryType;
+import org.apache.ignite.internal.sql.engine.property.SqlProperties;
+import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.impl.IgniteTransactionsImpl;
 import org.apache.ignite.internal.util.ArrayUtils;
-import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.sql.ResultSetMetadata;
-import org.apache.ignite.sql.Session;
-import org.apache.ignite.sql.Statement;
-import org.apache.ignite.sql.Statement.StatementBuilder;
+import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
+import org.apache.ignite.tx.IgniteTransactions;
+import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -61,14 +69,14 @@ public class ClientSqlExecuteRequest {
     public static CompletableFuture<Void> process(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
-            IgniteSql sql,
+            QueryProcessor sql,
             ClientResourceRegistry resources,
             ClientHandlerMetricSource metrics,
             IgniteTransactionsImpl transactions
     ) {
-        var tx = readTx(in, out, resources);
-        Session session = readSession(in, sql, transactions);
-        Statement statement = readStatement(in, sql);
+        InternalTransaction tx = readTx(in, out, resources);
+        ClientSqlProperties props = new ClientSqlProperties(in);
+        String statement = in.unpackString();
         Object[] arguments = in.unpackObjectArrayFromBinaryTuple();
 
         if (arguments == null) {
@@ -76,17 +84,14 @@ public class ClientSqlExecuteRequest {
             arguments = ArrayUtils.OBJECT_EMPTY_ARRAY;
         }
 
-        // TODO IGNITE-20232 Propagate observable timestamp to sql engine using internal API.
         HybridTimestamp clientTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
-
         transactions.updateObservableTimestamp(clientTs);
 
-        return session
-                .executeAsync(tx, statement, arguments)
+        return executeAsync(tx, sql, transactions, statement, props.pageSize(), props.toSqlProps(), arguments)
                 .thenCompose(asyncResultSet -> {
                     out.meta(transactions.observableTimestamp());
 
-                    return writeResultSetAsync(out, resources, asyncResultSet, session, metrics);
+                    return writeResultSetAsync(out, resources, asyncResultSet, metrics);
                 });
     }
 
@@ -94,7 +99,6 @@ public class ClientSqlExecuteRequest {
             ClientMessagePacker out,
             ClientResourceRegistry resources,
             AsyncResultSet asyncResultSet,
-            Session session,
             ClientHandlerMetricSource metrics) {
         boolean hasResource = asyncResultSet.hasRowSet() && asyncResultSet.hasMorePages();
 
@@ -102,7 +106,7 @@ public class ClientSqlExecuteRequest {
             try {
                 metrics.cursorsActiveIncrement();
 
-                var clientResultSet = new ClientSqlResultSet(asyncResultSet, session, metrics);
+                var clientResultSet = new ClientSqlResultSet(asyncResultSet, metrics);
 
                 ClientResource resource = new ClientResource(
                         clientResultSet,
@@ -133,18 +137,10 @@ public class ClientSqlExecuteRequest {
 
             return hasResource
                     ? nullCompletedFuture()
-                    : asyncResultSet.closeAsync().thenCompose(res -> session.closeAsync());
+                    : asyncResultSet.closeAsync();
         } else {
-            return asyncResultSet.closeAsync().thenCompose(res -> session.closeAsync());
+            return asyncResultSet.closeAsync();
         }
-    }
-
-    private static Statement readStatement(ClientMessageUnpacker in, IgniteSql sql) {
-        StatementBuilder statementBuilder = sql.statementBuilder();
-
-        statementBuilder.query(in.unpackString());
-
-        return statementBuilder.build();
     }
 
     private static void packMeta(ClientMessagePacker out, @Nullable ResultSetMetadata meta) {
@@ -155,5 +151,41 @@ public class ClientSqlExecuteRequest {
         }
 
         ClientSqlCommon.packColumns(out, meta.columns());
+    }
+
+    private static CompletableFuture<AsyncResultSet<SqlRow>> executeAsync(
+            @Nullable Transaction transaction,
+            QueryProcessor qryProc,
+            IgniteTransactions transactions,
+            String query,
+            int pageSize,
+            SqlProperties props,
+            @Nullable Object... arguments
+    ) {
+        try {
+            SqlProperties properties = SqlPropertiesHelper.builderFromProperties(props)
+                    .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.SINGLE_STMT_TYPES)
+                    .build();
+
+            CompletableFuture<AsyncResultSet<SqlRow>> fut = qryProc.queryAsync(
+                            properties, transactions, (InternalTransaction) transaction, query, arguments)
+                    .thenCompose(cur -> cur.requestNextAsync(pageSize)
+                            .thenApply(
+                                    batchRes -> new AsyncResultSetImpl<>(
+                                            cur,
+                                            batchRes,
+                                            pageSize
+                                    )
+                            )
+                    );
+
+            return fut.exceptionally((th) -> {
+                Throwable cause = ExceptionUtils.unwrapCause(th);
+
+                throw new CompletionException(mapToPublicSqlException(cause));
+            });
+        } catch (Exception e) {
+            return CompletableFuture.failedFuture(mapToPublicSqlException(e));
+        }
     }
 }
