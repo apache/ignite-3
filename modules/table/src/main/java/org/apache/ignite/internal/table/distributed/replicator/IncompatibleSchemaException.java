@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.replicator;
 
+import org.apache.ignite.internal.replicator.exception.ExpectedReplicationException;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.tx.TransactionException;
 
@@ -24,7 +25,7 @@ import org.apache.ignite.tx.TransactionException;
  * Thrown when, during an attempt to execute a transactional operation, it turns out that the operation cannot be executed
  * because an incompatible schema change has happened.
  */
-public class IncompatibleSchemaException extends TransactionException {
+public class IncompatibleSchemaException extends TransactionException implements ExpectedReplicationException {
     public IncompatibleSchemaException(String message) {
         super(Transactions.TX_INCOMPATIBLE_SCHEMA_ERR, message);
     }

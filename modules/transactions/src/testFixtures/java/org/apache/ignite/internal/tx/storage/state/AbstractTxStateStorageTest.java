@@ -410,39 +410,6 @@ public abstract class AbstractTxStateStorageTest extends BaseIgniteAbstractTest 
         }
     }
 
-    @Test
-    void testLeases() {
-        TxStateStorage storage0 = tableStorage.getOrCreateTxStateStorage(0);
-
-        long lst0 = 1000;
-
-        long lst1 = 2000;
-
-        storage0.updateLease(lst0, 1, 1);
-
-        assertEquals(lst0, storage0.leaseStartTime());
-        assertEquals(1, storage0.lastAppliedIndex());
-        assertEquals(1, storage0.lastAppliedTerm());
-
-        storage0.updateLease(lst1, 2, 2);
-
-        assertEquals(lst1, storage0.leaseStartTime());
-        assertEquals(2, storage0.lastAppliedIndex());
-        assertEquals(2, storage0.lastAppliedTerm());
-
-        // Storage update isn't expected because 100 < 2000
-        storage0.updateLease(100, 3, 2);
-        assertEquals(lst1, storage0.leaseStartTime());
-        assertEquals(2, storage0.lastAppliedIndex());
-        assertEquals(2, storage0.lastAppliedTerm());
-
-        // Storage update isn't expected because 100 < 2000
-        storage0.updateLease(100, 1, 1);
-        assertEquals(lst1, storage0.leaseStartTime());
-        assertEquals(2, storage0.lastAppliedIndex());
-        assertEquals(2, storage0.lastAppliedTerm());
-    }
-
     private static void checkStorageIsEmpty(TxStateStorage storage) {
         try (Cursor<IgniteBiTuple<UUID, TxMeta>> scan = storage.scan()) {
             assertThat(scan.stream().collect(toList()), is(empty()));

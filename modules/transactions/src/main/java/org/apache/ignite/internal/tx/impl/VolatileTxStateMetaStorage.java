@@ -124,7 +124,7 @@ public class VolatileTxStateMetaStorage {
         AtomicInteger vacuumizedTxnsCount = new AtomicInteger(0);
         AtomicInteger markedAsInitiallyDetectedTxnsCount = new AtomicInteger(0);
         AtomicInteger alreadyMarkedTxnsCount = new AtomicInteger(0);
-        AtomicInteger skippedFotFurtherProcessingUnfinishedTxnsCount = new AtomicInteger(0);
+        AtomicInteger skippedForFurtherProcessingUnfinishedTxnsCount = new AtomicInteger(0);
 
         txStateMap.forEach((txId, meta) -> {
             txStateMap.computeIfPresent(txId, (txId0, meta0) -> {
@@ -149,20 +149,20 @@ public class VolatileTxStateMetaStorage {
                         return meta0;
                     }
                 } else {
-                    skippedFotFurtherProcessingUnfinishedTxnsCount.incrementAndGet();
+                    skippedForFurtherProcessingUnfinishedTxnsCount.incrementAndGet();
                     return meta0;
                 }
             });
         });
 
         LOG.info("Vacuum finished [vacuumObservationTimestamp={}, txnResourceTtl={}, vacuumizedTxnsCount={},"
-                + " markedAsInitiallyDetectedTxnsCount={}, alreadyMarkedTxnsCount={}, skippedFotFurtherProcessingUnfinishedTxnsCount={}].",
+                + " markedAsInitiallyDetectedTxnsCount={}, alreadyMarkedTxnsCount={}, skippedForFurtherProcessingUnfinishedTxnsCount={}].",
                 vacuumObservationTimestamp,
                 txnResourceTtl,
                 vacuumizedTxnsCount,
                 markedAsInitiallyDetectedTxnsCount,
                 alreadyMarkedTxnsCount,
-                skippedFotFurtherProcessingUnfinishedTxnsCount
+                skippedForFurtherProcessingUnfinishedTxnsCount
         );
     }
 }
