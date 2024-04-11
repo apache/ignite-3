@@ -167,13 +167,20 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
                             }
 
                             if (isOrCausedBy(InternalSchemaVersionMismatchException.class, ex)) {
+                                // There is no transaction, and table version was changed between taking the table version (that was used
+                                // to marshal inputs and would be used to unmarshal outputs) and starting an implicit transaction
+                                // in InternalTable. A transaction must always work with binary rows of the same table version matching the
+                                // version corresponding to the transaction creation moment, so this mismatch is not tolerable: we need
+                                // to retry the operation here.
+
                                 assert tx == null : "Only for implicit transactions a retry might be requested";
                                 assertSchemaVersionIncreased(previousSchemaVersion, schemaVersion);
 
                                 // Repeat.
                                 return withSchemaSync(tx, schemaVersion, action);
                             } else if (tx == null && isOrCausedBy(IncompatibleSchemaException.class, ex)) {
-                                // Schema has changed while we were executing an implicit transaction: let's retry.
+                                // Table version was changed while we were executing an implicit transaction (between it had been created
+                                // and the moment when the operation actually touched the partition), let's retry.
                                 assertSchemaVersionIncreased(previousSchemaVersion, schemaVersion);
 
                                 return withSchemaSync(tx, schemaVersion, action);
