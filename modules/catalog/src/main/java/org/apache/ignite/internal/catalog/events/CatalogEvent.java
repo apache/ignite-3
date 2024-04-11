@@ -66,4 +66,7 @@ public enum CatalogEvent implements Event {
 
     /** This event is fired, when a system view was created in Catalog. */
     SYSTEM_VIEW_CREATE,
+
+    /** This event is fired, when a zone is marked as the default zone. */
+    SET_DEFAULT_ZONE;
 }

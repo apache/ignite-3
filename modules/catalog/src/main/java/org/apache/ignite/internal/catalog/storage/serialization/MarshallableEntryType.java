@@ -39,7 +39,8 @@ public enum MarshallableEntryType {
     ID_GENERATOR(15),
     SNAPSHOT(16),
     VERSIONED_UPDATE(17),
-    RENAME_INDEX(18);
+    RENAME_INDEX(18),
+    SET_DEFAULT_ZONE(19);
 
     /** Type ID. */
     private final int id;

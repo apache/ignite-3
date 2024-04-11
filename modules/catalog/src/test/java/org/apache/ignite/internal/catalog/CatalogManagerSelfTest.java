@@ -100,6 +100,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommand;
 import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
+import org.apache.ignite.internal.catalog.commands.AlterZoneSetDefaultCatalogCommand;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.catalog.commands.ColumnParams.Builder;
@@ -1350,6 +1351,35 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals("expression", zone.filter());
         assertEquals("test_profile", zone.storageProfiles().profiles().get(0).storageProfile());
     }
+
+    @Test
+    public void testSetDefaultZone() {
+        String zoneName = ZONE_NAME + 1;
+
+        CatalogCommand cmd = CreateZoneCommand.builder()
+                .zoneName(zoneName)
+                .partitions(42)
+                .replicas(15)
+                .dataNodesAutoAdjust(73)
+                .filter("expression")
+                .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile("test_profile").build()))
+                .build();
+
+        assertThat(manager.execute(cmd), willCompleteSuccessfully());
+
+        cmd = AlterZoneSetDefaultCatalogCommand.builder().zoneName(zoneName).build();
+
+        assertThat(manager.execute(cmd), willCompleteSuccessfully());
+
+        assertThat(manager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
+
+        Catalog catalog = manager.catalog(manager.latestCatalogVersion());
+
+        CatalogTableDescriptor tab = manager.table(TABLE_NAME, catalog.time());
+
+        assertEquals(zoneName, catalog.zone(tab.zoneId()).name());
+    }
+
 
     @Test
     public void testDropZone() {

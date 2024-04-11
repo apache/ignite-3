@@ -71,8 +71,8 @@ public class RenameIndexEntry implements UpdateEntry {
                 catalog.time(),
                 catalog.objectIdGenState(),
                 catalog.zones(),
-                replaceSchema(replaceIndex(schemaDescriptor, newIndexDescriptor), catalog.schemas())
-        );
+                replaceSchema(replaceIndex(schemaDescriptor, newIndexDescriptor), catalog.schemas()),
+                catalog.defaultZone().id());
     }
 
     private CatalogIndexDescriptor changeIndexName(CatalogIndexDescriptor indexDescriptor, long causalityToken) {

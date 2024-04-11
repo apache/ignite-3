@@ -17,17 +17,11 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
-import static org.apache.ignite.internal.catalog.storage.AbstractChangeIndexStatusEntry.schemaByIndexId;
-
 import java.io.IOException;
-import java.util.Arrays;
 import org.apache.ignite.internal.catalog.Catalog;
-import org.apache.ignite.internal.catalog.commands.CatalogUtils;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
-import org.apache.ignite.internal.catalog.events.RemoveIndexEventParameters;
+import org.apache.ignite.internal.catalog.events.DropZoneEventParameters;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.tostring.S;
@@ -35,55 +29,51 @@ import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
- * Describes removal of an index from the Catalog (not the same as dropping it [that just initates the drop sequence]).
+ * Describes changing of a default zone.
  */
-public class RemoveIndexEntry implements UpdateEntry, Fireable {
-    public static final CatalogObjectSerializer<RemoveIndexEntry> SERIALIZER = new RemoveIndexEntrySerializer();
+public class SetDefaultZoneEntry implements UpdateEntry, Fireable {
+    public static final CatalogObjectSerializer<SetDefaultZoneEntry> SERIALIZER = new SetDefaultZoneEntrySerializer();
 
-    private final int indexId;
+    private final int zoneId;
 
     /**
      * Constructs the object.
      *
-     * @param indexId An id of an index to drop.
+     * @param zoneId An id of a zone to drop.
      */
-    public RemoveIndexEntry(int indexId) {
-        this.indexId = indexId;
+    public SetDefaultZoneEntry(int zoneId) {
+        this.zoneId = zoneId;
+    }
+
+    /** Returns an id of a zone to set default. */
+    public int zoneId() {
+        return zoneId;
     }
 
     @Override
     public int typeId() {
-        return MarshallableEntryType.REMOVE_INDEX.id();
+        return MarshallableEntryType.SET_DEFAULT_ZONE.id();
     }
 
     @Override
     public CatalogEvent eventType() {
-        return CatalogEvent.INDEX_REMOVED;
+        return CatalogEvent.SET_DEFAULT_ZONE;
     }
 
     @Override
     public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
-        return new RemoveIndexEventParameters(causalityToken, catalogVersion, indexId);
+        return new DropZoneEventParameters(causalityToken, catalogVersion, zoneId);
     }
 
     @Override
     public Catalog applyUpdate(Catalog catalog, long causalityToken) {
-        CatalogSchemaDescriptor schema = schemaByIndexId(catalog, indexId);
-
         return new Catalog(
                 catalog.version(),
                 catalog.time(),
                 catalog.objectIdGenState(),
                 catalog.zones(),
-                CatalogUtils.replaceSchema(new CatalogSchemaDescriptor(
-                        schema.id(),
-                        schema.name(),
-                        schema.tables(),
-                        Arrays.stream(schema.indexes()).filter(t -> t.id() != indexId).toArray(CatalogIndexDescriptor[]::new),
-                        schema.systemViews(),
-                        causalityToken
-                ), catalog.schemas()),
-                catalog.defaultZone().id());
+                catalog.schemas(),
+                zoneId);
     }
 
     @Override
@@ -92,19 +82,19 @@ public class RemoveIndexEntry implements UpdateEntry, Fireable {
     }
 
     /**
-     * Serializer for {@link RemoveIndexEntry}.
+     * Serializer for {@link SetDefaultZoneEntry}.
      */
-    private static class RemoveIndexEntrySerializer implements CatalogObjectSerializer<RemoveIndexEntry> {
+    private static class SetDefaultZoneEntrySerializer implements CatalogObjectSerializer<SetDefaultZoneEntry> {
         @Override
-        public RemoveIndexEntry readFrom(IgniteDataInput input) throws IOException {
-            int indexId = input.readInt();
+        public SetDefaultZoneEntry readFrom(IgniteDataInput input) throws IOException {
+            int zoneId = input.readInt();
 
-            return new RemoveIndexEntry(indexId);
+            return new SetDefaultZoneEntry(zoneId);
         }
 
         @Override
-        public void writeTo(RemoveIndexEntry entry, IgniteDataOutput out) throws IOException {
-            out.writeInt(entry.indexId);
+        public void writeTo(SetDefaultZoneEntry entry, IgniteDataOutput output) throws IOException {
+            output.writeInt(entry.zoneId());
         }
     }
 }

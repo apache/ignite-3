@@ -185,7 +185,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                 DEFAULT_ZONE_NAME
         );
 
-        registerCatalog(new Catalog(0, 0L, objectIdGen, List.of(defaultZone), List.of(publicSchema, systemSchema)));
+        registerCatalog(new Catalog(0, 0L, objectIdGen, List.of(defaultZone), List.of(publicSchema, systemSchema), defaultZone.id()));
 
         updateLog.registerUpdateHandler(new OnUpdateHandlerImpl());
 
@@ -565,8 +565,8 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                 activationTimestamp,
                 catalog.objectIdGenState(),
                 catalog.zones(),
-                catalog.schemas()
-        );
+                catalog.schemas(),
+                catalog.defaultZone().id());
     }
 
     private static class BulkUpdateProducer implements UpdateProducer {

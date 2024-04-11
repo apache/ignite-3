@@ -180,6 +180,33 @@ public class DistributionZoneSqlDdlParserTest extends AbstractDdlParserTest {
     }
 
     /**
+     * Parsing ALTER ZONE SET DEFAULT statement.
+     */
+    @Test
+    public void alterZoneSetDefault() {
+        IgniteSqlAlterZoneSetDefault alterZone =
+                assertInstanceOf(IgniteSqlAlterZoneSetDefault.class, parse("alter zone a.test_zone set default"));
+
+        assertFalse(alterZone.ifExists());
+
+        String expectedStmt = "ALTER ZONE \"A\".\"TEST_ZONE\" SET DEFAULT";
+        expectUnparsed(alterZone, expectedStmt);
+    }
+
+    /**
+     * Parsing ALTER ZONE IF EXISTS SET DEFAULT statement.
+     */
+    @Test
+    public void alterZoneIfExistsSetDefault() {
+        IgniteSqlAlterZoneSetDefault alterZone =
+                assertInstanceOf(IgniteSqlAlterZoneSetDefault.class, parse("alter zone if exists a.test_zone set default"));
+        assertTrue(alterZone.ifExists());
+
+        String expectedStmt = "ALTER ZONE IF EXISTS \"A\".\"TEST_ZONE\" SET DEFAULT";
+        expectUnparsed(alterZone, expectedStmt);
+    }
+
+    /**
      * Parsing ALTER ZONE RENAME TO statement with invalid arguments.
      */
     @Test

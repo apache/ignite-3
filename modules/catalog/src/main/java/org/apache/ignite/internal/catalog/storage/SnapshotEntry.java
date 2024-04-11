@@ -42,6 +42,7 @@ public class SnapshotEntry implements UpdateLogEvent {
     private final int objectIdGenState;
     private final CatalogZoneDescriptor[] zones;
     private final CatalogSchemaDescriptor[] schemas;
+    private final int defaultZoneId;
 
     /**
      * Constructs the object.
@@ -50,7 +51,7 @@ public class SnapshotEntry implements UpdateLogEvent {
      */
     public SnapshotEntry(Catalog catalog) {
         this(catalog.version(), catalog.time(), catalog.objectIdGenState(), catalog.zones().toArray(CatalogZoneDescriptor[]::new),
-                catalog.schemas().toArray(CatalogSchemaDescriptor[]::new));
+                catalog.schemas().toArray(CatalogSchemaDescriptor[]::new), catalog.defaultZone().id());
     }
 
     /**
@@ -61,13 +62,15 @@ public class SnapshotEntry implements UpdateLogEvent {
             long activationTime,
             int objectIdGenState,
             CatalogZoneDescriptor[] zones,
-            CatalogSchemaDescriptor[] schemas
+            CatalogSchemaDescriptor[] schemas,
+            int defaultZoneId
     ) {
         this.version = version;
         this.activationTime = activationTime;
         this.objectIdGenState = objectIdGenState;
         this.zones = zones;
         this.schemas = schemas;
+        this.defaultZoneId = defaultZoneId;
     }
 
     /**
@@ -86,7 +89,8 @@ public class SnapshotEntry implements UpdateLogEvent {
                 activationTime,
                 objectIdGenState,
                 List.of(zones),
-                List.of(schemas)
+                List.of(schemas),
+                defaultZoneId
         );
     }
 
@@ -133,7 +137,9 @@ public class SnapshotEntry implements UpdateLogEvent {
             CatalogSchemaDescriptor[] schemas =
                     CatalogSerializationUtils.readArray(CatalogSchemaDescriptor.SERIALIZER, input, CatalogSchemaDescriptor.class);
 
-            return new SnapshotEntry(catalogVersion, activationTime, objectIdGenState, zones, schemas);
+            int defaultZoneId = input.readInt();
+
+            return new SnapshotEntry(catalogVersion, activationTime, objectIdGenState, zones, schemas, defaultZoneId);
         }
 
         @Override
@@ -144,6 +150,8 @@ public class SnapshotEntry implements UpdateLogEvent {
 
             CatalogSerializationUtils.writeArray(entry.zones, CatalogZoneDescriptor.SERIALIZER, output);
             CatalogSerializationUtils.writeArray(entry.schemas, CatalogSchemaDescriptor.SERIALIZER, output);
+
+            output.writeInt(entry.defaultZoneId);
         }
     }
 }

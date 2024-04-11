@@ -80,6 +80,8 @@ public class Catalog {
     @IgniteToStringExclude
     private final Int2ObjectMap<CatalogZoneDescriptor> zonesById;
 
+    private final CatalogZoneDescriptor defaultZone;
+
     /**
      * Constructor.
      *
@@ -89,14 +91,15 @@ public class Catalog {
      *         next version of the catalog.
      * @param zones Distribution zones descriptors.
      * @param schemas Enumeration of schemas available in the current version of catalog.
+     * @param defaultZoneId ID of the default distribution zone.
      */
     public Catalog(
             int version,
             long activationTimestamp,
             int objectIdGen,
             Collection<CatalogZoneDescriptor> zones,
-            Collection<CatalogSchemaDescriptor> schemas
-    ) {
+            Collection<CatalogSchemaDescriptor> schemas,
+            int defaultZoneId) {
         this.version = version;
         this.activationTimestamp = activationTimestamp;
         this.objectIdGen = objectIdGen;
@@ -112,6 +115,14 @@ public class Catalog {
         indexesById = schemas.stream().flatMap(s -> Arrays.stream(s.indexes())).collect(toMapById());
         indexesByTableId = unmodifiable(toIndexesByTableId(schemas));
         zonesById = zones.stream().collect(toMapById());
+
+        defaultZone = zonesById.get(defaultZoneId);
+
+        assert defaultZone != null;
+    }
+
+    public CatalogZoneDescriptor defaultZone() {
+        return defaultZone;
     }
 
     public int version() {
