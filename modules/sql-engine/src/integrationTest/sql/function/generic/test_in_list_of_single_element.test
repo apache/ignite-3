@@ -4,16 +4,27 @@
 # group: [filter]
 
 statement ok
-CREATE TABLE integers(i INTEGER);
+CREATE TABLE test(i INTEGER, s VARCHAR, d TIMESTAMP);
 
 statement ok
-INSERT INTO integers VALUES (1), (2), (NULL);
+INSERT INTO test VALUES (1, 'hello', TIMESTAMP '2022-02-01 10:30:28'), (2, 'world', TIMESTAMP '2022-02-01 10:32:26'), (NULL, NULL, NULL);
 
 # IN in project
 query T
 SELECT 1 IN (1);
 ----
 true
+
+query T
+SELECT 'hello' IN ('hello');
+----
+true
+
+query T
+SELECT TIMESTAMP '2022-02-01 10:30:28' IN (TIMESTAMP '2022-02-01 10:30:28');
+----
+true
+
 
 query T
 SELECT 1 IN (NULL)
@@ -52,22 +63,50 @@ NULL
 
 # Column reference in IN
 query T rowsort
-SELECT i IN (i + 1) FROM integers
+SELECT i IN (i + 1) FROM test
 ----
 false
 false
 NULL
 
 query T rowsort
-SELECT i NOT IN (i + 1) FROM integers
+SELECT i NOT IN (i + 1) FROM test
 ----
 true
 true
+NULL
+
+query T rowsort
+SELECT s IN (CONCAT(s, 'world')) FROM test
+----
+false
+false
+NULL
+
+query T rowsort
+SELECT d IN (d + INTERVAL 1 DAYS) FROM test
+----
+false
+false
 NULL
 
 # Case clause with IN
 query T rowsort
-SELECT CASE WHEN i IN (1) THEN 'a' ELSE 'b' END FROM integers
+SELECT CASE WHEN i IN (1) THEN 'a' ELSE 'b' END FROM test
+----
+a
+b
+b
+
+query T rowsort
+SELECT CASE WHEN s IN ('hello') THEN 'a' ELSE 'b' END FROM test
+----
+a
+b
+b
+
+query T rowsort
+SELECT CASE WHEN d IN (TIMESTAMP '2022-02-01 10:30:28') THEN 'a' ELSE 'b' END FROM test
 ----
 a
 b
@@ -75,28 +114,52 @@ b
 
 # When clause with IN
 query I rowsort
-SELECT * FROM integers WHERE 1 IN (1)
+SELECT i FROM test WHERE 1 IN (1)
+----
+1
+2
+NULL
+
+query I rowsort
+SELECT i FROM test WHERE 'hello' IN ('hello')
+----
+1
+2
+NULL
+
+query I rowsort
+SELECT i FROM test WHERE TIMESTAMP '2022-02-01 10:30:28' IN (TIMESTAMP '2022-02-01 10:30:28')
 ----
 1
 2
 NULL
 
 query I
-SELECT * FROM integers WHERE i IN (1)
+SELECT i FROM test WHERE i IN (1)
 ----
 1
 
 query I
-SELECT * FROM integers WHERE i NOT IN (1)
+SELECT i FROM test WHERE i NOT IN (1)
 ----
 2
 
+query I rowsort
+SELECT i FROM test WHERE s IN ('hello')
+----
+1
+
+query I rowsort
+SELECT i FROM test WHERE d IN (TIMESTAMP '2022-02-01 10:30:28')
+----
+1
+
 query T
-SELECT * FROM integers WHERE i IN (NULL)
+SELECT * FROM test WHERE i IN (NULL)
 ----
 
 query T rowsort
-SELECT * FROM integers WHERE i NOT IN (NULL)
+SELECT * FROM test WHERE i NOT IN (NULL)
 ----
 
 # Scalar subquery
@@ -117,7 +180,7 @@ null
 
 # Row value constructions
 query T
-SELECT (1, 'hello') IN ((1, 'hello'));
+SELECT (1, 'hello', TIMESTAMP '2022-02-01 10:30:28') IN ((1, 'hello', TIMESTAMP '2022-02-01 10:30:28'));
 ----
 true
 
