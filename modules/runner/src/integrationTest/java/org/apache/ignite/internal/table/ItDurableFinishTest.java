@@ -17,10 +17,14 @@
 
 package org.apache.ignite.internal.table;
 
+import static java.util.Arrays.asList;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
@@ -57,6 +61,7 @@ import org.apache.ignite.internal.tx.message.TxCleanupMessageResponse;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
@@ -73,7 +78,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
     private final Collection<CompletableFuture<?>> futures = new ArrayList<>();
 
     private void createTestTableWith3Replicas() {
-        String zoneSql = "create zone test_zone with partitions=1, replicas=3";
+        String zoneSql = "create zone test_zone with partitions=1, replicas=3, storage_profiles='" + DEFAULT_STORAGE_PROFILE + "'";
         String sql = "create table " + TABLE_NAME + " (key int primary key, val varchar(20))"
                 + " with primary_zone='TEST_ZONE'";
 
@@ -109,11 +114,11 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
         Tuple keyTpl = Tuple.create().set("key", 42);
         Tuple tpl = Tuple.create().set("key", 42).set("val", "val 42");
 
-        TableImpl tbl = unwrapTableImpl(coordinatorNode.tables().table(TABLE_NAME));
+        Table publicTable = coordinatorNode.tables().table(TABLE_NAME);
 
-        tbl.recordView().upsert(rwTx, tpl);
+        publicTable.recordView().upsert(rwTx, tpl);
 
-        return new Context(primaryNode, coordinatorNode, tbl, rwTx, keyTpl);
+        return new Context(primaryNode, coordinatorNode, publicTable, rwTx, keyTpl);
     }
 
     private TablePartitionId defaultTablePartitionId(IgniteImpl node) {
@@ -122,10 +127,10 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
         return new TablePartitionId(table.tableId(), 0);
     }
 
-    private void commitAndValidate(InternalTransaction rwTx, TableImpl tbl, Tuple keyTpl) {
+    private void commitAndValidate(InternalTransaction rwTx, Table publicTable, Tuple keyTpl) {
         rwTx.commit();
 
-        Tuple storedData = tbl.recordView().get(null, keyTpl);
+        Tuple storedData = publicTable.recordView().get(null, keyTpl);
 
         assertNotNull(storedData);
 
@@ -139,21 +144,21 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    void testChangedPrimaryOnFinish() throws ExecutionException, InterruptedException {
+    void testChangedPrimaryOnFinish() throws Exception {
         Context context = prepareTransactionData();
 
         // Drop all finish messages to the old primary, pick a new one.
         // The coordinator will get a response from the new primary.
-        CompletableFuture<Void> transferPrimaryFuture = changePrimaryOnFinish(context.coordinatorNode, context.tbl);
+        CompletableFuture<Void> transferPrimaryFuture = changePrimaryOnFinish(context.coordinatorNode);
 
         // The primary is changed after calculating the outcome and commit timestamp.
         // The new primary successfully commits such transaction.
-        commitAndValidate(context.tx, context.tbl, context.keyTpl);
+        commitAndValidate(context.tx, context.publicTable, context.keyTpl);
 
         assertThat(transferPrimaryFuture, willCompleteSuccessfully());
     }
 
-    private CompletableFuture<Void> changePrimaryOnFinish(IgniteImpl coordinatorNode, TableImpl tbl) {
+    private CompletableFuture<Void> changePrimaryOnFinish(IgniteImpl coordinatorNode) {
         DefaultMessagingService coordinatorMessaging = messaging(coordinatorNode);
 
         AtomicBoolean dropMessage = new AtomicBoolean(true);
@@ -183,7 +188,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
 
                 logger().info("Start transferring primary.");
 
-                NodeUtils.transferPrimary(tbl, null, this::node);
+                NodeUtils.transferPrimary(cluster.runningNodes().collect(toSet()), defaultTablePartitionId(node(0)), null);
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             } finally {
@@ -202,7 +207,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
         // The coordinator has to retry the finish request and survive a COMMIT over COMMIT.
         coordinatorDropsFirstFinishMessage(context.coordinatorNode);
 
-        commitAndValidate(context.tx, context.tbl, context.keyTpl);
+        commitAndValidate(context.tx, context.publicTable, context.keyTpl);
 
         for (CompletableFuture<?> future : futures) {
             assertThat(future, willCompleteSuccessfully());
@@ -245,14 +250,14 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
         Context context = prepareTransactionData();
 
         // The transaction is committed but the primary expires right before applying the cleanup message.
-        CompletableFuture<Void> transferPrimaryFuture = changePrimaryOnCleanup(context.primaryNode, context.tbl);
+        CompletableFuture<Void> transferPrimaryFuture = changePrimaryOnCleanup(context.primaryNode);
 
-        commitAndValidate(context.tx, context.tbl, context.keyTpl);
+        commitAndValidate(context.tx, context.publicTable, context.keyTpl);
 
         assertThat(transferPrimaryFuture, willCompleteSuccessfully());
     }
 
-    private CompletableFuture<Void> changePrimaryOnCleanup(IgniteImpl primaryNode, TableImpl tbl) {
+    private CompletableFuture<Void> changePrimaryOnCleanup(IgniteImpl primaryNode) {
         DefaultMessagingService primaryMessaging = messaging(primaryNode);
 
         AtomicBoolean dropMessage = new AtomicBoolean(true);
@@ -282,7 +287,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
 
                 logger().info("Start transferring primary.");
 
-                NodeUtils.transferPrimary(tbl, null, this::node);
+                NodeUtils.transferPrimary(cluster.runningNodes().collect(toSet()), defaultTablePartitionId(node(0)), null);
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             } finally {
@@ -298,7 +303,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
         Context context = prepareTransactionData();
 
         // Simulate the state when a tx has already been committed by writing a corresponding state into tx state storage.
-        markTxAbortedInTxStateStorage(context.primaryNode, context.tx);
+        markTxAbortedInTxStateStorage(context.primaryNode, context.tx, context.publicTable);
 
         // Tx.commit should throw MismatchingTransactionOutcomeException.
         TransactionException transactionException = assertThrows(TransactionException.class, context.tx::commit);
@@ -308,18 +313,20 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
         assertInstanceOf(MismatchingTransactionOutcomeException.class, cause);
     }
 
-    private void markTxAbortedInTxStateStorage(IgniteImpl primaryNode, InternalTransaction tx) {
+    private void markTxAbortedInTxStateStorage(IgniteImpl primaryNode, InternalTransaction tx, Table publicTable) {
+        TableImpl tableImpl = unwrapTableImpl(publicTable);
+
         TableViewInternal primaryTbl = unwrapTableViewInternal(primaryNode.tables().table(TABLE_NAME));
 
         TxStateStorage storage = primaryTbl.internalTable().txStateStorage().getTxStateStorage(0);
 
         TxMeta txMetaToSet = new TxMeta(
                 ABORTED,
+                asList(new TablePartitionId(tableImpl.tableId(), 0)),
                 null
         );
-        storage.put(tx.id(), txMetaToSet);
+        bypassingThreadAssertions(() -> storage.put(tx.id(), txMetaToSet));
     }
-
 
     @Test
     void testCleanupReplicatedMessage() throws ExecutionException, InterruptedException {
@@ -353,7 +360,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
             return false;
         });
 
-        commitAndValidate(context.tx, context.tbl, context.keyTpl);
+        commitAndValidate(context.tx, context.publicTable, context.keyTpl);
 
         assertThat(cleanupReplicatedFuture, willCompleteSuccessfully());
 
@@ -380,14 +387,14 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
     private static class Context {
         private final IgniteImpl primaryNode;
         private final IgniteImpl coordinatorNode;
-        private final TableImpl tbl;
+        private final Table publicTable;
         private final InternalTransaction tx;
         private final Tuple keyTpl;
 
-        private Context(IgniteImpl primaryNode, IgniteImpl coordinatorNode, TableImpl tbl, InternalTransaction tx, Tuple keyTpl) {
+        private Context(IgniteImpl primaryNode, IgniteImpl coordinatorNode, Table publicTable, InternalTransaction tx, Tuple keyTpl) {
             this.primaryNode = primaryNode;
             this.coordinatorNode = coordinatorNode;
-            this.tbl = tbl;
+            this.publicTable = publicTable;
             this.tx = tx;
             this.keyTpl = keyTpl;
         }

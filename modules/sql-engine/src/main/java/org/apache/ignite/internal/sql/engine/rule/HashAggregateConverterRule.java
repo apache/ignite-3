@@ -131,8 +131,8 @@ public class HashAggregateConverterRule {
 
                     return new IgniteProject(
                             agg.getCluster(),
-                            reducePhaseTraits,
-                            convert(input, inTrait.replace(IgniteDistributions.single())),
+                            input.getTraitSet(),
+                            input,
                             reduceInputExprs,
                             projectRowType
                     );

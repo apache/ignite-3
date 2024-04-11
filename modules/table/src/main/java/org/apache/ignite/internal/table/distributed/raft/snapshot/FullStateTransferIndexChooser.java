@@ -61,9 +61,9 @@ import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.RemoveIndexEventParameters;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.table.distributed.LowWatermark;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
 /** Index chooser for full state transfer. */

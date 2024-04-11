@@ -84,6 +84,7 @@ include(":ignite-error-code-annotation-processor")
 include(':ignite-failure-handler')
 include(":ignite-catalog-dsl")
 include(":ignite-eventlog")
+include(":ignite-low-watermark")
 
 project(":ignite-examples").projectDir = file('examples')
 project(":ignite-dev-utilities").projectDir = file('dev-utilities')
@@ -153,6 +154,7 @@ project(":ignite-error-code-annotation-processor").projectDir = file('modules/er
 project(":ignite-failure-handler").projectDir = file('modules/failure-handler')
 project(":ignite-catalog-dsl").projectDir = file('modules/catalog-dsl')
 project(":ignite-eventlog").projectDir = file('modules/eventlog')
+project(":ignite-low-watermark").projectDir = file('modules/low-watermark')
 
 ext.isCiServer = System.getenv().containsKey("IGNITE_CI")
 

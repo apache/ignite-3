@@ -17,23 +17,18 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
-import static org.apache.ignite.internal.storage.pagememory.configuration.schema.BasePageMemoryStorageEngineConfigurationSchema.DEFAULT_DATA_REGION_NAME;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
-import org.apache.ignite.configuration.notifications.ConfigurationNamedListListener;
-import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -44,14 +39,16 @@ import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.PageMemory;
-import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionConfiguration;
-import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryDataRegionView;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfiguration;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileView;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.pagememory.persistence.PartitionMetaManager;
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointManager;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
+import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
@@ -78,6 +75,8 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
     private final String igniteInstanceName;
 
     private final PersistentPageMemoryStorageEngineConfiguration engineConfig;
+
+    private final StorageConfiguration storageConfiguration;
 
     private final PageIoRegistry ioRegistry;
 
@@ -117,6 +116,7 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
     public PersistentPageMemoryStorageEngine(
             String igniteInstanceName,
             PersistentPageMemoryStorageEngineConfiguration engineConfig,
+            StorageConfiguration storageConfiguration,
             PageIoRegistry ioRegistry,
             Path storagePath,
             @Nullable LongJvmPauseDetector longJvmPauseDetector,
@@ -125,6 +125,7 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
     ) {
         this.igniteInstanceName = igniteInstanceName;
         this.engineConfig = engineConfig;
+        this.storageConfiguration = storageConfiguration;
         this.ioRegistry = ioRegistry;
         this.storagePath = storagePath;
         this.longJvmPauseDetector = longJvmPauseDetector;
@@ -153,13 +154,7 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
                     ? new AsyncFileIoFactory()
                     : new RandomAccessFileIoFactory();
 
-            filePageStoreManager = new FilePageStoreManager(
-                    igniteInstanceName,
-                    storagePath,
-                    fileIoFactory,
-                    pageSize,
-                    failureProcessor
-            );
+            filePageStoreManager = createFilePageStoreManager(igniteInstanceName, storagePath, fileIoFactory, pageSize, failureProcessor);
 
             filePageStoreManager.start();
         } catch (IgniteInternalCheckedException e) {
@@ -188,15 +183,10 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
             throw new StorageException("Error starting checkpoint manager", e);
         }
 
-        addDataRegion(DEFAULT_DATA_REGION_NAME);
-
         // TODO: IGNITE-17066 Add handling deleting/updating data regions configuration
-        engineConfig.regions().listenElements(new ConfigurationNamedListListener<>() {
-            @Override
-            public CompletableFuture<?> onCreate(ConfigurationNotificationEvent<PersistentPageMemoryDataRegionView> ctx) {
-                addDataRegion(ctx.newName(PersistentPageMemoryDataRegionView.class));
-
-                return nullCompletedFuture();
+        storageConfiguration.profiles().value().stream().forEach(p -> {
+            if (p instanceof PersistentPageMemoryProfileView) {
+                addDataRegion(p.name());
             }
         });
 
@@ -240,13 +230,13 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
     }
 
     @Override
-    public PersistentPageMemoryTableStorage createMvTable(
+    public MvTableStorage createMvTable(
             StorageTableDescriptor tableDescriptor,
             StorageIndexDescriptorSupplier indexDescriptorSupplier
     ) throws StorageException {
-        PersistentPageMemoryDataRegion dataRegion = regions.get(tableDescriptor.getDataRegion());
+        PersistentPageMemoryDataRegion dataRegion = regions.get(tableDescriptor.getStorageProfile());
 
-        assert dataRegion != null : "tableId=" + tableDescriptor.getId() + ", dataRegion=" + tableDescriptor.getDataRegion();
+        assert dataRegion != null : "tableId=" + tableDescriptor.getId() + ", dataRegion=" + tableDescriptor.getStorageProfile();
 
         return new PersistentPageMemoryTableStorage(tableDescriptor, indexDescriptorSupplier, this, dataRegion, destructionExecutor);
     }
@@ -272,19 +262,39 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
     }
 
     /**
+     * Creates partition file page store manager.
+     *
+     * @param igniteInstanceName String igniteInstanceName
+     * @param storagePath Storage path.
+     * @param fileIoFactory File IO factory.
+     * @param pageSize Page size in bytes.
+     * @param failureProcessor Failure processor that is used to handle critical errors.
+     * @return Partition file page store manager.
+     */
+    protected FilePageStoreManager createFilePageStoreManager(String igniteInstanceName, Path storagePath, FileIoFactory fileIoFactory,
+            int pageSize, FailureProcessor failureProcessor) throws IgniteInternalCheckedException {
+        return new FilePageStoreManager(
+                igniteInstanceName,
+                storagePath,
+                fileIoFactory,
+                pageSize,
+                failureProcessor
+        );
+    }
+
+    /**
      * Creates, starts and adds a new data region to the engine.
      *
      * @param name Data region name.
      */
     private void addDataRegion(String name) {
-        PersistentPageMemoryDataRegionConfiguration dataRegionConfig = DEFAULT_DATA_REGION_NAME.equals(name)
-                ? engineConfig.defaultRegion()
-                : engineConfig.regions().get(name);
+        PersistentPageMemoryProfileConfiguration storageProfileConfiguration =
+                (PersistentPageMemoryProfileConfiguration) storageConfiguration.profiles().get(name);
 
         int pageSize = engineConfig.pageSize().value();
 
         PersistentPageMemoryDataRegion dataRegion = new PersistentPageMemoryDataRegion(
-                dataRegionConfig,
+                storageProfileConfiguration,
                 ioRegistry,
                 filePageStoreManager,
                 partitionMetaManager,

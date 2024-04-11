@@ -33,6 +33,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+import java.time.ZoneId;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -102,7 +103,7 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
     void connectOnStoppingNode() {
         resourceRegistry.close();
 
-        JdbcConnectResult result = await(eventHandler.connect());
+        JdbcConnectResult result = await(eventHandler.connect(ZoneId.systemDefault()));
 
         assertThat(result, notNullValue());
         assertThat(result.status(), is(STATUS_FAILED));
@@ -198,7 +199,7 @@ class JdbcQueryEventHandlerImplTest extends BaseIgniteAbstractTest {
     }
 
     private long acquireConnectionId() {
-        JdbcConnectResult result = await(eventHandler.connect());
+        JdbcConnectResult result = await(eventHandler.connect(ZoneId.systemDefault()));
 
         assertThat(result, notNullValue());
         assertThat(result.status(), is(STATUS_SUCCESS));

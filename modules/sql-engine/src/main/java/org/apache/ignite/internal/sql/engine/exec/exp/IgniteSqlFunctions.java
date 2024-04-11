@@ -52,6 +52,7 @@ import org.apache.calcite.schema.Statistic;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.type.SqlTypeName;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -572,6 +573,75 @@ public class IgniteSqlFunctions {
         int offset = timeZone.getOffset(timestamp - timeZone.getOffset(timestamp));
 
         return timestamp - offset;
+    }
+
+    /**
+     * Helper for CAST({timestamp} AS VARCHAR(n)).
+     *
+     * <p>Note: this method is a copy of the avatica {@link DateTimeUtils#unixTimestampToString(long, int)} method,
+     *          with the only difference being that it does not add trailing zeros.
+     */
+    public static String unixTimestampToString(long timestamp, int precision) {
+        IgniteStringBuilder buf = new IgniteStringBuilder(17);
+        int date = (int) (timestamp / DateTimeUtils.MILLIS_PER_DAY);
+        int time = (int) (timestamp % DateTimeUtils.MILLIS_PER_DAY);
+
+        if (time < 0) {
+            --date;
+
+            time += (int) DateTimeUtils.MILLIS_PER_DAY;
+        }
+
+        buf.app(DateTimeUtils.unixDateToString(date)).app(' ');
+
+        unixTimeToString(buf, time, precision);
+
+        return buf.toString();
+    }
+
+    /**
+     * Helper for CAST({time} AS VARCHAR(n)).
+     *
+     * <p>Note: this method is a copy of the avatica {@link DateTimeUtils#unixTimestampToString(long, int)} method,
+     *          with the only difference being that it does not add trailing zeros.
+     */
+    public static String unixTimeToString(int time, int precision) {
+        IgniteStringBuilder buf = new IgniteStringBuilder(8 + (precision > 0 ? 1 + precision : 0));
+
+        unixTimeToString(buf, time, precision);
+
+        return buf.toString();
+    }
+
+    private static void unixTimeToString(IgniteStringBuilder buf, int time, int precision) {
+        int h = time / 3600000;
+        int time2 = time % 3600000;
+        int m = time2 / 60000;
+        int time3 = time2 % 60000;
+        int s = time3 / 1000;
+        int ms = time3 % 1000;
+
+        buf.app((char) ('0' + (h / 10) % 10))
+                .app((char) ('0' + h % 10))
+                .app(':')
+                .app((char) ('0' + (m / 10) % 10))
+                .app((char) ('0' + m % 10))
+                .app(':')
+                .app((char) ('0' + (s / 10) % 10))
+                .app((char) ('0' + s % 10));
+
+        if (precision == 0 || ms == 0) {
+            return;
+        }
+
+        buf.app('.');
+        do {
+            buf.app((char) ('0' + (ms / 100)));
+
+            ms = ms % 100;
+            ms = ms * 10;
+            --precision;
+        } while (ms > 0 && precision > 0);
     }
 
     private static @Nullable Object leastOrGreatest(boolean least, Object arg0, Object arg1) {

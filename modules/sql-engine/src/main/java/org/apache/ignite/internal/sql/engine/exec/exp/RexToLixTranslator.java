@@ -355,9 +355,6 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                 switch (sourceType.getSqlTypeName()) {
                     case CHAR:
                     case VARCHAR:
-                        // By default Calcite for this type requires that the time zone be explicitly specified.
-                        // Since this type implies a local timezone, its explicit indication seems redundant,
-                        // so we prohibit the user from explicitly setting a timezone.
                         convert =
                                 Expressions.call(IgniteMethod.STRING_TO_TIMESTAMP.method(), operand);
                         break;
@@ -402,6 +399,9 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                 switch (sourceType.getSqlTypeName()) {
                     case CHAR:
                     case VARCHAR:
+                        // By default Calcite for this type requires that the time zone be explicitly specified.
+                        // Since this type implies a local timezone, its explicit indication seems redundant,
+                        // so we prohibit the user from explicitly setting a timezone.
                         convert =
                                 Expressions.call(IgniteMethod.STRING_TO_TIMESTAMP.method(), operand);
                         break;
