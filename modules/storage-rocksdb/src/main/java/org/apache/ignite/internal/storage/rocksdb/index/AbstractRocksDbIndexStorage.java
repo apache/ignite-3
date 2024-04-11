@@ -68,6 +68,8 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
 
     protected final int partitionId;
 
+    private final boolean pk;
+
     private final RocksDbMetaStorage indexMetaStorage;
 
     /** Busy lock. */
@@ -84,6 +86,7 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
         this.indexId = indexId;
         this.indexMetaStorage = indexMetaStorage;
         this.partitionId = partitionId;
+        this.pk = pk;
 
         nextRowIdToBuild = indexMetaStorage.getNextRowIdToBuild(tableId, indexId, partitionId, pk);
     }
@@ -255,7 +258,7 @@ public abstract class AbstractRocksDbIndexStorage implements IndexStorage {
 
         indexMetaStorage.removeNextRowIdToBuild(writeBatch, tableId, indexId, partitionId);
 
-        nextRowIdToBuild = initialRowIdToBuild(partitionId);
+        nextRowIdToBuild = pk ? null : initialRowIdToBuild(partitionId);
     }
 
     /** Method that needs to be overridden by the inheritors to remove all implementation specific data for this index. */
