@@ -43,8 +43,6 @@ public class RehashingPartitionExtractor<RowT> implements RowPartitionExtractor<
     /** {@inheritDoc} */
     @Override
     public int partition(RowT row) {
-        assert fields.length != 0 : "Unexpected partition calculation call";
-
         int hash = 0;
         for (int columnId : fields) {
             Object value = rowHandler.get(columnId, row);
