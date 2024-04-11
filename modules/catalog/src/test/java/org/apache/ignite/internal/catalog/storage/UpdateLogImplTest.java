@@ -37,6 +37,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
 import org.apache.ignite.internal.catalog.storage.VersionedUpdate.VersionedUpdateSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogEntrySerializerProvider;
@@ -322,6 +323,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
         Catalog catalog = Mockito.mock(Catalog.class);
 
         Mockito.when(catalog.version()).thenReturn(version);
+        Mockito.when(catalog.defaultZone()).thenReturn(Mockito.mock(CatalogZoneDescriptor.class));
 
         return new SnapshotEntry(catalog);
     }

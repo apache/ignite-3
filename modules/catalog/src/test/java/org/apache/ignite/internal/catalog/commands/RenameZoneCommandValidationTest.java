@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 
 import org.apache.ignite.internal.catalog.Catalog;
@@ -49,9 +48,16 @@ public class RenameZoneCommandValidationTest extends AbstractCommandValidationTe
 
     @Test
     void rejectToRenameDefaultZone() {
+        Catalog catalog = emptyCatalog();
+
+        CatalogCommand cmd = RenameZoneCommand.builder()
+                .zoneName(catalog.defaultZone().name())
+                .newZoneName("some")
+                .build();
+
         assertThrows(
                 CatalogValidationException.class,
-                () -> RenameZoneCommand.builder().zoneName(DEFAULT_ZONE_NAME).newZoneName("some").build(),
+                () -> cmd.get(catalog),
                 "Default distribution zone can't be renamed");
 
         // Let's check the success cases.

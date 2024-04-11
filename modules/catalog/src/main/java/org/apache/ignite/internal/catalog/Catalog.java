@@ -118,7 +118,9 @@ public class Catalog {
 
         defaultZone = zonesById.get(defaultZoneId);
 
-        assert defaultZone != null;
+        if (defaultZone == null) {
+            throw new IllegalStateException("The default zone was not found among the provided zones [id=" + defaultZoneId + ']');
+        }
     }
 
     public CatalogZoneDescriptor defaultZone() {

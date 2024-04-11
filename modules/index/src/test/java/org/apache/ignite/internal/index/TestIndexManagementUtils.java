@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.index;
 
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -76,7 +75,7 @@ class TestIndexManagementUtils {
         TableTestUtils.createTable(
                 catalogManager,
                 DEFAULT_SCHEMA_NAME,
-                DEFAULT_ZONE_NAME,
+                null,
                 tableName,
                 List.of(ColumnParams.builder().name(columnName).type(INT32).build()),
                 List.of(columnName)

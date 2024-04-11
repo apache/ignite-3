@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 
@@ -53,7 +52,7 @@ public class DropZoneCommandValidationTest extends AbstractCommandValidationTest
 
         assertThrows(
                 DistributionZoneCantBeDroppedValidationException.class,
-                () -> DropZoneCommand.builder().zoneName(DEFAULT_ZONE_NAME).build().get(catalog),
+                () -> DropZoneCommand.builder().zoneName(catalog.defaultZone().name()).build().get(catalog),
                 "Default distribution zone can't be dropped"
         );
     }
