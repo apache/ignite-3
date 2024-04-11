@@ -1527,8 +1527,6 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
         }
     }
 
-    /** Конвертирует в 123. */
-    // TODO: IGNITE-22021 перевести документацию
     private static CatalogIndexColumnDescriptor[] toCatalogIndexColumnDescriptors(ColumnType... columnTypes) {
         return Stream.of(columnTypes)
                 .map(AbstractIndexStorageTest::columnName)

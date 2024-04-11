@@ -191,8 +191,6 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
      */
     protected abstract D indexDescriptor(S index);
 
-    /** Создаёт дескриптоа и добавляет в каталог. */
-    // TODO: IGNITE-22021 перевести документацию
     abstract CatalogIndexDescriptor createCatalogIndexDescriptor(int tableId, int indexId, String indexName, ColumnType... columnTypes);
 
     /**
@@ -429,15 +427,11 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
         return ColumnParams.builder().name(columnName(columnType)).type(columnType);
     }
 
-    /** Добавляет дескриптор в каталог. */
-    // TODO: IGNITE-22021 перевести документацию
     void addToCatalog(CatalogIndexDescriptor indexDescriptor) {
         when(catalogService.aliveIndex(eq(indexDescriptor.name()), anyLong())).thenReturn(indexDescriptor);
         when(catalogService.index(eq(indexDescriptor.id()), anyInt())).thenReturn(indexDescriptor);
     }
 
-    /** Создает бла бла. */
-    // TODO: IGNITE-22021 перевести документацию
     IndexStorage createPkIndexStorage() {
         CatalogTableDescriptor tableDescriptor = catalogService.table(TABLE_NAME, clock.nowLong());
 
