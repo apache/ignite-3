@@ -19,6 +19,8 @@ package org.apache.ignite.internal.sql.engine.exec.exp;
 
 import static org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator.NUMERIC_FIELD_OVERFLOW_ERROR;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
+import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -538,5 +540,20 @@ public class IgniteSqlFunctionsTest {
         } else {
             assertThrows(ArithmeticException.class, () -> IgniteSqlFunctions.decimalDivide(num, denum, 4, 2));
         }
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "1970-01-01 00:00:00,     0, 0",
+            "1970-01-01 00:00:00.12,  2, 123",
+            "1970-01-01 00:00:00.123, 3, 123",
+            "1970-01-01 00:00:00.123, 6, 123",
+            "1970-02-01 23:59:59,     0, 2764799000",
+            "1970-02-01 23:59:59.04,  2, 2764799040",
+            "1969-12-31 23:59:59.999, 3, -1",
+            "1969-12-31 23:59:59.98,  2, -11",
+    })
+    public void testTimestampToString(String expectedDate, int precision, long millis) {
+        assertThat(IgniteSqlFunctions.unixTimestampToString(millis, precision), is(expectedDate));
     }
 }

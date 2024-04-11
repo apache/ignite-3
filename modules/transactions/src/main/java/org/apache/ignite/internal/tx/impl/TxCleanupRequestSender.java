@@ -153,7 +153,16 @@ public class TxCleanupRequestSender {
         return cleanupPartitions(partitions, commit, commitTimestamp, txId);
     }
 
-    private CompletableFuture<Void> cleanup(
+    /**
+     * Gets primary nodes for each of the provided {@code partitions} and sends cleanup request to each one.
+     *
+     * @param partitionIds Collection of enlisted partition groups.
+     * @param commit {@code true} if a commit requested.
+     * @param commitTimestamp Commit timestamp ({@code null} if it's an abort).
+     * @param txId Transaction id.
+     * @return Completable future of Void.
+     */
+    public CompletableFuture<Void> cleanup(
             Collection<TablePartitionId> partitionIds,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
