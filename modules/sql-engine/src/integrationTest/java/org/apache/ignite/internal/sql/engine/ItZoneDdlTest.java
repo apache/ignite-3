@@ -20,15 +20,19 @@ package org.apache.ignite.internal.sql.engine;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.Objects;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
+import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.DistributionZoneCantBeDroppedValidationException;
 import org.apache.ignite.internal.catalog.DistributionZoneExistsValidationException;
 import org.apache.ignite.internal.catalog.DistributionZoneNotFoundValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -42,6 +46,7 @@ public class ItZoneDdlTest extends ClusterPerClassIntegrationTest {
     @AfterEach
     void tearDown() {
         tryToDropZone(ZONE_NAME, false);
+        dropAllTables();
     }
 
     @Test
@@ -107,6 +112,53 @@ public class ItZoneDdlTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
+    @SuppressWarnings("ThrowableNotThrown")
+    public void testRenameDefaultZone() {
+        CatalogZoneDescriptor defaultZone = latestCatalog().defaultZone();
+        int originalDefaultZoneId = defaultZone.id();
+
+        sql("CREATE TABLE T1(ID INT PRIMARY KEY)");
+
+        String initialDefaultZoneName = defaultZone.name();
+        String initialDefaultZoneNameQuoted = '\"' + initialDefaultZoneName + '\"';
+        String newDefaultZoneName = ZONE_NAME;
+        tryToRenameZone(initialDefaultZoneNameQuoted, newDefaultZoneName, true);
+
+        defaultZone = latestCatalog().defaultZone();
+        assertEquals(newDefaultZoneName, defaultZone.name());
+        assertEquals(originalDefaultZoneId, defaultZone.id());
+
+        IgniteTestUtils.assertThrowsWithCause(
+                () -> tryToDropZone(newDefaultZoneName, false),
+                DistributionZoneCantBeDroppedValidationException.class,
+                "Default distribution zone can't be dropped"
+        );
+
+        IgniteTestUtils.assertThrowsWithCause(
+                () -> tryToDropZone(initialDefaultZoneNameQuoted, true),
+                DistributionZoneNotFoundValidationException.class,
+                format("Distribution zone with name '{}' not found", initialDefaultZoneName)
+        );
+
+        // Nothing prevents us from creating another zone with the original name.
+        tryToCreateZone(initialDefaultZoneNameQuoted, true);
+
+        sql("CREATE TABLE T2(ID INT PRIMARY KEY)");
+
+        Catalog catalog = latestCatalog();
+
+        assertEquals(2, catalog.tables().stream().filter(tab -> tab.zoneId() == originalDefaultZoneId).count());
+
+        CatalogZoneDescriptor initialDefaultZone = catalog.zone(initialDefaultZoneName);
+        assertNotNull(initialDefaultZone);
+        assertNotEquals(initialDefaultZone.id(), catalog.defaultZone().id());
+
+        // Revert changes.
+        tryToDropZone(initialDefaultZoneNameQuoted, true);
+        tryToRenameZone(newDefaultZoneName, initialDefaultZoneNameQuoted, true);
+    }
+
+    @Test
     public void testAlterZone() {
         tryToCreateZone(ZONE_NAME, true);
 
@@ -124,38 +176,33 @@ public class ItZoneDdlTest extends ClusterPerClassIntegrationTest {
     @Test
     @SuppressWarnings("ThrowableNotThrown")
     public void testChangeDefaultZone() {
-        CatalogManager catalogManager = CLUSTER.aliveNode().catalogManager();
-        Catalog catalog = Objects.requireNonNull(catalogManager.catalog(catalogManager.latestCatalogVersion()));
-
-        String initialDefaultZoneName = catalog.defaultZone().name();
+        String initialDefaultZoneName = latestCatalog().defaultZone().name();
         String newDefaultZoneName = "test_zone";
 
         // Set default non-existing zone.
         {
             IgniteTestUtils.assertThrowsWithCause(
-                    () -> tryToSetDefault(newDefaultZoneName, true),
+                    () -> tryToSetDefaultZone(newDefaultZoneName, true),
                     DistributionZoneNotFoundValidationException.class,
                     format("Distribution zone with name '{}' not found", newDefaultZoneName.toUpperCase())
             );
 
             // No error expected with IF EXISTS condition.
-            tryToSetDefault(newDefaultZoneName, false);
+            tryToSetDefaultZone(newDefaultZoneName, false);
 
             // Nothing has changed.
-            catalog = Objects.requireNonNull(catalogManager.catalog(catalogManager.latestCatalogVersion()));
-            assertEquals(initialDefaultZoneName, catalog.defaultZone().name());
+            assertEquals(initialDefaultZoneName, latestCatalog().defaultZone().name());
         }
 
         // Set existing zone as default.
         {
             tryToCreateZone(newDefaultZoneName, true);
-            tryToSetDefault(newDefaultZoneName, true);
+            tryToSetDefaultZone(newDefaultZoneName, true);
 
-            catalog = Objects.requireNonNull(catalogManager.catalog(catalogManager.latestCatalogVersion()));
-            assertEquals(newDefaultZoneName.toUpperCase(), catalog.defaultZone().name());
+            assertEquals(newDefaultZoneName.toUpperCase(), latestCatalog().defaultZone().name());
 
             // Set the default zone that is already set by default does not produce any errors.
-            tryToSetDefault(newDefaultZoneName, true);
+            tryToSetDefaultZone(newDefaultZoneName, true);
 
             IgniteTestUtils.assertThrowsWithCause(
                     () -> tryToDropZone(newDefaultZoneName, false),
@@ -168,7 +215,7 @@ public class ItZoneDdlTest extends ClusterPerClassIntegrationTest {
         {
             sql("CREATE TABLE t1(id INT PRIMARY KEY)");
 
-            catalog = Objects.requireNonNull(catalogManager.catalog(catalogManager.latestCatalogVersion()));
+            Catalog catalog = latestCatalog();
 
             CatalogTableDescriptor tab = catalog.tables().stream()
                     .filter(t -> "T1".equals(t.name())).findFirst().orElseThrow();
@@ -182,11 +229,11 @@ public class ItZoneDdlTest extends ClusterPerClassIntegrationTest {
 
             tryToDropZone(quotedZoneName, true);
             tryToCreateZone(quotedZoneName, true);
-            tryToSetDefault(quotedZoneName, true);
+            tryToSetDefaultZone(quotedZoneName, true);
 
             sql("CREATE TABLE t2(id INT PRIMARY KEY)");
 
-            catalog = Objects.requireNonNull(catalogManager.catalog(catalogManager.latestCatalogVersion()));
+            Catalog catalog = latestCatalog();
             assertEquals(initialDefaultZoneName, catalog.defaultZone().name());
 
             CatalogTableDescriptor tab = catalog.tables().stream()
@@ -223,10 +270,19 @@ public class ItZoneDdlTest extends ClusterPerClassIntegrationTest {
         ));
     }
 
-    private static void tryToSetDefault(String zoneName, boolean failIfNotExists) {
-        sql(String.format(
-                "ALTER ZONE %s SET DEFAULT ",
+    private static void tryToSetDefaultZone(String zoneName, boolean failIfNotExists) {
+        sql(format(
+                "ALTER ZONE {} SET DEFAULT ",
                 failIfNotExists ? zoneName : "IF EXISTS " + zoneName
         ));
+    }
+
+    @SuppressWarnings("resource")
+    private static Catalog latestCatalog() {
+        IgniteImpl node = CLUSTER.aliveNode();
+        CatalogManager catalogManager = node.catalogManager();
+        Catalog catalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
+
+        return Objects.requireNonNull(catalog);
     }
 }

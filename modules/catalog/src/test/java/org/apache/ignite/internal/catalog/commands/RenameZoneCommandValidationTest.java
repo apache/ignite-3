@@ -47,24 +47,6 @@ public class RenameZoneCommandValidationTest extends AbstractCommandValidationTe
     }
 
     @Test
-    void rejectToRenameDefaultZone() {
-        Catalog catalog = emptyCatalog();
-
-        CatalogCommand cmd = RenameZoneCommand.builder()
-                .zoneName(catalog.defaultZone().name())
-                .newZoneName("some")
-                .build();
-
-        assertThrows(
-                CatalogValidationException.class,
-                () -> cmd.get(catalog),
-                "Default distribution zone can't be renamed");
-
-        // Let's check the success cases.
-        RenameZoneCommand.builder().zoneName(ZONE_NAME).newZoneName(ZONE_NAME + 0).build();
-    }
-
-    @Test
     void exceptionIsThrownIfZoneWithGivenNameNotFound() {
         RenameZoneCommandBuilder builder = RenameZoneCommand.builder();
 

@@ -60,10 +60,6 @@ public class RenameZoneCommand extends AbstractZoneCommand {
     public List<UpdateEntry> get(Catalog catalog) {
         CatalogZoneDescriptor zone = zoneOrThrow(catalog, zoneName);
 
-        if (zone.id() == catalog.defaultZone().id()) {
-            throw new CatalogValidationException("Default distribution zone can't be renamed");
-        }
-
         if (catalog.zone(newZoneName) != null) {
             throw new DistributionZoneExistsValidationException(format("Distribution zone with name '{}' already exists", newZoneName));
         }
