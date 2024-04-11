@@ -89,3 +89,9 @@ query I
 SELECT MIN(t2.b) from (SELECT * FROM a UNION ALL SELECT * FROM b) t1 join (SELECT 43, 'hello', 44, 'world') t2(l, a, b, c) on t1.l=t2.l
 ----
 44
+
+query I
+select * from (select 42) sq1 union all select * from (select 43) sq2;
+----
+42
+43
