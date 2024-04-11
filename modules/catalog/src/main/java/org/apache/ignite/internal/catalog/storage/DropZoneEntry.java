@@ -75,7 +75,8 @@ public class DropZoneEntry implements UpdateEntry, Fireable {
                 catalog.objectIdGenState(),
                 catalog.zones().stream().filter(z -> z.id() != zoneId).collect(toList()),
                 catalog.schemas(),
-                catalog.defaultZone().id());
+                catalog.defaultZone().id()
+        );
     }
 
     @Override

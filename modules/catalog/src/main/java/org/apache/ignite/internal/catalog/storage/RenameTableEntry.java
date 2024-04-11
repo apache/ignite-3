@@ -81,7 +81,8 @@ public class RenameTableEntry implements UpdateEntry, Fireable {
                 catalog.objectIdGenState(),
                 catalog.zones(),
                 replaceSchema(replaceTable(schemaDescriptor, newTableDescriptor), catalog.schemas()),
-                catalog.defaultZone().id());
+                catalog.defaultZone().id()
+        );
     }
 
     /**

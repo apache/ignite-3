@@ -80,7 +80,8 @@ public class AlterZoneEntry implements UpdateEntry, Fireable {
                         .map(z -> z.id() == descriptor.id() ? descriptor : z)
                         .collect(toList()),
                 catalog.schemas(),
-                catalog.defaultZone().id());
+                catalog.defaultZone().id()
+        );
     }
 
     @Override

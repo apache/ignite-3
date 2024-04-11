@@ -55,7 +55,8 @@ public class ObjectIdGenUpdateEntry implements UpdateEntry {
                 catalog.objectIdGenState() + delta,
                 catalog.zones(),
                 catalog.schemas(),
-                catalog.defaultZone().id());
+                catalog.defaultZone().id()
+        );
     }
 
     @Override

@@ -99,7 +99,8 @@ public class Catalog {
             int objectIdGen,
             Collection<CatalogZoneDescriptor> zones,
             Collection<CatalogSchemaDescriptor> schemas,
-            int defaultZoneId) {
+            int defaultZoneId
+    ) {
         this.version = version;
         this.activationTimestamp = activationTimestamp;
         this.objectIdGen = objectIdGen;
@@ -121,10 +122,6 @@ public class Catalog {
         if (defaultZone == null) {
             throw new IllegalStateException("The default zone was not found among the provided zones [id=" + defaultZoneId + ']');
         }
-    }
-
-    public CatalogZoneDescriptor defaultZone() {
-        return defaultZone;
     }
 
     public int version() {
@@ -181,6 +178,10 @@ public class Catalog {
 
     public Collection<CatalogZoneDescriptor> zones() {
         return zonesByName.values();
+    }
+
+    public CatalogZoneDescriptor defaultZone() {
+        return defaultZone;
     }
 
     @Override

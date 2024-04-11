@@ -566,7 +566,8 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                 catalog.objectIdGenState(),
                 catalog.zones(),
                 catalog.schemas(),
-                catalog.defaultZone().id());
+                catalog.defaultZone().id()
+        );
     }
 
     private static class BulkUpdateProducer implements UpdateProducer {

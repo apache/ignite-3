@@ -55,7 +55,8 @@ abstract class AbstractChangeIndexStatusEntry implements UpdateEntry {
                 catalog.objectIdGenState(),
                 catalog.zones(),
                 replaceSchema(replaceIndex(schema, newIndexDescriptor), catalog.schemas()),
-                catalog.defaultZone().id());
+                catalog.defaultZone().id()
+        );
     }
 
     static CatalogSchemaDescriptor schemaByIndexId(Catalog catalog, int indexId) {

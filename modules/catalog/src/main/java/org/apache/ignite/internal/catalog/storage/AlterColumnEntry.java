@@ -109,7 +109,8 @@ public class AlterColumnEntry implements UpdateEntry, Fireable {
                 catalog.objectIdGenState(),
                 catalog.zones(),
                 replaceSchema(replaceTable(schema, newTableDescriptor), catalog.schemas()),
-                catalog.defaultZone().id());
+                catalog.defaultZone().id()
+        );
     }
 
     @Override
