@@ -56,7 +56,7 @@ public class EventLogImpl implements EventLog {
     @Override
     public void log(Supplier<Event> eventProvider) {
         Event event = eventProvider.get();
-        Set<EventChannel> channel = channelRegistry.findAllChannelsByEventType(event.type());
+        Set<EventChannel> channel = channelRegistry.findAllChannelsByEventType(event.getType());
         channel.forEach(c -> c.log(event));
     }
 }

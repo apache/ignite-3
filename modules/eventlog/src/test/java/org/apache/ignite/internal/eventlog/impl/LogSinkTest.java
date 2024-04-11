@@ -86,8 +86,8 @@ class LogSinkTest extends BaseIgniteAbstractTest {
         // And event is written in JSON format.
         var expectedEventJson = "{"
                 + "\"type\":\"USER_AUTHENTICATED\","
-                + "\"timestamp\":" + event.timestamp() + ","
-                + "\"productVersion\":\"" + event.productVersion() + "\","
+                + "\"timestamp\":" + event.getTimestamp() + ","
+                + "\"productVersion\":\"" + event.getProductVersion() + "\","
                 + "\"user\":{\"username\":\"user1\",\"authenticationProvider\":\"basicProvider\"},"
                 + "\"fields\":{}"
                 + "}";

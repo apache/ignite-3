@@ -34,9 +34,8 @@ public class JacksonBasedJsonSerializer implements EventSerializer {
     private final ObjectMapper mapper;
 
     /** Default constructor. */
-    public JacksonBasedJsonSerializer(Module jacksonModule) {
+    public JacksonBasedJsonSerializer() {
         mapper = new ObjectMapper();
-        mapper.registerModule(jacksonModule);
         mapper.registerModule(eventUserModule());
     }
 

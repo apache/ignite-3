@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.eventlog.ser;
 
-import org.apache.ignite.internal.eventlog.event.EventImpl;
-
 /**
  * A factory to create a serializer useful for sink to write the event.
  */
@@ -29,9 +27,6 @@ public interface EventSerializerFactory {
      * Creates a serializer which can be used in a sink to serialize all kinds of events that were registered.
      */
     default EventSerializer createEventSerializer() {
-        EventSerializerRegistry eventSerializerRegistry = new EventSerializerRegistryImpl();
-        EventSerializer serializer = new JsonEventImplSerializer();
-        eventSerializerRegistry.register(EventImpl.class, serializer);
-        return new RegistryBackedEventSerializer(eventSerializerRegistry);
+        return new JacksonBasedJsonSerializer();
     }
 }

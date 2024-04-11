@@ -35,33 +35,33 @@ class CustomEvent implements Event {
     }
 
     @Override
-    public String type() {
+    public String getType() {
         return "CUSTOM";
     }
 
     @Override
-    public long timestamp() {
+    public long getTimestamp() {
         return timestamp;
     }
 
     @Override
-    public String productVersion() {
+    public String getProductVersion() {
         return productVersion;
     }
 
     @Override
-    public EventUser user() {
+    public EventUser getUser() {
         return eventUser;
     }
 
     @Override
-    public Map<String, Object> fields() {
+    public Map<String, Object> getFields() {
         return Map.of(
                 "hasMessage", message != null
         );
     }
 
-    public Message message() {
+    public Message getMessage() {
         return message;
     }
 }
