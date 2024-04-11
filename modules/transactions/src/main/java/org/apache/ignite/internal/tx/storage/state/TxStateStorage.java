@@ -74,9 +74,11 @@ public interface TxStateStorage extends ManuallyCloseable {
      * Removes the tx meta from the storage.
      *
      * @param txId Tx id.
+     * @param commandIndex New value for {@link #lastAppliedIndex()}.
+     * @param commandTerm New value for {@link #lastAppliedTerm()}.
      * @throws IgniteInternalException with {@link Transactions#TX_STATE_STORAGE_ERR} error code in case when the operation has failed.
      */
-    void remove(UUID txId);
+    void remove(UUID txId, long commandIndex, long commandTerm);
 
     /**
      * Creates a cursor to scan all data in the storage.

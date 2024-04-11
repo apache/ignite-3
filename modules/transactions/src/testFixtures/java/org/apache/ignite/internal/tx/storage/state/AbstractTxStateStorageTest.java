@@ -102,7 +102,7 @@ public abstract class AbstractTxStateStorageTest {
 
         for (int i = 0; i < 100; i++) {
             if (i % 2 == 0) {
-                storage.remove(txIds.get(i));
+                storage.remove(txIds.get(i), i, 1);
             }
         }
 
@@ -469,7 +469,7 @@ public abstract class AbstractTxStateStorageTest {
 
         assertThrowsIgniteInternalException(TX_STATE_STORAGE_REBALANCE_ERR, () -> storage.lastApplied(100, 500));
         assertThrowsIgniteInternalException(TX_STATE_STORAGE_REBALANCE_ERR, () -> storage.get(UUID.randomUUID()));
-        assertThrowsIgniteInternalException(TX_STATE_STORAGE_REBALANCE_ERR, () -> storage.remove(UUID.randomUUID()));
+        assertThrowsIgniteInternalException(TX_STATE_STORAGE_REBALANCE_ERR, () -> storage.remove(UUID.randomUUID(), 1, 1));
         assertThrowsIgniteInternalException(TX_STATE_STORAGE_REBALANCE_ERR, storage::scan);
     }
 

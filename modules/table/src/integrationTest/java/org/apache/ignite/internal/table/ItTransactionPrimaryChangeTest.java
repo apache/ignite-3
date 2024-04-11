@@ -21,10 +21,13 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteTransaction;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
 import java.util.stream.IntStream;
@@ -35,7 +38,10 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
+import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.impl.ReadWriteTransactionImpl;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
 import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
@@ -43,10 +49,13 @@ import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Integration tests for the transactions running while the primary changes, not related to the tx recovery.
  */
+@ExtendWith(SystemPropertiesExtension.class)
+@WithSystemProperty(key = "RESOURCE_VACUUM_INTERVAL_MILLISECONDS_PROPERTY", value = "1000")
 public class ItTransactionPrimaryChangeTest extends ClusterPerTestIntegrationTest {
     /** Table name. */
     private static final String TABLE_NAME = "test_table";
@@ -85,7 +94,8 @@ public class ItTransactionPrimaryChangeTest extends ClusterPerTestIntegrationTes
 
         builder.clusterConfiguration("{"
                 + "  transaction: {"
-                + "      implicitTransactionTimeout: 30000"
+                + "      implicitTransactionTimeout: 30000,"
+                + "      txnResourceTtl: 2"
                 + "  },"
                 + "  replication: {"
                 + "      rpcTimeout: 30000"
@@ -190,6 +200,42 @@ public class ItTransactionPrimaryChangeTest extends ClusterPerTestIntegrationTes
         // Transaction "tx" got the value, this means the full transaction hasn't executed yet at the moment of "tx" commit.
         // Hence the retrieved value should always be 2.
         assertEquals("2", fullTxFut.join().value("val"));
+    }
+
+    @Test
+    public void testVacuum() throws InterruptedException {
+        TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
+
+        int partId = 0;
+
+        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), partId);
+
+        String leaseholder = waitAndGetPrimaryReplica(node(0), tblReplicationGrp).getLeaseholder();
+
+        IgniteImpl firstLeaseholderNode = findNodeByName(leaseholder);
+
+        log.info("Test: Full transaction will be executed on [node={}].", firstLeaseholderNode.name());
+
+        IgniteImpl txCrdNode = findNode(0, initialNodes(), n -> !leaseholder.equals(n.name()));
+
+        log.info("Test: Transaction coordinator is [node={}].", txCrdNode.name());
+
+        RecordView<Tuple> view = txCrdNode.tables().table(TABLE_NAME).recordView();
+
+        // Put some value into the table.
+        Transaction txPreload = txCrdNode.transactions().begin();
+        UUID txId = ((ReadWriteTransactionImpl) unwrapIgniteTransaction(txPreload)).id();
+        log.info("Test: Preloading the data [tx={}].", txId);
+        view.upsert(txPreload, Tuple.create().set("key", 1).set("val", "1"));
+        txPreload.commit();
+
+        TxStateStorage txStateStorage = tbl.internalTable().txStateStorage().getTxStateStorage(partId);
+
+        assertTrue(txStateStorage.get(txId) != null);
+
+        assertTrue(waitForCondition(() -> {
+            return txStateStorage.get(txId) == null;
+        }, 10_000));
     }
 
     private IgniteImpl findNode(int startRange, int endRange, Predicate<IgniteImpl> filter) {

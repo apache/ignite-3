@@ -131,7 +131,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     private final TransactionIdGenerator transactionIdGenerator;
 
     /** The local state storage. */
-    private final VolatileTxStateMetaStorage txStateVolatileStorage = new VolatileTxStateMetaStorage();
+    private final VolatileTxStateMetaStorage txStateVolatileStorage;
 
     /** Future of a read-only transaction by it {@link TxIdAndTimestamp}. */
     private final ConcurrentNavigableMap<TxIdAndTimestamp, CompletableFuture<Void>> readOnlyTxFutureById = new ConcurrentSkipListMap<>(
@@ -179,7 +179,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     private final MessagingService messagingService;
 
     /** Local node network identity. This id is available only after the network has started. */
-    private String localNodeId;
+    private volatile String localNodeId;
 
     /** Server cleanup processor. */
     private final TxCleanupRequestHandler txCleanupRequestHandler;
@@ -198,6 +198,10 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     private final Executor partitionOperationsExecutor;
 
     private final TransactionInflights transactionInflights;
+
+    private final ReplicaService replicaService;
+
+    private volatile PersistentTxStateVacuumizer persistentTxStateVacuumizer;
 
     /**
      * Test-only constructor.
@@ -291,6 +295,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         this.localRwTxCounter = localRwTxCounter;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
         this.transactionInflights = transactionInflights;
+        this.replicaService = replicaService;
 
         placementDriverHelper = new PlacementDriverHelper(placementDriver, clockService);
 
@@ -310,6 +315,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         txMessageSender = new TxMessageSender(messagingService, replicaService, clockService, txConfig);
 
         var writeIntentSwitchProcessor = new WriteIntentSwitchProcessor(placementDriverHelper, txMessageSender, topologyService);
+
+        txStateVolatileStorage = new VolatileTxStateMetaStorage();
 
         txCleanupRequestHandler = new TxCleanupRequestHandler(
                 messagingService,
@@ -711,6 +718,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     public CompletableFuture<Void> start() {
         localNodeId = topologyService.localMember().id();
 
+        persistentTxStateVacuumizer = new PersistentTxStateVacuumizer(replicaService, topologyService.localMember());
+
         messagingService.addMessageHandler(ReplicaMessageGroup.class, this);
 
         txStateVolatileStorage.start();
@@ -770,9 +779,14 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
     @Override
     public void vacuum() {
+        if (persistentTxStateVacuumizer == null) {
+            return; // Not started yet.
+        }
+
         long vacuumObservationTimestamp = System.currentTimeMillis();
 
-        txStateVolatileStorage.vacuum(vacuumObservationTimestamp, txConfig.txnResourceTtl().value());
+        txStateVolatileStorage.vacuum(vacuumObservationTimestamp, txConfig.txnResourceTtl().value(),
+                persistentTxStateVacuumizer::vacuumPersistentTxStates);
     }
 
     @Override

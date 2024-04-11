@@ -175,8 +175,11 @@ import org.apache.ignite.internal.tx.UpdateCommandResult;
 import org.apache.ignite.internal.tx.impl.FullyQualifiedResourceId;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
+import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxRecoveryMessage;
 import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequest;
+import org.apache.ignite.internal.tx.message.VacuumTxStateReplicaRequest;
+import org.apache.ignite.internal.tx.message.VacuumTxStatesCommand;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicatedInfo;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
@@ -230,6 +233,9 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     /** Factory for creating replica command messages. */
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
+
+    /** Factory for creating transaction command messages. */
+    private static final TxMessagesFactory TX_MESSAGES_FACTORY = new TxMessagesFactory();
 
     /** Replication retries limit. */
     private static final int MAX_RETIES_ON_SAFE_TIME_REORDERING = 1000;
@@ -716,6 +722,8 @@ public class PartitionReplicaListener implements ReplicaListener {
             return processReadOnlyDirectMultiEntryAction((ReadOnlyDirectMultiRowReplicaRequest) request, opStartTsIfDirectRo);
         } else if (request instanceof TxStateCommitPartitionRequest) {
             return processTxStateCommitPartitionRequest((TxStateCommitPartitionRequest) request);
+        } else if (request instanceof VacuumTxStateReplicaRequest) {
+            return processVacuumTxStateReplicaRequest((VacuumTxStateReplicaRequest) request);
         } else {
             throw new UnsupportedReplicaRequestException(request.getClass());
         }
@@ -4005,6 +4013,14 @@ public class PartitionReplicaListener implements ReplicaListener {
 
     private @Nullable BinaryRow upgrade(@Nullable BinaryRow source, int targetSchemaVersion) {
         return source == null ? null : new BinaryRowUpgrader(schemaRegistry, targetSchemaVersion).upgrade(source);
+    }
+
+    private CompletableFuture<?> processVacuumTxStateReplicaRequest(VacuumTxStateReplicaRequest request) {
+        VacuumTxStatesCommand cmd = TX_MESSAGES_FACTORY.vacuumTxStatesCommand()
+                .txIds(request.transactionIds())
+                .build();
+
+        return raftClient.run(cmd);
     }
 
     /**

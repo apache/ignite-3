@@ -17,16 +17,26 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static java.lang.Math.max;
+import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
 
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
+import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.jetbrains.annotations.Nullable;
@@ -36,10 +46,9 @@ import org.jetbrains.annotations.Nullable;
  */
 public class VolatileTxStateMetaStorage {
     private static final IgniteLogger LOG = Loggers.forClass(VolatileTxStateMetaStorage.class);
+
     /** The local map for tx states. */
     private ConcurrentHashMap<UUID, TxStateMeta> txStateMap;
-
-    private final PersistentTxStateVacuumizer persistentTxStateVacuumizer = new PersistentTxStateVacuumizer(null);
 
     /**
      * Starts the storage.
@@ -120,7 +129,11 @@ public class VolatileTxStateMetaStorage {
      * @param vacuumObservationTimestamp Timestamp of the vacuum attempt.
      * @param txnResourceTtl Transactional resource time to live in milliseconds.
      */
-    public void vacuum(long vacuumObservationTimestamp, long txnResourceTtl) {
+    public void vacuum(
+            long vacuumObservationTimestamp,
+            long txnResourceTtl,
+            Function<Map<TablePartitionId, Set<UUID>>, CompletableFuture<IgniteBiTuple<Set<UUID>, Integer>>> beforeVacuum
+    ) {
         LOG.info("Vacuum started [vacuumObservationTimestamp={}, txnResourceTtl={}].", vacuumObservationTimestamp, txnResourceTtl);
 
         AtomicInteger vacuumizedTxnsCount = new AtomicInteger(0);
@@ -128,33 +141,44 @@ public class VolatileTxStateMetaStorage {
         AtomicInteger alreadyMarkedTxnsCount = new AtomicInteger(0);
         AtomicInteger skippedFotFurtherProcessingUnfinishedTxnsCount = new AtomicInteger(0);
 
+        Map<TablePartitionId, Set<UUID>> txIds = new HashMap<>();
+        Map<UUID, Long> timestamps = new HashMap<>();
+
         txStateMap.forEach((txId, meta) -> {
             txStateMap.computeIfPresent(txId, (txId0, meta0) -> {
                 if (TxState.isFinalState(meta0.txState())) {
                     Long initialVacuumObservationTimestamp = meta0.initialVacuumObservationTimestamp();
-                    Long cleanupCompletionTimestamp = meta0.cleanupCompletionTimestamp();
 
-                    if (txnResourceTtl == 0) {
-                        vacuumizedTxnsCount.incrementAndGet();
-                        return null;
-                    } else if (initialVacuumObservationTimestamp == null) {
+                    if (initialVacuumObservationTimestamp == null) {
                         markedAsInitiallyDetectedTxnsCount.incrementAndGet();
-                        return new TxStateMeta(
-                                meta0.txState(),
-                                meta0.txCoordinatorId(),
-                                meta0.commitPartitionId(),
-                                meta0.commitTimestamp(),
-                                vacuumObservationTimestamp
-                        );
-                    } else if (initialVacuumObservationTimestamp + txnResourceTtl < vacuumObservationTimestamp) {
-                        vacuumizedTxnsCount.incrementAndGet();
 
-                        persistentTxStateVacuumizer.vacuumPersistentTxStates(null);
-
-                        return null;
+                        return markInitialVacuumObservationTimestamp(meta0, vacuumObservationTimestamp);
                     } else {
-                        alreadyMarkedTxnsCount.incrementAndGet();
-                        return meta0;
+                        Long cleanupCompletionTimestamp = meta0.cleanupCompletionTimestamp();
+
+                        boolean shouldBeVacuumized = shouldBeVacuumized(requireNonNull(initialVacuumObservationTimestamp),
+                                cleanupCompletionTimestamp, txnResourceTtl, vacuumObservationTimestamp);
+
+                        if (shouldBeVacuumized) {
+                            if (meta0.commitPartitionId() == null) {
+                                vacuumizedTxnsCount.incrementAndGet();
+
+                                return null;
+                            } else {
+                                Set<UUID> ids = txIds.computeIfAbsent(meta0.commitPartitionId(), k -> new HashSet<>());
+                                ids.add(txId);
+
+                                if (cleanupCompletionTimestamp != null) {
+                                    timestamps.put(txId, cleanupCompletionTimestamp);
+                                }
+
+                                return meta0;
+                            }
+                        } else {
+                            alreadyMarkedTxnsCount.incrementAndGet();
+
+                            return meta0;
+                        }
                     }
                 } else {
                     skippedFotFurtherProcessingUnfinishedTxnsCount.incrementAndGet();
@@ -163,14 +187,62 @@ public class VolatileTxStateMetaStorage {
             });
         });
 
-        LOG.info("Vacuum finished [vacuumObservationTimestamp={}, txnResourceTtl={}, vacuumizedTxnsCount={},"
-                + " markedAsInitiallyDetectedTxnsCount={}, alreadyMarkedTxnsCount={}, skippedFotFurtherProcessingUnfinishedTxnsCount={}].",
-                vacuumObservationTimestamp,
-                txnResourceTtl,
-                vacuumizedTxnsCount,
-                markedAsInitiallyDetectedTxnsCount,
-                alreadyMarkedTxnsCount,
-                skippedFotFurtherProcessingUnfinishedTxnsCount
+        beforeVacuum.apply(txIds)
+                .thenAccept(tuple -> {
+                    Set<UUID> successful = tuple.get1();
+
+                    for (UUID txId : successful) {
+                        txStateMap.compute(txId, (k, v) -> {
+                            if (v == null) {
+                                return null;
+                            } else {
+                                Long cleanupCompletionTs = timestamps.get(txId);
+
+                                return (cleanupCompletionTs != null && Objects.equals(cleanupCompletionTs, v.cleanupCompletionTimestamp()))
+                                        ? null
+                                        : v;
+                            }
+                        });
+                    }
+
+                    LOG.info("Vacuum finished [vacuumObservationTimestamp={}, txnResourceTtl={}, vacuumizedTxnsCount={},"
+                                    + "vacuumizedPersistentTxnStatesCount={}, "
+                                    + " markedAsInitiallyDetectedTxnsCount={}, alreadyMarkedTxnsCount={}, "
+                                    + "skippedFotFurtherProcessingUnfinishedTxnsCount={}].",
+                            vacuumObservationTimestamp,
+                            txnResourceTtl,
+                            vacuumizedTxnsCount,
+                            successful.size(),
+                            markedAsInitiallyDetectedTxnsCount,
+                            alreadyMarkedTxnsCount,
+                            skippedFotFurtherProcessingUnfinishedTxnsCount
+                    );
+                });
+    }
+
+    private static TxStateMeta markInitialVacuumObservationTimestamp(TxStateMeta meta, long vacuumObservationTimestamp) {
+        return new TxStateMeta(
+                meta.txState(),
+                meta.txCoordinatorId(),
+                meta.commitPartitionId(),
+                meta.commitTimestamp(),
+                vacuumObservationTimestamp
         );
+    }
+
+    private static boolean shouldBeVacuumized(
+            long initialVacuumObservationTimestamp,
+            @Nullable Long cleanupCompletionTimestamp,
+            long txnResourceTtl,
+            long vacuumObservationTimestamp) {
+        if (txnResourceTtl == 0) {
+            return true;
+        }
+
+        if (cleanupCompletionTimestamp == null) {
+            return initialVacuumObservationTimestamp + txnResourceTtl < vacuumObservationTimestamp;
+        } else {
+            return max(cleanupCompletionTimestamp, initialVacuumObservationTimestamp) + txnResourceTtl < vacuumObservationTimestamp;
+        }
     }
 }
