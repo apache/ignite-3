@@ -64,6 +64,7 @@ public class Catalog {
     private final long activationTimestamp;
     private final Map<String, CatalogSchemaDescriptor> schemasByName;
     private final Map<String, CatalogZoneDescriptor> zonesByName;
+    private final CatalogZoneDescriptor defaultZone;
 
     @IgniteToStringExclude
     private final Int2ObjectMap<CatalogSchemaDescriptor> schemasById;
@@ -79,8 +80,6 @@ public class Catalog {
 
     @IgniteToStringExclude
     private final Int2ObjectMap<CatalogZoneDescriptor> zonesById;
-
-    private final CatalogZoneDescriptor defaultZone;
 
     /**
      * Constructor.
@@ -116,7 +115,6 @@ public class Catalog {
         indexesById = schemas.stream().flatMap(s -> Arrays.stream(s.indexes())).collect(toMapById());
         indexesByTableId = unmodifiable(toIndexesByTableId(schemas));
         zonesById = zones.stream().collect(toMapById());
-
         defaultZone = zonesById.get(defaultZoneId);
 
         if (defaultZone == null) {
