@@ -62,6 +62,7 @@ dependencies {
     testImplementation(testFixtures(project(':ignite-sql-engine')))
     testImplementation(testFixtures(project(':ignite-table')))
     testImplementation(testFixtures(project(':ignite-client-handler')))
+    testImplementation(testFixtures(project(':ignite-low-watermark')))
     testImplementation libs.hamcrest.core
     testImplementation libs.junit5.params
     testImplementation libs.mockito.junit

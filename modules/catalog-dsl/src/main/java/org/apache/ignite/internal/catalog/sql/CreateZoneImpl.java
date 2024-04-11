@@ -23,7 +23,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.catalog.Options;
-import org.apache.ignite.catalog.ZoneEngine;
 import org.apache.ignite.sql.IgniteSql;
 
 class CreateZoneImpl extends AbstractCatalogQuery {
@@ -32,8 +31,6 @@ class CreateZoneImpl extends AbstractCatalogQuery {
     private boolean ifNotExists;
 
     private final List<WithOption> withOptions = new ArrayList<>();
-
-    private ZoneEngine engine;
 
     /**
      * Constructor for internal usage.
@@ -108,15 +105,10 @@ class CreateZoneImpl extends AbstractCatalogQuery {
         return this;
     }
 
-    CreateZoneImpl engine(ZoneEngine engine) {
-        this.engine = engine;
-        return this;
-    }
+    CreateZoneImpl storageProfiles(String storageProfiles) {
+        Objects.requireNonNull(storageProfiles, "Storage profiles must not be null");
 
-    CreateZoneImpl dataRegion(String dataRegion) {
-        Objects.requireNonNull(dataRegion, "Data region must not be null.");
-
-        withOptions.add(WithOption.dataRegion(dataRegion));
+        withOptions.add(WithOption.storageProfiles(storageProfiles));
         return this;
     }
 
@@ -127,10 +119,6 @@ class CreateZoneImpl extends AbstractCatalogQuery {
             ctx.sql("IF NOT EXISTS ");
         }
         ctx.visit(zoneName);
-
-        if (engine != null && engine != ZoneEngine.DEFAULT) {
-            ctx.sql(" ENGINE ").sql(engine.name());
-        }
 
         if (!withOptions.isEmpty()) {
             ctx.sql(" ").formatSeparator().sql("WITH ");

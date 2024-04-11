@@ -24,8 +24,6 @@ CREATE TABLE lineitem (
     PRIMARY KEY (l_orderkey, l_linenumber)
 );
 
-CREATE INDEX l_pk ON lineitem (l_partkey ASC);
-CREATE INDEX l_sk ON lineitem (l_suppkey ASC);
 CREATE INDEX l_sd ON lineitem (l_shipdate ASC);
 CREATE INDEX l_cd ON lineitem (l_commitdate ASC);
 CREATE INDEX l_rd ON lineitem (l_receiptdate ASC);

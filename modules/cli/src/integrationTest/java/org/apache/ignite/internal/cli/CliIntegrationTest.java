@@ -151,6 +151,12 @@ public abstract class CliIntegrationTest extends ClusterPerClassIntegrationTest 
                 .contains(expectedOutput);
     }
 
+    protected void assertOutputDoesNotContain(String expectedOutput) {
+        assertThat(sout.toString())
+                .as("Expected command output to not contain: " + expectedOutput + " but was " + sout.toString())
+                .doesNotContain(expectedOutput);
+    }
+
     protected void assertOutputMatches(String regex) {
         assertThat(sout.toString())
                 .as("Expected command output to match regex: " + regex + " but it is not: " + sout.toString())

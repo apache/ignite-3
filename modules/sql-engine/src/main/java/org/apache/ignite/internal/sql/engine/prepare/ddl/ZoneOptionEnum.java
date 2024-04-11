@@ -42,6 +42,6 @@ public enum ZoneOptionEnum {
     /** Data nodes scale down auto adjust timeout. */
     DATA_NODES_AUTO_ADJUST_SCALE_DOWN,
 
-    /** Data storage engine. */
-    DATA_STORAGE_ENGINE
+    /** Storage profiles. */
+    STORAGE_PROFILES
 }

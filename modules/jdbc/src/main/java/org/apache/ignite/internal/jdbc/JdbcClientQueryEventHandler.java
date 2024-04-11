@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.jdbc;
 
+import java.time.ZoneId;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.client.proto.ClientOp;
@@ -55,8 +56,10 @@ public class JdbcClientQueryEventHandler implements JdbcQueryEventHandler {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<JdbcConnectResult> connect() {
-        return client.sendRequestAsync(ClientOp.JDBC_CONNECT, w -> { }, r -> {
+    public CompletableFuture<JdbcConnectResult> connect(ZoneId timeZoneId) {
+        return client.sendRequestAsync(ClientOp.JDBC_CONNECT, w -> {
+            w.out().packString(timeZoneId.getId());
+        }, r -> {
             JdbcConnectResult res = new JdbcConnectResult();
 
             res.readBinary(r.in());

@@ -61,7 +61,7 @@ public class PublicApiThreadingTests {
      * @param action Action to do.
      * @return Whatever the action returns.
      */
-    public static <T> T forcingSwitchFromUserThread(IgniteImpl ignite, Supplier<? extends T> action) {
+    public static <T> T tryToSwitchFromUserThreadWithDelayedSchemaSync(IgniteImpl ignite, Supplier<? extends T> action) {
         return WatchListenerInhibitor.withInhibition(ignite, () -> {
             waitForSchemaSyncRequiringWait();
 
