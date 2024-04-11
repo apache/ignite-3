@@ -42,25 +42,18 @@ import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.util.TransformingIterator;
 import org.jetbrains.annotations.Nullable;
 
-/**
- * Test implementation of MV sorted index storage.
- */
+/** Test implementation of MV sorted index storage. */
 public class TestSortedIndexStorage extends AbstractTestIndexStorage implements SortedIndexStorage {
-    private final int partitionId;
-
     private final NavigableSet<IndexRow> index;
 
     private final StorageSortedIndexDescriptor descriptor;
 
-    /**
-     * Constructor.
-     */
+    /** Constructor. */
     public TestSortedIndexStorage(int partitionId, StorageSortedIndexDescriptor descriptor) {
-        super(descriptor.id(), partitionId, descriptor.isPk());
+        super(partitionId, descriptor);
 
         BinaryTupleComparator binaryTupleComparator = new BinaryTupleComparator(descriptor.columns());
 
-        this.partitionId = partitionId;
         this.descriptor = descriptor;
         this.index = new ConcurrentSkipListSet<>(
                 comparing((IndexRow indexRow) -> indexRow.indexColumns().byteBuffer(), binaryTupleComparator)
@@ -239,9 +232,7 @@ public class TestSortedIndexStorage extends AbstractTestIndexStorage implements 
         }
     }
 
-    /**
-     * Returns all indexed row ids.
-     */
+    /** Returns all indexed row ids. */
     public Set<RowId> allRowsIds() {
         return index.stream().map(IndexRow::rowId).collect(Collectors.toSet());
     }

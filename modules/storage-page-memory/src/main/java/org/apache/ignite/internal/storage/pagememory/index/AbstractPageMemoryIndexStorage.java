@@ -98,8 +98,7 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
             TreeT indexTree,
             IndexColumnsFreeList freeList,
             IndexMetaTree indexMetaTree,
-            boolean isVolatile,
-            boolean pk
+            boolean isVolatile
     ) {
         this.indexId = indexMeta.indexId();
         this.partitionId = partitionId;
@@ -112,7 +111,7 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
 
         highestRowId = RowId.highestRowId(partitionId);
 
-        nextRowIdToBuild = pk ? null : getNextRowIdToBuild(indexMeta);
+        nextRowIdToBuild = getNextRowIdToBuild(indexMeta);
     }
 
     private @Nullable RowId getNextRowIdToBuild(IndexMeta indexMeta) {

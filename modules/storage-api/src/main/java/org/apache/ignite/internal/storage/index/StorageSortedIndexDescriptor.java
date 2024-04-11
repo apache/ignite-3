@@ -99,8 +99,6 @@ public class StorageSortedIndexDescriptor implements StorageIndexDescriptor {
 
     private final BinaryTupleSchema binaryTupleSchema;
 
-    private final boolean pk;
-
     /**
      * Constructor.
      *
@@ -108,17 +106,7 @@ public class StorageSortedIndexDescriptor implements StorageIndexDescriptor {
      * @param index Catalog index descriptor.
      */
     public StorageSortedIndexDescriptor(CatalogTableDescriptor table, CatalogSortedIndexDescriptor index) {
-        this(index.id(), extractIndexColumnsConfiguration(table, index), table.primaryKeyIndexId() == index.id());
-    }
-
-    /**
-     * Creates a descriptor for non-primary index from a given set of columns.
-     *
-     * @param indexId Index ID.
-     * @param columnDescriptors Column descriptors.
-     */
-    public StorageSortedIndexDescriptor(int indexId, List<StorageSortedIndexColumnDescriptor> columnDescriptors) {
-        this(indexId, columnDescriptors, false);
+        this(index.id(), extractIndexColumnsConfiguration(table, index));
     }
 
     /**
@@ -126,13 +114,11 @@ public class StorageSortedIndexDescriptor implements StorageIndexDescriptor {
      *
      * @param indexId Index ID.
      * @param columnDescriptors Column descriptors.
-     * @param pk Primary index flag.
      */
-    public StorageSortedIndexDescriptor(int indexId, List<StorageSortedIndexColumnDescriptor> columnDescriptors, boolean pk) {
+    public StorageSortedIndexDescriptor(int indexId, List<StorageSortedIndexColumnDescriptor> columnDescriptors) {
         this.id = indexId;
         this.columns = List.copyOf(columnDescriptors);
         this.binaryTupleSchema = createSchema(columns);
-        this.pk = pk;
     }
 
     private static BinaryTupleSchema createSchema(List<StorageSortedIndexColumnDescriptor> columns) {
@@ -160,16 +146,11 @@ public class StorageSortedIndexDescriptor implements StorageIndexDescriptor {
         return binaryTupleSchema;
     }
 
-    @Override
-    public boolean isPk() {
-        return pk;
-    }
-
     private static List<StorageSortedIndexColumnDescriptor> extractIndexColumnsConfiguration(
             CatalogTableDescriptor table,
             CatalogSortedIndexDescriptor index
     ) {
-        assert table.id() == index.tableId() : "indexId=" + index.id() + ", tableId=" + table.id() + ", indexTableId=" + index.tableId();
+        assert table.id() == index.tableId() : "tableId=" + table.id() + ", indexTableId=" + index.tableId();
 
         return index.columns().stream()
                 .map(columnDescriptor -> {

@@ -73,15 +73,7 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
             IndexMetaTree indexMetaTree,
             boolean isVolatile
     ) {
-        super(
-                indexMeta,
-                indexTree.partitionId(),
-                indexTree,
-                freeList,
-                indexMetaTree,
-                isVolatile,
-                descriptor != null && descriptor.isPk()
-        );
+        super(indexMeta, indexTree.partitionId(), indexTree, freeList, indexMetaTree, isVolatile);
 
         this.descriptor = descriptor;
     }
