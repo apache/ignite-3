@@ -243,7 +243,7 @@ public class StripedDisruptor<T extends NodeIdAware> {
         private final ConcurrentHashMap<NodeId, EventHandler<T>> subscribers;
 
         /** The cache is used to correct handling the disruptor batch. */
-        private final Map<NodeId, List<T>> eventCache;
+        private final Map<NodeId, T> eventCache;
 
         /**
          * The constructor.
@@ -286,30 +286,22 @@ public class StripedDisruptor<T extends NodeIdAware> {
                             event.nodeId(), event, endOfBatch));
                 }
             } else {
-                eventCache.compute(event.nodeId(), (nodeId, ts) -> {
-                    if (ts == null) {
-                        ts = new ArrayList<>();
+                T prevEvent = eventCache.put(event.nodeId(), event);
+
+                if (prevEvent != null) {
+                    EventHandler<T> grpHandler = subscribers.get(event.nodeId());
+
+                    if (grpHandler != null) {
+                        grpHandler.onEvent(prevEvent, sequence, false);
                     }
-
-                    ts.add(event);
-
-                    return ts;
-                });
+                }
 
                 if (endOfBatch) {
-                    for (Map.Entry<NodeId, List<T>> grpEvents : eventCache.entrySet()) {
-                        if (!CollectionUtils.nullOrEmpty(grpEvents.getValue())) {
-                            EventHandler<T> grpHandler = subscribers.get(grpEvents.getKey());
+                    for (Map.Entry<NodeId, T> grpEvent : eventCache.entrySet()) {
+                        EventHandler<T> grpHandler = subscribers.get(grpEvent.getKey());
 
-                            if (grpHandler != null) {
-                                Iterator<T> iter = grpEvents.getValue().iterator();
-
-                                while (iter.hasNext()) {
-                                    T grpEvent = iter.next();
-
-                                    grpHandler.onEvent(grpEvent, sequence, !iter.hasNext());
-                                }
-                            }
+                        if (grpHandler != null) {
+                            grpHandler.onEvent(grpEvent.getValue(), sequence, true);
                         }
                     }
 
