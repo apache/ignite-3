@@ -43,10 +43,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -93,13 +89,7 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
 
     @Override
     protected SortedIndexStorage createIndexStorage(String name, ColumnType... columnTypes) {
-        return createIndexStorage(
-                name,
-                Stream.of(columnTypes)
-                        .map(AbstractIndexStorageTest::columnName)
-                        .map(columnName -> new CatalogIndexColumnDescriptor(columnName, ASC_NULLS_FIRST))
-                        .toArray(CatalogIndexColumnDescriptor[]::new)
-        );
+        return createIndexStorage(name, toCatalogIndexColumnDescriptors(columnTypes));
     }
 
     /**
@@ -122,30 +112,48 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
      * Creates a Sorted Index using the given index definition.
      */
     protected SortedIndexStorage createIndexStorage(String name, CatalogIndexColumnDescriptor... columns) {
-        CatalogTableDescriptor catalogTableDescriptor = catalogService.table(TABLE_NAME, clock.nowLong());
+        CatalogTableDescriptor tableDescriptor = catalogService.table(TABLE_NAME, clock.nowLong());
 
-        CatalogSortedIndexDescriptor catalogSortedIndexDescriptor = new CatalogSortedIndexDescriptor(
-                catalogId.getAndIncrement(),
-                name,
-                catalogTableDescriptor.id(),
-                false,
-                AVAILABLE,
-                catalogService.latestCatalogVersion(),
-                List.of(columns)
-        );
+        int tableId = tableDescriptor.id();
+        int indexId = catalogId.getAndIncrement();
 
-        when(catalogService.aliveIndex(eq(catalogSortedIndexDescriptor.name()), anyLong())).thenReturn(catalogSortedIndexDescriptor);
-        when(catalogService.index(eq(catalogSortedIndexDescriptor.id()), anyInt())).thenReturn(catalogSortedIndexDescriptor);
+        CatalogSortedIndexDescriptor indexDescriptor = createCatalogIndexDescriptor(tableId, indexId, name, columns);
 
         return tableStorage.getOrCreateSortedIndex(
                 TEST_PARTITION,
-                new StorageSortedIndexDescriptor(catalogTableDescriptor, catalogSortedIndexDescriptor)
+                new StorageSortedIndexDescriptor(tableDescriptor, indexDescriptor)
         );
     }
 
     @Override
     protected StorageSortedIndexDescriptor indexDescriptor(SortedIndexStorage index) {
         return index.indexDescriptor();
+    }
+
+    @Override
+    CatalogSortedIndexDescriptor createCatalogIndexDescriptor(int tableId, int indexId, String indexName, ColumnType... columnTypes) {
+        return createCatalogIndexDescriptor(tableId, indexId, indexName, toCatalogIndexColumnDescriptors(columnTypes));
+    }
+
+    private CatalogSortedIndexDescriptor createCatalogIndexDescriptor(
+            int tableId,
+            int indexId,
+            String indexName,
+            CatalogIndexColumnDescriptor... columns
+    ) {
+        var indexDescriptor = new CatalogSortedIndexDescriptor(
+                indexId,
+                indexName,
+                tableId,
+                false,
+                AVAILABLE,
+                catalogService.latestCatalogVersion(),
+                List.of(columns)
+        );
+
+        addToCatalog(indexDescriptor);
+
+        return indexDescriptor;
     }
 
     /**
@@ -1600,5 +1608,12 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
         private static <T> SimpleRow<T> of(IndexRow indexRow, Function<IndexRow, T> mapper) {
             return new SimpleRow<>(mapper.apply(indexRow), indexRow.rowId());
         }
+    }
+
+    private static CatalogIndexColumnDescriptor[] toCatalogIndexColumnDescriptors(ColumnType... columnTypes) {
+        return Stream.of(columnTypes)
+                .map(AbstractIndexStorageTest::columnName)
+                .map(columnName -> new CatalogIndexColumnDescriptor(columnName, ASC_NULLS_FIRST))
+                .toArray(CatalogIndexColumnDescriptor[]::new);
     }
 }
