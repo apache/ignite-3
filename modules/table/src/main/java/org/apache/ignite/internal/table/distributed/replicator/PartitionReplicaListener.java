@@ -1371,7 +1371,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         int flags = request.flags();
 
         Cursor<IndexRow> cursor = remotelyTriggeredResourceRegistry.<CursorResource>register(cursorId, request.coordinatorId(),
-                () -> new CursorResource(indexStorage.scan(
+                () -> new CursorResource(indexStorage.readOnlyScan(
                         lowerBound,
                         upperBound,
                         flags,

@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.tx.storage.state.test;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.hlc.HybridTimestamp.MIN_VALUE;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_REBALANCE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_STOPPED_ERR;
@@ -51,13 +50,6 @@ public class TestTxStateStorage implements TxStateStorage {
     private final AtomicReference<CompletableFuture<Void>> rebalanceFutureReference = new AtomicReference<>();
 
     private volatile boolean closed;
-
-    private volatile long leaseStartTime;
-
-    public TestTxStateStorage() {
-        // Write a timestamp of default start time of TestReplicaMetaImpl to the storage, in order to use it with TestPlacementDriver.
-        updateLease(MIN_VALUE.longValue(), 0, 0);
-    }
 
     @Override
     @Nullable
@@ -248,20 +240,6 @@ public class TestTxStateStorage implements TxStateStorage {
         lastAppliedTerm = 0;
 
         return nullCompletedFuture();
-    }
-
-    @Override
-    public void updateLease(long leaseStartTime, long commandIndex, long commandTerm) {
-        if (leaseStartTime > this.leaseStartTime) {
-            this.leaseStartTime = leaseStartTime;
-            this.lastAppliedIndex = commandIndex;
-            this.lastAppliedTerm = commandTerm;
-        }
-    }
-
-    @Override
-    public long leaseStartTime() {
-        return leaseStartTime;
     }
 
     private void checkStorageInProgreesOfRebalance() {

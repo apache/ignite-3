@@ -272,6 +272,20 @@ public interface MvPartitionStorage extends ManuallyCloseable {
     long rowsCount() throws StorageException;
 
     /**
+     * Updates the current lease start time in the storage.
+     *
+     * @param leaseStartTime Lease start time.
+     */
+    void updateLease(long leaseStartTime);
+
+    /**
+     * Return the start time of the known lease for this replication group.
+     *
+     * @return Lease start time.
+     */
+    long leaseStartTime();
+
+    /**
      * Closes the storage.
      *
      * <p>REQUIRED: For background tasks for partition, such as rebalancing, to be completed by the time the method is called.

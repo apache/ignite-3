@@ -48,6 +48,7 @@ import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreMana
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
+import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
@@ -153,13 +154,7 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
                     ? new AsyncFileIoFactory()
                     : new RandomAccessFileIoFactory();
 
-            filePageStoreManager = new FilePageStoreManager(
-                    igniteInstanceName,
-                    storagePath,
-                    fileIoFactory,
-                    pageSize,
-                    failureProcessor
-            );
+            filePageStoreManager = createFilePageStoreManager(igniteInstanceName, storagePath, fileIoFactory, pageSize, failureProcessor);
 
             filePageStoreManager.start();
         } catch (IgniteInternalCheckedException e) {
@@ -235,7 +230,7 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
     }
 
     @Override
-    public PersistentPageMemoryTableStorage createMvTable(
+    public MvTableStorage createMvTable(
             StorageTableDescriptor tableDescriptor,
             StorageIndexDescriptorSupplier indexDescriptorSupplier
     ) throws StorageException {
@@ -264,6 +259,27 @@ public class PersistentPageMemoryStorageEngine implements StorageEngine {
      */
     public @Nullable CheckpointManager checkpointManager() {
         return checkpointManager;
+    }
+
+    /**
+     * Creates partition file page store manager.
+     *
+     * @param igniteInstanceName String igniteInstanceName
+     * @param storagePath Storage path.
+     * @param fileIoFactory File IO factory.
+     * @param pageSize Page size in bytes.
+     * @param failureProcessor Failure processor that is used to handle critical errors.
+     * @return Partition file page store manager.
+     */
+    protected FilePageStoreManager createFilePageStoreManager(String igniteInstanceName, Path storagePath, FileIoFactory fileIoFactory,
+            int pageSize, FailureProcessor failureProcessor) throws IgniteInternalCheckedException {
+        return new FilePageStoreManager(
+                igniteInstanceName,
+                storagePath,
+                fileIoFactory,
+                pageSize,
+                failureProcessor
+        );
     }
 
     /**
