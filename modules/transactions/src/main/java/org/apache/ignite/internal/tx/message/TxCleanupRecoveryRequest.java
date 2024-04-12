@@ -15,18 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.replicator;
+package org.apache.ignite.internal.tx.message;
 
-import org.apache.ignite.internal.replicator.exception.ExpectedReplicationException;
-import org.apache.ignite.lang.ErrorGroups.Transactions;
-import org.apache.ignite.tx.TransactionException;
+import org.apache.ignite.internal.network.annotations.Transferable;
+import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 
 /**
- * Thrown when, during an attempt to execute a transactional operation, it turns out that the operation cannot be executed
- * because an incompatible schema change has happened.
+ * A replica request that is used for retriggering cleanup for finished transactions on node becoming primary.
  */
-public class IncompatibleSchemaException extends TransactionException implements ExpectedReplicationException {
-    public IncompatibleSchemaException(String message) {
-        super(Transactions.TX_INCOMPATIBLE_SCHEMA_ERR, message);
-    }
+@Transferable(TxMessageGroup.TX_CLEANUP_RECOVERY)
+public interface TxCleanupRecoveryRequest extends ReplicaRequest {
+
 }
