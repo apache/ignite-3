@@ -64,15 +64,15 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
     void test(MarshallableEntryType type) {
         switch (type) {
             case ALTER_COLUMN:
-                alterColumnEntry();
+                checkAlterColumnEntry();
                 break;
 
             case ALTER_ZONE:
-                alterZoneEntry();
+                checkAlterZoneEntry();
                 break;
 
             case NEW_ZONE:
-                newZoneEntry();
+                checkNewZoneEntry();
                 break;
 
             case DROP_COLUMN:
@@ -104,19 +104,19 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
                 break;
 
             case NEW_COLUMN:
-                newColumnsEntry();
+                checkNewColumnsEntry();
                 break;
 
             case NEW_INDEX:
-                newIndexEntry();
+                checkNewIndexEntry();
                 break;
 
             case NEW_SYS_VIEW:
-                newSystemViewEntry();
+                checkNewSystemViewEntry();
                 break;
 
             case NEW_TABLE:
-                newTableEntry();
+                checkNewTableEntry();
                 break;
 
             case RENAME_TABLE:
@@ -128,7 +128,7 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
                 break;
 
             case SNAPSHOT:
-                snapshotEntry();
+                checkSnapshotEntry();
                 break;
 
             case RENAME_INDEX:
@@ -144,7 +144,7 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         }
     }
 
-    private void alterZoneEntry() {
+    private void checkAlterZoneEntry() {
         CatalogStorageProfilesDescriptor profiles =
                 new CatalogStorageProfilesDescriptor(List.of(new CatalogStorageProfileDescriptor("default")));
         UpdateEntry entry1 = new AlterZoneEntry(newCatalogZoneDescriptor("zone1", profiles));
@@ -154,7 +154,7 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         assertVersionedUpdate(update, serialize(update));
     }
 
-    private void newZoneEntry() {
+    private void checkNewZoneEntry() {
         CatalogStorageProfilesDescriptor profiles =
                 new CatalogStorageProfilesDescriptor(List.of(new CatalogStorageProfileDescriptor("default")));
 
@@ -165,7 +165,7 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         assertVersionedUpdate(update, serialize(update));
     }
 
-    private void alterColumnEntry() {
+    private void checkAlterColumnEntry() {
         CatalogTableColumnDescriptor desc1 = newCatalogTableColumnDescriptor("c0", null);
         CatalogTableColumnDescriptor desc2 =
                 newCatalogTableColumnDescriptor("c1", DefaultValue.constant(new CustomDefaultValue(Integer.MAX_VALUE)));
@@ -183,7 +183,7 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         assertVersionedUpdate(update, serialize(update));
     }
 
-    private void newColumnsEntry() {
+    private void checkNewColumnsEntry() {
         CatalogTableColumnDescriptor columnDescriptor1 = newCatalogTableColumnDescriptor("c1", DefaultValue.constant(null));
         CatalogTableColumnDescriptor columnDescriptor2 = newCatalogTableColumnDescriptor("c2", DefaultValue.functionCall("func"));
 
@@ -194,7 +194,7 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         assertVersionedUpdate(update, serialize(update));
     }
 
-    private void newIndexEntry() {
+    private void checkNewIndexEntry() {
         CatalogSortedIndexDescriptor sortedIndexDescriptor = newSortedIndexDescriptor("idx1");
         CatalogHashIndexDescriptor hashIndexDescriptor = newHashIndexDescriptor("idx2");
 
@@ -206,7 +206,7 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         assertVersionedUpdate(update, serialize(update));
     }
 
-    private void newTableEntry() {
+    private void checkNewTableEntry() {
         CatalogTableColumnDescriptor col1 = newCatalogTableColumnDescriptor("c0", null);
         CatalogTableColumnDescriptor col2 = newCatalogTableColumnDescriptor("c1", null);
         CatalogTableColumnDescriptor col3 = newCatalogTableColumnDescriptor("c3", null);
@@ -228,7 +228,7 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         assertSame(deserializedEntry.descriptor().primaryKeyColumns(), deserializedEntry.descriptor().colocationColumns());
     }
 
-    private void newSystemViewEntry() {
+    private void checkNewSystemViewEntry() {
         CatalogTableColumnDescriptor col1 = newCatalogTableColumnDescriptor("c1", null);
         CatalogTableColumnDescriptor col2 = newCatalogTableColumnDescriptor("c2", null);
 
@@ -245,7 +245,7 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         assertVersionedUpdate(update, serialize(update));
     }
 
-    private void snapshotEntry() {
+    private void checkSnapshotEntry() {
         CatalogTableColumnDescriptor col1 = newCatalogTableColumnDescriptor("c1", null);
         CatalogTableColumnDescriptor col2 = newCatalogTableColumnDescriptor("c2", null);
 

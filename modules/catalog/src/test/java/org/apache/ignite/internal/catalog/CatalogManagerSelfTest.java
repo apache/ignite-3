@@ -1356,28 +1356,43 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     public void testSetDefaultZone() {
-        CatalogCommand cmd = CreateZoneCommand.builder()
-                .zoneName(TEST_ZONE_NAME)
-                .partitions(42)
-                .replicas(15)
-                .dataNodesAutoAdjust(73)
-                .filter("expression")
-                .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile("test_profile").build()))
+        StorageProfileParams storageProfile = StorageProfileParams.builder()
+                .storageProfile("test_profile")
                 .build();
 
-        assertThat(manager.execute(cmd), willCompleteSuccessfully());
+        CatalogCommand createZoneCmd = CreateZoneCommand.builder()
+                .zoneName(TEST_ZONE_NAME)
+                .storageProfilesParams(List.of(storageProfile))
+                .build();
 
-        cmd = AlterZoneSetDefaultCatalogCommand.builder().zoneName(TEST_ZONE_NAME).build();
+        assertThat(manager.execute(createZoneCmd), willCompleteSuccessfully());
 
-        assertThat(manager.execute(cmd), willCompleteSuccessfully());
+        assertNotEquals(TEST_ZONE_NAME, defaultZone().name());
+
+        CatalogCommand setDefaultCmd = AlterZoneSetDefaultCatalogCommand.builder()
+                .zoneName(TEST_ZONE_NAME)
+                .build();
+
+        assertThat(manager.execute(setDefaultCmd), willCompleteSuccessfully());
+        assertEquals(TEST_ZONE_NAME, defaultZone().name());
 
         assertThat(manager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
 
-        Catalog catalog = manager.catalog(manager.latestCatalogVersion());
+        Catalog catalog = Objects.requireNonNull(manager.catalog(manager.latestCatalogVersion()));
 
-        CatalogTableDescriptor tab = manager.table(TABLE_NAME, catalog.time());
+        CatalogTableDescriptor tab = Objects.requireNonNull(manager.table(TABLE_NAME, catalog.time()));
 
-        assertEquals(TEST_ZONE_NAME, catalog.zone(tab.zoneId()).name());
+        assertEquals(defaultZone().id(), tab.zoneId());
+
+        // Setting default zone that is already the default changes nothing.
+        int lastVer = catalog.version();
+
+        setDefaultCmd = AlterZoneSetDefaultCatalogCommand.builder()
+                .zoneName(TEST_ZONE_NAME)
+                .build();
+
+        assertThat(manager.execute(setDefaultCmd), willCompleteSuccessfully());
+        assertEquals(lastVer, manager.latestCatalogVersion());
     }
 
     @Test
@@ -1415,6 +1430,45 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         // Try to drop non-existing zone.
         assertThat(manager.execute(dropCommand), willThrow(DistributionZoneNotFoundValidationException.class));
+    }
+
+    @Test
+    public void testDropDefaultZoneIsRejected() {
+        // Drop initial default zone.
+        {
+            CatalogCommand dropCommand = DropZoneCommand.builder()
+                    .zoneName(defaultZone().name())
+                    .build();
+
+            int ver = manager.latestCatalogVersion();
+
+            assertThat(manager.execute(dropCommand), willThrow(DistributionZoneCantBeDroppedValidationException.class));
+
+            assertEquals(ver, manager.latestCatalogVersion());
+        }
+
+        // Rename initial zone and drop.
+        {
+            CatalogCommand renameCommand = RenameZoneCommand.builder()
+                    .zoneName(defaultZone().name())
+                    .newZoneName(TEST_ZONE_NAME)
+                    .build();
+
+            int ver = manager.latestCatalogVersion();
+
+            assertThat(manager.execute(renameCommand), willCompleteSuccessfully());
+
+            assertSame(ver + 1, manager.latestCatalogVersion());
+
+            ver = manager.latestCatalogVersion();
+
+            CatalogCommand dropCommand = DropZoneCommand.builder()
+                    .zoneName(TEST_ZONE_NAME)
+                    .build();
+
+            assertThat(manager.execute(dropCommand), willThrow(DistributionZoneCantBeDroppedValidationException.class));
+            assertSame(ver, manager.latestCatalogVersion());
+        }
     }
 
     @Test
@@ -1462,6 +1516,25 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
     }
 
     @Test
+    public void testRenameDefaultZone() {
+        CatalogZoneDescriptor defaultZone = defaultZone();
+
+        assertNotEquals(TEST_ZONE_NAME, defaultZone.name());
+
+        CatalogCommand renameZoneCmd = RenameZoneCommand.builder()
+                .zoneName(defaultZone.name())
+                .newZoneName(TEST_ZONE_NAME)
+                .build();
+
+        int ver = manager.latestCatalogVersion();
+        assertThat(manager.execute(renameZoneCmd), willCompleteSuccessfully());
+
+        assertEquals(ver + 1, manager.latestCatalogVersion());
+        assertEquals(TEST_ZONE_NAME, defaultZone().name());
+        assertEquals(defaultZone.id(), defaultZone().id());
+    }
+
+    @Test
     public void testDefaultZone() {
         CatalogZoneDescriptor defaultZone = defaultZone();
 
@@ -1472,7 +1545,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 .replicas(15)
                 .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile(DEFAULT_STORAGE_PROFILE).build()))
                 .build();
-        assertThat(manager.execute(cmd), willThrow(IgniteInternalException.class));
+        assertThat(manager.execute(cmd), willThrow(DistributionZoneExistsValidationException.class));
 
         // Validate default zone wasn't changed.
         assertSame(defaultZone, manager.zone(defaultZone.name(), clock.nowLong()));

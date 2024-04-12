@@ -50,9 +50,13 @@ public class DropZoneCommandValidationTest extends AbstractCommandValidationTest
     void rejectToDropDefaultZone() {
         Catalog catalog = emptyCatalog();
 
+        CatalogCommand cmd = DropZoneCommand.builder()
+                .zoneName(catalog.defaultZone().name())
+                .build();
+
         assertThrows(
                 DistributionZoneCantBeDroppedValidationException.class,
-                () -> DropZoneCommand.builder().zoneName(catalog.defaultZone().name()).build().get(catalog),
+                () -> cmd.get(catalog),
                 "Default distribution zone can't be dropped"
         );
     }
