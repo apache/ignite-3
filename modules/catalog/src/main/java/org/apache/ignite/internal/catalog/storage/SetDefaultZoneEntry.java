@@ -39,7 +39,7 @@ public class SetDefaultZoneEntry implements UpdateEntry, Fireable {
     /**
      * Constructs the object.
      *
-     * @param zoneId An id of a zone to drop.
+     * @param zoneId An id of a zone to set default.
      */
     public SetDefaultZoneEntry(int zoneId) {
         this.zoneId = zoneId;

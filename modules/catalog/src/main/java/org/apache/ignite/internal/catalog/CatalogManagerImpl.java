@@ -711,7 +711,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                         .collect(joining(", "));
     }
 
-    /** Wraps a CatalogZoneDescriptor + flag indicating that the zone is the default. */
+    /** Wraps a CatalogZoneDescriptor and a flag indicating whether this zone is the default zone. */
     static class ZoneWithDefaultMarker {
         private final CatalogZoneDescriptor zone;
         private final boolean isDefault;

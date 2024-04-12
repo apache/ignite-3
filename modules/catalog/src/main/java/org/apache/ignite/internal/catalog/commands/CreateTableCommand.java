@@ -80,7 +80,7 @@ public class CreateTableCommand extends AbstractTableCommand {
      * @param colocationColumns Name of the columns participating in distribution calculation.
      *      Should be subset of the primary key columns.
      * @param columns List of the columns containing by the table. There should be at least one column.
-     * @param zoneName Name of the zone to create table in.
+     * @param zoneName Name of the zone to create table in or {@code null} to use the default distribution zone.
      * @throws CatalogValidationException if any of restrictions above is violated.
      */
     private CreateTableCommand(

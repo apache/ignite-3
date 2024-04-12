@@ -443,11 +443,9 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
         assertEquals(DEFAULT_STORAGE_PROFILE, table.storageProfile());
 
-        String defaultZoneName = getDefaultZone(node).name();
+        CatalogZoneDescriptor defaultZone = getDefaultZone(node);
 
-        CatalogZoneDescriptor zone = node.catalogManager().zone(defaultZoneName, node.clock().nowLong());
-
-        assertEquals(zone.storageProfiles().defaultProfile().storageProfile(), table.storageProfile());
+        assertEquals(defaultZone.storageProfiles().defaultProfile().storageProfile(), table.storageProfile());
     }
 
     @Test

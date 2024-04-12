@@ -547,7 +547,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         return testItems.stream();
     }
 
-    @Disabled("Remove after https://issues.apache.org/jira/browse/IGNITE-19274 is implemented.")
+    @Disabled("Remove after https://issues.apache.org/jira/browse/IGNITE-17376 is implemented.")
     @TestFactory
     public Stream<DynamicTest> timestampWithTzWithDefaults() {
         List<DynamicTest> testItems = new ArrayList<>();
@@ -555,7 +555,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         String template = "CREATE TABLE t (id INTEGER PRIMARY KEY, d {} DEFAULT {})";
 
         {
-            String sql = format(template, "TIMESTAMP_WITH_LOCAL_TIME_ZONE", "'2020-01-02 01:01:01'");
+            String sql = format(template, "TIMESTAMP WITH LOCAL TIME ZONE", "'2020-01-02 01:01:01'");
 
             testItems.add(DynamicTest.dynamicTest(String.format("ALLOW: %s", sql), () ->
                     converter.convert((SqlDdl) parse(sql), ctx)));
