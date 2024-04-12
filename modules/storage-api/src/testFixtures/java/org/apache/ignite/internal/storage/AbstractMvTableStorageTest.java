@@ -333,6 +333,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 false,
                 AVAILABLE,
                 catalogService.latestCatalogVersion(),
+                0,
                 List.of(new CatalogIndexColumnDescriptor("STRKEY", ASC_NULLS_LAST))
         );
 
@@ -343,6 +344,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 false,
                 AVAILABLE,
                 catalogService.latestCatalogVersion(),
+                0,
                 List.of(new CatalogIndexColumnDescriptor("STRKEY", ASC_NULLS_LAST))
         );
 
@@ -386,6 +388,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 true,
                 AVAILABLE,
                 catalogService.latestCatalogVersion(),
+                0,
                 List.of("STRKEY")
         );
 
@@ -396,6 +399,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 true,
                 AVAILABLE,
                 catalogService.latestCatalogVersion(),
+                0,
                 List.of("STRKEY")
         );
 
@@ -978,6 +982,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 false,
                 AVAILABLE,
                 catalogService.latestCatalogVersion(),
+                0,
                 List.of(new CatalogIndexColumnDescriptor("STRKEY", ASC_NULLS_LAST))
         );
 
@@ -988,6 +993,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
                 true,
                 AVAILABLE,
                 catalogService.latestCatalogVersion(),
+                0,
                 List.of("STRKEY")
         );
 

@@ -64,7 +64,7 @@ class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEvent, Pri
 
     CompletableFuture<Void> setPrimaryReplicaMeta(
             long causalityToken,
-            TablePartitionId replicaId,
+            ZonePartitionId replicaId,
             CompletableFuture<ReplicaMeta> replicaMetaFuture
     ) {
         primaryReplicaMetaFutureById.put(replicaId, replicaMetaFuture);
@@ -73,7 +73,7 @@ class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEvent, Pri
                 PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED,
                 new PrimaryReplicaEventParameters(
                         causalityToken,
-                        replicaId,
+                        new TablePartitionId(replicaId.tableId(), replicaId.partitionId()),
                         replicaMeta.getLeaseholderId(),
                         replicaMeta.getLeaseholder(),
                         replicaMeta.getStartTime()

@@ -366,6 +366,7 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
                 fooIndex.unique(),
                 fooIndex.status(),
                 fooIndex.txWaitCatalogVersion(),
+                fooIndex.zoneId(),
                 fooIndex.columns()
         );
 

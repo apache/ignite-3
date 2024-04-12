@@ -128,6 +128,7 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
                 false,
                 AVAILABLE,
                 catalogService.latestCatalogVersion(),
+                0,
                 List.of(columns)
         );
 

@@ -49,6 +49,7 @@ import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.network.ClusterNode;
@@ -188,11 +189,13 @@ public class ChangeIndexStatusTaskControllerTest extends BaseIgniteAbstractTest 
     }
 
     private void setPrimaryReplica(ClusterNode clusterNode) {
-        TablePartitionId groupId = new TablePartitionId(tableId(), 0);
+        ZonePartitionId zonePartId = new ZonePartitionId(0, 0, tableId());
 
-        ReplicaMeta replicaMeta = newPrimaryReplicaMeta(clusterNode, groupId, HybridTimestamp.MIN_VALUE, HybridTimestamp.MAX_VALUE);
+        TablePartitionId tablePartId = new TablePartitionId(tableId(), 0);
 
-        assertThat(placementDriver.setPrimaryReplicaMeta(0, groupId, completedFuture(replicaMeta)), willCompleteSuccessfully());
+        ReplicaMeta replicaMeta = newPrimaryReplicaMeta(clusterNode, tablePartId, HybridTimestamp.MIN_VALUE, HybridTimestamp.MAX_VALUE);
+
+        assertThat(placementDriver.setPrimaryReplicaMeta(0, zonePartId, completedFuture(replicaMeta)), willCompleteSuccessfully());
     }
 
     private int tableId() {

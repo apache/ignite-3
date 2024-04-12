@@ -47,6 +47,8 @@ import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.replicator.message.WaitReplicaStateMessage;
+import org.apache.ignite.internal.util.FastTimestamps;
 import org.apache.ignite.internal.util.FastTimestamps;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.ClusterNode;
@@ -151,6 +153,11 @@ public class Replica {
                 "Partition mismatch: request does not match the replica [reqReplicaGrpId={}, replicaGrpId={}]",
                 request.groupId(),
                 replicaGrpId);
+
+        if (request instanceof WaitReplicaStateMessage) {
+            return processWaitReplicaStateMessage((WaitReplicaStateMessage) request)
+                    .thenApply(ignored -> new ReplicaResult(null, null));
+        }
 
         if (!waitForActualStateFuture.isDone() && request instanceof PrimaryReplicaRequest) {
             var targetPrimaryReq = (PrimaryReplicaRequest) request;
@@ -277,6 +284,18 @@ public class Replica {
                 }
             }
         }));
+    }
+
+    /**
+     * Process {@link WaitReplicaStateMessage}.
+     *
+     * @param msg Message to process.
+     * @return Future that contains a result.
+     */
+    private CompletableFuture<Void> processWaitReplicaStateMessage(WaitReplicaStateMessage msg) {
+        LOG.info("Received LeaseGrantedMessage for replica belonging to group=" + groupId());
+
+        return waitForActualState(FastTimestamps.coarseCurrentTimeMillis() + TimeUnit.SECONDS.toMillis(msg.timeout()));
     }
 
     private CompletableFuture<Void> sendPrimaryReplicaChangeToReplicationGroup(long leaseStartTime) {

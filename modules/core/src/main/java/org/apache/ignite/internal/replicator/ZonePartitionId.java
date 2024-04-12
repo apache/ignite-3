@@ -30,6 +30,8 @@ public class ZonePartitionId implements ReplicationGroupId {
     /** Partition id. */
     private final int partId;
 
+    private final int tableId;
+
     /**
      * The constructor.
      *
@@ -39,6 +41,19 @@ public class ZonePartitionId implements ReplicationGroupId {
     public ZonePartitionId(int zoneId, int partId) {
         this.zoneId = zoneId;
         this.partId = partId;
+        this.tableId = 0;
+    }
+
+    /**
+     * The constructor.
+     *
+     * @param zoneId Zone id.
+     * @param partId Partition id.
+     */
+    public ZonePartitionId(int zoneId, int partId, int tableId) {
+        this.zoneId = zoneId;
+        this.partId = partId;
+        this.tableId = tableId;
     }
 
     /**
@@ -57,6 +72,10 @@ public class ZonePartitionId implements ReplicationGroupId {
      */
     public int partitionId() {
         return partId;
+    }
+
+    public int tableId() {
+        return tableId;
     }
 
     /**
@@ -88,11 +107,11 @@ public class ZonePartitionId implements ReplicationGroupId {
 
         ZonePartitionId that = (ZonePartitionId) o;
 
-        return zoneId == that.zoneId && partId == that.partId;
+        return zoneId == that.zoneId && partId == that.partId && tableId == that.tableId;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(zoneId, partId);
+        return Objects.hash(zoneId, partId, tableId);
     }
 }
