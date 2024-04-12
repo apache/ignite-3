@@ -52,9 +52,10 @@ abstract class AbstractTestIndexStorage implements IndexStorage {
     protected final AtomicInteger pendingCursors = new AtomicInteger();
 
     AbstractTestIndexStorage(int partitionId, StorageIndexDescriptor descriptor) {
-        this.indexId = descriptor.id();
         this.partitionId = partitionId;
-        this.pk = pk;
+        this.pk = descriptor.isPk();
+        this.indexId = descriptor.id();
+
         nextRowIdToBuild = pk ? null : initialRowIdToBuild(partitionId);
     }
 

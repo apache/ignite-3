@@ -50,9 +50,7 @@ public class TestSortedIndexStorage extends AbstractTestIndexStorage implements 
 
     private final StorageSortedIndexDescriptor descriptor;
 
-    /**
-     * Constructor.
-     */
+    /** Constructor. */
     public TestSortedIndexStorage(int partitionId, StorageSortedIndexDescriptor descriptor) {
         super(partitionId, descriptor);
 
