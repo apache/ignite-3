@@ -109,8 +109,12 @@ public class NettyWorkersRegistrar implements IgniteComponent {
     }
 
     private void sendHearbeats() {
-        for (NettyWorker worker : workers) {
-            worker.sendHeartbeat();
+        try {
+            for (NettyWorker worker : workers) {
+                worker.sendHeartbeat();
+            }
+        } catch (Exception | AssertionError ignored) {
+            // Ignore.
         }
     }
 
