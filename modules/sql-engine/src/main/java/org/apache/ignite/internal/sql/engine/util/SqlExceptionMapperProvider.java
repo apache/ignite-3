@@ -26,7 +26,6 @@ import com.google.auto.service.AutoService;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
-import java.util.Objects;
 import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.lang.IgniteExceptionMapper;
@@ -41,6 +40,9 @@ import org.apache.ignite.sql.SqlException;
  */
 @AutoService(IgniteExceptionMappersProvider.class)
 public class SqlExceptionMapperProvider implements IgniteExceptionMappersProvider {
+
+    private static final String NOT_NULL_CONSTRAINT_MESSAGE = "does not allow NULLs";
+
     @Override
     public Collection<IgniteExceptionMapper<?, ?>> mappers() {
         List<IgniteExceptionMapper<?, ?>> mappers = new ArrayList<>();
@@ -59,7 +61,7 @@ public class SqlExceptionMapperProvider implements IgniteExceptionMappersProvide
                 err -> {
                     String message = err.getMessage();
                     // Remap not null constraint violation to CONSTRAINT_VIOLATION_ERR 
-                    if (message != null && message.contains("does not allow NULLs")) {
+                    if (message != null && message.contains(NOT_NULL_CONSTRAINT_MESSAGE)) {
                         return new SqlException(CONSTRAINT_VIOLATION_ERR, message, err);
                     } else {
                         return new SqlException(STMT_VALIDATION_ERR, "Failed to validate query. " + message, err);
