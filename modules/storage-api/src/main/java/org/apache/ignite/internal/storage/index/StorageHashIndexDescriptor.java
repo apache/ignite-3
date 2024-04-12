@@ -33,7 +33,9 @@ import org.apache.ignite.internal.type.NativeType;
  * @see HashIndexStorage
  */
 public class StorageHashIndexDescriptor implements StorageIndexDescriptor {
-    /** Descriptor of a Hash Index column. */
+    /**
+     * Descriptor of a Hash Index column.
+     */
     public static class StorageHashIndexColumnDescriptor implements StorageColumnDescriptor {
         private final String name;
 

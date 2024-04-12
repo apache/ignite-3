@@ -36,7 +36,9 @@ import org.apache.ignite.internal.type.NativeType;
  * @see SortedIndexStorage
  */
 public class StorageSortedIndexDescriptor implements StorageIndexDescriptor {
-    /** Descriptor of a Sorted Index column (column name and column sort order). */
+    /**
+     * Descriptor of a Sorted Index column (column name and column sort order).
+     */
     public static class StorageSortedIndexColumnDescriptor implements StorageColumnDescriptor {
         private final String name;
 
@@ -78,7 +80,9 @@ public class StorageSortedIndexDescriptor implements StorageIndexDescriptor {
             return nullable;
         }
 
-        /** Returns {@code true} if this column is sorted in ascending order or {@code false} otherwise. */
+        /**
+         * Returns {@code true} if this column is sorted in ascending order or {@code false} otherwise.
+         */
         public boolean asc() {
             return asc;
         }
@@ -121,6 +125,14 @@ public class StorageSortedIndexDescriptor implements StorageIndexDescriptor {
         this.pk = pk;
     }
 
+    private static BinaryTupleSchema createSchema(List<StorageSortedIndexColumnDescriptor> columns) {
+        Element[] elements = columns.stream()
+                .map(columnDescriptor -> new Element(columnDescriptor.type(), columnDescriptor.nullable()))
+                .toArray(Element[]::new);
+
+        return BinaryTupleSchema.create(elements);
+    }
+
     @Override
     public int id() {
         return id;
@@ -136,7 +148,9 @@ public class StorageSortedIndexDescriptor implements StorageIndexDescriptor {
         return pk;
     }
 
-    /** Returns a {@code BinaryTupleSchema} that corresponds to the index configuration. */
+    /**
+     * Returns a {@code BinaryTupleSchema} that corresponds to the index configuration.
+     */
     public BinaryTupleSchema binaryTupleSchema() {
         return binaryTupleSchema;
     }
@@ -160,13 +174,5 @@ public class StorageSortedIndexDescriptor implements StorageIndexDescriptor {
                     return new StorageSortedIndexColumnDescriptor(columnName, getNativeType(column), column.nullable(), collation.asc());
                 })
                 .collect(toList());
-    }
-
-    private static BinaryTupleSchema createSchema(List<StorageSortedIndexColumnDescriptor> columns) {
-        Element[] elements = columns.stream()
-                .map(columnDescriptor -> new Element(columnDescriptor.type(), columnDescriptor.nullable()))
-                .toArray(Element[]::new);
-
-        return BinaryTupleSchema.create(elements);
     }
 }

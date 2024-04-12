@@ -26,24 +26,38 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
 
-/** Index descriptor. */
+/**
+ * Index descriptor.
+ */
 public interface StorageIndexDescriptor {
-    /** Index column descriptor. */
+    /**
+     * Index column descriptor.
+     */
     interface StorageColumnDescriptor {
-        /** Returns the name of an index column. */
+        /**
+         * Returns the name of an index column.
+         */
         String name();
 
-        /** Returns a column type. */
+        /**
+         * Returns a column type.
+         */
         NativeType type();
 
-        /** Returns {@code true} if this column can contain null values or {@code false} otherwise. */
+        /**
+         * Returns {@code true} if this column can contain null values or {@code false} otherwise.
+         */
         boolean nullable();
     }
 
-    /** Returns the index ID. */
+    /**
+     * Returns the index ID.
+     */
     int id();
 
-    /** Returns index column descriptions. */
+    /**
+     * Returns index column descriptions.
+     */
     List<? extends StorageColumnDescriptor> columns();
 
     /** Returns {@code true} for the primary index. */
