@@ -141,7 +141,7 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
 
             @Override
             public Set<ReplicationGroupId> subgroups() {
-                return null;
+                return Set.of();
             }
         };
     }

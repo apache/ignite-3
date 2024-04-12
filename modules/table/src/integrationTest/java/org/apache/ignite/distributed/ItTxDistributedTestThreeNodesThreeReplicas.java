@@ -77,7 +77,7 @@ public class ItTxDistributedTestThreeNodesThreeReplicas extends TxAbstractTest {
         var groupId = new TablePartitionId(accounts.tableId(), 0);
 
         // TODO:IGNITE-XXXX It need to be don before the message blocking to update lease subgroups.
-        accounts.recordView().insert(null, makeValue(1, 500.));
+        accounts.recordView().insert(null, makeValue(1, 500.0));
 
         // BLock replication messages to both replicas.
         server.blockMessages(new RaftNodeId(groupId, leader), (msg, peerId) -> {

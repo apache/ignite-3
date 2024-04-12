@@ -311,7 +311,7 @@ public class IgniteImpl implements Ignite {
     private final ClusterInitializer clusterInitializer;
 
     /** Replica manager. */
-    private ReplicaManager replicaMgr = null;
+    private final ReplicaManager replicaMgr;
 
     /** Transactions manager. */
     private final TxManager txManager;
@@ -356,7 +356,7 @@ public class IgniteImpl implements Ignite {
 
     private final IgniteDeployment deploymentManager;
 
-    private DistributionZoneManager distributionZoneManager = null;
+    private final DistributionZoneManager distributionZoneManager;
 
     /** Creator for volatile {@link org.apache.ignite.internal.raft.storage.LogStorageFactory} instances. */
     private final VolatileLogStorageFactoryCreator volatileLogStorageFactoryCreator;

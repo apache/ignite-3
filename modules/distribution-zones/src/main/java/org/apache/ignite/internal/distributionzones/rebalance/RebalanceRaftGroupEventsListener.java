@@ -72,8 +72,8 @@ import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
 /**
- * Listener for the raft group events, which must provide correct error handling of rebalance process
- * and start new rebalance after the current one finished.
+ * Listener for the raft group events, which must provide correct error handling of rebalance process and start new rebalance after the
+ * current one finished.
  */
 public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener {
     /** Ignite logger. */
@@ -132,15 +132,11 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
     /** Executor for scheduling rebalance retries. */
     private final ScheduledExecutorService rebalanceScheduler;
 
-    /** Zone id. */
-    // TODO: remove this
-    private final int zoneId;
-
     /** Performs reconfiguration of a Raft group of a partition. */
     private final PartitionMover partitionMover;
 
     /** Attempts to retry the current rebalance in case of errors. */
-    private final AtomicInteger rebalanceAttempts =  new AtomicInteger(0);
+    private final AtomicInteger rebalanceAttempts = new AtomicInteger(0);
 
     /**
      * Constructs new listener.
@@ -157,7 +153,6 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             IgniteSpinBusyLock busyLock,
             PartitionMover partitionMover,
             ScheduledExecutorService rebalanceScheduler,
-            int zoneId,
             int tableId
     ) {
         this.metaStorageMgr = metaStorageMgr;
@@ -165,7 +160,6 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
         this.busyLock = busyLock;
         this.partitionMover = partitionMover;
         this.rebalanceScheduler = rebalanceScheduler;
-        this.zoneId = zoneId;
         this.tableId = tableId;
     }
 
@@ -258,7 +252,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
         try {
             int partId = zonePartitionId.partitionId();
 
-            Entry counterEntry = metaStorageMgr.get(tablesCounterKey(zoneId, partId)).get();
+            Entry counterEntry = metaStorageMgr.get(tablesCounterKey(zonePartitionId)).get();
 
             assert counterEntry.value() != null;
 
@@ -272,7 +266,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                 return;
             }
 
-            Condition condition = value(tablesCounterKey(zoneId, partId)).eq(counterEntry.value());
+            Condition condition = value(tablesCounterKey(zonePartitionId)).eq(counterEntry.value());
 
             byte[] stableArray = Assignments.toBytes(stable);
 
@@ -283,7 +277,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             }
 
             Update successCase = ops(
-                    put(tablesCounterKey(zoneId, partId), toBytes(counter)),
+                    put(tablesCounterKey(zonePartitionId), toBytes(counter)),
                     // Todo: change to one key https://issues.apache.org/jira/browse/IGNITE-18991
                     put(raftConfigurationAppliedKey(zonePartitionId), stableArray)
             ).yield(TABLES_COUNTER_DECREMENT_SUCCESS);
@@ -292,6 +286,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
 
             int res = metaStorageMgr.invoke(iif(condition, successCase, failCase)).get().getAsInt();
 
+            int zoneId = zonePartitionId.zoneId();
             if (res < 0) {
                 LOG.info("Count down of zone's tables counter is failed. "
                                 + "Going to retry [zoneId={}, appliedPeers={}]",

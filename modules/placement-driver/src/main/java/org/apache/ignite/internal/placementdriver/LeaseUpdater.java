@@ -453,7 +453,6 @@ public class LeaseUpdater {
 
                 for (Map.Entry<ReplicationGroupId, Boolean> entry : toBeNegotiated.entrySet()) {
                     Lease lease = renewedLeases.get(entry.getKey());
-                    // TODO check if tests are failed?
                     boolean force = alwaysForce || entry.getValue();
 
                     leaseNegotiator.negotiate(lease, force);

@@ -376,7 +376,6 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
                         resultFuture.complete(replicaMeta);
                     }
                 })
-
         );
     }
 

@@ -130,7 +130,7 @@ public class RebalanceUtil {
      * Update keys that related to rebalance algorithm in Meta Storage. Keys are specific for partition.
      *
      * @param zoneDescriptor Zone descriptor.
-     * @param partId Unique identifier of a partition.
+     * @param zonePartitionId Unique aggregate identifier of a partition of a zone.
      * @param dataNodes Data nodes.
      * @param replicas Number of replicas for a table.
      * @param revision Revision of Meta Storage that is specific for the assignment update.
@@ -141,7 +141,7 @@ public class RebalanceUtil {
      */
     public static CompletableFuture<Void> updatePendingAssignmentsKeys(
             CatalogZoneDescriptor zoneDescriptor,
-            ZonePartitionId partId,
+            ZonePartitionId zonePartitionId,
             Collection<String> dataNodes,
             int replicas,
             long revision,
@@ -149,13 +149,13 @@ public class RebalanceUtil {
             int partNum,
             Set<Assignment> tableCfgPartAssignments
     ) {
-        ByteArray partChangeTriggerKey = pendingChangeTriggerKey(partId);
+        ByteArray partChangeTriggerKey = pendingChangeTriggerKey(zonePartitionId);
 
-        ByteArray partAssignmentsPendingKey = pendingPartAssignmentsKey(partId);
+        ByteArray partAssignmentsPendingKey = pendingPartAssignmentsKey(zonePartitionId);
 
-        ByteArray partAssignmentsPlannedKey = plannedPartAssignmentsKey(partId);
+        ByteArray partAssignmentsPlannedKey = plannedPartAssignmentsKey(zonePartitionId);
 
-        ByteArray partAssignmentsStableKey = stablePartAssignmentsKey(partId);
+        ByteArray partAssignmentsStableKey = stablePartAssignmentsKey(zonePartitionId);
 
         Set<Assignment> partAssignments = AffinityUtils.calculateAssignmentForPartition(dataNodes, partNum, replicas);
 
@@ -367,7 +367,7 @@ public class RebalanceUtil {
     }
 
     private static CompletableFuture<Integer> manualPartitionUpdate(
-            ZonePartitionId partId,
+            ZonePartitionId zonePartitionId,
             Collection<String> aliveDataNodes,
             Set<String> aliveNodesConsistentIds,
             int replicas,
@@ -388,7 +388,10 @@ public class RebalanceUtil {
             return CompletableFuture.completedFuture(ASSIGNMENT_NOT_UPDATED.ordinal());
         }
 
-        Set<Assignment> calcAssignments = AffinityUtils.calculateAssignmentForPartition(aliveDataNodes, partId.partitionId(), replicas);
+        Set<Assignment> calcAssignments = AffinityUtils.calculateAssignmentForPartition(
+                aliveDataNodes,
+                zonePartitionId.partitionId(),
+                replicas);
 
         for (Assignment calcAssignment : calcAssignments) {
             if (partAssignments.size() == replicas) {
@@ -405,9 +408,9 @@ public class RebalanceUtil {
         byte[] partAssignmentsBytes = Assignments.forced(partAssignments).toBytes();
         byte[] revisionBytes = ByteUtils.longToBytes(revision);
 
-        ByteArray partChangeTriggerKey = pendingChangeTriggerKey(partId);
-        ByteArray partAssignmentsPendingKey = pendingPartAssignmentsKey(partId);
-        ByteArray partAssignmentsPlannedKey = plannedPartAssignmentsKey(partId);
+        ByteArray partChangeTriggerKey = pendingChangeTriggerKey(zonePartitionId);
+        ByteArray partAssignmentsPendingKey = pendingPartAssignmentsKey(zonePartitionId);
+        ByteArray partAssignmentsPlannedKey = plannedPartAssignmentsKey(zonePartitionId);
 
         Iif iif = iif(
                 notExists(partChangeTriggerKey).or(value(partChangeTriggerKey).lt(revisionBytes)),
@@ -447,78 +450,78 @@ public class RebalanceUtil {
     /**
      * Key that is needed for skipping stale events of pending key change.
      *
-     * @param partId Unique identifier of a partition.
+     * @param zonePartitionId Unique aggregate identifier of a partition of a zone.
      * @return Key for a partition.
      * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalance documentation</a>
      */
-    public static ByteArray pendingChangeTriggerKey(ZonePartitionId partId) {
-        return new ByteArray(partId + "pending.change.trigger");
+    public static ByteArray pendingChangeTriggerKey(ZonePartitionId zonePartitionId) {
+        return new ByteArray(zonePartitionId + "pending.change.trigger");
     }
 
     /**
      * Key that is needed for skipping stale events of stable key change.
      *
-     * @param partId Unique identifier of a partition.
+     * @param zonePartitionId Unique aggregate identifier of a partition of a zone.
      * @return Key for a partition.
      * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalance documentation</a>
      */
-    public static ByteArray stableChangeTriggerKey(ZonePartitionId partId) {
-        return new ByteArray(partId + "stable.change.trigger");
+    public static ByteArray stableChangeTriggerKey(ZonePartitionId zonePartitionId) {
+        return new ByteArray(zonePartitionId + "stable.change.trigger");
     }
 
     /**
      * Key that is needed for the rebalance algorithm.
      *
-     * @param partId Unique identifier of a partition.
+     * @param zonePartitionId Unique aggregate identifier of a partition of a zone.
      * @return Key for a partition.
      * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalance documentation</a>
      */
-    public static ByteArray pendingPartAssignmentsKey(ZonePartitionId partId) {
-        return new ByteArray(PENDING_ASSIGNMENTS_PREFIX + partId);
+    public static ByteArray pendingPartAssignmentsKey(ZonePartitionId zonePartitionId) {
+        return new ByteArray(PENDING_ASSIGNMENTS_PREFIX + zonePartitionId);
     }
 
     /**
      * Key that is needed for the rebalance algorithm.
      *
-     * @param partId Unique identifier of a partition.
+     * @param zonePartitionId Unique aggregate identifier of a partition of a zone.
      * @return Key for a partition.
      * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalance documentation</a>
      */
-    public static ByteArray plannedPartAssignmentsKey(ZonePartitionId partId) {
-        return new ByteArray("assignments.planned." + partId);
+    public static ByteArray plannedPartAssignmentsKey(ZonePartitionId zonePartitionId) {
+        return new ByteArray("assignments.planned." + zonePartitionId);
     }
 
     /**
      * Key that is needed for the rebalance algorithm.
      *
-     * @param partId Unique identifier of a partition.
+     * @param zonePartitionId Unique aggregate identifier of a partition of a zone.
      * @return Key for a partition.
      * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalance documentation</a>
      */
-    public static ByteArray stablePartAssignmentsKey(ZonePartitionId partId) {
-        return new ByteArray(STABLE_ASSIGNMENTS_PREFIX + partId);
+    public static ByteArray stablePartAssignmentsKey(ZonePartitionId zonePartitionId) {
+        return new ByteArray(STABLE_ASSIGNMENTS_PREFIX + zonePartitionId);
     }
 
     /**
      * Key that is needed for the rebalance algorithm.
      *
-     * @param partId Unique identifier of a partition.
+     * @param zonePartitionId Unique aggregate identifier of a partition of a zone.
      * @return Key for a partition.
      * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalance documentation</a>
      */
-    public static ByteArray switchReduceKey(ZonePartitionId partId) {
-        return new ByteArray(ASSIGNMENTS_SWITCH_REDUCE_PREFIX + partId);
+    public static ByteArray switchReduceKey(ZonePartitionId zonePartitionId) {
+        return new ByteArray(ASSIGNMENTS_SWITCH_REDUCE_PREFIX + zonePartitionId);
     }
 
     /**
      * Key that is needed for the rebalance algorithm.
      *
-     * @param partId Unique identifier of a partition.
+     * @param zonePartitionId Unique aggregate identifier of a partition of a zone.
      * @return Key for a partition.
      * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/table/tech-notes/rebalance.md">Rebalance documentation</a>
      */
-    public static ByteArray switchAppendKey(ZonePartitionId partId) {
-        return new ByteArray(ASSIGNMENTS_SWITCH_APPEND_PREFIX + partId);
+    public static ByteArray switchAppendKey(ZonePartitionId zonePartitionId) {
+        return new ByteArray(ASSIGNMENTS_SWITCH_APPEND_PREFIX + zonePartitionId);
     }
 
     /**
@@ -530,6 +533,16 @@ public class RebalanceUtil {
      */
     public static ByteArray tablesCounterKey(int zoneId, int partId) {
         return new ByteArray(TABLES_COUNTER_PREFIX + zoneId + "_part_" + partId);
+    }
+
+    /**
+     * ByteArray key for a counter of rebalances of tables from a zone that are associated with the specified partition.
+     *
+     * @param zonePartitionId Unique aggregate identifier of a partition of a zone.
+     * @return Key for a partition.
+     */
+    public static ByteArray tablesCounterKey(ZonePartitionId zonePartitionId) {
+        return tablesCounterKey(zonePartitionId.zoneId(), zonePartitionId.partitionId());
     }
 
     /**

@@ -134,6 +134,6 @@ public class TestReplicaMetaImpl implements ReplicaMeta {
 
     @Override
     public Set<ReplicationGroupId> subgroups() {
-        return null;
+        return Set.of();
     }
 }

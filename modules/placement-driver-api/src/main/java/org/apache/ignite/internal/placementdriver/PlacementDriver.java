@@ -100,7 +100,8 @@ public interface PlacementDriver extends EventProducer<PrimaryReplicaEvent, Prim
     ReplicaMeta getLeaseMeta(ReplicationGroupId grpId);
 
     /**
-     * Tries to update the lease in order to include the new subgroup.
+     * Tries to update the lease in order to include the new subgroup. The set of groups will be added to the set of lease subgroups
+     * ({@link ReplicaMeta#subgroups()}) for the specific lease determined by the zone id.
      * TODO: When replicas are started by zone, the method is removed.
      *
      * @param zoneId Zone id.
