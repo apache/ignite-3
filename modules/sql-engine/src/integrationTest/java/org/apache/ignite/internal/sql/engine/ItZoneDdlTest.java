@@ -114,7 +114,7 @@ public class ItZoneDdlTest extends ClusterPerClassIntegrationTest {
     @Test
     @SuppressWarnings("ThrowableNotThrown")
     public void testRenameDefaultZone() {
-        CatalogZoneDescriptor defaultZone = latestCatalog().defaultZone();
+        CatalogZoneDescriptor defaultZone = latestActiveCatalog().defaultZone();
         int originalDefaultZoneId = defaultZone.id();
 
         sql("CREATE TABLE T1(ID INT PRIMARY KEY)");
@@ -124,7 +124,7 @@ public class ItZoneDdlTest extends ClusterPerClassIntegrationTest {
         String newDefaultZoneName = ZONE_NAME;
         tryToRenameZone(initialDefaultZoneNameQuoted, newDefaultZoneName, true);
 
-        defaultZone = latestCatalog().defaultZone();
+        defaultZone = latestActiveCatalog().defaultZone();
         assertEquals(newDefaultZoneName, defaultZone.name());
         assertEquals(originalDefaultZoneId, defaultZone.id());
 
@@ -145,7 +145,7 @@ public class ItZoneDdlTest extends ClusterPerClassIntegrationTest {
 
         sql("CREATE TABLE T2(ID INT PRIMARY KEY)");
 
-        Catalog catalog = latestCatalog();
+        Catalog catalog = latestActiveCatalog();
 
         assertEquals(2, catalog.tables().stream().filter(tab -> tab.zoneId() == originalDefaultZoneId).count());
 
@@ -176,7 +176,7 @@ public class ItZoneDdlTest extends ClusterPerClassIntegrationTest {
     @Test
     @SuppressWarnings("ThrowableNotThrown")
     public void testChangeDefaultZone() {
-        String initialDefaultZoneName = latestCatalog().defaultZone().name();
+        String initialDefaultZoneName = latestActiveCatalog().defaultZone().name();
         String newDefaultZoneName = "test_zone";
 
         // Set default non-existing zone.
@@ -191,7 +191,7 @@ public class ItZoneDdlTest extends ClusterPerClassIntegrationTest {
             tryToSetDefaultZone(newDefaultZoneName, false);
 
             // Nothing has changed.
-            assertEquals(initialDefaultZoneName, latestCatalog().defaultZone().name());
+            assertEquals(initialDefaultZoneName, latestActiveCatalog().defaultZone().name());
         }
 
         // Set existing zone as default.
@@ -199,7 +199,7 @@ public class ItZoneDdlTest extends ClusterPerClassIntegrationTest {
             tryToCreateZone(newDefaultZoneName, true);
             tryToSetDefaultZone(newDefaultZoneName, true);
 
-            assertEquals(newDefaultZoneName.toUpperCase(), latestCatalog().defaultZone().name());
+            assertEquals(newDefaultZoneName.toUpperCase(), latestActiveCatalog().defaultZone().name());
 
             // Set the default zone that is already set by default does not produce any errors.
             tryToSetDefaultZone(newDefaultZoneName, true);
@@ -215,7 +215,7 @@ public class ItZoneDdlTest extends ClusterPerClassIntegrationTest {
         {
             sql("CREATE TABLE t1(id INT PRIMARY KEY)");
 
-            Catalog catalog = latestCatalog();
+            Catalog catalog = latestActiveCatalog();
 
             CatalogTableDescriptor tab = catalog.tables().stream()
                     .filter(t -> "T1".equals(t.name())).findFirst().orElseThrow();
@@ -233,7 +233,7 @@ public class ItZoneDdlTest extends ClusterPerClassIntegrationTest {
 
             sql("CREATE TABLE t2(id INT PRIMARY KEY)");
 
-            Catalog catalog = latestCatalog();
+            Catalog catalog = latestActiveCatalog();
             assertEquals(initialDefaultZoneName, catalog.defaultZone().name());
 
             CatalogTableDescriptor tab = catalog.tables().stream()
@@ -278,10 +278,10 @@ public class ItZoneDdlTest extends ClusterPerClassIntegrationTest {
     }
 
     @SuppressWarnings("resource")
-    private static Catalog latestCatalog() {
+    private static Catalog latestActiveCatalog() {
         IgniteImpl node = CLUSTER.aliveNode();
         CatalogManager catalogManager = node.catalogManager();
-        Catalog catalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
+        Catalog catalog = catalogManager.catalog(catalogManager.activeCatalogVersion(node.clock().nowLong()));
 
         return Objects.requireNonNull(catalog);
     }

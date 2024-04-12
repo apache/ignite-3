@@ -174,7 +174,7 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
     }
 
     private TableViewInternal newMockTable(int tableId) {
-        Catalog catalog = Objects.requireNonNull(catalogManager.catalog(catalogManager.latestCatalogVersion()));
+        Catalog catalog = Objects.requireNonNull(catalogManager.catalog(catalogManager.activeCatalogVersion(clock.nowLong())));
         CatalogZoneDescriptor zone = catalog.defaultZone();
 
         assertNotNull(zone);

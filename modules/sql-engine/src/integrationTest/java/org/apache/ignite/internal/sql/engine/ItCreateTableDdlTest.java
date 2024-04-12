@@ -484,7 +484,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
     private static CatalogZoneDescriptor getDefaultZone(IgniteImpl node) {
         CatalogManager catalogManager = node.catalogManager();
-        Catalog catalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
+        Catalog catalog = catalogManager.catalog(catalogManager.activeCatalogVersion(node.clock().nowLong()));
 
         assert catalog != null;
 

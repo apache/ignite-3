@@ -98,7 +98,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
         assertThat(allOf(metaStorageManager.start(), catalogManager.start()), willCompleteSuccessfully());
         assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
 
-        Catalog catalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
+        Catalog catalog = catalogManager.catalog(catalogManager.activeCatalogVersion(clock.nowLong()));
 
         assert catalog != null;
 
@@ -350,7 +350,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
     }
 
     private void changePartitionCountInCatalog(int newPartitions) {
-        Catalog catalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
+        Catalog catalog = catalogManager.catalog(catalogManager.activeCatalogVersion(clock.nowLong()));
 
         assert catalog != null;
 

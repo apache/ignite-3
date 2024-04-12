@@ -31,13 +31,11 @@ import static org.mockito.Mockito.when;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.function.Consumer;
 import java.util.function.LongFunction;
-import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
@@ -204,10 +202,6 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
     }
 
     protected CatalogZoneDescriptor getDefaultZone() {
-        Catalog catalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
-
-        Objects.requireNonNull(catalog);
-
-        return catalog.defaultZone();
+        return DistributionZonesTestUtil.getDefaultZone(catalogManager, clock.nowLong());
     }
 }
