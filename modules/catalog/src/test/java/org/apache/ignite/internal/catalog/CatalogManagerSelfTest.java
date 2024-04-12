@@ -1318,8 +1318,10 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     public void testCreateZone() {
+        String zoneName = TEST_ZONE_NAME;
+
         CatalogCommand cmd = CreateZoneCommand.builder()
-                .zoneName(TEST_ZONE_NAME)
+                .zoneName(zoneName)
                 .partitions(42)
                 .replicas(15)
                 .dataNodesAutoAdjust(73)
@@ -1330,11 +1332,11 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertThat(manager.execute(cmd), willCompleteSuccessfully());
 
         // Validate catalog version from the past.
-        assertNull(manager.zone(TEST_ZONE_NAME, 0));
-        assertNull(manager.zone(TEST_ZONE_NAME, 123L));
+        assertNull(manager.zone(zoneName, 0));
+        assertNull(manager.zone(zoneName, 123L));
 
         // Validate actual catalog
-        CatalogZoneDescriptor zone = manager.zone(TEST_ZONE_NAME, clock.nowLong());
+        CatalogZoneDescriptor zone = manager.zone(zoneName, clock.nowLong());
 
         assertNotNull(zone);
         assertSame(zone, manager.zone(zone.id(), clock.nowLong()));
@@ -1344,7 +1346,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertNull(manager.zone(zone.id(), 123L));
 
         // Validate newly created zone
-        assertEquals(TEST_ZONE_NAME, zone.name());
+        assertEquals(zoneName, zone.name());
         assertEquals(42, zone.partitions());
         assertEquals(15, zone.replicas());
         assertEquals(73, zone.dataNodesAutoAdjust());
