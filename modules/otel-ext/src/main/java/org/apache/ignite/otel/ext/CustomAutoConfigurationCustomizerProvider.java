@@ -22,9 +22,7 @@ import io.opentelemetry.sdk.autoconfigure.spi.AutoConfigurationCustomizer;
 import io.opentelemetry.sdk.autoconfigure.spi.AutoConfigurationCustomizerProvider;
 import io.opentelemetry.sdk.autoconfigure.spi.ConfigProperties;
 import io.opentelemetry.sdk.trace.samplers.Sampler;
-import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 import org.apache.ignite.otel.ext.sampler.DynamicRatioSampler;
 
 /**
@@ -37,7 +35,6 @@ import org.apache.ignite.otel.ext.sampler.DynamicRatioSampler;
  */
 @AutoService(AutoConfigurationCustomizerProvider.class)
 public class CustomAutoConfigurationCustomizerProvider implements AutoConfigurationCustomizerProvider {
-    /** {@inheritDoc} */
     @Override
     public void customize(AutoConfigurationCustomizer autoConfiguration) {
         autoConfiguration
@@ -56,38 +53,5 @@ public class CustomAutoConfigurationCustomizerProvider implements AutoConfigurat
 
     private static Sampler customizeSampler(Sampler sampler, ConfigProperties configProperties) {
         return new DynamicRatioSampler();
-    }
-
-    private static Map<String, String> customizeIgniteExecutors(ConfigProperties configProperties) {
-        return Map.of("otel.instrumentation.executors.include",
-                "org.apache.ignite.internal.thread.StripedThreadPoolExecutor,"
-                + "org.apache.ignite.internal.thread.StripedScheduledThreadPoolExecutor,"
-                + "org.apache.ignite.raft.jraft.util.MetricThreadPoolExecutor,"
-                + "org.apache.ignite.raft.jraft.util.MetricScheduledThreadPoolExecutor,"
-                + "org.apache.ignite.raft.jraft.util.LogThreadPoolExecutor,"
-                + "org.apache.ignite.raft.jraft.util.LogScheduledThreadPoolExecutor,"
-                + "org.apache.ignite.raft.jraft.util.concurrent.MpscSingleThreadExecutor"
-        );
-    }
-
-    // Choose methods to instrument. Can be used as an alternative of @WithSpan or manual span building.
-    private static Map<String, String> customizeIncludedMethods(ConfigProperties configProperties) {
-        String existed = configProperties.getString("otel.instrumentation.methods.include");
-
-        Set<String> methods = Set.of(
-                "org.apache.ignite.internal.replicator.ReplicaService"
-                        + "[invoke,sendToReplica]",
-                "org.apache.ignite.internal.catalog.CatalogManagerImpl"
-                        + "[createTable,dropTable,addColumn,dropColumn,alterColumn,createIndex,dropIndex,createZone,dropZone,alterZone,"
-                        + "renameZone,saveUpdate,saveUpdateAndWaitForActivation]",
-                "org.apache.ignite.internal.distributionzones.DistributionZoneManager"
-                        + "[createZone,alterZone,dropZone,dataNodes,zoneIdAsyncInternal,directZoneIdInternal]"
-        );
-        String joined = String.join(";", methods);
-        Map<String, String> properties = new HashMap<>();
-        properties.put("otel.instrumentation.methods.include", existed == null ? joined : existed + ";" + joined);
-
-        properties.put("otel.instrumentation.methods.include", existed == null ? joined : existed + ";" + joined);
-        return properties;
     }
 }

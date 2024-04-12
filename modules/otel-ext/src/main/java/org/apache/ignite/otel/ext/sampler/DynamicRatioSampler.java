@@ -28,12 +28,12 @@ import java.util.List;
 /**
  * Dynamic ratio sampler.
  */
-public class DynamicRatioSampler implements Sampler, DynamicRatioSamplerMBean {
+public class DynamicRatioSampler implements Sampler {
     /** Min valid sampling rate with special meaning that span won't be created. */
     public static final double SAMPLING_RATE_NEVER = 0.0d;
 
     /** Max valid sampling rate with special meaning that span will be always created. */
-    public static final double SAMPLING_RATE_ALWAYS = 1.0d;
+    private static final double SAMPLING_RATE_ALWAYS = 1.0d;
 
     /** Current sampler configured to make sampling decision. */
     private volatile Sampler sampler;
@@ -47,7 +47,6 @@ public class DynamicRatioSampler implements Sampler, DynamicRatioSamplerMBean {
     }
 
     /** {@inheritDoc} */
-    @Override
     public synchronized void configure(double ratio, boolean parentBased) {
         Sampler s;
         if (ratio == SAMPLING_RATE_NEVER) {
