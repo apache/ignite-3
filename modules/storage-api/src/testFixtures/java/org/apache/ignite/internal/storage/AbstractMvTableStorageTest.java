@@ -130,20 +130,23 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
     private final CatalogService catalogService = mock(CatalogService.class);
 
-    protected final StorageIndexDescriptorSupplier indexDescriptorSupplier = indexId -> {
-        int catalogVersion = catalogService.latestCatalogVersion();
+    protected final StorageIndexDescriptorSupplier indexDescriptorSupplier = new StorageIndexDescriptorSupplier() {
+        @Override
+        public @Nullable StorageIndexDescriptor get(int indexId) {
+            int catalogVersion = catalogService.latestCatalogVersion();
 
-        CatalogIndexDescriptor indexDescriptor = catalogService.index(indexId, catalogVersion);
+            CatalogIndexDescriptor indexDescriptor = catalogService.index(indexId, catalogVersion);
 
-        if (indexDescriptor == null) {
-            return null;
+            if (indexDescriptor == null) {
+                return null;
+            }
+
+            CatalogTableDescriptor tableDescriptor = catalogService.table(indexDescriptor.tableId(), catalogVersion);
+
+            assertThat(tableDescriptor, is(notNullValue()));
+
+            return StorageIndexDescriptor.create(tableDescriptor, indexDescriptor);
         }
-
-        CatalogTableDescriptor tableDescriptor = catalogService.table(indexDescriptor.tableId(), catalogVersion);
-
-        assertThat(tableDescriptor, is(notNullValue()));
-
-        return StorageIndexDescriptor.create(tableDescriptor, indexDescriptor);
     };
 
     private class TestRow {
