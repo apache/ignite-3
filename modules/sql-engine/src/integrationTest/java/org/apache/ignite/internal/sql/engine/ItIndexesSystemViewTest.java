@@ -53,7 +53,7 @@ public class ItIndexesSystemViewTest extends BaseSqlIntegrationTest {
         sql(String.format("CREATE TABLE %S (ID INT, NAME VARCHAR, CONSTRAINT PK PRIMARY KEY USING HASH(ID, NAME));", TABLE_NAME));
 
         sql(createIndexSql("TEST_INDEX_HASH", TABLE_NAME, HASH.name(), COLUMNS));
-        sql(createIndexSql("TEST_INDEX_SORTED", TABLE_NAME, "TREE", COLUMNS_COLLATIONS));
+        sql(createIndexSql("TEST_INDEX_SORTED", TABLE_NAME, "SORTED", COLUMNS_COLLATIONS));
 
         IgniteImpl ignite = CLUSTER.aliveNode();
         CatalogManager catalogManager = ignite.catalogManager();
