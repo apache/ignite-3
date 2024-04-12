@@ -62,7 +62,8 @@ public final class MarshallerUtil {
                 return sizeInBytes((BigInteger) val);
 
             case DECIMAL:
-                return sizeInBytes((BigDecimal) val);
+                int unscaledSize = sizeInBytes((BigDecimal) val);
+                return 2 + unscaledSize;
 
             default:
                 throw new InvalidTypeException("Unsupported variable-length type: " + type);

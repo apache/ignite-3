@@ -55,6 +55,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -97,6 +99,7 @@ import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DynamicNode;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestFactory;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -704,6 +707,25 @@ public class KvMarshallerTest {
             assertEquals(key.col2, keyPart.col2);
             assertEquals(key.col4, keyPart.col4);
         }
+    }
+
+    @Test
+    public void testVariableLengthBigDecimalAndBytes() throws MarshallerException {
+        BigDecimal key = new BigDecimal("123456");
+        byte[] val = new byte[251];
+
+        Column[] keyCols = {new Column("KEY", NativeTypes.decimalOf(12, 3), false)};
+        Column[] valCols = {new Column("VAL", BYTES, false)};
+
+        SchemaDescriptor schema = new SchemaDescriptor(1, keyCols, valCols);
+
+        ReflectionMarshallerFactory factory = new ReflectionMarshallerFactory();
+        KvMarshaller<BigDecimal, byte[]> marshaller = factory.create(schema,
+                Mapper.of(BigDecimal.class, "KEY"), Mapper.of(byte[].class, "VAL"));
+
+        Row row = marshaller.marshal(key, val);
+        assertEquals(key, row.decimalValue(0).setScale(0, RoundingMode.UNNECESSARY));
+        assertArrayEquals(row.bytesValue(1), val);
     }
 
     /**
