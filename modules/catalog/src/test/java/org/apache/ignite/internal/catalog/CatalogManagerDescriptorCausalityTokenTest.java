@@ -79,7 +79,7 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
         assertEquals(INITIAL_CAUSALITY_TOKEN, defaultSchema.updateToken());
 
         // Default distribution zone must exists.
-        CatalogZoneDescriptor zone = Objects.requireNonNull(manager.catalog(manager.latestCatalogVersion())).defaultZone();
+        CatalogZoneDescriptor zone = Objects.requireNonNull(manager.catalog(manager.activeCatalogVersion(clock.nowLong()))).defaultZone();
 
         assertNotNull(zone);
 

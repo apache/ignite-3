@@ -189,7 +189,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertEquals(0, defaultSchema.indexes().length);
 
         // Default distribution zone must exists.
-        CatalogZoneDescriptor zone = defaultZone();
+        CatalogZoneDescriptor zone = latestActiveCatalog().defaultZone();
 
         assertEquals(DEFAULT_ZONE_NAME, zone.name());
         assertEquals(DEFAULT_PARTITION_COUNT, zone.partitions());
@@ -293,7 +293,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         // Validate newly created table
         assertEquals(TABLE_NAME, table.name());
 
-        CatalogZoneDescriptor defaultZone = defaultZone();
+        CatalogZoneDescriptor defaultZone = latestActiveCatalog().defaultZone();
 
         assertEquals(defaultZone.id(), table.zoneId());
 
@@ -1356,43 +1356,71 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     public void testSetDefaultZone() {
-        StorageProfileParams storageProfile = StorageProfileParams.builder()
-                .storageProfile("test_profile")
-                .build();
+        CatalogZoneDescriptor initialDefaultZone = latestActiveCatalog().defaultZone();
 
-        CatalogCommand createZoneCmd = CreateZoneCommand.builder()
-                .zoneName(TEST_ZONE_NAME)
-                .storageProfilesParams(List.of(storageProfile))
-                .build();
+        // Create new zone
+        {
+            StorageProfileParams storageProfile = StorageProfileParams.builder()
+                    .storageProfile("test_profile")
+                    .build();
 
-        assertThat(manager.execute(createZoneCmd), willCompleteSuccessfully());
+            CatalogCommand createZoneCmd = CreateZoneCommand.builder()
+                    .zoneName(TEST_ZONE_NAME)
+                    .storageProfilesParams(List.of(storageProfile))
+                    .build();
 
-        assertNotEquals(TEST_ZONE_NAME, defaultZone().name());
+            assertThat(manager.execute(createZoneCmd), willCompleteSuccessfully());
 
-        CatalogCommand setDefaultCmd = AlterZoneSetDefaultCatalogCommand.builder()
-                .zoneName(TEST_ZONE_NAME)
-                .build();
+            assertNotEquals(TEST_ZONE_NAME, latestActiveCatalog().defaultZone().name());
+        }
 
-        assertThat(manager.execute(setDefaultCmd), willCompleteSuccessfully());
-        assertEquals(TEST_ZONE_NAME, defaultZone().name());
+        // Set new zone as default.
+        {
+            CatalogCommand setDefaultCmd = AlterZoneSetDefaultCatalogCommand.builder()
+                    .zoneName(TEST_ZONE_NAME)
+                    .build();
 
-        assertThat(manager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
+            int prevVer = latestActiveCatalog().version();
 
-        Catalog catalog = Objects.requireNonNull(manager.catalog(manager.latestCatalogVersion()));
+            assertThat(manager.execute(setDefaultCmd), willCompleteSuccessfully());
+            assertEquals(TEST_ZONE_NAME, latestActiveCatalog().defaultZone().name());
 
-        CatalogTableDescriptor tab = Objects.requireNonNull(manager.table(TABLE_NAME, catalog.time()));
+            // Make sure history has not been affected.
+            Catalog prevCatalog = Objects.requireNonNull(manager.catalog(prevVer));
+            assertNotEquals(TEST_ZONE_NAME, prevCatalog.defaultZone().name());
+            assertNotEquals(latestActiveCatalog().defaultZone().id(), prevCatalog.defaultZone().id());
+        }
 
-        assertEquals(defaultZone().id(), tab.zoneId());
+        // Create table in the new zone.
+        {
+            assertThat(manager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
+
+            Catalog catalog = latestActiveCatalog();
+            CatalogTableDescriptor tab = Objects.requireNonNull(manager.table(TABLE_NAME, catalog.time()));
+
+            assertEquals(catalog.defaultZone().id(), tab.zoneId());
+        }
 
         // Setting default zone that is already the default changes nothing.
-        int lastVer = catalog.version();
+        {
+            int lastVer =  manager.latestCatalogVersion();
 
-        setDefaultCmd = AlterZoneSetDefaultCatalogCommand.builder()
-                .zoneName(TEST_ZONE_NAME)
-                .build();
+            CatalogCommand setDefaultCmd = AlterZoneSetDefaultCatalogCommand.builder()
+                    .zoneName(TEST_ZONE_NAME)
+                    .build();
 
-        assertThat(manager.execute(setDefaultCmd), willCompleteSuccessfully());
-        assertEquals(lastVer, manager.latestCatalogVersion());
+            assertThat(manager.execute(setDefaultCmd), willCompleteSuccessfully());
+            assertEquals(lastVer, manager.latestCatalogVersion());
+        }
+
+        // Drop old default zone.
+        {
+            CatalogCommand dropCommand = DropZoneCommand.builder()
+                    .zoneName(initialDefaultZone.name())
+                    .build();
+
+            assertThat(manager.execute(dropCommand), willCompleteSuccessfully());
+        }
     }
 
     @Test
@@ -1434,23 +1462,24 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     public void testDropDefaultZoneIsRejected() {
-        // Drop initial default zone.
+        // Drop default zone is rejected.
         {
+            Catalog catalog = latestActiveCatalog();
             CatalogCommand dropCommand = DropZoneCommand.builder()
-                    .zoneName(defaultZone().name())
+                    .zoneName(catalog.defaultZone().name())
                     .build();
 
-            int ver = manager.latestCatalogVersion();
+            int ver = catalog.version();
 
             assertThat(manager.execute(dropCommand), willThrow(DistributionZoneCantBeDroppedValidationException.class));
 
             assertEquals(ver, manager.latestCatalogVersion());
         }
 
-        // Rename initial zone and drop.
+        // Renamed zone deletion is also rejected.
         {
             CatalogCommand renameCommand = RenameZoneCommand.builder()
-                    .zoneName(defaultZone().name())
+                    .zoneName(latestActiveCatalog().defaultZone().name())
                     .newZoneName(TEST_ZONE_NAME)
                     .build();
 
@@ -1517,7 +1546,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
     @Test
     public void testRenameDefaultZone() {
-        CatalogZoneDescriptor defaultZone = defaultZone();
+        CatalogZoneDescriptor defaultZone = latestActiveCatalog().defaultZone();
 
         assertNotEquals(TEST_ZONE_NAME, defaultZone.name());
 
@@ -1530,13 +1559,13 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertThat(manager.execute(renameZoneCmd), willCompleteSuccessfully());
 
         assertEquals(ver + 1, manager.latestCatalogVersion());
-        assertEquals(TEST_ZONE_NAME, defaultZone().name());
-        assertEquals(defaultZone.id(), defaultZone().id());
+        assertEquals(TEST_ZONE_NAME, latestActiveCatalog().defaultZone().name());
+        assertEquals(defaultZone.id(), latestActiveCatalog().defaultZone().id());
     }
 
     @Test
     public void testDefaultZone() {
-        CatalogZoneDescriptor defaultZone = defaultZone();
+        CatalogZoneDescriptor defaultZone = latestActiveCatalog().defaultZone();
 
         // Try to create zone with default zone name.
         CatalogCommand cmd = CreateZoneCommand.builder()
@@ -2623,7 +2652,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         assertThat(manager.execute(startBuildingIndexCommand(indexId)), willCompleteSuccessfully());
 
-        Catalog latestCatalog = manager.catalog(manager.latestCatalogVersion());
+        Catalog latestCatalog = manager.catalog(manager.activeCatalogVersion(clock.nowLong()));
 
         assertThat(latestCatalog.version(), greaterThan(expCreationVersion));
 
@@ -2651,7 +2680,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
             createSomeTable(TABLE_NAME + 1);
         }
 
-        Catalog latestCatalog = manager.catalog(manager.latestCatalogVersion());
+        Catalog latestCatalog = manager.catalog(manager.activeCatalogVersion(clock.nowLong()));
 
         assertThat(latestCatalog.version(), greaterThan(expCreationVersion));
 
@@ -2673,7 +2702,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         assertThat(manager.execute(simpleTable(TABLE_NAME_2)), willCompleteSuccessfully());
 
         long timestamp = clock.nowLong();
-        Catalog catalog = manager.catalog(manager.latestCatalogVersion());
+        Catalog catalog = manager.catalog(manager.activeCatalogVersion(clock.nowLong()));
 
         // Add more updates
         assertThat(manager.execute(simpleIndex(TABLE_NAME, INDEX_NAME)), willCompleteSuccessfully());
@@ -2844,11 +2873,9 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         };
     }
 
-    private CatalogZoneDescriptor defaultZone() {
-        Catalog catalog = manager.catalog(manager.latestCatalogVersion());
+    private Catalog latestActiveCatalog() {
+        Catalog catalog = manager.catalog(manager.activeCatalogVersion(clock.nowLong()));
 
-        Objects.requireNonNull(catalog);
-
-        return catalog.defaultZone();
+        return Objects.requireNonNull(catalog);
     }
 }
