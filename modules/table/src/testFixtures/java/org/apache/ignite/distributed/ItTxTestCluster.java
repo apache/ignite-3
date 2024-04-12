@@ -426,7 +426,7 @@ public class ItTxTestCluster {
 
             var resourcesRegistry = new RemotelyTriggeredResourceRegistry();
 
-            TransactionInflights transactionInflights = new TransactionInflights(placementDriver);
+            TransactionInflights transactionInflights = new TransactionInflights(placementDriver, clockService);
 
             txInflights.put(node.name(), transactionInflights);
 
@@ -984,7 +984,7 @@ public class ItTxTestCluster {
     private void initializeClientTxComponents() {
         RemotelyTriggeredResourceRegistry resourceRegistry = new RemotelyTriggeredResourceRegistry();
 
-        clientTransactionInflights = new TransactionInflights(placementDriver);
+        clientTransactionInflights = new TransactionInflights(placementDriver, clientClockService);
 
         clientTxManager = new TxManagerImpl(
                 "client",
