@@ -23,17 +23,13 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.CONSTRAINT_VIOLATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
 import java.util.stream.Stream;
 import org.apache.calcite.runtime.CalciteContextException;
-import org.apache.calcite.sql.validate.SqlValidatorException;
 import org.apache.calcite.util.Static;
-import org.apache.ignite.internal.sql.engine.util.IgniteResource;
 import org.apache.ignite.lang.CursorClosedException;
 import org.apache.ignite.sql.NoRowSetExpectedException;
 import org.apache.ignite.sql.SqlException;
