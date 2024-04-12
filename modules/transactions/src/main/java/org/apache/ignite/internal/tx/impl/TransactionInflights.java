@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_PRIMARY_REPLICA_EXPIRED_ERR;
 
 import java.util.Collection;
@@ -254,15 +255,17 @@ public class TransactionInflights {
                     finishInProgressFuture.completeExceptionally(finishException);
                 }
             } else {
-                if (commit && readyToFinishException instanceof PrimaryReplicaExpiredException) {
+                Throwable unwrappedReadyToFinishException = unwrapCause(readyToFinishException);
+
+                if (commit && unwrappedReadyToFinishException instanceof PrimaryReplicaExpiredException) {
                     finishInProgressFuture.completeExceptionally(new MismatchingTransactionOutcomeException(
                             TX_PRIMARY_REPLICA_EXPIRED_ERR,
                             "Failed to commit the transaction.",
                             new TransactionResult(ABORTED, null),
-                            readyToFinishException
+                            unwrappedReadyToFinishException
                     ));
                 } else {
-                    finishInProgressFuture.completeExceptionally(readyToFinishException);
+                    finishInProgressFuture.completeExceptionally(unwrappedReadyToFinishException);
                 }
             }
         }
