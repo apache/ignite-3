@@ -198,7 +198,6 @@ mock-server-netty = { module = "org.mock-server:mockserver-netty", version.ref =
 mock-server-junit = { module = "org.mock-server:mockserver-junit-jupiter", version.ref = "mockServer" }
 
 msgpack-core = { module = "org.msgpack:msgpack-core", version.ref = "msgpack" }
-msgpack-jackson = { module = "org.msgpack:jackson-dataformat-msgpack", version.ref = "msgpack" }
 
 netty-common = { module = "io.netty:netty-common", version.ref = "netty" }
 netty-buffer = { module = "io.netty:netty-buffer", version.ref = "netty" }

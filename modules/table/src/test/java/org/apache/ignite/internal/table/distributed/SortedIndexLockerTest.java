@@ -51,10 +51,13 @@ class SortedIndexLockerTest extends BaseIgniteAbstractTest {
 
     @Test
     void takingInsertLocksOnDestroyedIndexStorageYieldsNullLock() {
-        StorageSortedIndexColumnDescriptor column = new StorageSortedIndexColumnDescriptor("c1", NativeTypes.INT32, false, true);
         TestSortedIndexStorage indexStorage = new TestSortedIndexStorage(
                 PARTITION_ID,
-                new StorageSortedIndexDescriptor(1, List.of(column))
+                new StorageSortedIndexDescriptor(
+                        1,
+                        List.of(new StorageSortedIndexColumnDescriptor("c1", NativeTypes.INT32, false, true)),
+                        false
+                )
         );
         indexStorage.destroy();
 

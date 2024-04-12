@@ -171,8 +171,14 @@ public abstract class AbstractStorageEngineTest extends BaseMvStoragesTest {
             int sortedIndexId = numTables + i * 2;
             int hashIndexId = sortedIndexId + 1;
 
-            indexDescriptorMap.put(sortedIndexId, new StorageSortedIndexDescriptor(sortedIndexId, List.of(sortedIndexColumnDescriptor)));
-            indexDescriptorMap.put(hashIndexId, new StorageHashIndexDescriptor(hashIndexId, List.of(hashIndexColumnDescriptor)));
+            indexDescriptorMap.put(
+                    sortedIndexId,
+                    new StorageSortedIndexDescriptor(sortedIndexId, List.of(sortedIndexColumnDescriptor), false)
+            );
+            indexDescriptorMap.put(
+                    hashIndexId,
+                    new StorageHashIndexDescriptor(hashIndexId, List.of(hashIndexColumnDescriptor), false)
+            );
         }
 
         when(indexDescriptorSupplier.get(anyInt()))

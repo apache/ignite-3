@@ -50,7 +50,7 @@ import org.apache.ignite.network.ClusterNodeResolver;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Placement driver.
+ * Helper class that allows to resolve transaction state mainly for the purpose of write intent resolution.
  */
 public class TransactionStateResolver {
     /** Tx messages factory. */

@@ -99,6 +99,8 @@ public class StorageSortedIndexDescriptor implements StorageIndexDescriptor {
 
     private final BinaryTupleSchema binaryTupleSchema;
 
+    private final boolean pk;
+
     /**
      * Constructor.
      *
@@ -106,7 +108,7 @@ public class StorageSortedIndexDescriptor implements StorageIndexDescriptor {
      * @param index Catalog index descriptor.
      */
     public StorageSortedIndexDescriptor(CatalogTableDescriptor table, CatalogSortedIndexDescriptor index) {
-        this(index.id(), extractIndexColumnsConfiguration(table, index));
+        this(index.id(), extractIndexColumnsConfiguration(table, index), table.primaryKeyIndexId() == index.id());
     }
 
     /**
@@ -114,11 +116,13 @@ public class StorageSortedIndexDescriptor implements StorageIndexDescriptor {
      *
      * @param indexId Index ID.
      * @param columnDescriptors Column descriptors.
+     * @param pk Primary index flag.
      */
-    public StorageSortedIndexDescriptor(int indexId, List<StorageSortedIndexColumnDescriptor> columnDescriptors) {
+    public StorageSortedIndexDescriptor(int indexId, List<StorageSortedIndexColumnDescriptor> columnDescriptors, boolean pk) {
         this.id = indexId;
         this.columns = List.copyOf(columnDescriptors);
         this.binaryTupleSchema = createSchema(columns);
+        this.pk = pk;
     }
 
     private static BinaryTupleSchema createSchema(List<StorageSortedIndexColumnDescriptor> columns) {
@@ -139,6 +143,11 @@ public class StorageSortedIndexDescriptor implements StorageIndexDescriptor {
         return columns;
     }
 
+    @Override
+    public boolean isPk() {
+        return pk;
+    }
+
     /**
      * Returns a {@code BinaryTupleSchema} that corresponds to the index configuration.
      */
@@ -150,7 +159,7 @@ public class StorageSortedIndexDescriptor implements StorageIndexDescriptor {
             CatalogTableDescriptor table,
             CatalogSortedIndexDescriptor index
     ) {
-        assert table.id() == index.tableId() : "tableId=" + table.id() + ", indexTableId=" + index.tableId();
+        assert table.id() == index.tableId() : "indexId=" + index.id() + ", tableId=" + table.id() + ", indexTableId=" + index.tableId();
 
         return index.columns().stream()
                 .map(columnDescriptor -> {
@@ -158,7 +167,7 @@ public class StorageSortedIndexDescriptor implements StorageIndexDescriptor {
 
                     CatalogTableColumnDescriptor column = table.column(columnName);
 
-                    assert column != null : columnName;
+                    assert column != null : "indexId=" + index.id() + ", columnName=" + columnName;
 
                     CatalogColumnCollation collation = columnDescriptor.collation();
 

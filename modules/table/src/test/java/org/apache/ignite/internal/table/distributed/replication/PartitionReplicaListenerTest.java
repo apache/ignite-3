@@ -480,13 +480,21 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         pkStorageSupplier = new Lazy<>(() -> new TableSchemaAwareIndexStorage(
                 pkIndexId,
-                new TestHashIndexStorage(PART_ID, mock(StorageHashIndexDescriptor.class)),
+                new TestHashIndexStorage(
+                        PART_ID,
+                        new StorageHashIndexDescriptor(pkIndexId, List.of(), true)
+                ),
                 row2Tuple
         ));
 
-        SortedIndexStorage indexStorage = new TestSortedIndexStorage(PART_ID, new StorageSortedIndexDescriptor(sortedIndexId, List.of(
-                new StorageSortedIndexColumnDescriptor("intVal", NativeTypes.INT32, false, true)
-        )));
+        SortedIndexStorage indexStorage = new TestSortedIndexStorage(
+                PART_ID,
+                new StorageSortedIndexDescriptor(
+                        sortedIndexId,
+                        List.of(new StorageSortedIndexColumnDescriptor("intVal", NativeTypes.INT32, false, true)),
+                        false
+                )
+        );
 
         // 2 is the index of "intVal" in the list of all columns.
         ColumnsExtractor columnsExtractor = BinaryRowConverter.columnsExtractor(schemaDescriptor, 2);
@@ -495,9 +503,14 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         hashIndexStorage = new TableSchemaAwareIndexStorage(
                 hashIndexId,
-                new TestHashIndexStorage(PART_ID, new StorageHashIndexDescriptor(hashIndexId, List.of(
-                        new StorageHashIndexColumnDescriptor("intVal", NativeTypes.INT32, false)
-                ))),
+                new TestHashIndexStorage(
+                        PART_ID,
+                        new StorageHashIndexDescriptor(
+                                hashIndexId,
+                                List.of(new StorageHashIndexColumnDescriptor("intVal", NativeTypes.INT32, false)),
+                                false
+                        )
+                ),
                 columnsExtractor
         );
 

@@ -103,10 +103,17 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         int sortedIndexId = 3;
         int hashIndexId = 4;
 
-        pkInnerStorage = new TestHashIndexStorage(PARTITION_ID, new StorageHashIndexDescriptor(pkIndexId, List.of(
-                new StorageHashIndexColumnDescriptor("INTKEY", NativeTypes.INT32, false),
-                new StorageHashIndexColumnDescriptor("STRKEY", NativeTypes.STRING, false)
-        )));
+        pkInnerStorage = new TestHashIndexStorage(
+                PARTITION_ID,
+                new StorageHashIndexDescriptor(
+                        pkIndexId,
+                        List.of(
+                                new StorageHashIndexColumnDescriptor("INTKEY", NativeTypes.INT32, false),
+                                new StorageHashIndexColumnDescriptor("STRKEY", NativeTypes.STRING, false)
+                        ),
+                        true
+                )
+        );
 
         TableSchemaAwareIndexStorage pkStorage = new TableSchemaAwareIndexStorage(
                 pkIndexId,
@@ -114,10 +121,17 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
                 PK_INDEX_BINARY_TUPLE_CONVERTER
         );
 
-        sortedInnerStorage = new TestSortedIndexStorage(PARTITION_ID, new StorageSortedIndexDescriptor(sortedIndexId, List.of(
-                new StorageSortedIndexColumnDescriptor("INTVAL", NativeTypes.INT32, false, true),
-                new StorageSortedIndexColumnDescriptor("STRVAL", NativeTypes.STRING, false, true)
-        )));
+        sortedInnerStorage = new TestSortedIndexStorage(
+                PARTITION_ID,
+                new StorageSortedIndexDescriptor(
+                        sortedIndexId,
+                        List.of(
+                                new StorageSortedIndexColumnDescriptor("INTVAL", NativeTypes.INT32, false, true),
+                                new StorageSortedIndexColumnDescriptor("STRVAL", NativeTypes.STRING, false, true)
+                        ),
+                        false
+                )
+        );
 
         TableSchemaAwareIndexStorage sortedIndexStorage = new TableSchemaAwareIndexStorage(
                 sortedIndexId,
@@ -125,10 +139,17 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
                 USER_INDEX_BINARY_TUPLE_CONVERTER
         );
 
-        hashInnerStorage = new TestHashIndexStorage(PARTITION_ID, new StorageHashIndexDescriptor(hashIndexId, List.of(
-                new StorageHashIndexColumnDescriptor("INTVAL", NativeTypes.INT32, false),
-                new StorageHashIndexColumnDescriptor("STRVAL", NativeTypes.STRING, false)
-        )));
+        hashInnerStorage = new TestHashIndexStorage(
+                PARTITION_ID,
+                new StorageHashIndexDescriptor(
+                        hashIndexId,
+                        List.of(
+                                new StorageHashIndexColumnDescriptor("INTVAL", NativeTypes.INT32, false),
+                                new StorageHashIndexColumnDescriptor("STRVAL", NativeTypes.STRING, false)
+                        ),
+                        false
+                )
+        );
 
         TableSchemaAwareIndexStorage hashIndexStorage = new TableSchemaAwareIndexStorage(
                 hashIndexId,
