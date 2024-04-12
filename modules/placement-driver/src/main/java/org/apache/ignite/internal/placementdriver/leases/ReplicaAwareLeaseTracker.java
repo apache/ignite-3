@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.placementdriver.leases;
 
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.event.AbstractEventProducer;
@@ -117,5 +118,15 @@ public class ReplicaAwareLeaseTracker extends AbstractEventProducer<PrimaryRepli
     @Override
     public @Nullable ReplicaMeta currentLease(ReplicationGroupId groupId) {
         return delegate.currentLease(groupId);
+    }
+
+    @Override
+    public ReplicaMeta getLeaseMeta(ReplicationGroupId grpId) {
+        return delegate.getLeaseMeta(grpId);
+    }
+
+    @Override
+    public CompletableFuture<Void> addSubgroups(ZonePartitionId zoneId, Long enlistmentConsistencyToken, Set<ReplicationGroupId> subGrps) {
+        return delegate.addSubgroups(zoneId, enlistmentConsistencyToken, subGrps);
     }
 }
