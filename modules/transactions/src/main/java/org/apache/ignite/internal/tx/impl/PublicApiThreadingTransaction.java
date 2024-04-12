@@ -28,6 +28,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.thread.PublicApiThreading;
+import org.apache.ignite.internal.tracing.TraceSpan;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.wrapper.Wrapper;
@@ -129,5 +130,10 @@ public class PublicApiThreadingTransaction implements InternalTransaction, Wrapp
     @Override
     public <T> T unwrap(Class<T> classToUnwrap) {
         return classToUnwrap.cast(transaction);
+    }
+
+    @Override
+    public TraceSpan parentSpan() {
+        return transaction.parentSpan();
     }
 }

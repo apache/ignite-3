@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table;
 
 import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertToPublicFuture;
+import static org.apache.ignite.internal.tracing.TracingManager.span;
 
 import java.util.ArrayList;
 import java.util.BitSet;
@@ -44,7 +45,6 @@ import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.internal.table.criteria.SqlRowProjection;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.thread.PublicApiThreading;
-import org.apache.ignite.internal.tracing.TracingManager;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.sql.IgniteSql;
@@ -103,7 +103,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<R> getAsync(@Nullable Transaction tx, R keyRec) {
-        return TracingManager.span("RecordViewImpl.getAsync", span -> {
+        return span("RecordViewImpl.getAsync", span -> {
             Objects.requireNonNull(keyRec);
 
             return doOperation(tx, (schemaVersion) -> {
@@ -123,7 +123,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
     public CompletableFuture<List<R>> getAllAsync(@Nullable Transaction tx, Collection<R> keyRecs) {
         Objects.requireNonNull(keyRecs);
 
-        return TracingManager.span("RecordViewImpl.getAllAsync", (span) -> {
+        return span("RecordViewImpl.getAllAsync", (span) -> {
             return doOperation(tx, (schemaVersion) -> {
                 return tbl.getAll(marshalKeys(keyRecs, schemaVersion), (InternalTransaction) tx)
                         .thenApply(binaryRows -> unmarshal(binaryRows, false, schemaVersion, true));
@@ -160,7 +160,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
     public CompletableFuture<Void> upsertAsync(@Nullable Transaction tx, R rec) {
         Objects.requireNonNull(rec);
 
-        return TracingManager.span("RecordViewImpl.upsertAsync", (span) -> {
+        return span("RecordViewImpl.upsertAsync", (span) -> {
             return doOperation(tx, (schemaVersion) -> {
                 BinaryRowEx keyRow = marshal(rec, schemaVersion);
 
@@ -180,7 +180,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
     public CompletableFuture<Void> upsertAllAsync(@Nullable Transaction tx, Collection<R> recs) {
         Objects.requireNonNull(recs);
 
-        return TracingManager.span("RecordViewImpl.upsertAllAsync", (span) -> {
+        return span("RecordViewImpl.upsertAllAsync", (span) -> {
             return doOperation(tx, (schemaVersion) -> {
                 return tbl.upsertAll(marshal(recs, schemaVersion), (InternalTransaction) tx);
             });
@@ -198,7 +198,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
     public CompletableFuture<R> getAndUpsertAsync(@Nullable Transaction tx, R rec) {
         Objects.requireNonNull(rec);
 
-        return TracingManager.span("RecordViewImpl.getAndUpsertAsync", (span) -> {
+        return span("RecordViewImpl.getAndUpsertAsync", (span) -> {
             return doOperation(tx, (schemaVersion) -> {
                 BinaryRowEx keyRow = marshal(rec, schemaVersion);
 
@@ -218,7 +218,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
     public CompletableFuture<Boolean> insertAsync(@Nullable Transaction tx, R rec) {
         Objects.requireNonNull(rec);
 
-        return TracingManager.span("RecordViewImpl.insertAsync", (span) -> {
+        return span("RecordViewImpl.insertAsync", (span) -> {
             return doOperation(tx, (schemaVersion) -> {
                 BinaryRowEx keyRow = marshal(rec, schemaVersion);
 
@@ -238,7 +238,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
     public CompletableFuture<List<R>> insertAllAsync(@Nullable Transaction tx, Collection<R> recs) {
         Objects.requireNonNull(recs);
 
-        return TracingManager.span("RecordViewImpl.insertAllAsync", (span) -> {
+        return span("RecordViewImpl.insertAllAsync", (span) -> {
             return doOperation(tx, (schemaVersion) -> {
                 Collection<BinaryRowEx> rows = marshal(recs, schemaVersion);
 
@@ -265,7 +265,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
     public CompletableFuture<Boolean> replaceAsync(@Nullable Transaction tx, R rec) {
         Objects.requireNonNull(rec);
 
-        return TracingManager.span("RecordViewImpl.replaceAsync", (span) -> {
+        return span("RecordViewImpl.replaceAsync", (span) -> {
             return doOperation(tx, (schemaVersion) -> {
                 BinaryRowEx newRow = marshal(rec, schemaVersion);
 
@@ -280,7 +280,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
         Objects.requireNonNull(oldRec);
         Objects.requireNonNull(newRec);
 
-        return TracingManager.span("RecordViewImpl.replaceAsync", (span) -> {
+        return span("RecordViewImpl.replaceAsync", (span) -> {
             return doOperation(tx, (schemaVersion) -> {
                 BinaryRowEx oldRow = marshal(oldRec, schemaVersion);
                 BinaryRowEx newRow = marshal(newRec, schemaVersion);
@@ -301,7 +301,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
     public CompletableFuture<R> getAndReplaceAsync(@Nullable Transaction tx, R rec) {
         Objects.requireNonNull(rec);
 
-        return TracingManager.span("RecordViewImpl.getAndReplaceAsync", (span) -> {
+        return span("RecordViewImpl.getAndReplaceAsync", (span) -> {
             return doOperation(tx, (schemaVersion) -> {
                 BinaryRowEx row = marshal(rec, schemaVersion);
 
@@ -321,7 +321,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
     public CompletableFuture<Boolean> deleteAsync(@Nullable Transaction tx, R keyRec) {
         Objects.requireNonNull(keyRec);
 
-        return TracingManager.span("RecordViewImpl.deleteAsync", (span) -> {
+        return span("RecordViewImpl.deleteAsync", (span) -> {
             return doOperation(tx, (schemaVersion) -> {
                 BinaryRowEx row = marshalKey(keyRec, schemaVersion);
 
@@ -341,7 +341,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
     public CompletableFuture<Boolean> deleteExactAsync(@Nullable Transaction tx, R keyRec) {
         Objects.requireNonNull(keyRec);
 
-        return TracingManager.span("RecordViewImpl.deleteAsync", (span) -> {
+        return span("RecordViewImpl.deleteAsync", (span) -> {
             return doOperation(tx, (schemaVersion) -> {
                 BinaryRowEx row = marshal(keyRec, schemaVersion);
 
@@ -361,7 +361,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
     public CompletableFuture<R> getAndDeleteAsync(@Nullable Transaction tx, R keyRec) {
         Objects.requireNonNull(keyRec);
 
-        return TracingManager.span("RecordViewImpl.getAndDeleteAsync", (span) -> {
+        return span("RecordViewImpl.getAndDeleteAsync", (span) -> {
             return doOperation(tx, (schemaVersion) -> {
                 BinaryRowEx row = marshalKey(keyRec, schemaVersion);
 
@@ -381,11 +381,12 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
     public CompletableFuture<List<R>> deleteAllAsync(@Nullable Transaction tx, Collection<R> keyRecs) {
         Objects.requireNonNull(keyRecs);
 
-        return TracingManager.span("RecordViewImpl.deleteAllAsync", (span) -> {
+        return span("RecordViewImpl.deleteAllAsync", (span) -> {
             return doOperation(tx, (schemaVersion) -> {
                 Collection<BinaryRowEx> rows = marshalKeys(keyRecs, schemaVersion);
 
-                return tbl.deleteAll(rows, (InternalTransaction) tx).thenApply(binaryRows -> unmarshal(binaryRows, true, schemaVersion, false));
+                return tbl.deleteAll(rows, (InternalTransaction) tx).thenApply(binaryRows ->
+                        unmarshal(binaryRows, true, schemaVersion, false));
             });
         });
     }
@@ -401,7 +402,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
     public CompletableFuture<List<R>> deleteAllExactAsync(@Nullable Transaction tx, Collection<R> recs) {
         Objects.requireNonNull(recs);
 
-        return TracingManager.span("RecordViewImpl.deleteAllExactAsync", (span) -> {
+        return span("RecordViewImpl.deleteAllExactAsync", (span) -> {
             return doOperation(tx, (schemaVersion) -> {
                 Collection<BinaryRowEx> rows = marshal(recs, schemaVersion);
 
@@ -599,7 +600,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
     public CompletableFuture<Void> streamData(Publisher<DataStreamerItem<R>> publisher, @Nullable DataStreamerOptions options) {
         Objects.requireNonNull(publisher);
 
-        return TracingManager.span("RecordViewImpl.streamData", (span) -> {
+        return span("RecordViewImpl.streamData", (span) -> {
             // Taking latest schema version for marshaller here because it's only used to calculate colocation hash, and colocation
             // columns never change (so they are the same for all schema versions of the table),
             var partitioner = new PojoStreamerPartitionAwarenessProvider<>(
@@ -609,15 +610,15 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
             );
 
             StreamerBatchSender<R, Integer> batchSender = (partitionId, items, deleted) ->
-                    PublicApiThreading.execUserAsyncOperation(() ->withSchemaSync(
+                    PublicApiThreading.execUserAsyncOperation(() -> withSchemaSync(
                             null,
                             schemaVersion -> this.tbl.updateAll(marshal(items, schemaVersion, deleted), deleted, partitionId)
                 ));
 
             CompletableFuture<Void> future = DataStreamer.streamData(
-                publisher, options, batchSender, partitioner, tbl.streamerFlushExecutor());
+                    publisher, options, batchSender, partitioner, tbl.streamerFlushExecutor());
 
-        return convertToPublicFuture(future);
+            return convertToPublicFuture(future);
         });
     }
 

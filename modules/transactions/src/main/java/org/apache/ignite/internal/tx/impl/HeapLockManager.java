@@ -46,7 +46,6 @@ import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.tracing.TracingManager;
 import org.apache.ignite.internal.tx.DeadlockPreventionPolicy;
 import org.apache.ignite.internal.tx.Lock;
 import org.apache.ignite.internal.tx.LockException;
@@ -166,7 +165,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
 
     @Override
     public CompletableFuture<Lock> acquire(UUID txId, LockKey lockKey, LockMode lockMode) {
-        return TracingManager.span("HeapLockManager.acquire", (span) -> {
+        return span("HeapLockManager.acquire", (span) -> {
             span.addAttribute("lockKey", lockKey::toString);
             span.addAttribute("mode", lockMode::toString);
 

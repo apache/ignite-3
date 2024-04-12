@@ -50,6 +50,7 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -101,7 +102,6 @@ import org.apache.ignite.internal.table.distributed.replication.request.SingleRo
 import org.apache.ignite.internal.table.distributed.replication.request.SwapRowReplicaRequest;
 import org.apache.ignite.internal.table.distributed.replicator.action.RequestType;
 import org.apache.ignite.internal.tracing.TraceSpan;
-import org.apache.ignite.internal.tracing.TracingManager;
 import org.apache.ignite.internal.tx.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.LockException;
@@ -359,20 +359,21 @@ public class InternalTableImpl implements InternalTable {
             }
 
             return postEnlist(fut, false, actualTx, implicit).handle((r, e) -> {
-            if (e != null) {
-                if (implicit) {
-                    long ts = (txStartTs == null) ? actualTx.startTimestamp().getPhysical() : txStartTs;
+                if (e != null) {
+                    if (implicit) {
+                        long ts = (txStartTs == null) ? actualTx.startTimestamp().getPhysical() : txStartTs;
 
-                    if (exceptionAllowsTxRetry(e) && coarseCurrentTimeMillis() - ts < implicitTransactionTimeout) {
-                        return enlistInTx(row, null, fac, noWriteChecker, ts);
+                        if (exceptionAllowsTxRetry(e) && coarseCurrentTimeMillis() - ts < implicitTransactionTimeout) {
+                            return enlistInTx(row, null, fac, noWriteChecker, ts);
+                        }
                     }
+
+                    throw wrapReplicationException(e);
                 }
 
-                throw wrapReplicationException(e);
-            }
-
-            return completedFuture(r);
-        }).thenCompose(x -> x);
+                return completedFuture(r);
+            }).thenCompose(x -> x);
+        });
     }
 
     /**
@@ -395,7 +396,6 @@ public class InternalTableImpl implements InternalTable {
             BiPredicate<T, ReplicaRequest> noOpChecker
     ) {
         return enlistInTx(keyRows, tx, fac, reducer, noOpChecker, null);
-        });
     }
 
     /**
@@ -419,7 +419,7 @@ public class InternalTableImpl implements InternalTable {
             BiPredicate<T, ReplicaRequest> noOpChecker,
             @Nullable Long txStartTs
     ) {
-        return TracingManager.span("InternalTableImpl.enlistInTx", (span) -> {
+        return span("InternalTableImpl.enlistInTx", (span) -> {
             // Check whether proposed tx is read-only. Complete future exceptionally if true.
             // Attempting to enlist a read-only in a read-write transaction does not corrupt the transaction itself,
             // thus read-write transaction won't be rolled back automatically - it's up to the user or outer engine.
@@ -475,20 +475,20 @@ public class InternalTableImpl implements InternalTable {
             CompletableFuture<T> fut = reducer.apply(rowBatchByPartitionId.values());
 
             return postEnlist(fut, implicit && !singlePart, actualTx, full).handle((r, e) -> {
-            if (e != null) {
-                if (implicit) {
-                    long ts = (txStartTs == null) ? actualTx.startTimestamp().getPhysical() : txStartTs;
+                if (e != null) {
+                    if (implicit) {
+                        long ts = (txStartTs == null) ? actualTx.startTimestamp().getPhysical() : txStartTs;
 
-                    if (exceptionAllowsTxRetry(e) && coarseCurrentTimeMillis() - ts < implicitTransactionTimeout) {
-                        return enlistInTx(keyRows, null, fac, reducer, noOpChecker, ts);
+                        if (exceptionAllowsTxRetry(e) && coarseCurrentTimeMillis() - ts < implicitTransactionTimeout) {
+                            return enlistInTx(keyRows, null, fac, reducer, noOpChecker, ts);
+                        }
                     }
+
+                    throw wrapReplicationException(e);
                 }
 
-                throw wrapReplicationException(e);
-            }
-
-            return completedFuture(r);
-        }).thenCompose(x -> x);
+                return completedFuture(r);
+            }).thenCompose(x -> x);
         });
     }
 
@@ -587,7 +587,7 @@ public class InternalTableImpl implements InternalTable {
             boolean full,
             @Nullable BiPredicate<R, ReplicaRequest> noWriteChecker
     ) {
-        return TracingManager.span("InternalTableImpl.enlistWithRetry", (span) -> {
+        return span("InternalTableImpl.enlistWithRetry", (span) -> {
             span.addAttribute("partId", () -> Objects.toString(partId));
             span.addAttribute("full", () -> Objects.toString(full));
 
@@ -621,7 +621,7 @@ public class InternalTableImpl implements InternalTable {
     ) {
         assert !tx.isReadOnly() : format("Tracking invoke is available only for read-write transactions [tx={}].", tx);
 
-        return TracingManager.span("InternalTableImpl.trackingInvoke", (span) -> {
+        return span("InternalTableImpl.trackingInvoke", (span) -> {
             ReplicaRequest request = mapFunc.apply(primaryReplicaAndConsistencyToken.get2());
 
             boolean write = request instanceof SingleRowReplicaRequest && ((SingleRowReplicaRequest) request).requestType() != RW_GET
@@ -652,24 +652,24 @@ public class InternalTableImpl implements InternalTable {
 
                     return res;
                 }).handle((r, e) -> {
-                if (e != null) {
-                    if (retryOnLockConflict > 0&& e.getCause() instanceof LockException) {
-                        transactionInflights.removeInflight(tx.id()); // Will be retried.
-    return trackingInvoke(
-                                tx,
-                                partId,
-                                ignored -> request,
-                                full,
-                                primaryReplicaAndConsistencyToken,
-                                noWriteChecker,
-                                retryOnLockConflict - 1
-                        );
+                    if (e != null) {
+                        if (retryOnLockConflict > 0 && e.getCause() instanceof LockException) {
+                            transactionInflights.removeInflight(tx.id()); // Will be retried.
+                            return trackingInvoke(
+                                    tx,
+                                    partId,
+                                    ignored -> request,
+                                    full,
+                                    primaryReplicaAndConsistencyToken,
+                                    noWriteChecker,
+                                    retryOnLockConflict - 1
+                            );
+                        }
+
+                        ExceptionUtils.sneakyThrow(e);
                     }
 
-                    ExceptionUtils.sneakyThrow(e);
-                    }
-
-                return completedFuture(r);
+                    return completedFuture(r);
                 }).thenCompose(x -> x);
             } else {
                 return replicaSvc.invoke(primaryReplicaAndConsistencyToken.get1(), request);
@@ -689,7 +689,7 @@ public class InternalTableImpl implements InternalTable {
      */
     private <T> CompletableFuture<T> postEnlist(CompletableFuture<T> fut, boolean autoCommit, InternalTransaction tx0, boolean full) {
         assert !(autoCommit && full) : "Invalid combination of flags";
-        return TracingManager.span("InternalTableImpl.postEnlist", (span) -> {
+        return span("InternalTableImpl.postEnlist", (span) -> {
             return fut.handle((BiFunction<T, Throwable, CompletableFuture<T>>) (r, e) -> {
                 if (full) { // Full txn is already finished remotely. Just update local state.
                     txManager.finishFull(observableTimestampTracker, tx0.id(), e == null);
@@ -907,7 +907,7 @@ public class InternalTableImpl implements InternalTable {
             HybridTimestamp readTimestamp,
             ClusterNode recipientNode
     ) {
-        return TracingManager.span("InternalTableImpl.get", (span) -> {
+        return span("InternalTableImpl.get", (span) -> {
             int partId = partitionId(keyRow);
             TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
 
@@ -947,7 +947,7 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<List<BinaryRow>> getAll(Collection<BinaryRowEx> keyRows, InternalTransaction tx) {
-        return TracingManager.span("InternalTableImpl.getAll", (span) -> {
+        return span("InternalTableImpl.getAll", (span) -> {
             if (CollectionUtils.nullOrEmpty(keyRows)) {
                 return emptyListCompletedFuture();
             }
@@ -977,10 +977,8 @@ public class InternalTableImpl implements InternalTable {
                     tx,
                     (keyRows0, txo, groupId, enlistmentConsistencyToken, full) ->
                         readWriteMultiRowPkReplicaRequest(RW_GET_ALL, keyRows0, txo, groupId, enlistmentConsistencyToken, full),
-
                     InternalTableImpl::collectMultiRowsResponsesWithRestoreOrder,
                     (res, req) -> false
-
             );
         });
     }
@@ -992,7 +990,7 @@ public class InternalTableImpl implements InternalTable {
             HybridTimestamp readTimestamp,
             ClusterNode recipientNode
     ) {
-        return TracingManager.span("InternalTableImpl.getAll", (span) -> {
+        return span("InternalTableImpl.getAll", (span) -> {
             Int2ObjectMap<RowBatch> rowBatchByPartitionId = toRowBatchByPartitionId(keyRows);
 
             for (Int2ObjectMap.Entry<RowBatch> partitionRowBatch : rowBatchByPartitionId.int2ObjectEntrySet()) {
@@ -1087,7 +1085,7 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> upsert(BinaryRowEx row, InternalTransaction tx) {
-        return TracingManager.span("InternalTableImpl.upsert", (span) -> {
+        return span("InternalTableImpl.upsert", (span) -> {
             return enlistInTx(
                     row,
                     tx,
@@ -1112,7 +1110,7 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> upsertAll(Collection<BinaryRowEx> rows, InternalTransaction tx) {
-        return TracingManager.span("InternalTableImpl.upsertAll", (span) -> {
+        return span("InternalTableImpl.upsertAll", (span) -> {
             return enlistInTx(
                     rows,
                     tx,
@@ -1127,7 +1125,7 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> updateAll(Collection<BinaryRowEx> rows, @Nullable BitSet deleted, int partition) {
-        return TracingManager.span("InternalTableImpl.upsertAll", (span) -> {
+        return span("InternalTableImpl.upsertAll", (span) -> {
             InternalTransaction tx = txManager.begin(observableTimestampTracker);
             TablePartitionId partGroupId = new TablePartitionId(tableId, partition);
 
@@ -1147,7 +1145,7 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<BinaryRow> getAndUpsert(BinaryRowEx row, InternalTransaction tx) {
-        return TracingManager.span("InternalTableImpl.getAndUpsert", (span) -> {
+        return span("InternalTableImpl.getAndUpsert", (span) -> {
             return enlistInTx(
                     row,
                     tx,
@@ -1172,7 +1170,7 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> insert(BinaryRowEx row, InternalTransaction tx) {
-        return TracingManager.span("InternalTableImpl.insert", (span) -> {
+        return span("InternalTableImpl.insert", (span) -> {
             return enlistInTx(
                     row,
                     tx,
@@ -1197,7 +1195,7 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<List<BinaryRow>> insertAll(Collection<BinaryRowEx> rows, InternalTransaction tx) {
-        return TracingManager.span("InternalTableImpl.insertAll", (span) -> {
+        return span("InternalTableImpl.insertAll", (span) -> {
             return enlistInTx(
                     rows,
                     tx,
@@ -1255,7 +1253,7 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> replace(BinaryRowEx row, InternalTransaction tx) {
-        return TracingManager.span("InternalTableImpl.replace", (span) -> {
+        return span("InternalTableImpl.replace", (span) -> {
             return enlistInTx(
                     row,
                     tx,
@@ -1283,7 +1281,7 @@ public class InternalTableImpl implements InternalTable {
         assert oldRow.schemaVersion() == newRow.schemaVersion()
                 : "Mismatching schema versions: old " + oldRow.schemaVersion() + ", new " + newRow.schemaVersion();
 
-        return TracingManager.span("InternalTableImpl.replace", (span) -> {
+        return span("InternalTableImpl.replace", (span) -> {
             return enlistInTx(
                     newRow,
                     tx,
@@ -1309,7 +1307,7 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<BinaryRow> getAndReplace(BinaryRowEx row, InternalTransaction tx) {
-        return TracingManager.span("InternalTableImpl.getAndReplace", (span) -> {
+        return span("InternalTableImpl.getAndReplace", (span) -> {
             return enlistInTx(
                     row,
                     tx,
@@ -1334,7 +1332,7 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> delete(BinaryRowEx keyRow, InternalTransaction tx) {
-        return TracingManager.span("InternalTableImpl.delete", (span) -> {
+        return span("InternalTableImpl.delete", (span) -> {
             return enlistInTx(
                     keyRow,
                     tx,
@@ -1359,7 +1357,7 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Boolean> deleteExact(BinaryRowEx oldRow, InternalTransaction tx) {
-        return TracingManager.span("InternalTableImpl.deleteExact", (span) -> {
+        return span("InternalTableImpl.deleteExact", (span) -> {
             return enlistInTx(
                     oldRow,
                     tx,
@@ -1384,7 +1382,7 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<BinaryRow> getAndDelete(BinaryRowEx row, InternalTransaction tx) {
-        return TracingManager.span("InternalTableImpl.getAndDelete", (span) -> {
+        return span("InternalTableImpl.getAndDelete", (span) -> {
             return enlistInTx(
                     row,
                     tx,
@@ -1409,12 +1407,12 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<List<BinaryRow>> deleteAll(Collection<BinaryRowEx> rows, InternalTransaction tx) {
-        return TracingManager.span("InternalTableImpl.deleteAll", (span) -> {
+        return span("InternalTableImpl.deleteAll", (span) -> {
             return enlistInTx(
                     rows,
                     tx,
                     (keyRows0, txo, groupId, enlistmentConsistencyToken, full) ->
-                         readWriteMultiRowPkReplicaRequest(RW_DELETE_ALL, keyRows0, txo, groupId, enlistmentConsistencyToken, full),
+                            readWriteMultiRowPkReplicaRequest(RW_DELETE_ALL, keyRows0, txo, groupId, enlistmentConsistencyToken, full),
                     InternalTableImpl::collectRejectedRowsResponsesWithRestoreOrder,
                     (res, req) -> {
                         for (BinaryRow row : res) {
@@ -1426,7 +1424,6 @@ public class InternalTableImpl implements InternalTable {
                         // All values are null, this means nothing was deleted.
                         return true;
                     }
-
             );
         });
     }
@@ -1437,7 +1434,7 @@ public class InternalTableImpl implements InternalTable {
             Collection<BinaryRowEx> rows,
             InternalTransaction tx
     ) {
-        return TracingManager.span("InternalTableImpl.deleteAllExact", (span) -> {
+        return span("InternalTableImpl.deleteAllExact", (span) -> {
             return enlistInTx(
                     rows,
                     tx,
@@ -1906,7 +1903,7 @@ public class InternalTableImpl implements InternalTable {
      * @return The enlist future (then will a leader become known).
      */
     protected CompletableFuture<IgniteBiTuple<ClusterNode, Long>> enlist(int partId, InternalTransaction tx) {
-        return TracingManager.span("InternalTableImpl.enlist", (span) -> {
+        return span("InternalTableImpl.enlist", (span) -> {
             TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
             tx.assignCommitPartition(tablePartitionId);
 

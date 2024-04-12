@@ -75,7 +75,6 @@ import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.tracing.TraceSpan;
-import org.apache.ignite.internal.tracing.TracingManager;
 import org.apache.ignite.internal.tx.TransactionResult;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
@@ -380,15 +379,14 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
             return null;
         }
 
-        return TracingManager.span("PartitionListener.handleFinishTxCommand", (span) -> {
+        return span("PartitionListener.handleFinishTxCommand", (span) -> {
             UUID txId = cmd.txId();
 
             TxState stateToSet = cmd.commit() ? COMMITTED : ABORTED;
 
             TxMeta txMetaToSet = new TxMeta(
                     stateToSet,
-
-    fromPartitionIdMessage(cmd.partitionIds()),                cmd.commitTimestamp()
+                    fromPartitionIdMessage(cmd.partitionIds()), cmd.commitTimestamp()
             );
 
             TxMeta txMetaBeforeCas = txStateStorage.get(txId);

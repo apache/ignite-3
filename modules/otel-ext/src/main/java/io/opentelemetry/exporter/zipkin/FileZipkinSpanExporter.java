@@ -20,10 +20,10 @@ package io.opentelemetry.exporter.zipkin;
 import io.opentelemetry.sdk.common.CompletableResultCode;
 import io.opentelemetry.sdk.trace.data.SpanData;
 import io.opentelemetry.sdk.trace.export.SpanExporter;
-import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -114,7 +114,7 @@ public class FileZipkinSpanExporter implements SpanExporter {
 
     private OutputStream createTraceFile(String traceId) {
         try {
-            FileOutputStream out = new FileOutputStream(new File(basePath, traceId  + ".json"));
+            OutputStream out = Files.newOutputStream(Path.of(basePath, traceId  + ".json"));
             out.write('[');
 
             return out;

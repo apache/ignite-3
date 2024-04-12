@@ -370,7 +370,7 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
     @State(Scope.Benchmark)
     public static class TracingEnableState {
         /**
-         * Creates the client.
+         * Initializes tracing.
          */
         @Setup
         public void setUp() {
@@ -379,6 +379,9 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
             });
         }
 
+        /**
+         * Disable tracing.
+         */
         @TearDown
         public void tearDown() throws Exception {
             clusterNode.clusterConfiguration().getConfiguration(TracingConfiguration.KEY).change(change -> {

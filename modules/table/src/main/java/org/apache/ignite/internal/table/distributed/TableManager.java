@@ -1249,7 +1249,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     int zoneId = tableDescriptor.zoneId();
 
                     // Retrieve descriptor during synchronous call, before the previous catalog version could be concurrently compacted.
-            CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, catalogVersion);
+                    CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, catalogVersion);
 
                     CompletableFuture<List<Assignments>> assignmentsFuture;
 
@@ -1319,11 +1319,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             int partitions = zoneDescriptor.partitions();
 
             TableRaftServiceImpl tableRaftService = new TableRaftServiceImpl(
-                tableName,
-                partitions,
-                new Int2ObjectOpenHashMap<>(partitions),
-                topologyService
-        );InternalTableImpl internalTable = new InternalTableImpl(
+                    tableName,
+                    partitions,
+                    new Int2ObjectOpenHashMap<>(partitions),
+                    topologyService
+            );
+            InternalTableImpl internalTable = new InternalTableImpl(
                     tableName,
                     tableId,
 
@@ -1336,15 +1337,15 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     clock,
                     observableTimestampTracker,
                     executorInclinedPlacementDriver,
-                tableRaftService,
-                transactionInflights,
-                implicitTransactionTimeout,
-                attemptsObtainLock,
-                this::streamerFlushExecutor
+                    tableRaftService,
+                    transactionInflights,
+                    implicitTransactionTimeout,
+                    attemptsObtainLock,
+                    this::streamerFlushExecutor
             );
 
             var table = new TableImpl(internalTable, lockMgr, schemaVersions, marshallers, sql.get(),
-                tableDescriptor.primaryKeyIndexId()
+                    tableDescriptor.primaryKeyIndexId()
             );
 
             tablesVv.update(causalityToken, (ignore, e) -> inBusyLock(busyLock, () -> {
@@ -1383,18 +1384,18 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                 return allOf(localPartsUpdateFuture,
                         tablesByIdFuture).thenComposeAsync(ignore -> inBusyLock(busyLock, () -> {
-                                if (onNodeRecovery) {
+                            if (onNodeRecovery) {
                                 SchemaRegistry schemaRegistry = table.schemaView();
-                        PartitionSet partitionSet = localPartsByTableId.get(tableId);
-                // LWM starts updating only after the node is restored.
-            HybridTimestamp lwm = lowWatermark.getLowWatermark();
+                                PartitionSet partitionSet = localPartsByTableId.get(tableId);
+                                // LWM starts updating only after the node is restored.
+                                HybridTimestamp lwm = lowWatermark.getLowWatermark();
 
-            registerIndexesToTable(table, catalogService, partitionSet, schemaRegistry, lwm);
+                                registerIndexesToTable(table, catalogService, partitionSet, schemaRegistry, lwm);
+                            }
+                            return startLocalPartitionsAndClients(assignmentsFuture, table, zoneDescriptor.id());
                         }
-            return startLocalPartitionsAndClients(assignmentsFuture, table, zoneDescriptor.id());
-                    }
-            ), ioExecutor);
-        });
+                ), ioExecutor);
+            });
 
             tables.put(tableId, table);
 

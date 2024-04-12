@@ -367,7 +367,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
         span("DefaultMessagingService.sendToSelf", (span) -> {
             for (HandlerContext context : getHandlerContexts(message.groupType())) {
                 // Invoking on the same thread, ignoring the executor chooser registered with the handler.
-            context.handler().onReceived(message, topologyService.localMember(), correlationId);
+                context.handler().onReceived(message, topologyService.localMember(), correlationId);
             }
         });
     }

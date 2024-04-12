@@ -37,7 +37,6 @@ import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMeta;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.tracing.TraceSpan;
-import org.apache.ignite.internal.tracing.TracingManager;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
@@ -85,7 +84,7 @@ public class PageMemoryHashIndexStorage extends AbstractPageMemoryIndexStorage<H
 
     @Override
     public Cursor<RowId> get(BinaryTuple key) throws StorageException {
-        return TracingManager.span("indexGet", (span) -> {
+        return span("indexGet", (span) -> {
             return busyDataRead(() -> {
                 throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 

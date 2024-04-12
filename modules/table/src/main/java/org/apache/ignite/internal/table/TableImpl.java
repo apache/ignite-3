@@ -289,63 +289,6 @@ public class TableImpl implements TableViewInternal {
     public void unregisterIndex(int indexId) {
         indexWrapperById.remove(indexId);
 
-        completeWaitIndex(indexId);
-
-        // TODO: IGNITE-19150 Also need to destroy the index storages
-    }
-
-    private void awaitIndexes() {
-        List<CompletableFuture<?>> toWait = new ArrayList<>();
-
-        toWait.add(pkId);
-
-        toWait.addAll(indexesToWait.values());
-
-        allOf(toWait.toArray(CompletableFuture[]::new)).join();
-    }
-
-    /**
-     * Prepares this table for being closed.
-     */
-    public void beforeClose() {
-        IgniteInternalException closeTableException = new IgniteInternalException(
-                ErrorGroups.Table.TABLE_STOPPING_ERR,
-                "Table is being stopped: tableId=" + tableId()
-        );
-
-        pkId.completeExceptionally(closeTableException);
-
-        indexesToWait.values().forEach(future -> future.completeExceptionally(closeTableException));
-    }
-
-    /**
-     * Adds indexes to wait, if not already created, before inserting data into the table.
-     *
-     * @param indexIds Indexes Index IDs.
-     */
-    // TODO: IGNITE-19082 Needs to be redone/improved
-    public void addIndexesToWait(int... indexIds) {
-        for (int indexId : indexIds) {
-            indexesToWait.compute(indexId, (indexId0, awaitIndexFuture) -> {
-                if (awaitIndexFuture != null) {
-                    return awaitIndexFuture;
-                }
-
-                if (indexWrapperById.containsKey(indexId)) {
-                    // Index is already registered and created.
-                    return null;
-                }
-
-                return new CompletableFuture<>();
-            });
-        }
-    }
-
-    private void completeWaitIndex(int indexId) {
-        CompletableFuture<?> indexToWaitFuture = indexesToWait.remove(indexId);
-
-        if (indexToWaitFuture != null) {
-            indexToWaitFuture.complete(null);
-        }
+        tbl.storage().destroyIndex(indexId);
     }
 }

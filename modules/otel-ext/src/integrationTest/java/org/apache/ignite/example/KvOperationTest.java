@@ -24,7 +24,6 @@ import java.util.Map;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.tracing.TraceSpan;
-import org.apache.ignite.internal.tracing.TracingManager;
 import org.apache.ignite.internal.tracing.configuration.TracingConfiguration;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
@@ -102,9 +101,9 @@ public class KvOperationTest extends ClusterPerClassIntegrationTest {
 
         System.out.println(">>> " + (System.nanoTime() - start) / 1000L);
 
-         try (TraceSpan parentSpan = rootSpan("kvGetOperation")) {
-             keyValueView.get(null, key);
-         }
+        try (TraceSpan ignored = rootSpan("kvGetOperation")) {
+            keyValueView.get(null, key);
+        }
     }
 
     @Override

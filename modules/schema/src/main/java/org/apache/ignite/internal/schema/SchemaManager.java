@@ -171,7 +171,7 @@ public class SchemaManager implements IgniteComponent {
 
                     registerSchema(tableId, newSchema);
 
-                return nullCompletedFuture();
+                    return nullCompletedFuture();
                 })).thenApply(ignored -> false);
             } finally {
                 busyLock.leaveBusy();

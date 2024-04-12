@@ -128,10 +128,9 @@ public class JdbcQueryEventHandlerImpl implements JdbcQueryEventHandler {
         return span("JdbcQueryEventHandlerImpl.connect", (span) -> {
             try {
                 JdbcConnectionContext connectionContext = new JdbcConnectionContext(
-
                         igniteTransactions,
-                timeZoneId
-            );
+                        timeZoneId
+                );
 
                 long connectionId = resources.put(new ClientResource(
                         connectionContext,

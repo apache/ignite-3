@@ -35,7 +35,6 @@ import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
-import org.apache.ignite.internal.tracing.TracingManager;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
@@ -136,7 +135,7 @@ public class TransactionStateResolver {
             TablePartitionId commitGrpId,
             @Nullable HybridTimestamp timestamp
     ) {
-        return TracingManager.span("PartitionReplicaListener.resolveTxState", (span) -> {
+        return span("PartitionReplicaListener.resolveTxState", (span) -> {
             TxStateMeta localMeta = txManager.stateMeta(txId);
 
             if (localMeta != null && isFinalState(localMeta.txState())) {
