@@ -31,6 +31,7 @@ import org.apache.ignite.raft.jraft.entity.LogEntry;
 import org.apache.ignite.raft.jraft.entity.LogId;
 import org.apache.ignite.raft.jraft.entity.codec.v1.LogEntryV1CodecFactory;
 import org.apache.ignite.raft.jraft.option.LogStorageOptions;
+import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.storage.logit.option.StoreOptions;
@@ -149,8 +150,11 @@ public class LogStorageBenchmark {
         int logSize = 16 * 1024;
         int totalLogs = 100 * 1024;
 
+        NodeOptions nodeOptions = new NodeOptions();
+        nodeOptions.setLogPath(testPath);
+
 //        LogStorageFactory logStorageFactory = new DefaultLogStorageFactory(testPath);
-        LogStorageFactory logStorageFactory = new LogitLogStorageFactory("test", testPath, new StoreOptions());
+        LogStorageFactory logStorageFactory = new LogitLogStorageFactory("test", nodeOptions, new StoreOptions());
         logStorageFactory.start();
 
         try (AutoCloseable factory = logStorageFactory::close) {

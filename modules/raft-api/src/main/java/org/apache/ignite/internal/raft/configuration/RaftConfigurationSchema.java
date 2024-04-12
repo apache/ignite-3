@@ -83,4 +83,8 @@ public class RaftConfigurationSchema {
      */
     @Value(hasDefault = true)
     public boolean logYieldStrategy = false;
+
+    /** Directory where write-ahead log is stored (work directory). By default "log" subfolder of data storage path is used. */
+    @Value(hasDefault = true)
+    public String logPath = "";
 }

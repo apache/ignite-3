@@ -16,11 +16,11 @@
  */
 package org.apache.ignite.raft.jraft.option;
 
+import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridClock;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.raft.JraftGroupEventsListener;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager.Stripe;
@@ -257,6 +257,8 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
      */
     private boolean logYieldStrategy;
 
+    private Path logPath;
+
     /** */
     private boolean sharedPools = false;
 
@@ -308,6 +310,14 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
 
     public void setLogYieldStrategy(boolean logYieldStrategy) {
         this.logYieldStrategy = logYieldStrategy;
+    }
+
+    public Path getLogPath() {
+        return logPath;
+    }
+
+    public void setLogPath(Path logPath) {
+        this.logPath = logPath;
     }
 
     /**

@@ -26,6 +26,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.FeatureChecker;
+import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.storage.logit.option.StoreOptions;
@@ -33,6 +34,7 @@ import org.apache.ignite.raft.jraft.storage.logit.storage.LogitLogStorage;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.Requires;
 import org.apache.ignite.raft.jraft.util.StringUtils;
+import org.jetbrains.annotations.TestOnly;
 import sun.nio.ch.DirectBuffer;
 
 /**
@@ -46,18 +48,21 @@ public class LogitLogStorageFactory implements LogStorageFactory {
     /** Executor for shared storages. */
     private final ScheduledExecutorService checkpointExecutor;
 
-    private final Path baseLogStoragesPath;
+    private final NodeOptions options;
 
     private final StoreOptions storeOptions;
+
+    /** Base location of all log storages, created by this factory. */
+    private Path logPath;
 
     /**
      * Constructor.
      *
-     * @param baseLogStoragesPath Location of all log storages, created by this factory.
+     * @param options Node options with base location of all log storages, created by this factory.
      * @param storeOptions Logit log storage options.
      */
-    public LogitLogStorageFactory(String nodeName, Path baseLogStoragesPath, StoreOptions storeOptions) {
-        this.baseLogStoragesPath = baseLogStoragesPath;
+    public LogitLogStorageFactory(String nodeName, NodeOptions options, StoreOptions storeOptions) {
+        this.options = options;
         this.storeOptions = storeOptions;
         checkpointExecutor = Executors.newSingleThreadScheduledExecutor(
                 NamedThreadFactory.create(nodeName, "logit-checkpoint-executor", LOG)
@@ -76,6 +81,7 @@ public class LogitLogStorageFactory implements LogStorageFactory {
 
     @Override
     public void start() {
+        this.logPath = options.getLogPath();
     }
 
     @Override
@@ -98,7 +104,13 @@ public class LogitLogStorageFactory implements LogStorageFactory {
         throw new UnsupportedOperationException("Not implemented yet");
     }
 
+    /** Returns base location of all log storages, created by this factory. */
+    @TestOnly
+    public Path logPath() {
+        return logPath;
+    }
+
     private Path resolveLogStoragePath(String groupId) {
-        return baseLogStoragesPath.resolve(LOG_DIR_PREFIX + groupId);
+        return logPath.resolve(LOG_DIR_PREFIX + groupId);
     }
 }

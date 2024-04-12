@@ -55,6 +55,7 @@ import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.WriteCommand;
+import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.service.CommandClosure;
@@ -137,6 +138,8 @@ public class JraftServerImpl implements RaftServer {
     /** Options. */
     private final NodeOptions opts;
 
+    private final RaftConfiguration raftConfiguration;
+
     private final RaftGroupEventsClientListener raftGroupEventsClientListener;
 
     /** Request executor. */
@@ -160,8 +163,8 @@ public class JraftServerImpl implements RaftServer {
      * @param service  Cluster service.
      * @param dataPath Data path.
      */
-    public JraftServerImpl(ClusterService service, Path dataPath) {
-        this(service, dataPath, new NodeOptions(), new RaftGroupEventsClientListener());
+    public JraftServerImpl(ClusterService service, Path dataPath, RaftConfiguration raftConfiguration) {
+        this(service, dataPath, raftConfiguration, new NodeOptions(), new RaftGroupEventsClientListener());
     }
 
     /**
@@ -174,15 +177,18 @@ public class JraftServerImpl implements RaftServer {
     public JraftServerImpl(
             ClusterService service,
             Path dataPath,
+            RaftConfiguration raftConfiguration,
             NodeOptions opts,
             RaftGroupEventsClientListener raftGroupEventsClientListener
     ) {
         this.service = service;
         this.dataPath = dataPath;
         this.nodeManager = new NodeManager();
+        this.raftConfiguration = raftConfiguration;
+
         this.logStorageFactory = IgniteSystemProperties.getBoolean(LOGIT_STORAGE_ENABLED_PROPERTY, false)
-                ? new LogitLogStorageFactory(service.nodeName(), dataPath.resolve("log"), getLogOptions())
-                : new DefaultLogStorageFactory(service.nodeName(), dataPath.resolve("log"));
+                ? new LogitLogStorageFactory(service.nodeName(), opts, getLogOptions())
+                : new DefaultLogStorageFactory(service.nodeName(), opts);
         this.opts = opts;
         this.raftGroupEventsClientListener = raftGroupEventsClientListener;
 
@@ -224,6 +230,12 @@ public class JraftServerImpl implements RaftServer {
 
     /** Returns write-ahead log synchronizer. */
     public LogSyncer getLogSyncer() {
+        return logStorageFactory;
+    }
+
+    /** Returns write-ahead log storage factory. */
+    @TestOnly
+    public LogStorageFactory getLogStorageFactory() {
         return logStorageFactory;
     }
 
@@ -348,6 +360,12 @@ public class JraftServerImpl implements RaftServer {
 
             opts.setLogStripes(IntStream.range(0, opts.getLogStripesCount()).mapToObj(i -> new Stripe()).collect(toList()));
         }
+
+        Path logPath = raftConfiguration.logPath().value().isEmpty()
+                ? dataPath.resolve("log")
+                : Path.of(raftConfiguration.logPath().value());
+
+        opts.setLogPath(logPath);
 
         logStorageFactory.start();
 

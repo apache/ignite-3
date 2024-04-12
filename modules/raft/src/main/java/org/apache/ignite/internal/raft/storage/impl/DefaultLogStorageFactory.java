@@ -32,6 +32,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
+import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
@@ -54,8 +55,8 @@ import org.rocksdb.util.SizeUnit;
 public class DefaultLogStorageFactory implements LogStorageFactory {
     private static final IgniteLogger LOG = Loggers.forClass(DefaultLogStorageFactory.class);
 
-    /** Database path. */
-    private final Path path;
+    /** Node options. */
+    private final NodeOptions options;
 
     /** Executor for shared storages. */
     private final ExecutorService executorService;
@@ -71,6 +72,9 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
 
     /** Data column family handle. */
     private ColumnFamilyHandle dataHandle;
+
+    /** Path to the log storage. */
+    private Path logPath;
 
     /**
      * Thread-local batch instance, used by {@link RocksDbSharedLogStorage#appendEntriesToBatch(List)} and
@@ -88,16 +92,18 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
      */
     @TestOnly
     public DefaultLogStorageFactory(Path path) {
-        this("test", path);
+        this("test", new NodeOptions());
+
+        this.options.setLogPath(path);
     }
 
     /**
      * Constructor.
      *
-     * @param path Path to the storage.
+     * @param options Node options with path to the log storage.
      */
-    public DefaultLogStorageFactory(String nodeName, Path path) {
-        this.path = path;
+    public DefaultLogStorageFactory(String nodeName, NodeOptions options) {
+        this.options = options;
 
         executorService = Executors.newSingleThreadExecutor(
                 NamedThreadFactory.create(nodeName, "raft-shared-log-storage-pool", LOG)
@@ -107,10 +113,12 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
     /** {@inheritDoc} */
     @Override
     public void start() {
+        this.logPath = options.getLogPath();
+
         try {
-            Files.createDirectories(path);
+            Files.createDirectories(logPath);
         } catch (IOException e) {
-            throw new IllegalStateException("Failed to create directory: " + this.path, e);
+            throw new IllegalStateException("Failed to create directory: " + logPath, e);
         }
 
         List<ColumnFamilyHandle> columnFamilyHandles = new ArrayList<>();
@@ -128,7 +136,7 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
         );
 
         try {
-            this.db = RocksDB.open(this.dbOptions, this.path.toString(), columnFamilyDescriptors, columnFamilyHandles);
+            this.db = RocksDB.open(this.dbOptions, logPath.toString(), columnFamilyDescriptors, columnFamilyHandles);
 
             // Setup rocks thread pools to utilize all the available cores as the database is shared among
             // all the raft groups
@@ -163,6 +171,12 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
     @Override
     public void sync() throws RocksDBException {
         db.syncWal();
+    }
+
+    /** Returns path to the log storage. */
+    @TestOnly
+    public Path logPath() {
+        return logPath;
     }
 
     /**
