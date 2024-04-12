@@ -1374,8 +1374,7 @@ public class PartitionReplicaListener implements ReplicaListener {
                 () -> new CursorResource(indexStorage.readOnlyScan(
                         lowerBound,
                         upperBound,
-                        flags,
-                        true
+                        flags
                 ))).cursor();
 
         int batchCount = request.batchSize();
