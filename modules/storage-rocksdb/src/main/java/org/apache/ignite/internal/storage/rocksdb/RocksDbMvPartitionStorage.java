@@ -22,6 +22,7 @@ import static java.nio.ByteBuffer.allocate;
 import static java.nio.ByteBuffer.allocateDirect;
 import static java.util.Arrays.copyOf;
 import static java.util.Arrays.copyOfRange;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.MAX_KEY_SIZE;
 import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.MV_KEY_BUFFER;
 import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.ROW_ID_OFFSET;
@@ -32,6 +33,7 @@ import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.VAL
 import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.deserializeRow;
 import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.putTimestampDesc;
 import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.readTimestampDesc;
+import static org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage.LEASE_PREFIX;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage.PARTITION_CONF_PREFIX;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbMetaStorage.PARTITION_META_PREFIX;
 import static org.apache.ignite.internal.storage.rocksdb.RocksDbStorageUtils.KEY_BYTE_ORDER;
@@ -43,6 +45,7 @@ import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptio
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageInProgressOfRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.transitionToTerminalState;
 import static org.apache.ignite.internal.util.ArrayUtils.BYTE_EMPTY_ARRAY;
+import static org.apache.ignite.internal.util.ByteUtils.putLongToBytes;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -53,7 +56,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -147,11 +149,17 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     /** Key to store group config in meta. */
     private final byte[] lastGroupConfigKey;
 
+    /** Key to store the lease start time. */
+    private final byte[] leaseKey;
+
     /** On-heap-cached last applied index value. */
     private volatile long lastAppliedIndex;
 
     /** On-heap-cached last applied term value. */
     private volatile long lastAppliedTerm;
+
+    /** On-heap-cached lease start time value. */
+    private volatile long leaseStartTime;
 
     /** On-heap-cached last committed group configuration. */
     private volatile byte @Nullable [] lastGroupConfig;
@@ -182,6 +190,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
         lastAppliedIndexAndTermKey = createKey(PARTITION_META_PREFIX, tableId, partitionId);
         lastGroupConfigKey = createKey(PARTITION_CONF_PREFIX, tableId, partitionId);
+        leaseKey = createKey(LEASE_PREFIX, tableId, partitionId);
 
         try {
             byte[] indexAndTerm = db.get(meta, readOpts, lastAppliedIndexAndTermKey);
@@ -191,6 +200,13 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             lastAppliedTerm = buf == null ? 0 : buf.getLong();
 
             lastGroupConfig = db.get(meta, readOpts, lastGroupConfigKey);
+
+            byte[] leaseStartTimeBytes = db.get(meta, readOpts, leaseKey);
+            ByteBuffer leaseStartTimeBuf = leaseStartTimeBytes == null
+                    ? null
+                    : ByteBuffer.wrap(leaseStartTimeBytes).order(ByteOrder.LITTLE_ENDIAN);
+
+            leaseStartTime = leaseStartTimeBuf == null ? HybridTimestamp.MIN_VALUE.longValue() : leaseStartTimeBuf.getLong();
         } catch (RocksDBException e) {
             throw new StorageException(e);
         }
@@ -980,12 +996,43 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         });
     }
 
+    @Override
+    public void updateLease(long leaseStartTime) {
+        busy(() -> {
+            if (leaseStartTime <= this.leaseStartTime) {
+                return null;
+            }
+
+            AbstractWriteBatch writeBatch = PartitionDataHelper.requireWriteBatch();
+
+            try {
+                byte[] leaseBytes = new byte[Long.BYTES];
+
+                putLongToBytes(leaseStartTime, leaseBytes, 0);
+
+                writeBatch.put(meta, leaseKey, leaseBytes);
+
+                this.leaseStartTime = leaseStartTime;
+            } catch (RocksDBException e) {
+                throw new StorageException(e);
+            }
+
+            return null;
+        });
+    }
+
+    @Override
+    public long leaseStartTime() {
+        return busy(() -> leaseStartTime);
+    }
+
     /**
      * Deletes partition data from the storage, using write batch to perform the operation.
      */
     void destroyData(WriteBatch writeBatch) throws RocksDBException {
         writeBatch.delete(meta, lastAppliedIndexAndTermKey);
         writeBatch.delete(meta, lastGroupConfigKey);
+        writeBatch.delete(meta, leaseKey);
 
         writeBatch.deleteRange(helper.partCf, helper.partitionStartPrefix(), helper.partitionEndPrefix());
 
@@ -1430,7 +1477,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
      * Creates a summary info of the storage in the format "table=user, partitionId=1".
      */
     String createStorageInfo() {
-        return IgniteStringFormatter.format("tableId={}, partitionId={}", tableStorage.getTableId(), partitionId);
+        return format("tableId={}, partitionId={}", tableStorage.getTableId(), partitionId);
     }
 
     /**
@@ -1498,6 +1545,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
         writeBatch.delete(meta, lastGroupConfigKey);
         writeBatch.deleteRange(helper.partCf, helper.partitionStartPrefix(), helper.partitionEndPrefix());
+        writeBatch.delete(meta, leaseKey);
 
         gc.deleteQueue(writeBatch);
     }

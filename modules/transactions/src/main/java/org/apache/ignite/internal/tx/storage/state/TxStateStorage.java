@@ -206,20 +206,4 @@ public interface TxStateStorage extends ManuallyCloseable {
      *      another reason.
      */
     CompletableFuture<Void> clear();
-
-    /**
-     * Updates the current lease start time in the storage.
-     *
-     * @param leaseStartTime Lease start time.
-     * @param commandIndex New value for {@link #lastAppliedIndex()}.
-     * @param commandTerm New value for {@link #lastAppliedTerm()}.
-     */
-    void updateLease(long leaseStartTime, long commandIndex, long commandTerm);
-
-    /**
-     * Return the start time of the known lease for this replication group.
-     *
-     * @return Lease start time.
-     */
-    long leaseStartTime();
 }

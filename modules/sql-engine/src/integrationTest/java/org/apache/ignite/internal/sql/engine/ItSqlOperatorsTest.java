@@ -300,11 +300,13 @@ public class ItSqlOperatorsTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-20163")
     public void testJson() {
-        assertExpression("'{\"a\":1}' FORMAT JSON").check();
         assertExpression("JSON_VALUE('{\"a\":1}', '$.a')").returns("1").check();
+        assertExpression("JSON_VALUE('{\"a\":1}', '$.a' RETURNING INTEGER)").returns(1).check();
+        assertExpression("JSON_VALUE('{\"a\":true}', '$.a' RETURNING BOOLEAN)").returns(true).check();
+        assertExpression("JSON_VALUE('{\"a\":1.1}', '$.a' RETURNING DOUBLE)").returns(1.1d).check();
         assertExpression("JSON_VALUE('{\"a\":1}' FORMAT JSON, '$.a')").returns("1").check();
+
         assertExpression("JSON_QUERY('{\"a\":{\"b\":1}}', '$.a')").returns("{\"b\":1}").check();
         assertExpression("JSON_TYPE('{\"a\":1}')").returns("OBJECT").check();
         assertExpression("JSON_EXISTS('{\"a\":1}', '$.a')").returns(true).check();
@@ -326,6 +328,21 @@ public class ItSqlOperatorsTest extends BaseSqlIntegrationTest {
         assertExpression("'{\"a\":1}' IS NOT JSON OBJECT").returns(false).check();
         assertExpression("'[1, 2]' IS NOT JSON ARRAY").returns(false).check();
         assertExpression("'1' IS NOT JSON SCALAR").returns(false).check();
+
+        // TODO https://issues.apache.org/jira/browse/IGNITE-20163
+        // assertExpression("'{\"a\":1}' FORMAT JSON").check();
+    }
+
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22023")
+    public void testJsonAggregateFunctions() {
+        assertQuery("SELECT JSON_OBJECTAGG(id: val) FROM t")
+                .returns("{\"1\":1}")
+                .check();
+
+        assertQuery("SELECT JSON_ARRAYAGG(val) FROM t")
+                .returns("[1]")
+                .check();
     }
 
     @Test
