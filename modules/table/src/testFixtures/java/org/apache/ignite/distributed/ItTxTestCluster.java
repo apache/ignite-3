@@ -70,6 +70,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.failure.NoOpFailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -406,7 +407,8 @@ public class ItTxTestCluster {
                     clockService,
                     Set.of(TableMessageGroup.class, TxMessageGroup.class),
                     placementDriver,
-                    partitionOperationsExecutor
+                    partitionOperationsExecutor,
+                    new NoOpFailureProcessor()
             );
 
             replicaMgr.start();
