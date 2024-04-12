@@ -50,6 +50,8 @@ public class PartitionMeta {
 
     private volatile long lastAppliedTerm;
 
+    private volatile long leaseStartTime;
+
     private volatile long lastReplicationProtocolGroupConfigFirstPageId;
 
     private volatile long rowVersionFreeListRootPageId;
@@ -93,7 +95,8 @@ public class PartitionMeta {
             long versionChainTreeRootPageId,
             long indexTreeMetaPageId,
             long gcQueueMetaPageId,
-            int pageCount
+            int pageCount,
+            long leaseStartTime
     ) {
         this.lastAppliedIndex = lastAppliedIndex;
         this.lastAppliedTerm = lastAppliedTerm;
@@ -104,6 +107,7 @@ public class PartitionMeta {
         this.indexTreeMetaPageId = indexTreeMetaPageId;
         this.gcQueueMetaPageId = gcQueueMetaPageId;
         this.pageCount = pageCount;
+        this.leaseStartTime = leaseStartTime;
 
         metaSnapshot = new PartitionMetaSnapshot(checkpointId, this);
     }
@@ -126,7 +130,8 @@ public class PartitionMeta {
                 metaIo.getVersionChainTreeRootPageId(pageAddr),
                 metaIo.getIndexTreeMetaPageId(pageAddr),
                 metaIo.getGcQueueMetaPageId(pageAddr),
-                metaIo.getPageCount(pageAddr)
+                metaIo.getPageCount(pageAddr),
+                metaIo.getLeaseStartTime(pageAddr)
         );
     }
 
@@ -319,6 +324,31 @@ public class PartitionMeta {
     }
 
     /**
+     * Updates the current lease start time in the storage.
+     *
+     * @param checkpointId Checkpoint ID.
+     * @param leaseStartTime Lease start time.
+     */
+    public void updateLease(@Nullable UUID checkpointId, long leaseStartTime) {
+        updateSnapshot(checkpointId);
+
+        if (leaseStartTime <= this.leaseStartTime) {
+            return;
+        }
+
+        this.leaseStartTime = leaseStartTime;
+    }
+
+    /**
+     * Return the start time of the known lease for this replication group.
+     *
+     * @return Lease start time.
+     */
+    public long leaseStartTime() {
+        return leaseStartTime;
+    }
+
+    /**
      * An immutable snapshot of the partition's meta information.
      */
     public static class PartitionMetaSnapshot {
@@ -342,6 +372,8 @@ public class PartitionMeta {
 
         private final int pageCount;
 
+        private final long leaseStartTime;
+
         /**
          * Private constructor.
          *
@@ -359,6 +391,7 @@ public class PartitionMeta {
             indexTreeMetaPageId = partitionMeta.indexTreeMetaPageId;
             gcQueueMetaPageId = partitionMeta.gcQueueMetaPageId;
             pageCount = partitionMeta.pageCount;
+            leaseStartTime = partitionMeta.leaseStartTime;
         }
 
         /**
@@ -425,6 +458,15 @@ public class PartitionMeta {
         }
 
         /**
+         * Returns the lease start time.
+         *
+         * @return Lease start time.
+         */
+        public long leaseStartTime() {
+            return leaseStartTime;
+        }
+
+        /**
          * Writes the contents of the snapshot to a page of type {@link PartitionMetaIo}.
          *
          * @param metaIo Partition meta IO.
@@ -440,6 +482,7 @@ public class PartitionMeta {
             metaIo.setIndexTreeMetaPageId(pageAddr, indexTreeMetaPageId);
             metaIo.setGcQueueMetaPageId(pageAddr, gcQueueMetaPageId);
             metaIo.setPageCount(pageAddr, pageCount);
+            metaIo.setLeaseStartTime(pageAddr, leaseStartTime);
         }
 
         @Override

@@ -61,6 +61,9 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
     /** Last applied term value. */
     private volatile long lastAppliedTerm;
 
+    /** Lease start time. */
+    private volatile long leaseStartTime;
+
     /** Last group configuration. */
     private volatile byte @Nullable [] groupConfig;
 
@@ -189,6 +192,30 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
     }
 
     @Override
+    public void updateLease(long leaseStartTime) {
+        busy(() -> {
+            throwExceptionIfStorageNotInRunnableState();
+
+            if (leaseStartTime <= this.leaseStartTime) {
+                return null;
+            }
+
+            this.leaseStartTime = leaseStartTime;
+
+            return null;
+        });
+    }
+
+    @Override
+    public long leaseStartTime() {
+        return busy(() -> {
+            throwExceptionIfStorageNotInRunnableState();
+
+            return leaseStartTime;
+        });
+    }
+
+    @Override
     public void lastAppliedOnRebalance(long lastAppliedIndex, long lastAppliedTerm) {
         throwExceptionIfStorageNotInProgressOfRebalance(state.get(), this::createStorageInfo);
 
@@ -212,6 +239,7 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
         lastAppliedIndex = 0;
         lastAppliedTerm = 0;
         groupConfig = null;
+        leaseStartTime = HybridTimestamp.MIN_VALUE.longValue();
 
         return destroyFuture;
     }

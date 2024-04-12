@@ -48,7 +48,6 @@ dependencies {
     implementation libs.netty.codec
     implementation libs.netty.handler
     implementation libs.msgpack.core
-    implementation libs.msgpack.jackson
     implementation libs.auto.service.annotations
 
     testAnnotationProcessor project(':ignite-configuration-annotation-processor')
