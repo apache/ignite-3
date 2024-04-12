@@ -28,6 +28,7 @@ import org.apache.ignite.internal.storage.gc.GcEntry;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.worker.ThreadAssertingCursor;
 import org.apache.ignite.internal.worker.ThreadAssertions;
+import org.apache.ignite.internal.wrapper.Wrapper;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -35,7 +36,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * @see ThreadAssertions
  */
-public class ThreadAssertingMvPartitionStorage implements MvPartitionStorage {
+public class ThreadAssertingMvPartitionStorage implements MvPartitionStorage, Wrapper {
     private final MvPartitionStorage partitionStorage;
 
     /** Constructor. */
@@ -161,7 +162,24 @@ public class ThreadAssertingMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
+    public void updateLease(long leaseStartTime) {
+        assertThreadAllowsToWrite();
+
+        partitionStorage.updateLease(leaseStartTime);
+    }
+
+    @Override
+    public long leaseStartTime() {
+        return partitionStorage.leaseStartTime();
+    }
+
+    @Override
     public void close() {
         partitionStorage.close();
+    }
+
+    @Override
+    public <T> T unwrap(Class<T> classToUnwrap) {
+        return classToUnwrap.cast(partitionStorage);
     }
 }

@@ -510,20 +510,16 @@ SqlCreate SqlCreateZone(Span s, boolean replace) :
         final boolean ifNotExists;
         final SqlIdentifier id;
         SqlNodeList optionList = null;
-        SqlIdentifier engine = null;
 }
 {
     <ZONE> { s.add(this); }
         ifNotExists = IfNotExistsOpt()
         id = CompoundIdentifier()
     [
-            <ENGINE> { s.add(this); } engine = SimpleIdentifier()
-    ]
-    [
         <WITH> { s.add(this); } optionList = CreateZoneOptionList()
     ]
     {
-        return new IgniteSqlCreateZone(s.end(this), ifNotExists, id, optionList, engine);
+        return new IgniteSqlCreateZone(s.end(this), ifNotExists, id, optionList);
     }
 }
 

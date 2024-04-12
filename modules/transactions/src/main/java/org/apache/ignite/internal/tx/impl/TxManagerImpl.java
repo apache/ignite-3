@@ -38,6 +38,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermin
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_READ_ONLY_TOO_OLD_ERR;
 
 import java.io.IOException;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -56,6 +57,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
 import java.util.stream.Collectors;
@@ -188,7 +190,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     /** Transaction message sender. */
     private final TxMessageSender txMessageSender;
 
-    private final EventListener<PrimaryReplicaEventParameters> primaryReplicaEventListener;
+    private final EventListener<PrimaryReplicaEventParameters> primaryReplicaExpiredListener;
+
+    private final EventListener<PrimaryReplicaEventParameters> primaryReplicaElectedListener;
 
     private final LowWatermarkChangedListener lowWatermarkChangedListener = this::onLwnChanged;
 
@@ -292,7 +296,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
         this.idleSafeTimePropagationPeriodMsSupplier = idleSafeTimePropagationPeriodMsSupplier;
         this.topologyService = topologyService;
         this.messagingService = messagingService;
-        this.primaryReplicaEventListener = this::primaryReplicaEventListener;
+        this.primaryReplicaExpiredListener = this::primaryReplicaExpiredListener;
+        this.primaryReplicaElectedListener = this::primaryReplicaElectedListener;
         this.localRwTxCounter = localRwTxCounter;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
         this.transactionInflights = transactionInflights;
@@ -329,7 +334,10 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                 new TxCleanupRequestSender(txMessageSender, placementDriverHelper, txStateVolatileStorage);
     }
 
-    private CompletableFuture<Boolean> primaryReplicaEventListener(PrimaryReplicaEventParameters eventParameters) {
+    private CompletableFuture<Boolean> primaryReplicaEventListener(
+            PrimaryReplicaEventParameters eventParameters,
+            Consumer<TablePartitionId> action
+    ) {
         return inBusyLock(busyLock, () -> {
             if (!(eventParameters.groupId() instanceof TablePartitionId)) {
                 return falseCompletedFuture();
@@ -337,10 +345,22 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
             TablePartitionId groupId = (TablePartitionId) eventParameters.groupId();
 
-            transactionInflights.cancelWaitingInflights(groupId);
+            action.accept(groupId);
 
             return falseCompletedFuture();
         });
+    }
+
+    private CompletableFuture<Boolean> primaryReplicaElectedListener(PrimaryReplicaEventParameters eventParameters) {
+        return primaryReplicaEventListener(eventParameters, groupId -> {
+            String localNodeName = topologyService.localMember().name();
+
+            txMessageSender.sendRecoveryCleanup(localNodeName, groupId);
+        });
+    }
+
+    private CompletableFuture<Boolean> primaryReplicaExpiredListener(PrimaryReplicaEventParameters eventParameters) {
+        return primaryReplicaEventListener(eventParameters, transactionInflights::cancelWaitingInflights);
     }
 
     @Override
@@ -420,7 +440,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     }
 
     @Override
-    public @Nullable <T extends TxStateMeta> T updateTxMeta(UUID txId, Function<TxStateMeta, TxStateMeta> updater) {
+    public @Nullable <T extends TxStateMeta> T updateTxMeta(UUID txId, Function<@Nullable TxStateMeta, TxStateMeta> updater) {
         return txStateVolatileStorage.updateMeta(txId, updater);
     }
 
@@ -438,7 +458,13 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
             finalState = ABORTED;
         }
 
-        updateTxMeta(txId, old -> new TxStateMeta(finalState, old.txCoordinatorId(), old.commitPartitionId(), old.commitTimestamp()));
+        updateTxMeta(txId, old ->
+                new TxStateMeta(
+                        finalState,
+                        old == null ? null : old.txCoordinatorId(),
+                        old == null ? null : old.commitPartitionId(),
+                        old == null ? null : old.commitTimestamp()
+                ));
 
         decrementRwTxCount(txId);
     }
@@ -607,7 +633,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                             TxStateMeta updatedMeta = updateTxMeta(txId, old ->
                                     new TxStateMeta(
                                             result.transactionState(),
-                                            old.txCoordinatorId(),
+                                            old == null ? null : old.txCoordinatorId(),
                                             commitPartition,
                                             result.commitTimestamp()
                                     )
@@ -672,7 +698,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
                             new TxStateMeta(
                                     txResult.transactionState(),
                                     localNodeId,
-                                    old.commitPartitionId(),
+                                    old == null ? null : old.commitPartitionId(),
                                     txResult.commitTimestamp()
                             ));
 
@@ -728,7 +754,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
             txCleanupRequestHandler.start();
 
-            placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, primaryReplicaEventListener);
+            placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, primaryReplicaExpiredListener);
+
+            placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, primaryReplicaElectedListener);
 
             lowWatermark.addUpdateListener(lowWatermarkChangedListener);
 
@@ -753,7 +781,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
         txCleanupRequestHandler.stop();
 
-        placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, primaryReplicaEventListener);
+        placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, primaryReplicaExpiredListener);
+
+        placementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, primaryReplicaElectedListener);
 
         lowWatermark.removeUpdateListener(lowWatermarkChangedListener);
 
@@ -768,6 +798,16 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
     @Override
     public CompletableFuture<Void> cleanup(
             Map<TablePartitionId, String> enlistedPartitions,
+            boolean commit,
+            @Nullable HybridTimestamp commitTimestamp,
+            UUID txId
+    ) {
+        return txCleanupRequestSender.cleanup(enlistedPartitions, commit, commitTimestamp, txId);
+    }
+
+    @Override
+    public CompletableFuture<Void> cleanup(
+            Collection<TablePartitionId> enlistedPartitions,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId

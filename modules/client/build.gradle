@@ -30,7 +30,6 @@ dependencies {
 
     implementation libs.jetbrains.annotations
     implementation libs.msgpack.core
-    implementation libs.msgpack.jackson
     implementation libs.netty.common
     implementation libs.netty.buffer
     implementation libs.netty.codec

@@ -791,13 +791,15 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     }
 
     protected Predicate<? extends RelNode> projectFromTable(String tableName, String... exprs) {
-        return isInstanceOf(IgniteProject.class)
-                .and(projection -> {
-                    String actualProjStr = projection.getProjects().toString();
-                    String expectedProjStr = Arrays.asList(exprs).toString();
-                    return actualProjStr.equals(expectedProjStr);
-                })
-                .and(hasChildThat(isTableScan(tableName)));
+        return nodeOrAnyChild(
+                isInstanceOf(IgniteProject.class)
+                        .and(projection -> {
+                            String actualProjStr = projection.getProjects().toString();
+                            String expectedProjStr = Arrays.asList(exprs).toString();
+                            return actualProjStr.equals(expectedProjStr);
+                        })
+                        .and(input(isTableScan(tableName)))
+        );
     }
 
     /**

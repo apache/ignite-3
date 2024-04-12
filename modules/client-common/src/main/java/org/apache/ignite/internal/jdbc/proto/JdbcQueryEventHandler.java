@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.jdbc.proto;
 
 import java.sql.Connection;
+import java.time.ZoneId;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteRequest;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcBatchExecuteResult;
@@ -42,9 +43,11 @@ public interface JdbcQueryEventHandler {
     /**
      * Create connection context on a server and returns connection identity.
      *
+     * @param timeZoneId Client time zone ID.
+     *
      * @return A future representing result of the operation.
      */
-    CompletableFuture<JdbcConnectResult> connect();
+    CompletableFuture<JdbcConnectResult> connect(ZoneId timeZoneId);
 
     /**
      * {@link JdbcQueryExecuteRequest} command handler.

@@ -27,9 +27,9 @@ NULL
 query T rowsort
 SELECT cast(i AS VARCHAR) FROM times
 ----
-00:01:20.000
+00:01:20
 20:08:10.001
-20:08:10.330
+20:08:10.33
 20:08:10.998
 NULL
 

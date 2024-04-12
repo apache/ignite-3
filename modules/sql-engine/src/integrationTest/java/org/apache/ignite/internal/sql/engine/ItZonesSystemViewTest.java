@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine;
 
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
@@ -155,9 +156,10 @@ public class ItZonesSystemViewTest extends BaseSqlIntegrationTest {
                 + "\"REPLICAS\" = %d, "
                 + "\"DATA_NODES_AUTO_ADJUST_SCALE_UP\" = %d, "
                 + "\"DATA_NODES_AUTO_ADJUST_SCALE_DOWN\" = %d,"
-                + "\"DATA_NODES_FILTER\" = '%s'";
+                + "\"DATA_NODES_FILTER\" = '%s',"
+                + "\"STORAGE_PROFILES\" = '%s'";
 
-        return String.format(sqlFormat, zoneName, partitions, replicas, scaleUp, scaleDown, filter);
+        return String.format(sqlFormat, zoneName, partitions, replicas, scaleUp, scaleDown, filter, DEFAULT_STORAGE_PROFILE);
     }
 
     private static String selectFromZonesSystemView(String zoneName) {

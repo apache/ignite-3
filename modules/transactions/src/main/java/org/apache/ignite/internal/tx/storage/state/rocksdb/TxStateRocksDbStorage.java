@@ -30,7 +30,6 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_R
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_STOPPED_ERR;
 
 import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
@@ -79,8 +78,6 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     /** Database key for the last applied index+term. */
     private final byte[] lastAppliedIndexAndTermKey;
 
-    private final byte[] leaseKey;
-
     /** Shared TX state storage. */
     private final TxStateRocksDbSharedStorage sharedStorage;
 
@@ -92,8 +89,6 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
     /** On-heap-cached last applied term value. */
     private volatile long lastAppliedTerm;
-
-    private volatile long leaseStartTime;
 
     /** Current state of the storage. */
     private final AtomicReference<StorageState> state = new AtomicReference<>(StorageState.RUNNABLE);
@@ -116,7 +111,6 @@ public class TxStateRocksDbStorage implements TxStateStorage {
                 .putInt(tableId)
                 .putShort((short) partitionId)
                 .array();
-        this.leaseKey = ("lease_" + tableId + '_' + partitionId).getBytes(StandardCharsets.UTF_8);
     }
 
     /**
@@ -131,12 +125,6 @@ public class TxStateRocksDbStorage implements TxStateStorage {
             if (indexAndTermBytes != null) {
                 lastAppliedIndex = bytesToLong(indexAndTermBytes);
                 lastAppliedTerm = bytesToLong(indexAndTermBytes, Long.BYTES);
-            }
-
-            byte[] leaseBytes = readLease(sharedStorage.readOptions);
-
-            if (leaseBytes != null) {
-                leaseStartTime = bytesToLong(leaseBytes);
             }
 
             return null;
@@ -392,18 +380,6 @@ public class TxStateRocksDbStorage implements TxStateStorage {
         }
     }
 
-    private byte @Nullable [] readLease(ReadOptions readOptions) {
-        try {
-            return sharedStorage.db().get(readOptions, leaseKey);
-        } catch (RocksDBException e) {
-            throw new IgniteInternalException(
-                    TX_STATE_STORAGE_ERR,
-                    format("Failed to read a lease from a storage: [{}]", createStorageInfo()),
-                    e
-            );
-        }
-    }
-
     @Override
     public void destroy() {
         if (!tryToCloseStorageAndResources()) {
@@ -414,7 +390,6 @@ public class TxStateRocksDbStorage implements TxStateStorage {
             clearStorageData(writeBatch);
 
             writeBatch.delete(lastAppliedIndexAndTermKey);
-            writeBatch.delete(leaseKey);
 
             sharedStorage.db().write(sharedStorage.writeOptions, writeBatch);
         } catch (Exception e) {
@@ -494,14 +469,11 @@ public class TxStateRocksDbStorage implements TxStateStorage {
             clearStorageData(writeBatch);
 
             writeBatch.delete(lastAppliedIndexAndTermKey);
-            writeBatch.delete(leaseKey);
 
             sharedStorage.db().write(sharedStorage.writeOptions, writeBatch);
 
             lastAppliedIndex = 0;
             lastAppliedTerm = 0;
-
-            leaseStartTime = Long.MIN_VALUE;
 
             state.set(StorageState.RUNNABLE);
         } catch (Exception e) {
@@ -569,47 +541,6 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
             busyLock.unblock();
         }
-    }
-
-    @Override
-    public void updateLease(long leaseStartTime, long commandIndex, long commandTerm) {
-        busy(() -> {
-            if (leaseStartTime <= this.leaseStartTime) {
-                return null;
-            }
-
-            try (WriteBatch writeBatch = new WriteBatch()) {
-                byte[] leaseBytes = new byte[Long.BYTES];
-
-                putLongToBytes(leaseStartTime, leaseBytes, 0);
-
-                writeBatch.put(leaseKey, leaseBytes);
-
-                this.leaseStartTime = leaseStartTime;
-
-                // If the store is in the process of rebalancing, then there is no need to update lastAppliedIndex and lastAppliedTerm.
-                // This is necessary to prevent a situation where, in the middle of the rebalance, the node will be restarted and we will
-                // have non-consistent storage. They will be updated by either #abortRebalance() or #finishRebalance(long, long).
-                if (state.get() != StorageState.REBALANCE) {
-                    updateLastApplied(writeBatch, commandIndex, commandTerm);
-                }
-
-                sharedStorage.db().write(sharedStorage.writeOptions, writeBatch);
-            } catch (RocksDBException e) {
-                throw new IgniteInternalException(
-                        TX_STATE_STORAGE_ERR,
-                        format("Failed update lease in a storage: [{}]", createStorageInfo()),
-                        e
-                );
-            }
-
-            return null;
-        });
-    }
-
-    @Override
-    public long leaseStartTime() {
-        return leaseStartTime;
     }
 
     private void clearStorageData(WriteBatch writeBatch) throws RocksDBException {
