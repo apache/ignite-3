@@ -195,6 +195,8 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
         return busyDataRead(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
+            throwExceptionIfIndexIsNotBuilt();
+
             boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;
             boolean includeUpper = (flags & LESS_OR_EQUAL) != 0;
 
