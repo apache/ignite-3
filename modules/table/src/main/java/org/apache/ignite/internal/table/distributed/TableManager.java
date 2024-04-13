@@ -2067,7 +2067,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 busyLock,
                 createPartitionMover(internalTable, zonePartitionId.partitionId()),
                 rebalanceScheduler,
-                zonePartitionId.zoneId(),
                 table.tableId()
         );
 
