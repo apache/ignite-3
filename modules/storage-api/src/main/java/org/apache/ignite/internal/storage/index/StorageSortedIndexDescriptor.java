@@ -27,6 +27,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescript
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
+import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.type.NativeType;
 
@@ -42,6 +43,7 @@ public class StorageSortedIndexDescriptor implements StorageIndexDescriptor {
     public static class StorageSortedIndexColumnDescriptor implements StorageColumnDescriptor {
         private final String name;
 
+        @IgniteToStringInclude
         private final NativeType type;
 
         private final boolean nullable;
@@ -95,6 +97,7 @@ public class StorageSortedIndexDescriptor implements StorageIndexDescriptor {
 
     private final int id;
 
+    @IgniteToStringInclude
     private final List<StorageSortedIndexColumnDescriptor> columns;
 
     private final BinaryTupleSchema binaryTupleSchema;
@@ -146,6 +149,11 @@ public class StorageSortedIndexDescriptor implements StorageIndexDescriptor {
     @Override
     public boolean isPk() {
         return pk;
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(this);
     }
 
     /**
