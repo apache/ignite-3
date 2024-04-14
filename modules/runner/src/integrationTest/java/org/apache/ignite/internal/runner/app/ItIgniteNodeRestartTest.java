@@ -479,7 +479,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 Set.of(TableMessageGroup.class, TxMessageGroup.class),
                 placementDriverManager.placementDriver(),
                 threadPoolsManager.partitionOperationsExecutor(),
-                partitionIdleSafeTimePropagationPeriodMsSupplier
+                partitionIdleSafeTimePropagationPeriodMsSupplier,
+                failureProcessor
         );
 
         var resourcesRegistry = new RemotelyTriggeredResourceRegistry();

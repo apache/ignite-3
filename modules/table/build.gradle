@@ -108,6 +108,7 @@ dependencies {
     testFixturesImplementation(testFixtures(project(':ignite-network')))
     testFixturesImplementation(testFixtures(project(':ignite-placement-driver-api')))
     testFixturesImplementation(testFixtures(project(':ignite-low-watermark')))
+    testFixturesImplementation(testFixtures(project(':ignite-failure-handler')))
     testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation libs.fastutil.core
     testFixturesImplementation libs.mockito.core
