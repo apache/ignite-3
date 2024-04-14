@@ -60,6 +60,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.TestStorageUtils;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.impl.BinaryTupleRowSerializer;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -483,11 +484,7 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
 
     /** Completes the building of the index and makes read operations available from it. */
     void completeBuildIndex(IndexStorage indexStorage) {
-        partitionStorage.runConsistently(locker -> {
-            indexStorage.setNextRowIdToBuild(null);
-
-            return null;
-        });
+        TestStorageUtils.completeBuiltIndexes(partitionStorage, indexStorage);
     }
 
     static IndexRow createIndexRow(BinaryTupleRowSerializer serializer, Object... values) {

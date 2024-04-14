@@ -1507,12 +1507,6 @@ public abstract class AbstractMvTableStorageTest extends BaseMvStoragesTest {
 
         assertNotNull(partitionStorage, "partitionId=" + partitionId);
 
-        partitionStorage.runConsistently(locker -> {
-            for (IndexStorage indexStorage : indexStorages) {
-                indexStorage.setNextRowIdToBuild(null);
-            }
-
-            return null;
-        });
+        TestStorageUtils.completeBuiltIndexes(partitionStorage, indexStorages);
     }
 }

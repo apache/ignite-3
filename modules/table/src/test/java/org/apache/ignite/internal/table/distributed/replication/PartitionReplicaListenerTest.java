@@ -132,6 +132,7 @@ import org.apache.ignite.internal.schema.marshaller.MarshallerFactory;
 import org.apache.ignite.internal.schema.marshaller.reflection.ReflectionMarshallerFactory;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.TestStorageUtils;
 import org.apache.ignite.internal.storage.impl.TestMvPartitionStorage;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.IndexStorage;
@@ -3019,12 +3020,6 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     private void completeBuiltIndexes(IndexStorage... indexStorages) {
-        testMvPartitionStorage.runConsistently(locker -> {
-            for (IndexStorage indexStorage : indexStorages) {
-                indexStorage.setNextRowIdToBuild(null);
-            }
-
-            return null;
-        });
+        TestStorageUtils.completeBuiltIndexes(testMvPartitionStorage, indexStorages);
     }
 }
