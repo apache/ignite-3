@@ -24,6 +24,7 @@ import java.util.List;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptPlanner;
 import org.apache.calcite.plan.RelOptRule;
+import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.PhysicalNode;
 import org.apache.calcite.rel.RelNode;
@@ -64,6 +65,13 @@ public class HashAggregateConverterRule {
             super(LogicalAggregate.class, "ColocatedHashAggregateConverterRule");
         }
 
+        @Override
+        public boolean matches(RelOptRuleCall call) {
+            LogicalAggregate aggregate = call.rel(0);
+
+            return !HintUtils.isExpandDistinctAggregate(aggregate);
+        }
+
         /** {@inheritDoc} */
         @Override
         protected PhysicalNode convert(RelOptPlanner planner, RelMetadataQuery mq,
@@ -93,16 +101,19 @@ public class HashAggregateConverterRule {
             super(LogicalAggregate.class, "MapReduceHashAggregateConverterRule");
         }
 
+        @Override
+        public boolean matches(RelOptRuleCall call) {
+            LogicalAggregate aggregate = call.rel(0);
+
+            return !HintUtils.isExpandDistinctAggregate(aggregate)
+                    && canBeImplementedAsMapReduce(aggregate.getAggCallList())
+                    && !complexDistinctAgg(aggregate.getAggCallList());
+        }
+
         /** {@inheritDoc} */
         @Override
         protected PhysicalNode convert(RelOptPlanner planner, RelMetadataQuery mq,
                 LogicalAggregate agg) {
-            if (complexDistinctAgg(agg.getAggCallList())
-                    || !canBeImplementedAsMapReduce(agg.getAggCallList())
-                    || HintUtils.isExpandDistinctAggregate(agg)) {
-                return null;
-            }
-
             RelOptCluster cluster = agg.getCluster();
             RelTraitSet inTrait = cluster.traitSetOf(IgniteConvention.INSTANCE);
             RelTraitSet outTrait = cluster.traitSetOf(IgniteConvention.INSTANCE);

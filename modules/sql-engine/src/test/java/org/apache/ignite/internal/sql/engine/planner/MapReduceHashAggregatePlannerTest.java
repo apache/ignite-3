@@ -33,6 +33,8 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteLimit;
 import org.apache.ignite.internal.sql.engine.rel.IgniteMergeJoin;
 import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSort;
+import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
+import org.apache.ignite.internal.sql.engine.rel.agg.IgniteColocatedHashAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapHashAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceHashAggregate;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Collation;
@@ -51,7 +53,6 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
     private final String[] disableRules = {
             "SortAggregateExchangeTransposeRule",
             "MapReduceSortAggregateConverterRule",
-            "ColocatedHashAggregateConverterRule",
             "ColocatedSortAggregateConverterRule"
     };
 
@@ -81,11 +82,11 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
         checkDistinctAggHash(TestCase.CASE_2_1B);
         checkDistinctAggHash(TestCase.CASE_2_2B);
 
-        checkDistinctAggHash(TestCase.CASE_2_1C);
-        checkDistinctAggHash(TestCase.CASE_2_2C);
+        checkColocatedDistinctAggHash(TestCase.CASE_2_1C);
+        checkColocatedDistinctAggHash(TestCase.CASE_2_2C);
 
-        checkDistinctAggHash(TestCase.CASE_2_1D);
-        checkDistinctAggHash(TestCase.CASE_2_2D);
+        checkColocatedDistinctAggHash(TestCase.CASE_2_1D);
+        checkColocatedDistinctAggHash(TestCase.CASE_2_2D);
     }
 
     /**
@@ -125,10 +126,10 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
         checkSimpleAggWithGroupByHash(TestCase.CASE_5B);
         checkSimpleAggWithGroupByHash(TestCase.CASE_6B);
 
-        checkSimpleAggWithGroupByHash(TestCase.CASE_5C);
-        checkSimpleAggWithGroupByHash(TestCase.CASE_6C);
+        checkSimpleAggWithColocatedGroupByHash(TestCase.CASE_5C);
+        checkSimpleAggWithColocatedGroupByHash(TestCase.CASE_6C);
 
-        checkSimpleAggWithGroupByHash(TestCase.CASE_5D);
+        checkSimpleAggWithColocatedGroupByHash(TestCase.CASE_5D);
     }
 
     /**
@@ -175,11 +176,11 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
         checkSimpleAggWithGroupByHash(TestCase.CASE_8_1B);
         checkSimpleAggWithGroupByHash(TestCase.CASE_8_2B);
 
-        checkSimpleAggWithGroupByHash(TestCase.CASE_8_1C);
-        checkSimpleAggWithGroupByHash(TestCase.CASE_8_2C);
+        checkSimpleAggWithColocatedGroupByHash(TestCase.CASE_8_1C);
+        checkSimpleAggWithColocatedGroupByHash(TestCase.CASE_8_2C);
 
-        checkSimpleAggWithGroupByHash(TestCase.CASE_8_1D);
-        checkSimpleAggWithGroupByHash(TestCase.CASE_8_2D);
+        checkSimpleAggWithColocatedGroupByHash(TestCase.CASE_8_1D);
+        checkSimpleAggWithColocatedGroupByHash(TestCase.CASE_8_2D);
     }
 
     /**
@@ -201,11 +202,11 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
         checkAggWithGroupByIndexColumnsHash(TestCase.CASE_10B);
         checkAggWithGroupByIndexColumnsHash(TestCase.CASE_11B);
 
-        checkAggWithGroupByIndexColumnsHash(TestCase.CASE_9C);
-        checkAggWithGroupByIndexColumnsHash(TestCase.CASE_10C);
-        checkAggWithGroupByIndexColumnsHash(TestCase.CASE_11C);
+        checkAggWithColocatedGroupByIndexColumnsHash(TestCase.CASE_9C);
+        checkAggWithColocatedGroupByIndexColumnsHash(TestCase.CASE_10C);
+        checkAggWithColocatedGroupByIndexColumnsHash(TestCase.CASE_11C);
 
-        checkAggWithGroupByIndexColumnsHash(TestCase.CASE_9D);
+        checkAggWithColocatedGroupByIndexColumnsHash(TestCase.CASE_9D);
     }
 
     /**
@@ -217,8 +218,9 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
 
         checkGroupWithNoAggregateHash(TestCase.CASE_12A);
         checkGroupWithNoAggregateHash(TestCase.CASE_12B);
-        checkGroupWithNoAggregateHash(TestCase.CASE_12C);
-        checkGroupWithNoAggregateHash(TestCase.CASE_12D);
+
+        checkColocatedGroupWithNoAggregateHash(TestCase.CASE_12C);
+        checkColocatedGroupWithNoAggregateHash(TestCase.CASE_12D);
     }
 
     /**
@@ -230,8 +232,9 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
 
         checkGroupWithNoAggregateHash(TestCase.CASE_13A);
         checkGroupWithNoAggregateHash(TestCase.CASE_13B);
-        checkGroupWithNoAggregateHash(TestCase.CASE_13C);
-        checkGroupWithNoAggregateHash(TestCase.CASE_13D);
+
+        checkColocatedGroupWithNoAggregateHash(TestCase.CASE_13C);
+        checkColocatedGroupWithNoAggregateHash(TestCase.CASE_13D);
     }
 
     /**
@@ -263,39 +266,24 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
 
         assertPlan(TestCase.CASE_16,
                 nodeOrAnyChild(isInstanceOf(IgniteSort.class)
-                        .and(input(isInstanceOf(IgniteReduceHashAggregate.class)
-                                .and(input(isInstanceOf(IgniteMapHashAggregate.class)
-                                        .and(input(isTableScan("TEST")))
-                                ))
+                        .and(input(isInstanceOf(IgniteColocatedHashAggregate.class)
+                                .and(input(isTableScan("TEST")))
                         ))
                 ),
                 ArrayUtils.concat(disableRules, additionalRulesToDisable)
         );
 
-        assertPlan(TestCase.CASE_16A,
-                nodeOrAnyChild(isInstanceOf(IgniteSort.class)
-                        .and(input(isInstanceOf(IgniteReduceHashAggregate.class)
-                                .and(input(isInstanceOf(IgniteExchange.class)
-                                        .and(input(isInstanceOf(IgniteMapHashAggregate.class)
-                                                .and(input(isTableScan("TEST")))
-                                        ))
+        Predicate<RelNode> aggregateOverIndexScan = nodeOrAnyChild(isInstanceOf(IgniteSort.class)
+                .and(input(isInstanceOf(IgniteReduceHashAggregate.class)
+                        .and(input(isInstanceOf(IgniteExchange.class)
+                                .and(input(isInstanceOf(IgniteMapHashAggregate.class)
+                                        .and(input(isTableScan("TEST")))
                                 ))
                         ))
-                ),
-                ArrayUtils.concat(disableRules, additionalRulesToDisable)
+                ))
         );
-        assertPlan(TestCase.CASE_16B,
-                nodeOrAnyChild(isInstanceOf(IgniteSort.class)
-                        .and(input(isInstanceOf(IgniteReduceHashAggregate.class)
-                                .and(input(isInstanceOf(IgniteExchange.class)
-                                        .and(input(isInstanceOf(IgniteMapHashAggregate.class)
-                                                .and(input(isTableScan("TEST")))
-                                        ))
-                                ))
-                        ))
-                ),
-                ArrayUtils.concat(disableRules, additionalRulesToDisable)
-        );
+        assertPlan(TestCase.CASE_16A, aggregateOverIndexScan, ArrayUtils.concat(disableRules, additionalRulesToDisable));
+        assertPlan(TestCase.CASE_16B, aggregateOverIndexScan, ArrayUtils.concat(disableRules, additionalRulesToDisable));
     }
 
     /**
@@ -305,12 +293,10 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
     public void emptyCollationPassThroughLimit() throws Exception {
         assertPlan(TestCase.CASE_17,
                 hasChildThat(isInstanceOf(IgniteCorrelatedNestedLoopJoin.class)
-                        .and(input(1, isInstanceOf(IgniteReduceHashAggregate.class)
-                                .and(input(isInstanceOf(IgniteMapHashAggregate.class)
-                                        .and(input(isInstanceOf(IgniteLimit.class)
-                                                .and(input(isInstanceOf(IgniteSort.class)
-                                                        .and(input(isTableScan("TEST")))
-                                                ))
+                        .and(input(1, isInstanceOf(IgniteColocatedHashAggregate.class)
+                                .and(input(isInstanceOf(IgniteLimit.class)
+                                        .and(input(isInstanceOf(IgniteSort.class)
+                                                .and(input(isTableScan("TEST")))
                                         ))
                                 ))
                         ))
@@ -318,38 +304,19 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
                 disableRules
         );
 
-        assertPlan(TestCase.CASE_17A,
-                hasChildThat(isInstanceOf(IgniteCorrelatedNestedLoopJoin.class)
-                        .and(input(1, isInstanceOf(IgniteReduceHashAggregate.class)
-                                .and(input(isInstanceOf(IgniteMapHashAggregate.class)
-                                        .and(input(isInstanceOf(IgniteLimit.class)
-                                                .and(input(isInstanceOf(IgniteExchange.class)
-                                                        .and(input(isInstanceOf(IgniteSort.class)
-                                                                .and(input(isTableScan("TEST")))
-                                                        ))
-                                                ))
+        Predicate<RelNode> aggregateWithLimit = hasChildThat(isInstanceOf(IgniteCorrelatedNestedLoopJoin.class)
+                .and(input(1, isInstanceOf(IgniteColocatedHashAggregate.class)
+                        .and(input(isInstanceOf(IgniteLimit.class)
+                                .and(input(isInstanceOf(IgniteExchange.class)
+                                        .and(input(isInstanceOf(IgniteSort.class)
+                                                .and(input(isTableScan("TEST")))
                                         ))
                                 ))
                         ))
-                ),
-                disableRules
+                ))
         );
-        assertPlan(TestCase.CASE_17B,
-                hasChildThat(isInstanceOf(IgniteCorrelatedNestedLoopJoin.class)
-                        .and(input(1, isInstanceOf(IgniteReduceHashAggregate.class)
-                                .and(input(isInstanceOf(IgniteMapHashAggregate.class)
-                                        .and(input(isInstanceOf(IgniteLimit.class)
-                                                .and(input(isInstanceOf(IgniteExchange.class)
-                                                        .and(input(isInstanceOf(IgniteSort.class)
-                                                                .and(input(isTableScan("TEST")))
-                                                        ))
-                                                ))
-                                        ))
-                                ))
-                        ))
-                ),
-                disableRules
-        );
+        assertPlan(TestCase.CASE_17A, aggregateWithLimit, disableRules);
+        assertPlan(TestCase.CASE_17B, aggregateWithLimit, disableRules);
     }
 
     /**
@@ -393,21 +360,15 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
      */
     @Test
     public void expandDistinctAggregates() throws Exception {
-        Predicate<? extends RelNode> subtreePredicate = nodeOrAnyChild(isInstanceOf(IgniteReduceHashAggregate.class)
+        Predicate<? extends RelNode> subtreePredicate = nodeOrAnyChild(isInstanceOf(IgniteColocatedHashAggregate.class)
                 // Check the second aggregation step contains accumulators.
                 // Plan must not contain distinct accumulators.
                 .and(hasAggregate())
                 .and(not(hasDistinctAggregate()))
-                .and(input(isInstanceOf(IgniteMapHashAggregate.class)
-                        // Check the first aggregation step is SELECT DISTINCT (doesn't contain any accumulators)
-                        .and(input(isInstanceOf(IgniteReduceHashAggregate.class)
-                                .and(not(hasAggregate()))
-                                .and(hasGroups())
-                                .and(input(isInstanceOf(IgniteMapHashAggregate.class)
-                                        .and(not(hasAggregate()))
-                                        .and(hasGroups())
-                                ))
-                        ))
+                // Check the first aggregation step is SELECT DISTINCT (doesn't contain any accumulators)
+                .and(input(isInstanceOf(IgniteColocatedHashAggregate.class)
+                        .and(not(hasAggregate()))
+                        .and(hasGroups())
                 ))
         );
 
@@ -416,21 +377,21 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
                 .and(input(1, subtreePredicate))
         ), disableRules);
 
-        subtreePredicate = nodeOrAnyChild(isInstanceOf(IgniteReduceHashAggregate.class)
+        subtreePredicate = nodeOrAnyChild(isInstanceOf(IgniteColocatedHashAggregate.class)
                 // Check the second aggregation step contains accumulators.
                 // Plan must not contain distinct accumulators.
                 .and(hasAggregate())
                 .and(not(hasDistinctAggregate()))
-                .and(input(isInstanceOf(IgniteMapHashAggregate.class)
-                        // Check the first aggregation step is SELECT DISTINCT (doesn't contain any accumulators)
-                        .and(input(isInstanceOf(IgniteReduceHashAggregate.class)
-                                .and(not(hasAggregate()))
-                                .and(hasGroups())
-                                .and(input(isInstanceOf(IgniteExchange.class)
-                                        .and(input(isInstanceOf(IgniteMapHashAggregate.class)
-                                                .and(not(hasAggregate()))
-                                                .and(hasGroups())
-                                        ))
+                // Check the first aggregation step is SELECT DISTINCT (doesn't contain any accumulators)
+                .and(input(isInstanceOf(IgniteReduceHashAggregate.class)
+                        .and(not(hasAggregate()))
+                        .and(hasGroups())
+                        .and(input(isInstanceOf(IgniteExchange.class)
+                                .and(hasDistribution(IgniteDistributions.single()))
+                                .and(input(isInstanceOf(IgniteMapHashAggregate.class)
+                                        .and(not(hasAggregate()))
+                                        .and(hasGroups())
+                                        .and(input(isInstanceOf(IgniteTableScan.class)))
                                 ))
                         ))
                 ))
@@ -471,10 +432,17 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
                         ))
                 ));
 
+        Predicate<RelNode> colocated = nodeOrAnyChild(isInstanceOf(IgniteExchange.class)
+                .and(hasDistribution(IgniteDistributions.single()))
+                .and(input(isInstanceOf(IgniteColocatedHashAggregate.class)
+                        .and(in -> hasAggregates(countMap).test(in.getAggCallList()))
+                        .and(input(isTableScan("TEST")))
+                )));
+
         assertPlan(TestCase.CASE_22, nonColocated, disableRules);
         assertPlan(TestCase.CASE_22A, nonColocated, disableRules);
-        assertPlan(TestCase.CASE_22B, nonColocated, disableRules);
-        assertPlan(TestCase.CASE_22C, nonColocated, disableRules);
+        assertPlan(TestCase.CASE_22B, colocated, disableRules);
+        assertPlan(TestCase.CASE_22C, colocated, disableRules);
     }
 
     /**
@@ -482,6 +450,9 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
      */
     @Test
     public void twoPhaseAvgAgg() throws Exception {
+        Predicate<AggregateCall> avgColocated = (a) ->
+                Objects.equals(a.getAggregation().getName(), "AVG") && a.getArgList().equals(List.of(1));
+
         Predicate<AggregateCall> sumMap = (a) ->
                 Objects.equals(a.getAggregation().getName(), "SUM") && a.getArgList().equals(List.of(1));
 
@@ -494,21 +465,28 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
         Predicate<AggregateCall> sum0Reduce = (a) ->
                 Objects.equals(a.getAggregation().getName(), "$SUM0") && a.getArgList().equals(List.of(2));
 
-        Predicate<RelNode> nonColocated = hasChildThat(isInstanceOf(IgniteReduceHashAggregate.class)
+        Predicate<RelNode> nonColocated = nodeOrAnyChild(isInstanceOf(IgniteReduceHashAggregate.class)
                 .and(in -> hasAggregates(sumReduce, sum0Reduce).test(in.getAggregateCalls()))
                 .and(input(isInstanceOf(IgniteExchange.class)
                         .and(hasDistribution(IgniteDistributions.single()))
                         .and(input(isInstanceOf(IgniteProject.class)
                                 .and(input(isInstanceOf(IgniteMapHashAggregate.class)
-                                                .and(in -> hasAggregates(sumMap, countMap).test(in.getAggCallList()))
-                                        )
+                                        .and(in -> hasAggregates(sumMap, countMap).test(in.getAggCallList()))
                                 ))
-                        ))));
+                        ))
+                )));
+
+        Predicate<RelNode> colocated = nodeOrAnyChild(isInstanceOf(IgniteExchange.class)
+                .and(hasDistribution(IgniteDistributions.single()))
+                .and(input(isInstanceOf(IgniteColocatedHashAggregate.class)
+                        .and(in -> hasAggregates(avgColocated).test(in.getAggCallList()))
+                        .and(input(isTableScan("TEST")))
+                )));
 
         assertPlan(TestCase.CASE_23, nonColocated, disableRules);
         assertPlan(TestCase.CASE_23A, nonColocated, disableRules);
-        assertPlan(TestCase.CASE_23B, nonColocated, disableRules);
-        assertPlan(TestCase.CASE_23C, nonColocated, disableRules);
+        assertPlan(TestCase.CASE_23B, colocated, disableRules);
+        assertPlan(TestCase.CASE_23C, colocated, disableRules);
     }
 
     /**
@@ -516,19 +494,10 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
      */
     @Test
     public void countDistinctGroupSetSingle() throws Exception {
-        Predicate<IgniteReduceHashAggregate> inputAgg = isInstanceOf(IgniteReduceHashAggregate.class)
-                .and(hasGroupSets(IgniteReduceHashAggregate::getGroupSets, 0))
-                .and(input(isInstanceOf(IgniteMapHashAggregate.class)
-                        .and(hasGroupSets(Aggregate::getGroupSets, 1))
-                ));
-
-        assertPlan(TestCase.CASE_24_1, nodeOrAnyChild(isInstanceOf(IgniteReduceHashAggregate.class)
-                        .and(hasNoGroupSets(IgniteReduceHashAggregate::getGroupSets))
-                        .and(input(isInstanceOf(IgniteMapHashAggregate.class)
-                                .and(hasNoGroupSets(IgniteMapHashAggregate::getGroupSets))
-                                .and(input(isInstanceOf(IgniteProject.class).and(input(inputAgg)))
-                                ))
-                        )),
+        assertPlan(TestCase.CASE_24_1, nodeOrAnyChild(isInstanceOf(IgniteColocatedHashAggregate.class)
+                        .and(hasNoGroupSets(IgniteColocatedHashAggregate::getGroupSets))
+                        .and(input(isTableScan("TEST")))
+                ),
                 disableRules);
     }
 
@@ -539,9 +508,9 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
     public void countDistinctGroupSetHash() throws Exception {
         checkCountDistinctHash(TestCase.CASE_24_1A);
         checkCountDistinctHash(TestCase.CASE_24_1B);
-        checkCountDistinctHash(TestCase.CASE_24_1C);
+        checkCountDistinctHashColocated(TestCase.CASE_24_1C);
         checkCountDistinctHash(TestCase.CASE_24_1D);
-        checkCountDistinctHash(TestCase.CASE_24_1E);
+        checkCountDistinctHashColocated(TestCase.CASE_24_1E);
     }
 
     /**
@@ -566,11 +535,9 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
 
     private void checkSimpleAggSingle(TestCase testCase) throws Exception {
         assertPlan(testCase,
-                nodeOrAnyChild(isInstanceOf(IgniteReduceHashAggregate.class)
-                        .and(input(isInstanceOf(IgniteMapHashAggregate.class)
-                                .and(hasAggregate())
-                                .and(input(isTableScan("TEST")))
-                        ))
+                nodeOrAnyChild(isInstanceOf(IgniteColocatedHashAggregate.class)
+                        .and(hasAggregate())
+                        .and(input(isTableScan("TEST")))
                 ),
                 disableRules
         );
@@ -592,12 +559,10 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
 
     private void checkSimpleAggWithGroupBySingle(TestCase testCase) throws Exception {
         assertPlan(testCase,
-                nodeOrAnyChild(isInstanceOf(IgniteReduceHashAggregate.class)
-                        .and(input(isInstanceOf(IgniteMapHashAggregate.class)
-                                .and(hasAggregate())
-                                .and(hasGroups())
-                                .and(input(isTableScan("TEST")))
-                        ))
+                nodeOrAnyChild(isInstanceOf(IgniteColocatedHashAggregate.class)
+                        .and(hasAggregate())
+                        .and(hasGroups())
+                        .and(input(isTableScan("TEST")))
                 ),
                 disableRules
         );
@@ -618,21 +583,15 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
         );
     }
 
-    private void checkDistinctAggSingle(TestCase testCase) throws Exception {
+    private void checkSimpleAggWithColocatedGroupByHash(TestCase testCase) throws Exception {
         assertPlan(testCase,
-                nodeOrAnyChild(isInstanceOf(IgniteReduceHashAggregate.class)
-                        .and(hasAggregate())
-                        .and(not(hasDistinctAggregate()))
-                        .and(input(isInstanceOf(IgniteMapHashAggregate.class)
-                                .and(hasAggregate())
-                                .and(not(hasDistinctAggregate()))
-                                .and(input(isInstanceOf(IgniteReduceHashAggregate.class)
-                                        .and(not(hasAggregate()))
+                nodeOrAnyChild(isInstanceOf(IgniteExchange.class)
+                        .and(hasDistribution(IgniteDistributions.single()))
+                        .and(input(isInstanceOf(IgniteProject.class)
+                                .and(input(isInstanceOf(IgniteColocatedHashAggregate.class)
+                                        .and(hasAggregate())
                                         .and(hasGroups())
-                                        .and(input(isInstanceOf(IgniteMapHashAggregate.class)
-                                                .and(not(hasAggregate()))
-                                                .and(input(isTableScan("TEST")))
-                                        ))
+                                        .and(input(isTableScan("TEST")))
                                 ))
                         ))
                 ),
@@ -640,23 +599,45 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
         );
     }
 
+    private void checkDistinctAggSingle(TestCase testCase) throws Exception {
+        assertPlan(testCase,
+                nodeOrAnyChild(isInstanceOf(IgniteColocatedHashAggregate.class)
+                        .and(hasDistinctAggregate())
+                        .and(input(isTableScan("TEST")))
+                ),
+                disableRules
+        );
+    }
+
     private void checkDistinctAggHash(TestCase testCase) throws Exception {
         assertPlan(testCase,
-                nodeOrAnyChild(isInstanceOf(IgniteReduceHashAggregate.class)
+                nodeOrAnyChild(isInstanceOf(IgniteColocatedHashAggregate.class)
                         .and(hasAggregate())
                         .and(not(hasDistinctAggregate()))
-                        .and(input(isInstanceOf(IgniteMapHashAggregate.class)
-                                .and(hasAggregate())
-                                .and(not(hasDistinctAggregate()))
-                                .and(input(isInstanceOf(IgniteReduceHashAggregate.class)
+                        .and(input(isInstanceOf(IgniteReduceHashAggregate.class)
+                                .and(not(hasAggregate()))
+                                .and(hasGroups())
+                                .and(input(isInstanceOf(IgniteExchange.class)
+                                        .and(input(isInstanceOf(IgniteMapHashAggregate.class)
+                                                .and(not(hasAggregate()))
+                                                .and(input(isTableScan("TEST")))
+                                        ))
+                                ))
+                        ))),
+                disableRules
+        );
+    }
+
+    private void checkColocatedDistinctAggHash(TestCase testCase) throws Exception {
+        assertPlan(testCase,
+                nodeOrAnyChild(isInstanceOf(IgniteColocatedHashAggregate.class)
+                        .and(not(hasDistinctAggregate()))
+                        .and(input(isInstanceOf(IgniteExchange.class)
+                                .and(hasDistribution(IgniteDistributions.single()))
+                                .and(input(isInstanceOf(IgniteColocatedHashAggregate.class)
                                         .and(not(hasAggregate()))
                                         .and(hasGroups())
-                                        .and(input(isInstanceOf(IgniteExchange.class)
-                                                .and(input(isInstanceOf(IgniteMapHashAggregate.class)
-                                                        .and(not(hasAggregate()))
-                                                        .and(input(isTableScan("TEST")))
-                                                ))
-                                        ))
+                                        .and(input(isTableScan("TEST")))
                                 ))
                         ))),
                 disableRules
@@ -665,13 +646,23 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
 
     private void checkDistinctAggWithGroupBySingle(TestCase testCase) throws Exception {
         assertPlan(testCase,
-                nodeOrAnyChild(isInstanceOf(IgniteReduceHashAggregate.class)
+                nodeOrAnyChild(isInstanceOf(IgniteColocatedHashAggregate.class)
+                        .and(hasDistinctAggregate())
+                        .and(input(isTableScan("TEST")))
+                ),
+                disableRules
+        );
+    }
+
+    private void checkDistinctAggWithGroupByHash(TestCase testCase) throws Exception {
+        assertPlan(testCase,
+                nodeOrAnyChild(isInstanceOf(IgniteColocatedHashAggregate.class)
                         .and(hasAggregate())
                         .and(not(hasDistinctAggregate()))
-                        .and(input(isInstanceOf(IgniteMapHashAggregate.class)
-                                .and(input(isInstanceOf(IgniteReduceHashAggregate.class)
-                                        .and(not(hasAggregate()))
-                                        .and(hasGroups())
+                        .and(input(isInstanceOf(IgniteReduceHashAggregate.class)
+                                .and(not(hasAggregate()))
+                                .and(hasGroups())
+                                .and(input(isInstanceOf(IgniteExchange.class)
                                         .and(input(isInstanceOf(IgniteMapHashAggregate.class)
                                                 .and(not(hasAggregate()))
                                                 .and(hasGroups())
@@ -684,59 +675,24 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
         );
     }
 
-    private void checkDistinctAggWithGroupByHash(TestCase testCase) throws Exception {
-        assertPlan(testCase,
-                nodeOrAnyChild(isInstanceOf(IgniteReduceHashAggregate.class)
-                        .and(hasAggregate())
-                        .and(not(hasDistinctAggregate()))
-                        .and(input(isInstanceOf(IgniteMapHashAggregate.class)
-                                .and(input(isInstanceOf(IgniteReduceHashAggregate.class)
-                                        .and(not(hasAggregate()))
-                                        .and(hasGroups())
-                                        .and(input(isInstanceOf(IgniteExchange.class)
-                                                .and(input(isInstanceOf(IgniteMapHashAggregate.class)
-                                                        .and(not(hasAggregate()))
-                                                        .and(hasGroups())
-                                                        .and(input(isTableScan("TEST")))
-                                                ))
-                                        ))
-                                ))
-                        ))
-                ),
-                disableRules
-        );
-    }
-
     private void checkDistinctAggWithColocatedGroupByHash(TestCase testCase) throws Exception {
         assertPlan(testCase,
-                nodeOrAnyChild(isInstanceOf(IgniteReduceHashAggregate.class)
-                        .and(hasAggregate())
-                        .and(not(hasDistinctAggregate()))
-                        .and(input(isInstanceOf(IgniteMapHashAggregate.class)
-                                .and(input(isInstanceOf(IgniteReduceHashAggregate.class)
-                                        .and(not(hasAggregate()))
-                                        .and(hasGroups())
-                                        .and(input(isInstanceOf(IgniteExchange.class)
-                                                .and(input(isInstanceOf(IgniteMapHashAggregate.class)
-                                                        .and(not(hasAggregate()))
-                                                        .and(hasGroups())
-                                                        .and(input(isTableScan("TEST")))
-                                                ))
-                                        ))
-                                ))
-                        ))
-                ),
+                nodeOrAnyChild(isInstanceOf(IgniteExchange.class)
+                        .and(hasDistribution(IgniteDistributions.single()))
+                        .and(nodeOrAnyChild(isInstanceOf(IgniteColocatedHashAggregate.class)
+                                .and(hasDistinctAggregate())
+                                .and(hasGroups())
+                                .and(input(isTableScan("TEST")))
+                        ))),
                 disableRules
         );
     }
 
     private void checkAggWithGroupByIndexColumnsSingle(TestCase testCase) throws Exception {
         assertPlan(testCase,
-                nodeOrAnyChild(isInstanceOf(IgniteReduceHashAggregate.class)
-                        .and(input(isInstanceOf(IgniteMapHashAggregate.class)
-                                .and(hasAggregate())
-                                .and(input(isTableScan("TEST")))
-                        ))
+                nodeOrAnyChild(isInstanceOf(IgniteColocatedHashAggregate.class)
+                        .and(hasAggregate())
+                        .and(input(isTableScan("TEST")))
                 ),
                 disableRules
         );
@@ -756,16 +712,27 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
         );
     }
 
+    private void checkAggWithColocatedGroupByIndexColumnsHash(TestCase testCase) throws Exception {
+        assertPlan(testCase,
+                nodeOrAnyChild(isInstanceOf(IgniteExchange.class)
+                        .and(hasDistribution(IgniteDistributions.single()))
+                        .and(input(isInstanceOf(IgniteProject.class)
+                                .and(input(isInstanceOf(IgniteColocatedHashAggregate.class)
+                                        .and(hasAggregate())
+                                        .and(input(isTableScan("TEST")))
+                                ))
+                        ))
+                ),
+                disableRules
+        );
+    }
+
     private void checkGroupWithNoAggregateSingle(TestCase testCase) throws Exception {
         assertPlan(testCase,
-                nodeOrAnyChild(isInstanceOf(IgniteReduceHashAggregate.class)
+                nodeOrAnyChild(isInstanceOf(IgniteColocatedHashAggregate.class)
                         .and(not(hasAggregate()))
                         .and(hasGroups())
-                        .and(input(isInstanceOf(IgniteMapHashAggregate.class)
-                                .and(not(hasAggregate()))
-                                .and(hasGroups())
-                                .and(input(isTableScan("TEST")))
-                        ))
+                        .and(input(isTableScan("TEST")))
                 ),
                 disableRules
         );
@@ -788,16 +755,27 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
         );
     }
 
+
+    private void checkColocatedGroupWithNoAggregateHash(TestCase testCase) throws Exception {
+        assertPlan(testCase,
+                nodeOrAnyChild(isInstanceOf(IgniteExchange.class)
+                        .and(input(isInstanceOf(IgniteColocatedHashAggregate.class)
+                                .and(not(hasAggregate()))
+                                .and(hasGroups())
+                                .and(input(isTableScan("TEST")))
+                        ))
+                ),
+                disableRules
+        );
+    }
+
     private void checkGroupsWithOrderByGroupColumnsSingle(TestCase testCase, RelCollation collation) throws Exception {
         assertPlan(testCase,
                 isInstanceOf(IgniteSort.class)
                         .and(s -> s.collation().equals(collation))
-                        .and(input(isInstanceOf(IgniteProject.class)
-                                .and(input(isInstanceOf(IgniteReduceHashAggregate.class)
-                                        .and(input(isInstanceOf(IgniteMapHashAggregate.class)
-                                                .and(input(isTableScan("TEST")))
-                                        ))
-                                ))
+                        .and(input(isInstanceOf(IgniteColocatedHashAggregate.class)
+                                .and(input(isTableScan("TEST")))
+
                         )),
                 disableRules
         );
@@ -820,7 +798,6 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
         );
     }
 
-
     private void checkCountDistinctHash(TestCase testCase) throws Exception {
         Predicate<IgniteReduceHashAggregate> inputAgg = isInstanceOf(IgniteReduceHashAggregate.class)
                 .and(hasGroupSets(IgniteReduceHashAggregate::getGroupSets, 0))
@@ -831,13 +808,22 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
                         ))
                 ));
 
-        assertPlan(testCase, nodeOrAnyChild(isInstanceOf(IgniteReduceHashAggregate.class)
-                        .and(hasNoGroupSets(IgniteReduceHashAggregate::getGroupSets))
-                        .and(input(isInstanceOf(IgniteMapHashAggregate.class)
-                                .and(hasNoGroupSets(IgniteMapHashAggregate::getGroupSets))
-                                .and(input(isInstanceOf(IgniteProject.class).and(input(inputAgg)))
-                                ))
+        assertPlan(testCase, nodeOrAnyChild(isInstanceOf(IgniteColocatedHashAggregate.class)
+                        .and(hasNoGroupSets(Aggregate::getGroupSets))
+                        .and(input(isInstanceOf(IgniteProject.class).and(input(inputAgg)))
                         )),
+                disableRules);
+    }
+
+    private void checkCountDistinctHashColocated(TestCase testCase) throws Exception {
+        assertPlan(testCase, nodeOrAnyChild(isInstanceOf(IgniteColocatedHashAggregate.class)
+                        .and(hasNoGroupSets(Aggregate::getGroupSets))
+                        .and(input(isInstanceOf(IgniteExchange.class)
+                                .and(hasDistribution(IgniteDistributions.single()))
+                                .and(input(isInstanceOf(IgniteColocatedHashAggregate.class)
+                                        .and(hasGroupSets(Aggregate::getGroupSets, 1))
+                                ))
+                        ))),
                 disableRules);
     }
 
@@ -845,13 +831,10 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
         RelCollation requiredCollation = RelCollations.of(TraitUtils.createFieldCollation(0, Collation.DESC_NULLS_FIRST));
 
         assertPlan(testCase, isInstanceOf(IgniteSort.class)
-                .and(hasCollation(requiredCollation))
-                .and(nodeOrAnyChild(isInstanceOf(IgniteReduceHashAggregate.class)
-                        .and(hasAggregate())
-                        .and(input(isInstanceOf(IgniteMapHashAggregate.class)
+                        .and(hasCollation(requiredCollation))
+                        .and(nodeOrAnyChild(isInstanceOf(IgniteColocatedHashAggregate.class)
                                 .and(hasAggregate())
-                        ))
-                )),
+                        )),
                 disableRules);
     }
 
@@ -859,16 +842,16 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
         RelCollation requiredCollation = RelCollations.of(TraitUtils.createFieldCollation(0, Collation.DESC_NULLS_FIRST));
 
         assertPlan(testCase, isInstanceOf(IgniteSort.class)
-                .and(hasCollation(requiredCollation))
-                .and(nodeOrAnyChild(isInstanceOf(IgniteReduceHashAggregate.class)
-                        .and(hasAggregate())
-                        .and(input(isInstanceOf(IgniteExchange.class)
-                                .and(hasDistribution(IgniteDistributions.single()))
-                                .and(input(isInstanceOf(IgniteMapHashAggregate.class)
-                                        .and(hasAggregate())
+                        .and(hasCollation(requiredCollation))
+                        .and(nodeOrAnyChild(isInstanceOf(IgniteReduceHashAggregate.class)
+                                .and(hasAggregate())
+                                .and(input(isInstanceOf(IgniteExchange.class)
+                                        .and(hasDistribution(IgniteDistributions.single()))
+                                        .and(input(isInstanceOf(IgniteMapHashAggregate.class)
+                                                .and(hasAggregate())
+                                        ))
                                 ))
-                        ))
-                )),
+                        )),
                 disableRules);
     }
 
@@ -880,11 +863,7 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
         assertPlan(testCase,
                 isInstanceOf(IgniteSort.class)
                         .and(hasCollation(outputCollation))
-                        .and(input(isInstanceOf(IgniteProject.class)
-                                .and(input(isInstanceOf(IgniteReduceHashAggregate.class)
-                                        .and(input(isInstanceOf(IgniteMapHashAggregate.class)))
-                                ))
-                        )),
+                        .and(input(isInstanceOf(IgniteColocatedHashAggregate.class))),
                 disableRules);
     }
 
