@@ -17,10 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.metadata;
 
-import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
-
-import java.util.List;
-import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.rel.metadata.ReflectiveRelMetadataProvider;
 import org.apache.calcite.rel.metadata.RelMdSelectivity;
 import org.apache.calcite.rel.metadata.RelMdUtil;
@@ -28,14 +24,12 @@ import org.apache.calcite.rel.metadata.RelMetadataProvider;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.rex.RexUtil;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.util.BuiltInMethod;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.ExactBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.MultiBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.RangeBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
-import org.apache.ignite.internal.sql.engine.rel.AbstractIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteHashIndexSpool;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSortedIndexSpool;
 import org.apache.ignite.internal.sql.engine.rel.ProjectableFilterableTableScan;
@@ -49,38 +43,6 @@ public class IgniteMdSelectivity extends RelMdSelectivity {
     public static final RelMetadataProvider SOURCE =
             ReflectiveRelMetadataProvider.reflectiveSource(
                     BuiltInMethod.SELECTIVITY.method, new IgniteMdSelectivity());
-
-    /**
-     * GetSelectivity.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
-    public Double getSelectivity(AbstractIndexScan rel, RelMetadataQuery mq, RexNode predicate) {
-        if (predicate != null) {
-            return getSelectivity((ProjectableFilterableTableScan) rel, mq, predicate);
-        }
-
-        List<SearchBounds> searchBounds = rel.searchBounds();
-
-        if (nullOrEmpty(searchBounds)) {
-            return RelMdUtil.guessSelectivity(rel.condition());
-        }
-
-        double idxSelectivity = 1.0;
-
-        List<RexNode> conjunctions = RelOptUtil.conjunctions(rel.condition());
-
-        for (SearchBounds bounds : searchBounds) {
-            if (bounds != null) {
-                conjunctions.remove(bounds.condition());
-            }
-
-            idxSelectivity *= guessCostMultiplier(bounds);
-        }
-
-        RexNode remaining = RexUtil.composeConjunction(RexUtils.builder(rel), conjunctions, true);
-
-        return idxSelectivity * RelMdUtil.guessSelectivity(remaining);
-    }
 
     /**
      * GetSelectivity.

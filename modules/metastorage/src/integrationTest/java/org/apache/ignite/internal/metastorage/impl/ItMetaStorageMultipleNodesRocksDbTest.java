@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.metastorage.impl;
 
 import java.nio.file.Path;
+import org.apache.ignite.internal.failure.NoOpFailureProcessor;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 
@@ -25,6 +26,6 @@ import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValue
 public class ItMetaStorageMultipleNodesRocksDbTest extends ItMetaStorageMultipleNodesAbstractTest {
     @Override
     public KeyValueStorage createStorage(String nodeName, Path path) {
-        return new RocksDbKeyValueStorage(nodeName, path.resolve("ms"));
+        return new RocksDbKeyValueStorage(nodeName, path.resolve("ms"), new NoOpFailureProcessor(nodeName));
     }
 }

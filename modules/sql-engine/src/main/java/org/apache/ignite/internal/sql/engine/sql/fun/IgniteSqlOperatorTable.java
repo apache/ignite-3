@@ -448,6 +448,7 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         register(SqlLibraryOperators.EXISTS_NODE);
 
         // JSON Operators
+        register(SqlStdOperatorTable.JSON_TYPE_OPERATOR);
         register(SqlStdOperatorTable.JSON_VALUE_EXPRESSION);
         register(SqlStdOperatorTable.JSON_VALUE);
         register(SqlStdOperatorTable.JSON_QUERY);

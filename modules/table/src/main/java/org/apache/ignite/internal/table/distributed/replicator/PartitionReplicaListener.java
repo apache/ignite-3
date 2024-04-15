@@ -174,6 +174,7 @@ import org.apache.ignite.internal.tx.TxStateMetaFinishing;
 import org.apache.ignite.internal.tx.UpdateCommandResult;
 import org.apache.ignite.internal.tx.impl.FullyQualifiedResourceId;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
+import org.apache.ignite.internal.tx.message.TxCleanupRecoveryRequest;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxRecoveryMessage;
@@ -400,6 +401,43 @@ public class PartitionReplicaListener implements ReplicaListener {
         prepareIndexBuilderTxRwOperationTracker();
     }
 
+    private void runPersistentStorageScan() {
+        int committedCount = 0;
+        int abortedCount = 0;
+
+        try (Cursor<IgniteBiTuple<UUID, TxMeta>> txs = txStateStorage.scan()) {
+            for (IgniteBiTuple<UUID, TxMeta> tx : txs) {
+                UUID txId = tx.getKey();
+                TxMeta txMeta = tx.getValue();
+
+                assert !txMeta.enlistedPartitions().isEmpty();
+
+                assert isFinalState(txMeta.txState()) : "Unexpected state [txId=" + txId + ", state=" + txMeta.txState() + "].";
+
+                if (txMeta.txState() == COMMITTED) {
+                    committedCount++;
+                } else {
+                    abortedCount++;
+                }
+
+                txManager.cleanup(
+                        txMeta.enlistedPartitions(),
+                        txMeta.txState() == COMMITTED,
+                        txMeta.commitTimestamp(),
+                        txId
+                ).exceptionally(throwable -> {
+                    LOG.warn("Failed to cleanup transaction [txId={}].", throwable, txId);
+
+                    return null;
+                });
+            }
+        } catch (IgniteInternalException e) {
+            LOG.warn("Failed to scan transaction state storage [commitPartition={}].", e, replicationGroupId);
+        }
+
+        LOG.debug("Persistent storage scan finished [committed={}, aborted={}].", committedCount, abortedCount);
+    }
+
     @Override
     public CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, String senderId) {
         return ensureReplicaIsPrimary(request)
@@ -437,6 +475,10 @@ public class PartitionReplicaListener implements ReplicaListener {
             return processTxRecoveryMessage((TxRecoveryMessage) request, senderId);
         }
 
+        if (request instanceof TxCleanupRecoveryRequest) {
+            return processCleanupRecoveryMessage((TxCleanupRecoveryRequest) request);
+        }
+
         HybridTimestamp opTsIfDirectRo = (request instanceof ReadOnlyDirectReplicaRequest) ? clockService.now() : null;
 
         return validateTableExistence(request, opTsIfDirectRo)
@@ -444,6 +486,12 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .thenCompose(unused -> waitForSchemasBeforeReading(request, opTsIfDirectRo))
                 .thenCompose(unused ->
                         processOperationRequestWithTxRwCounter(senderId, request, isPrimary, opTsIfDirectRo, leaseStartTime));
+    }
+
+    private CompletableFuture<Void> processCleanupRecoveryMessage(TxCleanupRecoveryRequest request) {
+        runPersistentStorageScan();
+
+        return nullCompletedFuture();
     }
 
     /**
@@ -1330,7 +1378,7 @@ public class PartitionReplicaListener implements ReplicaListener {
         int flags = request.flags();
 
         Cursor<IndexRow> cursor = remotelyTriggeredResourceRegistry.<CursorResource>register(cursorId, request.coordinatorId(),
-                () -> new CursorResource(indexStorage.scan(
+                () -> new CursorResource(indexStorage.readOnlyScan(
                         lowerBound,
                         upperBound,
                         flags
@@ -1644,7 +1692,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             return completedFuture(new TransactionResult(txMeta.txState(), txMeta.commitTimestamp()));
         }
 
-        return finishTransaction(txId, commit, commitTimestamp)
+        return finishTransaction(enlistedPartitions.keySet(), txId, commit, commitTimestamp)
                 .thenCompose(txResult ->
                         txManager.cleanup(enlistedPartitions, commit, commitTimestamp, txId)
                                 .thenApply(v -> txResult)
@@ -1654,12 +1702,14 @@ public class PartitionReplicaListener implements ReplicaListener {
     /**
      * Finishes a transaction. This operation is idempotent.
      *
+     * @param partitionIds Collection of enlisted partition groups.
      * @param txId Transaction id.
      * @param commit True is the transaction is committed, false otherwise.
      * @param commitTimestamp Commit timestamp, if applicable.
      * @return Future to wait of the finish.
      */
     private CompletableFuture<TransactionResult> finishTransaction(
+            Collection<TablePartitionId> partitionIds,
             UUID txId,
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp
@@ -1673,7 +1723,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                                 txId,
                                 commit,
                                 commitTimestamp,
-                                catalogVersion
+                                catalogVersion,
+                                toPartitionIdMessage(partitionIds)
                         )
                 )
                 .handle((txOutcome, ex) -> {
@@ -1700,18 +1751,30 @@ public class PartitionReplicaListener implements ReplicaListener {
                 });
     }
 
+    private static List<TablePartitionIdMessage> toPartitionIdMessage(Collection<TablePartitionId> partitionIds) {
+        List<TablePartitionIdMessage> list = new ArrayList<>(partitionIds.size());
+
+        for (TablePartitionId partitionId : partitionIds) {
+            list.add(tablePartitionId(partitionId));
+        }
+
+        return list;
+    }
+
     private CompletableFuture<Object> applyFinishCommand(
             UUID transactionId,
             boolean commit,
             HybridTimestamp commitTimestamp,
-            int catalogVersion
+            int catalogVersion,
+            List<TablePartitionIdMessage> partitionIds
     ) {
         synchronized (commandProcessingLinearizationMutex) {
             FinishTxCommandBuilder finishTxCmdBldr = MSG_FACTORY.finishTxCommand()
                     .txId(transactionId)
                     .commit(commit)
                     .safeTimeLong(clockService.nowLong())
-                    .requiredCatalogVersion(catalogVersion);
+                    .requiredCatalogVersion(catalogVersion)
+                    .partitionIds(partitionIds);
 
             if (commit) {
                 finishTxCmdBldr.commitTimestampLong(commitTimestamp.longValue());

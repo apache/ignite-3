@@ -42,6 +42,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
@@ -54,6 +55,7 @@ import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.WriteCommand;
+import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.service.CommandClosure;
@@ -136,6 +138,9 @@ public class JraftServerImpl implements RaftServer {
     /** Options. */
     private final NodeOptions opts;
 
+    /** Raft configuration. */
+    private final RaftConfiguration raftConfiguration;
+
     private final RaftGroupEventsClientListener raftGroupEventsClientListener;
 
     /** Request executor. */
@@ -156,32 +161,37 @@ public class JraftServerImpl implements RaftServer {
     /**
      * The constructor.
      *
-     * @param service  Cluster service.
+     * @param service Cluster service.
      * @param dataPath Data path.
+     * @param raftConfiguration Raft configuration.
      */
-    public JraftServerImpl(ClusterService service, Path dataPath) {
-        this(service, dataPath, new NodeOptions(), new RaftGroupEventsClientListener());
+    public JraftServerImpl(ClusterService service, Path dataPath, RaftConfiguration raftConfiguration) {
+        this(service, dataPath, raftConfiguration, new NodeOptions(), new RaftGroupEventsClientListener());
     }
 
     /**
      * The constructor.
      *
-     * @param service  Cluster service.
+     * @param service Cluster service.
      * @param dataPath Data path.
-     * @param opts     Default node options.
+     * @param raftConfiguration Raft configuration.
+     * @param opts Default node options.
      */
     public JraftServerImpl(
             ClusterService service,
             Path dataPath,
+            RaftConfiguration raftConfiguration,
             NodeOptions opts,
             RaftGroupEventsClientListener raftGroupEventsClientListener
     ) {
         this.service = service;
         this.dataPath = dataPath;
         this.nodeManager = new NodeManager();
+        this.raftConfiguration = raftConfiguration;
+
         this.logStorageFactory = IgniteSystemProperties.getBoolean(LOGIT_STORAGE_ENABLED_PROPERTY, false)
-                ? new LogitLogStorageFactory(service.nodeName(), dataPath.resolve("log"), getLogOptions())
-                : new DefaultLogStorageFactory(service.nodeName(), dataPath.resolve("log"));
+                ? new LogitLogStorageFactory(service.nodeName(), getLogOptions(), this::getLogPath)
+                : new DefaultLogStorageFactory(service.nodeName(), this::getLogPath);
         this.opts = opts;
         this.raftGroupEventsClientListener = raftGroupEventsClientListener;
 
@@ -221,6 +231,23 @@ public class JraftServerImpl implements RaftServer {
         return new StoreOptions();
     }
 
+    private Path getLogPath() {
+        return raftConfiguration.logPath().value().isEmpty()
+                ? dataPath.resolve("log")
+                : Path.of(raftConfiguration.logPath().value());
+    }
+
+    /** Returns log synchronizer. */
+    public LogSyncer getLogSyncer() {
+        return logStorageFactory;
+    }
+
+    /** Returns log storage factory. */
+    @TestOnly
+    public LogStorageFactory getLogStorageFactory() {
+        return logStorageFactory;
+    }
+
     /**
      * Sets {@link AppendEntriesRequestInterceptor} to use. Should only be called from the same thread that is used
      * to {@link #start()} the component.
@@ -232,8 +259,8 @@ public class JraftServerImpl implements RaftServer {
     }
 
     /**
-     * Sets {@link ActionRequestInterceptor} to use. Should only be called from the same thread that is used
-     * to {@link #start()} the component.
+     * Sets {@link ActionRequestInterceptor} to use. Should only be called from the same thread that is used to {@link #start()} the
+     * component.
      *
      * @param actionRequestInterceptor Interceptor to use.
      */

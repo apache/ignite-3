@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
 import static org.apache.ignite.internal.schema.BinaryRowMatcher.equalToRow;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
@@ -59,6 +60,8 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.thread.PublicApiThreading;
+import org.apache.ignite.internal.thread.PublicApiThreading.ApiEntryRole;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -155,6 +158,18 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
         stopTable(node(), TABLE_NAME);
 
         table = null;
+    }
+
+    @BeforeEach
+    void allowAllOperationsToTestThread() {
+        // Doing this as this class tests internal API which relies on public API to mark the threads.
+        // Without this marking, thread assertions would go off.
+        PublicApiThreading.setThreadRole(ApiEntryRole.SYNC_PUBLIC_API);
+    }
+
+    @AfterEach
+    void cleanupThreadApiRole() {
+        PublicApiThreading.setThreadRole(null);
     }
 
     @Test
@@ -684,7 +699,8 @@ public class ItInternalTableTest extends BaseIgniteAbstractTest {
         String zoneName = zoneNameForTable(tableName);
         IgniteSql sql = node.sql();
 
-        sql.execute(null, String.format("create zone \"%s\" with partitions=3, replicas=%d", zoneName, DEFAULT_REPLICA_COUNT));
+        sql.execute(null, String.format("create zone \"%s\" with partitions=3, replicas=%d, storage_profiles='%s'",
+                zoneName, DEFAULT_REPLICA_COUNT, DEFAULT_STORAGE_PROFILE));
 
         sql.execute(null,
                 String.format(

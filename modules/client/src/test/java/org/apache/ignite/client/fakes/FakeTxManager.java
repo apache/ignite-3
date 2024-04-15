@@ -19,6 +19,7 @@ package org.apache.ignite.client.fakes;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import java.util.Collection;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -196,6 +197,16 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
+    public CompletableFuture<Void> cleanup(
+            Collection<TablePartitionId> enlistedPartitions,
+            boolean commit,
+            @Nullable HybridTimestamp commitTimestamp,
+            UUID txId
+    ) {
+        return nullCompletedFuture();
+    }
+
+    @Override
     public CompletableFuture<Void> cleanup(String node, UUID txId) {
         return nullCompletedFuture();
     }
@@ -213,10 +224,5 @@ public class FakeTxManager implements TxManager {
     @Override
     public int pending() {
         return 0;
-    }
-
-    @Override
-    public CompletableFuture<Void> updateLowWatermark(HybridTimestamp newLowWatermark) {
-        return null;
     }
 }

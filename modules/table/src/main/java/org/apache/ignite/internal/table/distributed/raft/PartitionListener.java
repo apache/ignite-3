@@ -69,6 +69,7 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.StorageUpdateHandler;
 import org.apache.ignite.internal.table.distributed.command.BuildIndexCommand;
 import org.apache.ignite.internal.table.distributed.command.FinishTxCommand;
+import org.apache.ignite.internal.table.distributed.command.TablePartitionIdMessage;
 import org.apache.ignite.internal.table.distributed.command.UpdateAllCommand;
 import org.apache.ignite.internal.table.distributed.command.UpdateCommand;
 import org.apache.ignite.internal.table.distributed.command.WriteIntentSwitchCommand;
@@ -275,8 +276,10 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         if (cmd.leaseStartTime() != null) {
             long leaseStartTime = requireNonNull(cmd.leaseStartTime(), "Inconsistent lease information in cmd [cmd=" + cmd + "].");
 
-            if (leaseStartTime != txStateStorage.leaseStartTime()) {
-                return new UpdateCommandResult(false, txStateStorage.leaseStartTime());
+            long storageLeaseStartTime = storage.leaseStartTime();
+
+            if (leaseStartTime != storageLeaseStartTime) {
+                return new UpdateCommandResult(false, storageLeaseStartTime);
             }
         }
 
@@ -326,8 +329,10 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         if (cmd.leaseStartTime() != null) {
             long leaseStartTime = requireNonNull(cmd.leaseStartTime(), "Inconsistent lease information in cmd [cmd=" + cmd + "].");
 
-            if (leaseStartTime != txStateStorage.leaseStartTime()) {
-                return new UpdateCommandResult(false, txStateStorage.leaseStartTime());
+            long storageLeaseStartTime = storage.leaseStartTime();
+
+            if (leaseStartTime != storageLeaseStartTime) {
+                return new UpdateCommandResult(false, storageLeaseStartTime);
             }
         }
 
@@ -381,6 +386,7 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
 
         TxMeta txMetaToSet = new TxMeta(
                 stateToSet,
+                fromPartitionIdMessage(cmd.partitionIds()),
                 cmd.commitTimestamp()
         );
 
@@ -408,6 +414,15 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
         return new TransactionResult(stateToSet, cmd.commitTimestamp());
     }
 
+    private static List<TablePartitionId> fromPartitionIdMessage(List<TablePartitionIdMessage> partitionIds) {
+        List<TablePartitionId> list = new ArrayList<>(partitionIds.size());
+
+        for (TablePartitionIdMessage partitionIdMessage : partitionIds) {
+            list.add(partitionIdMessage.asTablePartitionId());
+        }
+
+        return list;
+    }
 
     /**
      * Handler for the {@link WriteIntentSwitchCommand}.
@@ -621,7 +636,13 @@ public class PartitionListener implements RaftGroupListener, BeforeApplyHandler 
             return;
         }
 
-        txStateStorage.updateLease(cmd.leaseStartTime(), commandIndex, commandTerm);
+        storage.runConsistently(locker -> {
+            storage.updateLease(cmd.leaseStartTime());
+
+            storage.lastApplied(commandIndex, commandTerm);
+
+            return null;
+        });
     }
 
     /**

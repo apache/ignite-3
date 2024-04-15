@@ -83,7 +83,7 @@ public class VolatileTxStateMetaStorage {
      * @param updater Transaction meta updater.
      * @return Updated transaction state.
      */
-    public @Nullable <T extends TxStateMeta> T updateMeta(UUID txId, Function<TxStateMeta, TxStateMeta> updater) {
+    public @Nullable <T extends TxStateMeta> T updateMeta(UUID txId, Function<@Nullable TxStateMeta, TxStateMeta> updater) {
         return (T) txStateMap.compute(txId, (k, oldMeta) -> {
             TxStateMeta newMeta = updater.apply(oldMeta);
 
@@ -139,7 +139,7 @@ public class VolatileTxStateMetaStorage {
         AtomicInteger vacuumizedTxnsCount = new AtomicInteger(0);
         AtomicInteger markedAsInitiallyDetectedTxnsCount = new AtomicInteger(0);
         AtomicInteger alreadyMarkedTxnsCount = new AtomicInteger(0);
-        AtomicInteger skippedFotFurtherProcessingUnfinishedTxnsCount = new AtomicInteger(0);
+        AtomicInteger skippedForFurtherProcessingUnfinishedTxnsCount = new AtomicInteger(0);
 
         Map<TablePartitionId, Set<UUID>> txIds = new HashMap<>();
         Map<UUID, Long> timestamps = new HashMap<>();
@@ -181,7 +181,7 @@ public class VolatileTxStateMetaStorage {
                         }
                     }
                 } else {
-                    skippedFotFurtherProcessingUnfinishedTxnsCount.incrementAndGet();
+                    skippedForFurtherProcessingUnfinishedTxnsCount.incrementAndGet();
                     return meta0;
                 }
             });
@@ -208,14 +208,14 @@ public class VolatileTxStateMetaStorage {
                     LOG.info("Vacuum finished [vacuumObservationTimestamp={}, txnResourceTtl={}, vacuumizedTxnsCount={},"
                                     + "vacuumizedPersistentTxnStatesCount={}, "
                                     + " markedAsInitiallyDetectedTxnsCount={}, alreadyMarkedTxnsCount={}, "
-                                    + "skippedFotFurtherProcessingUnfinishedTxnsCount={}].",
+                                    + "skippedForFurtherProcessingUnfinishedTxnsCount={}].",
                             vacuumObservationTimestamp,
                             txnResourceTtl,
                             vacuumizedTxnsCount,
                             successful.size(),
                             markedAsInitiallyDetectedTxnsCount,
                             alreadyMarkedTxnsCount,
-                            skippedFotFurtherProcessingUnfinishedTxnsCount
+                            skippedForFurtherProcessingUnfinishedTxnsCount
                     );
                 });
     }

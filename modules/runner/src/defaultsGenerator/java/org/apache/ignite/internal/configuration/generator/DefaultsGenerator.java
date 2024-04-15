@@ -87,7 +87,8 @@ public class DefaultsGenerator {
                 modules.local().polymorphicSchemaExtensions()
         );
 
-        ConfigurationStorage storage = new LocalFileConfigurationStorage("defaultGen", configPath, localConfigurationGenerator);
+        ConfigurationStorage storage = new LocalFileConfigurationStorage(
+                "defaultGen", configPath, localConfigurationGenerator, modules.local());
 
         ConfigurationValidator configurationValidator =
                 ConfigurationValidatorImpl.withDefaultValidators(localConfigurationGenerator, modules.local().validators());

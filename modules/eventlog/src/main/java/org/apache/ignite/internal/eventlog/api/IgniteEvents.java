@@ -17,9 +17,7 @@
 
 package org.apache.ignite.internal.eventlog.api;
 
-import java.util.Arrays;
 import org.apache.ignite.internal.eventlog.event.EventBuilder;
-import org.apache.ignite.internal.eventlog.event.EventTypeRegistry;
 import org.apache.ignite.internal.eventlog.event.EventUser;
 
 /**
@@ -34,12 +32,6 @@ public final class IgniteEvents implements EventFactory {
     public static final IgniteEvents USER_AUTHENTICATED = new IgniteEvents(IgniteEventType.USER_AUTHENTICATED.name());
 
     public static final IgniteEvents CONNECTION_CLOSED = new IgniteEvents(IgniteEventType.CONNECTION_CLOSED.name());
-
-    static {
-        // Without the following line, the IgniteEventType enum will not be registered in the EventTypeRegistry
-        // and the EventTypeRegistry will not be able to validate the event types.
-        Arrays.stream(IgniteEventType.values()).forEach(type -> EventTypeRegistry.register(type.name()));
-    }
 
     private final String type;
 

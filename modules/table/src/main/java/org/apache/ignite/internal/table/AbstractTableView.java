@@ -31,7 +31,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
@@ -42,6 +41,7 @@ import org.apache.ignite.internal.table.criteria.CursorAdapter;
 import org.apache.ignite.internal.table.criteria.QueryCriteriaAsyncCursor;
 import org.apache.ignite.internal.table.criteria.SqlSerializer;
 import org.apache.ignite.internal.table.criteria.SqlSerializer.Builder;
+import org.apache.ignite.internal.table.distributed.replicator.IncompatibleSchemaException;
 import org.apache.ignite.internal.table.distributed.replicator.InternalSchemaVersionMismatchException;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -102,13 +102,13 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
     /**
      * Waits for operation completion.
      *
-     * @param fut Future to wait to.
+     * @param future Future to wait to.
      * @param <T> Future result type.
      * @return Future result.
      */
-    protected final <T> T sync(Supplier<CompletableFuture<T>> fut) {
+    protected static <T> T sync(CompletableFuture<T> future) {
         try {
-            return fut.get().get();
+            return future.get();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt(); // Restore interrupt flag.
 
@@ -162,19 +162,39 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
         return schemaVersionFuture
                 .thenCompose(schemaVersion -> action.act(schemaVersion)
                         .handle((res, ex) -> {
+                            if (ex == null) {
+                                return completedFuture(res);
+                            }
+
                             if (isOrCausedBy(InternalSchemaVersionMismatchException.class, ex)) {
+                                // There is no transaction, and table version was changed between taking the table version (that was used
+                                // to marshal inputs and would be used to unmarshal outputs) and starting an implicit transaction
+                                // in InternalTable. A transaction must always work with binary rows of the same table version matching the
+                                // version corresponding to the transaction creation moment, so this mismatch is not tolerable: we need
+                                // to retry the operation here.
+
                                 assert tx == null : "Only for implicit transactions a retry might be requested";
-                                assert previousSchemaVersion == null || !Objects.equals(schemaVersion, previousSchemaVersion)
-                                        : "Same schema version (" + schemaVersion
-                                                + ") on a retry: something is wrong, is this caused by the test setup?";
+                                assertSchemaVersionIncreased(previousSchemaVersion, schemaVersion);
 
                                 // Repeat.
                                 return withSchemaSync(tx, schemaVersion, action);
+                            } else if (tx == null && isOrCausedBy(IncompatibleSchemaException.class, ex)) {
+                                // Table version was changed while we were executing an implicit transaction (between it had been created
+                                // and the moment when the operation actually touched the partition), let's retry.
+                                assertSchemaVersionIncreased(previousSchemaVersion, schemaVersion);
+
+                                return withSchemaSync(tx, schemaVersion, action);
                             } else {
-                                return ex == null ? completedFuture(res) : CompletableFuture.<T>failedFuture(ex);
+                                return CompletableFuture.<T>failedFuture(ex);
                             }
                         }))
                 .thenCompose(identity());
+    }
+
+    private static void assertSchemaVersionIncreased(@Nullable Integer previousSchemaVersion, Integer schemaVersion) {
+        assert previousSchemaVersion == null || !Objects.equals(schemaVersion, previousSchemaVersion)
+                : "Same schema version (" + schemaVersion
+                + ") on a retry: something is wrong, is this caused by the test setup?";
     }
 
     /**
@@ -207,7 +227,7 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
     /** {@inheritDoc} */
     @Override
     public Cursor<R> query(@Nullable Transaction tx, @Nullable Criteria criteria, @Nullable String indexName, CriteriaQueryOptions opts) {
-        return new CursorAdapter<>(sync(() -> queryAsync(tx, criteria, indexName, opts)));
+        return new CursorAdapter<>(sync(queryAsync(tx, criteria, indexName, opts)));
     }
 
     /** {@inheritDoc} */

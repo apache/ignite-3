@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.table;
 
+import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.SessionUtils.executeUpdate;
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteTransaction;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.table.ItTransactionTestUtils.waitAndGetPrimaryReplica;
@@ -68,7 +70,7 @@ public class ItTransactionPrimaryChangeTest extends ClusterPerTestIntegrationTes
     public void setup(TestInfo testInfo) throws Exception {
         super.setup(testInfo);
 
-        String zoneSql = "create zone test_zone with partitions=1, replicas=3";
+        String zoneSql = "create zone test_zone with partitions=1, replicas=3, storage_profiles='" + DEFAULT_AIPERSIST_PROFILE_NAME + "'";
         String sql = "create table " + TABLE_NAME + " (key int primary key, val varchar(20)) with primary_zone='TEST_ZONE'";
 
         cluster.doInSession(0, session -> {
@@ -161,7 +163,7 @@ public class ItTransactionPrimaryChangeTest extends ClusterPerTestIntegrationTes
             assertThat(fullTxReplicationAttemptFuture, willCompleteSuccessfully());
 
             // Changing the primary.
-            NodeUtils.transferPrimary(tbl, txCrdNode.name(), cluster::node);
+            NodeUtils.transferPrimary(cluster.runningNodes().collect(toList()), tblReplicationGrp, txCrdNode.name());
 
             // Start a regular transaction that increments the value. It should see the initially inserted value and its commit should
             // succeed.

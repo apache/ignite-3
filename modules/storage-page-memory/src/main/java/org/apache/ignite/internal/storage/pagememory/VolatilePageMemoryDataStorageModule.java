@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.storage.pagememory.VolatilePageMemorySt
 
 import com.google.auto.service.AutoService;
 import java.nio.file.Path;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -28,8 +29,10 @@ import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineConfiguration;
+import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineExtensionConfiguration;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -50,11 +53,12 @@ public class VolatilePageMemoryDataStorageModule implements DataStorageModule {
             ConfigurationRegistry configRegistry,
             Path storagePath,
             @Nullable LongJvmPauseDetector longJvmPauseDetector,
-            FailureProcessor failureProcessor
+            FailureProcessor failureProcessor,
+            LogSyncer logSyncer
     ) throws StorageException {
-        VolatilePageMemoryStorageEngineConfiguration engineConfig = configRegistry.getConfiguration(
-                VolatilePageMemoryStorageEngineConfiguration.KEY
-        );
+        VolatilePageMemoryStorageEngineConfiguration engineConfig =
+                ((VolatilePageMemoryStorageEngineExtensionConfiguration) configRegistry
+                        .getConfiguration(StorageConfiguration.KEY).engines()).aimem();
 
         assert engineConfig != null;
 
@@ -62,6 +66,7 @@ public class VolatilePageMemoryDataStorageModule implements DataStorageModule {
 
         ioRegistry.loadFromServiceLoader();
 
-        return new VolatilePageMemoryStorageEngine(igniteInstanceName, engineConfig, ioRegistry, PageEvictionTrackerNoOp.INSTANCE);
+        return new VolatilePageMemoryStorageEngine(igniteInstanceName, engineConfig,
+                configRegistry.getConfiguration(StorageConfiguration.KEY), ioRegistry, PageEvictionTrackerNoOp.INSTANCE);
     }
 }

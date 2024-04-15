@@ -40,6 +40,7 @@ dependencies {
     implementation project(':ignite-placement-driver-api')
     implementation project(':ignite-cluster-management')
     implementation project(':ignite-compute')
+    implementation project(':ignite-low-watermark')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.netty.common
@@ -47,16 +48,16 @@ dependencies {
     implementation libs.netty.codec
     implementation libs.netty.handler
     implementation libs.msgpack.core
-    implementation libs.msgpack.jackson
     implementation libs.auto.service.annotations
 
     testAnnotationProcessor project(':ignite-configuration-annotation-processor')
     testImplementation project(':ignite-configuration')
     testImplementation project(':ignite-security')
+    testImplementation project(':ignite-catalog')
     testImplementation(testFixtures(project(':ignite-core')))
     testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation(testFixtures(project(':ignite-table')))
-    testImplementation project(':ignite-catalog')
+    testImplementation(testFixtures(project(':ignite-low-watermark')))
     testImplementation libs.mockito.junit
     testImplementation libs.hamcrest.core
     testImplementation libs.awaitility
@@ -79,6 +80,7 @@ dependencies {
     integrationTestImplementation(testFixtures(project(':ignite-core')))
     integrationTestImplementation(testFixtures(project(':ignite-table')))
     integrationTestImplementation(testFixtures(project(':ignite-client-handler')))
+    integrationTestImplementation(testFixtures(project(':ignite-low-watermark')))
     integrationTestImplementation libs.msgpack.core
     integrationTestImplementation libs.netty.handler
     integrationTestImplementation libs.jetbrains.annotations

@@ -21,6 +21,7 @@ namespace Apache.Ignite.Table;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Internal.Common;
 
 /// <summary>
 /// Represents an entity that can be used as a target for streaming data.
@@ -35,5 +36,33 @@ public interface IDataStreamerTarget<T>
     /// <param name="options">Streamer options.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-    Task StreamDataAsync(IAsyncEnumerable<T> data, DataStreamerOptions? options = null, CancellationToken cancellationToken = default);
+    Task StreamDataAsync(
+        IAsyncEnumerable<DataStreamerItem<T>> data,
+        DataStreamerOptions? options = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Streams data into the underlying table.
+    /// </summary>
+    /// <param name="data">Data.</param>
+    /// <param name="options">Streamer options.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+    Task StreamDataAsync(
+        IAsyncEnumerable<T> data,
+        DataStreamerOptions? options = null,
+        CancellationToken cancellationToken = default)
+    {
+        IgniteArgumentCheck.NotNull(data);
+
+        return StreamDataAsync(ConvertToItems(), options, cancellationToken);
+
+        async IAsyncEnumerable<DataStreamerItem<T>> ConvertToItems()
+        {
+            await foreach (var item in data.WithCancellation(cancellationToken))
+            {
+                yield return DataStreamerItem.Create(item);
+            }
+        }
+    }
 }

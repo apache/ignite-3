@@ -166,7 +166,11 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
             1,
             new TestHashIndexStorage(
                     PARTITION_ID,
-                    new StorageHashIndexDescriptor(1, List.of(new StorageHashIndexColumnDescriptor("key", NativeTypes.INT32, false)))
+                    new StorageHashIndexDescriptor(
+                            TABLE_ID,
+                            List.of(new StorageHashIndexColumnDescriptor("key", NativeTypes.INT32, false)),
+                            true
+                    )
             ),
             BinaryRowConverter.keyExtractor(SCHEMA)
     );
@@ -533,6 +537,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
         FinishTxCommand command = msgFactory.finishTxCommand()
                 .txId(TestTransactionIds.newTransactionId())
                 .safeTimeLong(staleOrFreshSafeTime(stale))
+                .partitionIds(List.of())
                 .build();
 
         commandListener.onWrite(List.of(

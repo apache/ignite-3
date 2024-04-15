@@ -33,6 +33,7 @@ import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.sameInstance;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
 
 import java.nio.ByteBuffer;
 import java.util.List;
@@ -42,12 +43,15 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbDataRegion;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileView;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -71,12 +75,16 @@ class SharedRocksDbInstanceTest extends IgniteAbstractTest {
     private SharedRocksDbInstance rocksDb;
 
     @BeforeEach
-    void setUp(@InjectConfiguration RocksDbStorageEngineConfiguration engineConfig) throws Exception {
-        engine = new RocksDbStorageEngine("test", engineConfig, workDir);
+    void setUp(
+            @InjectConfiguration("mock.profiles.default = {engine = \"rocksDb\", size = 16777216, writeBufferSize = 16777216}")
+            StorageConfiguration storageConfiguration,
+            @InjectConfiguration RocksDbStorageEngineConfiguration engineConfig) throws Exception {
+        engine = new RocksDbStorageEngine("test", engineConfig, storageConfiguration, workDir, mock(LogSyncer.class));
 
         engine.start();
 
-        dataRegion = new RocksDbDataRegion(engineConfig.defaultRegion().value());
+        dataRegion = new RocksDbDataRegion(
+                (RocksDbProfileView) storageConfiguration.profiles().get("default").value());
 
         dataRegion.start();
 
@@ -126,19 +134,23 @@ class SharedRocksDbInstanceTest extends IgniteAbstractTest {
         assertThat(foo, is(not(sameInstance(bar))));
         assertThat(quux, is((sameInstance(baz))));
 
-        rocksDb.destroySortedIndexCfIfNeeded(new IndexColumnFamily(1, foo));
+        rocksDb.removeSortedIndex(1, foo);
+        rocksDb.destroySortedIndexCfIfNeeded(foo);
 
         assertTrue(cfExists(fooName));
 
-        rocksDb.destroySortedIndexCfIfNeeded(new IndexColumnFamily(2, bar));
+        rocksDb.removeSortedIndex(2, bar);
+        rocksDb.destroySortedIndexCfIfNeeded(bar);
 
         assertFalse(cfExists(barName));
 
-        rocksDb.destroySortedIndexCfIfNeeded(new IndexColumnFamily(3, baz));
+        rocksDb.removeSortedIndex(3, baz);
+        rocksDb.destroySortedIndexCfIfNeeded(baz);
 
         assertTrue(cfExists(fooName));
 
-        rocksDb.destroySortedIndexCfIfNeeded(new IndexColumnFamily(4, quux));
+        rocksDb.removeSortedIndex(4, quux);
+        rocksDb.destroySortedIndexCfIfNeeded(quux);
 
         assertFalse(cfExists(fooName));
     }
@@ -275,6 +287,38 @@ class SharedRocksDbInstanceTest extends IgniteAbstractTest {
         assertThat(createIndexFuture, willCompleteSuccessfully());
 
         assertThat(getIndexFuture.join().stream().map(IndexColumnFamily::indexId).collect(toList()), contains(0));
+    }
+
+    @Test
+    void testRemoveSortedIndex() {
+        int tableId = 0;
+
+        int indexId = 0;
+
+        byte[] fooName = sortedIndexCfName(List.of(
+                new StorageSortedIndexColumnDescriptor("a", NativeTypes.INT64, true, true)
+        ));
+
+        ColumnFamily cf = rocksDb.getOrCreateSortedIndexCf(fooName, indexId, tableId);
+
+        rocksDb.removeSortedIndex(indexId, cf);
+
+        assertThat(rocksDb.sortedIndexes(tableId), is(empty()));
+    }
+
+    @Test
+    void testTableDestroyRemovesSortedIndexes() {
+        int tableId = 0;
+
+        byte[] fooName = sortedIndexCfName(List.of(
+                new StorageSortedIndexColumnDescriptor("a", NativeTypes.INT64, true, true)
+        ));
+
+        rocksDb.getOrCreateSortedIndexCf(fooName, 0, tableId);
+
+        rocksDb.destroyTable(tableId);
+
+        assertThat(rocksDb.sortedIndexes(tableId), is(empty()));
     }
 
     private boolean cfExists(byte[] cfName) {

@@ -1,0 +1,51 @@
+# name: test/sql/function/json/test_json_exists.test
+# description: JSON_EXISTS function (is a part of T821 "Basic SQL/JSON query operators")
+# group: [json]
+
+query T
+select json_exists('{"foo":"bar"}', '$.foo')
+----
+true
+
+query T
+select json_exists('{}', '$')
+----
+true
+
+query T
+select json_exists('', '$')
+----
+false
+
+query T
+select json_exists('', '$' true on error)
+----
+true
+
+query T
+select json_exists('', '$' unknown on error)
+----
+NULL
+
+statement error
+select json_exists('', '$' error on error)
+
+query T
+select json_exists('', 'lax $')
+----
+false
+
+query T
+select json_exists('', 'lax $' true on error)
+----
+false
+
+query T
+select json_exists('', 'lax $' unknown on error)
+----
+false
+
+query T
+select json_exists('', 'lax $' error on error)
+----
+false
