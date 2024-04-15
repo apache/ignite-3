@@ -211,7 +211,7 @@ public class DistributionZoneSqlDdlParserTest extends AbstractDdlParserTest {
      */
     @Test
     @SuppressWarnings("ThrowableNotThrown")
-    public void AlterZoneSetDefaultWithOptionsIsIllegal() {
+    public void alterZoneSetDefaultWithOptionsIsIllegal() {
         assertThrowsSqlException(
                 Sql.STMT_PARSE_ERR,
                 "Failed to parse query",
