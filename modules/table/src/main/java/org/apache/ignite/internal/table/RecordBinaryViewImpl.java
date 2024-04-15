@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.convertToPublicFuture;
 
 import java.util.ArrayList;
@@ -46,6 +47,7 @@ import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Table view implementation for binary objects.
@@ -506,5 +508,16 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
     public CompletableFuture<Void> updateAll(int partitionId, Collection<Tuple> rows, @Nullable BitSet deleted) {
         return doOperation(null,
                 schemaVersion -> this.tbl.updateAll(mapToBinary(rows, schemaVersion, deleted), deleted, partitionId));
+    }
+
+    @TestOnly
+    public CompletableFuture<BinaryRowEx> marshal(@Nullable Transaction tx, Tuple rec) {
+        Objects.requireNonNull(rec);
+
+        return doOperation(tx, schemaVersion -> {
+            Row row = marshal(rec, schemaVersion, false);
+
+            return completedFuture(row);
+        });
     }
 }
