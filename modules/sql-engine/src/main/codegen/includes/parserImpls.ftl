@@ -277,7 +277,7 @@ SqlCreate SqlCreateIndex(Span s, boolean replace) :
     final SqlIdentifier idxId;
     final SqlIdentifier tblId;
     final SqlNodeList columnList;
-    IgniteSqlIndexType type = IgniteSqlIndexType.IMPLICIT_TREE;
+    IgniteSqlIndexType type = IgniteSqlIndexType.IMPLICIT_SORTED;
 }
 {
     <INDEX>
@@ -289,10 +289,10 @@ SqlCreate SqlCreateIndex(Span s, boolean replace) :
         columnList = ColumnNameWithSortDirectionList()
     |
         LOOKAHEAD(2)
-        <USING> <TREE> {
+        <USING> <SORTED> {
             s.add(this);
 
-            type = IgniteSqlIndexType.TREE;
+            type = IgniteSqlIndexType.SORTED;
         }
 
         columnList = ColumnNameWithSortDirectionList()

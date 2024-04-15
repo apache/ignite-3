@@ -108,9 +108,9 @@ class CreateTableTest {
 
         sql = createTable().name("table1")
                 .addColumn("col1", INTEGER)
-                .primaryKey(IndexType.TREE, "col1 ASC    nUlls First  ")
+                .primaryKey(IndexType.SORTED, "col1 ASC    nUlls First  ")
                 .toSqlString();
-        assertThat(sql, is("CREATE TABLE table1 (col1 int, PRIMARY KEY USING TREE (col1 asc nulls first));"));
+        assertThat(sql, is("CREATE TABLE table1 (col1 int, PRIMARY KEY USING SORTED (col1 asc nulls first));"));
 
         // quote identifiers
         sql = createTableQuoted().name("table1")
@@ -128,9 +128,9 @@ class CreateTableTest {
 
         sql = createTableQuoted().name("table1")
                 .addColumn("col1", INTEGER)
-                .primaryKey(IndexType.TREE, "col1 ASC nUlls First   ")
+                .primaryKey(IndexType.SORTED, "col1 ASC nUlls First   ")
                 .toSqlString();
-        assertThat(sql, is("CREATE TABLE \"table1\" (\"col1\" int, PRIMARY KEY USING TREE (\"col1\" asc nulls first));"));
+        assertThat(sql, is("CREATE TABLE \"table1\" (\"col1\" int, PRIMARY KEY USING SORTED (\"col1\" asc nulls first));"));
     }
 
     @Test

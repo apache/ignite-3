@@ -815,8 +815,8 @@ public class DdlSqlToCommandConverter {
 
     private Type convertIndexType(IgniteSqlIndexType type) {
         switch (type) {
-            case TREE:
-            case IMPLICIT_TREE:
+            case SORTED:
+            case IMPLICIT_SORTED:
                 return Type.SORTED;
             case HASH:
                 return Type.HASH;
