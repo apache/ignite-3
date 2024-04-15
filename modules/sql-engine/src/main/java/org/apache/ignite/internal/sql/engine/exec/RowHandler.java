@@ -36,6 +36,7 @@ public interface RowHandler<RowT> {
 
     /**
      * Checks whether the given field is {@code null}.
+     *
      * @param field Field position to be processed.
      * @param row Row.
      * @return {@code true} if {@code field} is {@code null} and {@code false} otherwise.

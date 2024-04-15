@@ -264,19 +264,19 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
         RowBuilder<RowWrapper> rowBuilder = rowFactory.rowBuilder();
         assertNotNull(rowBuilder.build());
     }
-    
+
     @ParameterizedTest
     // TODO: https://issues.apache.org/jira/browse/IGNITE-17373 Interval type support.
     @EnumSource(value = ColumnType.class, names = {"NULL", "PERIOD", "DURATION"}, mode = EnumSource.Mode.EXCLUDE)
     public void testIsNull(ColumnType columnType) {
         NativeType nativeType = TypeUtils.columnType2NativeType(columnType, 3, 3, 0);
-        
+
         RowSchema rowSchema = RowSchema.builder()
                 .addField(nativeType, true)
                 .build();
-        
+
         RowFactory<RowWrapper> rowFactory = handler.factory(rowSchema);
-        
+
         {
             RowWrapper row = rowFactory.create(new Object[]{null});
             assertNull(handler.get(0, row));

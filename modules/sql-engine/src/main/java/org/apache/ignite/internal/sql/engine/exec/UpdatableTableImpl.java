@@ -367,7 +367,7 @@ public final class UpdatableTableImpl implements UpdatableTable {
     private <RowT> void validateNotNullConstraint(RowHandler<RowT> rowHandler, RowT row) {
         for (int i = 0; i < desc.columnsCount(); i++) {
             ColumnDescriptor column = desc.columnDescriptor(i);
-            
+
             if (!column.nullable() && rowHandler.isNull(i, row)) {
                 String message = Static.RESOURCE.columnNotNullable(column.name()).ex().getMessage();
                 throw new SqlException(CONSTRAINT_VIOLATION_ERR, message);

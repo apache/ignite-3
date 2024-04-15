@@ -192,7 +192,7 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
         abstract RowSchema rowSchema();
 
         abstract @Nullable Object get(int field);
-        
+
         abstract boolean isNull(int field);
 
         abstract BinaryTuple toBinaryTuple();
