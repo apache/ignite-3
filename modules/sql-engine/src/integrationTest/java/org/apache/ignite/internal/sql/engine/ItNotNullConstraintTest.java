@@ -49,7 +49,6 @@ public class ItNotNullConstraintTest extends BaseSqlIntegrationTest {
         sql("CREATE TABLE t1 (id INTEGER PRIMARY KEY, int_col INTEGER NOT NULL)");
 
         // INSERT
-
         assertThrowsSqlException(
                 Sql.CONSTRAINT_VIOLATION_ERR,
                 "Column 'ID' does not allow NULLs",
@@ -74,7 +73,6 @@ public class ItNotNullConstraintTest extends BaseSqlIntegrationTest {
                 () -> sql("INSERT INTO t1 SELECT 1, NULL"));
 
         // UPDATE
-
         sql("INSERT INTO t1 VALUES(1, 42)");
 
         assertThrowsSqlException(
@@ -96,7 +94,6 @@ public class ItNotNullConstraintTest extends BaseSqlIntegrationTest {
                 () -> sql("UPDATE t1 SET int_col = null"));
 
         // MERGE
-
         sql("CREATE TABLE t2 (id INTEGER PRIMARY KEY, int_col INTEGER NOT NULL)");
 
         sql("INSERT INTO t2 VALUES (1, 42)");
