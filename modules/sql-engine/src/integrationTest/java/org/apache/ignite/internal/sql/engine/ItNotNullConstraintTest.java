@@ -190,6 +190,7 @@ public class ItNotNullConstraintTest extends BaseSqlIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22040")
     public void testKeyValueViewDataStreamer() {
         sql("CREATE TABLE kv (id INTEGER PRIMARY KEY, val INTEGER NOT NULL)");
 
@@ -197,6 +198,7 @@ public class ItNotNullConstraintTest extends BaseSqlIntegrationTest {
 
         {
             KeyValueView<Tuple, Tuple> view = table.keyValueView();
+
             checkDataStreamer(view, new SimpleEntry<>(Tuple.create(Map.of("id", 1)), Tuple.create()), "VAL");
         }
 
@@ -214,6 +216,7 @@ public class ItNotNullConstraintTest extends BaseSqlIntegrationTest {
     }
 
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22040")
     public void testRecordViewDataStreamer() {
         sql("CREATE TABLE kv (id INTEGER PRIMARY KEY, val INTEGER NOT NULL)");
 
