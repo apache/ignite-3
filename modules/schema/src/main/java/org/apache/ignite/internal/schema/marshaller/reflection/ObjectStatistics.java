@@ -30,7 +30,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Object statistic.
  */
-public class ObjectStatistics {
+class ObjectStatistics {
     /** Cached zero statistics. */
     private static final ObjectStatistics ZERO_STATISTICS = new ObjectStatistics(-1);
 
