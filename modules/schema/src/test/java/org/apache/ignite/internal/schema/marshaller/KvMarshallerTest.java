@@ -715,6 +715,8 @@ public class KvMarshallerTest {
     @Test
     public void testVariableLengthBigDecimalAndBytes() throws MarshallerException {
         List<Map.Entry<Integer, Integer>> args = new ArrayList<>();
+        // Breaks marshalling if big decimal size does not include 2 additional bytes
+        // used by length
         args.add(Map.entry(6, 251));
 
         for (int i = 0; i < 100; i++) {
