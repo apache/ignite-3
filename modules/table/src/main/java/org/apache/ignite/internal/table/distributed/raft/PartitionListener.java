@@ -87,7 +87,7 @@ import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
- * Partition cmd handler.
+ * Partition command handler.
  */
 public class PartitionListener implements RaftGroupListener, BeforeApplyHandler {
     /** Logger. */

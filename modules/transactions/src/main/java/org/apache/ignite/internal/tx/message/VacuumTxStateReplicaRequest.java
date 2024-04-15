@@ -22,9 +22,9 @@ import static org.apache.ignite.internal.tx.message.TxMessageGroup.VACUUM_TX_STA
 import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.replicator.message.ReplicaRequest;
+import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
 
 @Transferable(VACUUM_TX_STATE_REPLICA_REQUEST)
-public interface VacuumTxStateReplicaRequest extends ReplicaRequest {
+public interface VacuumTxStateReplicaRequest extends PrimaryReplicaRequest {
     Set<UUID> transactionIds();
 }
