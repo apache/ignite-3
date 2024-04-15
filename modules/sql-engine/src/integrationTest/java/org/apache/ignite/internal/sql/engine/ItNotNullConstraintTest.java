@@ -20,15 +20,19 @@ package org.apache.ignite.internal.sql.engine;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.AbstractMap.SimpleEntry;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.SubmissionPublisher;
-import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.MarshallerException;
+import org.apache.ignite.sql.ResultSet;
+import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
@@ -40,11 +44,24 @@ import org.junit.jupiter.api.Test;
 /**
  * NOT NULL constraint tests.
  */
-public class ItNotNullConstraintTest extends BaseSqlIntegrationTest {
+public abstract class ItNotNullConstraintTest extends ClusterPerClassIntegrationTest {
 
     @AfterEach
     public void clear() {
         dropAllTables();
+    }
+
+    protected abstract Ignite ignite();
+
+    protected final Table table(String name) {
+        return ignite().tables().table(name);
+    }
+
+    protected void runSql(String stmt) {
+        Ignite ignite = ignite();
+        try (ResultSet<SqlRow> rs = ignite.sql().execute(null, stmt)) {
+            assertNotNull(rs);
+        }
     }
 
     @Test
@@ -55,25 +72,25 @@ public class ItNotNullConstraintTest extends BaseSqlIntegrationTest {
         assertThrowsSqlException(
                 Sql.CONSTRAINT_VIOLATION_ERR,
                 "Column 'ID' does not allow NULLs",
-                () -> sql("INSERT INTO t1 VALUES(NULL, 1)"));
+                () -> runSql("INSERT INTO t1 VALUES(NULL, 1)"));
 
         // KV case
         assertThrowsSqlException(
                 Sql.CONSTRAINT_VIOLATION_ERR,
                 "Column 'INT_COL' does not allow NULLs",
-                () -> sql("INSERT INTO t1 VALUES(1, NULL)"));
+                () -> runSql("INSERT INTO t1 VALUES(1, NULL)"));
 
         // General case
 
         assertThrowsSqlException(
                 Sql.CONSTRAINT_VIOLATION_ERR,
                 "Column 'INT_COL' does not allow NULLs",
-                () -> sql("INSERT INTO t1 VALUES(1, (SELECT NULL))"));
+                () -> runSql("INSERT INTO t1 VALUES(1, (SELECT NULL))"));
 
         assertThrowsSqlException(
                 Sql.CONSTRAINT_VIOLATION_ERR,
                 "Column 'INT_COL' does not allow NULLs",
-                () -> sql("INSERT INTO t1 SELECT 1, NULL"));
+                () -> runSql("INSERT INTO t1 SELECT 1, NULL"));
 
         // UPDATE
         sql("INSERT INTO t1 VALUES(1, 42)");
@@ -81,37 +98,37 @@ public class ItNotNullConstraintTest extends BaseSqlIntegrationTest {
         assertThrowsSqlException(
                 Sql.STMT_VALIDATION_ERR,
                 "Cannot update field \"ID\". Primary key columns are not modifiable",
-                () -> sql("UPDATE t1 SET id = NULL WHERE val = 42"));
+                () -> runSql("UPDATE t1 SET id = NULL WHERE val = 42"));
 
         // KV case
         assertThrowsSqlException(
                 Sql.CONSTRAINT_VIOLATION_ERR,
                 "Column 'INT_COL' does not allow NULLs",
-                () -> sql("UPDATE t1 SET int_col = null WHERE id = 1"));
+                () -> runSql("UPDATE t1 SET int_col = null WHERE id = 1"));
 
         // General case
 
         assertThrowsSqlException(
                 Sql.CONSTRAINT_VIOLATION_ERR,
                 "Column 'INT_COL' does not allow NULLs",
-                () -> sql("UPDATE t1 SET int_col = null"));
+                () -> runSql("UPDATE t1 SET int_col = null"));
 
         // MERGE
-        sql("CREATE TABLE t2 (id INTEGER PRIMARY KEY, int_col INTEGER NOT NULL)");
+        runSql("CREATE TABLE t2 (id INTEGER PRIMARY KEY, int_col INTEGER NOT NULL)");
 
-        sql("INSERT INTO t2 VALUES (1, 42)");
-
-        assertThrowsSqlException(
-                Sql.CONSTRAINT_VIOLATION_ERR,
-                "Column 'INT_COL' does not allow NULLs",
-                () -> sql("MERGE INTO t2 dst USING t1 src ON dst.id = src.id WHEN MATCHED THEN UPDATE SET int_col = NULL"));
-
-        sql("INSERT INTO t1 VALUES (2, 71)");
+        runSql("INSERT INTO t2 VALUES (1, 42)");
 
         assertThrowsSqlException(
                 Sql.CONSTRAINT_VIOLATION_ERR,
                 "Column 'INT_COL' does not allow NULLs",
-                () -> sql("MERGE INTO t2 dst USING t1 src ON dst.id = src.id "
+                () -> runSql("MERGE INTO t2 dst USING t1 src ON dst.id = src.id WHEN MATCHED THEN UPDATE SET int_col = NULL"));
+
+        runSql("INSERT INTO t1 VALUES (2, 71)");
+
+        assertThrowsSqlException(
+                Sql.CONSTRAINT_VIOLATION_ERR,
+                "Column 'INT_COL' does not allow NULLs",
+                () -> runSql("MERGE INTO t2 dst USING t1 src ON dst.id = src.id "
                         + "WHEN NOT MATCHED THEN INSERT (id, int_col) VALUES (src.id, NULL)"));
 
     }
@@ -120,7 +137,7 @@ public class ItNotNullConstraintTest extends BaseSqlIntegrationTest {
     public void testKeyValueView() {
         sql("CREATE TABLE kv (id INTEGER PRIMARY KEY, val INTEGER NOT NULL)");
 
-        Table table = CLUSTER.aliveNode().tables().table("KV");
+        Table table = table("KV");
 
         {
             KeyValueView<Integer, Integer> view = table.keyValueView(Integer.class, Integer.class);
@@ -149,7 +166,7 @@ public class ItNotNullConstraintTest extends BaseSqlIntegrationTest {
     public void testRecordView() {
         sql("CREATE TABLE kv (id INTEGER PRIMARY KEY, val INTEGER NOT NULL)");
 
-        Table table = CLUSTER.aliveNode().tables().table("KV");
+        Table table = table("KV");
 
         {
             RecordView<Rec> view = table.recordView(Rec.class);
@@ -181,7 +198,7 @@ public class ItNotNullConstraintTest extends BaseSqlIntegrationTest {
     public void testKeyValueViewDataStreamer() {
         sql("CREATE TABLE kv (id INTEGER PRIMARY KEY, val INTEGER NOT NULL)");
 
-        Table table = CLUSTER.aliveNode().tables().table("KV");
+        Table table = table("KV");
 
         {
             KeyValueView<Tuple, Tuple> view = table.keyValueView();
@@ -206,7 +223,7 @@ public class ItNotNullConstraintTest extends BaseSqlIntegrationTest {
     public void testRecordViewDataStreamer() {
         sql("CREATE TABLE kv (id INTEGER PRIMARY KEY, val INTEGER NOT NULL)");
 
-        Table table = CLUSTER.aliveNode().tables().table("KV");
+        Table table = table("KV");
 
         {
             RecordView<Tuple> view = table.recordView();
