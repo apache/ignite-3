@@ -36,6 +36,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.tx.TransactionIds.beginTimestamp;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
+import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -702,6 +703,30 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         assertEquals(COMMITTED, txMeta.txState());
         assertNotNull(txMeta.commitTimestamp());
         assertTrue(readTimestamp.compareTo(txMeta.commitTimestamp()) > 0);
+    }
+
+    @Test
+    public void testExecuteRequestOnFinishedTx() {
+        UUID txId = newTxId();
+
+        txStateStorage.put(txId, new TxMeta(ABORTED, singletonList(grpId), null));
+        txManager.updateTxMeta(txId, old -> new TxStateMeta(ABORTED, null, null, null));
+
+        BinaryRow testRow = binaryRow(0);
+
+        assertThat(doSingleRowRequest(txId, testRow, RequestType.RW_INSERT), willThrowFast(TransactionException.class));
+    }
+
+    @Test
+    public void testExecuteRequestOnFinishingTx() {
+        UUID txId = newTxId();
+
+        txStateStorage.put(txId, new TxMeta(FINISHING, singletonList(grpId), null));
+        txManager.updateTxMeta(txId, old -> new TxStateMeta(FINISHING, null, null, null));
+
+        BinaryRow testRow = binaryRow(0);
+
+        assertThat(doSingleRowRequest(txId, testRow, RequestType.RW_INSERT), willThrowFast(TransactionException.class));
     }
 
     @Test
