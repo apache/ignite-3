@@ -238,7 +238,7 @@ public enum PlannerPhase {
             // HashAggregateConverterRule.MAP_REDUCE,
             HashAggregateExchangeTransposeRule.INSTANCE,
             SortAggregateConverterRule.COLOCATED,
-            SortAggregateExchangeTransposeRule.INSTANCE,
+            SortAggregateExchangeTransposeRule.SORT_AGGREGATE_PUSH_DOWN,
             // SortAggregateConverterRule.MAP_REDUCE,
             SetOpConverterRule.COLOCATED_MINUS,
             SetOpConverterRule.MAP_REDUCE_MINUS,

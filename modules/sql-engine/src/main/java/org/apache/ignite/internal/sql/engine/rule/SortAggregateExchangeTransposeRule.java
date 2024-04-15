@@ -57,7 +57,7 @@ import org.immutables.value.Value;
  */
 @Value.Enclosing
 public class SortAggregateExchangeTransposeRule extends RelRule<SortAggregateExchangeTransposeRule.Config> {
-    public static final RelOptRule INSTANCE = SortAggregateExchangeTransposeRule.Config.INSTANCE.toRule();
+    public static final RelOptRule SORT_AGGREGATE_PUSH_DOWN = SortAggregateExchangeTransposeRule.Config.DEFAULT.toRule();
 
     SortAggregateExchangeTransposeRule(SortAggregateExchangeTransposeRule.Config cfg) {
         super(cfg);
@@ -112,15 +112,20 @@ public class SortAggregateExchangeTransposeRule extends RelRule<SortAggregateExc
             assert agg.getGroupSets().size() == 1;
             assert !agg.collation().getKeys().isEmpty();
 
+            RelNode input = exchange.getInput();
+
+            RelTraitSet inTrait = cluster.traitSetOf(IgniteConvention.INSTANCE).replace(collation).replace(distribution(input));
+            RelTraitSet outTrait =  agg.getTraitSet().replace(collation).replace(distribution(input));
+
+            cluster.getPlanner().prune(agg);
+
             IgniteExchange relNode = new IgniteExchange(
                     cluster,
                     exchange.getTraitSet().replace(collation),
                     new IgniteColocatedSortAggregate(
                             cluster,
-                            agg.getTraitSet()
-                                    .replace(collation)
-                                    .replace(distribution(exchange.getInput())),
-                            exchange.getInput(),
+                            outTrait,
+                            convert(input, inTrait),
                             agg.getGroupSet(),
                             agg.getGroupSets(),
                             agg.getAggCallList()
@@ -139,7 +144,7 @@ public class SortAggregateExchangeTransposeRule extends RelRule<SortAggregateExc
         // Adjust columns in output collation.
         RelCollation outputCollation = collation.apply(fieldMappingOnReduce);
 
-        RelTraitSet inTraits = cluster.traitSetOf(IgniteConvention.INSTANCE).replace(collation);
+        RelTraitSet inTrait = cluster.traitSetOf(IgniteConvention.INSTANCE).replace(collation).replace(distribution(exchange.getInput()));
         RelTraitSet outTraits = cluster.traitSetOf(IgniteConvention.INSTANCE).replace(outputCollation);
 
         AggregateRelBuilder relBuilder = new AggregateRelBuilder() {
@@ -150,7 +155,7 @@ public class SortAggregateExchangeTransposeRule extends RelRule<SortAggregateExc
                 return new IgniteMapSortAggregate(
                         cluster,
                         outTraits.replace(distribution(input)),
-                        convert(input, inTraits.replace(distribution(input))),
+                        convert(input, inTrait),
                         groupSet,
                         groupSets,
                         aggregateCalls,
@@ -161,7 +166,8 @@ public class SortAggregateExchangeTransposeRule extends RelRule<SortAggregateExc
             @Override
             public IgniteRel makeProject(RelOptCluster cluster, RelNode input, List<RexNode> reduceInputExprs,
                     RelDataType projectRowType) {
-                return new IgniteProject(agg.getCluster(),
+                return new IgniteProject(
+                        agg.getCluster(),
                         input.getTraitSet(),
                         input,
                         reduceInputExprs,
@@ -177,7 +183,7 @@ public class SortAggregateExchangeTransposeRule extends RelRule<SortAggregateExc
                 return new IgniteReduceSortAggregate(
                         cluster,
                         outTraits.replace(single()),
-                        convert(input, outTraits.replace(single())),
+                        input,
                         groupSet,
                         groupSets,
                         aggregateCalls,
@@ -194,7 +200,7 @@ public class SortAggregateExchangeTransposeRule extends RelRule<SortAggregateExc
     @SuppressWarnings({"ClassNameSameAsAncestorName", "InnerClassFieldHidesOuterClassField"})
     @Value.Immutable
     public interface Config extends RelRule.Config {
-        SortAggregateExchangeTransposeRule.Config INSTANCE = ImmutableSortAggregateExchangeTransposeRule.Config.of()
+        SortAggregateExchangeTransposeRule.Config DEFAULT = ImmutableSortAggregateExchangeTransposeRule.Config.of()
                 .withDescription("SortAggregateExchangeTransposeRule")
                 .withOperandSupplier(o0 ->
                         o0.operand(IgniteColocatedSortAggregate.class)
