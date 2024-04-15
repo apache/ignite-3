@@ -110,7 +110,7 @@ public class CreateTableCommand extends AbstractTableCommand {
         ensureNoTableIndexOrSysViewExistsWithGivenName(schema, tableName);
 
         CatalogZoneDescriptor zone = zoneName == null
-                ? catalog.zone(catalog.defaultZone().id())
+                ? catalog.defaultZone()
                 : zoneOrThrow(catalog, zoneName);
 
         assert zone != null : "Default zone was not found [id=" + catalog.defaultZone().id() + ']';

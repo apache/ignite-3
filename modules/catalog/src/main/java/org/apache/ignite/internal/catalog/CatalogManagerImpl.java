@@ -651,13 +651,13 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     private SystemView<?> createZonesView() {
         return SystemViews.<ZoneWithDefaultMarker>clusterViewBuilder()
                 .name("ZONES")
-                .addColumn("NAME", STRING, wrapper -> wrapper.zone.name())
-                .addColumn("PARTITIONS", INT32, wrapper -> wrapper.zone.partitions())
-                .addColumn("REPLICAS", INT32, wrapper -> wrapper.zone.replicas())
-                .addColumn("DATA_NODES_AUTO_ADJUST_SCALE_UP", INT32, wrapper -> wrapper.zone.dataNodesAutoAdjustScaleUp())
-                .addColumn("DATA_NODES_AUTO_ADJUST_SCALE_DOWN", INT32, wrapper -> wrapper.zone.dataNodesAutoAdjustScaleDown())
-                .addColumn("DATA_NODES_FILTER", STRING, wrapper -> wrapper.zone.filter())
-                .addColumn("IS_DEFAULT_ZONE", BOOLEAN, wrapper -> wrapper.isDefault)
+                .<String>addColumn("NAME", STRING, wrapper -> wrapper.zone.name())
+                .<Integer>addColumn("PARTITIONS", INT32, wrapper -> wrapper.zone.partitions())
+                .<Integer>addColumn("REPLICAS", INT32, wrapper -> wrapper.zone.replicas())
+                .<Integer>addColumn("DATA_NODES_AUTO_ADJUST_SCALE_UP", INT32, wrapper -> wrapper.zone.dataNodesAutoAdjustScaleUp())
+                .<Integer>addColumn("DATA_NODES_AUTO_ADJUST_SCALE_DOWN", INT32, wrapper -> wrapper.zone.dataNodesAutoAdjustScaleDown())
+                .<String>addColumn("DATA_NODES_FILTER", STRING, wrapper -> wrapper.zone.filter())
+                .<Boolean>addColumn("IS_DEFAULT_ZONE", BOOLEAN, wrapper -> wrapper.isDefault)
                 .dataProvider(SubscriptionUtils.fromIterable(() -> {
                             Catalog catalog = catalogAt(clockService.nowLong());
                             return new TransformingIterator<>(catalog.zones().iterator(),

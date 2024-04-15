@@ -207,6 +207,31 @@ public class DistributionZoneSqlDdlParserTest extends AbstractDdlParserTest {
     }
 
     /**
+     * Ensures that we cannot change zone parameters and set this zone as default in the same request.
+     */
+    @Test
+    @SuppressWarnings("ThrowableNotThrown")
+    public void AlterZoneSetDefaultWithOptionsIsIllegal() {
+        assertThrowsSqlException(
+                Sql.STMT_PARSE_ERR,
+                "Failed to parse query",
+                () -> parse("alter zone a.test_zone set replicas=2, default")
+        );
+
+        assertThrowsSqlException(
+                Sql.STMT_PARSE_ERR,
+                "Failed to parse query",
+                () -> parse("alter zone a.test_zone set default, replicas=2")
+        );
+
+        assertThrowsSqlException(
+                Sql.STMT_PARSE_ERR,
+                "Failed to parse query",
+                () -> parse("alter zone a.test_zone set default replicas=2")
+        );
+    }
+
+    /**
      * Parsing ALTER ZONE RENAME TO statement with invalid arguments.
      */
     @Test
