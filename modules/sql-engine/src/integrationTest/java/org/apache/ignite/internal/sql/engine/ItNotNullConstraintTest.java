@@ -20,17 +20,15 @@ package org.apache.ignite.internal.sql.engine;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.AbstractMap.SimpleEntry;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.SubmissionPublisher;
-import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.table.DataStreamerItem;
@@ -39,7 +37,6 @@ import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -122,7 +119,6 @@ public class ItNotNullConstraintTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22040")
     public void testKeyValueView() {
         sql("CREATE TABLE kv (id INTEGER PRIMARY KEY, val INTEGER NOT NULL)");
 
@@ -133,7 +129,7 @@ public class ItNotNullConstraintTest extends BaseSqlIntegrationTest {
             MarshallerException err = assertThrows(MarshallerException.class, () -> {
                 view.put(null, 1, null);
             });
-            assertThat(err.getMessage(), containsString("Column 'VAL' does not allow NULLs"));
+            assertThat(err.getMessage(), containsString("Failed to write field [id=1]"));
         }
 
         {
@@ -141,7 +137,7 @@ public class ItNotNullConstraintTest extends BaseSqlIntegrationTest {
             MarshallerException err = assertThrows(MarshallerException.class, () -> {
                 view.put(null, Tuple.create(Map.of("id", 1)), Tuple.create());
             });
-            assertThat(err.getMessage(), containsString("Column 'VAL' does not allow NULLs"));
+            assertThat(err.getMessage(), containsString("Failed to set column (null was passed, but column is not nullable)"));
         }
 
         {
@@ -150,12 +146,11 @@ public class ItNotNullConstraintTest extends BaseSqlIntegrationTest {
                 Val val = new Val();
                 view.put(null, 1, val);
             });
-            assertThat(err.getMessage(), containsString("Column 'VAL' does not allow NULLs"));
+            assertThat(err.getMessage(), containsString("Failed to write field [id=0]"));
         }
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22040")
     public void testRecordView() {
         sql("CREATE TABLE kv (id INTEGER PRIMARY KEY, val INTEGER NOT NULL)");
 
@@ -167,7 +162,7 @@ public class ItNotNullConstraintTest extends BaseSqlIntegrationTest {
                 Rec rec = new Rec();
                 view.insert(null, rec);
             });
-            assertThat(err.getMessage(), containsString("Column 'ID' does not allow NULLs"));
+            assertThat(err.getMessage(), containsString("Failed to write field [id=0]"));
         }
 
         {
@@ -177,7 +172,7 @@ public class ItNotNullConstraintTest extends BaseSqlIntegrationTest {
                 rec.id = 42;
                 view.insert(null, rec);
             });
-            assertThat(err.getMessage(), containsString("Column 'VAL' does not allow NULLs"));
+            assertThat(err.getMessage(), containsString("Failed to write field [id=1]"));
         }
 
         {
@@ -185,12 +180,11 @@ public class ItNotNullConstraintTest extends BaseSqlIntegrationTest {
             MarshallerException err = assertThrows(MarshallerException.class, () -> {
                 view.insert(null, Tuple.create(Map.of("id", 1)));
             });
-            assertThat(err.getMessage(), containsString("Column 'VAL' does not allow NULLs"));
+            assertThat(err.getMessage(), containsString("Failed to set column (null was passed, but column is not nullable)"));
         }
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22040")
     public void testKeyValueViewDataStreamer() {
         sql("CREATE TABLE kv (id INTEGER PRIMARY KEY, val INTEGER NOT NULL)");
 
@@ -199,24 +193,24 @@ public class ItNotNullConstraintTest extends BaseSqlIntegrationTest {
         {
             KeyValueView<Tuple, Tuple> view = table.keyValueView();
 
-            checkDataStreamer(view, new SimpleEntry<>(Tuple.create(Map.of("id", 1)), Tuple.create()), "VAL");
+            checkDataStreamer(view, new SimpleEntry<>(Tuple.create(Map.of("id", 1)), Tuple.create()),
+                    "Failed to set column (null was passed, but column is not nullable)");
         }
 
 
         {
             KeyValueView<Integer, Integer> view = table.keyValueView(Integer.class, Integer.class);
-            checkDataStreamer(view, new SimpleEntry<>(1, null), "VAL");
+            checkDataStreamer(view, new SimpleEntry<>(1, null), "Failed to write field [id=1]");
         }
 
         {
             KeyValueView<Integer, Val> view = table.keyValueView(Integer.class, Val.class);
             Val val = new Val();
-            checkDataStreamer(view, new SimpleEntry<>(1, val), "VAL");
+            checkDataStreamer(view, new SimpleEntry<>(1, val), "Failed to write field [id=0]");
         }
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-22040")
     public void testRecordViewDataStreamer() {
         sql("CREATE TABLE kv (id INTEGER PRIMARY KEY, val INTEGER NOT NULL)");
 
@@ -224,24 +218,24 @@ public class ItNotNullConstraintTest extends BaseSqlIntegrationTest {
 
         {
             RecordView<Tuple> view = table.recordView();
-            checkDataStreamer(view, Tuple.create(Map.of("id", 1)), "VAL");
+            checkDataStreamer(view, Tuple.create(Map.of("id", 1)), "Failed to set column (null was passed, but column is not nullable)");
         }
 
         {
             RecordView<Rec> view = table.recordView(Rec.class);
             Rec rec = new Rec();
-            checkDataStreamer(view, rec, "ID");
+            checkDataStreamer(view, rec, "Failed to write field [id=0]");
         }
 
         {
             RecordView<Rec> view = table.recordView(Rec.class);
             Rec rec = new Rec();
             rec.id = 1;
-            checkDataStreamer(view, rec, "VAL");
+            checkDataStreamer(view, rec, "Failed to write field [id=1]");
         }
     }
 
-    private static <K, V> void checkDataStreamer(KeyValueView<K, V> view, Entry<K, V> item, String columnName) {
+    private static <K, V> void checkDataStreamer(KeyValueView<K, V> view, Entry<K, V> item, String error) {
         CompletableFuture<Void> streamerFut;
 
         try (var publisher = new SubmissionPublisher<DataStreamerItem<Entry<K, V>>>()) {
@@ -249,12 +243,12 @@ public class ItNotNullConstraintTest extends BaseSqlIntegrationTest {
             publisher.submit(DataStreamerItem.of(item));
         }
 
-        CompletionException err = assertThrows(CompletionException.class, () -> streamerFut.orTimeout(1, TimeUnit.SECONDS).join());
-        MarshallerException merr = assertInstanceOf(MarshallerException.class, err.getCause());
-        assertThat(merr.getMessage(), containsString("Column '" + columnName + "' does not allow NULLs"));
+
+        MarshallerException err = assertThrows(MarshallerException.class, () -> IgniteTestUtils.await(streamerFut));
+        assertThat(err.getMessage(), containsString(error));
     }
 
-    private static <R> void checkDataStreamer(RecordView<R> view, R item, String columnName) {
+    private static <R> void checkDataStreamer(RecordView<R> view, R item, String error) {
         CompletableFuture<Void> streamerFut;
 
         try (var publisher = new SubmissionPublisher<DataStreamerItem<R>>()) {
@@ -262,9 +256,8 @@ public class ItNotNullConstraintTest extends BaseSqlIntegrationTest {
             publisher.submit(DataStreamerItem.of(item));
         }
 
-        CompletionException err = assertThrows(CompletionException.class, () -> streamerFut.orTimeout(1, TimeUnit.SECONDS).join());
-        MarshallerException merr = assertInstanceOf(MarshallerException.class, err.getCause());
-        assertThat(merr.getMessage(), containsString("Column '" + columnName + "' does not allow NULLs"));
+        MarshallerException err = assertThrows(MarshallerException.class, () -> IgniteTestUtils.await(streamerFut));
+        assertThat(err.getMessage(), containsString(error));
     }
 
     static class Val {
