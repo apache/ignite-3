@@ -55,8 +55,8 @@ public class HashJoinConverterRule extends AbstractIgniteConverterRule<LogicalJo
     public boolean matches(RelOptRuleCall call) {
         LogicalJoin logicalJoin = call.rel(0);
 
-        return acceptableConditions(logicalJoin.getCondition()) && !nullOrEmpty(logicalJoin.analyzeCondition().pairs())
-                && logicalJoin.analyzeCondition().isEqui();
+        return !nullOrEmpty(logicalJoin.analyzeCondition().pairs())
+                && logicalJoin.analyzeCondition().isEqui() && acceptableConditions(logicalJoin.getCondition());
     }
 
     private static boolean acceptableConditions(RexNode node) {

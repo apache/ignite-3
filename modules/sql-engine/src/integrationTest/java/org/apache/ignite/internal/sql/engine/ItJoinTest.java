@@ -67,7 +67,9 @@ public class ItJoinTest extends BaseSqlIntegrationTest {
                 new Object[] {0, 1},
                 new Object[] {1, 2},
                 new Object[] {2, 3},
-                new Object[] {3, null}
+                new Object[] {3, null},
+                new Object[] {7, 7},
+                new Object[] {8, 8}
         );
 
         insertData("checkNulls1", List.of("ID", "C1", "C2"),
@@ -240,23 +242,27 @@ public class ItJoinTest extends BaseSqlIntegrationTest {
     @EnumSource(mode = Mode.EXCLUDE, names = "CORRELATED")
     public void testFullOuterJoin(JoinType joinType) {
         assertQuery(""
-                        + "select t1.c1 c11, t1.c2 c12, t1.c3 c13, t2.c1 c21, t2.c2 c22 "
+                        + "select t1.c1 c11, t1.c2 c12, t1.c3 c13, t3.id c21, t3.c1 c22 "
                         + "  from t1 "
-                        + "  full outer join t2 "
-                        + "    on t1.c1 = t2.c1 "
-                        + "   and t1.c2 = t2.c2 "
-                        + " order by t1.c1, t1.c2, t1.c3",
+                        + "  full outer join t3 "
+                        + "    on t1.c1 = t3.id "
+                        + "   and t1.c2 = t3.c1 "
+                        + " order by t1.c1, t1.c2, t1.c3, t3.id",
                 joinType
         )
                 .ordered()
-                .returns(1, 1, 1, 1, 1)
-                .returns(2, 2, 2, 2, 2)
-                .returns(2, 2, 2, 2, 2)
+                .returns(1, 1, 1, null, null)
+                .returns(2, 2, 2, null, null)
                 .returns(2, null, 2, null, null)
-                .returns(3, 3, 3, 3, 3)
-                .returns(3, 3, null, 3, 3)
-                .returns(4, 4, 4, 4, 4)
+                .returns(3, 3, 3, null, null)
+                .returns(3, 3, null, null, null)
+                .returns(4, 4, 4, null, null)
+                .returns(null, null, null, 0, 1)
+                .returns(null, null, null, 1, 2)
+                .returns(null, null, null, 2, 3)
                 .returns(null, null, null, 3, null)
+                .returns(null, null, null, 7, 7)
+                .returns(null, null, null, 8, 8)
                 .check();
     }
 
@@ -456,6 +462,8 @@ public class ItJoinTest extends BaseSqlIntegrationTest {
                 .returns(1)
                 .returns(2)
                 .returns(3)
+                .returns(7)
+                .returns(8)
                 .check();
 
         assertQuery("select t31.c1 from t3 t31 left join t3 t32 on t31.c1 = t32.c1 ORDER BY t31.c1;", joinType)
@@ -463,6 +471,8 @@ public class ItJoinTest extends BaseSqlIntegrationTest {
                 .returns(1)
                 .returns(2)
                 .returns(3)
+                .returns(7)
+                .returns(8)
                 .returns(null)
                 .check();
 

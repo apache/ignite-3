@@ -66,7 +66,7 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
             leftSource().request(waitingLeft = inBufSize);
         }
 
-        if (requested > 0 && waitingLeft == NOT_WAITING && waitingRight == NOT_WAITING && leftInBuf.isEmpty() && left == null) {
+        if (requested > 0 && waitingLeft == NOT_WAITING && waitingRight == NOT_WAITING && leftInBuf.isEmpty() && left == null && !rightIt.hasNext()) {
             requested = 0;
             downstream().end();
         }
@@ -126,7 +126,6 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
     private static class InnerHashJoin<RowT> extends HashJoinNode<RowT> {
         private InnerHashJoin(ExecutionContext<RowT> ctx, JoinInfo joinInfo) {
             super(ctx, joinInfo, false);
-            System.err.println("!!!call: InnerHashJoin");
         }
 
         @Override
@@ -243,7 +242,8 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
         /** Left row factory. */
         private final RowHandler.RowFactory<RowT> leftRowFactory;
 
-        // TODO !!!
+        Iterator<RowT> rightItRight = Collections.emptyIterator();
+
         private RightHashJoin(
                 ExecutionContext<RowT> ctx,
                 RowHandler.RowFactory<RowT> leftRowFactory,
@@ -252,7 +252,6 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
             super(ctx, joinInfo, true);
 
             this.leftRowFactory = leftRowFactory;
-            System.err.println("!!!call: RightHashJoin");
         }
 
         @Override
@@ -304,19 +303,28 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
                 }
             }
 
-            if (left == null && !rightIt.hasNext() && leftInBuf.isEmpty() && waitingLeft == NOT_WAITING
-                    && waitingRight == NOT_WAITING && requested > 0) {
-                List<RowT> res = getUntouched(hashStore, null);
-
-                for (RowT right : res) {
-                    RowT row = handler.concat(leftRowFactory.create(), right);
-                    --requested;
-
-                    downstream().push(row);
-
-                    if (requested == 0) {
-                        break;
+            if (left == null && leftInBuf.isEmpty() && waitingLeft == NOT_WAITING && waitingRight == NOT_WAITING && requested > 0) {
+                inLoop = true;
+                try {
+                    if (!rightIt.hasNext()) {
+                        List<RowT> res = getUntouched(hashStore, null);
+                        rightIt = res.iterator();
                     }
+
+                    while (rightIt.hasNext()) {
+                        checkState();
+                        RowT right = rightIt.next();
+                        RowT row = handler.concat(leftRowFactory.create(), right);
+                        --requested;
+
+                        downstream().push(row);
+
+                        if (requested == 0) {
+                            break;
+                        }
+                    }
+                } finally {
+                    inLoop = false;
                 }
             }
 
@@ -402,18 +410,27 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
 
             if (left == null && !rightIt.hasNext() && leftInBuf.isEmpty() && waitingLeft == NOT_WAITING
                     && waitingRight == NOT_WAITING && requested > 0) {
-                List<RowT> res = getUntouched(hashStore, null);
-
-                for (RowT right : res) {
-                    RowT row = handler.concat(leftRowFactory.create(), right);
-
-                    --requested;
-
-                    downstream().push(row);
-
-                    if (requested == 0) {
-                        break;
+                inLoop = true;
+                try {
+                    if (!rightIt.hasNext()) {
+                        List<RowT> res = getUntouched(hashStore, null);
+                        rightIt = res.iterator();
                     }
+
+                    while (rightIt.hasNext()) {
+                        checkState();
+                        RowT right = rightIt.next();
+                        RowT row = handler.concat(leftRowFactory.create(), right);
+                        --requested;
+
+                        downstream().push(row);
+
+                        if (requested == 0) {
+                            break;
+                        }
+                    }
+                } finally {
+                    inLoop = false;
                 }
             }
 
@@ -424,32 +441,35 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
     private static class SemiHashJoin<RowT> extends HashJoinNode<RowT> {
         private SemiHashJoin(ExecutionContext<RowT> ctx, JoinInfo joinInfo) {
             super(ctx, joinInfo, false);
-
-            System.err.println("!!!call: SemiHashJoin");
         }
 
         /** {@inheritDoc} */
         @Override
         protected void join() throws Exception {
             if (waitingRight == NOT_WAITING) {
-                while (requested > 0 && (left != null || !leftInBuf.isEmpty())) {
-                    checkState();
+                inLoop = true;
+                try {
+                    while (requested > 0 && (left != null || !leftInBuf.isEmpty())) {
+                        checkState();
 
-                    left = leftInBuf.remove();
+                        left = leftInBuf.remove();
 
-                    Collection<RowT> rightRows = lookup(left, handler, hashStore, leftJoinPositions, touchResults);
+                        Collection<RowT> rightRows = lookup(left, handler, hashStore, leftJoinPositions, touchResults);
 
-                    if (!rightRows.isEmpty()) {
-                        requested--;
+                        if (!rightRows.isEmpty()) {
+                            requested--;
 
-                        downstream().push(left);
+                            downstream().push(left);
 
-                        if (requested == 0) {
-                            break;
+                            if (requested == 0) {
+                                break;
+                            }
                         }
-                    }
 
-                    left = null;
+                        left = null;
+                    }
+                } finally {
+                    inLoop = false;
                 }
             }
 
@@ -466,24 +486,29 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
         @Override
         protected void join() throws Exception {
             if (waitingRight == NOT_WAITING) {
-                while (requested > 0 && (left != null || !leftInBuf.isEmpty())) {
-                    checkState();
+                inLoop = true;
+                try {
+                    while (requested > 0 && (left != null || !leftInBuf.isEmpty())) {
+                        checkState();
 
-                    left = leftInBuf.remove();
+                        left = leftInBuf.remove();
 
-                    Collection<RowT> rightRows = lookup(left, handler, hashStore, leftJoinPositions, touchResults);
+                        Collection<RowT> rightRows = lookup(left, handler, hashStore, leftJoinPositions, touchResults);
 
-                    if (rightRows.isEmpty()) {
-                        requested--;
+                        if (rightRows.isEmpty()) {
+                            requested--;
 
-                        downstream().push(left);
+                            downstream().push(left);
 
-                        if (requested == 0) {
-                            break;
+                            if (requested == 0) {
+                                break;
+                            }
                         }
-                    }
 
-                    left = null;
+                        left = null;
+                    }
+                } finally {
+                    inLoop = false;
                 }
             }
 

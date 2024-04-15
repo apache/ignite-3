@@ -332,7 +332,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
 
         assertQuery("SELECT count(*) FROM test2 WHERE b = 0").returns(10_000L).check();
 
-        List<List<Object>> res = sql("explain plan for MERGE INTO test2 dst USING test1 src ON dst.a = src.a"
+        List<List<Object>> res = sql("MERGE INTO test2 dst USING test1 src ON dst.a = src.a"
                 + " WHEN MATCHED THEN UPDATE SET b = 1 "
                 + " WHEN NOT MATCHED THEN INSERT (key, a, b) VALUES (src.key, src.a, 2)");
 
