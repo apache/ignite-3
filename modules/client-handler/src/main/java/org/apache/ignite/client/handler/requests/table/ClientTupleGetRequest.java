@@ -51,7 +51,7 @@ public class ClientTupleGetRequest {
         return readTableAsync(in, tables).thenCompose(table -> {
             var tx = readTx(in, out, resources);
 
-            return span(tx.parentSpan(), "ClientTupleGetRequest.process", (span) -> {
+            return span(tx == null ? null : tx.parentSpan(), "ClientTupleGetRequest.process", (span) -> {
                 return readTuple(in, table, true).thenCompose(keyTuple -> {
                     return table.recordView().getAsync(tx, keyTuple)
                             .thenAccept(t -> ClientTableCommon.writeTupleOrNil(out, t, TuplePart.KEY_AND_VAL, table.schemaView()));

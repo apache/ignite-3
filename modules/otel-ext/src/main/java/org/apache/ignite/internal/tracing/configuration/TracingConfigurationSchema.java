@@ -24,7 +24,7 @@ import org.apache.ignite.configuration.annotation.Value;
 /** Configuration schema for cluster trace. */
 @ConfigurationRoot(rootName = "tracing", type = ConfigurationType.DISTRIBUTED)
 public class TracingConfigurationSchema {
-    /** Sampling ratio.. */
+    /** Sampling ratio. */
     @Value(hasDefault = true)
     public final double ratio = 0.0d;
 }
