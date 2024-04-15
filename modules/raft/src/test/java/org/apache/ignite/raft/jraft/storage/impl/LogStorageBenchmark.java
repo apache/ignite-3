@@ -150,7 +150,7 @@ public class LogStorageBenchmark {
         int totalLogs = 100 * 1024;
 
 //        LogStorageFactory logStorageFactory = new DefaultLogStorageFactory(testPath);
-        LogStorageFactory logStorageFactory = new LogitLogStorageFactory("test", testPath, new StoreOptions());
+        LogStorageFactory logStorageFactory = new LogitLogStorageFactory("test", new StoreOptions(), () -> testPath);
         logStorageFactory.start();
 
         try (AutoCloseable factory = logStorageFactory::close) {

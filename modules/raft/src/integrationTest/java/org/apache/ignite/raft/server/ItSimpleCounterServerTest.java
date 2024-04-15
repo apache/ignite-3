@@ -32,14 +32,12 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
 import org.apache.ignite.internal.raft.RaftNodeId;
-import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
@@ -88,9 +86,6 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
     /** Executor for raft group services. */
     private ScheduledExecutorService executor;
 
-    @InjectConfiguration
-    private RaftConfiguration raftConfiguration;
-
     /**
      * Before each.
      */
@@ -100,7 +95,7 @@ class ItSimpleCounterServerTest extends RaftServerAbstractTest {
 
         ClusterService service = clusterService(PORT, List.of(addr), true);
 
-        server = new JraftServerImpl(service, workDir) {
+        server = new JraftServerImpl(service, workDir, raftConfiguration) {
             @Override
             public synchronized void stop() throws Exception {
                 super.stop();

@@ -122,7 +122,7 @@ public class Loza implements RaftManager {
 
         this.opts = options;
 
-        this.raftServer = new JraftServerImpl(clusterNetSvc, dataPath, options, raftGroupEventsClientListener);
+        this.raftServer = new JraftServerImpl(clusterNetSvc, dataPath, raftConfiguration, options, raftGroupEventsClientListener);
 
         this.executor = new ScheduledThreadPoolExecutor(
                 CLIENT_POOL_SIZE,
