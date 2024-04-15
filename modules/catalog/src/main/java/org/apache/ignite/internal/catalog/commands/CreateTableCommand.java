@@ -113,8 +113,6 @@ public class CreateTableCommand extends AbstractTableCommand {
                 ? catalog.defaultZone()
                 : zoneOrThrow(catalog, zoneName);
 
-        assert zone != null : "Default zone was not found [id=" + catalog.defaultZone().id() + ']';
-
         if (storageProfile == null) {
             storageProfile = zone.storageProfiles().defaultProfile().storageProfile();
         }
