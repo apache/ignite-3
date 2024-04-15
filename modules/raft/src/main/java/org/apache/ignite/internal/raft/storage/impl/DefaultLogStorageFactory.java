@@ -168,12 +168,6 @@ public class DefaultLogStorageFactory implements LogStorageFactory {
         db.syncWal();
     }
 
-    /** Returns path to the log storage. */
-    @TestOnly
-    public Path logPath() {
-        return logPathSupplier.get();
-    }
-
     /**
      * Returns a thread-local {@link WriteBatch} instance, attached to current factory, append data from multiple storages at the same time.
      */

@@ -17,16 +17,18 @@
 
 package org.apache.ignite.raft.server;
 
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.raft.jraft.test.TestUtils.getLocalAddress;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
-import org.apache.ignite.internal.raft.storage.impl.DefaultLogStorageFactory;
 import org.apache.ignite.internal.raft.storage.logit.LogitLogStorageFactory;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.network.NetworkAddress;
@@ -54,38 +56,42 @@ class ItJraftServerLogPathTest extends RaftServerAbstractTest {
 
     @Test
     @WithSystemProperty(key = JraftServerImpl.LOGIT_STORAGE_ENABLED_PROPERTY, value = "false")
-    void testDefaultFactory(@InjectConfiguration("mock.logPath=db/wal") RaftConfiguration raftConfiguration) {
+    void testDefaultFactory() {
+        Path logPath = workDir.resolve("db/wal");
+        assertThat(raftConfiguration.logPath().update(logPath.toString()), willCompleteSuccessfully());
+
         server = startServer(raftConfiguration);
 
-        DefaultLogStorageFactory factory = (DefaultLogStorageFactory) server.getLogStorageFactory();
-        assertEquals(Path.of("db/wal"), factory.logPath());
+        assertTrue(Files.exists(logPath));
     }
 
     @Test
     @WithSystemProperty(key = JraftServerImpl.LOGIT_STORAGE_ENABLED_PROPERTY, value = "true")
-    void testLogitFactory(@InjectConfiguration("mock.logPath=db/wal") RaftConfiguration raftConfiguration) {
+    void testLogitFactory() {
+        Path logPath = workDir.resolve("db/wal");
+        assertThat(raftConfiguration.logPath().update(logPath.toString()), willCompleteSuccessfully());
+
         server = startServer(raftConfiguration);
 
         LogitLogStorageFactory factory = (LogitLogStorageFactory) server.getLogStorageFactory();
-        assertEquals(Path.of("db/wal"), factory.logPath());
+        assertEquals(logPath.resolve("log-1"), factory.resolveLogStoragePath("1"));
     }
 
     @Test
     @WithSystemProperty(key = JraftServerImpl.LOGIT_STORAGE_ENABLED_PROPERTY, value = "false")
-    void testDefaultLogPathDefaultFactory(@InjectConfiguration RaftConfiguration raftConfiguration) {
+    void testDefaultLogPathDefaultFactory() {
         server = startServer(raftConfiguration);
 
-        DefaultLogStorageFactory factory = (DefaultLogStorageFactory) server.getLogStorageFactory();
-        assertEquals(dataPath.resolve("log"), factory.logPath());
+        assertTrue(Files.exists(dataPath.resolve("log")));
     }
 
     @Test
     @WithSystemProperty(key = JraftServerImpl.LOGIT_STORAGE_ENABLED_PROPERTY, value = "true")
-    void testDefaultLogPathLogitFactory(@InjectConfiguration RaftConfiguration raftConfiguration) {
+    void testDefaultLogPathLogitFactory() {
         server = startServer(raftConfiguration);
 
         LogitLogStorageFactory factory = (LogitLogStorageFactory) server.getLogStorageFactory();
-        assertEquals(dataPath.resolve("log"), factory.logPath());
+        assertEquals(dataPath.resolve("log/log-1"), factory.resolveLogStoragePath("1"));
     }
 
     private JraftServerImpl startServer(RaftConfiguration raftConfiguration) {

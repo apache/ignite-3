@@ -34,7 +34,6 @@ import org.apache.ignite.raft.jraft.storage.logit.storage.LogitLogStorage;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.Requires;
 import org.apache.ignite.raft.jraft.util.StringUtils;
-import org.jetbrains.annotations.TestOnly;
 import sun.nio.ch.DirectBuffer;
 
 /**
@@ -47,7 +46,6 @@ public class LogitLogStorageFactory implements LogStorageFactory {
 
     /** Executor for shared storages. */
     private final ScheduledExecutorService checkpointExecutor;
-
 
     private final StoreOptions storeOptions;
 
@@ -102,13 +100,8 @@ public class LogitLogStorageFactory implements LogStorageFactory {
         throw new UnsupportedOperationException("Not implemented yet");
     }
 
-    /** Returns base location of all log storages, created by this factory. */
-    @TestOnly
-    public Path logPath() {
-        return logPathSupplier.get();
-    }
-
-    private Path resolveLogStoragePath(String groupId) {
+    /** Returns path to log storage by group ID. */
+    public Path resolveLogStoragePath(String groupId) {
         return logPathSupplier.get().resolve(LOG_DIR_PREFIX + groupId);
     }
 }
