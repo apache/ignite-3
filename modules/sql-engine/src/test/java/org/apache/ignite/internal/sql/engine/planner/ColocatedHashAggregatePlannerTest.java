@@ -48,9 +48,7 @@ import org.junit.jupiter.api.Test;
 public class ColocatedHashAggregatePlannerTest extends AbstractAggregatePlannerTest {
 
     private final String[] disableRules = {
-            "HashAggregateExchangeTransposeRule",
             "MapReduceHashAggregateConverterRule",
-            "SortAggregateExchangeTransposeRule",
             "MapReduceSortAggregateConverterRule",
             "ColocatedSortAggregateConverterRule"
     };

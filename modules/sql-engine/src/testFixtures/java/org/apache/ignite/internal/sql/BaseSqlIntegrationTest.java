@@ -139,12 +139,10 @@ public class BaseSqlIntegrationTest extends ClusterPerClassIntegrationTest {
     protected enum AggregateType {
         SORT(
                 "ColocatedHashAggregateConverterRule",
-                "ColocatedSortAggregateConverterRule",
                 "MapReduceHashAggregateConverterRule"
         ),
 
         HASH(
-                "ColocatedHashAggregateConverterRule",
                 "ColocatedSortAggregateConverterRule",
                 "MapReduceSortAggregateConverterRule"
         );

@@ -56,10 +56,10 @@ import org.immutables.value.Value;
  * phases.
  */
 @Value.Enclosing
-public class SortAggregateExchangeTransposeRule extends RelRule<SortAggregateExchangeTransposeRule.Config> {
-    public static final RelOptRule SORT_AGGREGATE_PUSH_DOWN = SortAggregateExchangeTransposeRule.Config.DEFAULT.toRule();
+public class SortAggregatePushDownRule extends RelRule<SortAggregatePushDownRule.Config> {
+    public static final RelOptRule SORT_AGGREGATE_PUSH_DOWN = SortAggregatePushDownRule.Config.DEFAULT.toRule();
 
-    SortAggregateExchangeTransposeRule(SortAggregateExchangeTransposeRule.Config cfg) {
+    private SortAggregatePushDownRule(SortAggregatePushDownRule.Config cfg) {
         super(cfg);
     }
 
@@ -197,22 +197,22 @@ public class SortAggregateExchangeTransposeRule extends RelRule<SortAggregateExc
     }
 
     /** Configuration. */
-    @SuppressWarnings({"ClassNameSameAsAncestorName", "InnerClassFieldHidesOuterClassField"})
+    @SuppressWarnings({"ClassNameSameAsAncestorName"})
     @Value.Immutable
     public interface Config extends RelRule.Config {
-        SortAggregateExchangeTransposeRule.Config DEFAULT = ImmutableSortAggregateExchangeTransposeRule.Config.of()
-                .withDescription("SortAggregateExchangeTransposeRule")
+        SortAggregatePushDownRule.Config DEFAULT = ImmutableSortAggregatePushDownRule.Config.builder()
+                .withDescription("MapReduceSortAggregateConverterRule")
                 .withOperandSupplier(o0 ->
                         o0.operand(IgniteColocatedSortAggregate.class)
                                 .oneInput(o1 ->
                                         o1.operand(IgniteExchange.class)
                                                 .anyInputs()))
-                .as(SortAggregateExchangeTransposeRule.Config.class);
+                .build();
 
         /** {@inheritDoc} */
         @Override
-        default SortAggregateExchangeTransposeRule toRule() {
-            return new SortAggregateExchangeTransposeRule(this);
+        default SortAggregatePushDownRule toRule() {
+            return new SortAggregatePushDownRule(this);
         }
     }
 }

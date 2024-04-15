@@ -50,14 +50,14 @@ import org.apache.ignite.internal.sql.engine.rule.FilterConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.FilterSpoolMergeToHashIndexSpoolRule;
 import org.apache.ignite.internal.sql.engine.rule.FilterSpoolMergeToSortedIndexSpoolRule;
 import org.apache.ignite.internal.sql.engine.rule.HashAggregateConverterRule;
-import org.apache.ignite.internal.sql.engine.rule.HashAggregateExchangeTransposeRule;
+import org.apache.ignite.internal.sql.engine.rule.HashAggregatePushDownRule;
 import org.apache.ignite.internal.sql.engine.rule.LogicalScanConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.MergeJoinConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.NestedLoopJoinConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.ProjectConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.SetOpConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.SortAggregateConverterRule;
-import org.apache.ignite.internal.sql.engine.rule.SortAggregateExchangeTransposeRule;
+import org.apache.ignite.internal.sql.engine.rule.SortAggregatePushDownRule;
 import org.apache.ignite.internal.sql.engine.rule.SortConverterRule;
 import org.apache.ignite.internal.sql.engine.rule.SortExchangeTransposeRule;
 import org.apache.ignite.internal.sql.engine.rule.TableFunctionScanConverterRule;
@@ -235,11 +235,9 @@ public enum PlannerPhase {
             LogicalScanConverterRule.TABLE_SCAN,
             LogicalScanConverterRule.SYSTEM_VIEW_SCAN,
             HashAggregateConverterRule.COLOCATED,
-            // HashAggregateConverterRule.MAP_REDUCE,
-            HashAggregateExchangeTransposeRule.HASH_AGGREGATE_PUSH_DOWN,
             SortAggregateConverterRule.COLOCATED,
-            SortAggregateExchangeTransposeRule.SORT_AGGREGATE_PUSH_DOWN,
-            // SortAggregateConverterRule.MAP_REDUCE,
+            HashAggregatePushDownRule.HASH_AGGREGATE_PUSH_DOWN,
+            SortAggregatePushDownRule.SORT_AGGREGATE_PUSH_DOWN,
             SetOpConverterRule.COLOCATED_MINUS,
             SetOpConverterRule.MAP_REDUCE_MINUS,
             SetOpConverterRule.COLOCATED_INTERSECT,

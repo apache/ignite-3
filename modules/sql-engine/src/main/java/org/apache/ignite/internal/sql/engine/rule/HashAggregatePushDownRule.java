@@ -55,10 +55,10 @@ import org.immutables.value.Value;
  * phases.
  */
 @Value.Enclosing
-public class HashAggregateExchangeTransposeRule extends RelRule<HashAggregateExchangeTransposeRule.Config> {
-    public static final RelOptRule HASH_AGGREGATE_PUSH_DOWN = HashAggregateExchangeTransposeRule.Config.DEFAULT.toRule();
+public class HashAggregatePushDownRule extends RelRule<HashAggregatePushDownRule.Config> {
+    public static final RelOptRule HASH_AGGREGATE_PUSH_DOWN = HashAggregatePushDownRule.Config.DEFAULT.toRule();
 
-    HashAggregateExchangeTransposeRule(HashAggregateExchangeTransposeRule.Config cfg) {
+    private HashAggregatePushDownRule(HashAggregatePushDownRule.Config cfg) {
         super(cfg);
     }
 
@@ -189,22 +189,22 @@ public class HashAggregateExchangeTransposeRule extends RelRule<HashAggregateExc
     }
 
     /** Configuration. */
-    @SuppressWarnings({"ClassNameSameAsAncestorName", "InnerClassFieldHidesOuterClassField"})
+    @SuppressWarnings({"ClassNameSameAsAncestorName"})
     @Value.Immutable
     public interface Config extends RelRule.Config {
-        HashAggregateExchangeTransposeRule.Config DEFAULT = ImmutableHashAggregateExchangeTransposeRule.Config.of()
-                .withDescription("HashAggregateExchangeTransposeRule")
+        HashAggregatePushDownRule.Config DEFAULT = ImmutableHashAggregatePushDownRule.Config.builder()
+                .withDescription("MapReduceHashAggregateConverterRule")
                 .withOperandSupplier(o0 ->
                         o0.operand(IgniteColocatedHashAggregate.class)
                                 .oneInput(o1 ->
                                         o1.operand(IgniteExchange.class)
                                                 .anyInputs()))
-                .as(HashAggregateExchangeTransposeRule.Config.class);
+                .build();
 
         /** {@inheritDoc} */
         @Override
-        default HashAggregateExchangeTransposeRule toRule() {
-            return new HashAggregateExchangeTransposeRule(this);
+        default HashAggregatePushDownRule toRule() {
+            return new HashAggregatePushDownRule(this);
         }
     }
 }

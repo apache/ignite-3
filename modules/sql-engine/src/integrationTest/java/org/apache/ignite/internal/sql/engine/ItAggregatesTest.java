@@ -729,10 +729,10 @@ public class ItAggregatesTest extends BaseSqlIntegrationTest {
     private static Stream<Arguments> rulesForGroupingSets() {
         List<Object[]> rules = Arrays.asList(
                 // Use map/reduce aggregates for grouping sets
-                new String[]{"ColocatedHashAggregateConverterRule", "ColocatedSortAggregateConverterRule"},
+                new String[]{},
 
                 // Use colocated aggregates grouping sets
-                new String[]{"MapReduceHashAggregateConverterRule", "ColocatedSortAggregateConverterRule"}
+                new String[]{"MapReduceHashAggregateConverterRule", "MapReduceSortAggregateConverterRule"}
         );
 
         return rules.stream().map(Object.class::cast).map(Arguments::of);
