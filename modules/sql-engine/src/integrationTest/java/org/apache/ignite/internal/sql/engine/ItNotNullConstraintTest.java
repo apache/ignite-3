@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -28,7 +29,6 @@ import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.SubmissionPublisher;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.table.DataStreamerItem;
@@ -197,7 +197,6 @@ public class ItNotNullConstraintTest extends BaseSqlIntegrationTest {
                     "Failed to set column (null was passed, but column is not nullable)");
         }
 
-
         {
             KeyValueView<Integer, Integer> view = table.keyValueView(Integer.class, Integer.class);
             checkDataStreamer(view, new SimpleEntry<>(1, null), "Failed to write field [id=1]");
@@ -243,9 +242,7 @@ public class ItNotNullConstraintTest extends BaseSqlIntegrationTest {
             publisher.submit(DataStreamerItem.of(item));
         }
 
-
-        MarshallerException err = assertThrows(MarshallerException.class, () -> IgniteTestUtils.await(streamerFut));
-        assertThat(err.getMessage(), containsString(error));
+        assertThrows(MarshallerException.class, () -> await(streamerFut), error);
     }
 
     private static <R> void checkDataStreamer(RecordView<R> view, R item, String error) {
@@ -256,8 +253,7 @@ public class ItNotNullConstraintTest extends BaseSqlIntegrationTest {
             publisher.submit(DataStreamerItem.of(item));
         }
 
-        MarshallerException err = assertThrows(MarshallerException.class, () -> IgniteTestUtils.await(streamerFut));
-        assertThat(err.getMessage(), containsString(error));
+        assertThrows(MarshallerException.class, () -> await(streamerFut), error);
     }
 
     static class Val {
