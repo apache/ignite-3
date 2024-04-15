@@ -465,7 +465,8 @@ public class IgniteImpl implements Ignite {
                 criticalWorkerRegistry,
                 threadPoolsManager.commonScheduler(),
                 nettyBootstrapFactory,
-                criticalWorkersConfiguration
+                criticalWorkersConfiguration,
+                failureProcessor
         );
 
         clusterSvc = new ScaleCubeClusterServiceFactory().createClusterService(
