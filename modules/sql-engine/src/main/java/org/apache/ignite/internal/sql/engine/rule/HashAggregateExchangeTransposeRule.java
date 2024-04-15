@@ -45,7 +45,7 @@ import org.apache.ignite.internal.sql.engine.rel.agg.IgniteMapHashAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceHashAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.MapReduceAggregates;
 import org.apache.ignite.internal.sql.engine.rel.agg.MapReduceAggregates.AggregateRelBuilder;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.HintUtils;
 import org.immutables.value.Value;
@@ -56,7 +56,7 @@ import org.immutables.value.Value;
  */
 @Value.Enclosing
 public class HashAggregateExchangeTransposeRule extends RelRule<HashAggregateExchangeTransposeRule.Config> {
-    public static final RelOptRule INSTANCE = HashAggregateExchangeTransposeRule.Config.INSTANCE.toRule();
+    public static final RelOptRule HASH_AGGREGATE_PUSH_DOWN = HashAggregateExchangeTransposeRule.Config.DEFAULT.toRule();
 
     HashAggregateExchangeTransposeRule(HashAggregateExchangeTransposeRule.Config cfg) {
         super(cfg);
@@ -71,6 +71,7 @@ public class HashAggregateExchangeTransposeRule extends RelRule<HashAggregateExc
         assert !HintUtils.isExpandDistinctAggregate(aggregate);
 
         return exchange.distribution() == single()
+                && hashAlike(distribution(exchange.getInput()))
                 && (canBePushedDown(aggregate, exchange) || canBeConvertedToMapReduce(aggregate));
     }
 
@@ -92,6 +93,11 @@ public class HashAggregateExchangeTransposeRule extends RelRule<HashAggregateExc
                 && !complexDistinctAgg(aggregate.getAggCallList());
     }
 
+    private static boolean hashAlike(IgniteDistribution distribution) {
+        return distribution.getType() == Type.HASH_DISTRIBUTED
+                || distribution.getType() == Type.RANDOM_DISTRIBUTED;
+    }
+
     @Override
     public void onMatch(RelOptRuleCall call) {
         IgniteColocatedHashAggregate agg = call.rel(0);
@@ -103,14 +109,18 @@ public class HashAggregateExchangeTransposeRule extends RelRule<HashAggregateExc
             assert agg.getGroupSets().size() == 1;
             assert agg.collation().getKeys().isEmpty();
 
+            RelTraitSet inTrait = cluster.traitSetOf(IgniteConvention.INSTANCE).replace(distribution(exchange.getInput()));
+            RelTraitSet outTrait =  agg.getTraitSet().replace(distribution(exchange.getInput()));
+
+            cluster.getPlanner().prune(agg);
+
             IgniteExchange relNode = new IgniteExchange(
                     cluster,
                     agg.getTraitSet(),
                     new IgniteColocatedHashAggregate(
                             cluster,
-                            agg.getTraitSet()
-                                    .replace(distribution(exchange.getInput())),
-                            exchange.getInput(),
+                            outTrait,
+                            convert(exchange.getInput(), inTrait),
                             agg.getGroupSet(),
                             agg.getGroupSets(),
                             agg.getAggCallList()
@@ -129,8 +139,6 @@ public class HashAggregateExchangeTransposeRule extends RelRule<HashAggregateExc
         RelTraitSet inTrait = cluster.traitSetOf(IgniteConvention.INSTANCE);
         RelTraitSet outTrait = cluster.traitSetOf(IgniteConvention.INSTANCE);
 
-        RelTraitSet reducePhaseTraits = outTrait.replace(IgniteDistributions.single());
-
         AggregateRelBuilder relBuilder = new AggregateRelBuilder() {
             @Override
             public IgniteRel makeMapAgg(RelOptCluster cluster, RelNode input, ImmutableBitSet groupSet,
@@ -138,8 +146,9 @@ public class HashAggregateExchangeTransposeRule extends RelRule<HashAggregateExc
 
                 return new IgniteMapHashAggregate(
                         cluster,
-                        outTrait.replace(IgniteDistributions.random()),
-                        input,
+                        outTrait.replace(distribution(input)),
+                        // TODO: without conversion sibling rule SortedAggregateExchangeTransposeRules doesn't apply. why?
+                        convert(input, inTrait.replace(distribution(input))),
                         groupSet,
                         groupSets,
                         aggregateCalls
@@ -166,8 +175,8 @@ public class HashAggregateExchangeTransposeRule extends RelRule<HashAggregateExc
 
                 return new IgniteReduceHashAggregate(
                         cluster,
-                        reducePhaseTraits,
-                        convert(input, inTrait.replace(single())),
+                        outTrait.replace(single()),
+                        input,
                         groupSet,
                         groupSets,
                         aggregateCalls,
@@ -183,7 +192,7 @@ public class HashAggregateExchangeTransposeRule extends RelRule<HashAggregateExc
     @SuppressWarnings({"ClassNameSameAsAncestorName", "InnerClassFieldHidesOuterClassField"})
     @Value.Immutable
     public interface Config extends RelRule.Config {
-        HashAggregateExchangeTransposeRule.Config INSTANCE = ImmutableHashAggregateExchangeTransposeRule.Config.of()
+        HashAggregateExchangeTransposeRule.Config DEFAULT = ImmutableHashAggregateExchangeTransposeRule.Config.of()
                 .withDescription("HashAggregateExchangeTransposeRule")
                 .withOperandSupplier(o0 ->
                         o0.operand(IgniteColocatedHashAggregate.class)

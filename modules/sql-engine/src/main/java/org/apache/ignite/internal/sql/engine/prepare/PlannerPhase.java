@@ -236,7 +236,7 @@ public enum PlannerPhase {
             LogicalScanConverterRule.SYSTEM_VIEW_SCAN,
             HashAggregateConverterRule.COLOCATED,
             // HashAggregateConverterRule.MAP_REDUCE,
-            HashAggregateExchangeTransposeRule.INSTANCE,
+            HashAggregateExchangeTransposeRule.HASH_AGGREGATE_PUSH_DOWN,
             SortAggregateConverterRule.COLOCATED,
             SortAggregateExchangeTransposeRule.SORT_AGGREGATE_PUSH_DOWN,
             // SortAggregateConverterRule.MAP_REDUCE,

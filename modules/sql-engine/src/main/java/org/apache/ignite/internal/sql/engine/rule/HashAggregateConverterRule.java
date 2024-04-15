@@ -74,15 +74,12 @@ public class HashAggregateConverterRule {
 
         /** {@inheritDoc} */
         @Override
-        protected PhysicalNode convert(RelOptPlanner planner, RelMetadataQuery mq,
-                LogicalAggregate agg) {
-            if (HintUtils.isExpandDistinctAggregate(agg)) {
-                return null;
-            }
-
+        protected PhysicalNode convert(RelOptPlanner planner, RelMetadataQuery mq, LogicalAggregate agg) {
             RelOptCluster cluster = agg.getCluster();
+
             RelTraitSet inTrait = cluster.traitSetOf(IgniteConvention.INSTANCE).replace(IgniteDistributions.single());
             RelTraitSet outTrait = cluster.traitSetOf(IgniteConvention.INSTANCE).replace(IgniteDistributions.single());
+
             RelNode input = convert(agg.getInput(), inTrait);
 
             return new IgniteColocatedHashAggregate(
