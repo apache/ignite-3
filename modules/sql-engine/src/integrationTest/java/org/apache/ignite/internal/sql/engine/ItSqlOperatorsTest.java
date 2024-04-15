@@ -335,21 +335,20 @@ public class ItSqlOperatorsTest extends BaseSqlIntegrationTest {
         assertExpression("'{\"a\":1}' IS NOT JSON OBJECT").returns(false).check();
         assertExpression("'[1, 2]' IS NOT JSON ARRAY").returns(false).check();
         assertExpression("'1' IS NOT JSON SCALAR").returns(false).check();
-        
     }
-    
+
     @Test
     public void testFormatJson() {
         // TODO https://issues.apache.org/jira/browse/IGNITE-20163 Convert these tests to ones that do not expect errors
         //  this issue is resolved
         String error = "Expression is not supported: FORMAT JSON";
-        
+
         assertThrowsSqlException(SqlException.class, Sql.STMT_VALIDATION_ERR, error, 
                 () -> sql("SELECT '{\"a\":1}' FORMAT JSON"));
-        
+
         assertThrowsSqlException(SqlException.class, Sql.STMT_VALIDATION_ERR, error, 
                 () -> sql("SELECT JSON_VALUE('{\"a\":1}' FORMAT JSON, '$.a')"));
-        
+
         assertThrowsSqlException(SqlException.class, Sql.STMT_VALIDATION_ERR, error,
                 () -> sql("SELECT c FORMAT JSON FROM (VALUES ('{\"a\":1}')) t(c)"));
     }
@@ -365,7 +364,7 @@ public class ItSqlOperatorsTest extends BaseSqlIntegrationTest {
                 .returns("[1]")
                 .check();
     }
-    
+
     @Test
     public void testJsonObject() throws IOException  {
         List<List<Object>> rows = sql(
