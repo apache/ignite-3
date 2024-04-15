@@ -18,10 +18,8 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.containsString;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.AbstractMap.SimpleEntry;
 import java.util.Map;
@@ -126,27 +124,24 @@ public class ItNotNullConstraintTest extends BaseSqlIntegrationTest {
 
         {
             KeyValueView<Integer, Integer> view = table.keyValueView(Integer.class, Integer.class);
-            MarshallerException err = assertThrows(MarshallerException.class, () -> {
+            assertThrows(MarshallerException.class, () -> {
                 view.put(null, 1, null);
-            });
-            assertThat(err.getMessage(), containsString("Failed to write field [id=1]"));
+            }, "Failed to write field [id=1]");
         }
 
         {
             KeyValueView<Tuple, Tuple> view = table.keyValueView();
-            MarshallerException err = assertThrows(MarshallerException.class, () -> {
+            assertThrows(MarshallerException.class, () -> {
                 view.put(null, Tuple.create(Map.of("id", 1)), Tuple.create());
-            });
-            assertThat(err.getMessage(), containsString("Failed to set column (null was passed, but column is not nullable)"));
+            }, "Failed to set column (null was passed, but column is not nullable)");
         }
 
         {
             KeyValueView<Integer, Val> view = table.keyValueView(Integer.class, Val.class);
-            MarshallerException err = assertThrows(MarshallerException.class, () -> {
+            assertThrows(MarshallerException.class, () -> {
                 Val val = new Val();
                 view.put(null, 1, val);
-            });
-            assertThat(err.getMessage(), containsString("Failed to write field [id=0]"));
+            }, "Failed to write field [id=0]");
         }
     }
 
@@ -158,29 +153,27 @@ public class ItNotNullConstraintTest extends BaseSqlIntegrationTest {
 
         {
             RecordView<Rec> view = table.recordView(Rec.class);
-            MarshallerException err = assertThrows(MarshallerException.class, () -> {
+
+            assertThrows(MarshallerException.class, () -> {
                 Rec rec = new Rec();
                 view.insert(null, rec);
-            });
-            assertThat(err.getMessage(), containsString("Failed to write field [id=0]"));
+            }, "Failed to write field [id=0]");
         }
 
         {
             RecordView<Rec> view = table.recordView(Rec.class);
-            MarshallerException err = assertThrows(MarshallerException.class, () -> {
+            assertThrows(MarshallerException.class, () -> {
                 Rec rec = new Rec();
                 rec.id = 42;
                 view.insert(null, rec);
-            });
-            assertThat(err.getMessage(), containsString("Failed to write field [id=1]"));
+            }, "Failed to write field [id=1]");
         }
 
         {
             RecordView<Tuple> view = table.recordView();
-            MarshallerException err = assertThrows(MarshallerException.class, () -> {
+            assertThrows(MarshallerException.class, () -> {
                 view.insert(null, Tuple.create(Map.of("id", 1)));
-            });
-            assertThat(err.getMessage(), containsString("Failed to set column (null was passed, but column is not nullable)"));
+            }, "Failed to set column (null was passed, but column is not nullable)");
         }
     }
 
