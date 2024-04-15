@@ -188,8 +188,8 @@ public class JraftServerImpl implements RaftServer {
         this.raftConfiguration = raftConfiguration;
 
         this.logStorageFactory = IgniteSystemProperties.getBoolean(LOGIT_STORAGE_ENABLED_PROPERTY, false)
-                ? new LogitLogStorageFactory(service.nodeName(), getLogOptions(), this::logPath)
-                : new DefaultLogStorageFactory(service.nodeName(), this::logPath);
+                ? new LogitLogStorageFactory(service.nodeName(), getLogOptions(), this::getLogPath)
+                : new DefaultLogStorageFactory(service.nodeName(), this::getLogPath);
         this.opts = opts;
         this.raftGroupEventsClientListener = raftGroupEventsClientListener;
 
@@ -230,7 +230,7 @@ public class JraftServerImpl implements RaftServer {
     }
 
     @NotNull
-    private Path logPath() {
+    private Path getLogPath() {
         return raftConfiguration.logPath().value().isEmpty()
                 ? dataPath.resolve("log")
                 : Path.of(raftConfiguration.logPath().value());
