@@ -335,7 +335,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 workerRegistry,
                 threadPoolsManager.commonScheduler(),
                 nettyBootstrapFactory,
-                workersConfiguration
+                workersConfiguration,
+                failureProcessor
         );
 
         var clusterSvc = new TestScaleCubeClusterServiceFactory().createClusterService(

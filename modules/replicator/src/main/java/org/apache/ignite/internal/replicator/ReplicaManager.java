@@ -777,9 +777,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             try {
                 sendSafeTimeSyncIfReplicaReady(entry.getValue());
             } catch (Exception | AssertionError e) {
-                LOG.warn("Error while trying to send a safe time sync request to {}", e, entry.getKey());
+                LOG.warn("Error while trying to send a safe time sync request [groupId={}]", e, entry.getKey());
             } catch (Error e) {
-                LOG.error("Error while trying to send a safe time sync request to {}", e, entry.getKey());
+                LOG.error("Error while trying to send a safe time sync request [groupId={}]", e, entry.getKey());
 
                 failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, e));
             }
