@@ -314,7 +314,7 @@ Diagram(
   Optional(
    Sequence(
     NonTerminal('USING'),
-    Choice (0,'HASH','TREE')
+    Choice (0,'HASH','SORTED')
    )
   ),
   Optional('column_definition')
@@ -327,7 +327,7 @@ Parameters:
 * `name` - name of the index.
 * `qualified_table_name` - name of the table to create the index on. Can be schema-qualified.
 * `IF NOT EXISTS` - create the index only if an index with the same name does not exist.
-* `USING` - specifies whether the command creates a sorted index or a hash index. Possible values: `HASH`, `TREE`. Default is `TREE`.
+* `USING` - specifies whether the command creates a sorted index or a hash index. Possible values: `HASH`, `SORTED`. Default is `SORTED`.
 
 
 //NOTE: Add image

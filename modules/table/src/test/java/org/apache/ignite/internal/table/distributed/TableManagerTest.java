@@ -118,10 +118,9 @@ import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
+import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataStorageModule;
-import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
-import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
 import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.outgoing.OutgoingSnapshotsManager;
@@ -220,8 +219,8 @@ public class TableManagerTest extends IgniteAbstractTest {
     @InjectConfiguration
     private StorageUpdateConfiguration storageUpdateConfiguration;
 
-    @InjectConfiguration
-    private PersistentPageMemoryStorageEngineConfiguration storageEngineConfig;
+    @InjectConfiguration("mock = {profiles.default = {engine = \"aipersist\"}}")
+    private StorageConfiguration storageConfiguration;
 
     @Mock
     private ConfigurationRegistry configRegistry;
@@ -329,8 +328,6 @@ public class TableManagerTest extends IgniteAbstractTest {
         assertEquals(1, tableManager.tables().size());
 
         assertNotNull(tableManager.table(PRECONFIGURED_TABLE_NAME));
-
-        checkTableDataStorage(allTableDescriptors(), PersistentPageMemoryStorageEngine.ENGINE_NAME);
     }
 
     /**
@@ -345,8 +342,6 @@ public class TableManagerTest extends IgniteAbstractTest {
         assertNotNull(table);
 
         assertSame(table, tblManagerFut.join().table(DYNAMIC_TABLE_NAME));
-
-        checkTableDataStorage(allTableDescriptors(), PersistentPageMemoryStorageEngine.ENGINE_NAME);
     }
 
     /**
@@ -822,7 +817,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 null,
                 null,
                 tm,
-                dsm = createDataStorageManager(configRegistry, workDir, storageEngineConfig),
+                dsm = createDataStorageManager(configRegistry, workDir),
                 workDir,
                 msm,
                 sm = new SchemaManager(revisionUpdater, catalogManager),
@@ -876,12 +871,13 @@ public class TableManagerTest extends IgniteAbstractTest {
 
     private DataStorageManager createDataStorageManager(
             ConfigurationRegistry mockedRegistry,
-            Path storagePath,
-            PersistentPageMemoryStorageEngineConfiguration config
+            Path storagePath
     ) {
-        when(mockedRegistry.getConfiguration(PersistentPageMemoryStorageEngineConfiguration.KEY)).thenReturn(config);
+        when(mockedRegistry.getConfiguration(StorageConfiguration.KEY)).thenReturn(storageConfiguration);
 
-        DataStorageModules dataStorageModules = new DataStorageModules(List.of(new PersistentPageMemoryDataStorageModule()));
+        DataStorageModules dataStorageModules = new DataStorageModules(
+                List.of(new PersistentPageMemoryDataStorageModule())
+        );
 
         DataStorageManager manager = new DataStorageManager(
                 dataStorageModules.createStorageEngines(
@@ -891,7 +887,8 @@ public class TableManagerTest extends IgniteAbstractTest {
                         null,
                         mock(FailureProcessor.class),
                         mock(LogSyncer.class)
-                )
+                ),
+                storageConfiguration
         );
 
         assertThat(manager.start(), willCompleteSuccessfully());
@@ -899,22 +896,8 @@ public class TableManagerTest extends IgniteAbstractTest {
         return manager;
     }
 
-    private void checkTableDataStorage(Collection<CatalogTableDescriptor> tableDescriptors, String expDataStorage) {
-        assertFalse(tableDescriptors.isEmpty());
-
-        for (CatalogTableDescriptor tableDescriptor : tableDescriptors) {
-            assertEquals(getZoneDataStorage(tableDescriptor.zoneId()), expDataStorage, tableDescriptor.name());
-        }
-    }
-
     private void createZone(int partitions, int replicas) {
         DistributionZonesTestUtil.createZone(catalogManager, ZONE_NAME, partitions, replicas);
-    }
-
-    private @Nullable String getZoneDataStorage(int zoneId) {
-        CatalogZoneDescriptor zoneDescriptor = DistributionZonesTestUtil.getZoneById(catalogManager, zoneId, clock.nowLong());
-
-        return zoneDescriptor == null ? null : zoneDescriptor.dataStorage().engine();
     }
 
     private void createTable(String tableName) {

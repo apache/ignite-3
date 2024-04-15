@@ -61,9 +61,13 @@ public class TestIgnitionManager {
     /** Map with default node configuration values. */
     private static final Map<String, String> DEFAULT_NODE_CONFIG = Map.of(
             "network.membership.scaleCube.metadataTimeout", Integer.toString(DEFAULT_SCALECUBE_METADATA_TIMEOUT),
-            "aipersist.defaultRegion.size", Integer.toString(256 * MiB),
-            "aimem.defaultRegion.initSize", Integer.toString(256 * MiB),
-            "aimem.defaultRegion.maxSize", Integer.toString(256 * MiB)
+            "storage.profiles.default_aipersist.engine", "aipersist",
+            "storage.profiles.default_aipersist.size", Integer.toString(256 * MiB),
+            "storage.profiles.default_aimem.engine", "aimem",
+            "storage.profiles.default_aimem.initSize", Integer.toString(256 * MiB),
+            "storage.profiles.default_aimem.maxSize", Integer.toString(256 * MiB),
+            "storage.profiles.default.engine", "aipersist",
+            "storage.profiles.default.size", Integer.toString(256 * MiB)
     );
 
     /** Map with default cluster configuration values. */

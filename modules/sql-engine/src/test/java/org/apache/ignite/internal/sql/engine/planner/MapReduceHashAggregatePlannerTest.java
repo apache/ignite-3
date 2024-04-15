@@ -495,9 +495,9 @@ public class MapReduceHashAggregatePlannerTest extends AbstractAggregatePlannerT
 
         Predicate<RelNode> nonColocated = hasChildThat(isInstanceOf(IgniteReduceHashAggregate.class)
                 .and(in -> hasAggregates(sumReduce, sum0Reduce).test(in.getAggregateCalls()))
-                .and(input(isInstanceOf(IgniteProject.class)
-                        .and(input(isInstanceOf(IgniteExchange.class)
-                                .and(hasDistribution(IgniteDistributions.single()))
+                .and(input(isInstanceOf(IgniteExchange.class)
+                        .and(hasDistribution(IgniteDistributions.single()))
+                        .and(input(isInstanceOf(IgniteProject.class)
                                 .and(input(isInstanceOf(IgniteMapHashAggregate.class)
                                                 .and(in -> hasAggregates(sumMap, countMap).test(in.getAggCallList()))
                                         )

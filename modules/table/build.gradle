@@ -108,6 +108,7 @@ dependencies {
     testFixturesImplementation(testFixtures(project(':ignite-network')))
     testFixturesImplementation(testFixtures(project(':ignite-placement-driver-api')))
     testFixturesImplementation(testFixtures(project(':ignite-low-watermark')))
+    testFixturesImplementation(testFixtures(project(':ignite-failure-handler')))
     testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation libs.fastutil.core
     testFixturesImplementation libs.mockito.core
@@ -120,6 +121,7 @@ dependencies {
     integrationTestImplementation project(':ignite-raft-api')
     integrationTestImplementation project(':ignite-affinity')
     integrationTestImplementation project(':ignite-storage-rocksdb')
+    integrationTestImplementation project(':ignite-storage-api')
     integrationTestImplementation project(':ignite-distribution-zones')
     integrationTestImplementation project(':ignite-catalog')
     integrationTestImplementation project(':ignite-metastorage-api')

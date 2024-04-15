@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.rebalance;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -41,7 +43,8 @@ public class ItRebalanceRecoveryTest extends ClusterPerTestIntegrationTest {
     @Test
     void testPendingAssignmentsRecovery() throws InterruptedException {
         cluster.doInSession(0, session -> {
-            session.execute(null, "CREATE ZONE TEST_ZONE WITH PARTITIONS=1, REPLICAS=1");
+            session.execute(null, "CREATE ZONE TEST_ZONE WITH PARTITIONS=1, REPLICAS=1, STORAGE_PROFILES='"
+                    + DEFAULT_STORAGE_PROFILE + "'");
             session.execute(null, "CREATE TABLE TEST (id INT PRIMARY KEY, name INT) WITH PRIMARY_ZONE='TEST_ZONE'");
             session.execute(null, "INSERT INTO TEST VALUES (0, 0)");
         });
@@ -71,6 +74,6 @@ public class ItRebalanceRecoveryTest extends ClusterPerTestIntegrationTest {
                 .storage()
                 .getMvPartition(0);
 
-        return storage.rowsCount() != 0;
+        return bypassingThreadAssertions(() -> storage.rowsCount() != 0);
     }
 }

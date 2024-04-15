@@ -1,0 +1,83 @@
+# name: test/sql/function/json/test_json_predicate.test
+# description: JSON predicate (is a part of T821 "Basic SQL/JSON query operators")
+# group: [json]
+
+query T
+select '{}' is json value
+----
+true
+
+query T
+select '{]' is json value
+----
+false
+
+query T
+select '{}' is json object
+----
+true
+
+query T
+select '[]' is json object
+----
+false
+
+query T
+select '{}' is json array
+----
+false
+
+query T
+select '[]' is json array
+----
+true
+
+query T
+select '100' is json scalar
+----
+true
+
+query T
+select '[]' is json scalar
+----
+false
+
+query T
+select '{}' is not json value
+----
+false
+
+query T
+select '{]' is not json value
+----
+true
+
+query T
+select '{}' is not json object
+----
+false
+
+query T
+select '[]' is not json object
+----
+true
+
+query T
+select '{}' is not json array
+----
+true
+
+query T
+select '[]' is not json array
+----
+false
+
+query T
+select '100' is not json scalar
+----
+false
+
+query T
+select '[]' is not json scalar
+----
+true
