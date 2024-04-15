@@ -1178,7 +1178,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     Set.of(TableMessageGroup.class, TxMessageGroup.class),
                     placementDriver,
                     threadPoolsManager.partitionOperationsExecutor(),
-                    partitionIdleSafeTimePropagationPeriodMsSupplier
+                    partitionIdleSafeTimePropagationPeriodMsSupplier,
+                    new NoOpFailureProcessor()
             ));
 
             LongSupplier delayDurationMsSupplier = () -> 10L;
