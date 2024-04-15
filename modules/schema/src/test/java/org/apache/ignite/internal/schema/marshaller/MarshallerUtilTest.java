@@ -55,7 +55,14 @@ public class MarshallerUtilTest extends BaseIgniteAbstractTest {
                 Arguments.of("", NativeTypes.STRING, 1),
                 Arguments.of("1", NativeTypes.STRING, 1),
                 Arguments.of("abc", NativeTypes.STRING, 3),
+                // noinspection AvoidEscapedUnicodeCharacters
+                Arguments.of("\u0700", NativeTypes.STRING, 2),
+                // noinspection AvoidEscapedUnicodeCharacters
                 Arguments.of("\u2600", NativeTypes.STRING, 3),
+                // noinspection AvoidEscapedUnicodeCharacters
+                Arguments.of("\uD800", NativeTypes.STRING, 4),
+                // noinspection AvoidEscapedUnicodeCharacters
+                Arguments.of("a\u0700\u2600\uD800", NativeTypes.STRING, 10),
                 // number
                 Arguments.of(BigInteger.ONE, NativeTypes.numberOf(12), 1),
                 Arguments.of(BigInteger.valueOf(123456789), NativeTypes.numberOf(12), 4),
