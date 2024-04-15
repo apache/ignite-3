@@ -22,13 +22,13 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesFromManager;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertLogicalTopologyInMetastorage;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertValueInStorage;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getDefaultZone;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.dataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.toDataNodesMap;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesKey;
@@ -77,6 +77,7 @@ import org.apache.ignite.configuration.validation.Validator;
 import org.apache.ignite.internal.BaseIgniteRestartTest;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.cluster.management.raft.TestClusterStateStorage;
@@ -123,7 +124,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Tests for checking {@link DistributionZoneManager} behavior after node's restart.
@@ -360,14 +361,14 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         assertEquals(nodeAttributesBeforeRestart, nodeAttributesAfterRestart);
     }
 
-    @ParameterizedTest
-    @MethodSource("provideArgumentsRestartTests")
-    public void testTopologyAugmentationMapRestoredAfterRestart(String zoneName) throws Exception {
+    @ParameterizedTest(name = "defaultZone={0}")
+    @ValueSource(booleans = {true, false})
+    public void testTopologyAugmentationMapRestoredAfterRestart(boolean defaultZone) throws Exception {
         PartialNode node = startPartialNode(0);
 
         node.logicalTopology().putNode(A);
 
-        createZoneOrAlterDefaultZone(node, zoneName, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE);
+        String zoneName = createZoneOrAlterDefaultZone(node, defaultZone, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE);
 
         node.logicalTopology().putNode(B);
         node.logicalTopology().putNode(C);
@@ -453,7 +454,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         assertValueInStorage(metastore, zonesLastHandledTopology(), ByteUtils::fromBytes, logicalTopology, TIMEOUT_MILLIS);
 
-        int zoneId = getZoneId(node, DEFAULT_ZONE_NAME);
+        int zoneId = getDefaultZoneId(node);
 
         assertDataNodesFromManager(
                 distributionZoneManager,
@@ -543,7 +544,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         assertValueInStorage(metastore, zonesLastHandledTopology(), ByteUtils::fromBytes, newLogicalTopology, TIMEOUT_MILLIS);
 
-        int zoneId = getZoneId(node, DEFAULT_ZONE_NAME);
+        int zoneId = getDefaultZoneId(node);
 
         assertDataNodesFromManager(
                 distributionZoneManager,
@@ -573,7 +574,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         assertTrue(waitForCondition(() -> logicalTopology.equals(finalDistributionZoneManager.logicalTopology()), TIMEOUT_MILLIS));
 
-        int zoneId = getZoneId(node, DEFAULT_ZONE_NAME);
+        int zoneId = getDefaultZoneId(node);
 
         assertValueInStorage(
                 metastore,
@@ -619,12 +620,12 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         assertThat(metastore.get(new ByteArray(dataNodeKey[0])).thenApply(Entry::tombstone), willBe(true));
     }
 
-    @ParameterizedTest
-    @MethodSource("provideArgumentsRestartTests")
-    public void testLocalDataNodesAreRestoredAfterRestart(String zoneName) throws Exception {
+    @ParameterizedTest(name = "defaultZone={0}")
+    @ValueSource(booleans = {true, false})
+    public void testLocalDataNodesAreRestoredAfterRestart(boolean defaultZone) throws Exception {
         PartialNode node = startPartialNode(0);
 
-        createZoneOrAlterDefaultZone(node, zoneName, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE);
+        String zoneName = createZoneOrAlterDefaultZone(node, defaultZone, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE);
 
         node.logicalTopology().putNode(A);
         node.logicalTopology().putNode(B);
@@ -656,9 +657,9 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 Set.of(A), TIMEOUT_MILLIS);
     }
 
-    @ParameterizedTest
-    @MethodSource("provideArgumentsRestartTests")
-    public void testScaleUpTimerIsRestoredAfterRestart(String zoneName) throws Exception {
+    @ParameterizedTest(name = "defaultZone={0}")
+    @ValueSource(booleans = {true, false})
+    public void testScaleUpTimerIsRestoredAfterRestart(boolean defaultZone) throws Exception {
         PartialNode node = startPartialNode(0);
 
         node.logicalTopology().putNode(A);
@@ -666,7 +667,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         assertLogicalTopologyInMetastorage(Set.of(A, B), metastore);
 
-        createZoneOrAlterDefaultZone(node, zoneName, 1, 1);
+        String zoneName = createZoneOrAlterDefaultZone(node, defaultZone, 1, 1);
 
         int zoneId = getZoneId(node, zoneName);
 
@@ -726,9 +727,9 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         );
     }
 
-    @ParameterizedTest
-    @MethodSource("provideArgumentsRestartTests")
-    public void testScaleDownTimerIsRestoredAfterRestart(String zoneName) throws Exception {
+    @ParameterizedTest(name = "defaultZone={0}")
+    @ValueSource(booleans = {true, false})
+    public void testScaleDownTimerIsRestoredAfterRestart(boolean defaultZone) throws Exception {
         PartialNode node = startPartialNode(0);
 
         node.logicalTopology().putNode(A);
@@ -739,7 +740,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         DistributionZoneManager distributionZoneManager = getDistributionZoneManager(node);
         CatalogManager catalogManager = getCatalogManager(node);
 
-        createZoneOrAlterDefaultZone(node, zoneName, 1, 1);
+        String zoneName = createZoneOrAlterDefaultZone(node, defaultZone, 1, 1);
 
         int zoneId = getZoneId(node, zoneName);
 
@@ -787,22 +788,21 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         );
     }
 
-    private static String[] provideArgumentsRestartTests() {
-        return new String[]{DEFAULT_ZONE_NAME, ZONE_NAME};
-    }
-
-    private static void createZoneOrAlterDefaultZone(
+    private static String createZoneOrAlterDefaultZone(
             PartialNode node,
-            String zoneName,
+            boolean useDefaultZone,
             int scaleUp,
             int scaleDown
     ) throws Exception {
-        if (zoneName.equals(DEFAULT_ZONE_NAME)) {
-            alterZone(node, DEFAULT_ZONE_NAME, scaleUp, scaleDown, null);
+        String zoneName;
 
-            int defaultZoneId = getZoneId(node, DEFAULT_ZONE_NAME);
+        if (useDefaultZone) {
+            CatalogZoneDescriptor defaultZone = getDefaultZone(getCatalogManager(node), node.clock().nowLong());
+            zoneName = defaultZone.name();
 
-            ZoneState zoneState = getDistributionZoneManager(node).zonesState().get(defaultZoneId);
+            alterZone(node, zoneName, scaleUp, scaleDown, null);
+
+            ZoneState zoneState = getDistributionZoneManager(node).zonesState().get(defaultZone.id());
 
             // This is needed because we want to wait for the end of scale up/down triggered by altering delays.
             if (zoneState.scaleUpTask() != null) {
@@ -813,8 +813,12 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 assertTrue(waitForCondition(() -> zoneState.scaleDownTask().isDone(), TIMEOUT_MILLIS));
             }
         } else {
-            createZone(getCatalogManager(node), ZONE_NAME, scaleUp, scaleDown, null, DEFAULT_STORAGE_PROFILE);
+            zoneName = ZONE_NAME;
+
+            createZone(getCatalogManager(node), zoneName, scaleUp, scaleDown, null, DEFAULT_STORAGE_PROFILE);
         }
+
+        return zoneName;
     }
 
     private void blockMetaStorageUpdates(MetaStorageManager metaStorageManager) {
@@ -854,6 +858,10 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
     private static int getZoneId(PartialNode node, String zoneName) {
         return DistributionZonesTestUtil.getZoneId(getCatalogManager(node), zoneName, node.clock().nowLong());
+    }
+
+    private static int getDefaultZoneId(PartialNode node) {
+        return DistributionZonesTestUtil.getDefaultZone(getCatalogManager(node), node.clock().nowLong()).id();
     }
 
     private static void alterZone(

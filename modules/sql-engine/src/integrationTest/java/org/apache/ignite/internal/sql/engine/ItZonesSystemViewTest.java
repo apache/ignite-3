@@ -18,13 +18,16 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 
+import java.util.Objects;
+import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.BeforeAll;
@@ -49,8 +52,14 @@ public class ItZonesSystemViewTest extends BaseSqlIntegrationTest {
 
     @Test
     public void systemViewDefaultZone() {
+        IgniteImpl node = CLUSTER.aliveNode();
+        CatalogManager catalogManager = node.catalogManager();
+        Catalog catalog = Objects.requireNonNull(
+                catalogManager.catalog(catalogManager.activeCatalogVersion(node.clock().nowLong()))
+        );
+
         assertQuery("SELECT * FROM SYSTEM.ZONES").returns(
-                DEFAULT_ZONE_NAME,
+                catalog.defaultZone().name(),
                 DEFAULT_PARTITION_COUNT,
                 DEFAULT_REPLICA_COUNT,
                 IMMEDIATE_TIMER_VALUE,

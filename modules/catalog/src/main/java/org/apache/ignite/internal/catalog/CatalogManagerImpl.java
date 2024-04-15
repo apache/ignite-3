@@ -82,6 +82,8 @@ import org.jetbrains.annotations.Nullable;
  */
 public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, CatalogEventParameters>
         implements CatalogManager, SystemViewProvider {
+    static String DEFAULT_ZONE_NAME = "Default";
+
     private static final int MAX_RETRY_COUNT = 10;
 
     private static final int SYSTEM_VIEW_STRING_COLUMN_LENGTH = Short.MAX_VALUE;
