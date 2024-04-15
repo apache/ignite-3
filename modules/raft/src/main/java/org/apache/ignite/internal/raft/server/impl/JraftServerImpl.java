@@ -98,6 +98,7 @@ import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.ExponentialBackoffTimeoutStrategy;
 import org.apache.ignite.raft.jraft.util.Utils;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -187,8 +188,8 @@ public class JraftServerImpl implements RaftServer {
         this.raftConfiguration = raftConfiguration;
 
         this.logStorageFactory = IgniteSystemProperties.getBoolean(LOGIT_STORAGE_ENABLED_PROPERTY, false)
-                ? new LogitLogStorageFactory(service.nodeName(), opts, getLogOptions())
-                : new DefaultLogStorageFactory(service.nodeName(), opts);
+                ? new LogitLogStorageFactory(service.nodeName(), getLogOptions(), this::logPath)
+                : new DefaultLogStorageFactory(service.nodeName(), this::logPath);
         this.opts = opts;
         this.raftGroupEventsClientListener = raftGroupEventsClientListener;
 
@@ -226,6 +227,13 @@ public class JraftServerImpl implements RaftServer {
 
     private StoreOptions getLogOptions() {
         return new StoreOptions();
+    }
+
+    @NotNull
+    private Path logPath() {
+        return raftConfiguration.logPath().value().isEmpty()
+                ? dataPath.resolve("log")
+                : Path.of(raftConfiguration.logPath().value());
     }
 
     /** Returns write-ahead log synchronizer. */
@@ -360,12 +368,6 @@ public class JraftServerImpl implements RaftServer {
 
             opts.setLogStripes(IntStream.range(0, opts.getLogStripesCount()).mapToObj(i -> new Stripe()).collect(toList()));
         }
-
-        Path logPath = raftConfiguration.logPath().value().isEmpty()
-                ? dataPath.resolve("log")
-                : Path.of(raftConfiguration.logPath().value());
-
-        opts.setLogPath(logPath);
 
         logStorageFactory.start();
 

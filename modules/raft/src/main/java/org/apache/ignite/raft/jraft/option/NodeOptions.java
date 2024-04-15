@@ -257,8 +257,6 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
      */
     private boolean logYieldStrategy;
 
-    private Path logPath;
-
     /** */
     private boolean sharedPools = false;
 
@@ -310,14 +308,6 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
 
     public void setLogYieldStrategy(boolean logYieldStrategy) {
         this.logYieldStrategy = logYieldStrategy;
-    }
-
-    public Path getLogPath() {
-        return logPath;
-    }
-
-    public void setLogPath(Path logPath) {
-        this.logPath = logPath;
     }
 
     /**

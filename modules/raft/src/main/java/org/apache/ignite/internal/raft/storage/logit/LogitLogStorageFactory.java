@@ -20,13 +20,13 @@ package org.apache.ignite.internal.raft.storage.logit;
 import java.nio.file.Path;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.FeatureChecker;
-import org.apache.ignite.raft.jraft.option.NodeOptions;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.raft.jraft.storage.logit.option.StoreOptions;
@@ -48,21 +48,20 @@ public class LogitLogStorageFactory implements LogStorageFactory {
     /** Executor for shared storages. */
     private final ScheduledExecutorService checkpointExecutor;
 
-    private final NodeOptions options;
 
     private final StoreOptions storeOptions;
 
-    /** Base location of all log storages, created by this factory. */
-    private Path logPath;
+    /** Function to get base location of all log storages, created by this factory. */
+    private final Supplier<Path> logPathSupplier;
 
     /**
      * Constructor.
      *
-     * @param options Node options with base location of all log storages, created by this factory.
+     * @param logPathSupplier Function to get base path of all log storages, created by this factory.
      * @param storeOptions Logit log storage options.
      */
-    public LogitLogStorageFactory(String nodeName, NodeOptions options, StoreOptions storeOptions) {
-        this.options = options;
+    public LogitLogStorageFactory(String nodeName, StoreOptions storeOptions, Supplier<Path> logPathSupplier) {
+        this.logPathSupplier = logPathSupplier;
         this.storeOptions = storeOptions;
         checkpointExecutor = Executors.newSingleThreadScheduledExecutor(
                 NamedThreadFactory.create(nodeName, "logit-checkpoint-executor", LOG)
@@ -81,7 +80,6 @@ public class LogitLogStorageFactory implements LogStorageFactory {
 
     @Override
     public void start() {
-        this.logPath = options.getLogPath();
     }
 
     @Override
@@ -107,10 +105,10 @@ public class LogitLogStorageFactory implements LogStorageFactory {
     /** Returns base location of all log storages, created by this factory. */
     @TestOnly
     public Path logPath() {
-        return logPath;
+        return logPathSupplier.get();
     }
 
     private Path resolveLogStoragePath(String groupId) {
-        return logPath.resolve(LOG_DIR_PREFIX + groupId);
+        return logPathSupplier.get().resolve(LOG_DIR_PREFIX + groupId);
     }
 }
