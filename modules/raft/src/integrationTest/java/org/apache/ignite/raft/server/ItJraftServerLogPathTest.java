@@ -37,7 +37,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /** Tests for checking that JRaftServer uses log storage path from configuration. */
-class JraftServerLogPathTest extends RaftServerAbstractTest {
+class ItJraftServerLogPathTest extends RaftServerAbstractTest {
     private static final int idx = 0;
     private Path dataPath;
     private JraftServerImpl server;

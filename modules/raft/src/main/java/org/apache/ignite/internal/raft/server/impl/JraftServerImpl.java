@@ -98,7 +98,6 @@ import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.ExponentialBackoffTimeoutStrategy;
 import org.apache.ignite.raft.jraft.util.Utils;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -229,7 +228,6 @@ public class JraftServerImpl implements RaftServer {
         return new StoreOptions();
     }
 
-    @NotNull
     private Path getLogPath() {
         return raftConfiguration.logPath().value().isEmpty()
                 ? dataPath.resolve("log")
