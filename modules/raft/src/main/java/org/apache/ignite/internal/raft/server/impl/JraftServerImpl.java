@@ -234,12 +234,12 @@ public class JraftServerImpl implements RaftServer {
                 : Path.of(raftConfiguration.logPath().value());
     }
 
-    /** Returns write-ahead log synchronizer. */
+    /** Returns log synchronizer. */
     public LogSyncer getLogSyncer() {
         return logStorageFactory;
     }
 
-    /** Returns write-ahead log storage factory. */
+    /** Returns log storage factory. */
     @TestOnly
     public LogStorageFactory getLogStorageFactory() {
         return logStorageFactory;

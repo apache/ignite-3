@@ -16,7 +16,6 @@
  */
 package org.apache.ignite.raft.jraft.option;
 
-import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.hlc.HybridClockImpl;

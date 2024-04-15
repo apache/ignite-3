@@ -40,13 +40,12 @@ import org.junit.jupiter.api.Test;
 
 /** Tests for checking that JRaftServer uses log storage path from configuration. */
 class ItJraftServerLogPathTest extends RaftServerAbstractTest {
-    private static final int idx = 0;
     private Path dataPath;
     private JraftServerImpl server;
 
     @BeforeEach
     void setUp() {
-        dataPath = workDir.resolve("node" + idx);
+        dataPath = workDir.resolve("node0");
     }
 
     @AfterEach
@@ -57,7 +56,7 @@ class ItJraftServerLogPathTest extends RaftServerAbstractTest {
     @Test
     @WithSystemProperty(key = JraftServerImpl.LOGIT_STORAGE_ENABLED_PROPERTY, value = "false")
     void testDefaultFactory() {
-        Path logPath = workDir.resolve("db/wal");
+        Path logPath = workDir.resolve("db/log");
         assertThat(raftConfiguration.logPath().update(logPath.toString()), willCompleteSuccessfully());
 
         server = startServer(raftConfiguration);
@@ -68,7 +67,7 @@ class ItJraftServerLogPathTest extends RaftServerAbstractTest {
     @Test
     @WithSystemProperty(key = JraftServerImpl.LOGIT_STORAGE_ENABLED_PROPERTY, value = "true")
     void testLogitFactory() {
-        Path logPath = workDir.resolve("db/wal");
+        Path logPath = workDir.resolve("db/log");
         assertThat(raftConfiguration.logPath().update(logPath.toString()), willCompleteSuccessfully());
 
         server = startServer(raftConfiguration);
@@ -97,7 +96,7 @@ class ItJraftServerLogPathTest extends RaftServerAbstractTest {
     private JraftServerImpl startServer(RaftConfiguration raftConfiguration) {
         var addr = new NetworkAddress(getLocalAddress(), PORT);
 
-        ClusterService service = clusterService(PORT + idx, List.of(addr), true);
+        ClusterService service = clusterService(PORT, List.of(addr), true);
 
         JraftServerImpl server = new JraftServerImpl(
                 service,
