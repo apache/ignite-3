@@ -358,7 +358,6 @@ public class TableManagerTest extends IgniteAbstractTest {
         TableManager tableManager = tblManagerFut.join();
 
         List<Assignments> assignmentsList = List.of(Assignments.of(Assignment.forPeer(node.id())));
-        String assignmentsListStr = Assignments.assignmentListToString(assignmentsList);
 
         // the first case scenario
         CompletableFuture<List<Assignments>> assignmentsFuture = new CompletableFuture<>();
