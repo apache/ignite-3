@@ -138,6 +138,7 @@ public class JraftServerImpl implements RaftServer {
     /** Options. */
     private final NodeOptions opts;
 
+    /** Raft configuration. */
     private final RaftConfiguration raftConfiguration;
 
     private final RaftGroupEventsClientListener raftGroupEventsClientListener;
@@ -160,8 +161,9 @@ public class JraftServerImpl implements RaftServer {
     /**
      * The constructor.
      *
-     * @param service  Cluster service.
+     * @param service Cluster service.
      * @param dataPath Data path.
+     * @param raftConfiguration Raft configuration.
      */
     public JraftServerImpl(ClusterService service, Path dataPath, RaftConfiguration raftConfiguration) {
         this(service, dataPath, raftConfiguration, new NodeOptions(), new RaftGroupEventsClientListener());
@@ -170,9 +172,10 @@ public class JraftServerImpl implements RaftServer {
     /**
      * The constructor.
      *
-     * @param service  Cluster service.
+     * @param service Cluster service.
      * @param dataPath Data path.
-     * @param opts     Default node options.
+     * @param raftConfiguration Raft configuration.
+     * @param opts Default node options.
      */
     public JraftServerImpl(
             ClusterService service,
@@ -256,8 +259,8 @@ public class JraftServerImpl implements RaftServer {
     }
 
     /**
-     * Sets {@link ActionRequestInterceptor} to use. Should only be called from the same thread that is used
-     * to {@link #start()} the component.
+     * Sets {@link ActionRequestInterceptor} to use. Should only be called from the same thread that is used to {@link #start()} the
+     * component.
      *
      * @param actionRequestInterceptor Interceptor to use.
      */

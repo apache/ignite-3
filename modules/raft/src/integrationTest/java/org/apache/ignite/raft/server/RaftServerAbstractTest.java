@@ -49,6 +49,7 @@ abstract class RaftServerAbstractTest extends IgniteAbstractTest {
      */
     protected static final int PORT = 20010;
 
+    /** Raft configuration. */
     @InjectConfiguration
     protected RaftConfiguration raftConfiguration;
 
