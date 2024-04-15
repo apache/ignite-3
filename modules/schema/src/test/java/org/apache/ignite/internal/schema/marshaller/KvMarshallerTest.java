@@ -716,6 +716,7 @@ public class KvMarshallerTest {
     public void testVariableLengthBigDecimalAndBytes() throws MarshallerException {
         List<Map.Entry<Integer, Integer>> args = new ArrayList<>();
         args.add(Map.entry(6, 251));
+
         for (int i = 0; i < 100; i++) {
             args.add(Map.entry(rnd.nextInt(8) + 1, rnd.nextInt(512) + 1));
         }
