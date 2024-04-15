@@ -20,12 +20,20 @@ package org.apache.ignite.internal.sql.engine;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.util.AbstractMap.SimpleEntry;
 import java.util.Map;
+import java.util.Map.Entry;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.SubmissionPublisher;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.MarshallerException;
+import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
@@ -76,7 +84,7 @@ public class ItNotNullConstraintTest extends BaseSqlIntegrationTest {
         sql("INSERT INTO t1 VALUES(1, 42)");
 
         assertThrowsSqlException(
-                Sql.CONSTRAINT_VIOLATION_ERR,
+                Sql.STMT_VALIDATION_ERR,
                 "Cannot update field \"ID\". Primary key columns are not modifiable",
                 () -> sql("UPDATE t1 SET id = NULL WHERE val = 42"));
 
@@ -179,6 +187,81 @@ public class ItNotNullConstraintTest extends BaseSqlIntegrationTest {
             });
             assertThat(err.getMessage(), containsString("Column 'VAL' does not allow NULLs"));
         }
+    }
+
+    @Test
+    public void testKeyValueViewDataStreamer() {
+        sql("CREATE TABLE kv (id INTEGER PRIMARY KEY, val INTEGER NOT NULL)");
+
+        Table table = CLUSTER.aliveNode().tables().table("KV");
+
+        {
+            KeyValueView<Tuple, Tuple> view = table.keyValueView();
+            checkDataStreamer(view, new SimpleEntry<>(Tuple.create(Map.of("id", 1)), Tuple.create()), "VAL");
+        }
+
+
+        {
+            KeyValueView<Integer, Integer> view = table.keyValueView(Integer.class, Integer.class);
+            checkDataStreamer(view, new SimpleEntry<>(1, null), "VAL");
+        }
+
+        {
+            KeyValueView<Integer, Val> view = table.keyValueView(Integer.class, Val.class);
+            Val val = new Val();
+            checkDataStreamer(view, new SimpleEntry<>(1, val), "VAL");
+        }
+    }
+
+    @Test
+    public void testRecordViewDataStreamer() {
+        sql("CREATE TABLE kv (id INTEGER PRIMARY KEY, val INTEGER NOT NULL)");
+
+        Table table = CLUSTER.aliveNode().tables().table("KV");
+
+        {
+            RecordView<Tuple> view = table.recordView();
+            checkDataStreamer(view, Tuple.create(Map.of("id", 1)), "VAL");
+        }
+
+        {
+            RecordView<Rec> view = table.recordView(Rec.class);
+            Rec rec = new Rec();
+            checkDataStreamer(view, rec, "ID");
+        }
+
+        {
+            RecordView<Rec> view = table.recordView(Rec.class);
+            Rec rec = new Rec();
+            rec.id = 1;
+            checkDataStreamer(view, rec, "VAL");
+        }
+    }
+
+    private static <K, V> void checkDataStreamer(KeyValueView<K, V> view, Entry<K, V> item, String columnName) {
+        CompletableFuture<Void> streamerFut;
+
+        try (var publisher = new SubmissionPublisher<DataStreamerItem<Entry<K, V>>>()) {
+            streamerFut = view.streamData(publisher, null);
+            publisher.submit(DataStreamerItem.of(item));
+        }
+
+        CompletionException err = assertThrows(CompletionException.class, () -> streamerFut.orTimeout(1, TimeUnit.SECONDS).join());
+        MarshallerException merr = assertInstanceOf(MarshallerException.class, err.getCause());
+        assertThat(merr.getMessage(), containsString("Column '" + columnName + "' does not allow NULLs"));
+    }
+
+    private static <R> void checkDataStreamer(RecordView<R> view, R item, String columnName) {
+        CompletableFuture<Void> streamerFut;
+
+        try (var publisher = new SubmissionPublisher<DataStreamerItem<R>>()) {
+            streamerFut = view.streamData(publisher, null);
+            publisher.submit(DataStreamerItem.of(item));
+        }
+
+        CompletionException err = assertThrows(CompletionException.class, () -> streamerFut.orTimeout(1, TimeUnit.SECONDS).join());
+        MarshallerException merr = assertInstanceOf(MarshallerException.class, err.getCause());
+        assertThat(merr.getMessage(), containsString("Column '" + columnName + "' does not allow NULLs"));
     }
 
     static class Val {
