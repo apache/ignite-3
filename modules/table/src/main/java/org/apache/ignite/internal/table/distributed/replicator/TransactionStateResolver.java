@@ -36,6 +36,7 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.TxStateMetaFinishing;
 import org.apache.ignite.internal.tx.impl.PlacementDriverHelper;
@@ -48,7 +49,7 @@ import org.apache.ignite.network.ClusterNodeResolver;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Placement driver.
+ * Helper class that allows to resolve transaction state mainly for the purpose of write intent resolution.
  */
 public class TransactionStateResolver {
     /** Tx messages factory. */
@@ -241,7 +242,7 @@ public class TransactionStateResolver {
      * @param txId Transaction id.
      */
     private void markAbandoned(UUID txId) {
-        txManager.updateTxMeta(txId, TxStateMeta::abandoned);
+        txManager.updateTxMeta(txId, stateMeta -> stateMeta != null ? stateMeta.abandoned() : null);
     }
 
     private void updateLocalTxMapAfterDistributedStateResolved(UUID txId, CompletableFuture<TransactionMeta> future) {
@@ -285,7 +286,7 @@ public class TransactionStateResolver {
 
     /**
      * Processes the transaction state requests that are used for coordinator path based write intent resolution. Can't return
-     * {@link org.apache.ignite.internal.tx.TxState#FINISHING}, it waits for actual completion instead.
+     * {@link TxState#FINISHING}, it waits for actual completion instead.
      *
      * @param request Request.
      * @return Future that should be completed with transaction state meta.

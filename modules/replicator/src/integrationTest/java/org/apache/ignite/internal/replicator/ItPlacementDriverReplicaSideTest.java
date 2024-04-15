@@ -27,7 +27,6 @@ import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -42,6 +41,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -53,6 +53,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.NoOpFailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
@@ -188,7 +189,8 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                     new TestClockService(clock),
                     Set.of(ReplicaMessageTestGroup.class),
                     new TestPlacementDriver(primaryReplicaSupplier),
-                    partitionOperationsExecutor
+                    partitionOperationsExecutor,
+                    new NoOpFailureProcessor()
             );
 
             replicaManagers.put(nodeName, replicaManager);
@@ -455,6 +457,8 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
     ) throws Exception {
         var res = new CompletableFuture<TopologyAwareRaftGroupService>();
 
+        List<CompletableFuture<?>> serviceFutures = new ArrayList<>(nodes.size() * 2);
+
         for (String nodeName : nodes) {
             var replicaManager = replicaManagers.get(nodeName);
             var raftManager = raftManagers.get(nodeName);
@@ -474,14 +478,11 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                     RaftGroupOptions.defaults(),
                     raftClientFactory.get(nodeName)
             );
+            serviceFutures.add(raftClientFut);
 
-            raftClientFut.thenAccept(raftClient -> {
+            CompletableFuture<Replica> replicaFuture = raftClientFut.thenCompose(raftClient -> {
                 try {
-                    if (!res.isDone()) {
-                        res.complete(raftClient);
-                    }
-
-                    replicaManager.startReplica(
+                    return replicaManager.startReplica(
                             groupId,
                             (request, senderId) -> {
                                 log.info("Handle request [type={}]", request.getClass().getSimpleName());
@@ -498,10 +499,20 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                             raftClient,
                             new PendingComparableValuesTracker<>(Long.MAX_VALUE));
                 } catch (NodeStoppingException e) {
-                    fail("Can not start replica [groupId=" + groupId + ']');
+                    throw new RuntimeException(e);
                 }
             });
+            serviceFutures.add(replicaFuture);
         }
+
+        CompletableFuture.allOf(serviceFutures.toArray(new CompletableFuture[0]))
+                .thenRun(() -> {
+                    try {
+                        res.complete((TopologyAwareRaftGroupService) serviceFutures.get(0).get());
+                    } catch (InterruptedException | ExecutionException e) {
+                        throw new RuntimeException(e);
+                    }
+                });
 
         return res;
     }

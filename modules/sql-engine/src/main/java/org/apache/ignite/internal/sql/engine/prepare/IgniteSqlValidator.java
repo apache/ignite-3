@@ -70,6 +70,7 @@ import org.apache.calcite.sql.SqlSelect;
 import org.apache.calcite.sql.SqlUpdate;
 import org.apache.calcite.sql.SqlUtil;
 import org.apache.calcite.sql.dialect.CalciteSqlDialect;
+import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeName.Limit;
@@ -551,8 +552,12 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         RelDataType dataType = super.deriveType(scope, expr);
 
         SqlKind sqlKind = expr.getKind();
-        // See the comments below.
-        if (!SqlKind.BINARY_COMPARISON.contains(sqlKind)) {
+
+        // TODO https://issues.apache.org/jira/browse/IGNITE-20163 Remove this exception after this issue is fixed
+        if (sqlKind == SqlKind.JSON_VALUE_EXPRESSION) {
+            String name = SqlStdOperatorTable.JSON_VALUE_EXPRESSION.getName();
+            throw newValidationError(expr, IgniteResource.INSTANCE.unsupportedExpression(name));
+        } else if (!SqlKind.BINARY_COMPARISON.contains(sqlKind)) {
             return dataType;
         }
 

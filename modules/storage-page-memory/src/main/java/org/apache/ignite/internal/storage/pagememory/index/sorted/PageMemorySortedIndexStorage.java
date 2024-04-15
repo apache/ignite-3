@@ -41,6 +41,7 @@ import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMeta;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.CursorUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -175,6 +176,27 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
                     );
                 }
             };
+        });
+    }
+
+    @Override
+    public Cursor<IndexRow> readOnlyScan(@Nullable BinaryTuplePrefix lowerBound, @Nullable BinaryTuplePrefix upperBound, int flags) {
+        return busyDataRead(() -> {
+            throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
+
+            boolean includeLower = (flags & GREATER_OR_EQUAL) != 0;
+            boolean includeUpper = (flags & LESS_OR_EQUAL) != 0;
+
+            SortedIndexRowKey lower = createBound(lowerBound, !includeLower);
+            SortedIndexRowKey upper = createBound(upperBound, includeUpper);
+
+            try {
+                Cursor<SortedIndexRow> cursor = indexTree.find(lower, upper);
+
+                return CursorUtils.map(cursor, this::toIndexRowImpl);
+            } catch (IgniteInternalCheckedException e) {
+                throw new StorageException("Couldn't get index tree cursor", e);
+            }
         });
     }
 

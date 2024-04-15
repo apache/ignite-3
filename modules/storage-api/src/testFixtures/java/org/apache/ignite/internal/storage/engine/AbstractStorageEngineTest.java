@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.storage.engine;
 
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_DATA_REGION;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -171,8 +171,14 @@ public abstract class AbstractStorageEngineTest extends BaseMvStoragesTest {
             int sortedIndexId = numTables + i * 2;
             int hashIndexId = sortedIndexId + 1;
 
-            indexDescriptorMap.put(sortedIndexId, new StorageSortedIndexDescriptor(sortedIndexId, List.of(sortedIndexColumnDescriptor)));
-            indexDescriptorMap.put(hashIndexId, new StorageHashIndexDescriptor(hashIndexId, List.of(hashIndexColumnDescriptor)));
+            indexDescriptorMap.put(
+                    sortedIndexId,
+                    new StorageSortedIndexDescriptor(sortedIndexId, List.of(sortedIndexColumnDescriptor), false)
+            );
+            indexDescriptorMap.put(
+                    hashIndexId,
+                    new StorageHashIndexDescriptor(hashIndexId, List.of(hashIndexColumnDescriptor), false)
+            );
         }
 
         when(indexDescriptorSupplier.get(anyInt()))
@@ -193,7 +199,7 @@ public abstract class AbstractStorageEngineTest extends BaseMvStoragesTest {
         List<MvTableStorage> tableStorages = IntStream.range(0, numTables)
                 .mapToObj(i -> {
                     // Page Memory doesn't like table IDs equal to 0.
-                    StorageTableDescriptor tableDescriptor = new StorageTableDescriptor(i + 1, 1, DEFAULT_DATA_REGION);
+                    StorageTableDescriptor tableDescriptor = new StorageTableDescriptor(i + 1, 1, DEFAULT_STORAGE_PROFILE);
 
                     MvTableStorage tableStorage = storageEngine.createMvTable(tableDescriptor, indexDescriptorSupplier);
 
@@ -251,7 +257,7 @@ public abstract class AbstractStorageEngineTest extends BaseMvStoragesTest {
         // Re-create the tables.
         tableStorages = IntStream.range(0, numTables)
                 .mapToObj(i -> {
-                    StorageTableDescriptor tableDescriptor = new StorageTableDescriptor(i + 1, 1, DEFAULT_DATA_REGION);
+                    StorageTableDescriptor tableDescriptor = new StorageTableDescriptor(i + 1, 1, DEFAULT_STORAGE_PROFILE);
 
                     MvTableStorage tableStorage = storageEngine.createMvTable(tableDescriptor, indexDescriptorSupplier);
 
@@ -283,7 +289,7 @@ public abstract class AbstractStorageEngineTest extends BaseMvStoragesTest {
     }
 
     private void createMvTableWithPartitionAndFill(int tableId, int lastAppliedIndex, int lastAppliedTerm) throws Exception {
-        StorageTableDescriptor tableDescriptor = new StorageTableDescriptor(tableId, 1, DEFAULT_DATA_REGION);
+        StorageTableDescriptor tableDescriptor = new StorageTableDescriptor(tableId, 1, DEFAULT_STORAGE_PROFILE);
         StorageIndexDescriptorSupplier indexSupplier = mock(StorageIndexDescriptorSupplier.class);
 
         MvTableStorage mvTableStorage = storageEngine.createMvTable(tableDescriptor, indexSupplier);
@@ -316,7 +322,7 @@ public abstract class AbstractStorageEngineTest extends BaseMvStoragesTest {
             int expLastAppliedIndex,
             int expLastAppliedTerm
     ) throws Exception {
-        StorageTableDescriptor tableDescriptor = new StorageTableDescriptor(tableId, 1, DEFAULT_DATA_REGION);
+        StorageTableDescriptor tableDescriptor = new StorageTableDescriptor(tableId, 1, DEFAULT_STORAGE_PROFILE);
         StorageIndexDescriptorSupplier indexSupplier = mock(StorageIndexDescriptorSupplier.class);
 
         MvTableStorage mvTableStorage = storageEngine.createMvTable(tableDescriptor, indexSupplier);

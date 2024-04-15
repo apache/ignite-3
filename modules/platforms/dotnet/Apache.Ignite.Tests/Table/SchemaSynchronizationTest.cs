@@ -339,7 +339,6 @@ public class SchemaSynchronizationTest : IgniteTestsBase
         [Values(true, false)] bool insertNewColumn,
         [Values(true, false)] bool withRemove)
     {
-        using var metricListener = new MetricsTests.Listener();
         await Client.Sql.ExecuteAsync(null, $"CREATE TABLE {TestTableName} (KEY bigint PRIMARY KEY)");
 
         var table = await Client.Tables.GetTableAsync(TestTableName);
@@ -368,10 +367,6 @@ public class SchemaSynchronizationTest : IgniteTestsBase
 
                 yield return DataStreamerItem.Create(GetTuple(i));
             }
-
-            // Wait for background streaming to complete.
-            // TODO: Remove this workaround when IGNITE-20416 is fixed.
-            metricListener.AssertMetricGreaterOrEqual("streamer-items-sent", 6, 3000);
 
             // Update schema.
             // New schema has a new column with a default value, so it is not required to provide it in the streamed data.

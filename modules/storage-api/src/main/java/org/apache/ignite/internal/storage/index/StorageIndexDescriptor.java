@@ -60,6 +60,9 @@ public interface StorageIndexDescriptor {
      */
     List<? extends StorageColumnDescriptor> columns();
 
+    /** Returns {@code true} for the primary index. */
+    boolean isPk();
+
     /**
      * Creates an index description based on the catalog descriptors.
      *
