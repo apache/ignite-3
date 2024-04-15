@@ -160,7 +160,7 @@ public class ImplicitCastsTest extends AbstractPlannerTest {
         assertPlan(query, igniteSchema, nodeOrAnyChild(isInstanceOf(IgniteMergeJoin.class)
                         .and(nodeOrAnyChild(new TableScanWithProjection(expected.lhs)))
                         .and(nodeOrAnyChild(new TableScanWithProjection(expected.rhs)))
-        ));
+        ), "HashJoinConverter", "NestedLoopJoinConverter");
     }
 
     /** Nested loop join - casts are added to condition operands. **/

@@ -31,8 +31,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 /** HashJoin planner test. */
 public class HashJoinPlannerTest extends AbstractPlannerTest {
-    private static final String[] disabledRules = {"NestedLoopJoinConverter", "CorrelatedNestedLoopJoin", "MergeJoinConverter",
-            "HashJoinConverter"};
+    private static final String[] disabledRules = {"NestedLoopJoinConverter", "CorrelatedNestedLoopJoin", "MergeJoinConverter"};
 
     private static final String[] joinTypes = {"LEFT", "RIGHT", "INNER", "FULL OUTER"};
 

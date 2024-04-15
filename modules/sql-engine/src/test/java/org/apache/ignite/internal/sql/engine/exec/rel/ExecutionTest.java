@@ -367,10 +367,6 @@ public class ExecutionTest extends AbstractExecutionTest<Object[]> {
                 {2, "Ivan", null}
         };
 
-
-
-        //******
-        // add tests for condition, check cost
         List<Object[]> depsRes = new ArrayList<>();
         depsRes.add(new Object[]{5, "QA"});
 
@@ -396,7 +392,6 @@ public class ExecutionTest extends AbstractExecutionTest<Object[]> {
                 {0, "Igor", null},
                 {3, "Alexey", null},
         };
-
 
         assert2DimArrayEquals(expectedAfterRewind, rowsAfterRewind);
     }

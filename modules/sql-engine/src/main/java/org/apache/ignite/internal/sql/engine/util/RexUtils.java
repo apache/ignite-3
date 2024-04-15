@@ -1237,7 +1237,7 @@ public class RexUtils {
     }
 
     /** Visitor for replacing input refs to local refs. We need it for proper plan serialization. */
-    public static class InputRefReplacer extends RexShuttle {
+    private static class InputRefReplacer extends RexShuttle {
         private static final RexShuttle INSTANCE = new InputRefReplacer();
 
         /** {@inheritDoc} */
