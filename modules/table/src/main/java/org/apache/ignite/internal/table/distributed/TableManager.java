@@ -210,6 +210,7 @@ import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbSharedS
 import org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbTableStorage;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Lazy;
@@ -717,6 +718,15 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             return metaStorageMgr
                     .invoke(condition, partitionAssignments, Collections.emptyList())
+                    .handle((invokeResult, e) -> {
+                        if (invokeResult == null) {
+                            LOG.error("Couldn't write assignments {} to metastore during invoke",
+                                    e,
+                                    Assignments.assignmentListToString(newAssignments));
+                            throw ExceptionUtils.sneakyThrow(e);
+                        }
+                        return invokeResult;
+                    })
                     .thenCompose(invokeResult -> {
                         if (invokeResult) {
                             LOG.info(IgniteStringFormatter.format("Assignments calculated from data nodes are successfully written"
@@ -752,17 +762,15 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             });
                         }
                     })
-                    .exceptionally(e -> {
-                        throw new WritingAssignmentsToMetastoreException(tableId, newAssignments, e);
+                    .handle((realAssignments, e) -> {
+                        if (realAssignments == null) {
+                            LOG.error("Couldn't write assignments {} to metastore during invoke",
+                                    e,
+                                    Assignments.assignmentListToString(newAssignments));
+                            throw ExceptionUtils.sneakyThrow(e);
+                        }
+                        return realAssignments;
                     });
-        })
-        .exceptionally(e -> {
-            LOG.error("Couldn't write assignments to metastore", e);
-            if (e instanceof WritingAssignmentsToMetastoreException) {
-                throw (WritingAssignmentsToMetastoreException) e;
-            } else {
-                throw new WritingAssignmentsToMetastoreException(tableId, e);
-            }
         });
     }
 

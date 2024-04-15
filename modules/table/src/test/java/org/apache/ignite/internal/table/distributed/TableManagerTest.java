@@ -362,37 +362,23 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         // the first case scenario
         CompletableFuture<List<Assignments>> assignmentsFuture = new CompletableFuture<>();
-        assignmentsFuture.completeExceptionally(new TimeoutException("Outer future is interrupted"));
+        var outerExceptionMsg = "Outer future is interrupted";
+        assignmentsFuture.completeExceptionally(new TimeoutException(outerExceptionMsg));
         CompletableFuture<List<Assignments>> writtenAssignmentsFuture = tableManager.writeTableAssignmentsToMetastore(
                 tableId,
                 assignmentsFuture);
         assertTrue(writtenAssignmentsFuture.isCompletedExceptionally());
-        assertThrowsWithCause(
-                writtenAssignmentsFuture::get,
-                WritingAssignmentsToMetastoreException.class,
-                "Failure while writing assignments for table " + tableId + " before or during metastore invoke");
-        assertThrowsWithCause(
-                writtenAssignmentsFuture::get,
-                TimeoutException.class,
-                "Outer future is interrupted");
+        assertThrowsWithCause(writtenAssignmentsFuture::get, TimeoutException.class, outerExceptionMsg);
 
         // the second case scenario
         assignmentsFuture = completedFuture(assignmentsList);
         CompletableFuture<Boolean> invokeTimeoutFuture = new CompletableFuture<>();
-        invokeTimeoutFuture.completeExceptionally(new TimeoutException("Internal future is interrupted"));
+        var innerExceptionMsg = "Inner future is interrupted";
+        invokeTimeoutFuture.completeExceptionally(new TimeoutException(innerExceptionMsg));
         when(msm.invoke(any(), any(List.class), any(List.class))).thenReturn(invokeTimeoutFuture);
-        writtenAssignmentsFuture = tableManager.writeTableAssignmentsToMetastore(
-                tableId,
-                assignmentsFuture);
+        writtenAssignmentsFuture = tableManager.writeTableAssignmentsToMetastore(tableId, assignmentsFuture);
         assertTrue(writtenAssignmentsFuture.isCompletedExceptionally());
-        assertThrowsWithCause(
-                writtenAssignmentsFuture::get,
-                WritingAssignmentsToMetastoreException.class,
-                "Failure while writing assignments " + assignmentsListStr + " for table "  + tableId + " after invoke completion");
-        assertThrowsWithCause(
-                writtenAssignmentsFuture::get,
-                TimeoutException.class,
-                "Internal future is interrupted");
+        assertThrowsWithCause(writtenAssignmentsFuture::get, TimeoutException.class, innerExceptionMsg);
     }
 
     /**
