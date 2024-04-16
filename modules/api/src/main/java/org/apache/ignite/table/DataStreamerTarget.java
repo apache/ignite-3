@@ -41,9 +41,25 @@ public interface DataStreamerTarget<T> {
             Flow.Publisher<DataStreamerItem<T>> publisher,
             @Nullable DataStreamerOptions options);
 
-    <E, R> CompletableFuture<Void> streamData(
+    /**
+     * Streams data with receiver. The receiver is responsible for processing the data and updating zero or more tables.
+     *
+     * @param publisher Producer.
+     * @param keyFunc Key function. The key is only used locally for colocation.
+     * @param payloadFunc Payload function. The payload is sent to the receiver.
+     * @param resultSubscriber Optional subscriber for the receiver results.
+     * @param deploymentUnits Target deployment units. Can be empty.
+     * @param receiverClassName Receiver class name.
+     * @param receiverArgs Receiver arguments.
+     * @return Future that will be completed when the stream is finished.
+     * @param <E> Producer item type.
+     * @param <V> Payload type.
+     * @param <R> Result type.
+     */
+    <E, V, R> CompletableFuture<Void> streamData(
             Flow.Publisher<E> publisher,
-            Function<E, T> keyAccessor,
+            Function<E, T> keyFunc,
+            Function<E, V> payloadFunc,
             @Nullable Flow.Subscriber<R> resultSubscriber,
             List<DeploymentUnit> deploymentUnits,
             String receiverClassName,
