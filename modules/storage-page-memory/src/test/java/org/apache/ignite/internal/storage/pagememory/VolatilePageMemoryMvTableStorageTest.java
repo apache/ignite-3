@@ -102,7 +102,7 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
 
         insertOneRow(partitionStorage);
 
-        long emptyDataPagesBeforeDestroy = dataRegion().rowVersionFreeList().emptyDataPages();
+        long emptyDataPagesBeforeDestroy = dataRegion().freeList().emptyDataPages();
 
         assertThat(tableStorage.destroyPartition(0), willSucceedFast());
 
@@ -112,7 +112,7 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
     private void assertMvDataDestructionCompletes(long emptyDataPagesBeforeDestroy)
             throws InterruptedException, IgniteInternalCheckedException {
         assertTrue(waitForCondition(
-                () -> dataRegion().rowVersionFreeList().emptyDataPages() > emptyDataPagesBeforeDestroy,
+                () -> dataRegion().freeList().emptyDataPages() > emptyDataPagesBeforeDestroy,
                 5_000
         ));
 
@@ -141,7 +141,7 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
 
         insertOneRow(partitionStorage);
 
-        long emptyDataPagesBeforeDestroy = dataRegion().rowVersionFreeList().emptyDataPages();
+        long emptyDataPagesBeforeDestroy = dataRegion().freeList().emptyDataPages();
 
         assertThat(tableStorage.destroy(), willSucceedFast());
 
@@ -156,8 +156,7 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
 
         indexStorage.put(nonInlinableIndexRow());
 
-        // Using RowVersionFreeList to track removal because RowVersionFreeList is used as a ReuseList for IndexColumnsFreeList.
-        long emptyIndexPagesBeforeDestroy = dataRegion().rowVersionFreeList().emptyDataPages();
+        long emptyIndexPagesBeforeDestroy = dataRegion().freeList().emptyDataPages();
 
         assertThat(tableStorage.destroyPartition(0), willSucceedFast());
 
@@ -184,9 +183,8 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
 
     private void assertIndexDataDestructionCompletes(long emptyIndexPagesBeforeDestroy)
             throws InterruptedException, IgniteInternalCheckedException {
-        // Using RowVersionFreeList to track removal because RowVersionFreeList is used as a ReuseList for IndexColumnsFreeList.
         assertTrue(waitForCondition(
-                () -> dataRegion().rowVersionFreeList().emptyDataPages() > emptyIndexPagesBeforeDestroy,
+                () -> dataRegion().freeList().emptyDataPages() > emptyIndexPagesBeforeDestroy,
                 5_000
         ));
 
@@ -203,8 +201,7 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
 
         indexStorage.put(nonInlinableIndexRow());
 
-        // Using RowVersionFreeList to track removal because RowVersionFreeList is used as a ReuseList for IndexColumnsFreeList.
-        long emptyIndexPagesBeforeDestroy = dataRegion().rowVersionFreeList().emptyDataPages();
+        long emptyIndexPagesBeforeDestroy = dataRegion().freeList().emptyDataPages();
 
         assertThat(tableStorage.destroyPartition(0), willSucceedFast());
 
@@ -219,8 +216,7 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
 
         indexStorage.put(nonInlinableIndexRow());
 
-        // Using RowVersionFreeList to track removal because RowVersionFreeList is used as a ReuseList for IndexColumnsFreeList.
-        long emptyIndexPagesBeforeDestroy = dataRegion().rowVersionFreeList().emptyDataPages();
+        long emptyIndexPagesBeforeDestroy = dataRegion().freeList().emptyDataPages();
 
         assertThat(tableStorage.destroy(), willSucceedFast());
 
@@ -235,8 +231,7 @@ public class VolatilePageMemoryMvTableStorageTest extends AbstractMvTableStorage
 
         indexStorage.put(nonInlinableIndexRow());
 
-        // Using RowVersionFreeList to track removal because RowVersionFreeList is used as a ReuseList for IndexColumnsFreeList.
-        long emptyIndexPagesBeforeDestroy = dataRegion().rowVersionFreeList().emptyDataPages();
+        long emptyIndexPagesBeforeDestroy = dataRegion().freeList().emptyDataPages();
 
         assertThat(tableStorage.destroy(), willSucceedFast());
 

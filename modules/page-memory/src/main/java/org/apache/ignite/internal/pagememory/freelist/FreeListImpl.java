@@ -30,6 +30,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReferenceArray;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.PageIdAllocator;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.Storable;
@@ -49,7 +50,9 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Abstract free list.
  */
-public abstract class AbstractFreeList<T extends Storable> extends PagesList implements FreeList<T>, ReuseList {
+public class FreeListImpl extends PagesList implements FreeList, ReuseList {
+    private static final IgniteLogger LOG = Loggers.forClass(FreeListImpl.class);
+
     private static final int BUCKETS = 256; // Must be power of 2.
 
     private static final int REUSE_BUCKET = BUCKETS - 1;
@@ -91,7 +94,9 @@ public abstract class AbstractFreeList<T extends Storable> extends PagesList imp
 
     private final PageHandler<ReuseBag, Long> rmvRow;
 
-    private class WriteRowHandler implements PageHandler<T, Integer> {
+    private final IoStatisticsHolder statHolder;
+
+    private class WriteRowHandler implements PageHandler<Storable, Integer> {
         /** {@inheritDoc} */
         @Override
         public Integer run(
@@ -100,7 +105,7 @@ public abstract class AbstractFreeList<T extends Storable> extends PagesList imp
                 long page,
                 long pageAddr,
                 PageIo iox,
-                T row,
+                Storable row,
                 int written,
                 IoStatisticsHolder statHolder
         ) throws IgniteInternalCheckedException {
@@ -126,10 +131,10 @@ public abstract class AbstractFreeList<T extends Storable> extends PagesList imp
                 long pageId,
                 long pageAddr,
                 PageIo iox,
-                T row,
+                Storable row,
                 int written
         ) throws IgniteInternalCheckedException {
-            AbstractDataPageIo<T> io = (AbstractDataPageIo<T>) iox;
+            AbstractDataPageIo<Storable> io = (AbstractDataPageIo<Storable>) iox;
 
             int rowSize = row.size();
             int oldFreeSpace = io.getFreeSpace(pageAddr);
@@ -162,8 +167,8 @@ public abstract class AbstractFreeList<T extends Storable> extends PagesList imp
         protected int addRowFull(
                 long pageId,
                 long pageAddr,
-                AbstractDataPageIo<T> io,
-                T row,
+                AbstractDataPageIo<Storable> io,
+                Storable row,
                 int rowSize
         ) throws IgniteInternalCheckedException {
             io.addRow(pageId, pageAddr, row, rowSize, pageSize());
@@ -186,8 +191,8 @@ public abstract class AbstractFreeList<T extends Storable> extends PagesList imp
         protected int addRowFragment(
                 long pageId,
                 long pageAddr,
-                AbstractDataPageIo<T> io,
-                T row,
+                AbstractDataPageIo<Storable> io,
+                Storable row,
                 int written,
                 int rowSize
         ) throws IgniteInternalCheckedException {
@@ -220,7 +225,7 @@ public abstract class AbstractFreeList<T extends Storable> extends PagesList imp
         }
     }
 
-    private final class WriteRowsHandler implements PageHandler<CachedIterator<T>, Integer> {
+    private final class WriteRowsHandler implements PageHandler<CachedIterator, Integer> {
         /** {@inheritDoc} */
         @Override
         public Integer run(
@@ -229,15 +234,15 @@ public abstract class AbstractFreeList<T extends Storable> extends PagesList imp
                 long page,
                 long pageAddr,
                 PageIo iox,
-                CachedIterator<T> it,
+                CachedIterator it,
                 int written,
                 IoStatisticsHolder statHolder
         ) throws IgniteInternalCheckedException {
-            AbstractDataPageIo<T> io = (AbstractDataPageIo<T>) iox;
+            AbstractDataPageIo<Storable> io = (AbstractDataPageIo<Storable>) iox;
 
             // Fill the page up to the end.
             while (written != COMPLETE || (!evictionTracker.evictionRequired() && it.hasNext())) {
-                T row = it.get();
+                Storable row = it.get();
 
                 if (written == COMPLETE) {
                     row = it.next();
@@ -290,7 +295,7 @@ public abstract class AbstractFreeList<T extends Storable> extends PagesList imp
                 int itemId,
                 IoStatisticsHolder statHolder
         ) throws IgniteInternalCheckedException {
-            AbstractDataPageIo<T> io = (AbstractDataPageIo<T>) iox;
+            AbstractDataPageIo<Storable> io = (AbstractDataPageIo<Storable>) iox;
 
             int oldFreeSpace = io.getFreeSpace(pageAddr);
 
@@ -337,43 +342,41 @@ public abstract class AbstractFreeList<T extends Storable> extends PagesList imp
      *
      * @param grpId Group ID.
      * @param partId Partition ID.
-     * @param name Structure name (for debug purpose).
      * @param pageMem Page memory.
      * @param reuseList Reuse list or {@code null} if this free list will be a reuse list for itself.
      * @param lockLsnr Page lock listener.
-     * @param log Logger.
      * @param metaPageId Metadata page ID.
      * @param initNew {@code True} if new metadata should be initialized.
      * @param pageListCacheLimit Page list cache limit.
      * @param evictionTracker Page eviction tracker.
      * @throws IgniteInternalCheckedException If failed.
      */
-    public AbstractFreeList(
+    public FreeListImpl(
             int grpId,
             int partId,
-            String name,
             PageMemory pageMem,
             @Nullable ReuseList reuseList,
             PageLockListener lockLsnr,
-            IgniteLogger log,
             long metaPageId,
             boolean initNew,
             @Nullable AtomicLong pageListCacheLimit,
-            PageEvictionTracker evictionTracker
+            PageEvictionTracker evictionTracker,
+            IoStatisticsHolder statHolder
     ) throws IgniteInternalCheckedException {
         super(
-                name,
+                "FreeList_" + grpId,
                 grpId,
                 partId,
                 pageMem,
                 lockLsnr,
-                log,
+                LOG,
                 BUCKETS,
                 metaPageId
         );
 
         this.evictionTracker = evictionTracker;
         this.pageListCacheLimit = pageListCacheLimit;
+        this.statHolder = statHolder;
 
         this.reuseList = reuseList == null ? this : reuseList;
 
@@ -506,7 +509,7 @@ public abstract class AbstractFreeList<T extends Storable> extends PagesList imp
 
     /** {@inheritDoc} */
     @Override
-    public void insertDataRow(T row, IoStatisticsHolder statHolder) throws IgniteInternalCheckedException {
+    public void insertDataRow(Storable row) throws IgniteInternalCheckedException {
         int written = 0;
 
         try {
@@ -527,13 +530,12 @@ public abstract class AbstractFreeList<T extends Storable> extends PagesList imp
      * that occupy the whole memory page are written to other pages, and the remainder is added to the current one.
      *
      * @param rows Rows.
-     * @param statHolder Statistics holder to track IO operations.
      * @throws IgniteInternalCheckedException If failed.
      */
     @Override
-    public void insertDataRows(Collection<T> rows, IoStatisticsHolder statHolder) throws IgniteInternalCheckedException {
+    public void insertDataRows(Collection<? extends Storable> rows) throws IgniteInternalCheckedException {
         try {
-            CachedIterator<T> it = new CachedIterator<>(rows.iterator());
+            CachedIterator it = new CachedIterator(rows.iterator());
 
             int written = COMPLETE;
 
@@ -549,7 +551,7 @@ public abstract class AbstractFreeList<T extends Storable> extends PagesList imp
                     continue;
                 }
 
-                T row = it.get();
+                Storable row = it.get();
 
                 AbstractDataPageIo initIo = null;
 
@@ -573,12 +575,12 @@ public abstract class AbstractFreeList<T extends Storable> extends PagesList imp
     /**
      * {@link Iterator} implementation that allows to access the current element multiple times.
      */
-    private static class CachedIterator<T> implements Iterator<T> {
-        private final Iterator<T> it;
+    private static class CachedIterator implements Iterator<Storable> {
+        private final Iterator<? extends Storable> it;
 
-        private T next;
+        private Storable next;
 
-        CachedIterator(Iterator<T> it) {
+        CachedIterator(Iterator<? extends Storable> it) {
             this.it = it;
         }
 
@@ -588,13 +590,13 @@ public abstract class AbstractFreeList<T extends Storable> extends PagesList imp
         }
 
         @Override
-        public T next() {
+        public Storable next() {
             next = it.next();
 
             return next;
         }
 
-        T get() {
+        Storable get() {
             return next;
         }
     }
@@ -609,7 +611,7 @@ public abstract class AbstractFreeList<T extends Storable> extends PagesList imp
      *      than the max payload of an empty data page.
      * @throws IgniteInternalCheckedException If failed.
      */
-    private int writeWholePages(T row, IoStatisticsHolder statHolder) throws IgniteInternalCheckedException {
+    private int writeWholePages(Storable row, IoStatisticsHolder statHolder) throws IgniteInternalCheckedException {
         assert row.link() == 0 : row.link();
 
         int written = 0;
@@ -631,7 +633,7 @@ public abstract class AbstractFreeList<T extends Storable> extends PagesList imp
      * @return Number of bytes written, {@link #COMPLETE} if the row was fully written.
      * @throws IgniteInternalCheckedException If failed.
      */
-    private int writeSinglePage(T row, int written, IoStatisticsHolder statHolder) throws IgniteInternalCheckedException {
+    private int writeSinglePage(Storable row, int written, IoStatisticsHolder statHolder) throws IgniteInternalCheckedException {
         AbstractDataPageIo initIo = null;
 
         long pageId = takePage(row.size() - written, row, statHolder);
@@ -658,7 +660,7 @@ public abstract class AbstractFreeList<T extends Storable> extends PagesList imp
      * @return Page identifier or {@code 0} if no page found in free list.
      * @throws IgniteInternalCheckedException If failed.
      */
-    private long takePage(int size, T row, IoStatisticsHolder statHolder) throws IgniteInternalCheckedException {
+    private long takePage(int size, Storable row, IoStatisticsHolder statHolder) throws IgniteInternalCheckedException {
         long pageId = 0;
 
         if (size < minSizeForDataPage) {
@@ -703,7 +705,7 @@ public abstract class AbstractFreeList<T extends Storable> extends PagesList imp
      * @return Prepared page id.
      * @see PagesList#initReusedPage(long, long, int, byte, PageIo)
      */
-    private long initReusedPage(T row, long reusedPageId, IoStatisticsHolder statHolder) throws IgniteInternalCheckedException {
+    private long initReusedPage(Storable row, long reusedPageId, IoStatisticsHolder statHolder) throws IgniteInternalCheckedException {
         long reusedPage = acquirePage(reusedPageId, statHolder);
         try {
             long reusedPageAddr = writeLock(reusedPageId, reusedPage);
@@ -731,8 +733,7 @@ public abstract class AbstractFreeList<T extends Storable> extends PagesList imp
     public <S, R> R updateDataRow(
             long link,
             PageHandler<S, R> pageHnd,
-            S arg,
-            IoStatisticsHolder statHolder
+            S arg
     ) throws IgniteInternalCheckedException {
         assert link != 0;
 
@@ -754,9 +755,8 @@ public abstract class AbstractFreeList<T extends Storable> extends PagesList imp
         }
     }
 
-    /** {@inheritDoc} */
     @Override
-    public void removeDataRowByLink(long link, IoStatisticsHolder statHolder) throws IgniteInternalCheckedException {
+    public void removeDataRowByLink(long link) throws IgniteInternalCheckedException {
         assert link != 0;
 
         try {
@@ -886,7 +886,16 @@ public abstract class AbstractFreeList<T extends Storable> extends PagesList imp
         }
     }
 
-    /** {@inheritDoc} */
+    @Override
+    public void saveMetadata() throws IgniteInternalCheckedException {
+        saveMetadata(statHolder);
+    }
+
+    /** Returns page eviction tracker. */
+    public PageEvictionTracker evictionTracker() {
+        return evictionTracker;
+    }
+
     @Override
     public String toString() {
         return "FreeList [name=" + name() + ']';

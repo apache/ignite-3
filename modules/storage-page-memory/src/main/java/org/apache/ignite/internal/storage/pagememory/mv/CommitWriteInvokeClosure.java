@@ -19,16 +19,23 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 import static org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage.DONT_LOAD_VALUE;
+import static org.apache.ignite.internal.util.GridUnsafe.pageSize;
 
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.pagememory.evict.PageEvictionTracker;
+import org.apache.ignite.internal.pagememory.freelist.FreeList;
+import org.apache.ignite.internal.pagememory.io.PageIo;
+import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.OperationType;
+import org.apache.ignite.internal.pagememory.util.PageHandler;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
+import org.apache.ignite.internal.storage.pagememory.mv.io.RowVersionDataIo;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -45,7 +52,7 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
 
     private final AbstractPageMemoryMvPartitionStorage storage;
 
-    private final RowVersionFreeList rowVersionFreeList;
+    private final FreeList freeList;
 
     private final GcQueue gcQueue;
 
@@ -65,6 +72,8 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
      */
     private long rowLinkForAddToGcQueue = NULL_LINK;
 
+    private final UpdateTimestampHandler updateTimestampHandler;
+
     CommitWriteInvokeClosure(RowId rowId, HybridTimestamp timestamp, AbstractPageMemoryMvPartitionStorage storage) {
         this.rowId = rowId;
         this.timestamp = timestamp;
@@ -72,8 +81,38 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
 
         RenewablePartitionStorageState localState = storage.renewableState;
 
-        this.rowVersionFreeList = localState.rowVersionFreeList();
+        this.freeList = localState.freeList();
         this.gcQueue = localState.gcQueue();
+
+        updateTimestampHandler = new UpdateTimestampHandler(localState.freeList().evictionTracker());
+    }
+
+    private static class UpdateTimestampHandler implements PageHandler<HybridTimestamp, Object> {
+        private final PageEvictionTracker evictionTracker;
+
+        private UpdateTimestampHandler(PageEvictionTracker evictionTracker) {
+            this.evictionTracker = evictionTracker;
+        }
+
+        @Override
+        public Object run(
+                int groupId,
+                long pageId,
+                long page,
+                long pageAddr,
+                PageIo io,
+                HybridTimestamp arg,
+                int itemId,
+                IoStatisticsHolder statHolder
+        ) throws IgniteInternalCheckedException {
+            RowVersionDataIo dataIo = (RowVersionDataIo) io;
+
+            dataIo.updateTimestamp(pageAddr, itemId, pageSize(), arg);
+
+            evictionTracker.touchPage(pageId);
+
+            return true;
+        }
     }
 
     @Override
@@ -134,7 +173,7 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
 
         if (updateTimestampLink != NULL_LINK) {
             try {
-                rowVersionFreeList.updateTimestamp(updateTimestampLink, timestamp);
+                updateTimestamp(updateTimestampLink, timestamp);
             } catch (IgniteInternalCheckedException e) {
                 throw new StorageException(
                         "Error while update timestamp: [link={}, timestamp={}, {}]",
@@ -142,6 +181,10 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
                         updateTimestampLink, timestamp, storage.createStorageInfo());
             }
         }
+    }
+
+    private void updateTimestamp(long link, HybridTimestamp newTimestamp) throws IgniteInternalCheckedException {
+        freeList.updateDataRow(link, updateTimestampHandler, newTimestamp);
     }
 
     /**

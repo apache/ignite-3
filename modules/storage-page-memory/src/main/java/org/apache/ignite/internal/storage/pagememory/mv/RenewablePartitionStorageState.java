@@ -17,8 +17,8 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
+import org.apache.ignite.internal.pagememory.freelist.FreeListImpl;
 import org.apache.ignite.internal.storage.pagememory.AbstractPageMemoryTableStorage;
-import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumnsFreeList;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
 
@@ -29,9 +29,7 @@ import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
 class RenewablePartitionStorageState {
     private final VersionChainTree versionChainTree;
 
-    private final RowVersionFreeList rowVersionFreeList;
-
-    private final IndexColumnsFreeList indexFreeList;
+    private final FreeListImpl freeList;
 
     private final IndexMetaTree indexMetaTree;
 
@@ -44,14 +42,12 @@ class RenewablePartitionStorageState {
             AbstractPageMemoryTableStorage tableStorage,
             int partitionId,
             VersionChainTree versionChainTree,
-            RowVersionFreeList rowVersionFreeList,
-            IndexColumnsFreeList indexFreeList,
+            FreeListImpl freeList,
             IndexMetaTree indexMetaTree,
             GcQueue gcQueue
     ) {
         this.versionChainTree = versionChainTree;
-        this.rowVersionFreeList = rowVersionFreeList;
-        this.indexFreeList = indexFreeList;
+        this.freeList = freeList;
         this.indexMetaTree = indexMetaTree;
         this.gcQueue = gcQueue;
 
@@ -59,8 +55,7 @@ class RenewablePartitionStorageState {
                 tableStorage,
                 partitionId,
                 indexMetaTree,
-                indexFreeList,
-                rowVersionFreeList
+                freeList
         );
     }
 
@@ -68,12 +63,8 @@ class RenewablePartitionStorageState {
         return versionChainTree;
     }
 
-    RowVersionFreeList rowVersionFreeList() {
-        return rowVersionFreeList;
-    }
-
-    IndexColumnsFreeList indexFreeList() {
-        return indexFreeList;
+    FreeListImpl freeList() {
+        return freeList;
     }
 
     IndexMetaTree indexMetaTree() {

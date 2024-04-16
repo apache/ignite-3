@@ -32,6 +32,7 @@ import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.pagememory.freelist.FreeListImpl;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.util.GradualTask;
 import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
@@ -43,7 +44,6 @@ import org.apache.ignite.internal.storage.index.PeekCursor;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
 import org.apache.ignite.internal.storage.pagememory.index.common.IndexRowKey;
-import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumnsFreeList;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMeta;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaKey;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
@@ -76,7 +76,7 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
     private volatile IndexMetaTree indexMetaTree;
 
     /** Free list to store index columns. */
-    protected volatile IndexColumnsFreeList freeList;
+    protected volatile FreeListImpl freeList;
 
     /** Index tree instance. */
     protected volatile TreeT indexTree;
@@ -96,7 +96,7 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
             IndexMeta indexMeta,
             int partitionId,
             TreeT indexTree,
-            IndexColumnsFreeList freeList,
+            FreeListImpl freeList,
             IndexMetaTree indexMetaTree,
             boolean isVolatile
     ) {
@@ -286,7 +286,7 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
      * @param indexTree Hash index tree instance.
      * @throws StorageException If failed.
      */
-    public void updateDataStructures(IndexMetaTree indexMetaTree, IndexColumnsFreeList freeList, TreeT indexTree) {
+    public void updateDataStructures(IndexMetaTree indexMetaTree, FreeListImpl freeList, TreeT indexTree) {
         throwExceptionIfStorageNotInCleanupOrRebalancedState(state.get(), this::createStorageInfo);
 
         this.indexMetaTree = indexMetaTree;
