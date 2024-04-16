@@ -17,8 +17,11 @@
 
 package org.apache.ignite.table;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
+import java.util.function.Function;
+import org.apache.ignite.compute.DeploymentUnit;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -26,7 +29,6 @@ import org.jetbrains.annotations.Nullable;
  *
  * @param <T> Entry type.
  */
-@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
 public interface DataStreamerTarget<T> {
     /**
      * Streams data into the underlying table.
@@ -38,4 +40,12 @@ public interface DataStreamerTarget<T> {
     CompletableFuture<Void> streamData(
             Flow.Publisher<DataStreamerItem<T>> publisher,
             @Nullable DataStreamerOptions options);
+
+    <E, R> CompletableFuture<Void> streamData(
+            Flow.Publisher<E> publisher,
+            Function<E, T> keyAccessor,
+            @Nullable Flow.Subscriber<R> resultSubscriber,
+            List<DeploymentUnit> deploymentUnits,
+            String receiverClassName,
+            Object... receiverArgs);
 }
