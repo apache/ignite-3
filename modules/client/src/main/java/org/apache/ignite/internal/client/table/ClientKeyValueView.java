@@ -29,13 +29,16 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import org.apache.ignite.client.RetryLimitPolicy;
+import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.client.PayloadInputChannel;
@@ -582,6 +585,13 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                 new RetryLimitPolicy().retryLimit(opts.retryLimit()));
 
         return ClientDataStreamer.streamData(publisher, opts, batchSender, provider, tbl);
+    }
+
+    @Override
+    public <E, T, R> CompletableFuture<Void> streamData(Publisher<E> publisher, @Nullable DataStreamerOptions options,
+            Function<E, Entry<K, V>> keyFunc, Function<E, T> payloadFunc, @Nullable Flow.Subscriber<R> resultSubscriber,
+            List<DeploymentUnit> deploymentUnits, String receiverClassName, Object... receiverArgs) {
+        throw new UnsupportedOperationException("Not implemented yet.");
     }
 
     /** {@inheritDoc} */
