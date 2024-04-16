@@ -17,16 +17,17 @@
 
 package org.apache.ignite.internal.table.distributed.disaster;
 
+/**
+ * Local partition state.
+ */
 public class LocalPartitionState {
     public final String tableName;
 
     public final int partitionId;
 
-    /** Calculated state of the partition. */
-
     public final LocalPartitionStateEnum state;
 
-    public LocalPartitionState(String tableName, int partitionId, LocalPartitionStateEnum state) {
+    LocalPartitionState(String tableName, int partitionId, LocalPartitionStateEnum state) {
         this.tableName = tableName;
         this.partitionId = partitionId;
         this.state = state;

@@ -39,6 +39,9 @@ import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryMan
 import org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionState;
 import org.apache.ignite.internal.table.distributed.disaster.LocalPartitionState;
 
+/**
+ * Disaster recovery controller.
+ */
 @Controller("/management/v1/recovery/")
 @Requires(classes = IgniteInternalExceptionHandler.class)
 public class DisasterRecoveryController implements DisasterRecoveryApi {

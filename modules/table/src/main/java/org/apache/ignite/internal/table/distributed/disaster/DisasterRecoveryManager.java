@@ -198,6 +198,13 @@ public class DisasterRecoveryManager implements IgniteComponent {
                 .thenApply(res -> normalizeLocal(res, catalog));
     }
 
+    /**
+     * Returns partition states for all zones' partitions in the cluster. Result is a mapping of {@link TablePartitionId} to the global
+     * partition state enum value.
+     *
+     * @param zoneName Zone name.
+     * @return Future with the mapping.
+     */
     public CompletableFuture<Map<TablePartitionId, GlobalPartitionState>> globalPartitionStates(@Nullable String zoneName) {
         Catalog catalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
 

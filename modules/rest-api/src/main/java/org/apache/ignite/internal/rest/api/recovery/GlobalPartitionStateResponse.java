@@ -22,19 +22,24 @@ import com.fasterxml.jackson.annotation.JsonGetter;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 
+/**
+ * Global partition state schema class.
+ */
 @Schema(description = "Information about global partition state.")
 public class GlobalPartitionStateResponse {
     private final int partitionId;
     private final String tableName;
     private final String state;
 
+    /**
+     * Constructor.
+     */
     @JsonCreator
     public GlobalPartitionStateResponse(
             @JsonProperty("partitionId") int partitionId,
             @JsonProperty("tableName") String tableName,
             @JsonProperty("state") String state
     ) {
-
         this.partitionId = partitionId;
         this.tableName = tableName;
         this.state = state;

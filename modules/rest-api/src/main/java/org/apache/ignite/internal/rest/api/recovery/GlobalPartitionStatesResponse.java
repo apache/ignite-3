@@ -23,10 +23,13 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 
+/**
+ * Global partition states schema class.
+ */
 @Schema(description = "Information about global partition states.")
 public class GlobalPartitionStatesResponse {
     @Schema
-    private List<GlobalPartitionStateResponse> states;
+    private final List<GlobalPartitionStateResponse> states;
 
     @JsonCreator
     public GlobalPartitionStatesResponse(@JsonProperty("states") List<GlobalPartitionStateResponse> states) {

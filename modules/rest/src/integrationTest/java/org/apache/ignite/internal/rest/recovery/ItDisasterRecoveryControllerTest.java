@@ -40,6 +40,9 @@ import org.apache.ignite.internal.rest.api.recovery.LocalPartitionStateResponse;
 import org.apache.ignite.internal.rest.api.recovery.LocalPartitionStatesResponse;
 import org.junit.jupiter.api.Test;
 
+/**
+ * Test for disaster recovery REST commands.
+ */
 @MicronautTest
 public class ItDisasterRecoveryControllerTest extends ClusterPerTestIntegrationTest {
     private static final String NODE_URL = "http://localhost:" + Cluster.BASE_HTTP_PORT;
@@ -56,7 +59,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerTestIntegrationT
     @Test
     void testLocalPartitionStates() {
         executeSql("CREATE TABLE foo (id INT PRIMARY KEY, val INT)");
-        HttpResponse<LocalPartitionStatesResponse> response = client.toBlocking().exchange("/state/local/", LocalPartitionStatesResponse.class);
+        var response = client.toBlocking().exchange("/state/local/", LocalPartitionStatesResponse.class);
 
         assertEquals(HttpStatus.OK, response.status());
 
@@ -84,7 +87,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerTestIntegrationT
         executeSql("CREATE ZONE foo WITH partitions=1, storage_profiles='" + DEFAULT_AIPERSIST_PROFILE_NAME + "'");
         executeSql("CREATE TABLE foo (id INT PRIMARY KEY, val INT) WITH PRIMARY_ZONE = 'FOO'");
 
-        HttpResponse<LocalPartitionStatesResponse> response = client.toBlocking().exchange("/state/local/Default/", LocalPartitionStatesResponse.class);
+        var response = client.toBlocking().exchange("/state/local/Default/", LocalPartitionStatesResponse.class);
 
         assertEquals(HttpStatus.OK, response.status());
         assertEquals(DEFAULT_PARTITION_COUNT, response.body().states().size());
@@ -111,7 +114,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerTestIntegrationT
     @Test
     void testGlobalPartitionStates() {
         executeSql("CREATE TABLE foo (id INT PRIMARY KEY, val INT)");
-        HttpResponse<GlobalPartitionStatesResponse> response = client.toBlocking().exchange("/state/global/", GlobalPartitionStatesResponse.class);
+        var response = client.toBlocking().exchange("/state/global/", GlobalPartitionStatesResponse.class);
 
         assertEquals(HttpStatus.OK, response.status());
 
@@ -140,7 +143,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerTestIntegrationT
         executeSql("CREATE ZONE foo WITH partitions=1, storage_profiles='" + DEFAULT_AIPERSIST_PROFILE_NAME + "'");
         executeSql("CREATE TABLE foo (id INT PRIMARY KEY, val INT) WITH PRIMARY_ZONE = 'FOO'");
 
-        HttpResponse<GlobalPartitionStatesResponse> response = client.toBlocking().exchange("/state/global/Default/", GlobalPartitionStatesResponse.class);
+        var response = client.toBlocking().exchange("/state/global/Default/", GlobalPartitionStatesResponse.class);
 
         assertEquals(HttpStatus.OK, response.status());
         assertEquals(DEFAULT_PARTITION_COUNT, response.body().states().size());

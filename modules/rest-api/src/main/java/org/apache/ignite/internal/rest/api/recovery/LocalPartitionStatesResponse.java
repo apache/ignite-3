@@ -23,10 +23,13 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.List;
 
+/**
+ * Local partition states schema class.
+ */
 @Schema(description = "Information about local partition states.")
 public class LocalPartitionStatesResponse {
     @Schema
-    private List<LocalPartitionStateResponse> states;
+    private final List<LocalPartitionStateResponse> states;
 
     @JsonCreator
     public LocalPartitionStatesResponse(@JsonProperty("states") List<LocalPartitionStateResponse> states) {

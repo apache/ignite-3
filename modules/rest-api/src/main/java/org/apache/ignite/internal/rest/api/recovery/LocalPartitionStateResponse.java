@@ -22,6 +22,9 @@ import com.fasterxml.jackson.annotation.JsonGetter;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
 
+/**
+ * Local partition state schema class.
+ */
 @Schema(description = "Information about local partition state.")
 public class LocalPartitionStateResponse {
     private final int partitionId;
@@ -29,6 +32,9 @@ public class LocalPartitionStateResponse {
     private final String nodeName;
     private final String state;
 
+    /**
+     * Constructor.
+     */
     @JsonCreator
     public LocalPartitionStateResponse(
             @JsonProperty("partitionId") int partitionId,
@@ -36,7 +42,6 @@ public class LocalPartitionStateResponse {
             @JsonProperty("nodeName") String nodeName,
             @JsonProperty("state") String state
     ) {
-
         this.partitionId = partitionId;
         this.tableName = tableName;
         this.nodeName = nodeName;
