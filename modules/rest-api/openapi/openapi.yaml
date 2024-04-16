@@ -844,6 +844,106 @@ paths:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
+  /management/v1/recovery/state/global:
+    get:
+      tags:
+      - recovery
+      description: Returns global partition states.
+      operationId: getGlobalPartitionStates
+      responses:
+        "200":
+          description: Partition states returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GlobalPartitionStatesResponse'
+        "500":
+          description: Internal error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /management/v1/recovery/state/global/{zoneName}:
+    get:
+      tags:
+      - recovery
+      description: Returns global partition states.
+      operationId: getGlobalPartitionStatesByZone
+      parameters:
+      - name: zoneName
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Partition states returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GlobalPartitionStatesResponse'
+        "500":
+          description: Internal error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        "400":
+          description: Zone is not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /management/v1/recovery/state/local:
+    get:
+      tags:
+      - recovery
+      description: Returns local partition states.
+      operationId: getLocalPartitionStates
+      responses:
+        "200":
+          description: Partition states returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocalPartitionStatesResponse'
+        "500":
+          description: Internal error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /management/v1/recovery/state/local/{zoneName}:
+    get:
+      tags:
+      - recovery
+      description: Returns local partition states.
+      operationId: getLocalPartitionStatesByZone
+      parameters:
+      - name: zoneName
+        in: path
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: Partition states returned.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LocalPartitionStatesResponse'
+        "500":
+          description: Internal error.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+        "400":
+          description: Zone is not found.
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
 components:
   schemas:
     ClusterNode:
@@ -906,6 +1006,29 @@ components:
       - DEPLOYED
       - OBSOLETE
       - REMOVING
+    GlobalPartitionStateResponse:
+      required:
+      - partitionId
+      - state
+      - tableName
+      type: object
+      properties:
+        partitionId:
+          type: integer
+          format: int32
+        tableName:
+          type: string
+        state:
+          type: string
+      description: Information about global partition state.
+    GlobalPartitionStatesResponse:
+      type: object
+      properties:
+        states:
+          type: array
+          items:
+            $ref: '#/components/schemas/GlobalPartitionStateResponse'
+      description: Information about global partition states.
     InitCommand:
       type: object
       properties:
@@ -977,6 +1100,32 @@ components:
           format: date-time
           nullable: true
       description: Rest representation of org.apache.ignite.compute.JobStatus.
+    LocalPartitionStateResponse:
+      required:
+      - nodeName
+      - partitionId
+      - state
+      - tableName
+      type: object
+      properties:
+        partitionId:
+          type: integer
+          format: int32
+        tableName:
+          type: string
+        nodeName:
+          type: string
+        state:
+          type: string
+      description: Information about local partition state.
+    LocalPartitionStatesResponse:
+      type: object
+      properties:
+        states:
+          type: array
+          items:
+            $ref: '#/components/schemas/LocalPartitionStateResponse'
+      description: Information about local partition states.
     Metric:
       type: object
       properties:

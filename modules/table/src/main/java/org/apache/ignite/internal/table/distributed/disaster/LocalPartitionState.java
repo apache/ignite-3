@@ -15,17 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.disaster.messages;
+package org.apache.ignite.internal.table.distributed.disaster;
 
-import java.util.List;
-import org.apache.ignite.internal.network.NetworkMessage;
-import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.table.distributed.TableMessageGroup.DisasterRecoveryMessages;
+public class LocalPartitionState {
+    public final String tableName;
 
-/**
- * Response for {@link LocalPartitionStatesResponse}.
- */
-@Transferable(DisasterRecoveryMessages.LOCAL_PARTITION_STATE_RESPONSE)
-public interface LocalPartitionStatesResponse extends NetworkMessage {
-    List<LocalPartitionStateMessage> states();
+    public final int partitionId;
+
+    /** Calculated state of the partition. */
+
+    public final LocalPartitionStateEnum state;
+
+    public LocalPartitionState(String tableName, int partitionId, LocalPartitionStateEnum state) {
+        this.tableName = tableName;
+        this.partitionId = partitionId;
+        this.state = state;
+    }
 }

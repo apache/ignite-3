@@ -28,7 +28,7 @@ import org.apache.ignite.internal.table.distributed.disaster.LocalPartitionState
  * Local partition state message, has partition ID, state and last committed log index.
  */
 @Transferable(DisasterRecoveryMessages.LOCAL_PARTITION_STATE)
-public interface LocalPartitionState extends NetworkMessage {
+public interface LocalPartitionStateMessage extends NetworkMessage {
     /** Partition ID. */
     TablePartitionIdMessage partitionId();
 
