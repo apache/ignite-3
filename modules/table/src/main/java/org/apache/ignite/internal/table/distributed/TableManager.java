@@ -719,7 +719,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             return metaStorageMgr
                     .invoke(condition, partitionAssignments, Collections.emptyList())
                     .handle((invokeResult, e) -> {
-                        if (invokeResult == null) {
+                        if (e != null) {
                             LOG.error("Couldn't write assignments {} to metastore during invoke",
                                     e,
                                     Assignments.assignmentListToString(newAssignments));
@@ -763,7 +763,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         }
                     })
                     .handle((realAssignments, e) -> {
-                        if (realAssignments == null) {
+                        if (e != null) {
                             LOG.error("Couldn't write assignments {} to metastore during invoke",
                                     e,
                                     Assignments.assignmentListToString(newAssignments));
