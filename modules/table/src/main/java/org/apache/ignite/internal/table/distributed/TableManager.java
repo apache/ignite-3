@@ -1306,7 +1306,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         String tableName = tableDescriptor.name();
         int tableId = tableDescriptor.id();
 
-        LOG.info("Creating local table: name={}, id={}, token={}", tableDescriptor.name(), tableDescriptor.id(), causalityToken);
+        LOG.trace("Creating local table: name={}, id={}, token={}", tableDescriptor.name(), tableDescriptor.id(), causalityToken);
 
         MvTableStorage tableStorage = createTableStorage(tableDescriptor, zoneDescriptor);
         TxStateTableStorage txStateStorage = createTxStateTableStorage(tableDescriptor, zoneDescriptor);
@@ -1380,8 +1380,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             }
 
             return allOf(localPartsUpdateFuture, tablesByIdFuture).thenComposeAsync(ignore -> inBusyLock(busyLock, () -> {
-                        LOG.info("Table storage created " + tableId);
-
                         if (onNodeRecovery) {
                             SchemaRegistry schemaRegistry = table.schemaView();
                             PartitionSet partitionSet = localPartsByTableId.get(tableId);

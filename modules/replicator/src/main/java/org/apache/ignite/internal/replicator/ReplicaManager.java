@@ -35,7 +35,6 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -427,14 +426,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 futures[i++] = replicaFut.thenCompose(replica -> replica.processPlacementDriverMessage(msg));
             }
 
-            // 1) PD -> Zones instead of Tables
-            // 2) TX flow from TableId to ZoneId
-
-            // 3) Refactoring for encapsulating raft into Replica entity
-            // 4) One Replica many rafts
-            // 5) One Replica one raft group
             allOf(futures).whenComplete((responses, ex) -> {
-                // TODO allOf all replicas of the zone from msg.groupId() (zoneId, partId) from {@code replicas}
                 if (ex == null) {
                     boolean accepted = responses.stream().allMatch(LeaseGrantedMessageResponse::accepted);
 
@@ -675,55 +667,16 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         );
 
         scheduledTableLeaseUpdateExecutor.scheduleAtFixedRate(() -> {
-                    for (Map.Entry<ZonePartitionId, Set<ReplicationGroupId>> entry : zonePartIdToTablePartId.entrySet()) {
-                        ZonePartitionId repGrp = entry.getKey();
+            if (!busyLock.enterBusy()) {
+                return;
+            }
 
-                        ReplicaMeta meta = placementDriver.getLeaseMeta(repGrp);
-
-                        if (meta != null) {
-                            HashSet<ReplicationGroupId> diff = new HashSet<>(entry.getValue());
-                            diff.removeAll(meta.subgroups());
-
-                            if (meta.getLeaseholderId().equals(localNodeId) && !diff.isEmpty()) {
-                                LOG.info("New subgroups are found for existing lease [repGrp={}, subGroups={}]", repGrp, diff);
-
-                                try {
-                                    placementDriver.addSubgroups(repGrp, meta.getStartTime().longValue(), diff)
-                                            .thenCompose(unused -> {
-                                                ArrayList<CompletableFuture<?>> requestToReplicas = new ArrayList<>();
-
-                                                for (ReplicationGroupId partId : diff) {
-                                                    EmptyPrimaryReplicaRequest req = REPLICA_MESSAGES_FACTORY.emptyPrimaryReplicaRequest()
-                                                            .enlistmentConsistencyToken(meta.getStartTime().longValue())
-                                                            .groupId(partId)
-                                                            .build();
-
-                                                    CompletableFuture<Replica> replicaFut = replicas.get(repGrp);
-
-                                                    if (replicaFut != null) {
-                                                        requestToReplicas.add(replicaFut.thenCompose(
-                                                                replica -> replica.processRequest(req, localNodeId)));
-                                                    }
-                                                }
-
-                                                return allOf(requestToReplicas.toArray(CompletableFuture[]::new));
-                                            }).join();
-                                } catch (Exception ex) {
-                                    LOG.error(
-                                            "Failed to add new subgroups to the replication group [repGrp={}, subGroups={}]",
-                                            ex,
-                                            repGrp,
-                                            diff
-                                    );
-                                }
-                            }
-                        }
-                    }
-                },
-                0,
-                1,
-                TimeUnit.SECONDS
-        );
+            try {
+                updateTableGroupsInternal();
+            } finally {
+                busyLock.leaveBusy();
+            }
+        }, 0, 1, TimeUnit.SECONDS);
 
         cmgMgr.metaStorageNodes().whenComplete((nodes, e) -> {
             if (e != null) {
@@ -736,6 +689,56 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         localNodeId = clusterNetSvc.topologyService().localMember().id();
 
         return nullCompletedFuture();
+    }
+
+    /**
+     * Updates list of replication groups for each distributed zone.
+     */
+    private void updateTableGroupsInternal() {
+        for (Entry<ZonePartitionId, Set<ReplicationGroupId>> entry : zonePartIdToTablePartId.entrySet()) {
+            ZonePartitionId repGrp = entry.getKey();
+
+            ReplicaMeta meta = placementDriver.getLeaseMeta(repGrp);
+
+            if (meta != null) {
+                HashSet<ReplicationGroupId> diff = new HashSet<>(entry.getValue());
+                diff.removeAll(meta.subgroups());
+
+                if (meta.getLeaseholderId().equals(localNodeId) && !diff.isEmpty()) {
+                    LOG.info("New subgroups are found for existing lease [repGrp={}, subGroups={}]", repGrp, diff);
+
+                    try {
+                        placementDriver.addSubgroups(repGrp, meta.getStartTime().longValue(), diff)
+                                .thenCompose(unused -> {
+                                    ArrayList<CompletableFuture<?>> requestToReplicas = new ArrayList<>();
+
+                                    for (ReplicationGroupId partId : diff) {
+                                        EmptyPrimaryReplicaRequest req = REPLICA_MESSAGES_FACTORY.emptyPrimaryReplicaRequest()
+                                                .enlistmentConsistencyToken(meta.getStartTime().longValue())
+                                                .groupId(partId)
+                                                .build();
+
+                                        CompletableFuture<Replica> replicaFut = replicas.get(repGrp);
+
+                                        if (replicaFut != null) {
+                                            requestToReplicas.add(replicaFut.thenCompose(
+                                                    replica -> replica.processRequest(req, localNodeId)));
+                                        }
+                                    }
+
+                                    return allOf(requestToReplicas.toArray(CompletableFuture[]::new));
+                                }).get(10, TimeUnit.SECONDS);
+                    } catch (Exception ex) {
+                        LOG.error(
+                                "Failed to add new subgroups to the replication group [repGrp={}, subGroups={}]",
+                                ex,
+                                repGrp,
+                                diff
+                        );
+                    }
+                }
+            }
+        }
     }
 
     /** {@inheritDoc} */

@@ -178,6 +178,8 @@ public class Replica {
                             executor
                     )
                     .thenComposeAsync(unused -> listener.invoke(request, senderId), executor);
+        } else if (request instanceof EmptyPrimaryReplicaRequest) {
+            return completedFuture(new ReplicaResult(null, null));
         }
 
         return listener.invoke(request, senderId);
