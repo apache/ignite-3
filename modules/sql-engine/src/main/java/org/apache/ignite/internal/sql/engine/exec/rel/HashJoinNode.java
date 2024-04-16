@@ -310,10 +310,12 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
                         rightIt = res.iterator();
                     }
 
+                    RowT emptyLeft = leftRowFactory.create();
+
                     while (rightIt.hasNext()) {
                         checkState();
                         RowT right = rightIt.next();
-                        RowT row = handler.concat(leftRowFactory.create(), right);
+                        RowT row = handler.concat(emptyLeft, right);
                         --requested;
 
                         downstream().push(row);
@@ -348,8 +350,6 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
 
             this.leftRowFactory = leftRowFactory;
             this.rightRowFactory = rightRowFactory;
-
-            System.err.println("!!!call: FullOuterHashJoin");
         }
 
         @Override
@@ -416,10 +416,12 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
                         rightIt = res.iterator();
                     }
 
+                    RowT emptyLeft = leftRowFactory.create();
+
                     while (rightIt.hasNext()) {
                         checkState();
                         RowT right = rightIt.next();
-                        RowT row = handler.concat(leftRowFactory.create(), right);
+                        RowT row = handler.concat(emptyLeft, right);
                         --requested;
 
                         downstream().push(row);

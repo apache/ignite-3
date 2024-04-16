@@ -367,6 +367,8 @@ public class ExecutionTest extends AbstractExecutionTest<Object[]> {
                 {2, "Ivan", null}
         };
 
+        assert2DimArrayEquals(expected, rows);
+
         List<Object[]> depsRes = new ArrayList<>();
         depsRes.add(new Object[]{5, "QA"});
 
