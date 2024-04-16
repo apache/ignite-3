@@ -594,7 +594,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 messagingServiceReturningToStorageOperationsPool,
                 clusterSvc.topologyService(),
                 clusterSvc.serializationRegistry(),
-                raftMgr,
                 replicaMgr,
                 lockManager,
                 replicaService,

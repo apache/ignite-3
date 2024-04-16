@@ -243,9 +243,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private final TopologyService topologyService;
 
-    /** Raft manager. */
-    private final RaftManager raftMgr;
-
     /** Replica manager. */
     private final ReplicaManager replicaMgr;
 
@@ -452,7 +449,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             MessagingService messagingService,
             TopologyService topologyService,
             MessageSerializationRegistry messageSerializationRegistry,
-            RaftManager raftMgr,
             ReplicaManager replicaMgr,
             LockManager lockMgr,
             ReplicaService replicaSvc,
@@ -480,7 +476,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             TransactionInflights transactionInflights
     ) {
         this.topologyService = topologyService;
-        this.raftMgr = raftMgr;
         this.replicaMgr = replicaMgr;
         this.lockMgr = lockMgr;
         this.replicaSvc = replicaSvc;

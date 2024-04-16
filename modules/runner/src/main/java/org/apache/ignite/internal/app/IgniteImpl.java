@@ -749,7 +749,6 @@ public class IgniteImpl implements Ignite {
                 messagingServiceReturningToStorageOperationsPool,
                 clusterSvc.topologyService(),
                 clusterSvc.serializationRegistry(),
-                raftMgr,
                 replicaMgr,
                 lockMgr,
                 replicaSvc,

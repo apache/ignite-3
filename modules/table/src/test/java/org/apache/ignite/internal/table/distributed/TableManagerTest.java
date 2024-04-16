@@ -758,7 +758,6 @@ public class TableManagerTest extends IgniteAbstractTest {
                 clusterService.messagingService(),
                 clusterService.topologyService(),
                 clusterService.serializationRegistry(),
-                rm,
                 replicaMgr,
                 null,
                 null,
