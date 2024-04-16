@@ -86,13 +86,13 @@ class DestinationFactory<RowT> {
             case HASH_DISTRIBUTED: {
                 ImmutableIntList keys = distribution.getKeys();
 
+                assert !nullOrEmpty(keys);
+
                 if ("identity".equals(function.name())) {
-                    assert !nullOrEmpty(group.nodeNames()) && !nullOrEmpty(keys) && keys.size() == 1;
+                    assert !nullOrEmpty(group.nodeNames()) && keys.size() == 1;
 
                     return new Identity<>(rowHandler, keys.get(0), group.nodeNames());
                 }
-
-                assert !nullOrEmpty(keys);
 
                 if (function.affinity()) {
                     assert !nullOrEmpty(group.assignments());
