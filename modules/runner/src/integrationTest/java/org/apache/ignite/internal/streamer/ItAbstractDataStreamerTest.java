@@ -36,6 +36,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.compute.DeploymentUnit;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.DataStreamerItem;
@@ -337,18 +338,21 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
     @Test
     public void testReceiver() {
-        RecordView<Tuple> view = defaultTable().recordView();
         CompletableFuture<Void> streamerFut;
+        RecordView<Tuple> view = defaultTable().recordView();
 
-        try (var publisher = new SimplePublisher<Tuple>()) {
-            var options = DataStreamerOptions.builder().pageSize(1).build();
-            streamerFut = view.streamData(publisher, options);
+        try (var publisher = new SubmissionPublisher<CustomData>()) {
+            streamerFut = view.<CustomData, String, Boolean>streamData(
+                    publisher,
+                    null,
+                    item -> Tuple.create().set("id", item.getId()),
+                    item -> item.serializeToString(),
+                    null,
+                    List.of(new DeploymentUnit("test", "1.0.0")),
+                    "org.foo.bar.StreamReceiver",
+                    "receiverArg1");
 
-            publisher.submit(tupleKey(1));
-            waitForKey(view, tupleKey(1));
-
-            sql.execute(null, "ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR NOT NULL DEFAULT 'bar'");
-            publisher.submit(tupleKey(2));
+            publisher.submit(new CustomData(1, "x"));
         }
 
         streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
@@ -416,6 +420,28 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
         PersonValPojo(String name) {
             this.name = name;
+        }
+    }
+
+    private static class CustomData {
+        private final int id;
+        private final String info;
+
+        public CustomData(int id, String info) {
+            this.id = id;
+            this.info = info;
+        }
+
+        public int getId() {
+            return id;
+        }
+
+        public String getInfo() {
+            return info;
+        }
+
+        public String serializeToString() {
+            return "info=" + info;
         }
     }
 }
