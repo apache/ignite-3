@@ -90,7 +90,7 @@ public class DisasterRecoveryManager implements IgniteComponent {
 
     private static final int TIMEOUT = 30;
 
-    private static final int CATCH_UP_THRESHOLD = 10;
+    private static final int CATCH_UP_THRESHOLD = 100;
 
     /** Thread pool executor for async parts. */
     private final ExecutorService threadPool;
@@ -461,9 +461,6 @@ public class DisasterRecoveryManager implements IgniteComponent {
                     GlobalPartitionStateEnum globalStateEnum;
 
                     int healthyReplicas = groupedStates.getOrDefault(HEALTHY, emptyList()).size();
-                    int catchingUpReplicas = groupedStates.getOrDefault(CATCHING_UP, emptyList()).size();
-                    int installingSnapshotReplicas = groupedStates.getOrDefault(INSTALLING_SNAPSHOT, emptyList())
-                            .size();
 
                     if (healthyReplicas == replicas) {
                         globalStateEnum = AVAILABLE;
