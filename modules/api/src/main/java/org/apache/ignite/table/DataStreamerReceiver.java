@@ -17,10 +17,32 @@
 
 package org.apache.ignite.table;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Flow.Publisher;
+import java.util.concurrent.Flow.Subscriber;
+import java.util.function.Function;
 
+/**
+ * Data streamer receiver.
+ *
+ * @param <T> Payload type.
+ * @param <R> Result type.
+ */
 @SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
 public interface DataStreamerReceiver<T, R> {
+    /**
+     * Receives an item from the data streamer (see {@link DataStreamerTarget#streamData(Publisher, DataStreamerOptions,
+     * Function, Function, Subscriber, List, String, Object...)}).
+     *
+     * <p>The receiver is called for each item in the data streamer and is responsible for processing the item,
+     * updating zero or more tables, and returning a result.
+     *
+     * @param item Item.
+     * @param ctx Receiver context.
+     * @param args Additional arguments.
+     * @return Future with the result.
+     */
     CompletableFuture<R> receive(
             T item,
             DataStreamerReceiverContext ctx,
