@@ -66,7 +66,7 @@ public enum IgniteSqlCommand {
 
     CREATE_INDEX("CREATE INDEX",
             "CREATE INDEX [IF NOT EXISTS] name ON tableName\n"
-                    + "[USING { HASH | TREE }]\n"
+                    + "[USING { HASH | SORTED }]\n"
                     + "(column_definition [, column_definition]...)"),
     create_index("create index", CREATE_INDEX.syntax),
 

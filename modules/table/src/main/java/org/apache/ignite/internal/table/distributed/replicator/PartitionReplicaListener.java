@@ -1999,7 +1999,7 @@ public class PartitionReplicaListener implements ReplicaListener {
             // And complete cleanupReadyFut with exception if it is the case.
             TxStateMeta txStateMeta = txManager.stateMeta(txId);
 
-            if (txStateMeta == null || isFinalState(txStateMeta.txState())) {
+            if (txStateMeta == null || isFinalState(txStateMeta.txState()) || txStateMeta.txState() == FINISHING) {
                 cleanupReadyFut.completeExceptionally(new Exception());
 
                 return txOps;

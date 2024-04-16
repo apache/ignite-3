@@ -20,6 +20,7 @@ package org.apache.ignite.internal.raft.storage.logit;
 import java.nio.file.Path;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -46,18 +47,19 @@ public class LogitLogStorageFactory implements LogStorageFactory {
     /** Executor for shared storages. */
     private final ScheduledExecutorService checkpointExecutor;
 
-    private final Path baseLogStoragesPath;
-
     private final StoreOptions storeOptions;
+
+    /** Function to get base location of all log storages, created by this factory. */
+    private final Supplier<Path> logPathSupplier;
 
     /**
      * Constructor.
      *
-     * @param baseLogStoragesPath Location of all log storages, created by this factory.
+     * @param logPathSupplier Function to get base path of all log storages, created by this factory.
      * @param storeOptions Logit log storage options.
      */
-    public LogitLogStorageFactory(String nodeName, Path baseLogStoragesPath, StoreOptions storeOptions) {
-        this.baseLogStoragesPath = baseLogStoragesPath;
+    public LogitLogStorageFactory(String nodeName, StoreOptions storeOptions, Supplier<Path> logPathSupplier) {
+        this.logPathSupplier = logPathSupplier;
         this.storeOptions = storeOptions;
         checkpointExecutor = Executors.newSingleThreadScheduledExecutor(
                 NamedThreadFactory.create(nodeName, "logit-checkpoint-executor", LOG)
@@ -98,7 +100,8 @@ public class LogitLogStorageFactory implements LogStorageFactory {
         throw new UnsupportedOperationException("Not implemented yet");
     }
 
-    private Path resolveLogStoragePath(String groupId) {
-        return baseLogStoragesPath.resolve(LOG_DIR_PREFIX + groupId);
+    /** Returns path to log storage by group ID. */
+    public Path resolveLogStoragePath(String groupId) {
+        return logPathSupplier.get().resolve(LOG_DIR_PREFIX + groupId);
     }
 }

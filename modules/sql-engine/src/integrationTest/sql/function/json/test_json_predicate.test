@@ -1,4 +1,4 @@
-# name: test/sql/function/json/test_json_query.test
+# name: test/sql/function/json/test_json_predicate.test
 # description: JSON predicate (is a part of T821 "Basic SQL/JSON query operators")
 # group: [json]
 

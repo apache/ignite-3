@@ -70,17 +70,21 @@ public class RaftConfigurationSchema {
      * Amount of Disruptors that will handle the RAFT server.
      */
     @Value(hasDefault = true)
-    public int stripes = Runtime.getRuntime().availableProcessors() * 2;
+    public int stripes = Runtime.getRuntime().availableProcessors();
 
     /**
      * Amount of log manager Disruptors stripes.
      */
     @Value(hasDefault = true)
-    public int logStripesCount = Runtime.getRuntime().availableProcessors() * 2;
+    public int logStripesCount = 4;
 
     /**
      * Set true to use the non-blocking strategy in the log manager.
      */
     @Value(hasDefault = true)
     public boolean logYieldStrategy = false;
+
+    /** Directory where log is stored. By default "log" subfolder of data storage path is used. */
+    @Value(hasDefault = true)
+    public String logPath = "";
 }

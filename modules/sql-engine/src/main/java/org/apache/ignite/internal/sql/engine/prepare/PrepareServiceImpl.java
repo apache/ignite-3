@@ -350,7 +350,7 @@ public class PrepareServiceImpl implements PrepareService {
                 var plan = new MultiStepPlan(nextPlanId(), SqlQueryType.QUERY, clonedTree, resultSetMetadata, parameterMetadata);
 
                 if (LOG.isDebugEnabled()) {
-                    LOG.debug("Plan prepared: \n{}\n{}", parsedResult.originalQuery(), plan.explain());
+                    LOG.debug("Plan prepared: \n{}\n\n{}", parsedResult.originalQuery(), plan.explain());
                 }
 
                 return plan;

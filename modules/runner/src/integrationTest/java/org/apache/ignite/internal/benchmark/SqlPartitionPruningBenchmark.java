@@ -106,7 +106,7 @@ public class SqlPartitionPruningBenchmark extends AbstractMultiNodeBenchmark {
     private static void initTable(String tableName, int fieldCount) {
         KeyValueView<Tuple, Tuple> keyValueView = clusterNode.tables().table(tableName).keyValueView();
 
-        String query = format("CREATE INDEX {}_sorted_idx ON {} USING TREE (key1, key2)", tableName, tableName);
+        String query = format("CREATE INDEX {}_sorted_idx ON {} USING SORTED (key1, key2)", tableName, tableName);
         try (var rs = clusterNode.sql().execute(null, query)) {
             while (rs.hasNext()) {
                 rs.next();
