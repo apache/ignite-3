@@ -49,6 +49,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.event.AbstractEventProducer;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureType;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -139,6 +142,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
     private final Executor requestsExecutor;
 
+    private final FailureProcessor failureProcessor;
+
     /** Set of message groups to handler as replica requests. */
     private final Set<Class<?>> messageGroupsToHandle;
 
@@ -166,7 +171,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             ClockService clockService,
             Set<Class<?>> messageGroupsToHandle,
             PlacementDriver placementDriver,
-            Executor requestsExecutor
+            Executor requestsExecutor,
+            FailureProcessor failureProcessor
     ) {
         this(
                 nodeName,
@@ -176,7 +182,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 messageGroupsToHandle,
                 placementDriver,
                 requestsExecutor,
-                () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS
+                () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
+                failureProcessor
         );
     }
 
@@ -200,7 +207,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             Set<Class<?>> messageGroupsToHandle,
             PlacementDriver placementDriver,
             Executor requestsExecutor,
-            LongSupplier idleSafeTimePropagationPeriodMsSupplier
+            LongSupplier idleSafeTimePropagationPeriodMsSupplier,
+            FailureProcessor failureProcessor
     ) {
         this.clusterNetSvc = clusterNetSvc;
         this.cmgMgr = cmgMgr;
@@ -211,6 +219,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         this.placementDriver = placementDriver;
         this.requestsExecutor = requestsExecutor;
         this.idleSafeTimePropagationPeriodMsSupplier = idleSafeTimePropagationPeriodMsSupplier;
+        this.failureProcessor = failureProcessor;
 
         scheduledIdleSafeTimeSyncExecutor = Executors.newScheduledThreadPool(
                 1,
@@ -764,15 +773,29 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * Idle safe time sync for replicas.
      */
     private void idleSafeTimeSync() {
-        replicas.values().forEach(r -> {
-            if (r.isDone()) {
-                ReplicaSafeTimeSyncRequest req = REPLICA_MESSAGES_FACTORY.replicaSafeTimeSyncRequest()
-                        .groupId(r.join().groupId())
-                        .build();
+        for (Entry<ReplicationGroupId, CompletableFuture<Replica>> entry : replicas.entrySet()) {
+            try {
+                sendSafeTimeSyncIfReplicaReady(entry.getValue());
+            } catch (Exception | AssertionError e) {
+                LOG.warn("Error while trying to send a safe time sync request [groupId={}]", e, entry.getKey());
+            } catch (Error e) {
+                LOG.error("Error while trying to send a safe time sync request [groupId={}]", e, entry.getKey());
 
-                r.join().processRequest(req, localNodeId);
+                failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, e));
             }
-        });
+        }
+    }
+
+    private void sendSafeTimeSyncIfReplicaReady(CompletableFuture<Replica> replicaFuture) {
+        if (isCompletedSuccessfully(replicaFuture)) {
+            Replica replica = replicaFuture.join();
+
+            ReplicaSafeTimeSyncRequest req = REPLICA_MESSAGES_FACTORY.replicaSafeTimeSyncRequest()
+                    .groupId(replica.groupId())
+                    .build();
+
+            replica.processRequest(req, localNodeId);
+        }
     }
 
     /**

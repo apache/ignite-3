@@ -68,6 +68,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
@@ -301,6 +302,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
 
         lowWatermark = new TestLowWatermark();
         lowWatermark.updateWithoutNotify(savedWatermark);
+        ClockService clockService = new TestClockService(clock);
         tableManager = new TableManager(
                 NODE_NAME,
                 revisionUpdater,
@@ -323,7 +325,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 partitionOperationsExecutor,
                 partitionOperationsExecutor,
                 clock,
-                new TestClockService(clock),
+                clockService,
                 new OutgoingSnapshotsManager(clusterService.messagingService()),
                 mock(TopologyAwareRaftGroupServiceFactory.class),
                 distributionZoneManager,
@@ -335,7 +337,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 new RemotelyTriggeredResourceRegistry(),
                 mock(ScheduledExecutorService.class),
                 lowWatermark,
-                new TransactionInflights(placementDriver)
+                new TransactionInflights(placementDriver, clockService)
         ) {
 
             @Override

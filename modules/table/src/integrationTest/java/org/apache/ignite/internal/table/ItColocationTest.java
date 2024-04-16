@@ -60,6 +60,8 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
@@ -172,14 +174,17 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
         PlacementDriver placementDriver = new TestPlacementDriver(clusterNode);
 
-        TransactionInflights transactionInflights = new TransactionInflights(placementDriver);
+        HybridClock clock = new HybridClockImpl();
+        ClockService clockService = new TestClockService(clock);
+
+        TransactionInflights transactionInflights = new TransactionInflights(placementDriver, clockService);
 
         txManager = new TxManagerImpl(
                 txConfiguration,
                 clusterService,
                 replicaService,
                 new HeapLockManager(),
-                new TestClockService(new HybridClockImpl()),
+                clockService,
                 new TransactionIdGenerator(0xdeadbeef),
                 placementDriver,
                 () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,

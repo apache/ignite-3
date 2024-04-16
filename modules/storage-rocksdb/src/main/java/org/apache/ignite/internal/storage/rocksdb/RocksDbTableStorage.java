@@ -118,21 +118,21 @@ public class RocksDbTableStorage implements MvTableStorage {
     /**
      * Returns a column family handle for partitions column family.
      */
-    public ColumnFamilyHandle partitionCfHandle() {
+    ColumnFamilyHandle partitionCfHandle() {
         return rocksDb.partitionCf.handle();
     }
 
     /**
      * Returns a column family handle for meta column family.
      */
-    public ColumnFamilyHandle metaCfHandle() {
+    ColumnFamilyHandle metaCfHandle() {
         return rocksDb.meta.columnFamily().handle();
     }
 
     /**
      * Returns a column family handle for GC queue.
      */
-    public ColumnFamilyHandle gcQueueHandle() {
+    ColumnFamilyHandle gcQueueHandle() {
         return rocksDb.gcQueueCf.handle();
     }
 
@@ -258,15 +258,19 @@ public class RocksDbTableStorage implements MvTableStorage {
 
     @Override
     public CompletableFuture<Void> destroyIndex(int indexId) {
-        return inBusyLock(busyLock, () -> {
-            try {
-                indexes.destroyIndex(indexId);
+        if (!busyLock.enterBusy()) {
+            return nullCompletedFuture();
+        }
 
-                return nullCompletedFuture();
-            } catch (RocksDBException e) {
-                throw new StorageException("Error when destroying index: {}", e, indexId);
-            }
-        });
+        try {
+            indexes.destroyIndex(indexId);
+
+            return nullCompletedFuture();
+        } catch (RocksDBException e) {
+            throw new StorageException("Error when destroying index: {}", e, indexId);
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     @Override

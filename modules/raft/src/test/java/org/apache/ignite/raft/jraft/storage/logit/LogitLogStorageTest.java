@@ -43,11 +43,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class LogitLogStorageTest extends BaseLogStorageTest {
     private LogitLogStorageFactory logStorageFactory;
 
-
     @BeforeEach
     @Override
     public void setup() throws Exception {
-        logStorageFactory = new LogitLogStorageFactory("test", path, testStoreOptions());
+        logStorageFactory = new LogitLogStorageFactory("test", testStoreOptions(), () -> path);
         logStorageFactory.start();
 
         super.setup();

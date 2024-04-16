@@ -941,7 +941,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
         sql("CREATE TABLE IF NOT EXISTS " + TABLE_NAME
                 + " (key INTEGER PRIMARY KEY, valInt INTEGER NOT NULL, valStr VARCHAR NOT NULL) WITH PRIMARY_ZONE='ZONE1';");
 
-        sql("CREATE INDEX IF NOT EXISTS " + SORTED_IDX + " ON " + TABLE_NAME + " USING TREE (valInt)");
+        sql("CREATE INDEX IF NOT EXISTS " + SORTED_IDX + " ON " + TABLE_NAME + " USING SORTED (valInt)");
 
         return unwrapTableViewInternal(CLUSTER.aliveNode().tables().table(TABLE_NAME));
     }

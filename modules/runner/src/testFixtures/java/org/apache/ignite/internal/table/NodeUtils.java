@@ -71,7 +71,7 @@ public class NodeUtils {
         if (preferablePrimary == null) {
             preferablePrimary = nodes.stream()
                     .map(IgniteImpl::name)
-                    .filter(n -> n.equals(currentLeaseholder.getLeaseholder()))
+                    .filter(n -> !n.equals(currentLeaseholder.getLeaseholder()))
                     .findFirst()
                     .orElseThrow();
         }
@@ -93,7 +93,8 @@ public class NodeUtils {
             return newPrimaryReplica.getLeaseholder().equals(finalPreferablePrimary);
         }, 10_000));
 
-        LOG.info("Primary replica moved successfully.");
+        LOG.info("Primary replica moved successfully from [{}] to [{}].",
+                currentLeaseholder.getLeaseholder(), finalPreferablePrimary);
 
         return finalPreferablePrimary;
     }

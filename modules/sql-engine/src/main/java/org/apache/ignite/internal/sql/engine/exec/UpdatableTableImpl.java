@@ -30,6 +30,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.calcite.plan.RelOptUtil;
+import org.apache.calcite.util.Static;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -40,6 +41,7 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
+import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.table.InternalTable;
@@ -105,6 +107,8 @@ public final class UpdatableTableImpl implements UpdatableTable {
         TablePartitionId commitPartitionId = txAttributes.commitPartition();
 
         assert commitPartitionId != null;
+
+        validateNotNullConstraint(ectx.rowHandler(), rows);
 
         Int2ObjectOpenHashMap<List<BinaryRow>> rowsByPartition = new Int2ObjectOpenHashMap<>();
 
@@ -178,6 +182,8 @@ public final class UpdatableTableImpl implements UpdatableTable {
     /** {@inheritDoc} */
     @Override
     public <RowT> CompletableFuture<Void> insert(InternalTransaction tx, ExecutionContext<RowT> ectx, RowT row) {
+        validateNotNullConstraint(ectx.rowHandler(), row);
+
         BinaryRowEx tableRow = rowConverter.toBinaryRow(ectx, row, false);
 
         return table.insert(tableRow, tx)
@@ -201,6 +207,8 @@ public final class UpdatableTableImpl implements UpdatableTable {
     ) {
         TxAttributes txAttributes = ectx.txAttributes();
         TablePartitionId commitPartitionId = txAttributes.commitPartition();
+
+        validateNotNullConstraint(ectx.rowHandler(), rows);
 
         assert commitPartitionId != null;
 
@@ -348,5 +356,22 @@ public final class UpdatableTableImpl implements UpdatableTable {
     @FunctionalInterface
     private interface PartitionExtractor {
         int fromRow(BinaryRowEx row);
+    }
+
+    private <RowT> void validateNotNullConstraint(RowHandler<RowT> rowHandler, List<RowT> rows) {
+        for (RowT row : rows) {
+            validateNotNullConstraint(rowHandler, row);
+        }
+    }
+
+    private <RowT> void validateNotNullConstraint(RowHandler<RowT> rowHandler, RowT row) {
+        for (int i = 0; i < desc.columnsCount(); i++) {
+            ColumnDescriptor column = desc.columnDescriptor(i);
+
+            if (!column.nullable() && rowHandler.isNull(i, row)) {
+                String message = Static.RESOURCE.columnNotNullable(column.name()).ex().getMessage();
+                throw new SqlException(CONSTRAINT_VIOLATION_ERR, message);
+            }
+        }
     }
 }

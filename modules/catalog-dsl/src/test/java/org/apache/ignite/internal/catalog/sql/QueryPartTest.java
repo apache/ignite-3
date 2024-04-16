@@ -135,17 +135,17 @@ class QueryPartTest {
         assertThat(sql(constraint), is("PRIMARY KEY (a)"));
         assertThat(sqlQuoted(constraint), is("PRIMARY KEY (\"a\")"));
 
-        constraint = new Constraint().primaryKey(IndexType.TREE, List.of(column("a")));
-        assertThat(sql(constraint), is("PRIMARY KEY USING TREE (a)"));
-        assertThat(sqlQuoted(constraint), is("PRIMARY KEY USING TREE (\"a\")"));
+        constraint = new Constraint().primaryKey(IndexType.SORTED, List.of(column("a")));
+        assertThat(sql(constraint), is("PRIMARY KEY USING SORTED (a)"));
+        assertThat(sqlQuoted(constraint), is("PRIMARY KEY USING SORTED (\"a\")"));
 
         constraint = new Constraint().primaryKey(column("a"), column("b"));
         assertThat(sql(constraint), is("PRIMARY KEY (a, b)"));
         assertThat(sqlQuoted(constraint), is("PRIMARY KEY (\"a\", \"b\")"));
 
-        constraint = new Constraint().primaryKey(IndexType.TREE, List.of(column("a"), column("b")));
-        assertThat(sql(constraint), is("PRIMARY KEY USING TREE (a, b)"));
-        assertThat(sqlQuoted(constraint), is("PRIMARY KEY USING TREE (\"a\", \"b\")"));
+        constraint = new Constraint().primaryKey(IndexType.SORTED, List.of(column("a"), column("b")));
+        assertThat(sql(constraint), is("PRIMARY KEY USING SORTED (a, b)"));
+        assertThat(sqlQuoted(constraint), is("PRIMARY KEY USING SORTED (\"a\", \"b\")"));
     }
 
     @Test

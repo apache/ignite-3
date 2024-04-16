@@ -215,4 +215,18 @@ public interface PartitionDataStorage extends ManuallyCloseable {
      * @see MvPartitionStorage#vacuum(GcEntry)
      */
     @Nullable BinaryRow vacuum(GcEntry entry);
+
+    /**
+     * Updates the current lease start time in the storage.
+     *
+     * @param leaseStartTime Lease start time.
+     */
+    void updateLease(long leaseStartTime);
+
+    /**
+     * Return the start time of the known lease for this replication group.
+     *
+     * @return Lease start time.
+     */
+    long leaseStartTime();
 }

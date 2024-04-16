@@ -466,7 +466,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         checkSqlError(Sql.STMT_PARSE_ERR, "Failed to parse query", sql, "SELECT ID FROM");
 
         // Validation errors.
-        checkSqlError(Sql.STMT_VALIDATION_ERR, "Column 'VAL0' does not allow NULLs", sql,
+        checkSqlError(Sql.CONSTRAINT_VIOLATION_ERR, "Column 'VAL0' does not allow NULLs", sql,
                 "INSERT INTO TEST VALUES (2, NULL)");
 
         checkSqlError(Sql.STMT_VALIDATION_ERR, "Object 'NOT_EXISTING_TABLE' not found", sql,

@@ -26,7 +26,6 @@ import static org.hamcrest.Matchers.either;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.not;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -37,7 +36,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
-import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -155,15 +153,6 @@ class ExecutorInclinedPlacementDriverTest extends BaseIgniteAbstractTest {
                 either(instanceOf(TestThread.class))
                         .or(is(Thread.currentThread()))
         );
-    }
-
-    @Test
-    void delegatesCurrentLease() {
-        ReplicaMeta currentLease = mock(ReplicaMeta.class);
-
-        when(placementDriver.currentLease(context.groupId)).thenReturn(currentLease);
-
-        assertThat(decorator.currentLease(context.groupId), is(currentLease));
     }
 
     @Test

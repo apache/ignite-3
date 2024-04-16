@@ -109,7 +109,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
         String hashIdxSql = IgniteStringFormatter.format("CREATE INDEX {} ON {} USING HASH (val)",
                 HASH_IDX, TABLE_NAME);
 
-        String sortedIdxSql = IgniteStringFormatter.format("CREATE INDEX {} ON {} USING TREE (val)",
+        String sortedIdxSql = IgniteStringFormatter.format("CREATE INDEX {} ON {} USING SORTED (val)",
                 SORTED_IDX, TABLE_NAME);
 
         cluster.doInSession(0, session -> {
