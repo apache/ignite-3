@@ -15,24 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.eventlog.impl;
+package org.apache.ignite.internal.eventlog.ser;
 
-import org.apache.ignite.internal.eventlog.api.Sink;
-import org.apache.ignite.internal.eventlog.config.schema.SinkView;
-import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.lang.ErrorGroups.Common;
+class Message {
+    private final int version;
+    private final String body;
 
-/**
- * Factory for creating sink instances.
- */
-public interface SinkFactory {
-    /**
-     * Creates a sink instance.
-     *
-     * @param sinkView Sink configuration view.
-     * @return Sink instance.
-     */
-    default Sink createSink(SinkView sinkView) {
-        throw new IgniteInternalException(Common.INTERNAL_ERR, "Unsupported sink type: " + sinkView.type());
+    public Message(int version, String body) {
+        this.version = version;
+        this.body = body;
+    }
+
+    public int getVersion() {
+        return version;
+    }
+
+    public String getBody() {
+        return body;
     }
 }

@@ -42,7 +42,7 @@ class IgniteEventsTest {
                         Event.builder()
                                 .type("CONNECTION_CLOSED")
                                 .productVersion("3.0.0")
-                                .timestamp(connectionClosedEvent.timestamp())
+                                .timestamp(connectionClosedEvent.getTimestamp())
                                 .user(EventUser.of(USER, PROVIDER))
                                 .build()
                 ),
@@ -51,7 +51,7 @@ class IgniteEventsTest {
                         Event.builder()
                                 .type("USER_AUTHENTICATED")
                                 .productVersion("3.0.0")
-                                .timestamp(connectionEstablishedEvent.timestamp())
+                                .timestamp(connectionEstablishedEvent.getTimestamp())
                                 .user(EventUser.of(USER, PROVIDER))
                                 .build()
                 )
