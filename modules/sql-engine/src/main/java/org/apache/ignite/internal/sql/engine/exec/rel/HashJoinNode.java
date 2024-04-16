@@ -243,8 +243,6 @@ public abstract class HashJoinNode<RowT> extends AbstractRightMaterializedJoinNo
         /** Left row factory. */
         private final RowHandler.RowFactory<RowT> leftRowFactory;
 
-        Iterator<RowT> rightItRight = Collections.emptyIterator();
-
         private RightHashJoin(
                 ExecutionContext<RowT> ctx,
                 RowHandler.RowFactory<RowT> leftRowFactory,
