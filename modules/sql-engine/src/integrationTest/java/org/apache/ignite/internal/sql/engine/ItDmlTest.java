@@ -573,9 +573,9 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
     public void testCheckNullValueErrorMessageForColumnWithDefaultValue() {
         sql("CREATE TABLE tbl(key int DEFAULT 9 primary key, val varchar)");
 
-        var expectedMessage = "Failed to validate query. From line 1, column 28 to line 1, column 45: Column 'KEY' does not allow NULLs";
+        var expectedMessage = "Column 'KEY' does not allow NULLs";
 
-        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, expectedMessage, () -> sql("INSERT INTO tbl (key, val) VALUES (NULL,'AA')"));
+        assertThrowsSqlException(Sql.CONSTRAINT_VIOLATION_ERR, expectedMessage, () -> sql("INSERT INTO tbl (key, val) VALUES (NULL,'AA')"));
     }
 
     private void checkQueryResult(String sql, List<Object> expectedVals) {

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.util;
 
 import static org.apache.ignite.internal.lang.IgniteExceptionMapper.unchecked;
+import static org.apache.ignite.lang.ErrorGroups.Sql.CONSTRAINT_VIOLATION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Sql.SQL_ERR_GROUP;
 import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 
@@ -39,6 +40,9 @@ import org.apache.ignite.sql.SqlException;
  */
 @AutoService(IgniteExceptionMappersProvider.class)
 public class SqlExceptionMapperProvider implements IgniteExceptionMappersProvider {
+
+    private static final String NOT_NULL_CONSTRAINT_MESSAGE = "does not allow NULLs";
+
     @Override
     public Collection<IgniteExceptionMapper<?, ?>> mappers() {
         List<IgniteExceptionMapper<?, ?>> mappers = new ArrayList<>();
@@ -54,7 +58,15 @@ public class SqlExceptionMapperProvider implements IgniteExceptionMappersProvide
         }));
 
         mappers.add(unchecked(CalciteContextException.class,
-                err -> new SqlException(STMT_VALIDATION_ERR, "Failed to validate query. " + err.getMessage(), err)));
+                err -> {
+                    String message = err.getMessage();
+                    // Remap not null constraint violation to CONSTRAINT_VIOLATION_ERR 
+                    if (message != null && message.contains(NOT_NULL_CONSTRAINT_MESSAGE)) {
+                        return new SqlException(CONSTRAINT_VIOLATION_ERR, message, err);
+                    } else {
+                        return new SqlException(STMT_VALIDATION_ERR, "Failed to validate query. " + message, err);
+                    }
+                }));
 
         mappers.add(unchecked(CatalogValidationException.class,
                 err -> new SqlException(err.traceId(), STMT_VALIDATION_ERR, "Failed to validate query. " + err.getMessage(), err)));
