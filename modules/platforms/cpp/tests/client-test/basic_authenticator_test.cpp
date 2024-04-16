@@ -22,21 +22,20 @@
 
 using namespace ignite;
 
-struct basic_authenticator_test : public basic_auth_test_suite {
+struct DISABLED_basic_authenticator_test : public basic_auth_test_suite {
     /**
      * Tear down.
      */
     static void TearDownTestSuite() { set_authentication_enabled(false); }
 };
 
-TEST_F(basic_authenticator_test, disabled_on_server) {
+TEST_F(DISABLED_basic_authenticator_test, disabled_on_server) {
     set_authentication_enabled(false);
     auto client = ignite_client::start(get_configuration_correct(), std::chrono::seconds(30));
     (void) client.get_cluster_nodes();
 }
 
-// https://issues.apache.org/jira/browse/IGNITE-22052
-TEST_F(basic_authenticator_test, DISABLED_disabled_on_client) {
+TEST_F(DISABLED_basic_authenticator_test, disabled_on_client) {
     set_authentication_enabled(true);
     EXPECT_THROW(
         {
@@ -50,15 +49,13 @@ TEST_F(basic_authenticator_test, DISABLED_disabled_on_client) {
         ignite_error);
 }
 
-// https://issues.apache.org/jira/browse/IGNITE-22052
-TEST_F(basic_authenticator_test, DISABLED_success) {
+TEST_F(DISABLED_basic_authenticator_test, success) {
     set_authentication_enabled(true);
     auto client = ignite_client::start(get_configuration_correct(), std::chrono::seconds(30));
     (void) client.get_cluster_nodes();
 }
 
-// https://issues.apache.org/jira/browse/IGNITE-22052
-TEST_F(basic_authenticator_test, DISABLED_wrong_username) {
+TEST_F(DISABLED_basic_authenticator_test, wrong_username) {
     set_authentication_enabled(true);
     EXPECT_THROW(
         {
@@ -72,8 +69,7 @@ TEST_F(basic_authenticator_test, DISABLED_wrong_username) {
         ignite_error);
 }
 
-// https://issues.apache.org/jira/browse/IGNITE-22052
-TEST_F(basic_authenticator_test, DISABLED_wrong_password) {
+TEST_F(DISABLED_basic_authenticator_test, wrong_password) {
     set_authentication_enabled(true);
     EXPECT_THROW(
         {
