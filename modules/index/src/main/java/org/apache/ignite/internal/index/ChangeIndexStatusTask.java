@@ -235,7 +235,7 @@ abstract class ChangeIndexStatusTask {
 
     private CompletableFuture<ReplicaMeta> awaitPrimaryReplica() {
         return inBusyLocks(() -> {
-            ZonePartitionId groupId = new ZonePartitionId(indexDescriptor.zoneId(), 0, indexDescriptor.tableId());
+            ZonePartitionId groupId = new ZonePartitionId(indexDescriptor.zoneId(), indexDescriptor.tableId(), 0);
 
             return placementDriver.awaitPrimaryReplicaForTable(groupId, clockService.now(), AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC, SECONDS)
                     .handle((replicaMeta, throwable) -> {

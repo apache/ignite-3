@@ -303,7 +303,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
     }
 
     private ZonePartitionId replicaId(int partitionId) {
-        return new ZonePartitionId(0, partitionId, tableId());
+        return new ZonePartitionId(0, tableId(), partitionId);
     }
 
     private ReplicaMeta replicaMetaForOneSecond(String leaseholder, String leaseholderId, HybridTimestamp startTime) {

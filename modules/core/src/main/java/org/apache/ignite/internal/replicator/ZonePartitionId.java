@@ -23,14 +23,11 @@ import java.util.Objects;
  * The class is used to identify a zone replication group id for a given partition.
  */
 public class ZonePartitionId implements ReplicationGroupId {
-
-    /** Zone id. */
     private final int zoneId;
 
-    /** Partition id. */
-    private final int partId;
-
     private final int tableId;
+
+    private final int partId;
 
     /**
      * The constructor.
@@ -41,19 +38,20 @@ public class ZonePartitionId implements ReplicationGroupId {
     public ZonePartitionId(int zoneId, int partId) {
         this.zoneId = zoneId;
         this.partId = partId;
-        this.tableId = 0;
+        this.tableId = -1;
     }
 
     /**
      * The constructor.
      *
      * @param zoneId Zone id.
+     * @param tableId Table id.
      * @param partId Partition id.
      */
-    public ZonePartitionId(int zoneId, int partId, int tableId) {
+    public ZonePartitionId(int zoneId, int tableId, int partId) {
         this.zoneId = zoneId;
-        this.partId = partId;
         this.tableId = tableId;
+        this.partId = partId;
     }
 
     /**
@@ -66,16 +64,21 @@ public class ZonePartitionId implements ReplicationGroupId {
     }
 
     /**
+     * Get the table id.
+     *
+     * @return Table id.
+     */
+    public int tableId() {
+        return tableId;
+    }
+
+    /**
      * Get the partition id.
      *
      * @return Partition id.
      */
     public int partitionId() {
         return partId;
-    }
-
-    public int tableId() {
-        return tableId;
     }
 
     /**

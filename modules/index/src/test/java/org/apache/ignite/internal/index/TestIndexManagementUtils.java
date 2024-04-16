@@ -103,6 +103,10 @@ class TestIndexManagementUtils {
         return TableTestUtils.getTableIdStrict(catalogService, tableName, clock.nowLong());
     }
 
+    static int zoneId(CatalogService catalogService, String tableName, HybridClock clock) {
+        return TableTestUtils.getZoneIdStrict(catalogService, tableName, clock.nowLong());
+    }
+
     static void makeIndexAvailable(CatalogManager catalogManager, int indexId) {
         assertThat(catalogManager.execute(MakeIndexAvailableCommand.builder().indexId(indexId).build()), willCompleteSuccessfully());
     }

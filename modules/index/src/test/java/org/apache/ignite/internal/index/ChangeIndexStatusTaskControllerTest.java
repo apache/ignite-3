@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.index;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.COLUMN_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.INDEX_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.LOCAL_NODE;
@@ -189,7 +190,7 @@ public class ChangeIndexStatusTaskControllerTest extends BaseIgniteAbstractTest 
     }
 
     private void setPrimaryReplica(ClusterNode clusterNode) {
-        ZonePartitionId zonePartId = new ZonePartitionId(0, 0, tableId());
+        ZonePartitionId zonePartId = new ZonePartitionId(zoneId(), tableId(), 0);
 
         TablePartitionId tablePartId = new TablePartitionId(tableId(), 0);
 
@@ -200,6 +201,10 @@ public class ChangeIndexStatusTaskControllerTest extends BaseIgniteAbstractTest 
 
     private int tableId() {
         return TestIndexManagementUtils.tableId(catalogManager, TABLE_NAME, clock);
+    }
+
+    private int zoneId() {
+        return TestIndexManagementUtils.zoneId(catalogManager, DEFAULT_ZONE_NAME, clock);
     }
 
     private CatalogIndexDescriptor indexDescriptor() {

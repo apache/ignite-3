@@ -42,6 +42,7 @@ import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
@@ -200,6 +201,22 @@ public class TableTestUtils {
     }
 
     /**
+     * Returns zone descriptor form catalog.
+     *
+     * @param catalogService Catalog service.
+     * @param zoneName Zone name.
+     * @param timestamp Timestamp.
+     * @throws AssertionError If zone descriptor is absent.
+     */
+    public static CatalogZoneDescriptor getZoneStrict(CatalogService catalogService, String zoneName, long timestamp) {
+        CatalogZoneDescriptor zone = catalogService.zone(zoneName, timestamp);
+
+        assertNotNull(zone, "zoneName=" + zoneName + ", timestamp=" + timestamp);
+
+        return zone;
+    }
+
+    /**
      * Returns table descriptor form catalog.
      *
      * @param catalogService Catalog service.
@@ -238,6 +255,18 @@ public class TableTestUtils {
      */
     public static int getTableIdStrict(CatalogService catalogService, String tableName, long timestamp) {
         return getTableStrict(catalogService, tableName, timestamp).id();
+    }
+
+    /**
+     * Returns zone id from catalog.
+     *
+     * @param catalogService Catalog service.
+     * @param zoneName Table name.
+     * @param timestamp Timestamp.
+     * @throws AssertionError If table is absent.
+     */
+    public static int getZoneIdStrict(CatalogService catalogService, String zoneName, long timestamp) {
+        return getZoneStrict(catalogService, zoneName, timestamp).id();
     }
 
     /**

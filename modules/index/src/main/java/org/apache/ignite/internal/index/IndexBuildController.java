@@ -190,7 +190,7 @@ class IndexBuildController implements ManuallyCloseable {
                 // TODO: temporary solution, zone id is not used, will be used after https://issues.apache.org/jira/browse/IGNITE-18991
                 int zoneId = 0;
 
-                ZonePartitionId zonePartitionId = new ZonePartitionId(zoneId, tablePartitionId.partitionId(), tableId);
+                ZonePartitionId zonePartitionId = new ZonePartitionId(zoneId, tableId, tablePartitionId.partitionId());
 
                 primaryReplicaIds.add(zonePartitionId);
 

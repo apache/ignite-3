@@ -23,6 +23,6 @@ import org.apache.ignite.internal.network.annotations.Transferable;
  * Wait for replica state being up to date with a leader.
  */
 @Transferable(ReplicaMessageGroup.WAIT_REPLICA_STATE)
-public interface WaitReplicaStateMessage extends ReplicaRequest {
+public interface WaitReplicaStateMessage extends PrimaryReplicaRequest {
     long timeout();
 }

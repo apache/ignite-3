@@ -15,7 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.placementdriver.leases;
+package org.apache.ignite.internal.replicator;
+
+import static java.util.concurrent.CompletableFuture.completedFuture;
 
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -27,10 +29,6 @@ import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
-import org.apache.ignite.internal.replicator.ReplicaService;
-import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.WaitReplicaStateMessage;
 import org.apache.ignite.network.ClusterNode;
@@ -95,6 +93,10 @@ public class ReplicaAwareLeaseTracker extends AbstractEventProducer<PrimaryRepli
         return delegate.awaitPrimaryReplica(tablePartitionId, timestamp, timeout, unit)
                 .thenCompose(replicaMeta -> {
                     ClusterNode leaseholderNode = clusterNodeResolver.getById(replicaMeta.getLeaseholderId());
+
+                    if (replicaMeta.subgroups().contains(tablePartitionId)) {
+                        return completedFuture(replicaMeta);
+                    }
 
                     WaitReplicaStateMessage awaitReplicaReq = REPLICA_MESSAGES_FACTORY.waitReplicaStateMessage()
                             .groupId(tablePartitionId)
