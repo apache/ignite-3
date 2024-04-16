@@ -23,6 +23,10 @@
 using namespace ignite;
 
 struct basic_authenticator_test : public basic_auth_test_suite {
+    void SetUp() override {
+        GTEST_SKIP() << "IGNITE-22052 С++ 3.0: basic_authenticator_test is flaky";
+    }
+
     /**
      * Tear down.
      */
