@@ -763,7 +763,6 @@ public class IgniteImpl implements Ignite {
                 clock,
                 clockService,
                 outgoingSnapshotsManager,
-                topologyAwareRaftGroupServiceFactory,
                 distributionZoneManager,
                 schemaSyncService,
                 catalogManager,
