@@ -21,5 +21,8 @@ import java.util.concurrent.CompletableFuture;
 
 @SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
 public interface DataStreamerReceiver<T, R> {
-    CompletableFuture<R> onReceive(T item, DataStreamerReceiverContext ctx, Object... args);
+    CompletableFuture<R> receive(
+            T item,
+            DataStreamerReceiverContext ctx,
+            Object... args);
 }
