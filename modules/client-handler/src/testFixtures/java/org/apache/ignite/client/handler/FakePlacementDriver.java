@@ -103,17 +103,6 @@ public class FakePlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
         return nullCompletedFuture();
     }
 
-    @Override
-    public ReplicaMeta currentLease(ReplicationGroupId groupId) {
-        TablePartitionId id = (TablePartitionId) groupId;
-
-        if (returnError) {
-            throw new RuntimeException("FakePlacementDriver expected error");
-        } else {
-            return primaryReplicas.get(id.partitionId());
-        }
-    }
-
     private static ReplicaMeta getReplicaMeta(String leaseholder, long leaseStartTime) {
         //noinspection serial
         return new ReplicaMeta() {

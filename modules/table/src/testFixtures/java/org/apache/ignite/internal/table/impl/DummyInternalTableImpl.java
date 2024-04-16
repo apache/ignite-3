@@ -206,7 +206,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 storageUpdateConfiguration,
                 txConfiguration,
                 new RemotelyTriggeredResourceRegistry(),
-                new TransactionInflights(new TestPlacementDriver(LOCAL_NODE))
+                new TransactionInflights(new TestPlacementDriver(LOCAL_NODE), CLOCK_SERVICE)
         );
     }
 
@@ -471,7 +471,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
         when(clusterService.messagingService()).thenReturn(new DummyMessagingService(LOCAL_NODE));
         when(clusterService.topologyService()).thenReturn(topologyService);
 
-        TransactionInflights transactionInflights = new TransactionInflights(placementDriver);
+        TransactionInflights transactionInflights = new TransactionInflights(placementDriver, CLOCK_SERVICE);
 
         var txManager = new TxManagerImpl(
                 txConfiguration,

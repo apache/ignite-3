@@ -42,6 +42,7 @@ import java.util.stream.IntStream;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -153,14 +154,17 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
 
             PlacementDriver placementDriver = new TestPlacementDriver(leaseholder, leaseholder);
 
-            TransactionInflights transactionInflights = new TransactionInflights(placementDriver);
+            HybridClock clock = new HybridClockImpl();
+            ClockService clockService = new TestClockService(clock);
+
+            TransactionInflights transactionInflights = new TransactionInflights(placementDriver, clockService);
 
             TxManagerImpl txManager = new TxManagerImpl(
                     txConfiguration,
                     clusterService,
                     replicaSvc,
                     new HeapLockManager(),
-                    new TestClockService(new HybridClockImpl()),
+                    clockService,
                     new TransactionIdGenerator(0xdeadbeef),
                     placementDriver,
                     () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,

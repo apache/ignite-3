@@ -21,7 +21,9 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
+import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_PRIMARY_REPLICA_EXPIRED_ERR;
 
 import java.util.Collection;
@@ -31,9 +33,10 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
+import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
-import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tx.MismatchingTransactionOutcomeException;
 import org.apache.ignite.internal.tx.TransactionResult;
@@ -54,8 +57,11 @@ public class TransactionInflights {
 
     private final PlacementDriver placementDriver;
 
-    public TransactionInflights(PlacementDriver placementDriver) {
+    private final ClockService clockService;
+
+    public TransactionInflights(PlacementDriver placementDriver, ClockService clockService) {
         this.placementDriver = placementDriver;
+        this.clockService = clockService;
     }
 
     /**
@@ -70,7 +76,7 @@ public class TransactionInflights {
 
         txCtxMap.compute(txId, (uuid, ctx) -> {
             if (ctx == null) {
-                ctx = readOnly ? new ReadOnlyTxContext() : new ReadWriteTxContext(placementDriver);
+                ctx = readOnly ? new ReadOnlyTxContext() : new ReadWriteTxContext(placementDriver, clockService);
             }
 
             res[0] = ctx.addInflight();
@@ -146,7 +152,7 @@ public class TransactionInflights {
     ReadWriteTxContext lockTxForNewUpdates(UUID txId, Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups) {
         return (ReadWriteTxContext) txCtxMap.compute(txId, (uuid, tuple0) -> {
             if (tuple0 == null) {
-                tuple0 = new ReadWriteTxContext(placementDriver); // No writes enlisted.
+                tuple0 = new ReadWriteTxContext(placementDriver, clockService); // No writes enlisted.
             }
 
             assert !tuple0.isTxFinishing() : "Transaction is already finished [id=" + uuid + "].";
@@ -220,9 +226,11 @@ public class TransactionInflights {
         private final PlacementDriver placementDriver;
         private volatile CompletableFuture<Void> finishInProgressFuture = null;
         private volatile Map<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> enlistedGroups;
+        private ClockService clockService;
 
-        private ReadWriteTxContext(PlacementDriver placementDriver) {
+        private ReadWriteTxContext(PlacementDriver placementDriver, ClockService clockService) {
             this.placementDriver = placementDriver;
+            this.clockService = clockService;
         }
 
         CompletableFuture<Void> performFinish(boolean commit, Function<Boolean, CompletableFuture<Void>> finishAction) {
@@ -247,32 +255,45 @@ public class TransactionInflights {
                     finishInProgressFuture.completeExceptionally(finishException);
                 }
             } else {
-                if (commit && readyToFinishException instanceof PrimaryReplicaExpiredException) {
+                Throwable unwrappedReadyToFinishException = unwrapCause(readyToFinishException);
+
+                if (commit && unwrappedReadyToFinishException instanceof PrimaryReplicaExpiredException) {
                     finishInProgressFuture.completeExceptionally(new MismatchingTransactionOutcomeException(
                             TX_PRIMARY_REPLICA_EXPIRED_ERR,
                             "Failed to commit the transaction.",
                             new TransactionResult(ABORTED, null),
-                            readyToFinishException
+                            unwrappedReadyToFinishException
                     ));
                 } else {
-                    finishInProgressFuture.completeExceptionally(readyToFinishException);
+                    finishInProgressFuture.completeExceptionally(unwrappedReadyToFinishException);
                 }
             }
         }
 
         private CompletableFuture<Void> waitReadyToFinish(boolean commit) {
             if (commit) {
+                HybridTimestamp now = clockService.now();
+
+                var futures = new CompletableFuture[enlistedGroups.size()];
+
+                int cntr = 0;
+
                 for (Map.Entry<TablePartitionId, IgniteBiTuple<ClusterNode, Long>> e : enlistedGroups.entrySet()) {
-                    ReplicaMeta replicaMeta = placementDriver.currentLease(e.getKey());
+                    futures[cntr++] = placementDriver.getPrimaryReplica(e.getKey(), now)
+                            .thenApply(replicaMeta -> {
+                                Long enlistmentConsistencyToken = e.getValue().get2();
 
-                    Long enlistmentConsistencyToken = e.getValue().get2();
+                                if (replicaMeta == null || !enlistmentConsistencyToken.equals(replicaMeta.getStartTime().longValue())) {
+                                    return failedFuture(new PrimaryReplicaExpiredException(e.getKey(), enlistmentConsistencyToken, null,
+                                            replicaMeta));
+                                }
 
-                    if (replicaMeta == null || !enlistmentConsistencyToken.equals(replicaMeta.getStartTime().longValue())) {
-                        return failedFuture(new PrimaryReplicaExpiredException(e.getKey(), enlistmentConsistencyToken, null, replicaMeta));
-                    }
+                                return nullCompletedFuture();
+                            });
                 }
 
-                return waitNoInflights();
+                return allOf(futures)
+                        .thenCompose(unused -> waitNoInflights());
             } else {
                 return nullCompletedFuture();
             }
