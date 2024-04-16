@@ -21,6 +21,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -31,7 +34,7 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
- * Tests for {@link {@link MarshallerUtil}.
+ * Tests for {@link MarshallerUtil}.
  */
 public class MarshallerUtilTest extends BaseIgniteAbstractTest {
 
@@ -55,14 +58,9 @@ public class MarshallerUtilTest extends BaseIgniteAbstractTest {
                 Arguments.of("", NativeTypes.STRING, 1),
                 Arguments.of("1", NativeTypes.STRING, 1),
                 Arguments.of("abc", NativeTypes.STRING, 3),
-                // noinspection AvoidEscapedUnicodeCharacters
-                Arguments.of("\u0700", NativeTypes.STRING, 2),
-                // noinspection AvoidEscapedUnicodeCharacters
-                Arguments.of("\u2600", NativeTypes.STRING, 3),
-                // noinspection AvoidEscapedUnicodeCharacters
-                Arguments.of("\uD800", NativeTypes.STRING, 4),
-                // noinspection AvoidEscapedUnicodeCharacters
-                Arguments.of("a\u0700\u2600\uD800", NativeTypes.STRING, 10),
+                Arguments.of(new String(new byte[]{-36, -128}, StandardCharsets.UTF_8), NativeTypes.STRING, 2),
+                Arguments.of(new String(new byte[]{-30, -104, -128}, StandardCharsets.UTF_8), NativeTypes.STRING, 3),
+                Arguments.of(new String(new byte[]{97, -36, -128, -30, -104, -128}, StandardCharsets.UTF_8), NativeTypes.STRING, 6),
                 // number
                 Arguments.of(BigInteger.ONE, NativeTypes.numberOf(12), 1),
                 Arguments.of(BigInteger.valueOf(123456789), NativeTypes.numberOf(12), 4),
