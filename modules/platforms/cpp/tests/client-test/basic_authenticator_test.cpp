@@ -35,6 +35,7 @@ TEST_F(basic_authenticator_test, disabled_on_server) {
     (void) client.get_cluster_nodes();
 }
 
+// https://issues.apache.org/jira/browse/IGNITE-22052
 TEST_F(basic_authenticator_test, DISABLED_disabled_on_client) {
     set_authentication_enabled(true);
     EXPECT_THROW(
@@ -49,12 +50,14 @@ TEST_F(basic_authenticator_test, DISABLED_disabled_on_client) {
         ignite_error);
 }
 
+// https://issues.apache.org/jira/browse/IGNITE-22052
 TEST_F(basic_authenticator_test, DISABLED_success) {
     set_authentication_enabled(true);
     auto client = ignite_client::start(get_configuration_correct(), std::chrono::seconds(30));
     (void) client.get_cluster_nodes();
 }
 
+// https://issues.apache.org/jira/browse/IGNITE-22052
 TEST_F(basic_authenticator_test, DISABLED_wrong_username) {
     set_authentication_enabled(true);
     EXPECT_THROW(
@@ -69,6 +72,7 @@ TEST_F(basic_authenticator_test, DISABLED_wrong_username) {
         ignite_error);
 }
 
+// https://issues.apache.org/jira/browse/IGNITE-22052
 TEST_F(basic_authenticator_test, DISABLED_wrong_password) {
     set_authentication_enabled(true);
     EXPECT_THROW(
