@@ -45,6 +45,7 @@ public interface DataStreamerTarget<T> {
      * Streams data with receiver. The receiver is responsible for processing the data and updating zero or more tables.
      *
      * @param publisher Producer.
+     * @param options Options (can be null).
      * @param keyFunc Key function. The key is only used locally for colocation.
      * @param payloadFunc Payload function. The payload is sent to the receiver.
      * @param resultSubscriber Optional subscriber for the receiver results.
@@ -58,6 +59,7 @@ public interface DataStreamerTarget<T> {
      */
     <E, V, R> CompletableFuture<Void> streamData(
             Flow.Publisher<E> publisher,
+            @Nullable DataStreamerOptions options,
             Function<E, T> keyFunc,
             Function<E, V> payloadFunc,
             @Nullable Flow.Subscriber<R> resultSubscriber,

@@ -335,6 +335,25 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         assertEquals("bar", view.get(null, tupleKey(2)).stringValue("name"));
     }
 
+    @Test
+    public void testReceiver() {
+        RecordView<Tuple> view = defaultTable().recordView();
+        CompletableFuture<Void> streamerFut;
+
+        try (var publisher = new SimplePublisher<Tuple>()) {
+            var options = DataStreamerOptions.builder().pageSize(1).build();
+            streamerFut = view.streamData(publisher, options);
+
+            publisher.submit(tupleKey(1));
+            waitForKey(view, tupleKey(1));
+
+            sql.execute(null, "ALTER TABLE " + tableName + " ADD COLUMN NAME VARCHAR NOT NULL DEFAULT 'bar'");
+            publisher.submit(tupleKey(2));
+        }
+
+        streamerFut.orTimeout(1, TimeUnit.SECONDS).join();
+    }
+
     private void waitForKey(RecordView<Tuple> view, Tuple key) throws InterruptedException {
         assertTrue(waitForCondition(() -> {
             @SuppressWarnings("resource")
