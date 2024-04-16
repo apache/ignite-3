@@ -48,8 +48,7 @@ public class ItNotNullConstraintClientTest extends ItNotNullConstraintTest {
         return client;
     }
 
-    //TODO https://issues.apache.org/jira/browse/IGNITE-22040 is resolved error messages for client and server API should be the same.
-    // Now they report `"Failed to set column (null was passed, but column is not nullable) ...`
+    // TODO https://issues.apache.org/jira/browse/IGNITE-22040 is resolved error messages for client and server API should be the same.
     @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-22040")
     @Override
