@@ -36,6 +36,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.tx.TransactionIds.beginTimestamp;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
+import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -706,7 +707,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @CartesianTest
     @CartesianTest.MethodFactory("finishedTxTypesFactory")
-    public void testExecuteRequestOnFinishedTx(TxState txState, RequestType requestType) {
+    void testExecuteRequestOnFinishedTx(TxState txState, RequestType requestType) {
         UUID txId = newTxId();
 
         txStateStorage.put(txId, new TxMeta(txState, singletonList(grpId), null));
@@ -2159,7 +2160,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @SuppressWarnings("unused")
     private static ArgumentSets finishedTxTypesFactory() {
-        return ArgumentSets.argumentsForFirstParameter(TxState.FINISHING, ABORTED, COMMITTED)
+        return ArgumentSets.argumentsForFirstParameter(FINISHING, ABORTED, COMMITTED)
                 .argumentsForNextParameter(singleRowRwOperationTypes());
     }
 
