@@ -41,6 +41,8 @@ import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
+import org.apache.ignite.table.DataStreamerReceiver;
+import org.apache.ignite.table.DataStreamerReceiverContext;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
@@ -349,7 +351,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
                     item -> item.serializeToString(),
                     null,
                     List.of(new DeploymentUnit("test", "1.0.0")),
-                    "org.foo.bar.StreamReceiver",
+                    DemoReceiver.class.getName(),
                     "receiverArg1");
 
             publisher.submit(new CustomData(1, "x"));
@@ -441,7 +443,25 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         }
 
         public String serializeToString() {
-            return "info=" + info;
+            return id + ":" + info;
+        }
+
+        public static CustomData deserializeFromString(String str) {
+            String[] parts = str.split(":");
+            return new CustomData(Integer.parseInt(parts[0]), parts[1]);
+        }
+    }
+
+    private class DemoReceiver implements DataStreamerReceiver<String, Boolean> {
+        @Override
+        public CompletableFuture<Boolean> receive(String item, DataStreamerReceiverContext ctx, Object... args) {
+            var data = CustomData.deserializeFromString(item);
+
+            return ctx.ignite()
+                    .tables()
+                    .table(TABLE_NAME)
+                    .recordView()
+                    .insertAsync(null, tuple(data.getId(), data.getInfo()));
         }
     }
 }
