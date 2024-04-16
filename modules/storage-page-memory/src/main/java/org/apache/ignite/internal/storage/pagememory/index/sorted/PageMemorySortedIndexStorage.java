@@ -62,7 +62,7 @@ public class PageMemorySortedIndexStorage extends AbstractPageMemoryIndexStorage
      *
      * @param indexMeta Index meta.
      * @param descriptor Sorted index descriptor.
-     * @param freeList Free list to store index columns.
+     * @param freeList Free list.
      * @param indexTree Sorted index tree instance.
      * @param indexMetaTree Index meta tree instance.
      */

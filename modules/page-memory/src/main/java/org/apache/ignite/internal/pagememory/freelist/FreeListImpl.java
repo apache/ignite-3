@@ -462,7 +462,7 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
 
         if (dataPages > 0) {
             if (log.isInfoEnabled()) {
-                log.info("FreeList [name={}, buckets={}, dataPages={}, reusePages={}]",
+                log.info("FreeListImpl [name={}, buckets={}, dataPages={}, reusePages={}]",
                         name(), BUCKETS, dataPages, bucketsSize.get(REUSE_BUCKET));
             }
         }
@@ -507,7 +507,6 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
         return pageMem.allocatePage(grpId, part, FLAG_DATA);
     }
 
-    /** {@inheritDoc} */
     @Override
     public void insertDataRow(Storable row) throws IgniteInternalCheckedException {
         int written = 0;
@@ -898,6 +897,6 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
 
     @Override
     public String toString() {
-        return "FreeList [name=" + name() + ']';
+        return "FreeListImpl [name=" + name() + ']';
     }
 }

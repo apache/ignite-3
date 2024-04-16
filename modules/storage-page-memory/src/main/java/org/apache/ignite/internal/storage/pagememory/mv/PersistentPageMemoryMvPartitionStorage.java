@@ -450,7 +450,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
         try {
             localState.freeList().saveMetadata();
         } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Failed to save FreeList metadata: [{}]", e, createStorageInfo());
+            throw new StorageException("Failed to save free list metadata: [{}]", e, createStorageInfo());
         }
     }
 }

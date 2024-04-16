@@ -75,7 +75,7 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
     /** Index meta tree instance. */
     private volatile IndexMetaTree indexMetaTree;
 
-    /** Free list to store index columns. */
+    /** Free list. */
     protected volatile FreeListImpl freeList;
 
     /** Index tree instance. */
@@ -282,7 +282,7 @@ public abstract class AbstractPageMemoryIndexStorage<K extends IndexRowKey, V ex
     /**
      * Updates the internal data structures of the storage on rebalance or cleanup.
      *
-     * @param freeList Free list to store index columns.
+     * @param freeList Free list.
      * @param indexTree Hash index tree instance.
      * @throws StorageException If failed.
      */

@@ -79,7 +79,7 @@ public class PartitionMeta {
      *
      * @param checkpointId Checkpoint ID.
      * @param lastAppliedIndex Last applied index value.
-     * @param freeListRootPageId Row version free list root page ID.
+     * @param freeListRootPageId Free list root page ID.
      * @param versionChainTreeRootPageId Version chain tree root page ID.
      * @param pageCount Count of pages in the partition.
      */
@@ -121,7 +121,7 @@ public class PartitionMeta {
                 metaIo.getLastAppliedIndex(pageAddr),
                 metaIo.getLastAppliedTerm(pageAddr),
                 metaIo.getLastReplicationProtocolGroupConfigFirstPageId(pageAddr),
-                metaIo.getFreeListRootPageId(pageAddr),
+                PartitionMetaIo.getFreeListRootPageId(pageAddr),
                 metaIo.getVersionChainTreeRootPageId(pageAddr),
                 metaIo.getIndexTreeMetaPageId(pageAddr),
                 metaIo.getGcQueueMetaPageId(pageAddr),
@@ -197,7 +197,7 @@ public class PartitionMeta {
     }
 
     /**
-     * Returns row version free list root page ID.
+     * Returns free list root page ID.
      */
     public long freeListRootPageId() {
         return freeListRootPageId;
@@ -207,7 +207,7 @@ public class PartitionMeta {
      * Sets free list root page ID.
      *
      * @param checkpointId Checkpoint ID.
-     * @param freeListRootPageId Row version free list root page ID.
+     * @param freeListRootPageId Free list root page ID.
      */
     public void freeListRootPageId(@Nullable UUID checkpointId, long freeListRootPageId) {
         updateSnapshot(checkpointId);

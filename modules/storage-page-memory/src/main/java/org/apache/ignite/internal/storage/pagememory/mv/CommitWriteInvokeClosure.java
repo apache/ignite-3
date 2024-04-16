@@ -84,7 +84,7 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
         this.freeList = localState.freeList();
         this.gcQueue = localState.gcQueue();
 
-        updateTimestampHandler = new UpdateTimestampHandler(localState.freeList().evictionTracker());
+        this.updateTimestampHandler = new UpdateTimestampHandler(localState.freeList().evictionTracker());
     }
 
     private static class UpdateTimestampHandler implements PageHandler<HybridTimestamp, Object> {
@@ -173,7 +173,7 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
 
         if (updateTimestampLink != NULL_LINK) {
             try {
-                updateTimestamp(updateTimestampLink, timestamp);
+                freeList.updateDataRow(updateTimestampLink, updateTimestampHandler, timestamp);
             } catch (IgniteInternalCheckedException e) {
                 throw new StorageException(
                         "Error while update timestamp: [link={}, timestamp={}, {}]",
@@ -181,10 +181,6 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
                         updateTimestampLink, timestamp, storage.createStorageInfo());
             }
         }
-    }
-
-    private void updateTimestamp(long link, HybridTimestamp newTimestamp) throws IgniteInternalCheckedException {
-        freeList.updateDataRow(link, updateTimestampHandler, newTimestamp);
     }
 
     /**

@@ -84,7 +84,7 @@ public class VolatilePageMemoryDataRegion implements DataRegion<VolatilePageMemo
         try {
             this.freeList = createFreeList(pageMemory);
         } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Error creating FreeList", e);
+            throw new StorageException("Error creating free list", e);
         }
 
         this.pageMemory = pageMemory;

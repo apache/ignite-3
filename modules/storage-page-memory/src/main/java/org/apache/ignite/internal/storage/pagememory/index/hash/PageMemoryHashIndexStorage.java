@@ -55,7 +55,7 @@ public class PageMemoryHashIndexStorage extends AbstractPageMemoryIndexStorage<H
      *
      * @param indexMeta Index meta.
      * @param descriptor Hash index descriptor.
-     * @param freeList Free list to store index columns.
+     * @param freeList Free list.
      * @param indexTree Hash index tree instance.
      * @param indexMetaTree Index meta tree instance.
      */

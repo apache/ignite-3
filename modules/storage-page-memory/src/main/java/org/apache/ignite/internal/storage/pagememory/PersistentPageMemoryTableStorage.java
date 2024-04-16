@@ -183,7 +183,7 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     IoStatisticsHolderNoOp.INSTANCE
             );
         } catch (IgniteInternalCheckedException e) {
-            throw new StorageException("Error creating FreeList: [tableId={}, partitionId={}]", e, getTableId(), partId);
+            throw new StorageException("Error creating free list: [tableId={}, partitionId={}]", e, getTableId(), partId);
         }
     }
 

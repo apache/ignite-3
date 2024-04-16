@@ -145,10 +145,10 @@ public class PartitionMetaIo extends PageIo {
     }
 
     /**
-     * Sets row version free list root page ID.
+     * Sets free list root page ID.
      *
      * @param pageAddr Page address.
-     * @param pageId Row version free list root page ID.
+     * @param pageId Free list root page ID.
      */
     public void setFreeListRootPageId(long pageAddr, long pageId) {
         assertPageType(pageAddr);
@@ -157,11 +157,11 @@ public class PartitionMetaIo extends PageIo {
     }
 
     /**
-     * Returns row version free list root page ID.
+     * Returns ree list root page ID.
      *
      * @param pageAddr Page address.
      */
-    public long getFreeListRootPageId(long pageAddr) {
+    public static long getFreeListRootPageId(long pageAddr) {
         return getLong(pageAddr, FREE_LIST_ROOT_PAGE_ID_OFF);
     }
 
