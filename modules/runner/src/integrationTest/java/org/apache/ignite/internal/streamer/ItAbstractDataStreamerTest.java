@@ -452,16 +452,20 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         }
     }
 
-    private class DemoReceiver implements DataStreamerReceiver<String, Boolean> {
+    private static class DemoReceiver implements DataStreamerReceiver<String, Boolean> {
         @Override
-        public CompletableFuture<Boolean> receive(String item, DataStreamerReceiverContext ctx, Object... args) {
-            var data = CustomData.deserializeFromString(item);
+        public CompletableFuture<List<Boolean>> receive(List<String> page, DataStreamerReceiverContext ctx, Object... args) {
+            List<Tuple> dataItems = page.stream()
+                    .map(CustomData::deserializeFromString)
+                    .map(data -> tuple(data.getId(), data.getInfo()))
+                    .collect(Collectors.toList());
 
             return ctx.ignite()
                     .tables()
                     .table(TABLE_NAME)
                     .recordView()
-                    .insertAsync(null, tuple(data.getId(), data.getInfo()));
+                    .insertAllAsync(null, dataItems)
+                    .thenApply(ignored -> List.of(true));
         }
     }
 }

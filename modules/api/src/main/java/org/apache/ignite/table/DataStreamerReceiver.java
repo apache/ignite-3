@@ -35,16 +35,16 @@ public interface DataStreamerReceiver<T, R> {
      * Receives an item from the data streamer (see {@link DataStreamerTarget#streamData(Publisher, DataStreamerOptions,
      * Function, Function, Subscriber, List, String, Object...)}).
      *
-     * <p>The receiver is called for each item in the data streamer and is responsible for processing the item,
+     * <p>The receiver is called for each page (batch) in the data streamer and is responsible for processing the items,
      * updating zero or more tables, and returning a result.
      *
-     * @param item Item.
+     * @param page Item batch.
      * @param ctx Receiver context.
      * @param args Additional arguments.
      * @return Future with the result.
      */
-    CompletableFuture<R> receive(
-            T item,
+    CompletableFuture<List<R>> receive(
+            List<T> page,
             DataStreamerReceiverContext ctx,
             Object... args);
 }
