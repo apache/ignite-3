@@ -1407,7 +1407,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * Check if the table already has assignments in the meta storage locally.
      * So, it means, that it is a recovery process and we should use the meta storage local assignments instead of calculation
      * of the new ones.
-     *
      */
     private CompletableFuture<List<Assignments>> createOrGetAssignments(
             CatalogTableDescriptor tableDescriptor,
@@ -1429,14 +1428,15 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             zoneDescriptor.replicas()
                     ).stream().map(Assignments::of).collect(toList()));
 
-            assignmentsFuture.thenAccept(assignmentsList -> LOG.info(IgniteStringFormatter.format(
+            assignmentsFuture.thenAccept(assignmentsList -> LOG.info(
                     "Assignments calculated from data nodes [table={}, tableId={}, assignments={}, revision={}]",
                     tableDescriptor.name(),
                     tableId,
                     Assignments.assignmentListToString(assignmentsList),
                     causalityToken
-            )));
+            ));
         }
+
         return assignmentsFuture;
     }
 
