@@ -26,5 +26,5 @@ import org.apache.ignite.configuration.annotation.Value;
 public class TracingConfigurationSchema {
     /** Sampling ratio. */
     @Value(hasDefault = true)
-    public final double ratio = 0.0d;
+    public final double ratio = 1.0d;
 }
