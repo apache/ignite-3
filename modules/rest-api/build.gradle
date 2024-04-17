@@ -52,7 +52,36 @@ dependencies {
     testImplementation libs.hamcrest.optional
 }
 
+ext {
+    openapiFile = layout.buildDirectory.file("openapi/openapi.yaml").get().asFile
+
+    openapiProps = [
+            'micronaut.openapi.property.naming.strategy' : 'LOWER_CAMEL_CASE',
+            'micronaut.openapi.target.file' : openapiFile.path,
+            'micronaut.openapi.field.visibility.level' : 'PRIVATE'
+    ]
+}
+
 compileJava {
     options.fork = true
-    options.forkOptions.jvmArgs += '-Dmicronaut.openapi.config.file=openapi/openapi.properties'
+
+    openapiProps.each { key, val ->
+        options.forkOptions.jvmArgs += "-D$key=$val".toString()
+    }
+
+    // Force to rebuild each time (without caching) because we need to regenerate openapi spec.
+    outputs.upToDateWhen { false }
+}
+
+configurations {
+    openapiSpec {
+        canBeConsumed = true
+        canBeResolved = false
+    }
+}
+
+artifacts {
+    openapiSpec(openapiFile) {
+        builtBy(compileJava)
+    }
 }
