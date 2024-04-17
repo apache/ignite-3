@@ -707,10 +707,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             List<Operation> partitionAssignments = new ArrayList<>(newAssignments.size());
 
             for (int i = 0; i < newAssignments.size(); i++) {
-                partitionAssignments.add(put(
-                        stablePartAssignmentsKey(
-                                new TablePartitionId(tableId, i)),
-                        newAssignments.get(i).toBytes()));
+                ByteArray stableAssignmentsKey = stablePartAssignmentsKey(new TablePartitionId(tableId, i));
+                byte[] anAssignment = newAssignments.get(i).toBytes();
+                Operation op = put(stableAssignmentsKey, anAssignment);
+                partitionAssignments.add(op);
             }
 
             Condition condition = notExists(new ByteArray(partitionAssignments.get(0).key()));
@@ -719,20 +719,25 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     .invoke(condition, partitionAssignments, Collections.emptyList())
                     .handle((invokeResult, e) -> {
                         if (e != null) {
-                            LOG.error("Couldn't write assignments {} to metastore during invoke",
+                            LOG.error(
+                                    "Couldn't write assignments {} to metastore during invoke",
                                     e,
-                                    Assignments.assignmentListToString(newAssignments));
+                                    Assignments.assignmentListToString(newAssignments)
+                            );
+
                             throw ExceptionUtils.sneakyThrow(e);
                         }
+
                         return invokeResult;
                     })
                     .thenCompose(invokeResult -> {
                         if (invokeResult) {
-                            LOG.info(IgniteStringFormatter.format(
+                            LOG.info(
                                     "Assignments calculated from data nodes are successfully written to meta storage"
                                             + " [tableId={}, assignments={}]",
                                     tableId,
-                                    Assignments.assignmentListToString(newAssignments)));
+                                    Assignments.assignmentListToString(newAssignments)
+                            );
 
                             return completedFuture(newAssignments);
                         } else {
@@ -750,17 +755,18 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                     Entry assignmentsEntry = metaStorageAssignments.get(stablePartAssignmentsKey(partId));
 
                                     assert assignmentsEntry != null && !assignmentsEntry.empty() && !assignmentsEntry.tombstone()
-                                            : "Unexpected assignments for partition [" + partId + ", entry=" + assignmentsEntry + "].";
+                                            : "Unexpected assignments for partition [" + partId + ", entry=" + assignmentsEntry + "]";
 
                                     Assignments real = Assignments.fromBytes(assignmentsEntry.value());
 
                                     realAssignments.add(real);
                                 }
 
-                                LOG.info(IgniteStringFormatter.format(
+                                LOG.info(
                                         "Assignments picked up from meta storage [tableId={}, assignments={}]",
                                         tableId,
-                                        Assignments.assignmentListToString(realAssignments)));
+                                        Assignments.assignmentListToString(realAssignments)
+                                );
 
                                 return realAssignments;
                             });
@@ -768,11 +774,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     })
                     .handle((realAssignments, e) -> {
                         if (e != null) {
-                            LOG.error("Couldn't write assignments {} to metastore after invoke",
-                                    e,
-                                    Assignments.assignmentListToString(newAssignments));
+                            LOG.error("Couldn't get assignments from metastore for table [tableId={}]", e, tableId);
+
                             throw ExceptionUtils.sneakyThrow(e);
                         }
+
                         return realAssignments;
                     });
         });
@@ -1266,7 +1272,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     tableDescriptor,
                     zoneDescriptor,
                     causalityToken,
-                    catalogVersion);
+                    catalogVersion
+            );
 
             CompletableFuture<List<Assignments>> assignmentsFutureAfterInvoke =
                     writeTableAssignmentsToMetastore(tableId, assignmentsFuture);
@@ -1422,13 +1429,13 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             zoneDescriptor.replicas()
                     ).stream().map(Assignments::of).collect(toList()));
 
-            assignmentsFuture.thenAccept(assignmentsList -> {
-                LOG.info(IgniteStringFormatter.format(
-                        "Assignments calculated from data nodes [table={}, tableId={}, assignments={}, revision={}]",
-                        tableDescriptor.name(),
-                        tableId,
-                        Assignments.assignmentListToString(assignmentsList), causalityToken));
-            });
+            assignmentsFuture.thenAccept(assignmentsList -> LOG.info(IgniteStringFormatter.format(
+                    "Assignments calculated from data nodes [table={}, tableId={}, assignments={}, revision={}]",
+                    tableDescriptor.name(),
+                    tableId,
+                    Assignments.assignmentListToString(assignmentsList),
+                    causalityToken
+            )));
         }
         return assignmentsFuture;
     }
