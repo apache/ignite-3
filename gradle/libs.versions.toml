@@ -17,7 +17,7 @@
 
 [versions]
 assertj = "3.25.3"
-asm = "9.6"
+asm = "9.7"
 bouncycastle = "1.76"
 compileTesting = "0.21.0"
 fliptables = "1.1.1"
@@ -54,7 +54,7 @@ typesafe = "1.4.3"
 hamcrest = "2.2"
 hamcrestOptional = "2.0.0"
 hamcrestPath = "1.0.1"
-hamcrestJson = "0.2"
+hamcrestJson = "0.3"
 scalecube = "2.6.15"
 calcite = "1.36.0"
 value = "2.10.1"
