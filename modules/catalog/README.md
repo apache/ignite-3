@@ -78,3 +78,11 @@ removed. The earliest available version of catalog is tracked under `catalog.sna
 
 During recovery, we read update entries one by one for all version starting with "earliest available" till
 version stored by `catalog.version` key, and apply those updates entries once again.
+
+#### Update log entries serialization
+
+Update log entries are serialized by custom marshallers (see 
+[UpdateLogMarshaller](src/main/java/org/apache/ignite/internal/catalog/storage/serialization/UpdateLogMarshaller.java)
+and [MarshallableEntry](src/main/java/org/apache/ignite/internal/catalog/storage/serialization/MarshallableEntry.java)
+for details). At the moment, backward compatibility is preserved by increasing the version of the protocol,
+but more sophisticated approach may be introduced later.
