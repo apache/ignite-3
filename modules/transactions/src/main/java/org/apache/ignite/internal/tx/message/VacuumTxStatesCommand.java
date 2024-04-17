@@ -24,6 +24,9 @@ import java.util.UUID;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.raft.WriteCommand;
 
+/**
+ * Command that vacuumizes the transaction states.
+ */
 @Transferable(VACUUM_TX_STATE_COMMAND)
 public interface VacuumTxStatesCommand extends WriteCommand {
     Set<UUID> txIds();

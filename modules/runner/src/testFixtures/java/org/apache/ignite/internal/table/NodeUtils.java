@@ -25,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Predicate;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -49,16 +50,16 @@ public class NodeUtils {
      *
      * @param nodes Nodes collection.
      * @param groupId Group id.
-     * @param preferablePrimary Primary replica name which is preferred for being primary or {@code null}.
+     * @param preferablePrimaryFilter Primary replica preferable nodes filter, accepts the node consistent id.
      * @return New primary replica name.
      * @throws InterruptedException If failed.
      */
     public static String transferPrimary(
             Collection<IgniteImpl> nodes,
             ReplicationGroupId groupId,
-            @Nullable String preferablePrimary
+            @Nullable Predicate<String> preferablePrimaryFilter
     ) throws InterruptedException {
-        LOG.info("Moving the primary replica [preferablePrimary=" + preferablePrimary + "].");
+        LOG.info("Moving the primary replica [groupId={}].", groupId);
 
         IgniteImpl node = nodes.stream().findAny().orElseThrow();
 
@@ -68,33 +69,41 @@ public class NodeUtils {
                 .filter(n -> n.id().equals(currentLeaseholder.getLeaseholderId()))
                 .findFirst().orElseThrow();
 
-        if (preferablePrimary == null) {
-            preferablePrimary = nodes.stream()
-                    .map(IgniteImpl::name)
-                    .filter(n -> !n.equals(currentLeaseholder.getLeaseholder()))
-                    .findFirst()
-                    .orElseThrow();
-        }
+        Predicate<String> filter = preferablePrimaryFilter == null ? name -> true : preferablePrimaryFilter::test;
 
-        String finalPreferablePrimary = preferablePrimary;
+        String finalPreferablePrimary = nodes.stream()
+                .map(IgniteImpl::name)
+                .filter(n -> !n.equals(currentLeaseholder.getLeaseholder()) && filter.test(n))
+                .findFirst()
+                .orElseThrow();
+
+        LOG.info("Moving the primary replica [groupId={}, currentLeaseholder={}, preferablePrimary={}].", groupId, leaseholderNode.name(),
+                finalPreferablePrimary);
 
         StopLeaseProlongationMessage msg = PLACEMENT_DRIVER_MESSAGES_FACTORY.stopLeaseProlongationMessage()
                 .groupId(groupId)
-                .redirectProposal(preferablePrimary)
+                .redirectProposal(finalPreferablePrimary)
                 .build();
 
         nodes.forEach(
                 n -> leaseholderNode.clusterService().messagingService().send(n.clusterService().topologyService().localMember(), msg)
         );
 
-        assertTrue(waitForCondition(() -> {
-            ReplicaMeta newPrimaryReplica = leaseholder(node, groupId);
+        ReplicaMeta[] newPrimaryReplica = new ReplicaMeta[1];;
 
-            return newPrimaryReplica.getLeaseholder().equals(finalPreferablePrimary);
-        }, 10_000));
+        boolean success = waitForCondition(() -> {
+            newPrimaryReplica[0] = leaseholder(node, groupId);
 
-        LOG.info("Primary replica moved successfully from [{}] to [{}].",
-                currentLeaseholder.getLeaseholder(), finalPreferablePrimary);
+            return newPrimaryReplica[0].getLeaseholder().equals(finalPreferablePrimary);
+        }, 10_000);
+
+        if (success) {
+            LOG.info("Primary replica moved successfully from [{}] to [{}].", currentLeaseholder.getLeaseholder(), finalPreferablePrimary);
+        } else {
+            LOG.info("Moving the primary replica failed [groupId={}, actualPrimary={}].", groupId, newPrimaryReplica[0]);
+        }
+
+        assertTrue(success);
 
         return finalPreferablePrimary;
     }

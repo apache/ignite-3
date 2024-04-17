@@ -163,7 +163,7 @@ public class ItTransactionPrimaryChangeTest extends ClusterPerTestIntegrationTes
             assertThat(fullTxReplicationAttemptFuture, willCompleteSuccessfully());
 
             // Changing the primary.
-            NodeUtils.transferPrimary(cluster.runningNodes().collect(toList()), tblReplicationGrp, txCrdNode.name());
+            NodeUtils.transferPrimary(cluster.runningNodes().collect(toList()), tblReplicationGrp, name -> name.equals(txCrdNode.name()));
 
             // Start a regular transaction that increments the value. It should see the initially inserted value and its commit should
             // succeed.

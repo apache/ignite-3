@@ -50,7 +50,7 @@ public class ResourceVacuumManager implements IgniteComponent {
     public static final String RESOURCE_VACUUM_INTERVAL_MILLISECONDS_PROPERTY = "RESOURCE_VACUUM_INTERVAL_MILLISECONDS";
 
     private final int resourceVacuumIntervalMilliseconds = IgniteSystemProperties
-            .getInteger(RESOURCE_VACUUM_INTERVAL_MILLISECONDS_PROPERTY, 1_000);
+            .getInteger(RESOURCE_VACUUM_INTERVAL_MILLISECONDS_PROPERTY, 30_000);
 
     private final FinishedReadOnlyTransactionTracker finishedReadOnlyTransactionTracker;
 

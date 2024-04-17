@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static org.apache.ignite.internal.util.CompletableFutures.allOf;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,15 +29,23 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.VacuumTxStateReplicaRequest;
 import org.apache.ignite.network.ClusterNode;
 
+/**
+ * Implements the logic of persistent tx states vacuum.
+ */
 public class PersistentTxStateVacuumizer {
     private static final IgniteLogger LOG = Loggers.forClass(PersistentTxStateVacuumizer.class);
 
@@ -45,35 +55,72 @@ public class PersistentTxStateVacuumizer {
 
     private final ClusterNode localNode;
 
+    private final ClockService clockService;
+
+    private final PlacementDriver placementDriver;
+
+    /**
+     * Constructor.
+     *
+     * @param replicaService Replica service.
+     * @param localNode Local node.
+     * @param clockService Clock service.
+     * @param placementDriver Placement driver.
+     */
     public PersistentTxStateVacuumizer(
             ReplicaService replicaService,
-            ClusterNode localNode) {
+            ClusterNode localNode,
+            ClockService clockService,
+            PlacementDriver placementDriver
+    ) {
         this.replicaService = replicaService;
         this.localNode = localNode;
+        this.clockService = clockService;
+        this.placementDriver = placementDriver;
     }
 
+    /**
+     * Vacuum persistent tx states.
+     *
+     * @param txIds Transaction ids to vacuum; map of commit partition ids to sets of tx ids.
+     * @return A future.
+     */
     public CompletableFuture<IgniteBiTuple<Set<UUID>, Integer>> vacuumPersistentTxStates(Map<TablePartitionId, Set<UUID>> txIds) {
         Set<UUID> successful = ConcurrentHashMap.newKeySet();
         AtomicInteger unsuccessfulCount = new AtomicInteger(0);
         List<CompletableFuture<?>> futures = new ArrayList<>();
+        HybridTimestamp now = clockService.now();
 
         txIds.forEach((commitPartitionId, txs) -> {
-            VacuumTxStateReplicaRequest request = TX_MESSAGES_FACTORY.vacuumTxStateReplicaRequest()
-                    .groupId(commitPartitionId)
-                    .transactionIds(txs)
-                    .build();
+            ReplicaMeta replicaMeta = placementDriver.getPrimaryReplica(commitPartitionId, now).join();
 
-            CompletableFuture<?> future = replicaService.invoke(localNode, request).whenComplete((v, e) -> {
-                if (e == null) {
-                    successful.addAll(txs);
+            if (replicaMeta != null) {
+                VacuumTxStateReplicaRequest request = TX_MESSAGES_FACTORY.vacuumTxStateReplicaRequest()
+                        .enlistmentConsistencyToken(replicaMeta.getStartTime().longValue())
+                        .groupId(commitPartitionId)
+                        .transactionIds(txs)
+                        .build();
+
+                CompletableFuture<?> future;
+
+                if (localNode.id().equals(replicaMeta.getLeaseholderId())) {
+                    future = replicaService.invoke(localNode, request).whenComplete((v, e) -> {
+                        if (e == null) {
+                            successful.addAll(txs);
+                        } else if (!(unwrapCause(e) instanceof PrimaryReplicaMissException)) {
+                            LOG.warn("Failed to vacuum tx states from the persistent storage.", e);
+
+                            unsuccessfulCount.incrementAndGet();
+                        }
+                    });
                 } else {
-                    LOG.warn("Failed to vacuum tx states from the persistent storage.", e);
+                    successful.addAll(txs);
 
-                    unsuccessfulCount.incrementAndGet();
+                    future = nullCompletedFuture();
                 }
-            });
 
-            futures.add(future);
+                futures.add(future);
+            }
         });
 
         return allOf(futures.toArray(new CompletableFuture[0]))

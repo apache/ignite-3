@@ -4083,6 +4083,8 @@ public class PartitionReplicaListener implements ReplicaListener {
                 .txIds(request.transactionIds())
                 .build();
 
+        LOG.info("qqq vacuum req=" + request);
+
         return raftClient.run(cmd);
     }
 

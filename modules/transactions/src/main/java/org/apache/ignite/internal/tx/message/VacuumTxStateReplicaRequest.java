@@ -24,6 +24,9 @@ import java.util.UUID;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
 
+/**
+ * Request that is sent to vacuumize the transaction states.
+ */
 @Transferable(VACUUM_TX_STATE_REPLICA_REQUEST)
 public interface VacuumTxStateReplicaRequest extends PrimaryReplicaRequest {
     Set<UUID> transactionIds();

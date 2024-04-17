@@ -48,7 +48,17 @@ import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * Test utils for transaction integration tests.
+ */
 public class ItTransactionTestUtils {
+    /**
+     * Get the names of the nodes that are assignments of the given partition.
+     *
+     * @param node Any node in the cluster.
+     * @param grpId Group id.
+     * @return Node names.
+     */
     public static Set<String> partitionAssignment(IgniteImpl node, TablePartitionId grpId) {
         MetaStorageManager metaStorageManager = node.metaStorageManager();
 
@@ -69,6 +79,15 @@ public class ItTransactionTestUtils {
         return a.stream().filter(Assignment::isPeer).map(Assignment::consistentId).collect(toSet());
     }
 
+    /**
+     * Calculate the partition id on which the given tuple would be placed.
+     *
+     * @param node Any node in the cluster.
+     * @param tableName Table name.
+     * @param tuple Data tuple.
+     * @param tx Transaction, if present.
+     * @return Partition id.
+     */
     public static int partitionIdForTuple(IgniteImpl node, String tableName, Tuple tuple, @Nullable Transaction tx) {
         TableImpl table = table(node, tableName);
         RecordBinaryViewImpl view = unwrapRecordBinaryViewImpl(table.recordView());
@@ -80,6 +99,17 @@ public class ItTransactionTestUtils {
         return table.internalTable().partitionId(row);
     }
 
+    /**
+     * Generates some tuple that would be placed in the partition that is hosted on the given node in the cluster.
+     *
+     * @param node Node that should host the result tuple.
+     * @param tableName Table name.
+     * @param tx Transaction, if present.
+     * @param initialTuple Initial tuple, for calculation.
+     * @param nextTuple This function will be used to generate new tuples in order to find suitable one.
+     * @param primary Whether the given node should be the primary node.
+     * @return Tuple that would be placed on the given node.
+     */
     public static Tuple findTupleToBeHostedOnNode(
             IgniteImpl node,
             String tableName,
@@ -101,6 +131,7 @@ public class ItTransactionTestUtils {
             if (primary) {
                 ReplicaMeta replicaMeta = waitAndGetPrimaryReplica(node, grpId);
 
+                System.out.println("qqq partId=" + partId + ", primary=" + replicaMeta.getLeaseholder());
                 if (node.id().equals(replicaMeta.getLeaseholderId())) {
                     return t;
                 }
@@ -120,21 +151,48 @@ public class ItTransactionTestUtils {
         throw new AssertionError("Failed to find a suitable tuple.");
     }
 
+    /**
+     * Returns table instance.
+     *
+     * @param node Ignite node.
+     * @param tableName Table name.
+     * @return Table instance.
+     */
     public static TableImpl table(IgniteImpl node, String tableName) {
         return unwrapTableImpl(node.tables().table(tableName));
     }
 
+    /**
+     * Returns the table id.
+     *
+     * @param node Any node in the cluster.
+     * @param tableName Table name.
+     * @return Table id.
+     */
     public static int tableId(IgniteImpl node, String tableName) {
         return table(node, tableName).tableId();
     }
 
+    /**
+     * Transaction id.
+     *
+     * @param tx Transaction.
+     * @return Transaction id.
+     */
     public static UUID txId(Transaction tx) {
         return ((ReadWriteTransactionImpl) unwrapIgniteTransaction(tx)).id();
     }
 
-    public static ReplicaMeta waitAndGetPrimaryReplica(IgniteImpl node, ReplicationGroupId tblReplicationGrp) {
+    /**
+     * Waits for the primary replica appearance for the given replication group and returns it.
+     *
+     * @param node Any node in the cluster.
+     * @param replicationGrpId Replication group.
+     * @return Primary replica meta.
+     */
+    public static ReplicaMeta waitAndGetPrimaryReplica(IgniteImpl node, ReplicationGroupId replicationGrpId) {
         CompletableFuture<ReplicaMeta> primaryReplicaFut = node.placementDriver().awaitPrimaryReplica(
-                tblReplicationGrp,
+                replicationGrpId,
                 node.clock().now(),
                 10,
                 SECONDS

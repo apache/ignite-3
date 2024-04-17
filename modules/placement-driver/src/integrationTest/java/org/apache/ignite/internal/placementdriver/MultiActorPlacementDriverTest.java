@@ -314,7 +314,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
     }
 
     @Test
-    public void prolongAfterActiveActorChanger() throws Exception {
+    public void prolongAfterActiveActorChanged() throws Exception {
         var acceptedNodeRef = new AtomicReference<String>();
 
         leaseGrantHandler = (msg, from, to) -> {

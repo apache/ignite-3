@@ -753,7 +753,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler {
 
             messagingService.addMessageHandler(ReplicaMessageGroup.class, this);
 
-            persistentTxStateVacuumizer = new PersistentTxStateVacuumizer(replicaService, topologyService.localMember());
+            persistentTxStateVacuumizer = new PersistentTxStateVacuumizer(replicaService, topologyService.localMember(), clockService,
+                    placementDriver);
 
             txStateVolatileStorage.start();
 

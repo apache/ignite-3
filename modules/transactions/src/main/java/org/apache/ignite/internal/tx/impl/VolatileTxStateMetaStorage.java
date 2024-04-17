@@ -144,6 +144,8 @@ public class VolatileTxStateMetaStorage {
         Map<TablePartitionId, Set<UUID>> txIds = new HashMap<>();
         Map<UUID, Long> timestamps = new HashMap<>();
 
+        UUID uuid = UUID.randomUUID();
+
         txStateMap.forEach((txId, meta) -> {
             txStateMap.computeIfPresent(txId, (txId0, meta0) -> {
                 if (TxState.isFinalState(meta0.txState())) {
@@ -191,6 +193,8 @@ public class VolatileTxStateMetaStorage {
                 .thenAccept(tuple -> {
                     Set<UUID> successful = tuple.get1();
 
+                    LOG.info("qqq vacuum volatile failed=" + tuple.get2() + ", txIds=" + txIds +  ", successful=" + successful);
+
                     for (UUID txId : successful) {
                         txStateMap.compute(txId, (k, v) -> {
                             if (v == null) {
@@ -198,7 +202,7 @@ public class VolatileTxStateMetaStorage {
                             } else {
                                 Long cleanupCompletionTs = timestamps.get(txId);
 
-                                return (cleanupCompletionTs != null && Objects.equals(cleanupCompletionTs, v.cleanupCompletionTimestamp()))
+                                return (cleanupCompletionTs == null || Objects.equals(cleanupCompletionTs, v.cleanupCompletionTimestamp()))
                                         ? null
                                         : v;
                             }

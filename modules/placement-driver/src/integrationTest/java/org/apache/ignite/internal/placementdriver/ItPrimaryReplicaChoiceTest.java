@@ -182,7 +182,7 @@ public class ItPrimaryReplicaChoiceTest extends ClusterPerTestIntegrationTest {
         NodeUtils.transferPrimary(nodes, tblReplicationGrp, null);
 
         CompletableFuture<String> primaryChangeTask =
-                IgniteTestUtils.runAsync(() -> NodeUtils.transferPrimary(nodes, tblReplicationGrp, primary));
+                IgniteTestUtils.runAsync(() -> NodeUtils.transferPrimary(nodes, tblReplicationGrp, name -> name.equals(primary)));
 
         waitingForLeaderCache(tbl, primary);
 
