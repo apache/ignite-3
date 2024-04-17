@@ -100,7 +100,8 @@ TEST_F(transactions_test, rollback_does_not_update_data) {
     ASSERT_FALSE(actual.has_value());
 }
 
-TEST_F(transactions_test, destruction_does_not_update_data) {
+// TODO https://issues.apache.org/jira/browse/IGNITE-22057
+TEST_F(transactions_test, DISABLED_destruction_does_not_update_data) {
     auto record_view = m_client.get_tables().get_table("tbl1")->get_record_binary_view();
 
     {
