@@ -93,7 +93,8 @@ public class NewIndexEntry implements UpdateEntry, Fireable {
                         ArrayUtils.concat(schema.indexes(), descriptor),
                         schema.systemViews(),
                         causalityToken
-                ), catalog.schemas())
+                ), catalog.schemas()),
+                catalog.defaultZone().id()
         );
     }
 

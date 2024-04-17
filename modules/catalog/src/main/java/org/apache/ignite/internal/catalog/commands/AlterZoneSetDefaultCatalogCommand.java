@@ -17,13 +17,15 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.zoneOrThrow;
 
 import java.util.Collections;
 import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.catalog.storage.SetDefaultZoneEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
 
 /**
@@ -47,12 +49,14 @@ public class AlterZoneSetDefaultCatalogCommand extends AbstractZoneCommand {
 
     @Override
     public List<UpdateEntry> get(Catalog catalog) {
-        // TODO https://issues.apache.org/jira/browse/IGNITE-19687
-        if (zoneName.equals(DEFAULT_ZONE_NAME)) {
+        CatalogZoneDescriptor zone = zoneOrThrow(catalog, zoneName);
+
+        if (zone.id() == catalog.defaultZone().id()) {
+            // Specified zone already marked as default.
             return Collections.emptyList();
         }
 
-        throw new UnsupportedOperationException();
+        return List.of(new SetDefaultZoneEntry(zone.id()));
     }
 
     /**

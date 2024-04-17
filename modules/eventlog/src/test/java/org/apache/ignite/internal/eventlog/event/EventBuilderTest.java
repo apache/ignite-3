@@ -52,11 +52,11 @@ class EventBuilderTest {
                 .fields(Map.of("key", "value"))
                 .build();
 
-        assertEquals(EVENT_TYPE, event.type());
-        assertEquals(1, event.timestamp());
-        assertEquals("1.1.1", event.productVersion());
-        assertEquals(EventUser.system(), event.user());
-        assertEquals(Map.of("key", "value"), event.fields());
+        assertEquals(EVENT_TYPE, event.getType());
+        assertEquals(1, event.getTimestamp());
+        assertEquals("1.1.1", event.getProductVersion());
+        assertEquals(EventUser.system(), event.getUser());
+        assertEquals(Map.of("key", "value"), event.getFields());
     }
 
     @Test
@@ -68,11 +68,11 @@ class EventBuilderTest {
                 .user(EventUser.system())
                 .build();
 
-        assertEquals(EVENT_TYPE, event.type());
-        assertEquals(1, event.timestamp());
-        assertEquals("1.1.1", event.productVersion());
-        assertEquals(EventUser.system(), event.user());
-        assertEquals(Map.of(), event.fields());
+        assertEquals(EVENT_TYPE, event.getType());
+        assertEquals(1, event.getTimestamp());
+        assertEquals("1.1.1", event.getProductVersion());
+        assertEquals(EventUser.system(), event.getUser());
+        assertEquals(Map.of(), event.getFields());
     }
 
     @Test
@@ -82,11 +82,11 @@ class EventBuilderTest {
                 .user(EventUser.system())
                 .build();
 
-        assertEquals(EVENT_TYPE, event.type());
-        assertThat(event.timestamp(), greaterThan(0L));
-        assertEquals("3.0.0", event.productVersion());
-        assertEquals(EventUser.system(), event.user());
-        assertEquals(Map.of(), event.fields());
+        assertEquals(EVENT_TYPE, event.getType());
+        assertThat(event.getTimestamp(), greaterThan(0L));
+        assertEquals("3.0.0", event.getProductVersion());
+        assertEquals(EventUser.system(), event.getUser());
+        assertEquals(Map.of(), event.getFields());
     }
 
     @Test

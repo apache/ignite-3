@@ -118,7 +118,7 @@ public interface MvTableStorage extends ManuallyCloseable {
     /**
      * Destroys the index with the given ID and all data in it.
      *
-     * <p>This method is a no-op if the index with the given ID does not exist.
+     * <p>This method is a no-op if the index with the given ID does not exist or if the table storage is closed or under destruction.
      *
      * @param indexId Index ID.
      */

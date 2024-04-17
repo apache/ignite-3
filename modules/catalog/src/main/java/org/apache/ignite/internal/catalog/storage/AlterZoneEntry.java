@@ -79,7 +79,8 @@ public class AlterZoneEntry implements UpdateEntry, Fireable {
                 catalog.zones().stream()
                         .map(z -> z.id() == descriptor.id() ? descriptor : z)
                         .collect(toList()),
-                catalog.schemas()
+                catalog.schemas(),
+                catalog.defaultZone().id()
         );
     }
 

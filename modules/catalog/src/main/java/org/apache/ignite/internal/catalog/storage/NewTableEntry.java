@@ -95,7 +95,8 @@ public class NewTableEntry implements UpdateEntry, Fireable {
                 catalog.time(),
                 catalog.objectIdGenState(),
                 catalog.zones(),
-                schemas
+                schemas,
+                catalog.defaultZone().id()
         );
     }
 

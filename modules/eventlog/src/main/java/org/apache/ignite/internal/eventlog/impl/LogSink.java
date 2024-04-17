@@ -23,7 +23,6 @@ import org.apache.ignite.internal.eventlog.api.Event;
 import org.apache.ignite.internal.eventlog.api.Sink;
 import org.apache.ignite.internal.eventlog.config.schema.LogSinkView;
 import org.apache.ignite.internal.eventlog.ser.EventSerializer;
-import org.apache.ignite.internal.eventlog.ser.JsonEventSerializer;
 
 /** Sink that writes events to the log using any logging framework the user has configured. */
 class LogSink implements Sink {
@@ -31,10 +30,10 @@ class LogSink implements Sink {
     private final EventSerializer serializer;
     private final String level;
 
-    LogSink(LogSinkView cfg) {
+    LogSink(LogSinkView cfg, EventSerializer eventSerializer) {
         this.level = cfg.level();
         this.logger = System.getLogger(cfg.criteria());
-        this.serializer = new JsonEventSerializer();
+        this.serializer = eventSerializer;
     }
 
     /** {@inheritDoc} */
