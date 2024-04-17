@@ -512,7 +512,7 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
 
         var ex = assertThrows(IgniteException.class, () -> pojoView.put(null, 1, pojo));
 
-        assertTrue(ex.getMessage().contains("null was passed, but column is not nullable"), ex.getMessage());
+        assertThat(ex.getMessage(), containsString("Column 'STRNONNULL' does not allow NULLs"));
         assertThat(Arrays.asList(ex.getStackTrace()), anyOf(hasToString(containsString("ClientKeyValueView"))));
     }
 
