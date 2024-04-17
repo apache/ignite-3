@@ -154,8 +154,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
     private static final AtomicInteger nextTableId = new AtomicInteger(10_001);
 
-    private static final TestLowWatermark LOW_WATERMARK = new TestLowWatermark();
-
     /**
      * Creates a new local table.
      *
@@ -485,7 +483,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 new TestLocalRwTxCounter(),
                 resourcesRegistry,
                 transactionInflights,
-                LOW_WATERMARK
+                new TestLowWatermark()
         );
 
         assertThat(txManager.start(), willCompleteSuccessfully());
