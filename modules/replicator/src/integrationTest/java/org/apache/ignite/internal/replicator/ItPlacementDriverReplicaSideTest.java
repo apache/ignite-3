@@ -53,6 +53,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.NoOpFailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
@@ -188,7 +189,8 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                     new TestClockService(clock),
                     Set.of(ReplicaMessageTestGroup.class),
                     new TestPlacementDriver(primaryReplicaSupplier),
-                    partitionOperationsExecutor
+                    partitionOperationsExecutor,
+                    new NoOpFailureProcessor()
             );
 
             replicaManagers.put(nodeName, replicaManager);

@@ -365,11 +365,29 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                 List.of(new UserReplicatorStateListener(replicatorStartedCounter, replicatorStoppedCounter)));
         opt3.setCommandsMarshaller(commandsMarshaller);
 
-        metaStorageRaftSrv1 = new JraftServerImpl(cluster.get(0), workDir.resolve("node1"), opt1, new RaftGroupEventsClientListener());
+        metaStorageRaftSrv1 = new JraftServerImpl(
+                cluster.get(0),
+                workDir.resolve("node1"),
+                raftConfiguration,
+                opt1,
+                new RaftGroupEventsClientListener()
+        );
 
-        metaStorageRaftSrv2 = new JraftServerImpl(cluster.get(1), workDir.resolve("node2"), opt2, new RaftGroupEventsClientListener());
+        metaStorageRaftSrv2 = new JraftServerImpl(
+                cluster.get(1),
+                workDir.resolve("node2"),
+                raftConfiguration,
+                opt2,
+                new RaftGroupEventsClientListener()
+        );
 
-        metaStorageRaftSrv3 = new JraftServerImpl(cluster.get(2), workDir.resolve("node3"), opt3, new RaftGroupEventsClientListener());
+        metaStorageRaftSrv3 = new JraftServerImpl(
+                cluster.get(2),
+                workDir.resolve("node3"),
+                raftConfiguration,
+                opt3,
+                new RaftGroupEventsClientListener()
+        );
 
         metaStorageRaftSrv1.start();
 

@@ -182,7 +182,11 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
 
     @Override
     public CompletableFuture<Void> destroyIndex(int indexId) {
-        return busy(() -> {
+        if (!busyLock.enterBusy()) {
+            return nullCompletedFuture();
+        }
+
+        try {
             List<AbstractPageMemoryMvPartitionStorage> storages = mvPartitionStorages.getAll();
 
             var destroyFutures = new CompletableFuture[storages.size()];
@@ -194,7 +198,9 @@ public abstract class AbstractPageMemoryTableStorage implements MvTableStorage {
             }
 
             return allOf(destroyFutures);
-        });
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     @Override

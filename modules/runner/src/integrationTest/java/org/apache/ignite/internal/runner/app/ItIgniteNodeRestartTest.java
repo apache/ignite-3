@@ -335,7 +335,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 workerRegistry,
                 threadPoolsManager.commonScheduler(),
                 nettyBootstrapFactory,
-                workersConfiguration
+                workersConfiguration,
+                failureProcessor
         );
 
         var clusterSvc = new TestScaleCubeClusterServiceFactory().createClusterService(
@@ -479,7 +480,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 Set.of(TableMessageGroup.class, TxMessageGroup.class),
                 placementDriverManager.placementDriver(),
                 threadPoolsManager.partitionOperationsExecutor(),
-                partitionIdleSafeTimePropagationPeriodMsSupplier
+                partitionIdleSafeTimePropagationPeriodMsSupplier,
+                failureProcessor
         );
 
         var resourcesRegistry = new RemotelyTriggeredResourceRegistry();
@@ -495,7 +497,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 clusterSvc.messagingService()
         );
 
-        TransactionInflights transactionInflights = new TransactionInflights(placementDriverManager.placementDriver());
+        TransactionInflights transactionInflights = new TransactionInflights(placementDriverManager.placementDriver(), clockService);
 
         var txManager = new TxManagerImpl(
                 name,

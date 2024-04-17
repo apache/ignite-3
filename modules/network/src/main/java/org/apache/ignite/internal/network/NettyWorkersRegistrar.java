@@ -29,6 +29,11 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.FailureType;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.worker.CriticalWorker;
 import org.apache.ignite.internal.worker.CriticalWorkerRegistry;
@@ -39,6 +44,8 @@ import org.jetbrains.annotations.Nullable;
  * This component is responsible for registering Netty workers with the {@link CriticalWorkerRegistry} and for updating their heartbeats.
  */
 public class NettyWorkersRegistrar implements IgniteComponent {
+    private static final IgniteLogger LOG = Loggers.forClass(NettyWorkersRegistrar.class);
+
     /*
      * It seems impossible to instrument tasks executed by Netty event loops, so the strategy we use is to
      * send 'heartbeat' tasks to each of the event loops periodically; these tasks just update the heartbeat timestamp
@@ -54,6 +61,8 @@ public class NettyWorkersRegistrar implements IgniteComponent {
 
     private final CriticalWorkersConfiguration criticalWorkersConfiguration;
 
+    private final FailureProcessor failureProcessor;
+
     private volatile List<NettyWorker> workers;
 
     @Nullable
@@ -66,17 +75,20 @@ public class NettyWorkersRegistrar implements IgniteComponent {
      *         blocked.
      * @param scheduler Used to schedule periodic tasks.
      * @param bootstrapFactory Used to obtain Netty workers.
+     * @param failureProcessor Used to process failures.
      */
     public NettyWorkersRegistrar(
             CriticalWorkerRegistry criticalWorkerRegistry,
             ScheduledExecutorService scheduler,
             NettyBootstrapFactory bootstrapFactory,
-            CriticalWorkersConfiguration criticalWorkersConfiguration
+            CriticalWorkersConfiguration criticalWorkersConfiguration,
+            FailureProcessor failureProcessor
     ) {
         this.criticalWorkerRegistry = criticalWorkerRegistry;
         this.scheduler = scheduler;
         this.bootstrapFactory = bootstrapFactory;
         this.criticalWorkersConfiguration = criticalWorkersConfiguration;
+        this.failureProcessor = failureProcessor;
     }
 
     @Override
@@ -110,7 +122,20 @@ public class NettyWorkersRegistrar implements IgniteComponent {
 
     private void sendHearbeats() {
         for (NettyWorker worker : workers) {
-            worker.sendHeartbeat();
+            try {
+                worker.sendHeartbeat();
+            } catch (Exception | AssertionError e) {
+                LOG.warn("Cannot send a heartbeat to a Netty thread [threadId={}].", e, worker.threadId());
+            } catch (Error e) {
+                LOG.error(
+                        "Cannot send a heartbeat to a Netty thread, no more heartbeats will be sent [threadId={}].",
+                        e, worker.threadId()
+                );
+
+                failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, e));
+
+                throw e;
+            }
         }
     }
 

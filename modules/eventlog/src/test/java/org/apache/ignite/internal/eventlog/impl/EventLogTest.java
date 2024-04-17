@@ -66,7 +66,7 @@ class EventLogTest {
 
         // When add a channel but there is no sink.
         channelRegistry.register(TEST_CHANNEL_NAME, () -> channelFactory.createChannel(
-                TEST_CHANNEL_NAME, Set.of(TEST_EVENT.type()))
+                TEST_CHANNEL_NAME, Set.of(TEST_EVENT.getType()))
         );
 
         // Then nothing thrown.

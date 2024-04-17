@@ -84,6 +84,14 @@ public abstract class IgniteColocatedAggregateBase extends IgniteAggregate imple
             return List.of(Pair.of(nodeTraits.replace(inDistribution), inputTraits));
         }
 
+        // for empty group the only option is to bring all data to the single place
+        if (groupSet.isEmpty()) {
+            return List.of(Pair.of(
+                    nodeTraits.replace(IgniteDistributions.single()),
+                    List.of(inputTraits.get(0).replace(IgniteDistributions.single()))
+            ));
+        }
+
         // Otherwise if stream is distributed by hash function, and grouping columns is a super-set of
         // distribution keys, we can use colocated aggregate as well
         if (inDistribution.getType() == RelDistribution.Type.HASH_DISTRIBUTED) {
