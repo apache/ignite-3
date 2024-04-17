@@ -764,7 +764,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     })
                     .handle((realAssignments, e) -> {
                         if (e != null) {
-                            LOG.error("Couldn't write assignments {} to metastore during invoke",
+                            LOG.error("Couldn't write assignments {} to metastore after invoke",
                                     e,
                                     Assignments.assignmentListToString(newAssignments));
                             throw ExceptionUtils.sneakyThrow(e);
