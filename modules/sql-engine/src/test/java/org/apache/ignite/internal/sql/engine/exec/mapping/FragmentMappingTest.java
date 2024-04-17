@@ -162,6 +162,20 @@ public class FragmentMappingTest extends AbstractPlannerTest {
     }
 
     @Test
+    public void testHashJoin() {
+        addNodes("N0", "N1", "N2", "N3", "N4");
+
+        addTable("T1", "N1");
+        addTable("T2", "N1");
+        addTable("T2", "N2");
+
+        setRowCount("T1", 200);
+        setRowCount("T2", 100);
+
+        testRunner.runTest(this::initSchema, "hash_join.test");
+    }
+
+    @Test
     public void testTableIdentity() {
         addNodes("N0", "N1", "N2");
 

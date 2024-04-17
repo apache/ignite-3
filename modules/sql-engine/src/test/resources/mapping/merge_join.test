@@ -1,5 +1,5 @@
 N0
-SELECT /*+ ENFORCE_JOIN_ORDER, DISABLE_RULE('NestedLoopJoinConverter') */ * FROM t1_n1 JOIN t2_n1 USING (id)
+SELECT /*+ ENFORCE_JOIN_ORDER, DISABLE_RULE('HashJoinConverter', 'NestedLoopJoinConverter', 'CorrelatedNestedLoopJoin') */ * FROM t1_n1 JOIN t2_n1 USING (id)
 ---
 Fragment#0 root
   executionNodes: [N0]
@@ -24,7 +24,7 @@ Fragment#1
 ---
 
 N1
-SELECT /*+ ENFORCE_JOIN_ORDER, DISABLE_RULE('NestedLoopJoinConverter') */ * FROM t1_n1 JOIN t2_n1 USING (id)
+SELECT /*+ ENFORCE_JOIN_ORDER, DISABLE_RULE('HashJoinConverter', 'NestedLoopJoinConverter', 'CorrelatedNestedLoopJoin') */ * FROM t1_n1 JOIN t2_n1 USING (id)
 ---
 Fragment#0 root
   executionNodes: [N1]
@@ -49,7 +49,7 @@ Fragment#1
 ---
 
 N0
-SELECT /*+ ENFORCE_JOIN_ORDER, DISABLE_RULE('NestedLoopJoinConverter') */ * FROM t1_n1 JOIN t2_n2 USING (id)
+SELECT /*+ ENFORCE_JOIN_ORDER, DISABLE_RULE('HashJoinConverter', 'NestedLoopJoinConverter', 'CorrelatedNestedLoopJoin') */ * FROM t1_n1 JOIN t2_n2 USING (id)
 ---
 Fragment#0 root
   executionNodes: [N0]
