@@ -15,20 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.compute;
+package org.apache.ignite.internal.compute.task;
+
+import org.apache.ignite.compute.JobExecution;
+import org.apache.ignite.compute.task.ComputeJobRunner;
 
 /**
- * A Compute job that may be executed on a single Ignite node, on several nodes, or on the entire cluster.
- *
- * @param <R> Job result type.
+ * Compute job submitter.
  */
-public interface ComputeJob<R> {
+@FunctionalInterface
+public interface JobSubmitter {
     /**
-     * Executes the job on an Ignite node.
+     * Submits compute job for an execution.
      *
-     * @param context The execution context.
-     * @param args Job arguments.
-     * @return Job result.
+     * @param computeJobRunner Computer job start parameters.
      */
-    R execute(JobExecutionContext context, Object... args);
+    JobExecution<Object> submit(ComputeJobRunner computeJobRunner);
 }

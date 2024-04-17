@@ -15,20 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.compute;
+package org.apache.ignite.compute.task;
+
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 /**
- * A Compute job that may be executed on a single Ignite node, on several nodes, or on the entire cluster.
+ * Compute task interface.
  *
- * @param <R> Job result type.
+ * @param <R> Result type.
  */
-public interface ComputeJob<R> {
-    /**
-     * Executes the job on an Ignite node.
-     *
-     * @param context The execution context.
-     * @param args Job arguments.
-     * @return Job result.
-     */
-    R execute(JobExecutionContext context, Object... args);
+public interface MapReduceTask<R> {
+    List<ComputeJobRunner> split(TaskExecutionContext taskContext, Object... args);
+
+    R reduce(Map<UUID, ?> results);
 }

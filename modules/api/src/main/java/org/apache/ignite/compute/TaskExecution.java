@@ -17,18 +17,23 @@
 
 package org.apache.ignite.compute;
 
+import java.util.List;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
+import org.jetbrains.annotations.Nullable;
+
 /**
- * A Compute job that may be executed on a single Ignite node, on several nodes, or on the entire cluster.
+ * Compute task control object. Methods inherited from the {@link JobExecution} allows control of the task coordination job.
  *
- * @param <R> Job result type.
+ * @param <R> Task result type.
  */
-public interface ComputeJob<R> {
-    /**
-     * Executes the job on an Ignite node.
-     *
-     * @param context The execution context.
-     * @param args Job arguments.
-     * @return Job result.
-     */
-    R execute(JobExecutionContext context, Object... args);
+public interface TaskExecution<R> extends JobExecution<R> {
+    CompletableFuture<@Nullable List<JobStatus>> statusesAsync();
+
+    default CompletableFuture<@Nullable List<UUID>> idsAsync() {
+        return statusesAsync().thenApply(statuses ->
+                statuses != null ? statuses.stream().map(JobStatus::id).collect(Collectors.toList()) : null
+        );
+    }
 }
