@@ -28,12 +28,6 @@ import org.apache.calcite.rel.PhysicalNode;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.logical.LogicalJoin;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
-import org.apache.calcite.rex.RexCall;
-import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.rex.RexVisitor;
-import org.apache.calcite.rex.RexVisitorImpl;
-import org.apache.calcite.sql.SqlKind;
-import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
 import org.apache.ignite.internal.sql.engine.rel.IgniteHashJoin;
 
@@ -56,28 +50,7 @@ public class HashJoinConverterRule extends AbstractIgniteConverterRule<LogicalJo
         LogicalJoin logicalJoin = call.rel(0);
 
         return !nullOrEmpty(logicalJoin.analyzeCondition().pairs())
-                && logicalJoin.analyzeCondition().isEqui() && acceptableConditions(logicalJoin.getCondition());
-    }
-
-    private static boolean acceptableConditions(RexNode node) {
-        RexVisitor<Void> v = new RexVisitorImpl<>(true) {
-            @Override
-            public Void visitCall(RexCall call) {
-                SqlKind opKind = call.getOperator().getKind();
-                if (opKind != SqlKind.EQUALS && opKind != SqlKind.AND) {
-                    throw Util.FoundOne.NULL;
-                }
-                return super.visitCall(call);
-            }
-        };
-
-        try {
-            node.accept(v);
-
-            return true;
-        } catch (Util.FoundOne e) {
-            return false;
-        }
+                && logicalJoin.analyzeCondition().isEqui();
     }
 
     /** {@inheritDoc} */
