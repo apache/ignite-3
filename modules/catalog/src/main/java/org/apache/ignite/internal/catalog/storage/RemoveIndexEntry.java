@@ -82,7 +82,8 @@ public class RemoveIndexEntry implements UpdateEntry, Fireable {
                         Arrays.stream(schema.indexes()).filter(t -> t.id() != indexId).toArray(CatalogIndexDescriptor[]::new),
                         schema.systemViews(),
                         causalityToken
-                ), catalog.schemas())
+                ), catalog.schemas()),
+                catalog.defaultZone().id()
         );
     }
 

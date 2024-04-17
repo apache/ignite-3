@@ -17,14 +17,11 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
-import static java.util.stream.Collectors.toList;
-
 import java.io.IOException;
 import org.apache.ignite.internal.catalog.Catalog;
-import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
-import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
+import org.apache.ignite.internal.catalog.events.DropZoneEventParameters;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.tostring.S;
@@ -32,56 +29,51 @@ import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 
 /**
- * Describes altering zone.
+ * Describes changing of a default zone.
  */
-public class AlterZoneEntry implements UpdateEntry, Fireable {
-    public static final CatalogObjectSerializer<AlterZoneEntry> SERIALIZER = new AlterZoneEntrySerializer();
+public class SetDefaultZoneEntry implements UpdateEntry, Fireable {
+    public static final CatalogObjectSerializer<SetDefaultZoneEntry> SERIALIZER = new SetDefaultZoneEntrySerializer();
 
-    private final CatalogZoneDescriptor descriptor;
+    private final int zoneId;
 
     /**
      * Constructs the object.
      *
-     * @param descriptor A descriptor of a zone to alter.
+     * @param zoneId An id of a zone to set default.
      */
-    public AlterZoneEntry(CatalogZoneDescriptor descriptor) {
-        this.descriptor = descriptor;
+    public SetDefaultZoneEntry(int zoneId) {
+        this.zoneId = zoneId;
     }
 
-    /** Returns descriptor of a zone to alter. */
-    public CatalogZoneDescriptor descriptor() {
-        return descriptor;
+    /** Returns an id of a zone to set default. */
+    public int zoneId() {
+        return zoneId;
     }
 
     @Override
     public int typeId() {
-        return MarshallableEntryType.ALTER_ZONE.id();
+        return MarshallableEntryType.SET_DEFAULT_ZONE.id();
     }
 
     @Override
     public CatalogEvent eventType() {
-        return CatalogEvent.ZONE_ALTER;
+        return CatalogEvent.SET_DEFAULT_ZONE;
     }
 
     @Override
     public CatalogEventParameters createEventParameters(long causalityToken, int catalogVersion) {
-        return new AlterZoneEventParameters(causalityToken, catalogVersion, descriptor);
+        return new DropZoneEventParameters(causalityToken, catalogVersion, zoneId);
     }
 
     @Override
     public Catalog applyUpdate(Catalog catalog, long causalityToken) {
-        descriptor.updateToken(causalityToken);
-
         return new Catalog(
                 catalog.version(),
                 catalog.time(),
                 catalog.objectIdGenState(),
-                catalog.zones().stream()
-                        .map(z -> z.id() == descriptor.id() ? descriptor : z)
-                        .collect(toList()),
+                catalog.zones(),
                 catalog.schemas(),
-                catalog.defaultZone().id()
-        );
+                zoneId);
     }
 
     @Override
@@ -90,19 +82,19 @@ public class AlterZoneEntry implements UpdateEntry, Fireable {
     }
 
     /**
-     * Serializer for {@link AlterZoneEntry}.
+     * Serializer for {@link SetDefaultZoneEntry}.
      */
-    private static class AlterZoneEntrySerializer implements CatalogObjectSerializer<AlterZoneEntry> {
+    private static class SetDefaultZoneEntrySerializer implements CatalogObjectSerializer<SetDefaultZoneEntry> {
         @Override
-        public AlterZoneEntry readFrom(IgniteDataInput input) throws IOException {
-            CatalogZoneDescriptor descriptor = CatalogZoneDescriptor.SERIALIZER.readFrom(input);
+        public SetDefaultZoneEntry readFrom(IgniteDataInput input) throws IOException {
+            int zoneId = input.readInt();
 
-            return new AlterZoneEntry(descriptor);
+            return new SetDefaultZoneEntry(zoneId);
         }
 
         @Override
-        public void writeTo(AlterZoneEntry object, IgniteDataOutput output) throws IOException {
-            CatalogZoneDescriptor.SERIALIZER.writeTo(object.descriptor(), output);
+        public void writeTo(SetDefaultZoneEntry entry, IgniteDataOutput output) throws IOException {
+            output.writeInt(entry.zoneId());
         }
     }
 }
