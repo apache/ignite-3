@@ -120,7 +120,7 @@ public interface RaftManager extends IgniteComponent {
             RaftGroupEventsListener eventsLsnr,
             RaftNodeDisruptorConfiguration disruptorConfiguration,
             RaftServiceFactory<T> factory
-    ) throws NodeStoppingException;
+    );
 
     /**
      * Stops a given local Raft node.
@@ -129,7 +129,7 @@ public interface RaftManager extends IgniteComponent {
      * @return {@code true} if the node has been stopped, {@code false} otherwise.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
-    boolean stopRaftNode(RaftNodeId nodeId) throws NodeStoppingException;
+    boolean stopRaftNode(RaftNodeId nodeId);
 
     /**
      * Stops all local nodes running the given Raft group.
@@ -141,7 +141,7 @@ public interface RaftManager extends IgniteComponent {
      * @return {@code true} if at least one node has been stopped, {@code false} otherwise.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
-    boolean stopRaftNodes(ReplicationGroupId groupId) throws NodeStoppingException;
+    boolean stopRaftNodes(ReplicationGroupId groupId);
 
     /**
      * Creates a Raft group service providing operations on a Raft group.

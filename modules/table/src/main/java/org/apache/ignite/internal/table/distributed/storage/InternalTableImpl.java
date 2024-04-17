@@ -70,6 +70,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgnitePentaFunction;
 import org.apache.ignite.internal.lang.IgniteTriFunction;
+import org.apache.ignite.internal.manager.LifecycleAwareComponent;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -120,7 +121,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Storage of table rows.
  */
-public class InternalTableImpl implements InternalTable {
+public class InternalTableImpl extends LifecycleAwareComponent implements InternalTable {
     /** Cursor id generator. */
     private static final AtomicLong CURSOR_ID_GENERATOR = new AtomicLong();
 
@@ -852,41 +853,43 @@ public class InternalTableImpl implements InternalTable {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<BinaryRow> get(BinaryRowEx keyRow, InternalTransaction tx) {
-        if (tx == null) {
-            return evaluateReadOnlyPrimaryNode(
+        return withLifecycle(() -> {
+            if (tx == null) {
+                return evaluateReadOnlyPrimaryNode(
+                        keyRow,
+                        (groupId, consistencyToken) -> tableMessagesFactory.readOnlyDirectSingleRowReplicaRequest()
+                                .groupId(groupId)
+                                .enlistmentConsistencyToken(consistencyToken)
+                                .schemaVersion(keyRow.schemaVersion())
+                                .primaryKey(keyRow.tupleSlice())
+                                .requestType(RequestType.RO_GET)
+                                .build()
+                );
+            }
+
+            if (tx.isReadOnly()) {
+                return evaluateReadOnlyRecipientNode(partitionId(keyRow))
+                        .thenCompose(recipientNode -> get(keyRow, tx.readTimestamp(), recipientNode));
+            }
+
+            return enlistInTx(
                     keyRow,
-                    (groupId, consistencyToken) -> tableMessagesFactory.readOnlyDirectSingleRowReplicaRequest()
+                    tx,
+                    (txo, groupId, enlistmentConsistencyToken) -> tableMessagesFactory.readWriteSingleRowPkReplicaRequest()
                             .groupId(groupId)
-                            .enlistmentConsistencyToken(consistencyToken)
                             .schemaVersion(keyRow.schemaVersion())
                             .primaryKey(keyRow.tupleSlice())
-                            .requestType(RequestType.RO_GET)
-                            .build()
+                            .commitPartitionId(serializeTablePartitionId(txo.commitPartition()))
+                            .transactionId(txo.id())
+                            .enlistmentConsistencyToken(enlistmentConsistencyToken)
+                            .requestType(RW_GET)
+                            .timestampLong(clock.nowLong())
+                            .full(tx == null)
+                            .coordinatorId(txo.coordinatorId())
+                            .build(),
+                    (res, req) -> false
             );
-        }
-
-        if (tx.isReadOnly()) {
-            return evaluateReadOnlyRecipientNode(partitionId(keyRow))
-                    .thenCompose(recipientNode -> get(keyRow, tx.readTimestamp(), recipientNode));
-        }
-
-        return enlistInTx(
-                keyRow,
-                tx,
-                (txo, groupId, enlistmentConsistencyToken) -> tableMessagesFactory.readWriteSingleRowPkReplicaRequest()
-                        .groupId(groupId)
-                        .schemaVersion(keyRow.schemaVersion())
-                        .primaryKey(keyRow.tupleSlice())
-                        .commitPartitionId(serializeTablePartitionId(txo.commitPartition()))
-                        .transactionId(txo.id())
-                        .enlistmentConsistencyToken(enlistmentConsistencyToken)
-                        .requestType(RW_GET)
-                        .timestampLong(clock.nowLong())
-                        .full(tx == null)
-                        .coordinatorId(txo.coordinatorId())
-                        .build(),
-                (res, req) -> false
-        );
+        });
     }
 
     @Override

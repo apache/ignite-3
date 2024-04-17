@@ -37,7 +37,6 @@ import java.util.Set;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
-import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
@@ -109,19 +108,15 @@ public class ActiveActorTest extends AbstractTopologyAwareGroupServiceTest {
 
         var mockRaftMgr = mock(Loza.class);
 
-        try {
-            when(mockRaftMgr.startRaftGroupService(any(), any(), any(), any())).then(invocation ->
-                    raftGroupServiceFactory.startRaftGroupService(
-                            GROUP_ID,
-                            peersAndLearners,
-                            raftConfiguration,
-                            executor,
-                            null
-                    )
-            );
-        } catch (NodeStoppingException e) {
-            throw new RuntimeException(e);
-        }
+        when(mockRaftMgr.startRaftGroupService(any(), any(), any(), any())).then(invocation ->
+                raftGroupServiceFactory.startRaftGroupService(
+                        GROUP_ID,
+                        peersAndLearners,
+                        raftConfiguration,
+                        executor,
+                        null
+                )
+        );
 
         PlacementDriverManager placementDriverManager = new PlacementDriverManager(
                 nodeName,

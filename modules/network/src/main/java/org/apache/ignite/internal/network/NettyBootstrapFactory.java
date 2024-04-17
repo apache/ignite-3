@@ -17,9 +17,7 @@
 
 package org.apache.ignite.internal.network;
 
-import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import io.netty.bootstrap.Bootstrap;
 import io.netty.bootstrap.ServerBootstrap;
@@ -33,6 +31,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.manager.LifecycleAwareComponent;
 import org.apache.ignite.internal.network.configuration.InboundView;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkView;
@@ -45,7 +44,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Netty bootstrap factory. Holds shared {@link EventLoopGroup} instances and encapsulates common Netty {@link Bootstrap} creation logic.
  */
-public class NettyBootstrapFactory implements IgniteComponent, ChannelEventLoopsSource {
+public class NettyBootstrapFactory extends LifecycleAwareComponent implements IgniteComponent, ChannelEventLoopsSource {
     /** Network configuration. */
     private final NetworkConfiguration networkConfiguration;
 
@@ -152,16 +151,16 @@ public class NettyBootstrapFactory implements IgniteComponent, ChannelEventLoops
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> startAsync() {
-        bossGroup = NamedNioEventLoopGroup.create(eventLoopGroupNamePrefix + "-srv-accept");
-        workerGroup = NamedNioEventLoopGroup.create(eventLoopGroupNamePrefix + "-srv-worker");
-        clientWorkerGroup = NamedNioEventLoopGroup.create(eventLoopGroupNamePrefix + "-client");
+        return startAsync(() -> {
+            bossGroup = NamedNioEventLoopGroup.create(eventLoopGroupNamePrefix + "-srv-accept");
+            workerGroup = NamedNioEventLoopGroup.create(eventLoopGroupNamePrefix + "-srv-worker");
+            clientWorkerGroup = NamedNioEventLoopGroup.create(eventLoopGroupNamePrefix + "-client");
 
-        this.channelEventLoops = List.copyOf(eventLoopsAt(workerGroup, clientWorkerGroup));
-
-        return nullCompletedFuture();
+            this.channelEventLoops = List.copyOf(eventLoopsAt(workerGroup, clientWorkerGroup));
+        });
     }
 
-    private static List<EventLoop> eventLoopsAt(EventLoopGroup ... groups) {
+    private static List<EventLoop> eventLoopsAt(EventLoopGroup... groups) {
         List<EventLoop> channelEventLoops = new ArrayList<>();
 
         for (EventLoopGroup group : groups) {
@@ -187,19 +186,15 @@ public class NettyBootstrapFactory implements IgniteComponent, ChannelEventLoops
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> stopAsync() {
-        NetworkView configurationView = networkConfiguration.value();
-        long quietPeriod = configurationView.shutdownQuietPeriod();
-        long shutdownTimeout = configurationView.shutdownTimeout();
+        return stopAsync(() -> {
+            NetworkView configurationView = networkConfiguration.value();
+            long quietPeriod = configurationView.shutdownQuietPeriod();
+            long shutdownTimeout = configurationView.shutdownTimeout();
 
-        try {
             clientWorkerGroup.shutdownGracefully(quietPeriod, shutdownTimeout, MILLISECONDS).sync();
             workerGroup.shutdownGracefully(quietPeriod, shutdownTimeout, MILLISECONDS).sync();
             bossGroup.shutdownGracefully(quietPeriod, shutdownTimeout, MILLISECONDS).sync();
-        } catch (InterruptedException e) {
-            return failedFuture(e);
-        }
-
-        return nullCompletedFuture();
+        });
     }
 
 

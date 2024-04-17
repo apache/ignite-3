@@ -19,11 +19,9 @@ package org.apache.ignite.internal.placementdriver;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
@@ -33,6 +31,7 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.manager.LifecycleAwareComponent;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
@@ -41,27 +40,20 @@ import org.apache.ignite.internal.raft.RaftManager;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.TestOnly;
 
 /**
- * Placement driver manager.
- * The manager is a leaseholder tracker: response of renewal of the lease and discover of appear/disappear of a replication group member.
- * The another role of the manager is providing a node, which is leaseholder at the moment, for a particular replication group.
+ * Placement driver manager. The manager is a leaseholder tracker: response of renewal of the lease and discover of appear/disappear of a
+ * replication group member. The another role of the manager is providing a node, which is leaseholder at the moment, for a particular
+ * replication group.
  */
-public class PlacementDriverManager implements IgniteComponent {
+public class PlacementDriverManager extends LifecycleAwareComponent implements IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(PlacementDriverManager.class);
 
     private static final String PLACEMENTDRIVER_LEASES_KEY_STRING = "placementdriver.leases";
 
     public static final ByteArray PLACEMENTDRIVER_LEASES_KEY = ByteArray.fromString(PLACEMENTDRIVER_LEASES_KEY_STRING);
-
-    /** Busy lock to stop synchronously. */
-    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
-
-    /** Prevents double stopping of the component. */
-    private final AtomicBoolean stopGuard = new AtomicBoolean();
 
     /** Cluster service. */
     private final ClusterService clusterService;
@@ -135,7 +127,7 @@ public class PlacementDriverManager implements IgniteComponent {
 
     @Override
     public CompletableFuture<Void> startAsync() {
-        inBusyLock(busyLock, () -> {
+        return withLifecycle(() -> {
             placementDriverNodesNamesProvider.get()
                     .thenCompose(placementDriverNodes -> {
                         String thisNodeName = clusterService.topologyService().localMember().name();
@@ -169,13 +161,11 @@ public class PlacementDriverManager implements IgniteComponent {
 
             recoverInternalComponentsBusy();
         });
-
-        return nullCompletedFuture();
     }
 
     @Override
     public void beforeNodeStop() {
-        inBusyLock(busyLock, () -> {
+        withLifecycle(() -> {
             withRaftClientIfPresent(c -> {
                 c.unsubscribeLeader().join();
 
@@ -188,17 +178,11 @@ public class PlacementDriverManager implements IgniteComponent {
 
     @Override
     public CompletableFuture<Void> stopAsync() {
-        if (!stopGuard.compareAndSet(false, true)) {
-            return nullCompletedFuture();
-        }
+        return stopAsync(() -> {
+            withRaftClientIfPresent(TopologyAwareRaftGroupService::shutdown);
 
-        busyLock.block();
-
-        withRaftClientIfPresent(TopologyAwareRaftGroupService::shutdown);
-
-        leaseUpdater.deactivate();
-
-        return nullCompletedFuture();
+            leaseUpdater.deactivate();
+        });
     }
 
     private void withRaftClientIfPresent(Consumer<TopologyAwareRaftGroupService> closure) {
@@ -210,12 +194,13 @@ public class PlacementDriverManager implements IgniteComponent {
     }
 
     private void onLeaderChange(ClusterNode leader, long term) {
-        inBusyLock(busyLock, () -> {
+        withLifecycle(() -> {
             if (leader.equals(clusterService.topologyService().localMember())) {
                 takeOverActiveActorBusy();
             } else {
                 stepDownActiveActorBusy();
             }
+            return nullCompletedFuture();
         });
     }
 

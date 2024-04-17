@@ -44,7 +44,6 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.StaticNodeFinder;
@@ -233,13 +232,9 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
 
             var nodeId = new RaftNodeId(RAFT_GROUP_NAME, serverPeer == null ? configuration.learner(nodeName) : serverPeer);
 
-            try {
-                raftGroupService = loza.startRaftGroupNodeAndWaitNodeReadyFuture(
-                        nodeId, configuration, mock(RaftGroupListener.class), eventsListener
-                );
-            } catch (NodeStoppingException e) {
-                return CompletableFuture.failedFuture(e);
-            }
+            raftGroupService = loza.startRaftGroupNodeAndWaitNodeReadyFuture(
+                    nodeId, configuration, mock(RaftGroupListener.class), eventsListener
+            );
 
             return raftGroupService;
         }

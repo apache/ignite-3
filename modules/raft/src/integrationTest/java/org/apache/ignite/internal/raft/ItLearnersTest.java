@@ -400,16 +400,12 @@ public class ItLearnersTest extends IgniteAbstractTest {
             PeersAndLearners memberConfiguration,
             RaftGroupListener listener
     ) {
-        try {
-            return node.loza.startRaftGroupNodeAndWaitNodeReadyFuture(
-                    new RaftNodeId(RAFT_GROUP_ID, serverPeer),
-                    memberConfiguration,
-                    listener,
-                    RaftGroupEventsListener.noopLsnr
-            );
-        } catch (NodeStoppingException e) {
-            throw new RuntimeException(e);
-        }
+        return node.loza.startRaftGroupNodeAndWaitNodeReadyFuture(
+                new RaftNodeId(RAFT_GROUP_ID, serverPeer),
+                memberConfiguration,
+                listener,
+                RaftGroupEventsListener.noopLsnr
+        );
     }
 
     private static class TestRaftGroupListener implements RaftGroupListener {

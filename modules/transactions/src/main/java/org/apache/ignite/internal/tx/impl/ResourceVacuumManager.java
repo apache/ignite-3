@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.tx.impl;
 
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.util.Set;
@@ -30,17 +28,17 @@ import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.manager.LifecycleAwareComponent;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.TxManager;
-import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNodeResolver;
 import org.apache.ignite.network.TopologyService;
 
 /**
  * Manager responsible from cleaning up the transaction resources.
  */
-public class ResourceVacuumManager implements IgniteComponent {
+public class ResourceVacuumManager extends LifecycleAwareComponent implements IgniteComponent {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ResourceVacuumManager.class);
 
@@ -58,8 +56,6 @@ public class ResourceVacuumManager implements IgniteComponent {
      * Handler of RO closed requests.
      */
     private final FinishedTransactionBatchRequestHandler finishedTransactionBatchRequestHandler;
-
-    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     private final ScheduledExecutorService resourceVacuumExecutor;
 
@@ -106,37 +102,35 @@ public class ResourceVacuumManager implements IgniteComponent {
 
     @Override
     public CompletableFuture<Void> startAsync() {
-        resourceVacuumExecutor.scheduleAtFixedRate(
-                this::runVacuumOperations,
-                0,
-                resourceVacuumIntervalMilliseconds,
-                TimeUnit.MILLISECONDS
-        );
+        return startAsync(() -> {
+            resourceVacuumExecutor.scheduleAtFixedRate(
+                    this::runVacuumOperations,
+                    0,
+                    resourceVacuumIntervalMilliseconds,
+                    TimeUnit.MILLISECONDS
+            );
 
-        resourceVacuumExecutor.scheduleAtFixedRate(
-                finishedReadOnlyTransactionTracker::broadcastClosedTransactions,
-                0,
-                resourceVacuumIntervalMilliseconds,
-                TimeUnit.MILLISECONDS
-        );
+            resourceVacuumExecutor.scheduleAtFixedRate(
+                    finishedReadOnlyTransactionTracker::broadcastClosedTransactions,
+                    0,
+                    resourceVacuumIntervalMilliseconds,
+                    TimeUnit.MILLISECONDS
+            );
 
-        finishedTransactionBatchRequestHandler.start();
-
-        return nullCompletedFuture();
+            finishedTransactionBatchRequestHandler.startAsync();
+        });
     }
 
     @Override
     public CompletableFuture<Void> stopAsync() {
-        busyLock.block();
-
-        shutdownAndAwaitTermination(resourceVacuumExecutor, 10, TimeUnit.SECONDS);
-
-        return nullCompletedFuture();
+        return stopAsync(() -> shutdownAndAwaitTermination(resourceVacuumExecutor, 10, TimeUnit.SECONDS));
     }
 
     private void runVacuumOperations() {
-        inBusyLock(busyLock, this::vacuumOrphanTxResources);
-        inBusyLock(busyLock, this::vacuumTxnResources);
+        withLifecycle(() -> {
+            vacuumOrphanTxResources();
+            vacuumTxnResources();
+        });
     }
 
     private void vacuumOrphanTxResources() {

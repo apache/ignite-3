@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.raft.storage.impl;
 
-import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.rocksdb.RocksDB.DEFAULT_COLUMN_FAMILY;
 
@@ -35,6 +33,7 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.manager.LifecycleAwareComponent;
 import org.apache.ignite.internal.raft.configuration.LogStorageBudgetView;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -56,7 +55,7 @@ import org.rocksdb.util.SizeUnit;
 /**
  * {@link LogStorageFactoryCreator} for volatile log storage.
  */
-public class VolatileLogStorageFactoryCreator implements LogStorageFactoryCreator, IgniteComponent {
+public class VolatileLogStorageFactoryCreator extends LifecycleAwareComponent implements LogStorageFactoryCreator, IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(VolatileLogStorageFactoryCreator.class);
 
     /** Database path. */
@@ -90,24 +89,24 @@ public class VolatileLogStorageFactoryCreator implements LogStorageFactoryCreato
 
     @Override
     public CompletableFuture<Void> startAsync() {
-        try {
-            Files.createDirectories(spillOutPath);
-        } catch (IOException e) {
-            throw new IllegalStateException("Failed to create directory: " + this.spillOutPath, e);
-        }
+        return startAsync(() -> {
+            try {
+                Files.createDirectories(spillOutPath);
+            } catch (IOException e) {
+                throw new IllegalStateException("Failed to create directory: " + this.spillOutPath, e);
+            }
 
-        wipeOutDb();
+            wipeOutDb();
 
-        dbOptions = createDbOptions();
-        ColumnFamilyOptions cfOption = createColumnFamilyOptions();
+            dbOptions = createDbOptions();
+            ColumnFamilyOptions cfOption = createColumnFamilyOptions();
 
-        List<ColumnFamilyHandle> columnFamilyHandles = new ArrayList<>();
+            List<ColumnFamilyHandle> columnFamilyHandles = new ArrayList<>();
 
-        List<ColumnFamilyDescriptor> columnFamilyDescriptors = List.of(
-                new ColumnFamilyDescriptor(DEFAULT_COLUMN_FAMILY, cfOption)
-        );
+            List<ColumnFamilyDescriptor> columnFamilyDescriptors = List.of(
+                    new ColumnFamilyDescriptor(DEFAULT_COLUMN_FAMILY, cfOption)
+            );
 
-        try {
             db = RocksDB.open(this.dbOptions, this.spillOutPath.toString(), columnFamilyDescriptors, columnFamilyHandles);
 
             // Setup rocks thread pools to utilize all the available cores as the database is shared among
@@ -120,11 +119,7 @@ public class VolatileLogStorageFactoryCreator implements LogStorageFactoryCreato
 
             assert (columnFamilyHandles.size() == 1);
             this.columnFamily = columnFamilyHandles.get(0);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-
-        return nullCompletedFuture();
+        });
     }
 
     private void wipeOutDb() {
@@ -142,9 +137,9 @@ public class VolatileLogStorageFactoryCreator implements LogStorageFactoryCreato
      */
     private static DBOptions createDbOptions() {
         return new DBOptions()
-            .setMaxBackgroundJobs(Runtime.getRuntime().availableProcessors() * 2)
-            .setCreateIfMissing(true)
-            .setCreateMissingColumnFamilies(true);
+                .setMaxBackgroundJobs(Runtime.getRuntime().availableProcessors() * 2)
+                .setCreateIfMissing(true)
+                .setCreateMissingColumnFamilies(true);
     }
 
     /**
@@ -179,15 +174,11 @@ public class VolatileLogStorageFactoryCreator implements LogStorageFactoryCreato
 
     @Override
     public CompletableFuture<Void> stopAsync() {
-        ExecutorServiceHelper.shutdownAndAwaitTermination(executorService);
+        return stopAsync(() -> {
+            ExecutorServiceHelper.shutdownAndAwaitTermination(executorService);
 
-        try {
             closeAll(columnFamily, db, dbOptions);
-        } catch (Exception e) {
-            return failedFuture(e);
-        }
-
-        return nullCompletedFuture();
+        });
     }
 
     @Override

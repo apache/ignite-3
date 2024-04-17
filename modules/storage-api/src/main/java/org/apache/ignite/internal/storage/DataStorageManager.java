@@ -17,14 +17,13 @@
 
 package org.apache.ignite.internal.storage;
 
-import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.manager.LifecycleAwareComponent;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageProfileConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageProfileView;
@@ -33,7 +32,7 @@ import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
 /** Data storage manager. */
-public class DataStorageManager implements IgniteComponent {
+public class DataStorageManager extends LifecycleAwareComponent implements IgniteComponent {
     /** Mapping: {@link DataStorageModule#name} -> {@link StorageEngine}. */
     private final Map<String, StorageEngine> engines;
 
@@ -58,23 +57,17 @@ public class DataStorageManager implements IgniteComponent {
 
     @Override
     public CompletableFuture<Void> startAsync() throws StorageException {
-        engines.values().forEach(StorageEngine::start);
+        return startAsync(() -> {
+            engines.values().forEach(StorageEngine::start);
 
-        profilesToEngines = storageConfiguration.value().profiles().stream()
-                .collect(Collectors.toMap(StorageProfileView::name, StorageProfileView::engine));
-
-        return nullCompletedFuture();
+            profilesToEngines = storageConfiguration.value().profiles().stream()
+                    .collect(Collectors.toMap(StorageProfileView::name, StorageProfileView::engine));
+        });
     }
 
     @Override
     public CompletableFuture<Void> stopAsync() {
-        try {
-            closeAll(engines.values().stream().map(engine -> engine::stop));
-        } catch (Exception e) {
-            return failedFuture(e);
-        }
-
-        return nullCompletedFuture();
+        return stopAsync(() -> closeAll(engines.values().stream().map(engine -> engine::stop)));
     }
 
     /**

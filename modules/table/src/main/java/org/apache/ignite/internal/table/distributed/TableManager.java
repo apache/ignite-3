@@ -128,6 +128,7 @@ import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.lowwatermark.event.ChangeLowWatermarkEventParameters;
 import org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.manager.LifecycleAwareComponent;
 import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -231,7 +232,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Table manager.
  */
-public class TableManager implements IgniteTablesInternal, IgniteComponent {
+public class TableManager extends LifecycleAwareComponent implements IgniteTablesInternal, IgniteComponent {
 
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(TableManager.class);
@@ -385,7 +386,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     /** Versioned value used only at manager startup to correctly fire table creation events. */
     private final IncrementalVersionedValue<Void> startVv;
 
-    /** Ends at the {@link #stop()} with an {@link NodeStoppingException}. */
+    /** Ends at the {@link #stopAsync()} with an {@link NodeStoppingException}. */
     private final CompletableFuture<Void> stopManagerFuture = new CompletableFuture<>();
 
     /** Configuration for {@link StorageUpdateHandler}. */
@@ -588,7 +589,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     @Override
     public CompletableFuture<Void> startAsync() {
-        return inBusyLockAsync(busyLock, () -> {
+        return startAsync(() -> {
             mvGc.start();
 
             transactionStateResolver.start();
@@ -630,8 +631,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             implicitTransactionTimeout = txCfg.implicitTransactionTimeout().value();
             attemptsObtainLock = txCfg.attemptsObtainLock().value();
-
-            return nullCompletedFuture();
         });
     }
 
@@ -1177,15 +1176,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     @Override
     public CompletableFuture<Void> stopAsync() {
-        assert beforeStopGuard.get() : "'stop' called before 'beforeNodeStop'";
+        return stopAsync(() -> {
+            assert beforeStopGuard.get() : "'stop' called before 'beforeNodeStop'";
 
-        if (!stopGuard.compareAndSet(false, true)) {
-            return nullCompletedFuture();
-        }
+            int shutdownTimeoutSeconds = 10;
 
-        int shutdownTimeoutSeconds = 10;
-
-        try {
             IgniteUtils.closeAllManually(
                     mvGc,
                     fullStateTransferIndexChooser,
@@ -1197,11 +1192,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     () -> shutdownAndAwaitTermination(incomingSnapshotsExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS),
                     () -> shutdownAndAwaitTermination(streamerFlushExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS)
             );
-        } catch (Exception e) {
-            return failedFuture(e);
-        }
-
-        return nullCompletedFuture();
+        });
     }
 
     /**
@@ -2390,11 +2381,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         return stopReplicaFuture
                 .thenCompose(v -> {
-                    try {
-                        raftMgr.stopRaftNodes(tablePartitionId);
-                    } catch (NodeStoppingException ignored) {
-                        // No-op.
-                    }
+                    raftMgr.stopRaftNodes(tablePartitionId);
 
                     return mvGc.removeStorage(tablePartitionId);
                 });
@@ -2532,7 +2519,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     /**
      * Returns the future that will complete when, either the future from the argument or {@link #stopManagerFuture} will complete,
-     * successfully or exceptionally. Allows to protect from getting stuck at {@link #stop()} when someone is blocked (by using
+     * successfully or exceptionally. Allows to protect from getting stuck at {@link #stopAsync()} when someone is blocked (by using
      * {@link #busyLock}) for a long time.
      *
      * @param future Future.
