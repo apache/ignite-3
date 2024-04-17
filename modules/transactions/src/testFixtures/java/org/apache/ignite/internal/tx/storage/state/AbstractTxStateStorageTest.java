@@ -100,7 +100,7 @@ public abstract class AbstractTxStateStorageTest extends BaseIgniteAbstractTest 
         testPutGetRemove0((storage, txIds) -> storage.removeAll(txIds, 1, 1));
     }
 
-    public void testPutGetRemove0(BiConsumer<TxStateStorage, Set<UUID>> removeOp) {
+    private void testPutGetRemove0(BiConsumer<TxStateStorage, Set<UUID>> removeOp) {
         TxStateStorage storage = tableStorage.getOrCreateTxStateStorage(0);
 
         List<UUID> txIds = new ArrayList<>();
