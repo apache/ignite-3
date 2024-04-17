@@ -138,10 +138,10 @@ public class Assignments implements Serializable {
     }
 
     /**
-     * Creates a string representation of the given assignmentsList list to use it for logging.
+     * Creates a string representation of the given assignments list for logging usage purpose mostly.
      *
-     * @param assignments List of assignmentsList.
-     * @return String representation of the given assignmentsList list to use it for logging.
+     * @param assignments List of assignments to present as string.
+     * @return String representation of the given assignments list.
      */
     public static String assignmentListToString(List<Assignments> assignments) {
         return S.toString(assignments, (sb, e, i) -> sb.app(i).app('=').app(e.nodes()));
