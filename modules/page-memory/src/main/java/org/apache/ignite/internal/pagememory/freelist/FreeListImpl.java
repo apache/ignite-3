@@ -35,7 +35,7 @@ import org.apache.ignite.internal.pagememory.PageIdAllocator;
 import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.Storable;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTracker;
-import org.apache.ignite.internal.pagememory.io.AbstractDataPageIo;
+import org.apache.ignite.internal.pagememory.io.DataPageIo;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
@@ -111,7 +111,7 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
         ) throws IgniteInternalCheckedException {
             written = addRow(pageId, pageAddr, iox, row, written);
 
-            putPage(((AbstractDataPageIo<Storable>) iox).getFreeSpace(pageAddr), pageId, pageAddr, statHolder);
+            putPage(((DataPageIo) iox).getFreeSpace(pageAddr), pageId, pageAddr, statHolder);
 
             return written;
         }
@@ -134,7 +134,7 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
                 Storable row,
                 int written
         ) throws IgniteInternalCheckedException {
-            AbstractDataPageIo<Storable> io = (AbstractDataPageIo<Storable>) iox;
+            DataPageIo io = (DataPageIo) iox;
 
             int rowSize = row.size();
             int oldFreeSpace = io.getFreeSpace(pageAddr);
@@ -167,7 +167,7 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
         protected int addRowFull(
                 long pageId,
                 long pageAddr,
-                AbstractDataPageIo<Storable> io,
+                DataPageIo io,
                 Storable row,
                 int rowSize
         ) throws IgniteInternalCheckedException {
@@ -191,7 +191,7 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
         protected int addRowFragment(
                 long pageId,
                 long pageAddr,
-                AbstractDataPageIo<Storable> io,
+                DataPageIo io,
                 Storable row,
                 int written,
                 int rowSize
@@ -238,7 +238,7 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
                 int written,
                 IoStatisticsHolder statHolder
         ) throws IgniteInternalCheckedException {
-            AbstractDataPageIo<Storable> io = (AbstractDataPageIo<Storable>) iox;
+            DataPageIo io = (DataPageIo) iox;
 
             // Fill the page up to the end.
             while (written != COMPLETE || (!evictionTracker.evictionRequired() && it.hasNext())) {
@@ -295,7 +295,7 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
                 int itemId,
                 IoStatisticsHolder statHolder
         ) throws IgniteInternalCheckedException {
-            AbstractDataPageIo<Storable> io = (AbstractDataPageIo<Storable>) iox;
+            DataPageIo io = (DataPageIo) iox;
 
             int oldFreeSpace = io.getFreeSpace(pageAddr);
 
@@ -391,7 +391,7 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-16350
         // TODO: this constant is used because currently we cannot reuse data pages as index pages
         // TODO: and vice-versa. It should be removed when data storage format is finalized.
-        minSizeForDataPage = pageSize - AbstractDataPageIo.MIN_DATA_PAGE_OVERHEAD;
+        minSizeForDataPage = pageSize - DataPageIo.MIN_DATA_PAGE_OVERHEAD;
 
         int shift = 0;
 
@@ -552,7 +552,7 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
 
                 Storable row = it.get();
 
-                AbstractDataPageIo initIo = null;
+                DataPageIo initIo = null;
 
                 long pageId = takePage(row.size() - written, row, statHolder);
 
@@ -633,7 +633,7 @@ public class FreeListImpl extends PagesList implements FreeList, ReuseList {
      * @throws IgniteInternalCheckedException If failed.
      */
     private int writeSinglePage(Storable row, int written, IoStatisticsHolder statHolder) throws IgniteInternalCheckedException {
-        AbstractDataPageIo initIo = null;
+        DataPageIo initIo = null;
 
         long pageId = takePage(row.size() - written, row, statHolder);
 

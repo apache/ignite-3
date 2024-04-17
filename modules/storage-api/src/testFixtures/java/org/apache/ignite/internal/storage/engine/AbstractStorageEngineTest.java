@@ -36,10 +36,13 @@ import static org.mockito.Mockito.when;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Random;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.components.LogSyncer;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
@@ -48,6 +51,7 @@ import org.apache.ignite.internal.storage.BaseMvStoragesTest;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.index.HashIndexStorage;
+import org.apache.ignite.internal.storage.index.IndexRow;
 import org.apache.ignite.internal.storage.index.IndexRowImpl;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.SortedIndexStorage;
@@ -57,6 +61,7 @@ import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
+import org.apache.ignite.internal.storage.index.impl.BinaryTupleRowSerializer;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -286,6 +291,53 @@ public abstract class AbstractStorageEngineTest extends BaseMvStoragesTest {
                 }
             }
         }
+    }
+
+    @Test
+    public void testPutBigRow(@Mock StorageIndexDescriptorSupplier indexDescriptorSupplier) {
+        int indexId = 0;
+        int partitionId = 0;
+
+        StorageTableDescriptor tableDescriptor = new StorageTableDescriptor(1, 1, DEFAULT_STORAGE_PROFILE);
+
+        MvTableStorage tableStorage = storageEngine.createMvTable(tableDescriptor, indexDescriptorSupplier);
+
+        CompletableFuture<MvPartitionStorage> mvPartitionFut;
+        mvPartitionFut = tableStorage.createMvPartition(0);
+
+        assertThat(mvPartitionFut, willCompleteSuccessfully());
+
+        MvPartitionStorage mvPartition = mvPartitionFut.join();
+
+        StorageSortedIndexColumnDescriptor indexColumnDescriptor =
+                new StorageSortedIndexColumnDescriptor("foo", NativeTypes.STRING, true, true);
+        StorageSortedIndexDescriptor indexDescriptor = new StorageSortedIndexDescriptor(indexId,
+                List.of(indexColumnDescriptor), false);
+        SortedIndexStorage indexStorage = tableStorage.getOrCreateSortedIndex(partitionId, indexDescriptor);
+
+        var serializer = new BinaryTupleRowSerializer(indexDescriptor);
+
+        byte[] bytes = new byte[Integer.MAX_VALUE / 1000];
+        new Random().nextBytes(bytes);
+        String str = new String(bytes);
+
+        IndexRow indexRow = serializer.serializeRow(new Object[]{str}, new RowId(0));
+        mvPartition.runConsistently(locker -> {
+            indexStorage.put(indexRow);
+
+            return null;
+        });
+
+        BinaryRow binaryRow = binaryRow(new TestKey(10, "foo"), new TestValue(20, str));
+
+        mvPartition.runConsistently(locker -> {
+            RowId rowId = new RowId(0);
+            locker.tryLock(rowId);
+
+            mvPartition.addWrite(rowId, binaryRow, UUID.randomUUID(), 999, 0);
+
+            return null;
+        });
     }
 
     private void createMvTableWithPartitionAndFill(int tableId, int lastAppliedIndex, int lastAppliedTerm) throws Exception {

@@ -17,9 +17,11 @@
 
 package org.apache.ignite.internal.pagememory;
 
+import java.nio.ByteBuffer;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
-import org.apache.ignite.internal.pagememory.io.AbstractDataPageIo;
+import org.apache.ignite.internal.pagememory.io.DataPageIo;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Simple interface for data, store in some RowStore.
@@ -59,5 +61,13 @@ public interface Storable {
     /**
      * Returns I/O for handling this storable.
      */
-    IoVersions<? extends AbstractDataPageIo<?>> ioVersions();
+    IoVersions<? extends DataPageIo> ioVersions();
+
+    void fillPageBuf(ByteBuffer pageBuf);
+
+    /** Returns a byte buffer that contains binary tuple data. */
+    @Nullable
+    ByteBuffer valueBuffer();
+
+    void putInfo(long pageAddr, int offset);
 }

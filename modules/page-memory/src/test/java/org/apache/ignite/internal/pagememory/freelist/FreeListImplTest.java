@@ -49,6 +49,7 @@ import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMe
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfigurationSchema;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTrackerNoOp;
 import org.apache.ignite.internal.pagememory.inmemory.VolatilePageMemory;
+import org.apache.ignite.internal.pagememory.io.DataPageIo;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolderNoOp;
 import org.apache.ignite.internal.pagememory.util.PageLockListenerNoOp;
 import org.apache.ignite.internal.storage.configurations.StorageProfileConfiguration;
@@ -174,7 +175,7 @@ public class FreeListImplTest extends BaseIgniteAbstractTest {
 
         ioRegistry.loadFromServiceLoader();
 
-        ioRegistry.load(TestDataPageIo.VERSIONS);
+        ioRegistry.load(DataPageIo.VERSIONS);
 
         return new VolatilePageMemory(
                 (VolatilePageMemoryProfileConfiguration) fixConfiguration(storageProfileCfg),

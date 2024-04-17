@@ -19,14 +19,18 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static org.apache.ignite.internal.hlc.HybridTimestamp.HYBRID_TIMESTAMP_SIZE;
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
+import static org.apache.ignite.internal.pagememory.util.PageUtils.putByteBuffer;
+import static org.apache.ignite.internal.pagememory.util.PageUtils.putInt;
+import static org.apache.ignite.internal.pagememory.util.PageUtils.putShort;
+import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.writePartitionless;
 
+import java.nio.ByteBuffer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.pagememory.Storable;
-import org.apache.ignite.internal.pagememory.io.AbstractDataPageIo;
+import org.apache.ignite.internal.pagememory.io.DataPageIo;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
 import org.apache.ignite.internal.pagememory.util.PartitionlessLinks;
 import org.apache.ignite.internal.schema.BinaryRow;
-import org.apache.ignite.internal.storage.pagememory.mv.io.RowVersionDataIo;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
@@ -159,12 +163,49 @@ public final class RowVersion implements Storable {
     }
 
     @Override
-    public IoVersions<? extends AbstractDataPageIo<?>> ioVersions() {
-        return RowVersionDataIo.VERSIONS;
+    public IoVersions<? extends DataPageIo> ioVersions() {
+        return DataPageIo.VERSIONS;
+    }
+
+    @Override
+    public void fillPageBuf(ByteBuffer pageBuf) {
+        HybridTimestamps.writeTimestampToBuffer(pageBuf, timestamp());
+
+        PartitionlessLinks.writeToBuffer(pageBuf, nextLink());
+
+        pageBuf.putInt(valueSize());
+
+        pageBuf.putShort(value == null ? 0 : (short) value.schemaVersion());
+    }
+
+    @Override
+    public ByteBuffer valueBuffer() {
+        return value == null ? null : value.tupleSlice();
     }
 
     @Override
     public String toString() {
         return S.toString(RowVersion.class, this);
+    }
+
+    @Override
+    public void putInfo(long pageAddr, int offset) {
+        offset += HybridTimestamps.writeTimestampToMemory(pageAddr, offset, timestamp());
+
+        offset += writePartitionless(pageAddr + offset, nextLink());
+
+        putInt(pageAddr, offset, valueSize());
+        offset += Integer.BYTES;
+
+        BinaryRow row = value();
+
+        if (row != null) {
+            putShort(pageAddr, offset, (short) row.schemaVersion());
+            offset += Short.BYTES;
+
+            putByteBuffer(pageAddr, offset, row.tupleSlice());
+        } else {
+            putShort(pageAddr, offset, (short) 0);
+        }
     }
 }

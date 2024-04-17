@@ -21,9 +21,6 @@ package org.apache.ignite.internal.storage.pagememory.index;
  * Collection of all page types that relate to indexes.
  */
 public interface IndexPageTypes {
-    /** Index columns IO type. */
-    short T_INDEX_COLUMNS_DATA_IO = 100;
-
     /** Index meta tree meta IO type. */
     short T_INDEX_META_TREE_META_IO = 101;
 

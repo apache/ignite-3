@@ -25,6 +25,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTracker;
 import org.apache.ignite.internal.pagememory.freelist.FreeList;
+import org.apache.ignite.internal.pagememory.io.DataPageIo;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
@@ -35,7 +36,6 @@ import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
-import org.apache.ignite.internal.storage.pagememory.mv.io.RowVersionDataIo;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -105,14 +105,28 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
                 int itemId,
                 IoStatisticsHolder statHolder
         ) throws IgniteInternalCheckedException {
-            RowVersionDataIo dataIo = (RowVersionDataIo) io;
+            DataPageIo dataIo = (DataPageIo) io;
 
-            dataIo.updateTimestamp(pageAddr, itemId, pageSize(), arg);
+            updateTimestamp(dataIo, pageAddr, itemId, pageSize(), arg);
 
             evictionTracker.touchPage(pageId);
 
             return true;
         }
+    }
+
+    /**
+     * Updates timestamp leaving the rest untouched.
+     *
+     * @param pageAddr  page address
+     * @param itemId    item ID of the slot where row version (or its first fragment) is stored in this page
+     * @param pageSize  size of the page
+     * @param timestamp timestamp to store
+     */
+    private static void updateTimestamp(DataPageIo dataIo, long pageAddr, int itemId, int pageSize, @Nullable HybridTimestamp timestamp) {
+        int payloadOffset = dataIo.getPayloadOffset(pageAddr, itemId, pageSize, 0);
+
+        HybridTimestamps.writeTimestampToMemory(pageAddr, payloadOffset + RowVersion.TIMESTAMP_OFFSET, timestamp);
     }
 
     @Override

@@ -30,9 +30,6 @@ public interface MvPageTypes {
     /** Version chain tree leaf page IO type. */
     short T_VERSION_CHAIN_LEAF_IO = 11;
 
-    /** Row version data page IO type. */
-    short T_ROW_VERSION_DATA_IO = 12;
-
     /** Blob fragment page IO type. */
     short T_BLOB_FRAGMENT_IO = 13;
 

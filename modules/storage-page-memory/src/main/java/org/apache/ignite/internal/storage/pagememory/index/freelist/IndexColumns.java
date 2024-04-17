@@ -18,13 +18,14 @@
 package org.apache.ignite.internal.storage.pagememory.index.freelist;
 
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
+import static org.apache.ignite.internal.pagememory.util.PageUtils.putByteBuffer;
+import static org.apache.ignite.internal.pagememory.util.PageUtils.putInt;
 
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.Storable;
-import org.apache.ignite.internal.pagememory.io.AbstractDataPageIo;
+import org.apache.ignite.internal.pagememory.io.DataPageIo;
 import org.apache.ignite.internal.pagememory.io.IoVersions;
-import org.apache.ignite.internal.storage.pagememory.index.freelist.io.IndexColumnsDataIo;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -79,9 +80,7 @@ public class IndexColumns implements Storable {
         return valueBuffer.limit();
     }
 
-    /**
-     * Returns a byte buffer that contains binary tuple data.
-     */
+    @Override
     public ByteBuffer valueBuffer() {
         return valueBuffer;
     }
@@ -113,7 +112,20 @@ public class IndexColumns implements Storable {
     }
 
     @Override
-    public IoVersions<? extends AbstractDataPageIo<?>> ioVersions() {
-        return IndexColumnsDataIo.VERSIONS;
+    public IoVersions<DataPageIo> ioVersions() {
+        return DataPageIo.VERSIONS;
+    }
+
+    @Override
+    public void fillPageBuf(ByteBuffer pageBuf) {
+        pageBuf.putInt(valueSize());
+    }
+
+    @Override
+    public void putInfo(long pageAddr, int offset) {
+        putInt(pageAddr, offset + SIZE_OFFSET, valueSize());
+
+        putByteBuffer(pageAddr, offset + VALUE_OFFSET, valueBuffer());
+
     }
 }

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
+import static org.apache.ignite.internal.pagememory.util.PartitionlessLinks.writePartitionless;
 import static org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage.ALWAYS_LOAD_VALUE;
 import static org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage.DONT_LOAD_VALUE;
 import static org.apache.ignite.internal.storage.pagememory.mv.FindRowVersion.RowVersionFilter.equalsByNextLink;
@@ -28,6 +29,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.evict.PageEvictionTracker;
 import org.apache.ignite.internal.pagememory.freelist.FreeList;
+import org.apache.ignite.internal.pagememory.io.DataPageIo;
 import org.apache.ignite.internal.pagememory.io.PageIo;
 import org.apache.ignite.internal.pagememory.metric.IoStatisticsHolder;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
@@ -38,7 +40,6 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.gc.GcEntry;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
-import org.apache.ignite.internal.storage.pagememory.mv.io.RowVersionDataIo;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -113,14 +114,28 @@ public class RemoveWriteOnGcInvokeClosure implements InvokeClosure<VersionChain>
                 int itemId,
                 IoStatisticsHolder statHolder
         ) throws IgniteInternalCheckedException {
-            RowVersionDataIo dataIo = (RowVersionDataIo) io;
+            DataPageIo dataIo = (DataPageIo) io;
 
-            dataIo.updateNextLink(pageAddr, itemId, pageSize(), nextLink);
+            updateNextLink(dataIo, pageAddr, itemId, pageSize(), nextLink);
 
             evictionTracker.touchPage(pageId);
 
             return true;
         }
+    }
+
+    /**
+     * Updates next link leaving the rest untouched.
+     *
+     * @param pageAddr Page address.
+     * @param itemId Item ID of the slot where row version (or its first fragment) is stored in this page.
+     * @param pageSize Size of the page.
+     * @param nextLink Next link to store.
+     */
+    private static void updateNextLink(DataPageIo dataIo, long pageAddr, int itemId, int pageSize, long nextLink) {
+        int payloadOffset = dataIo.getPayloadOffset(pageAddr, itemId, pageSize, 0);
+
+        writePartitionless(pageAddr + payloadOffset + RowVersion.NEXT_LINK_OFFSET, nextLink);
     }
 
     @Override
