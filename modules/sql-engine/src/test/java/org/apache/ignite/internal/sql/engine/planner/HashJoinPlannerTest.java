@@ -62,6 +62,7 @@ public class HashJoinPlannerTest extends AbstractPlannerTest {
                 Arguments.of("select t1.c1 from t1 %s join t1 t2 on t1.c1 = t2.c1", true),
                 Arguments.of("select t1.c1 from t1 %s join t1 t2 using(c1)", true),
                 Arguments.of("select t1.c1 from t1 %s join t1 t2 on t1.c1 = 1", false),
+                Arguments.of("select t1.c1 from t1 %s join t1 t2 ON t1.id is not distinct from t2.c1", false),
                 Arguments.of("select t1.c1 from t1 %s join t1 t2 on t1.c1 = ?", false),
                 Arguments.of("select t1.c1 from t1 %s join t1 t2 on t1.c1 = OCTET_LENGTH('TEST')", false),
                 Arguments.of("select t1.c1 from t1 %s join t1 t2 on t1.c1 = t2.c1 and t1.ID > t2.ID", false),
