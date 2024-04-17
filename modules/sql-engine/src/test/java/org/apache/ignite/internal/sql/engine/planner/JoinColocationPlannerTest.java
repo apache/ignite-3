@@ -45,6 +45,8 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Test suite to verify join colocation.
@@ -172,8 +174,9 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
     /**
      * Join of the same tables with a complex affinity is expected to be colocated.
      */
-    @Test
-    public void joinSameTableComplexAff() throws Exception {
+    @ParameterizedTest
+    @ValueSource(strings = {"HashJoinConverter", "MergeJoinConverter"})
+    public void joinSameTableComplexAff(String disabledRule) throws Exception {
         IgniteTable tbl = complexTbl("TEST_TBL");
 
         IgniteSchema schema = createSchema(tbl);
@@ -182,16 +185,19 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
                 + "from TEST_TBL t1 "
                 + "join TEST_TBL t2 on t1.id1 = t2.id1 and t1.id2 = t2.id2";
 
-        RelNode phys = physicalPlan(sql, schema, "NestedLoopJoinConverter", "CorrelatedNestedLoopJoin", "HashJoinConverter");
+        RelNode phys = physicalPlan(sql, schema, "NestedLoopJoinConverter", "CorrelatedNestedLoopJoin", disabledRule);
 
-        IgniteMergeJoin join = findFirstNode(phys, byClass(IgniteMergeJoin.class));
+        AbstractIgniteJoin join = findFirstNode(phys, byClass(AbstractIgniteJoin.class));
 
         String invalidPlanMsg = "Invalid plan:\n" + RelOptUtil.toString(phys);
 
         assertThat(invalidPlanMsg, join, notNullValue());
         assertThat(invalidPlanMsg, join.distribution().function().affinity(), is(true));
-        assertThat(invalidPlanMsg, join.getLeft(), instanceOf(IgniteIndexScan.class));
-        assertThat(invalidPlanMsg, join.getRight(), instanceOf(IgniteIndexScan.class));
+
+        if (!"MergeJoinConverter".equals(disabledRule)) {
+            assertThat(invalidPlanMsg, join.getLeft(), instanceOf(IgniteIndexScan.class));
+            assertThat(invalidPlanMsg, join.getRight(), instanceOf(IgniteIndexScan.class));
+        }
     }
 
     /**
