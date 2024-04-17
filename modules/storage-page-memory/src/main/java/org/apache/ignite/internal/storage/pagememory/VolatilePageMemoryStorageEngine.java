@@ -130,7 +130,7 @@ public class VolatilePageMemoryStorageEngine implements StorageEngine {
                             : (AutoCloseable) () -> shutdownAndAwaitTermination(destructionExecutor, 30, TimeUnit.SECONDS)
             );
 
-            closeAll(Stream.concat(closeRegions, shutdownExecutor));
+            closeAll(Stream.concat(shutdownExecutor, closeRegions));
         } catch (Exception e) {
             throw new StorageException("Error when stopping components", e);
         }
