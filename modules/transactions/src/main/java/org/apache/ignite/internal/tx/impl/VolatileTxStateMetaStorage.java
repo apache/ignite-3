@@ -144,8 +144,6 @@ public class VolatileTxStateMetaStorage {
         Map<TablePartitionId, Set<UUID>> txIds = new HashMap<>();
         Map<UUID, Long> timestamps = new HashMap<>();
 
-        UUID uuid = UUID.randomUUID();
-
         txStateMap.forEach((txId, meta) -> {
             txStateMap.computeIfPresent(txId, (txId0, meta0) -> {
                 if (TxState.isFinalState(meta0.txState())) {

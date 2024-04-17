@@ -405,6 +405,24 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
     }
 
     /**
+     * Marshal a tuple to a row. Test-only public method.
+     *
+     * @param tx Transaction, if present.
+     * @param rec Tuple record.
+     * @return A future, with row as a result.
+     */
+    @TestOnly
+    public CompletableFuture<BinaryRowEx> marshal(@Nullable Transaction tx, Tuple rec) {
+        Objects.requireNonNull(rec);
+
+        return doOperation(tx, schemaVersion -> {
+            Row row = marshal(rec, schemaVersion, false);
+
+            return completedFuture(row);
+        });
+    }
+
+    /**
      * Returns table row tuple.
      *
      * @param row Binary row.
@@ -509,16 +527,5 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
     public CompletableFuture<Void> updateAll(int partitionId, Collection<Tuple> rows, @Nullable BitSet deleted) {
         return doOperation(null,
                 schemaVersion -> this.tbl.updateAll(mapToBinary(rows, schemaVersion, deleted), deleted, partitionId));
-    }
-
-    @TestOnly
-    public CompletableFuture<BinaryRowEx> marshal(@Nullable Transaction tx, Tuple rec) {
-        Objects.requireNonNull(rec);
-
-        return doOperation(tx, schemaVersion -> {
-            Row row = marshal(rec, schemaVersion, false);
-
-            return completedFuture(row);
-        });
     }
 }
