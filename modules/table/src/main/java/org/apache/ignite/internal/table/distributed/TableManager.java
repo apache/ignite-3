@@ -720,7 +720,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     .handle((invokeResult, e) -> {
                         if (e != null) {
                             LOG.error(
-                                    "Couldn't write assignments {} to metastore during invoke",
+                                    "Couldn't write assignments [assignmentsList={}] to metastore during invoke.",
                                     e,
                                     Assignments.assignmentListToString(newAssignments)
                             );
@@ -734,7 +734,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         if (invokeResult) {
                             LOG.info(
                                     "Assignments calculated from data nodes are successfully written to meta storage"
-                                            + " [tableId={}, assignments={}]",
+                                            + " [tableId={}, assignments={}].",
                                     tableId,
                                     Assignments.assignmentListToString(newAssignments)
                             );
@@ -755,7 +755,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                     Entry assignmentsEntry = metaStorageAssignments.get(stablePartAssignmentsKey(partId));
 
                                     assert assignmentsEntry != null && !assignmentsEntry.empty() && !assignmentsEntry.tombstone()
-                                            : "Unexpected assignments for partition [" + partId + ", entry=" + assignmentsEntry + "]";
+                                            : "Unexpected assignments for partition [" + partId + ", entry=" + assignmentsEntry + "].";
 
                                     Assignments real = Assignments.fromBytes(assignmentsEntry.value());
 
@@ -763,7 +763,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                 }
 
                                 LOG.info(
-                                        "Assignments picked up from meta storage [tableId={}, assignments={}]",
+                                        "Assignments picked up from meta storage [tableId={}, assignments={}].",
                                         tableId,
                                         Assignments.assignmentListToString(realAssignments)
                                 );
@@ -774,7 +774,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     })
                     .handle((realAssignments, e) -> {
                         if (e != null) {
-                            LOG.error("Couldn't get assignments from metastore for table [tableId={}]", e, tableId);
+                            LOG.error("Couldn't get assignments from metastore for table [tableId={}].", e, tableId);
 
                             throw ExceptionUtils.sneakyThrow(e);
                         }
@@ -1268,7 +1268,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             // Retrieve descriptor during synchronous call, before the previous catalog version could be concurrently compacted.
             CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, catalogVersion);
 
-            CompletableFuture<List<Assignments>> assignmentsFuture = createOrGetAssignments(
+            CompletableFuture<List<Assignments>> assignmentsFuture = getOrCreateAssignments(
                     tableDescriptor,
                     zoneDescriptor,
                     causalityToken,
@@ -1408,7 +1408,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * So, it means, that it is a recovery process and we should use the meta storage local assignments instead of calculation
      * of the new ones.
      */
-    private CompletableFuture<List<Assignments>> createOrGetAssignments(
+    private CompletableFuture<List<Assignments>> getOrCreateAssignments(
             CatalogTableDescriptor tableDescriptor,
             CatalogZoneDescriptor zoneDescriptor,
             long causalityToken,
