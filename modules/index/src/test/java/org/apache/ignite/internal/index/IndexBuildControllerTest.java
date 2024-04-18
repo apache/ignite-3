@@ -103,7 +103,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         ClusterService clusterService = mock(ClusterService.class, invocation -> mock(TopologyService.class, invocation1 -> LOCAL_NODE));
 
         catalogManager = createTestCatalogManager(NODE_NAME, clock);
-        assertThat(catalogManager.start(), willCompleteSuccessfully());
+        assertThat(catalogManager.startAsync(), willCompleteSuccessfully());
 
         indexBuildController = new IndexBuildController(
                 indexBuilder,
@@ -120,7 +120,7 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
     @AfterEach
     void tearDown() throws Exception {
         IgniteUtils.closeAll(
-                catalogManager == null ? null : catalogManager::stop,
+                catalogManager == null ? null : catalogManager::stopAsync,
                 indexBuildController == null ? null : indexBuildController::close
         );
     }

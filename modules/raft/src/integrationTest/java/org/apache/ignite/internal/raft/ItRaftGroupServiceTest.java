@@ -221,8 +221,8 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
         }
 
         void start() {
-            clusterService.start();
-            loza.start();
+            clusterService.startAsync();
+            loza.startAsync();
         }
 
         CompletableFuture<RaftGroupService> startRaftGroup(PeersAndLearners configuration) {
@@ -258,7 +258,7 @@ public class ItRaftGroupServiceTest extends IgniteAbstractTest {
         }
 
         void stop() throws Exception {
-            IgniteUtils.closeAll(loza::stop, clusterService::stop);
+            IgniteUtils.closeAll(loza::stopAsync, clusterService::stopAsync);
         }
     }
 }

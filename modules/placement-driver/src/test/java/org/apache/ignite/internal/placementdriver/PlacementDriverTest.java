@@ -151,7 +151,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
             return nullCompletedFuture();
         });
 
-        metastore.start();
+        metastore.startAsync();
 
         CompletableFuture<Long> recoveryFinishedFuture = metastore.recoveryFinishedFuture();
 
@@ -168,7 +168,7 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     void tearDown() throws Exception {
         IgniteUtils.closeAll(
                 placementDriver == null ? null : placementDriver::stopTrack,
-                metastore == null ? null : metastore::stop
+                metastore == null ? null : metastore::stopAsync
         );
     }
 

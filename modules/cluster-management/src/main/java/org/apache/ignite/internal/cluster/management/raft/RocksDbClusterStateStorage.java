@@ -86,7 +86,7 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
     }
 
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync() {
         try {
             // Delete existing data, relying on log playback.
             RocksDB.destroyDB(dbPath.toString(), options);
@@ -231,10 +231,12 @@ public class RocksDbClusterStateStorage implements ClusterStateStorage {
     }
 
     @Override
-    public void stop() {
+    public CompletableFuture<Void> stopAsync() {
         IgniteUtils.shutdownAndAwaitTermination(snapshotExecutor, 10, TimeUnit.SECONDS);
 
         RocksUtils.closeAll(db, options);
+
+        return nullCompletedFuture();
     }
 
     private void destroyDb() {

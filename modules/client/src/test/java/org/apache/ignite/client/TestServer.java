@@ -171,7 +171,7 @@ public class TestServer implements AutoCloseable {
                 new TestConfigurationValidator()
         );
 
-        cfg.start();
+        cfg.startAsync();
 
         cfg.getConfiguration(ClientConnectorConfiguration.KEY).change(
                 local -> local.changePort(port != null ? port : getFreePort()).changeIdleTimeout(idleTimeout)
@@ -179,7 +179,7 @@ public class TestServer implements AutoCloseable {
 
         bootstrapFactory = new NettyBootstrapFactory(cfg.getConfiguration(NetworkConfiguration.KEY), "TestServer-");
 
-        bootstrapFactory.start();
+        bootstrapFactory.startAsync();
 
         if (nodeName == null) {
             nodeName = "server-1";
@@ -208,7 +208,7 @@ public class TestServer implements AutoCloseable {
             authenticationManager = new DummyAuthenticationManager();
         } else {
             authenticationManager = new AuthenticationManagerImpl(securityConfiguration, ign -> {});
-            authenticationManager.start();
+            authenticationManager.startAsync();
         }
 
         ClusterTag tag = msgFactory.clusterTag()
@@ -251,7 +251,7 @@ public class TestServer implements AutoCloseable {
                         new TestLowWatermark()
                 );
 
-        module.start().join();
+        module.startAsync().join();
     }
 
     /**
@@ -315,10 +315,10 @@ public class TestServer implements AutoCloseable {
     /** {@inheritDoc} */
     @Override
     public void close() throws Exception {
-        module.stop();
-        authenticationManager.stop();
-        bootstrapFactory.stop();
-        cfg.stop();
+        module.stopAsync();
+        authenticationManager.stopAsync();
+        bootstrapFactory.stopAsync();
+        cfg.stopAsync();
         generator.close();
     }
 

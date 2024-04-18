@@ -171,13 +171,13 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
                 computeConfiguration
         );
 
-        computeComponent.start();
+        computeComponent.startAsync();
         assertThat(computeMessageHandlerRef.get(), is(notNullValue()));
     }
 
     @AfterEach
     void cleanup() throws Exception {
-        computeComponent.stop();
+        computeComponent.stopAsync();
     }
 
     @Test
@@ -446,7 +446,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void stoppedComponentReturnsExceptionOnLocalExecutionAttempt() throws Exception {
-        computeComponent.stop();
+        computeComponent.stopAsync();
 
         CompletableFuture<String> result = executeLocally(SimpleJob.class.getName());
 
@@ -457,12 +457,12 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     void localExecutionReleasesStopLock() throws Exception {
         executeLocally(SimpleJob.class.getName()).get();
 
-        assertTimeoutPreemptively(Duration.ofSeconds(3), () -> computeComponent.stop());
+        assertTimeoutPreemptively(Duration.ofSeconds(3), () -> computeComponent.stopAsync());
     }
 
     @Test
     void stoppedComponentReturnsExceptionOnRemoteExecutionAttempt() throws Exception {
-        computeComponent.stop();
+        computeComponent.stopAsync();
 
         CompletableFuture<String> result = executeRemotely(SimpleJob.class.getName());
 
@@ -477,12 +477,12 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
         executeRemotely(SimpleJob.class.getName()).get();
 
-        assertTimeoutPreemptively(Duration.ofSeconds(3), () -> computeComponent.stop());
+        assertTimeoutPreemptively(Duration.ofSeconds(3), () -> computeComponent.stopAsync());
     }
 
     @Test
     void stoppedComponentReturnsExceptionOnExecuteRequestAttempt() throws Exception {
-        computeComponent.stop();
+        computeComponent.stopAsync();
 
         ExecuteRequest request = new ComputeMessagesFactory().executeRequest()
                 .executeOptions(DEFAULT)
@@ -499,7 +499,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void stoppedComponentReturnsExceptionOnJobResultRequestAttempt() throws Exception {
-        computeComponent.stop();
+        computeComponent.stopAsync();
 
         JobResultRequest jobResultRequest = new ComputeMessagesFactory().jobResultRequest()
                 .jobId(UUID.randomUUID())
@@ -513,7 +513,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void stoppedComponentReturnsExceptionOnJobStatusRequestAttempt() throws Exception {
-        computeComponent.stop();
+        computeComponent.stopAsync();
 
         JobStatusRequest jobStatusRequest = new ComputeMessagesFactory().jobStatusRequest()
                 .jobId(UUID.randomUUID())
@@ -527,7 +527,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void stoppedComponentReturnsExceptionOnJobCancelRequestAttempt() throws Exception {
-        computeComponent.stop();
+        computeComponent.stopAsync();
 
         JobCancelRequest jobCancelRequest = new ComputeMessagesFactory().jobCancelRequest()
                 .jobId(UUID.randomUUID())
@@ -541,7 +541,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void stoppedComponentReturnsExceptionOnJobChangePriorityRequestAttempt() throws Exception {
-        computeComponent.stop();
+        computeComponent.stopAsync();
 
         JobChangePriorityRequest jobChangePriorityRequest = new ComputeMessagesFactory().jobChangePriorityRequest()
                 .jobId(UUID.randomUUID())
@@ -570,7 +570,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         // the corresponding task goes to work queue
         CompletableFuture<String> resultFuture = executeLocally(SimpleJob.class.getName());
 
-        computeComponent.stop();
+        computeComponent.stopAsync();
 
         // now work queue is dropped to the floor, so the future should be resolved with a cancellation
         assertThat(resultFuture, willThrow(CancellationException.class));
@@ -583,7 +583,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
 
         CompletableFuture<String> resultFuture = executeRemotely(SimpleJob.class.getName());
 
-        computeComponent.stop();
+        computeComponent.stopAsync();
 
         assertThat(resultFuture, willThrow(CancellationException.class));
     }

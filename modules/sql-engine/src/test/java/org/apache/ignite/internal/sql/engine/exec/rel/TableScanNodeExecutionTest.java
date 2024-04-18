@@ -174,9 +174,9 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     new TestLowWatermark()
             );
 
-            assertThat(txManager.start(), willCompleteSuccessfully());
+            assertThat(txManager.startAsync(), willCompleteSuccessfully());
 
-            closeables.add(txManager::stop);
+            closeables.add(txManager::stopAsync);
 
             TestInternalTableImpl internalTable = new TestInternalTableImpl(replicaSvc, size, timestampTracker, txManager);
 

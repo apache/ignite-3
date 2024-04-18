@@ -36,7 +36,7 @@ public class VaultManagerTest {
 
     @BeforeEach
     void setUp() {
-        vaultManager.start();
+        vaultManager.startAsync();
     }
 
     /**
@@ -46,7 +46,7 @@ public class VaultManagerTest {
     void tearDown() throws Exception {
         vaultManager.beforeNodeStop();
 
-        vaultManager.stop();
+        vaultManager.stopAsync();
     }
 
     /**

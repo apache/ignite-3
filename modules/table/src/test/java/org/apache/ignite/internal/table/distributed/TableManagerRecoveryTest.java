@@ -358,8 +358,8 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
             }
         };
 
-        assertThat(allOf(metaStorageManager.start(), metaStorageManager.recoveryFinishedFuture()), willCompleteSuccessfully());
-        assertThat(allOf(catalogManager.start(), sm.start(), tableManager.start()), willCompleteSuccessfully());
+        assertThat(allOf(metaStorageManager.startAsync(), metaStorageManager.recoveryFinishedFuture()), willCompleteSuccessfully());
+        assertThat(allOf(catalogManager.startAsync(), sm.startAsync(), tableManager.startAsync()), willCompleteSuccessfully());
         assertThat(((MetaStorageManagerImpl) metaStorageManager).notifyRevisionUpdateListenerOnStart(), willCompleteSuccessfully());
         assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
     }
@@ -370,14 +370,14 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
     private void stopComponents() throws Exception {
         if (tableManager != null) {
             tableManager.beforeNodeStop();
-            tableManager.stop();
+            tableManager.stopAsync();
         }
 
         IgniteUtils.closeAll(
-                dsm == null ? null : dsm::stop,
-                sm == null ? null : sm::stop,
-                catalogManager == null ? null : catalogManager::stop,
-                metaStorageManager == null ? null : metaStorageManager::stop,
+                dsm == null ? null : dsm::stopAsync,
+                sm == null ? null : sm::stopAsync,
+                catalogManager == null ? null : catalogManager::stopAsync,
+                metaStorageManager == null ? null : metaStorageManager::stopAsync,
                 partitionOperationsExecutor == null ? null
                         : () -> IgniteUtils.shutdownAndAwaitTermination(partitionOperationsExecutor, 10, TimeUnit.SECONDS)
         );
@@ -405,7 +405,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 config
         );
 
-        assertThat(manager.start(), willCompleteSuccessfully());
+        assertThat(manager.startAsync(), willCompleteSuccessfully());
 
         return manager;
     }

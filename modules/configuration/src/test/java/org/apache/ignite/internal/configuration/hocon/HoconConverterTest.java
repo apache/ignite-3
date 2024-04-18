@@ -222,7 +222,7 @@ public class HoconConverterTest {
                 new TestConfigurationValidator()
         );
 
-        registry.start();
+        registry.startAsync();
 
         configuration = registry.getConfiguration(HoconRootConfiguration.KEY);
         injectedNameRootConfig = registry.getConfiguration(HoconInjectedNameRootConfiguration.KEY);
@@ -233,7 +233,7 @@ public class HoconConverterTest {
      */
     @AfterAll
     public static void after() throws Exception {
-        registry.stop();
+        registry.stopAsync();
 
         registry = null;
 

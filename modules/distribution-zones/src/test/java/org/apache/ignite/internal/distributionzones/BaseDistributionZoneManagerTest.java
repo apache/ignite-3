@@ -124,7 +124,7 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
 
         // Not adding 'distributionZoneManager' on purpose, it's started manually.
         assertThat(
-                allOf(components.stream().map(IgniteComponent::start).collect(toList()).toArray(CompletableFuture[]::new)),
+                allOf(components.stream().map(IgniteComponent::startAsync).collect(toList()).toArray(CompletableFuture[]::new)),
                 willCompleteSuccessfully()
         );
     }
@@ -138,11 +138,11 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
         Collections.reverse(components);
 
         IgniteUtils.closeAll(components.stream().map(c -> c::beforeNodeStop));
-        IgniteUtils.closeAll(components.stream().map(c -> c::stop));
+        IgniteUtils.closeAll(components.stream().map(c -> c::stopAsync));
     }
 
     void startDistributionZoneManager() {
-        assertThat(allOf(distributionZoneManager.start()), willCompleteSuccessfully());
+        assertThat(allOf(distributionZoneManager.startAsync()), willCompleteSuccessfully());
         assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
     }
 

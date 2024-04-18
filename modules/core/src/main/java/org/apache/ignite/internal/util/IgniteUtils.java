@@ -1192,7 +1192,7 @@ public class IgniteUtils {
      * @throws Exception If failed to stop.
      */
     public static void stopAll(Stream<? extends IgniteComponent> components) throws Exception {
-        closeAll(components.filter(Objects::nonNull).map(component -> component::stop));
+        closeAll(components.filter(Objects::nonNull).map(component -> component::stopAsync));
     }
 
     /**

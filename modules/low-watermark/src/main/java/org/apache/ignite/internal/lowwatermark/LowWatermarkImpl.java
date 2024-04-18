@@ -145,7 +145,7 @@ public class LowWatermarkImpl implements LowWatermark, IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync() {
         return inBusyLockAsync(busyLock, () -> {
             setLowWatermarkOnRecovery(readLowWatermarkFromVault());
 
@@ -167,9 +167,9 @@ public class LowWatermarkImpl implements LowWatermark, IgniteComponent {
     }
 
     @Override
-    public void stop() {
+    public CompletableFuture<Void> stopAsync() {
         if (!closeGuard.compareAndSet(false, true)) {
-            return;
+            return nullCompletedFuture();
         }
 
         busyLock.block();
@@ -181,6 +181,8 @@ public class LowWatermarkImpl implements LowWatermark, IgniteComponent {
         }
 
         IgniteUtils.shutdownAndAwaitTermination(scheduledThreadPool, 10, TimeUnit.SECONDS);
+
+        return nullCompletedFuture();
     }
 
     @Override

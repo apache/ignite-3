@@ -52,6 +52,8 @@ class LifecycleManager implements StateProvider {
 
     private final List<CompletableFuture<Void>> allComponentsStartFuture = new ArrayList<>();
 
+    private final CompletableFuture<Void> stopFuture = new CompletableFuture<>();
+
     LifecycleManager(String nodeName) {
         this.nodeName = nodeName;
     }
@@ -76,7 +78,7 @@ class LifecycleManager implements StateProvider {
         synchronized (this) {
             startedComponents.add(component);
 
-            allComponentsStartFuture.add(component.start());
+            allComponentsStartFuture.add(component.startAsync());
         }
     }
 
@@ -128,16 +130,19 @@ class LifecycleManager implements StateProvider {
     /**
      * Stops all started components and transfers the node into the {@link State#STOPPING} state.
      */
-    void stopNode() {
+    CompletableFuture<Void> stopNode() {
         State currentStatus = status.getAndSet(State.STOPPING);
 
         if (currentStatus != State.STOPPING) {
             stopAllComponents();
         }
+
+        return stopFuture;
     }
 
     /**
-     * Calls {@link IgniteComponent#beforeNodeStop()} and then {@link IgniteComponent#stop()} for all components in start-reverse-order.
+     * Calls {@link IgniteComponent#beforeNodeStop()} and then {@link IgniteComponent#stopAsync()} for all components in
+     * start-reverse-order.
      */
     private synchronized void stopAllComponents() {
         new ReverseIterator<>(startedComponents).forEachRemaining(component -> {
@@ -148,12 +153,11 @@ class LifecycleManager implements StateProvider {
             }
         });
 
-        new ReverseIterator<>(startedComponents).forEachRemaining(component -> {
-            try {
-                component.stop();
-            } catch (Exception e) {
-                LOG.warn("Unable to stop component [component={}, nodeName={}]", e, component, nodeName);
-            }
-        });
+        List<CompletableFuture<Void>> allComponentsStopFuture = new ArrayList<>();
+
+        new ReverseIterator<>(startedComponents).forEachRemaining(component -> allComponentsStopFuture.add(component.stopAsync()));
+
+        allOf(allComponentsStopFuture.toArray(CompletableFuture[]::new))
+                .whenComplete((v, e) -> stopFuture.complete(null));
     }
 }

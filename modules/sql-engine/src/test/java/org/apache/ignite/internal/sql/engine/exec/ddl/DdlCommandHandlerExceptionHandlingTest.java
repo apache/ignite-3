@@ -53,18 +53,18 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
     void before() {
         HybridClock clock = new HybridClockImpl();
         catalogManager = createTestCatalogManager("test", clock);
-        assertThat(catalogManager.start(), willCompleteSuccessfully());
+        assertThat(catalogManager.startAsync(), willCompleteSuccessfully());
 
         clockWaiter = new ClockWaiter("test", clock);
-        assertThat(clockWaiter.start(), willCompleteSuccessfully());
+        assertThat(clockWaiter.startAsync(), willCompleteSuccessfully());
 
         commandHandler = new DdlCommandHandler(catalogManager, new TestClockService(clock, clockWaiter), () -> 100);
     }
 
     @AfterEach
     public void after() throws Exception {
-        clockWaiter.stop();
-        catalogManager.stop();
+        clockWaiter.stopAsync();
+        catalogManager.stopAsync();
     }
 
     @Test

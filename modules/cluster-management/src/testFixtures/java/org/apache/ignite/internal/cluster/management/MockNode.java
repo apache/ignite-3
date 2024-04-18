@@ -141,7 +141,7 @@ public class MockNode {
      * Start fake node.
      */
     public void startComponents() {
-        components.forEach(IgniteComponent::start);
+        components.forEach(IgniteComponent::startAsync);
     }
 
     /**
@@ -170,7 +170,7 @@ public class MockNode {
 
         it.forEachRemaining(component -> {
             try {
-                component.stop();
+                component.stopAsync();
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }

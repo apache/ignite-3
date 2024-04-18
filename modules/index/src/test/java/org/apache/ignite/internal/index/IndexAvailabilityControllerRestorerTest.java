@@ -93,7 +93,7 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
 
         catalogManager = createTestCatalogManager(NODE_NAME, clock, metaStorageManager);
 
-        assertThat(allOf(metaStorageManager.start(), catalogManager.start()), willCompleteSuccessfully());
+        assertThat(allOf(metaStorageManager.startAsync(), catalogManager.startAsync()), willCompleteSuccessfully());
 
         deployWatches();
 
@@ -104,8 +104,8 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
     void tearDown() throws Exception {
         IgniteUtils.closeAll(
                 controller == null ? null : controller::close,
-                catalogManager == null ? null : catalogManager::stop,
-                metaStorageManager == null ? null : metaStorageManager::stop
+                catalogManager == null ? null : catalogManager::stopAsync,
+                metaStorageManager == null ? null : metaStorageManager::stopAsync
         );
     }
 
@@ -192,8 +192,8 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
         awaitTillGlobalMetastoreRevisionIsApplied(metaStorageManager);
 
         IgniteUtils.closeAll(
-                catalogManager == null ? null : catalogManager::stop,
-                metaStorageManager == null ? null : metaStorageManager::stop
+                catalogManager == null ? null : catalogManager::stopAsync,
+                metaStorageManager == null ? null : metaStorageManager::stopAsync
         );
 
         keyValueStorage = new TestRocksDbKeyValueStorage(NODE_NAME, workDir);
@@ -202,7 +202,7 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
 
         catalogManager = spy(createTestCatalogManager(NODE_NAME, clock, metaStorageManager));
 
-        assertThat(allOf(metaStorageManager.start(), catalogManager.start()), willCompleteSuccessfully());
+        assertThat(allOf(metaStorageManager.startAsync(), catalogManager.startAsync()), willCompleteSuccessfully());
     }
 
     private void deployWatches() throws Exception {

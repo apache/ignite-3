@@ -175,13 +175,13 @@ public class TestCluster {
         }
 
         void start() {
-            components.forEach(IgniteComponent::start);
+            components.forEach(IgniteComponent::startAsync);
         }
 
         void stop() throws Exception {
             IgniteUtils.closeAll(Stream.concat(
                     components.stream().map(c -> c::beforeNodeStop),
-                    components.stream().map(c -> c::stop)
+                    components.stream().map(c -> c::stopAsync)
             ));
         }
     }

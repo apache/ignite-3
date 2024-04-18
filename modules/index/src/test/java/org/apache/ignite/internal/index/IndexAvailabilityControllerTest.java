@@ -95,7 +95,7 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        assertThat(allOf(metaStorageManager.start(), catalogManager.start()), willCompleteSuccessfully());
+        assertThat(allOf(metaStorageManager.startAsync(), catalogManager.startAsync()), willCompleteSuccessfully());
         assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
 
         Catalog catalog = catalogManager.catalog(catalogManager.activeCatalogVersion(clock.nowLong()));
@@ -118,8 +118,8 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
         closeAll(
                 indexAvailabilityController::close,
                 indexBuilder::close,
-                catalogManager::stop,
-                metaStorageManager::stop,
+                catalogManager::stopAsync,
+                metaStorageManager::stopAsync,
                 () -> shutdownAndAwaitTermination(executorService, 1, TimeUnit.SECONDS)
         );
     }

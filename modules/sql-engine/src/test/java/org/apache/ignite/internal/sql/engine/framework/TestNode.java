@@ -302,12 +302,12 @@ public class TestNode implements LifecycleAware {
 
         @Override
         public void start() {
-            component.start();
+            component.startAsync();
         }
 
         @Override
         public void stop() throws Exception {
-            component.stop();
+            component.stopAsync();
         }
     }
 }

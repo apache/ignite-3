@@ -220,6 +220,7 @@ import org.apache.ignite.internal.vault.persistence.PersistentVaultService;
 import org.apache.ignite.internal.worker.CriticalWorkerWatchdog;
 import org.apache.ignite.internal.worker.ThreadAssertions;
 import org.apache.ignite.internal.worker.configuration.CriticalWorkersConfiguration;
+import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -1177,7 +1178,14 @@ public class IgniteImpl implements Ignite {
 
         LOG.debug(errMsg, e);
 
-        lifecycleManager.stopNode();
+        try {
+            lifecycleManager.stopNode().get();
+        } catch (Exception ex) {
+            IgniteException igniteException = new IgniteException(errMsg, ex);
+            igniteException.addSuppressed(e);
+
+            throw igniteException;
+        }
 
         return new IgniteException(errMsg, e);
     }
@@ -1186,7 +1194,12 @@ public class IgniteImpl implements Ignite {
      * Stops ignite node.
      */
     public void stop() {
-        lifecycleManager.stopNode();
+        try {
+            lifecycleManager.stopNode().get();
+        } catch (Exception ex) {
+            throw new IgniteException(Common.NODE_STOPPING_ERR, ex);
+        }
+
         restAddressReporter.removeReport();
     }
 

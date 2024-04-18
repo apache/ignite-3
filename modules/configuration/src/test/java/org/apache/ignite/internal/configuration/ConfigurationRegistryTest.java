@@ -80,7 +80,7 @@ public class ConfigurationRegistryTest {
                 new TestConfigurationValidator()
         );
 
-        configRegistry.stop();
+        configRegistry.stopAsync();
     }
 
     @Test
@@ -133,7 +133,7 @@ public class ConfigurationRegistryTest {
                 new TestConfigurationValidator()
         );
 
-        configRegistry.stop();
+        configRegistry.stopAsync();
     }
 
     @Test
@@ -174,7 +174,7 @@ public class ConfigurationRegistryTest {
                 new TestConfigurationValidator()
         );
 
-        registry.start();
+        registry.startAsync();
 
         try {
             registry.getConfiguration(SixthRootConfiguration.KEY).change(c -> c
@@ -187,7 +187,7 @@ public class ConfigurationRegistryTest {
                                     .changePolyNamed(c2 -> c2.create("5", toFirst0Polymorphic(5)))))
             ).get(1, SECONDS);
         } finally {
-            registry.stop();
+            registry.stopAsync();
         }
     }
 
@@ -205,7 +205,7 @@ public class ConfigurationRegistryTest {
                 ),
                 new TestConfigurationValidator()
         );
-        registry.start();
+        registry.startAsync();
 
         var configuration = registry.getConfiguration(SixthRootConfiguration.KEY).polyNamed();
         CompletableFuture<Void> future = configuration.change(c -> {
@@ -220,7 +220,7 @@ public class ConfigurationRegistryTest {
         UUID internalId = configuration.internalIds().get(0);
         assertThat(configuration.get(internalId), instanceOf(Fourth0PolymorphicConfiguration.class));
 
-        registry.stop();
+        registry.stopAsync();
     }
 
     @Test
@@ -234,7 +234,7 @@ public class ConfigurationRegistryTest {
                 new TestConfigurationValidator()
         );
 
-        registry.start();
+        registry.startAsync();
 
         try {
             FirstRootConfiguration firstConfiguration = registry.getConfiguration(FirstRootConfiguration.KEY);
@@ -261,7 +261,7 @@ public class ConfigurationRegistryTest {
             assertEquals("foo", firstConfiguration.str().value());
             assertEquals("bar", secondConfiguration.str().value());
         } finally {
-            registry.stop();
+            registry.stopAsync();
         }
     }
 

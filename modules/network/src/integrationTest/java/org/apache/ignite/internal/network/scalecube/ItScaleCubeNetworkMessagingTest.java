@@ -289,7 +289,7 @@ class ItScaleCubeNetworkMessagingTest {
         ClusterService member0 = testCluster.members.get(0);
         ClusterService member1 = testCluster.members.get(1);
 
-        member0.stop();
+        member0.stopAsync();
 
         // Perform two invokes to test that multiple requests can get cancelled.
         CompletableFuture<NetworkMessage> invoke0 = member0.messagingService().invoke(
@@ -340,7 +340,7 @@ class ItScaleCubeNetworkMessagingTest {
                 1000
         );
 
-        member0.stop();
+        member0.stopAsync();
 
         ExecutionException e = assertThrows(ExecutionException.class, () -> invoke0.get(1, SECONDS));
 
@@ -387,7 +387,7 @@ class ItScaleCubeNetworkMessagingTest {
 
         assertTrue(receivedTestMessages.await(10, SECONDS), "Did not receive invocations on the receiver in time");
 
-        member0.stop();
+        member0.stopAsync();
 
         ExecutionException e = assertThrows(ExecutionException.class, () -> invoke0.get(1, SECONDS));
 
@@ -1058,7 +1058,7 @@ class ItScaleCubeNetworkMessagingTest {
                 receiver.topologyService().localMember()
         );
 
-        sender.stop();
+        sender.stopAsync();
 
         assertThat(sendFuture, willThrow(NodeStoppingException.class));
     }
@@ -1174,7 +1174,7 @@ class ItScaleCubeNetworkMessagingTest {
         if (forceful) {
             stopForcefully(alice);
         } else {
-            alice.stop();
+            alice.stopAsync();
         }
 
         boolean aliceShutdownReceived = aliceShutdownLatch.await(forceful ? 10 : 3, SECONDS);
@@ -1258,7 +1258,7 @@ class ItScaleCubeNetworkMessagingTest {
          * @throws AssertionError       If the cluster was unable to start in 3 seconds.
          */
         void startAwait() throws InterruptedException {
-            members.forEach(ClusterService::start);
+            members.forEach(ClusterService::startAsync);
 
             if (!waitForCondition(this::allMembersSeeEachOther, SECONDS.toMillis(3))) {
                 throw new AssertionError();
@@ -1276,7 +1276,7 @@ class ItScaleCubeNetworkMessagingTest {
          * Stops the cluster.
          */
         void shutdown() {
-            members.forEach(ClusterService::stop);
+            members.forEach(ClusterService::stopAsync);
         }
     }
 

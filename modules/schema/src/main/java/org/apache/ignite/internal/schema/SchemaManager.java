@@ -76,7 +76,7 @@ public class SchemaManager implements IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync() {
         catalogService.listen(CatalogEvent.TABLE_CREATE, this::onTableCreated);
         catalogService.listen(CatalogEvent.TABLE_ALTER, this::onTableAltered);
 
@@ -314,14 +314,20 @@ public class SchemaManager implements IgniteComponent {
     }
 
     @Override
-    public void stop() throws Exception {
+    public CompletableFuture<Void> stopAsync() {
         if (!stopGuard.compareAndSet(false, true)) {
-            return;
+            return nullCompletedFuture();
         }
 
         busyLock.block();
 
         //noinspection ConstantConditions
-        IgniteUtils.closeAllManually(registriesById.values());
+        try {
+            IgniteUtils.closeAllManually(registriesById.values());
+        } catch (Exception e) {
+            return failedFuture(e);
+        }
+
+        return nullCompletedFuture();
     }
 }

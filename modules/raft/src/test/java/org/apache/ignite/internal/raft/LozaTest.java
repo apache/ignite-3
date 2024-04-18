@@ -65,10 +65,10 @@ public class LozaTest extends IgniteAbstractTest {
 
         Loza loza = new Loza(clusterNetSvc, raftConfiguration, workDir, new HybridClockImpl());
 
-        loza.start();
+        loza.startAsync();
 
         loza.beforeNodeStop();
-        loza.stop();
+        loza.stopAsync();
 
         TestReplicationGroupId raftGroupId = new TestReplicationGroupId("test_raft_group");
 

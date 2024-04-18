@@ -391,7 +391,7 @@ public class ItTxTestCluster {
                     clock
             );
 
-            raftSrv.start();
+            raftSrv.startAsync();
 
             raftServers.put(node.name(), raftSrv);
 
@@ -411,7 +411,7 @@ public class ItTxTestCluster {
                     new NoOpFailureProcessor()
             );
 
-            replicaMgr.start();
+            replicaMgr.startAsync();
 
             replicaManagers.put(node.name(), replicaMgr);
 
@@ -455,10 +455,10 @@ public class ItTxTestCluster {
                     txMgr
             );
 
-            assertThat(txMgr.start(), willCompleteSuccessfully());
+            assertThat(txMgr.startAsync(), willCompleteSuccessfully());
             txManagers.put(node.name(), txMgr);
 
-            assertThat(resourceVacuumManager.start(), willCompleteSuccessfully());
+            assertThat(resourceVacuumManager.startAsync(), willCompleteSuccessfully());
             resourceCleanupManagers.put(node.name(), resourceVacuumManager);
 
             txStateStorages.put(node.name(), new TestTxStateStorage());
@@ -873,10 +873,10 @@ public class ItTxTestCluster {
      * @throws Exception If failed.
      */
     public void shutdownCluster() throws Exception {
-        cluster.parallelStream().forEach(ClusterService::stop);
+        cluster.parallelStream().forEach(ClusterService::stopAsync);
 
         if (client != null) {
-            client.stop();
+            client.stopAsync();
         }
 
         if (executor != null) {
@@ -913,29 +913,29 @@ public class ItTxTestCluster {
                     }
                 });
 
-                replicaMgr.stop();
-                rs.stop();
+                replicaMgr.stopAsync();
+                rs.stopAsync();
             }
         }
 
         if (resourceCleanupManagers != null) {
             for (ResourceVacuumManager resourceVacuumManager : resourceCleanupManagers.values()) {
-                resourceVacuumManager.stop();
+                resourceVacuumManager.stopAsync();
             }
         }
 
         if (clientResourceVacuumManager != null) {
-            clientResourceVacuumManager.stop();
+            clientResourceVacuumManager.stopAsync();
         }
 
         if (txManagers != null) {
             for (TxManager txMgr : txManagers.values()) {
-                txMgr.stop();
+                txMgr.stopAsync();
             }
         }
 
         if (clientTxManager != null) {
-            clientTxManager.stop();
+            clientTxManager.stopAsync();
         }
 
         for (Map.Entry<String, List<RaftGroupService>> e : raftClients.entrySet()) {
@@ -957,7 +957,7 @@ public class ItTxTestCluster {
             NodeFinder nodeFinder) {
         var network = ClusterServiceTestUtils.clusterService(testInfo, port, nodeFinder);
 
-        network.start();
+        network.startAsync();
 
         return network;
     }
@@ -1030,8 +1030,8 @@ public class ItTxTestCluster {
         );
 
         clientTxStateResolver.start();
-        clientTxManager.start();
-        clientResourceVacuumManager.start();
+        clientTxManager.startAsync();
+        clientResourceVacuumManager.startAsync();
     }
 
     public Map<String, Loza> raftServers() {

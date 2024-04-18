@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.raft.storage.impl;
 
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.rocksdb.RocksDB.DEFAULT_COLUMN_FAMILY;
 
@@ -88,7 +89,7 @@ public class VolatileLogStorageFactoryCreator implements LogStorageFactoryCreato
     }
 
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync() {
         try {
             Files.createDirectories(spillOutPath);
         } catch (IOException e) {
@@ -177,10 +178,16 @@ public class VolatileLogStorageFactoryCreator implements LogStorageFactoryCreato
     }
 
     @Override
-    public void stop() throws Exception {
+    public CompletableFuture<Void> stopAsync() {
         ExecutorServiceHelper.shutdownAndAwaitTermination(executorService);
 
-        IgniteUtils.closeAll(columnFamily, db, dbOptions);
+        try {
+            IgniteUtils.closeAll(columnFamily, db, dbOptions);
+        } catch (Exception e) {
+            return failedFuture(e);
+        }
+
+        return nullCompletedFuture();
     }
 
     @Override

@@ -106,12 +106,12 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
         catalogManager = CatalogTestUtils.createCatalogManagerWithTestUpdateLog("test", new HybridClockImpl());
         sqlSchemaManager = new SqlSchemaManagerImpl(catalogManager, CaffeineCacheFactory.INSTANCE, 200);
 
-        assertThat(catalogManager.start(), willCompleteSuccessfully());
+        assertThat(catalogManager.startAsync(), willCompleteSuccessfully());
     }
 
     @AfterEach
     void cleanup() throws Exception {
-        catalogManager.stop();
+        catalogManager.stopAsync();
     }
 
     @Test

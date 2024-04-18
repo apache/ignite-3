@@ -102,12 +102,12 @@ public class DeploymentUnitStoreImplTest extends BaseIgniteAbstractTest {
         ClusterStatusWatchListener clusterListener = new ClusterStatusWatchListener(clusterEventCallback);
         metastore.registerClusterStatusListener(clusterListener);
 
-        metaStorageManager.start();
+        metaStorageManager.startAsync();
 
         toStop = () -> {
             nodeListener.stop();
             try {
-                metaStorageManager.stop();
+                metaStorageManager.stopAsync();
             } catch (Exception e) {
                 throw new RuntimeException(e);
             }

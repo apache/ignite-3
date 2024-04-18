@@ -99,7 +99,7 @@ public class ItLozaTest extends BaseIgniteAbstractTest {
     private static ClusterService clusterService(TestInfo testInfo, int port, List<NetworkAddress> srvs) {
         var network = ClusterServiceTestUtils.clusterService(testInfo, port, new StaticNodeFinder(srvs));
 
-        network.start();
+        network.startAsync();
 
         return network;
     }
@@ -126,7 +126,7 @@ public class ItLozaTest extends BaseIgniteAbstractTest {
 
             loza = new Loza(service, raftConfiguration, dataPath, new HybridClockImpl());
 
-            loza.start();
+            loza.startAsync();
 
             for (int i = 0; i < grpSrvcs.length; i++) {
                 // return an error on first invocation
@@ -154,11 +154,11 @@ public class ItLozaTest extends BaseIgniteAbstractTest {
             }
 
             if (loza != null) {
-                loza.stop();
+                loza.stopAsync();
             }
 
             if (service != null) {
-                service.stop();
+                service.stopAsync();
             }
         }
     }

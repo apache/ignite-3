@@ -250,7 +250,7 @@ public class JraftServerImpl implements RaftServer {
 
     /**
      * Sets {@link AppendEntriesRequestInterceptor} to use. Should only be called from the same thread that is used
-     * to {@link #start()} the component.
+     * to {@link #startAsync()} the component.
      *
      * @param appendEntriesRequestInterceptor Interceptor to use.
      */
@@ -259,7 +259,7 @@ public class JraftServerImpl implements RaftServer {
     }
 
     /**
-     * Sets {@link ActionRequestInterceptor} to use. Should only be called from the same thread that is used to {@link #start()} the
+     * Sets {@link ActionRequestInterceptor} to use. Should only be called from the same thread that is used to {@link #startAsync()} the
      * component.
      *
      * @param actionRequestInterceptor Interceptor to use.
@@ -270,7 +270,7 @@ public class JraftServerImpl implements RaftServer {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync() {
         assert opts.isSharedPools() : "RAFT server is supposed to run in shared pools mode";
 
         // Pre-create all pools in shared mode.
@@ -379,7 +379,7 @@ public class JraftServerImpl implements RaftServer {
 
     /** {@inheritDoc} */
     @Override
-    public void stop() throws Exception {
+    public CompletableFuture<Void> stopAsync() {
         assert nodes.isEmpty() : IgniteStringFormatter.format("Raft nodes {} are still running on the Ignite node {}", nodes.keySet(),
                 service.topologyService().localMember().name());
 
@@ -436,6 +436,8 @@ public class JraftServerImpl implements RaftServer {
         ExecutorServiceHelper.shutdownAndAwaitTermination(requestExecutor);
 
         logStorageFactory.close();
+
+        return nullCompletedFuture();
     }
 
     /** {@inheritDoc} */

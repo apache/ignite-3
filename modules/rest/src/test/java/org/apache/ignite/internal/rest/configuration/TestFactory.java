@@ -43,7 +43,7 @@ public class TestFactory {
      * Creates test configuration registry.
      */
     @Singleton
-    @Bean(preDestroy = "stop")
+    @Bean(preDestroy = "stopAsync")
     public ConfigurationRegistry configurationRegistry() {
         Validator<Value, Object> validator = new Validator<>() {
             /** {@inheritDoc} */
@@ -64,7 +64,7 @@ public class TestFactory {
                 ConfigurationValidatorImpl.withDefaultValidators(generator, Set.of(validator))
         );
 
-        configurationRegistry.start();
+        configurationRegistry.startAsync();
 
         return configurationRegistry;
     }

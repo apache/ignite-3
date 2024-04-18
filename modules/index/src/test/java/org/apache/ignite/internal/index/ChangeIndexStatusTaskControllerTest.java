@@ -80,7 +80,7 @@ public class ChangeIndexStatusTaskControllerTest extends BaseIgniteAbstractTest 
 
     @BeforeEach
     void setUp() {
-        assertThat(catalogManager.start(), willCompleteSuccessfully());
+        assertThat(catalogManager.startAsync(), willCompleteSuccessfully());
 
         createTable(catalogManager, TABLE_NAME, COLUMN_NAME);
 
@@ -93,7 +93,7 @@ public class ChangeIndexStatusTaskControllerTest extends BaseIgniteAbstractTest 
     void tearDown() throws Exception {
         IgniteUtils.closeAllManually(
                 catalogManager::beforeNodeStop,
-                catalogManager::stop,
+                catalogManager::stopAsync,
                 taskController
         );
     }

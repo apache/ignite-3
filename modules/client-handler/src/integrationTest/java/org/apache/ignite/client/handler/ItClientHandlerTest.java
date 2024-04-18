@@ -76,7 +76,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
 
     @AfterEach
     public void tearDown() throws Exception {
-        serverModule.stop();
+        serverModule.stopAsync();
         testServer.tearDown();
     }
 

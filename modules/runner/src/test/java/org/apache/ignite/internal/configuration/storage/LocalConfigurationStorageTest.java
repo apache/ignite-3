@@ -33,7 +33,7 @@ public class LocalConfigurationStorageTest extends ConfigurationStorageTest {
      */
     @BeforeEach
     void startVault() {
-        vaultManager.start();
+        vaultManager.startAsync();
     }
 
     /**
@@ -41,7 +41,7 @@ public class LocalConfigurationStorageTest extends ConfigurationStorageTest {
      */
     @AfterEach
     void stopVault() throws Exception {
-        vaultManager.stop();
+        vaultManager.stopAsync();
     }
 
     /** {@inheritDoc} */

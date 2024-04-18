@@ -201,8 +201,8 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
         }
 
         void start(PeersAndLearners configuration) {
-            clusterService.start();
-            raftManager.start();
+            clusterService.startAsync();
+            raftManager.startAsync();
 
             CompletableFuture<RaftGroupService> raftService = startRaftService(configuration);
 
@@ -252,7 +252,7 @@ public class ItMetaStorageServiceTest extends BaseIgniteAbstractTest {
 
             Stream<AutoCloseable> beforeNodeStop = Stream.of(raftManager, clusterService).map(c -> c::beforeNodeStop);
 
-            Stream<AutoCloseable> nodeStop = Stream.of(raftManager, clusterService).map(c -> c::stop);
+            Stream<AutoCloseable> nodeStop = Stream.of(raftManager, clusterService).map(c -> c::stopAsync);
 
             IgniteUtils.closeAll(Stream.of(raftStop, beforeNodeStop, nodeStop).flatMap(Function.identity()));
         }

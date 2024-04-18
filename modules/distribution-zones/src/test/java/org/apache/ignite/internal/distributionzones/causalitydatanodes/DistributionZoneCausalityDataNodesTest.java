@@ -187,7 +187,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         addCatalogZoneEventListeners();
 
-        distributionZoneManager.start();
+        distributionZoneManager.startAsync();
 
         assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
     }

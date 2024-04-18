@@ -146,7 +146,7 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
 
             server.beforeNodeStop();
 
-            server.stop();
+            server.stopAsync();
         }
 
         servers.clear();
@@ -171,7 +171,7 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
 
         JraftServerImpl server = jraftServer(servers, idx, service, opts);
 
-        server.start();
+        server.startAsync();
 
         clo.accept(server);
 

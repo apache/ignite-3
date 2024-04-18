@@ -165,7 +165,7 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
         localAddresses.stream()
                 .map(addr -> ClusterServiceTestUtils.clusterService(testInfo, addr.port(), nodeFinder))
                 .forEach(clusterService -> {
-                    clusterService.start();
+                    clusterService.startAsync();
                     cluster.add(clusterService);
                 });
 
@@ -187,26 +187,26 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
     public void afterTest() throws Exception {
         if (metaStorageRaftSrv3 != null) {
             metaStorageRaftSrv3.stopRaftNodes(MetastorageGroupId.INSTANCE);
-            metaStorageRaftSrv3.stop();
+            metaStorageRaftSrv3.stopAsync();
             metaStorageRaftGrpSvc3.shutdown();
         }
 
         if (metaStorageRaftSrv2 != null) {
             metaStorageRaftSrv2.stopRaftNodes(MetastorageGroupId.INSTANCE);
-            metaStorageRaftSrv2.stop();
+            metaStorageRaftSrv2.stopAsync();
             metaStorageRaftGrpSvc2.shutdown();
         }
 
         if (metaStorageRaftSrv1 != null) {
             metaStorageRaftSrv1.stopRaftNodes(MetastorageGroupId.INSTANCE);
-            metaStorageRaftSrv1.stop();
+            metaStorageRaftSrv1.stopAsync();
             metaStorageRaftGrpSvc1.shutdown();
         }
 
         IgniteUtils.shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
 
         for (ClusterService node : cluster) {
-            node.stop();
+            node.stopAsync();
         }
     }
 
@@ -297,8 +297,8 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
 
                                 // stop leader
                                 oldLeaderServer.stopRaftNodes(MetastorageGroupId.INSTANCE);
-                                oldLeaderServer.stop();
-                                cluster.stream().filter(c -> localMemberName(c).equals(oldLeaderId)).findFirst().orElseThrow().stop();
+                                oldLeaderServer.stopAsync();
+                                cluster.stream().filter(c -> localMemberName(c).equals(oldLeaderId)).findFirst().orElseThrow().stopAsync();
 
                                 raftGroupServiceOfLiveServer.refreshLeader().get();
 
@@ -389,11 +389,11 @@ public class ItMetaStorageRaftGroupTest extends IgniteAbstractTest {
                 new RaftGroupEventsClientListener()
         );
 
-        metaStorageRaftSrv1.start();
+        metaStorageRaftSrv1.startAsync();
 
-        metaStorageRaftSrv2.start();
+        metaStorageRaftSrv2.startAsync();
 
-        metaStorageRaftSrv3.start();
+        metaStorageRaftSrv3.startAsync();
 
         var raftNodeId1 = new RaftNodeId(MetastorageGroupId.INSTANCE, membersConfiguration.peer(localMemberName(cluster.get(0))));
 

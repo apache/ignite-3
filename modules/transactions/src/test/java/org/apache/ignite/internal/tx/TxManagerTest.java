@@ -166,13 +166,13 @@ public class TxManagerTest extends IgniteAbstractTest {
                 lowWatermark
         );
 
-        txManager.start();
+        txManager.startAsync();
     }
 
     @AfterEach
     public void tearDown() throws Exception {
         txManager.beforeNodeStop();
-        txManager.stop();
+        txManager.stopAsync();
     }
 
     @Test

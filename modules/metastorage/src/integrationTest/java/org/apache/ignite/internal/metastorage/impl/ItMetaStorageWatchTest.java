@@ -189,7 +189,7 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
         }
 
         void start() {
-            components.forEach(IgniteComponent::start);
+            components.forEach(IgniteComponent::startAsync);
         }
 
         String name() {
@@ -201,7 +201,7 @@ public class ItMetaStorageWatchTest extends IgniteAbstractTest {
 
             Stream<AutoCloseable> beforeNodeStop = components.stream().map(c -> c::beforeNodeStop);
 
-            Stream<AutoCloseable> nodeStop = components.stream().map(c -> c::stop);
+            Stream<AutoCloseable> nodeStop = components.stream().map(c -> c::stopAsync);
 
             IgniteUtils.closeAll(Stream.concat(beforeNodeStop, nodeStop));
         }

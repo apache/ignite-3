@@ -104,9 +104,9 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
                 () -> CatalogManagerImpl.DEFAULT_PARTITION_IDLE_SAFE_TIME_PROPAGATION_PERIOD
         );
 
-        metastore.start();
-        clockWaiter.start();
-        manager.start();
+        metastore.startAsync();
+        clockWaiter.startAsync();
+        manager.startAsync();
 
         assertThat("Watches were not deployed", metastore.deployWatches(), willCompleteSuccessfully());
     }
@@ -115,7 +115,7 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
     public void tearDown() throws Exception {
         IgniteUtils.closeAll(Stream.of(manager, clockWaiter, metastore)
                 .filter(Objects::nonNull)
-                .map(component -> component::stop)
+                .map(component -> component::stopAsync)
         );
     }
 

@@ -88,11 +88,11 @@ public class TestServer {
     }
 
     void tearDown() throws Exception {
-        bootstrapFactory.stop();
+        bootstrapFactory.stopAsync();
     }
 
     ClientHandlerModule start(TestInfo testInfo) {
-        authenticationManager.start();
+        authenticationManager.startAsync();
 
         clientConnectorConfiguration.change(
                 local -> local
@@ -108,7 +108,7 @@ public class TestServer {
 
         bootstrapFactory = new NettyBootstrapFactory(networkConfiguration, testInfo.getDisplayName());
 
-        bootstrapFactory.start();
+        bootstrapFactory.startAsync();
 
         ClusterService clusterService = mock(ClusterService.class, RETURNS_DEEP_STUBS);
         Mockito.when(clusterService.topologyService().localMember().id()).thenReturn("id");
@@ -133,7 +133,7 @@ public class TestServer {
                 new TestLowWatermark()
         );
 
-        module.start().join();
+        module.startAsync().join();
 
         return module;
     }

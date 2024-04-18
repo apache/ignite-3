@@ -109,13 +109,13 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
 
     @AfterEach
     void tearDown() {
-        lowWatermark.stop();
+        lowWatermark.stopAsync();
     }
 
     @Test
     void testStartWithEmptyVault() {
         // Let's check the start with no low watermark in vault.
-        assertThat(lowWatermark.start(), willCompleteSuccessfully());
+        assertThat(lowWatermark.startAsync(), willCompleteSuccessfully());
         lowWatermark.scheduleUpdates();
 
         verify(listener, never()).onLwmChanged(any(HybridTimestamp.class));
@@ -129,7 +129,7 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
         when(vaultManager.get(LOW_WATERMARK_VAULT_KEY))
                 .thenReturn(new VaultEntry(LOW_WATERMARK_VAULT_KEY, ByteUtils.toBytes(lowWatermark)));
 
-        assertThat(this.lowWatermark.start(), willCompleteSuccessfully());
+        assertThat(this.lowWatermark.startAsync(), willCompleteSuccessfully());
 
         assertEquals(lowWatermark, this.lowWatermark.getLowWatermark());
 
@@ -197,7 +197,7 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
                 return onLwmChangedFinishFuture;
             });
 
-            assertThat(lowWatermark.start(), willCompleteSuccessfully());
+            assertThat(lowWatermark.startAsync(), willCompleteSuccessfully());
             lowWatermark.scheduleUpdates();
 
             // Let's check that it hasn't been called more than once.
@@ -222,7 +222,7 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
     void testHandleGetLowWatermarkMessage() {
         verify(messagingService, never()).addMessageHandler(eq(LowWatermarkMessageGroup.class), any());
 
-        assertThat(lowWatermark.start(), willCompleteSuccessfully());
+        assertThat(lowWatermark.startAsync(), willCompleteSuccessfully());
 
         verify(messagingService).addMessageHandler(eq(LowWatermarkMessageGroup.class), any());
 
@@ -255,7 +255,7 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void testUpdateLowWatermark() {
-        assertThat(lowWatermark.start(), willCompleteSuccessfully());
+        assertThat(lowWatermark.startAsync(), willCompleteSuccessfully());
 
         CompletableFuture<HybridTimestamp> updateLowWatermarkFuture0 = listenUpdateLowWatermark();
 
@@ -284,7 +284,7 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
 
     @Test
     void testGetLowWatermarkFromListener() {
-        assertThat(lowWatermark.start(), willCompleteSuccessfully());
+        assertThat(lowWatermark.startAsync(), willCompleteSuccessfully());
 
         HybridTimestamp newLwm = clockService.now();
 

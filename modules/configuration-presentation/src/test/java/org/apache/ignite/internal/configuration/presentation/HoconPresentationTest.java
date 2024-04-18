@@ -89,7 +89,7 @@ public class HoconPresentationTest {
                 ConfigurationValidatorImpl.withDefaultValidators(generator, Set.of(validator))
         );
 
-        cfgRegistry.start();
+        cfgRegistry.startAsync();
 
         cfgPresentation = new HoconPresentation(cfgRegistry);
 
@@ -101,7 +101,7 @@ public class HoconPresentationTest {
      */
     @AfterAll
     static void afterAll() throws Exception {
-        cfgRegistry.stop();
+        cfgRegistry.stopAsync();
         cfgRegistry = null;
 
         generator.close();

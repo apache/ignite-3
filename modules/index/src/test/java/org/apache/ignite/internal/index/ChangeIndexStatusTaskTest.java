@@ -131,7 +131,7 @@ public class ChangeIndexStatusTaskTest extends IgniteAbstractTest {
 
         catalogManager = createTestCatalogManager(NODE_NAME, clockWaiter, clock);
 
-        assertThat(allOf(clockWaiter.start(), catalogManager.start()), willCompleteSuccessfully());
+        assertThat(allOf(clockWaiter.startAsync(), catalogManager.startAsync()), willCompleteSuccessfully());
 
         createTable(catalogManager, TABLE_NAME, COLUMN_NAME);
         createIndex(catalogManager, TABLE_NAME, INDEX_NAME, COLUMN_NAME);
@@ -172,8 +172,8 @@ public class ChangeIndexStatusTaskTest extends IgniteAbstractTest {
         closeAll(
                 catalogManager::beforeNodeStop,
                 clockWaiter::beforeNodeStop,
-                catalogManager::stop,
-                clockWaiter::stop,
+                catalogManager::stopAsync,
+                clockWaiter::stopAsync,
                 task == null ? null : task::stop
         );
 

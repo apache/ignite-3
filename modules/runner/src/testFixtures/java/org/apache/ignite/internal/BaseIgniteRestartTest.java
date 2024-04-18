@@ -439,7 +439,7 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
                 IgniteComponent prev = iter.previous();
 
                 try {
-                    prev.stop();
+                    prev.stopAsync();
                 } catch (Exception e) {
                     log.error("Error during component stop", e);
                 }

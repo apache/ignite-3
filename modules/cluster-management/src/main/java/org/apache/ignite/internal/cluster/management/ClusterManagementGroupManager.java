@@ -204,7 +204,7 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync() {
         synchronized (raftServiceLock) {
             raftService = recoverLocalState();
         }
@@ -662,9 +662,9 @@ public class ClusterManagementGroupManager implements IgniteComponent {
     }
 
     @Override
-    public void stop() throws Exception {
+    public CompletableFuture<Void> stopAsync() {
         if (!stopGuard.compareAndSet(false, true)) {
-            return;
+            return nullCompletedFuture();
         }
 
         busyLock.block();
@@ -676,12 +676,18 @@ public class ClusterManagementGroupManager implements IgniteComponent {
 
         IgniteUtils.shutdownAndAwaitTermination(scheduledExecutor, 10, TimeUnit.SECONDS);
 
-        raftManager.stopRaftNodes(CmgGroupId.INSTANCE);
+        try {
+            raftManager.stopRaftNodes(CmgGroupId.INSTANCE);
+        } catch (NodeStoppingException e) {
+            return failedFuture(e);
+        }
 
         // Fail the futures to unblock dependent operations
         joinFuture.completeExceptionally(new NodeStoppingException());
 
         initialClusterConfigurationFuture.completeExceptionally(new NodeStoppingException());
+
+        return nullCompletedFuture();
     }
 
     /**

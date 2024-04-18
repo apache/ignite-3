@@ -160,14 +160,14 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
                 new NoOpFailureProcessor()
         );
 
-        replicaManager.start();
+        replicaManager.startAsync();
     }
 
     @AfterEach
     public void teardown() {
         IgniteUtils.shutdownAndAwaitTermination(requestsExecutor, 10, TimeUnit.SECONDS);
 
-        clusterService.stop();
+        clusterService.stopAsync();
     }
 
     public ReplicaUnavailableTest(TestInfo testInfo) {

@@ -206,7 +206,7 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
                     metaStorageManager
             );
 
-            components.forEach(IgniteComponent::start);
+            components.forEach(IgniteComponent::startAsync);
         }
 
         /**
@@ -232,7 +232,7 @@ public abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstr
 
             Stream<AutoCloseable> beforeNodeStop = components.stream().map(c -> c::beforeNodeStop);
 
-            Stream<AutoCloseable> nodeStop = components.stream().map(c -> c::stop);
+            Stream<AutoCloseable> nodeStop = components.stream().map(c -> c::stopAsync);
 
             IgniteUtils.closeAll(Stream.concat(beforeNodeStop, nodeStop));
         }

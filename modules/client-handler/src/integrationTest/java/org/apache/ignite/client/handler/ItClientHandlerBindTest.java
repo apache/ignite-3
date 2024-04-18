@@ -51,7 +51,7 @@ public class ItClientHandlerBindTest extends BaseIgniteAbstractTest {
     final void tearDown() throws Exception {
         IgniteUtils.closeAll(
                 server == null ? null : () -> server.tearDown(),
-                serverModule == null ? null : () -> serverModule.stop()
+                serverModule == null ? null : () -> serverModule.stopAsync()
         );
     }
 

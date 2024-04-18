@@ -95,7 +95,7 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
     @BeforeEach
     void setUp() {
         metaStorageManager = spy(StandaloneMetaStorageManager.create(metaStorageKvStorage));
-        metaStorageManager.start();
+        metaStorageManager.startAsync();
 
         tableCreatedListener = ArgumentCaptor.forClass(EventListener.class);
         tableAlteredListener = ArgumentCaptor.forClass(EventListener.class);
@@ -105,15 +105,15 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
         doNothing().when(catalogService).listen(eq(CatalogEvent.TABLE_ALTER), tableAlteredListener.capture());
 
         schemaManager = new SchemaManager(registry, catalogService);
-        schemaManager.start();
+        schemaManager.startAsync();
 
         assertThat("Watches were not deployed", metaStorageManager.deployWatches(), willCompleteSuccessfully());
     }
 
     @AfterEach
     void tearDown() throws Exception {
-        schemaManager.stop();
-        metaStorageManager.stop();
+        schemaManager.stopAsync();
+        metaStorageManager.stopAsync();
     }
 
     private void createSomeTable() {
@@ -269,14 +269,14 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
     void loadingPreExistingSchemasWorks() throws Exception {
         create2TableVersions();
 
-        schemaManager.stop();
+        schemaManager.stopAsync();
 
         when(catalogService.latestCatalogVersion()).thenReturn(2);
         when(catalogService.tables(anyInt())).thenReturn(List.of(tableDescriptorAfterColumnAddition()));
         doReturn(CompletableFuture.completedFuture(CAUSALITY_TOKEN_2)).when(metaStorageManager).recoveryFinishedFuture();
 
         schemaManager = new SchemaManager(registry, catalogService);
-        schemaManager.start();
+        schemaManager.startAsync();
 
         completeCausalityToken(CAUSALITY_TOKEN_2);
 

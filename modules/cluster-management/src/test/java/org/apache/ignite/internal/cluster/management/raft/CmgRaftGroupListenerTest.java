@@ -85,14 +85,14 @@ public class CmgRaftGroupListenerTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        storage.start();
+        storage.startAsync();
 
         listener = new CmgRaftGroupListener(storage, logicalTopology, onLogicalTopologyChanged);
     }
 
     @AfterEach
     void tearDown() throws Exception {
-        storage.stop();
+        storage.stopAsync();
     }
 
     /**

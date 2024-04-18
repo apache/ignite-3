@@ -782,7 +782,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
         toStop.beforeNodeStop();
 
-        toStop.stop();
+        toStop.stopAsync();
 
         applyIncrements(client1, 11, 20);
         applyIncrements(client2, 21, 30);
@@ -814,7 +814,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
         svc2.beforeNodeStop();
 
-        svc2.stop();
+        svc2.stopAsync();
 
         var svc3 = startServer(stopIdx, r -> {
             String localNodeName = r.clusterService().topologyService().localMember().name();

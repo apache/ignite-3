@@ -226,7 +226,10 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
                 lowWatermark
         );
 
-        assertThat(allOf(metaStorageManager.start(), catalogManager.start(), indexManager.start()), willCompleteSuccessfully());
+        assertThat(
+                allOf(metaStorageManager.startAsync(), catalogManager.startAsync(), indexManager.startAsync()),
+                willCompleteSuccessfully()
+        );
 
         assertThat(metaStorageManager.recoveryFinishedFuture(), willCompleteSuccessfully());
         assertThat(metaStorageManager.notifyRevisionUpdateListenerOnStart(), willCompleteSuccessfully());

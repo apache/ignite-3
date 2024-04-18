@@ -127,7 +127,7 @@ class IgniteSqlImplTest extends BaseIgniteAbstractTest {
         assertThat(rs, notNullValue());
         assertThat(igniteSql.openedCursors(), hasSize(1));
 
-        igniteSql.stop();
+        igniteSql.stopAsync();
 
         verify(result).closeAsync();
     }
@@ -147,7 +147,7 @@ class IgniteSqlImplTest extends BaseIgniteAbstractTest {
 
         assertThat(executeQueryLatch.await(5, TimeUnit.SECONDS), is(true));
 
-        igniteSql.stop();
+        igniteSql.stopAsync();
 
         AsyncSqlCursor<InternalSqlRow> cursor = mock(AsyncSqlCursor.class);
         cursorFuture.complete(cursor);
@@ -193,7 +193,7 @@ class IgniteSqlImplTest extends BaseIgniteAbstractTest {
 
         assertThat(executeQueryLatch.await(5, TimeUnit.SECONDS), is(true));
 
-        igniteSql.stop();
+        igniteSql.stopAsync();
 
         AsyncSqlCursor<InternalSqlRow> cursor = mock(AsyncSqlCursor.class);
         cursorFuture.complete(cursor);
@@ -339,7 +339,7 @@ class IgniteSqlImplTest extends BaseIgniteAbstractTest {
 
         Thread thread = new Thread(() -> {
             try {
-                igniteSql.stop();
+                igniteSql.stopAsync();
             } catch (Exception e) {
                 throw new RuntimeException(e);
             } finally {

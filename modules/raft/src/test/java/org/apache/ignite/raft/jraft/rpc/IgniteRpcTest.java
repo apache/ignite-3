@@ -82,11 +82,11 @@ public class IgniteRpcTest extends AbstractRpcTest {
             @Override public void shutdown() {
                 super.shutdown();
 
-                service.stop();
+                service.stopAsync();
             }
         };
 
-        service.start();
+        service.startAsync();
 
         return server;
     }
@@ -105,11 +105,11 @@ public class IgniteRpcTest extends AbstractRpcTest {
             @Override public void shutdown() {
                 super.shutdown();
 
-                service.stop();
+                service.stopAsync();
             }
         };
 
-        service.start();
+        service.startAsync();
 
         waitForTopology(client, 1 + i, 5_000);
 

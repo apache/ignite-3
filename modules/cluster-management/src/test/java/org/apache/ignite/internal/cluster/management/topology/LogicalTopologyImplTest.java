@@ -93,7 +93,7 @@ class LogicalTopologyImplTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        storage.start();
+        storage.startAsync();
 
         topology = new LogicalTopologyImpl(storage);
 
@@ -102,7 +102,7 @@ class LogicalTopologyImplTest extends BaseIgniteAbstractTest {
 
     @AfterEach
     void tearDown() throws Exception {
-        storage.stop();
+        storage.stopAsync();
     }
 
     /**

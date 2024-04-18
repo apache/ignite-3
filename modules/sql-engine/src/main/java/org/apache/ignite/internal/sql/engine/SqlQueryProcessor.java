@@ -278,7 +278,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     /** {@inheritDoc} */
     @Override
-    public synchronized CompletableFuture<Void> start() {
+    public synchronized CompletableFuture<Void> startAsync() {
         var nodeName = clusterSrvc.topologyService().localMember().name();
 
         taskExecutor = registerService(new QueryTaskExecutorImpl(nodeName, nodeCfg.execution().threadCount().value(), failureProcessor));
@@ -438,7 +438,7 @@ public class SqlQueryProcessor implements QueryProcessor {
 
     /** {@inheritDoc} */
     @Override
-    public synchronized void stop() throws Exception {
+    public synchronized CompletableFuture<Void> stopAsync() {
         busyLock.block();
 
         openedCursors.values().forEach(AsyncSqlCursor::closeAsync);
@@ -452,7 +452,13 @@ public class SqlQueryProcessor implements QueryProcessor {
 
         Collections.reverse(services);
 
-        IgniteUtils.closeAll(services.stream().map(s -> s::stop));
+        try {
+            IgniteUtils.closeAll(services.stream().map(s -> s::stop));
+        } catch (Exception e) {
+            return failedFuture(e);
+        }
+
+        return nullCompletedFuture();
     }
 
     /** {@inheritDoc} */

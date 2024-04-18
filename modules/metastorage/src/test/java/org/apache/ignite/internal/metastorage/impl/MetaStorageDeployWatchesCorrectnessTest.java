@@ -102,12 +102,12 @@ public class MetaStorageDeployWatchesCorrectnessTest extends IgniteAbstractTest 
 
         assertFalse(deployWatchesFut.isDone());
 
-        metastore.start();
+        metastore.startAsync();
 
         assertThat(deployWatchesFut, willCompleteSuccessfully());
 
         metastore.beforeNodeStop();
 
-        metastore.stop();
+        metastore.stopAsync();
     }
 }

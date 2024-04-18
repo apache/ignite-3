@@ -176,10 +176,10 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
          * Starts the created components.
          */
         void start() throws Exception {
-            vaultManager.start();
+            vaultManager.startAsync();
 
             Stream.of(clusterService, raftManager, cmgManager, metaStorageManager)
-                    .forEach(IgniteComponent::start);
+                    .forEach(IgniteComponent::startAsync);
 
             // this is needed to avoid assertion errors
             cfgStorage.registerConfigurationListener(changedEntries -> nullCompletedFuture());
@@ -204,7 +204,7 @@ public class ItDistributedConfigurationStorageTest extends BaseIgniteAbstractTes
             }
 
             for (IgniteComponent component : components) {
-                component.stop();
+                component.stopAsync();
             }
         }
 

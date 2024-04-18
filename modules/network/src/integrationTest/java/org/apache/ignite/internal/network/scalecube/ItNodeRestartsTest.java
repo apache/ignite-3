@@ -48,7 +48,7 @@ class ItNodeRestartsTest {
     @AfterEach
     void tearDown() {
         for (ClusterService service : services) {
-            service.stop();
+            service.stopAsync();
         }
     }
 
@@ -76,10 +76,10 @@ class ItNodeRestartsTest {
         int idx1 = 2;
 
         LOG.info("Shutdown {}", addresses.get(idx0));
-        services.get(idx0).stop();
+        services.get(idx0).stopAsync();
 
         LOG.info("Shutdown {}", addresses.get(idx1));
-        services.get(idx1).stop();
+        services.get(idx1).stopAsync();
 
         LOG.info("Starting {}", addresses.get(idx0));
         ClusterService svc0 = startNetwork(testInfo, addresses.get(idx0), nodeFinder);
@@ -108,7 +108,7 @@ class ItNodeRestartsTest {
     private ClusterService startNetwork(TestInfo testInfo, NetworkAddress addr, NodeFinder nodeFinder) {
         ClusterService clusterService = ClusterServiceTestUtils.clusterService(testInfo, addr.port(), nodeFinder);
 
-        clusterService.start();
+        clusterService.startAsync();
 
         return clusterService;
     }

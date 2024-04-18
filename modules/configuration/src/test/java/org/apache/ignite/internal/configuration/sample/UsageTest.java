@@ -40,7 +40,7 @@ public class UsageTest {
 
     @AfterEach
     public void after() throws Exception {
-        registry.stop();
+        registry.stopAsync();
     }
 
     /**
@@ -55,7 +55,7 @@ public class UsageTest {
                 new TestConfigurationValidator()
         );
 
-        registry.start();
+        registry.startAsync();
 
         LocalConfiguration root = registry.getConfiguration(LocalConfiguration.KEY);
 
@@ -114,7 +114,7 @@ public class UsageTest {
                 new TestConfigurationValidator()
         );
 
-        registry.start();
+        registry.startAsync();
 
         registry.getConfiguration(LocalConfiguration.KEY).change(local ->
                 local.changeTestConfigurationSchema(schema ->

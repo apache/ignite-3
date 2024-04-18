@@ -50,7 +50,7 @@ class ItJraftServerLogPathTest extends RaftServerAbstractTest {
 
     @AfterEach
     void tearDown() throws Exception {
-        server.stop();
+        server.stopAsync();
     }
 
     @Test
@@ -106,7 +106,7 @@ class ItJraftServerLogPathTest extends RaftServerAbstractTest {
                 new RaftGroupEventsClientListener()
         );
 
-        server.start();
+        server.startAsync();
 
         return server;
     }

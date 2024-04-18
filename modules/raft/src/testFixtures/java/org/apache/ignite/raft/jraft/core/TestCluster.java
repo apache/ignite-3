@@ -271,7 +271,7 @@ public class TestCluster {
 
             var rpcServer = new TestIgniteRpcServer(clusterService, nodeManager, nodeOptions, requestExecutor);
 
-            clusterService.start();
+            clusterService.startAsync();
 
             if (optsClo != null)
                 optsClo.accept(nodeOptions);
@@ -288,7 +288,7 @@ public class TestCluster {
 
                     // Network service must be stopped after a node because raft initiates timeoutnowrequest on stop for faster
                     // leader election.
-                    clusterService.stop();
+                    clusterService.stopAsync();
                 }
             };
 

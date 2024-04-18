@@ -191,7 +191,7 @@ public class ConfigurationListenerTest {
                 new TestConfigurationValidator()
         );
 
-        registry.start();
+        registry.startAsync();
         assertThat(registry.onDefaultsPersisted(), willCompleteSuccessfully());
 
         config = registry.getConfiguration(ParentConfiguration.KEY);
@@ -199,7 +199,7 @@ public class ConfigurationListenerTest {
 
     @AfterEach
     public void after() throws Exception {
-        registry.stop();
+        registry.stopAsync();
         generator.close();
     }
 

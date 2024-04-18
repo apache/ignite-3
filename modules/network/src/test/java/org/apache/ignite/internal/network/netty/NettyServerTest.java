@@ -91,7 +91,7 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
     final void tearDown() throws Exception {
         IgniteUtils.closeAll(
                 server == null ? null : () -> server.stop().join(),
-                bootstrapFactory == null ? null : () -> bootstrapFactory.stop()
+                bootstrapFactory == null ? null : () -> bootstrapFactory.stopAsync()
         );
     }
 
@@ -222,7 +222,7 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
                 });
 
         bootstrapFactory = new NettyBootstrapFactory(serverCfg, "");
-        bootstrapFactory.start();
+        bootstrapFactory.startAsync();
 
         server = new NettyServer(
                 serverCfg.value(),
@@ -295,7 +295,7 @@ public class NettyServerTest extends BaseIgniteAbstractTest {
      */
     private NettyServer getServer(boolean shouldStart) {
         bootstrapFactory = new NettyBootstrapFactory(serverCfg, "");
-        bootstrapFactory.start();
+        bootstrapFactory.startAsync();
 
         MessageSerializationRegistry registry = mock(MessageSerializationRegistry.class);
 

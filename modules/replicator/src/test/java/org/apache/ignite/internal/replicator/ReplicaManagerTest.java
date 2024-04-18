@@ -112,7 +112,7 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
                 new NoOpFailureProcessor()
         );
 
-        replicaManager.start();
+        replicaManager.startAsync();
     }
 
     @AfterEach
@@ -129,7 +129,7 @@ public class ReplicaManagerTest extends BaseIgniteAbstractTest {
 
         assertThat(allOf(replicaStopFutures), willCompleteSuccessfully());
 
-        replicaManager.stop();
+        replicaManager.stopAsync();
 
         IgniteUtils.shutdownAndAwaitTermination(requestsExecutor, 10, TimeUnit.SECONDS);
     }

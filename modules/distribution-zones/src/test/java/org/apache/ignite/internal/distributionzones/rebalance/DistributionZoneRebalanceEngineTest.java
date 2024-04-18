@@ -143,7 +143,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
         String nodeName = "test";
 
         catalogManager = createTestCatalogManager(nodeName, clock);
-        assertThat(catalogManager.start(), willCompleteSuccessfully());
+        assertThat(catalogManager.startAsync(), willCompleteSuccessfully());
 
         createZone(ZONE_NAME_0, 1, 128);
         createZone(ZONE_NAME_1, 2, 128);
@@ -263,7 +263,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
     @AfterEach
     public void tearDown() throws Exception {
         IgniteUtils.closeAll(
-                catalogManager == null ? null : catalogManager::stop,
+                catalogManager == null ? null : catalogManager::stopAsync,
                 keyValueStorage == null ? null : keyValueStorage::close,
                 rebalanceEngine == null ? null : rebalanceEngine::stop,
                 () -> shutdownAndAwaitTermination(rebalanceScheduler, 10, TimeUnit.SECONDS)
@@ -418,7 +418,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         MetaStorageManager realMetaStorageManager = StandaloneMetaStorageManager.create(keyValueStorage);
 
-        realMetaStorageManager.start();
+        realMetaStorageManager.startAsync();
 
         try {
             createRebalanceEngine(realMetaStorageManager);
@@ -429,7 +429,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
             assertTrue(waitForCondition(() -> keyValueStorage.get("assignments.pending.1_part_0".getBytes(UTF_8)) != null, 10_000));
         } finally {
-            realMetaStorageManager.stop();
+            realMetaStorageManager.stopAsync();
         }
     }
 
@@ -450,7 +450,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
         MetaStorageManager realMetaStorageManager = StandaloneMetaStorageManager.create(keyValueStorage);
 
-        realMetaStorageManager.start();
+        realMetaStorageManager.startAsync();
 
         try {
             createRebalanceEngine(realMetaStorageManager);
@@ -461,7 +461,7 @@ public class DistributionZoneRebalanceEngineTest extends IgniteAbstractTest {
 
             assertTrue(waitForCondition(() -> keyValueStorage.get("assignments.pending.1_part_0".getBytes(UTF_8)) != null, 10_000));
         } finally {
-            realMetaStorageManager.stop();
+            realMetaStorageManager.stopAsync();
         }
     }
 

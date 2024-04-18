@@ -141,13 +141,13 @@ public class ItCliServiceTest extends BaseIgniteAbstractTest {
                 new StaticNodeFinder(addressList)
         );
 
-        clientSvc.start();
+        clientSvc.startAsync();
 
         IgniteRpcClient rpcClient = new IgniteRpcClient(clientSvc) {
             @Override public void shutdown() {
                 super.shutdown();
 
-                clientSvc.stop();
+                clientSvc.stopAsync();
             }
         };
 

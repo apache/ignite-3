@@ -239,9 +239,9 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         CompletableFuture<Void> readyFuture = manager.catalogReadyFuture(1);
         assertFalse(readyFuture.isDone());
 
-        manager.stop();
+        manager.stopAsync();
 
-        verify(updateLog).stop();
+        verify(updateLog).stopAsync();
 
         assertTrue(readyFuture.isDone());
 
@@ -1107,7 +1107,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         doNothing().when(updateLogMock).registerUpdateHandler(updateHandlerCapture.capture());
 
         CatalogManagerImpl manager = new CatalogManagerImpl(updateLogMock, clockService);
-        manager.start();
+        manager.startAsync();
 
         when(updateLogMock.append(any())).thenAnswer(invocation -> {
             // here we emulate concurrent updates. First of all, we return a future completed with "false"
@@ -1140,7 +1140,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         CatalogManagerImpl manager = new CatalogManagerImpl(updateLog, clockService, delayDuration, 0);
 
-        manager.start();
+        manager.startAsync();
 
         try {
             CompletableFuture<?> createTableFuture = manager.execute(simpleTable(TABLE_NAME));
@@ -1161,7 +1161,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
             assertSame(manager.schema(1), manager.activeSchema(clock.nowLong()));
             assertNotNull(manager.table(TABLE_NAME, clock.nowLong()));
         } finally {
-            manager.stop();
+            manager.stopAsync();
         }
     }
 
@@ -1174,7 +1174,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         CatalogManagerImpl manager = new CatalogManagerImpl(updateLog, clockService, delayDuration,
                 partitionIdleSafeTimePropagationPeriod);
 
-        manager.start();
+        manager.startAsync();
 
         try {
             CatalogCommand createTableCommand = spy(simpleTable(TABLE_NAME));
@@ -1212,7 +1212,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
             assertSame(manager.schema(catalogVerAfterTableCreate), manager.activeSchema(clock.nowLong()));
         } finally {
-            manager.stop();
+            manager.stopAsync();
         }
     }
 
@@ -1222,13 +1222,13 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         CatalogManagerImpl manager = new CatalogManagerImpl(updateLogMock, clockService);
 
-        manager.start();
+        manager.startAsync();
 
-        verify(updateLogMock).start();
+        verify(updateLogMock).startAsync();
 
-        manager.stop();
+        manager.stopAsync();
 
-        verify(updateLogMock).stop();
+        verify(updateLogMock).stopAsync();
     }
 
     @Test
@@ -1725,7 +1725,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
 
         CatalogManagerImpl manager = new CatalogManagerImpl(updateLog, clockService, delayDuration, 0);
 
-        manager.start();
+        manager.startAsync();
 
         try {
             CompletableFuture<?> createTableFuture = manager.execute(simpleTable(TABLE_NAME));
@@ -1741,7 +1741,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                     greaterThanOrEqualTo(delayDuration + clockService.maxClockSkewMillis())
             );
         } finally {
-            manager.stop();
+            manager.stopAsync();
         }
     }
 
@@ -1760,7 +1760,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                 partitionIdleSafeTimePropagationPeriod
         );
 
-        manager.start();
+        manager.startAsync();
 
         try {
             CompletableFuture<?> createTableFuture = manager.execute(simpleTable(TABLE_NAME));
@@ -1779,7 +1779,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
                     )
             );
         } finally {
-            manager.stop();
+            manager.stopAsync();
         }
     }
 

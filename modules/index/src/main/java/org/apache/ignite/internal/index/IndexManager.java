@@ -124,7 +124,7 @@ public class IndexManager implements IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync() {
         LOG.debug("Index manager is about to start");
 
         recoverDestructionQueue();
@@ -139,18 +139,20 @@ public class IndexManager implements IgniteComponent {
     }
 
     @Override
-    public void stop() throws Exception {
+    public CompletableFuture<Void> stopAsync() {
         LOG.debug("Index manager is about to stop");
 
         if (!stopGuard.compareAndSet(false, true)) {
             LOG.debug("Index manager already stopped");
 
-            return;
+            return nullCompletedFuture();
         }
 
         busyLock.block();
 
         LOG.info("Index manager stopped");
+
+        return nullCompletedFuture();
     }
 
     /**

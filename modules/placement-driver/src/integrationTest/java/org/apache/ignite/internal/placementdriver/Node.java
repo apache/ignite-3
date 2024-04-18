@@ -52,13 +52,13 @@ class Node implements AutoCloseable {
     }
 
     CompletableFuture<Void> startAsync() {
-        clusterService.start();
-        loza.start();
-        metastore.start();
+        clusterService.startAsync();
+        loza.startAsync();
+        metastore.startAsync();
 
         return metastore
                 .recoveryFinishedFuture()
-                .thenRun(placementDriverManager::start)
+                .thenRun(placementDriverManager::startAsync)
                 .thenCompose(unused -> metastore.notifyRevisionUpdateListenerOnStart())
                 .thenCompose(unused -> metastore.deployWatches());
     }

@@ -58,14 +58,14 @@ public abstract class AbstractClusterStateStorageManagerTest extends IgniteAbstr
     void setUp(TestInfo testInfo) {
         storage = clusterStateStorage(testNodeName(testInfo, 0));
 
-        storage.start();
+        storage.startAsync();
 
         storageManager = new RaftStorageManager(storage);
     }
 
     @AfterEach
     void tearDown() throws Exception {
-        storage.stop();
+        storage.stopAsync();
     }
 
     /**

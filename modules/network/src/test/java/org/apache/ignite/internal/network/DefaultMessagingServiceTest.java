@@ -497,7 +497,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         String eventLoopGroupNamePrefix = node.name() + "-event-loop";
 
         NettyBootstrapFactory bootstrapFactory = new NettyBootstrapFactory(networkConfig, eventLoopGroupNamePrefix);
-        bootstrapFactory.start();
+        bootstrapFactory.startAsync();
 
         ConnectionManager connectionManager = new ConnectionManager(
                 networkConfig.value(),
@@ -569,7 +569,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
             IgniteUtils.closeAll(
                     connectionManager::initiateStopping, connectionManager::stop,
                     messagingService::stop,
-                    bootstrapFactory::beforeNodeStop, bootstrapFactory::stop
+                    bootstrapFactory::beforeNodeStop, bootstrapFactory::stopAsync
             );
         }
     }

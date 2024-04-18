@@ -205,7 +205,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
             }
         };
 
-        assertThat(txManager.start(), willCompleteSuccessfully());
+        assertThat(txManager.startAsync(), willCompleteSuccessfully());
 
         Int2ObjectMap<RaftGroupService> partRafts = new Int2ObjectOpenHashMap<>();
         Map<ReplicationGroupId, RaftGroupService> groupRafts = new HashMap<>();
@@ -318,7 +318,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
     @AfterAll
     static void afterAllTests() throws Exception {
         if (txManager != null) {
-            txManager.stop();
+            txManager.stopAsync();
         }
     }
 

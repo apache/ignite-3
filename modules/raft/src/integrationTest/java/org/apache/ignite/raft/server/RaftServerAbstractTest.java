@@ -17,9 +17,12 @@
 
 package org.apache.ignite.raft.server;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.network.ClusterService;
@@ -65,7 +68,7 @@ abstract class RaftServerAbstractTest extends IgniteAbstractTest {
 
     @AfterEach
     protected void after() throws Exception {
-        clusterServices.forEach(ClusterService::stop);
+        clusterServices.forEach(ClusterService::stopAsync);
     }
 
     /**
@@ -83,7 +86,7 @@ abstract class RaftServerAbstractTest extends IgniteAbstractTest {
         );
 
         if (start) {
-            network.start();
+            network.startAsync();
         }
 
         clusterServices.add(network);
@@ -102,12 +105,14 @@ abstract class RaftServerAbstractTest extends IgniteAbstractTest {
                 new RaftGroupEventsClientListener()
         ) {
             @Override
-            public void stop() throws Exception {
+            public CompletableFuture<Void> stopAsync() {
                 servers.remove(this);
 
-                super.stop();
+                super.stopAsync();
 
-                service.stop();
+                service.stopAsync();
+
+                return nullCompletedFuture();
             }
         };
     }

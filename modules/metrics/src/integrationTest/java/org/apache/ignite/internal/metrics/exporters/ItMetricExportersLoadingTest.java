@@ -70,7 +70,7 @@ public class ItMetricExportersLoadingTest extends BaseIgniteAbstractTest {
 
             assertEquals(0, pushOutputStream.toString().length());
 
-            metricManager.start();
+            metricManager.startAsync();
 
             src.inc();
 
@@ -82,7 +82,7 @@ public class ItMetricExportersLoadingTest extends BaseIgniteAbstractTest {
             waitForOutput(pullOutputStream, "TestMetricsSource:\nMetric:1");
             assertTrue(pullOutputStream.toString().contains("TestMetricsSource:\nMetric:1"));
 
-            metricManager.stop();
+            metricManager.stopAsync();
         }
     }
 

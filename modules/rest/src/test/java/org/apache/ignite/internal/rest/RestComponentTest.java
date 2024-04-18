@@ -75,7 +75,7 @@ public class RestComponentTest extends BaseIgniteAbstractTest {
                 generator,
                 new TestConfigurationValidator()
         );
-        configurationManager.start();
+        configurationManager.startAsync();
 
         ConfigurationRegistry configurationRegistry = configurationManager.configurationRegistry();
         RestConfiguration restConfiguration = configurationRegistry.getConfiguration(RestConfiguration.KEY);
@@ -103,14 +103,14 @@ public class RestComponentTest extends BaseIgniteAbstractTest {
                 restConfiguration
         );
 
-        restComponent.start();
+        restComponent.startAsync();
 
         client = new DefaultHttpClient(URI.create("http://localhost:" + restConfiguration.port().value() + "/management/v1/"));
     }
 
     @AfterEach
     public void cleanup() throws Exception {
-        restComponent.stop();
+        restComponent.stopAsync();
     }
 
     @Test

@@ -54,7 +54,7 @@ public class TestClusterStateStorage implements ClusterStateStorage {
     private volatile boolean isStarted = false;
 
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync() {
         isStarted = true;
 
         return nullCompletedFuture();
@@ -196,7 +196,9 @@ public class TestClusterStateStorage implements ClusterStateStorage {
     }
 
     @Override
-    public void stop() {
+    public CompletableFuture<Void> stopAsync() {
         isStarted = false;
+
+        return nullCompletedFuture();
     }
 }

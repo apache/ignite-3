@@ -120,8 +120,8 @@ public class ItLearnersTest extends IgniteAbstractTest {
         }
 
         void start() {
-            clusterService.start();
-            loza.start();
+            clusterService.startAsync();
+            loza.startAsync();
         }
 
         @Override
@@ -130,8 +130,8 @@ public class ItLearnersTest extends IgniteAbstractTest {
                     loza == null ? null : () -> loza.stopRaftNodes(RAFT_GROUP_ID),
                     loza == null ? null : loza::beforeNodeStop,
                     clusterService == null ? null : clusterService::beforeNodeStop,
-                    loza == null ? null : loza::stop,
-                    clusterService == null ? null : clusterService::stop
+                    loza == null ? null : loza::stopAsync,
+                    clusterService == null ? null : clusterService::stopAsync
             );
         }
     }

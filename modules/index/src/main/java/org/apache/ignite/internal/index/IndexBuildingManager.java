@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.index;
 
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -127,7 +128,7 @@ public class IndexBuildingManager implements IgniteComponent {
     }
 
     @Override
-    public CompletableFuture<Void> start() {
+    public CompletableFuture<Void> startAsync() {
         return inBusyLockAsync(busyLock, () -> {
             CompletableFuture<Long> recoveryFinishedFuture = metaStorageManager.recoveryFinishedFuture();
 
@@ -142,20 +143,26 @@ public class IndexBuildingManager implements IgniteComponent {
     }
 
     @Override
-    public void stop() throws Exception {
+    public CompletableFuture<Void> stopAsync() {
         if (!stopGuard.compareAndSet(false, true)) {
-            return;
+            return nullCompletedFuture();
         }
 
         busyLock.block();
 
-        closeAllManually(
-                indexBuilder,
-                indexAvailabilityController,
-                indexBuildController,
-                changeIndexStatusTaskController
-        );
+        try {
+            closeAllManually(
+                    indexBuilder,
+                    indexAvailabilityController,
+                    indexBuildController,
+                    changeIndexStatusTaskController
+            );
+        } catch (Exception e) {
+            return failedFuture(e);
+        }
 
         shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
+
+        return nullCompletedFuture();
     }
 }

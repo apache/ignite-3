@@ -55,9 +55,9 @@ public class ItClusterServiceTest extends BaseIgniteAbstractTest {
 
         ClusterService service = clusterService(testInfo, addr.port(), new StaticNodeFinder(List.of(addr)));
 
-        service.start();
+        service.startAsync();
 
-        service.stop();
+        service.stopAsync();
 
         assertThat(service.isStopped(), is(true));
 
@@ -77,8 +77,8 @@ public class ItClusterServiceTest extends BaseIgniteAbstractTest {
         var addr2 = new NetworkAddress("localhost", 10001);
         ClusterService service1 = clusterService(testInfo, addr1.port(), new StaticNodeFinder(List.of(addr1, addr2)));
         ClusterService service2 = clusterService(testInfo, addr2.port(), new StaticNodeFinder(List.of(addr1, addr2)));
-        service1.start();
-        service2.start();
+        service1.startAsync();
+        service2.startAsync();
         assertTrue(waitForCondition(() -> service1.topologyService().allMembers().size() == 2, 1000));
         assertTrue(waitForCondition(() -> service2.topologyService().allMembers().size() == 2, 1000));
         try {
@@ -94,7 +94,7 @@ public class ItClusterServiceTest extends BaseIgniteAbstractTest {
             checkAllMeta(service1, Set.of(meta1, meta2));
             checkAllMeta(service2, Set.of(meta1, meta2));
         } finally {
-            IgniteUtils.closeAll(service1::stop, service2::stop);
+            IgniteUtils.closeAll(service1::stopAsync, service2::stopAsync);
         }
     }
 

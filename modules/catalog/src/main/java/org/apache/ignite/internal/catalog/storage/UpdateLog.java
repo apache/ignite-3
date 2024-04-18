@@ -67,7 +67,7 @@ public interface UpdateLog extends IgniteComponent {
      * @throws IgniteInternalException If no handler has been registered.
      */
     @Override
-    CompletableFuture<Void> start() throws IgniteInternalException;
+    CompletableFuture<Void> startAsync() throws IgniteInternalException;
 
     /** An interface describing a handler that will receive notification when a new update is added to the log. */
     @FunctionalInterface

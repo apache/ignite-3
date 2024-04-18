@@ -52,7 +52,7 @@ public class DistributedConfigurationStorageTest extends ConfigurationStorageTes
     @BeforeEach
     void start() {
         metaStorage.start();
-        metaStorageManager.start();
+        metaStorageManager.startAsync();
     }
 
     /**
@@ -60,7 +60,7 @@ public class DistributedConfigurationStorageTest extends ConfigurationStorageTes
      */
     @AfterEach
     void stop() throws Exception {
-        metaStorageManager.stop();
+        metaStorageManager.stopAsync();
         metaStorage.close();
     }
 

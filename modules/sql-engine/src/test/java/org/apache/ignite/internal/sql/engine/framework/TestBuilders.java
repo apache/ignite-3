@@ -645,7 +645,7 @@ public class TestBuilders {
             var schemaManager = new SqlSchemaManagerImpl(catalogManager, CaffeineCacheFactory.INSTANCE, 0);
 
             Runnable initClosure = () -> {
-                clockWaiter.start();
+                clockWaiter.startAsync();
 
                 initAction(catalogManager);
             };

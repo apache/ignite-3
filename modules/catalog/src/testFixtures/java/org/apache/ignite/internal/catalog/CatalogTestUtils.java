@@ -78,8 +78,9 @@ public class CatalogTestUtils {
 
         return new CatalogManagerImpl(new UpdateLogImpl(metastore), clockService) {
             @Override
-            public CompletableFuture<Void> start() {
-                return allOf(metastore.start(), clockWaiter.start(), super.start()).thenCompose(unused -> metastore.deployWatches());
+            public CompletableFuture<Void> startAsync() {
+                return allOf(metastore.startAsync(), clockWaiter.startAsync(), super.startAsync())
+                        .thenCompose(unused -> metastore.deployWatches());
             }
 
             @Override
@@ -91,11 +92,13 @@ public class CatalogTestUtils {
             }
 
             @Override
-            public void stop() throws Exception {
-                super.stop();
+            public CompletableFuture<Void> stopAsync() {
+                super.stopAsync();
 
-                clockWaiter.stop();
-                metastore.stop();
+                clockWaiter.stopAsync();
+                metastore.stopAsync();
+
+                return nullCompletedFuture();
             }
         };
     }
@@ -114,8 +117,8 @@ public class CatalogTestUtils {
 
         return new CatalogManagerImpl(new UpdateLogImpl(metastore), new TestClockService(clock, clockWaiter)) {
             @Override
-            public CompletableFuture<Void> start() {
-                return allOf(metastore.start(), super.start()).thenCompose(unused -> metastore.deployWatches());
+            public CompletableFuture<Void> startAsync() {
+                return allOf(metastore.startAsync(), super.startAsync()).thenCompose(unused -> metastore.deployWatches());
             }
 
             @Override
@@ -126,10 +129,12 @@ public class CatalogTestUtils {
             }
 
             @Override
-            public void stop() throws Exception {
-                super.stop();
+            public CompletableFuture<Void> stopAsync() {
+                super.stopAsync();
 
-                metastore.stop();
+                metastore.stopAsync();
+
+                return nullCompletedFuture();
             }
         };
     }
@@ -148,8 +153,8 @@ public class CatalogTestUtils {
 
         return new CatalogManagerImpl(new UpdateLogImpl(metastore), new TestClockService(clock, clockWaiter)) {
             @Override
-            public CompletableFuture<Void> start() {
-                return allOf(clockWaiter.start(), super.start());
+            public CompletableFuture<Void> startAsync() {
+                return allOf(clockWaiter.startAsync(), super.startAsync());
             }
 
             @Override
@@ -160,10 +165,12 @@ public class CatalogTestUtils {
             }
 
             @Override
-            public void stop() throws Exception {
-                super.stop();
+            public CompletableFuture<Void> stopAsync() {
+                super.stopAsync();
 
-                clockWaiter.stop();
+                clockWaiter.stopAsync();
+
+                return nullCompletedFuture();
             }
         };
     }
@@ -196,8 +203,8 @@ public class CatalogTestUtils {
 
         return new CatalogManagerImpl(updateLog, new TestClockService(clock, clockWaiter)) {
             @Override
-            public CompletableFuture<Void> start() {
-                return allOf(clockWaiter.start(), super.start());
+            public CompletableFuture<Void> startAsync() {
+                return allOf(clockWaiter.startAsync(), super.startAsync());
             }
 
             @Override
@@ -208,10 +215,12 @@ public class CatalogTestUtils {
             }
 
             @Override
-            public void stop() throws Exception {
-                super.stop();
+            public CompletableFuture<Void> stopAsync() {
+                super.stopAsync();
 
-                clockWaiter.stop();
+                clockWaiter.stopAsync();
+
+                return nullCompletedFuture();
             }
         };
     }
@@ -234,8 +243,8 @@ public class CatalogTestUtils {
 
         return new CatalogManagerImpl(new TestUpdateLog(clock), new TestClockService(clock, clockWaiter)) {
             @Override
-            public CompletableFuture<Void> start() {
-                return allOf(clockWaiter.start(), super.start());
+            public CompletableFuture<Void> startAsync() {
+                return allOf(clockWaiter.startAsync(), super.startAsync());
             }
 
             @Override
@@ -246,10 +255,12 @@ public class CatalogTestUtils {
             }
 
             @Override
-            public void stop() throws Exception {
-                super.stop();
+            public CompletableFuture<Void> stopAsync() {
+                super.stopAsync();
 
-                clockWaiter.stop();
+                clockWaiter.stopAsync();
+
+                return nullCompletedFuture();
             }
         };
     }
@@ -391,7 +402,7 @@ public class CatalogTestUtils {
         }
 
         @Override
-        public CompletableFuture<Void> start() throws IgniteInternalException {
+        public CompletableFuture<Void> startAsync() throws IgniteInternalException {
             if (onUpdateHandler == null) {
                 throw new IgniteInternalException(
                         Common.INTERNAL_ERR,
@@ -405,8 +416,8 @@ public class CatalogTestUtils {
         }
 
         @Override
-        public void stop() throws Exception {
-
+        public CompletableFuture<Void> stopAsync() {
+            return nullCompletedFuture();
         }
     }
 

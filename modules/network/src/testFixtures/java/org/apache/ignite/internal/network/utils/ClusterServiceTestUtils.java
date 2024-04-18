@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.network.utils;
 
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -161,8 +162,8 @@ public class ClusterServiceTestUtils {
             }
 
             @Override
-            public CompletableFuture<Void> start() {
-                nodeConfigurationMgr.start();
+            public CompletableFuture<Void> startAsync() {
+                nodeConfigurationMgr.startAsync();
 
                 NetworkConfiguration configuration = nodeConfigurationMgr.configurationRegistry()
                         .getConfiguration(NetworkConfiguration.KEY);
@@ -178,24 +179,26 @@ public class ClusterServiceTestUtils {
                                 )
                 ).join();
 
-                bootstrapFactory.start();
+                bootstrapFactory.startAsync();
 
-                clusterSvc.start();
+                clusterSvc.startAsync();
 
                 return nullCompletedFuture();
             }
 
             @Override
-            public void stop() {
+            public CompletableFuture<Void> stopAsync() {
                 try {
                     IgniteUtils.closeAll(
-                            clusterSvc::stop,
-                            bootstrapFactory::stop,
-                            nodeConfigurationMgr::stop
+                            clusterSvc::stopAsync,
+                            bootstrapFactory::stopAsync,
+                            nodeConfigurationMgr::stopAsync
                     );
                 } catch (Exception e) {
-                    throw new RuntimeException(e);
+                    return failedFuture(e);
                 }
+
+                return nullCompletedFuture();
             }
         };
     }

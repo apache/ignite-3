@@ -3856,7 +3856,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         nodeOptions.setCommandsMarshaller(TestCluster.commandsMarshaller(clusterService));
 
-        clusterService.start();
+        clusterService.startAsync();
 
         var service = new RaftGroupService(groupId, peer.getPeerId(), nodeOptions, rpcServer, nodeManager) {
             @Override public synchronized void shutdown() {
@@ -3864,7 +3864,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
                 super.shutdown();
 
-                clusterService.stop();
+                clusterService.stopAsync();
             }
         };
 

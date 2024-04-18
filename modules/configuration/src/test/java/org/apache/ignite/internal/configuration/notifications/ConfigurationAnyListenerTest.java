@@ -168,7 +168,7 @@ public class ConfigurationAnyListenerTest {
                 new TestConfigurationValidator()
         );
 
-        registry.start();
+        registry.startAsync();
 
         rootConfig = registry.getConfiguration(RootConfiguration.KEY);
 
@@ -237,7 +237,7 @@ public class ConfigurationAnyListenerTest {
 
     @AfterEach
     public void after() throws Exception {
-        registry.stop();
+        registry.stopAsync();
         generator.close();
     }
 

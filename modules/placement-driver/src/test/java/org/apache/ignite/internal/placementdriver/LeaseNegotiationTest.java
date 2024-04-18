@@ -98,7 +98,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
     @BeforeEach
     public void setUp() {
         metaStorageManager = StandaloneMetaStorageManager.create();
-        metaStorageManager.start();
+        metaStorageManager.startAsync();
         metaStorageManager.deployWatches();
 
         pdLogicalTopologyService = mock(LogicalTopologyService.class);

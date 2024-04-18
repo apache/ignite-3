@@ -107,7 +107,7 @@ class ItJraftHlcServerTest extends RaftServerAbstractTest {
 
             server.beforeNodeStop();
 
-            server.stop();
+            server.stopAsync();
         }
 
         TestUtils.assertAllJraftThreadsStopped();
@@ -133,7 +133,7 @@ class ItJraftHlcServerTest extends RaftServerAbstractTest {
 
         JraftServerImpl server = jraftServer(servers, idx, service, opts);
 
-        server.start();
+        server.startAsync();
 
         clo.accept(server);
 

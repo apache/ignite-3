@@ -139,9 +139,9 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
                 metaStorageConfiguration
         );
 
-        clusterService.start();
-        raftManager.start();
-        metaStorageManager.start();
+        clusterService.startAsync();
+        raftManager.startAsync();
+        metaStorageManager.startAsync();
 
         assertThat("Watches were not deployed", metaStorageManager.deployWatches(), willCompleteSuccessfully());
     }
@@ -152,7 +152,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
 
         IgniteUtils.closeAll(Stream.concat(
                 components.stream().map(c -> c::beforeNodeStop),
-                components.stream().map(c -> c::stop)
+                components.stream().map(c -> c::stopAsync)
         ));
     }
 
@@ -196,7 +196,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
     void testMetaStorageStopClosesRaftService() throws Exception {
         MetaStorageServiceImpl svc = metaStorageManager.metaStorageService().join();
 
-        metaStorageManager.stop();
+        metaStorageManager.stopAsync();
 
         CompletableFuture<Entry> fut = svc.get(ByteArray.fromString("ignored"));
 
@@ -205,7 +205,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
 
     @Test
     void testMetaStorageStopBeforeRaftServiceStarted() throws Exception {
-        metaStorageManager.stop(); // Close MetaStorage that is created in setUp.
+        metaStorageManager.stopAsync(); // Close MetaStorage that is created in setUp.
 
         ClusterManagementGroupManager cmgManager = mock(ClusterManagementGroupManager.class);
 
@@ -224,7 +224,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
                 mock(TopologyAwareRaftGroupServiceFactory.class)
         );
 
-        metaStorageManager.stop();
+        metaStorageManager.stopAsync();
 
         // Unblock the future so raft service can be initialized. Although the future should be cancelled already by the
         // stop method.

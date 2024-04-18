@@ -78,7 +78,7 @@ public class ItJvmMetricSourceTest extends BaseIgniteAbstractTest {
         assertNotNull(jvmMetrics.get("memory.non-heap.Committed"));
         assertNotNull(jvmMetrics.get("memory.non-heap.Max"));
 
-        metricManager.stop();
+        metricManager.stopAsync();
     }
 
     private void assertPositiveLongValue(String metric) {

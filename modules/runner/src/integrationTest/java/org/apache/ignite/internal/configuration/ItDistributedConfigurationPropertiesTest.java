@@ -225,12 +225,12 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
          * Starts the created components.
          */
         CompletableFuture<Void> start() {
-            vaultManager.start();
+            vaultManager.startAsync();
 
             Stream.of(clusterService, raftManager, cmgManager, metaStorageManager)
-                    .forEach(IgniteComponent::start);
+                    .forEach(IgniteComponent::startAsync);
 
-            return CompletableFuture.runAsync(distributedCfgManager::start);
+            return CompletableFuture.runAsync(distributedCfgManager::startAsync);
         }
 
         /**
@@ -258,7 +258,7 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
             }
 
             for (IgniteComponent component : components) {
-                component.stop();
+                component.stopAsync();
             }
 
             generator.close();

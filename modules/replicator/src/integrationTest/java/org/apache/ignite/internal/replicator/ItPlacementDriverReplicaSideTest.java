@@ -195,9 +195,9 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
             replicaManagers.put(nodeName, replicaManager);
 
-            clusterService.start();
-            raftManager.start();
-            replicaManager.start();
+            clusterService.startAsync();
+            raftManager.startAsync();
+            replicaManager.startAsync();
 
             servicesToClose.add(() -> {
                 try {
@@ -205,9 +205,9 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                     raftManager.beforeNodeStop();
                     clusterService.beforeNodeStop();
 
-                    replicaManager.stop();
-                    raftManager.stop();
-                    clusterService.stop();
+                    replicaManager.stopAsync();
+                    raftManager.stopAsync();
+                    clusterService.stopAsync();
                 } catch (Exception e) {
                     log.info("Fail to stop services [node={}]", e, nodeName);
                 }
@@ -355,7 +355,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
             var srvc = clusterServices.get(nodeToStop);
 
             srvc.beforeNodeStop();
-            srvc.stop();
+            srvc.stopAsync();
         }
 
         var anyNode = randomNode(grpNodesToStop);

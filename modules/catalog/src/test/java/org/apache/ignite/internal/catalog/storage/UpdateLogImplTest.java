@@ -76,13 +76,13 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
         metastore = StandaloneMetaStorageManager.create(keyValueStorage);
 
         keyValueStorage.start();
-        metastore.start();
+        metastore.startAsync();
     }
 
     @AfterEach
     public void tearDown() throws Exception {
         IgniteUtils.closeAll(
-                metastore == null ? null : metastore::stop,
+                metastore == null ? null : metastore::stopAsync,
                 keyValueStorage == null ? null : keyValueStorage::close
         );
     }
@@ -99,7 +99,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
         appendUpdates(updateLogImpl, expectedUpdates);
 
         // Let's restart the log and metastore with recovery.
-        updateLogImpl.stop();
+        updateLogImpl.stopAsync();
 
         restartMetastore();
 
@@ -132,7 +132,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
         compactCatalog(updateLogImpl, snapshotEntryOfVersion(2));
 
         // Let's restart the log and metastore with recovery.
-        updateLogImpl.stop();
+        updateLogImpl.stopAsync();
 
         restartMetastore();
 
@@ -170,7 +170,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
         UpdateLogImpl updateLogImpl = createUpdateLogImpl();
 
         updateLogImpl.registerUpdateHandler(onUpdateHandler);
-        updateLogImpl.start();
+        updateLogImpl.startAsync();
 
         return updateLogImpl;
     }
@@ -189,10 +189,10 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
     private void restartMetastore() throws Exception {
         long recoverRevision = metastore.appliedRevision();
 
-        metastore.stop();
+        metastore.stopAsync();
 
         metastore = StandaloneMetaStorageManager.create(keyValueStorage);
-        metastore.start();
+        metastore.startAsync();
 
         assertThat(metastore.recoveryFinishedFuture(), willBe(recoverRevision));
     }
@@ -203,7 +203,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
 
         IgniteInternalException ex = assertThrows(
                 IgniteInternalException.class,
-                updateLog::start
+                updateLog::startAsync
         );
 
         assertThat(
@@ -229,7 +229,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
 
         long revisionBefore = metastore.appliedRevision();
 
-        updateLog.start();
+        updateLog.startAsync();
 
         assertThat("Watches were not deployed", metastore.deployWatches(), willCompleteSuccessfully());
 

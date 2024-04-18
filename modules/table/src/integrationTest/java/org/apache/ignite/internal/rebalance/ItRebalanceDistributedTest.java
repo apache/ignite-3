@@ -1310,7 +1310,10 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     cmgManager
             );
 
-            List<CompletableFuture<?>> componentFuts = firstComponents.stream().map(IgniteComponent::start).collect(Collectors.toList());
+            List<CompletableFuture<?>> componentFuts =
+                    firstComponents.stream()
+                            .map(IgniteComponent::startAsync)
+                            .collect(Collectors.toList());
 
             nodeComponents.addAll(firstComponents);
 
@@ -1330,7 +1333,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                         indexManager
                 );
 
-                componentFuts.addAll(secondComponents.stream().map(IgniteComponent::start).collect(Collectors.toList()));
+                componentFuts.addAll(secondComponents.stream().map(IgniteComponent::startAsync).collect(Collectors.toList()));
 
                 nodeComponents.addAll(secondComponents);
 
@@ -1371,7 +1374,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             new ReverseIterator<>(nodeComponents).forEachRemaining(component -> {
                 try {
-                    component.stop();
+                    component.stopAsync();
                 } catch (Exception e) {
                     LOG.error("Unable to stop component [component={}]", e, component);
                 }

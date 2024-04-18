@@ -209,14 +209,14 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
                 new TestClockService(nodeClock)
         );
 
-        clusterService.start();
-        anotherClusterService.start();
-        raftManager.start();
-        metaStorageManager.start();
+        clusterService.startAsync();
+        anotherClusterService.startAsync();
+        raftManager.startAsync();
+        metaStorageManager.startAsync();
 
         assertThat(metaStorageManager.recoveryFinishedFuture(), willCompleteSuccessfully());
 
-        placementDriverManager.start();
+        placementDriverManager.startAsync();
 
         assertThat(metaStorageManager.notifyRevisionUpdateListenerOnStart(), willCompleteSuccessfully());
 
@@ -412,7 +412,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
      */
     private void stopAnotherNode(ClusterService nodeClusterService) throws Exception {
         nodeClusterService.beforeNodeStop();
-        nodeClusterService.stop();
+        nodeClusterService.stopAsync();
 
         assertTrue(waitForCondition(
                 () -> !clusterService.topologyService().allMembers().contains(nodeClusterService.topologyService().localMember()),
@@ -442,7 +442,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
                 leaseGrantMessageHandler(nodeName)
         );
 
-        nodeClusterService.start();
+        nodeClusterService.startAsync();
 
         assertTrue(waitForCondition(
                 () -> clusterService.topologyService().allMembers().contains(nodeClusterService.topologyService().localMember()),
