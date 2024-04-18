@@ -26,7 +26,6 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * A base for a {@link PlacementDriver} that delegates some of its methods to another {@link PlacementDriver}.
@@ -62,10 +61,5 @@ abstract class DelegatingPlacementDriver implements PlacementDriver {
     @Override
     public CompletableFuture<Void> previousPrimaryExpired(ReplicationGroupId grpId) {
         return delegate.previousPrimaryExpired(grpId);
-    }
-
-    @Override
-    public @Nullable ReplicaMeta currentLease(ReplicationGroupId groupId) {
-        return delegate.currentLease(groupId);
     }
 }

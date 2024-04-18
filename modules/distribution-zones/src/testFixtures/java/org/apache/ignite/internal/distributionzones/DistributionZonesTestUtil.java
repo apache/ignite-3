@@ -40,6 +40,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
@@ -568,6 +569,15 @@ public class DistributionZonesTestUtil {
         CatalogZoneDescriptor zone = catalogService.zone(zoneName, timestamp);
 
         return zone == null ? null : zone.id();
+    }
+
+    /** Returns default distribution zone. */
+    public static CatalogZoneDescriptor getDefaultZone(CatalogService catalogService, long timestamp) {
+        Catalog catalog = catalogService.catalog(catalogService.activeCatalogVersion(timestamp));
+
+        Objects.requireNonNull(catalog);
+
+        return catalog.defaultZone();
     }
 
     /**

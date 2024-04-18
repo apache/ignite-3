@@ -64,7 +64,7 @@ import org.apache.ignite.internal.storage.pagememory.index.hash.HashIndexRowKey;
 public interface HashIndexTreeIo {
     /** Item size without index columns in bytes. */
     int ITEM_SIZE_WITHOUT_COLUMNS = Integer.BYTES // Index columns hash.
-            + Short.SIZE // Inlined index columns size.
+            + Short.BYTES // Inlined index columns size.
             + PARTITIONLESS_LINK_SIZE_BYTES // Index columns link.
             + 2 * Long.BYTES; // Row ID.
 

@@ -36,6 +36,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.tx.TransactionIds.beginTimestamp;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
+import static org.apache.ignite.internal.tx.TxState.FINISHING;
 import static org.apache.ignite.internal.tx.TxState.checkTransitionCorrectness;
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -702,6 +703,22 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         assertEquals(COMMITTED, txMeta.txState());
         assertNotNull(txMeta.commitTimestamp());
         assertTrue(readTimestamp.compareTo(txMeta.commitTimestamp()) > 0);
+    }
+
+    @CartesianTest
+    @CartesianTest.MethodFactory("finishedTxTypesFactory")
+    void testExecuteRequestOnFinishedTx(TxState txState, RequestType requestType) {
+        UUID txId = newTxId();
+
+        txStateStorage.put(txId, new TxMeta(txState, singletonList(grpId), null));
+        txManager.updateTxMeta(txId, old -> new TxStateMeta(txState, null, null, null));
+
+        BinaryRow testRow = binaryRow(0);
+
+        assertThat(
+                doSingleRowRequest(txId, testRow, requestType),
+                willThrowFast(TransactionException.class, "Transaction is already finished")
+        );
     }
 
     @Test
@@ -2139,6 +2156,12 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         return ArgumentSets.argumentsForFirstParameter(singleRowRwOperationTypes())
                 .argumentsForNextParameter(false, true)
                 .argumentsForNextParameter(false, true);
+    }
+
+    @SuppressWarnings("unused")
+    private static ArgumentSets finishedTxTypesFactory() {
+        return ArgumentSets.argumentsForFirstParameter(FINISHING, ABORTED, COMMITTED)
+                .argumentsForNextParameter(singleRowRwOperationTypes());
     }
 
     private static Stream<RequestType> singleRowRwOperationTypes() {

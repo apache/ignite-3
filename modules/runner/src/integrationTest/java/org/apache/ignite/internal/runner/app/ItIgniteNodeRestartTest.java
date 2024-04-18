@@ -497,7 +497,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 clusterSvc.messagingService()
         );
 
-        TransactionInflights transactionInflights = new TransactionInflights(placementDriverManager.placementDriver());
+        TransactionInflights transactionInflights = new TransactionInflights(placementDriverManager.placementDriver(), clockService);
 
         var txManager = new TxManagerImpl(
                 name,

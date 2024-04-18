@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.distributionzones;
 
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesFromManager;
@@ -39,7 +38,7 @@ import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Test scenarios when filter of a zone is altered and immediate scale up is triggered.
@@ -81,10 +80,10 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
      *
      * @throws Exception If failed.
      */
-    @ParameterizedTest
-    @MethodSource("provideArgumentsForFilterAlteringTests")
-    void testAlterFilter(String zoneName) throws Exception {
-        preparePrerequisites(zoneName);
+    @ParameterizedTest(name = "defaultZone={0}")
+    @ValueSource(booleans = {true, false})
+    void testAlterFilter(boolean defaultZone) throws Exception {
+        String zoneName = preparePrerequisites(defaultZone);
 
         // Change timers to infinite, add new node, alter filter and check that data nodes was changed.
         alterZone(zoneName, INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE, FILTER);
@@ -105,10 +104,10 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
      *
      * @throws Exception If failed.
      */
-    @ParameterizedTest
-    @MethodSource("provideArgumentsForFilterAlteringTests")
-    void testAlterFilterToEmtpyNodes(String zoneName) throws Exception {
-        preparePrerequisites(zoneName);
+    @ParameterizedTest(name = "defaultZone={0}")
+    @ValueSource(booleans = {true, false})
+    void testAlterFilterToEmtpyNodes(boolean defaultZone) throws Exception {
+        String zoneName = preparePrerequisites(defaultZone);
 
         // Change timers to infinite, add new node, alter filter and check that data nodes was changed.
         alterZone(zoneName, INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE, FILTER);
@@ -129,10 +128,10 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
      *
      * @throws Exception If failed.
      */
-    @ParameterizedTest
-    @MethodSource("provideArgumentsForFilterAlteringTests")
-    void testAlterFilterDoNotAffectScaleDown(String zoneName) throws Exception {
-        preparePrerequisites(IMMEDIATE_TIMER_VALUE, COMMON_UP_DOWN_AUTOADJUST_TIMER_SECONDS, zoneName);
+    @ParameterizedTest(name = "defaultZone={0}")
+    @ValueSource(booleans = {true, false})
+    void testAlterFilterDoNotAffectScaleDown(boolean defaultZone) throws Exception {
+        String zoneName = preparePrerequisites(IMMEDIATE_TIMER_VALUE, COMMON_UP_DOWN_AUTOADJUST_TIMER_SECONDS, defaultZone);
 
         topology.putNode(D);
 
@@ -177,10 +176,10 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
      *
      * @throws Exception If failed.
      */
-    @ParameterizedTest
-    @MethodSource("provideArgumentsForFilterAlteringTests")
-    void testNodeAddedWhileAlteringFilter(String zoneName) throws Exception {
-        preparePrerequisites(COMMON_UP_DOWN_AUTOADJUST_TIMER_SECONDS, INFINITE_TIMER_VALUE, zoneName);
+    @ParameterizedTest(name = "defaultZone={0}")
+    @ValueSource(booleans = {true, false})
+    void testNodeAddedWhileAlteringFilter(boolean defaultZone) throws Exception {
+        String zoneName = preparePrerequisites(COMMON_UP_DOWN_AUTOADJUST_TIMER_SECONDS, INFINITE_TIMER_VALUE, defaultZone);
 
         int zoneId = getZoneId(zoneName);
 
@@ -244,8 +243,8 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
      *
      * @throws Exception If failed
      */
-    private void preparePrerequisites(String zoneName) throws Exception {
-        preparePrerequisites(IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, zoneName);
+    private String preparePrerequisites(boolean defaultZone) throws Exception {
+        return preparePrerequisites(IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, defaultZone);
     }
 
     /**
@@ -254,24 +253,26 @@ public class DistributionZoneManagerAlterFilterTest extends BaseDistributionZone
      *
      * @throws Exception If failed
      */
-    private void preparePrerequisites(int scaleUpTimer, int scaleDownTimer, String zoneName) throws Exception {
+    private String preparePrerequisites(int scaleUpTimer, int scaleDownTimer, boolean defaultZone) throws Exception {
         startDistributionZoneManager();
 
         topology.putNode(A);
         topology.putNode(B);
         topology.putNode(C);
 
-        if (DEFAULT_ZONE_NAME.equals(zoneName)) {
-            alterZone(DEFAULT_ZONE_NAME, scaleUpTimer, scaleDownTimer, FILTER);
+        String zoneName;
+
+        if (defaultZone) {
+            zoneName = getDefaultZone().name();
+            alterZone(zoneName, scaleUpTimer, scaleDownTimer, FILTER);
         } else {
+            zoneName = ZONE_NAME;
             createZone(ZONE_NAME, scaleUpTimer, scaleDownTimer, FILTER, DEFAULT_STORAGE_PROFILE);
         }
 
         assertDataNodesFromManager(distributionZoneManager, metaStorageManager::appliedRevision, catalogManager::latestCatalogVersion,
                 getZoneId(zoneName), Set.of(A, C), ZONE_MODIFICATION_AWAIT_TIMEOUT);
-    }
 
-    private static String[] provideArgumentsForFilterAlteringTests() {
-        return new String[]{DEFAULT_ZONE_NAME, ZONE_NAME};
+        return zoneName;
     }
 }
