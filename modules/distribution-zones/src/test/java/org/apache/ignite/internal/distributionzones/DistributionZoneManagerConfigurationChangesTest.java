@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.distributionzones;
 
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertDataNodesFromLogicalNodesInStorage;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertLogicalTopology;
@@ -55,7 +54,7 @@ public class DistributionZoneManagerConfigurationChangesTest extends BaseDistrib
 
         assertLogicalTopology(nodes, keyValueStorage);
 
-        assertDataNodesFromLogicalNodesInStorage(getZoneId(DEFAULT_ZONE_NAME), nodes, keyValueStorage);
+        assertDataNodesFromLogicalNodesInStorage(getDefaultZone().id(), nodes, keyValueStorage);
     }
 
     @Test

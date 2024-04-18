@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.trait;
 
+import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
+
 import java.util.List;
 import org.apache.calcite.plan.RelTraitDef;
 import org.apache.calcite.util.ImmutableIntList;
@@ -79,7 +81,7 @@ public class IgniteDistributions {
      * Creates an affinity distribution that takes into account the zone ID and calculates the destinations
      * based on a hash function which takes into account the key field types of the row.
      *
-     * @param keys    Affinity keys ordinals.
+     * @param keys Affinity keys ordinals. Should not be null or empty.
      * @param tableId Table ID.
      * @param zoneId  Distribution zone ID.
      * @return Affinity distribution.
@@ -91,22 +93,24 @@ public class IgniteDistributions {
     /**
      * Creates a hash distribution that calculates destinations based on a composite hash of key field values of the row.
      *
-     * @param keys Distribution keys ordinals.
+     * @param keys Distribution keys ordinals. Should not be null or empty.
      * @return Hash distribution.
      */
     public static IgniteDistribution hash(List<Integer> keys) {
-        return canonize(new DistributionTrait(ImmutableIntList.copyOf(keys), DistributionFunction.hash()));
+        return hash(keys, DistributionFunction.hash());
     }
 
     /**
      * Creates a hash distribution that calculates destinations based on a composite hash of key field values of the row.
      *
-     * @param keys     Distribution keys ordinals.
+     * @param keys Distribution keys ordinals. Should not be null or empty.
      * @param function Specific hash function.
      * @return Hash distribution.
      */
     public static IgniteDistribution hash(List<Integer> keys, DistributionFunction function) {
-        return canonize(new DistributionTrait(keys, function));
+        assert !nullOrEmpty(keys) : "Hash-based distribution must have at least one key";
+
+        return canonize(new DistributionTrait(ImmutableIntList.copyOf(keys), function));
     }
 
     /**

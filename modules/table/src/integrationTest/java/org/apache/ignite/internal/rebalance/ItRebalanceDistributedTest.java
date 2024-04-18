@@ -1094,7 +1094,15 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             var resourcesRegistry = new RemotelyTriggeredResourceRegistry();
 
-            TransactionInflights transactionInflights = new TransactionInflights(placementDriver);
+            clockWaiter = new ClockWaiter(name, hybridClock);
+
+            ClockService clockService = new ClockServiceImpl(
+                    hybridClock,
+                    clockWaiter,
+                    () -> TestIgnitionManager.DEFAULT_MAX_CLOCK_SKEW_MS
+            );
+
+            TransactionInflights transactionInflights = new TransactionInflights(placementDriver, clockService);
 
             cfgStorage = new DistributedConfigurationStorage("test", metaStorageManager);
 
@@ -1136,14 +1144,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                             raftManager.getLogSyncer()
                     ),
                     storageConfiguration
-            );
-
-            clockWaiter = new ClockWaiter(name, hybridClock);
-
-            ClockService clockService = new ClockServiceImpl(
-                    hybridClock,
-                    clockWaiter,
-                    () -> TestIgnitionManager.DEFAULT_MAX_CLOCK_SKEW_MS
             );
 
             lowWatermark = new LowWatermarkImpl(

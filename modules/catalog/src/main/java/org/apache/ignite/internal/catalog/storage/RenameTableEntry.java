@@ -80,7 +80,8 @@ public class RenameTableEntry implements UpdateEntry, Fireable {
                 catalog.time(),
                 catalog.objectIdGenState(),
                 catalog.zones(),
-                replaceSchema(replaceTable(schemaDescriptor, newTableDescriptor), catalog.schemas())
+                replaceSchema(replaceTable(schemaDescriptor, newTableDescriptor), catalog.schemas()),
+                catalog.defaultZone().id()
         );
     }
 

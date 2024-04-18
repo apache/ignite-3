@@ -106,7 +106,7 @@ public class IgniteSqlCreateIndex extends SqlCreate {
 
         tblName.unparse(writer, 0, 0);
 
-        if (type != IgniteSqlIndexType.IMPLICIT_TREE) {
+        if (type != IgniteSqlIndexType.IMPLICIT_SORTED) {
             writer.keyword("USING");
 
             writer.keyword(type.name());
