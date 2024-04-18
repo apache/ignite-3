@@ -1,0 +1,64 @@
+# name: sql/join/inner/test_table_from_outer_join_used_in_inner.test
+# description: SQL feature F041-07 (The inner table in a left or right outer join can also be used in an inner join)
+# group: [Basic joined table]
+
+statement ok
+PRAGMA enable_verification
+
+statement ok
+CREATE TABLE t1(c11 INTEGER, c12 INTEGER, c13 CHAR);
+
+statement ok
+INSERT INTO t1 VALUES (1, 2, 'a'), (2, 3, 'b'), (3, 4, 'c')
+
+statement ok
+CREATE TABLE t2 (c21 INTEGER, c22 INTEGER, c23 CHAR);
+
+statement ok
+INSERT INTO t2 VALUES (2, 3, 'a'), (3, 4, 'b'), (4, 3, 'c')
+
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-22085
+query II rowsort
+select j.c21, j.c22 from (t2 LEFT OUTER JOIN t1 ON (t2.c21 = t1.c11)) j INNER JOIN t2 t22 ON (t22.c21 = j.c22);
+----
+2	3
+3	4
+4	3
+
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-22085
+query III rowsort
+select j.c21, j.c22, j.c21 from (t2 LEFT OUTER JOIN t1 ON (t2.c21 = t1.c11)) j INNER JOIN t2 t22 ON (t22.c21 = j.c21);
+----
+2	3	2
+3	4	3
+4	3	4
+
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-22085
+query II rowsort
+select j.c21, j.c22 from (t2 RIGHT OUTER JOIN t1 ON (t2.c21 = t1.c11)) j INNER JOIN t2 t22 ON (t22.c21 = j.c22);
+----
+2	3
+3	4
+
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-22085
+query III rowsort
+select j.c21, j.c22, j.c21 from (t2 RIGHT OUTER JOIN t1 ON (t2.c21 = t1.c11)) j INNER JOIN t2 t22 ON (t22.c21 = j.c21);
+----
+2	3	2
+3	4	3
+
+skipif ignite3
+# https://issues.apache.org/jira/browse/IGNITE-22085
+query III rowsort
+select j.c21, j.c22, j.c21 from (t2 LEFT OUTER JOIN t1 ON (t2.c21 = t1.c11)) j INNER JOIN t2 t22 ON (t22.c23 = j.c23);
+----
+2	3	2
+3	4	3
+4	3	4
+
+
+
