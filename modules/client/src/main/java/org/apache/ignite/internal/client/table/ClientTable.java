@@ -437,7 +437,7 @@ public class ClientTable implements Table {
                     ClientSchema schema = schemaFut.getNow(null);
                     String preferredNodeName = getPreferredNodeName(provider, partitionsFut.getNow(null), schema);
 
-                    return txFut(tx, preferredNodeName).thenCompose(unused ->
+                    return ClientLazyTransaction.ensureStarted(tx, ch, preferredNodeName).thenCompose(unused ->
                         ch.serviceAsync(opCode,
                             w -> writer.accept(schema, w),
                             r -> readSchemaAndReadData(schema, r, reader, defaultValue, responseSchemaRequired),
@@ -499,18 +499,6 @@ public class ClientTable implements Table {
                 });
 
         return fut;
-    }
-
-    private CompletableFuture<?> txFut(@Nullable Transaction tx, @Nullable String preferredNodeName) {
-        if (tx == null) {
-            return nullCompletedFuture();
-        }
-
-        if (!(tx instanceof ClientLazyTransaction)) {
-            throw ClientTransaction.unsupportedTxTypeException(tx);
-        }
-
-        return ((ClientLazyTransaction) tx).ensureStarted(ch, preferredNodeName);
     }
 
     private <T> @Nullable Object readSchemaAndReadData(

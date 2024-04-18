@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.client.tx;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.tx.Transaction;
@@ -92,7 +94,7 @@ public class ClientLazyTransaction implements Transaction {
         return options != null && options.readOnly();
     }
 
-    public synchronized CompletableFuture<ClientTransaction> ensureStarted(
+    private synchronized CompletableFuture<ClientTransaction> ensureStarted(
             ReliableChannel ch,
             @Nullable String preferredNodeName) {
         var tx0 = tx;
@@ -105,6 +107,21 @@ public class ClientLazyTransaction implements Transaction {
         tx = tx0;
 
         return tx0;
+    }
+
+    public static CompletableFuture<?> ensureStarted(
+            @Nullable Transaction tx,
+            ReliableChannel ch,
+            @Nullable String preferredNodeName) {
+        if (tx == null) {
+            return nullCompletedFuture();
+        }
+
+        if (!(tx instanceof ClientLazyTransaction)) {
+            throw ClientTransaction.unsupportedTxTypeException(tx);
+        }
+
+        return ((ClientLazyTransaction) tx).ensureStarted(ch, preferredNodeName);
     }
 
     public ClientTransaction tx() {
