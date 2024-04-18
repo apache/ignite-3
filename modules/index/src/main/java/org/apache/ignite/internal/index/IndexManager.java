@@ -168,7 +168,7 @@ public class IndexManager implements IgniteComponent {
      *      parameters.
      */
     CompletableFuture<MvTableStorage> getMvTableStorage(long causalityToken, int tableId) {
-        return tableManager.tableAsync(causalityToken, tableId).thenApply(table -> table == null ? null : table.internalTable().storage());
+        return tableManager.tableAsync(causalityToken, tableId).thenApply(table -> table.internalTable().storage());
     }
 
     private CompletableFuture<Boolean> onIndexCreate(CreateIndexEventParameters parameters) {
