@@ -110,7 +110,8 @@ public class DropColumnsEntry implements UpdateEntry, Fireable {
                 catalog.time(),
                 catalog.objectIdGenState(),
                 catalog.zones(),
-                replaceSchema(replaceTable(schema, newTableDescriptor), catalog.schemas())
+                replaceSchema(replaceTable(schema, newTableDescriptor), catalog.schemas()),
+                catalog.defaultZone().id()
         );
     }
 

@@ -20,7 +20,6 @@ package org.apache.ignite.internal.catalog;
 import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.addColumnParams;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParams;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.columnParamsBuilder;
@@ -42,6 +41,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import java.util.Objects;
 import org.apache.ignite.internal.catalog.commands.AlterZoneCommand;
 import org.apache.ignite.internal.catalog.commands.CreateZoneCommand;
 import org.apache.ignite.internal.catalog.commands.RenameZoneCommand;
@@ -59,7 +59,7 @@ import org.junit.jupiter.api.Test;
  */
 public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManagerTest {
     private static final String SCHEMA_NAME = DEFAULT_SCHEMA_NAME;
-    private static final String ZONE_NAME = DEFAULT_ZONE_NAME;
+    private static final String ZONE_NAME = "TEST_ZONE_NAME";
     private static final String TABLE_NAME_2 = "myTable2";
     private static final String NEW_COLUMN_NAME = "NEWCOL";
 
@@ -79,7 +79,7 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
         assertEquals(INITIAL_CAUSALITY_TOKEN, defaultSchema.updateToken());
 
         // Default distribution zone must exists.
-        CatalogZoneDescriptor zone = manager.zone(DEFAULT_ZONE_NAME, clock.nowLong());
+        CatalogZoneDescriptor zone = Objects.requireNonNull(manager.catalog(manager.activeCatalogVersion(clock.nowLong()))).defaultZone();
 
         assertNotNull(zone);
 
@@ -342,7 +342,7 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
 
     @Test
     public void testCreateZone() {
-        String zoneName = ZONE_NAME + 1;
+        String zoneName = ZONE_NAME;
 
         CatalogCommand cmd = CreateZoneCommand.builder()
                 .zoneName(zoneName)
@@ -368,7 +368,7 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
 
     @Test
     public void testRenameZone() {
-        String zoneName = ZONE_NAME + 1;
+        String zoneName = ZONE_NAME;
 
         CatalogCommand cmd = CreateZoneCommand.builder()
                 .zoneName(zoneName)
@@ -412,7 +412,7 @@ public class CatalogManagerDescriptorCausalityTokenTest extends BaseCatalogManag
 
     @Test
     public void testAlterZone() {
-        String zoneName = ZONE_NAME + 1;
+        String zoneName = ZONE_NAME;
 
         CatalogCommand alterCmd = AlterZoneCommand.builder()
                 .zoneName(zoneName)
