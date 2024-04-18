@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.ReliableChannel;
+import org.apache.ignite.internal.client.table.PartitionAwarenessProvider;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
@@ -122,6 +123,27 @@ public class ClientLazyTransaction implements Transaction {
         }
 
         return ((ClientLazyTransaction) tx).ensureStarted(ch, preferredNodeName);
+    }
+
+    public static @Nullable PartitionAwarenessProvider partitionAwarenessProvider(@Nullable Transaction tx) {
+        if (tx == null) {
+            return null;
+        }
+
+        if (!(tx instanceof ClientLazyTransaction)) {
+            throw ClientTransaction.unsupportedTxTypeException(tx);
+        }
+
+        var tx0 = ((ClientLazyTransaction) tx).tx;
+
+        if (tx0 == null) {
+            return null;
+        }
+
+        // Normally, the transaction is already started at this point and the future is completed.
+        // Only if the tx is used from multiple threads we might have to block on the future, but it's a weird case.
+        // noinspection resource
+        return PartitionAwarenessProvider.of(tx0.join().channel().protocolContext().clusterNode().name());
     }
 
     public ClientTransaction tx() {

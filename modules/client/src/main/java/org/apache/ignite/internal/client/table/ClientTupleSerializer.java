@@ -36,6 +36,7 @@ import org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
+import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.marshaller.UnmappedColumnsException;
@@ -437,12 +438,11 @@ public class ClientTupleSerializer {
      */
     public static PartitionAwarenessProvider getPartitionAwarenessProvider(
             @Nullable Transaction tx, Mapper<?> mapper, Object rec) {
-        if (tx != null) {
-            //noinspection resource
-            return PartitionAwarenessProvider.of(ClientTransaction.get(tx).channel().protocolContext().clusterNode().name());
-        }
+        var txProvider = ClientLazyTransaction.partitionAwarenessProvider(tx);
 
-        return PartitionAwarenessProvider.of(schema -> getColocationHash(schema, mapper, rec));
+        return txProvider != null
+                ? txProvider
+                : PartitionAwarenessProvider.of(schema -> getColocationHash(schema, mapper, rec));
     }
 
     /**
