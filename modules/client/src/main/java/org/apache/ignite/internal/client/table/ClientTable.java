@@ -287,6 +287,7 @@ public class ClientTable implements Table {
      * @param writer Writer.
      * @param reader Reader.
      * @param provider Partition awareness provider.
+     * @param tx Transaction.
      * @param <T> Result type.
      * @return Future representing pending completion of the operation.
      */
@@ -294,7 +295,8 @@ public class ClientTable implements Table {
             int opCode,
             BiConsumer<ClientSchema, PayloadOutputChannel> writer,
             Function<PayloadInputChannel, T> reader,
-            @Nullable PartitionAwarenessProvider provider) {
+            @Nullable PartitionAwarenessProvider provider,
+            @Nullable ClientLazyTransaction tx) {
         return doSchemaOutInOpAsync(
                 opCode,
                 writer,
@@ -304,7 +306,8 @@ public class ClientTable implements Table {
                 provider,
                 null,
                 null,
-                false);
+                false,
+                tx);
     }
 
     /**
@@ -315,6 +318,7 @@ public class ClientTable implements Table {
      * @param reader Reader.
      * @param provider Partition awareness provider.
      * @param expectNotifications Whether to expect notifications as a result of the operation.
+     * @param tx Transaction.
      * @param <T> Result type.
      * @return Future representing pending completion of the operation.
      */
@@ -323,7 +327,8 @@ public class ClientTable implements Table {
             BiConsumer<ClientSchema, PayloadOutputChannel> writer,
             Function<PayloadInputChannel, T> reader,
             @Nullable PartitionAwarenessProvider provider,
-            boolean expectNotifications) {
+            boolean expectNotifications,
+            @Nullable ClientLazyTransaction tx) {
         return doSchemaOutInOpAsync(
                 opCode,
                 writer,
@@ -333,7 +338,8 @@ public class ClientTable implements Table {
                 provider,
                 null,
                 null,
-                expectNotifications);
+                expectNotifications,
+                tx);
     }
 
     /**
@@ -343,6 +349,8 @@ public class ClientTable implements Table {
      * @param writer Writer.
      * @param reader Reader.
      * @param provider Partition awareness provider.
+     * @param retryPolicyOverride Retry policy override.
+     * @param tx Transaction.
      * @param <T> Result type.
      * @return Future representing pending completion of the operation.
      */
@@ -351,7 +359,8 @@ public class ClientTable implements Table {
             BiConsumer<ClientSchema, PayloadOutputChannel> writer,
             Function<PayloadInputChannel, T> reader,
             @Nullable PartitionAwarenessProvider provider,
-            @Nullable RetryPolicy retryPolicyOverride) {
+            @Nullable RetryPolicy retryPolicyOverride,
+            @Nullable ClientLazyTransaction tx) {
         return doSchemaOutInOpAsync(
                 opCode,
                 writer,
@@ -361,7 +370,8 @@ public class ClientTable implements Table {
                 provider,
                 retryPolicyOverride,
                 null,
-                false);
+                false,
+                tx);
     }
 
     /**
@@ -372,6 +382,7 @@ public class ClientTable implements Table {
      * @param reader Reader.
      * @param defaultValue Default value to use when server returns null.
      * @param provider Partition awareness provider.
+     * @param tx Transaction.
      * @param <T> Result type.
      * @return Future representing pending completion of the operation.
      */
@@ -380,9 +391,10 @@ public class ClientTable implements Table {
             BiConsumer<ClientSchema, PayloadOutputChannel> writer,
             BiFunction<ClientSchema, PayloadInputChannel, T> reader,
             @Nullable T defaultValue,
-            @Nullable PartitionAwarenessProvider provider
+            @Nullable PartitionAwarenessProvider provider,
+            @Nullable ClientLazyTransaction tx
     ) {
-        return doSchemaOutInOpAsync(opCode, writer, reader, defaultValue, true, provider, null, null, false);
+        return doSchemaOutInOpAsync(opCode, writer, reader, defaultValue, true, provider, null, null, false, tx);
     }
 
     /**
@@ -396,6 +408,8 @@ public class ClientTable implements Table {
      * @param provider Partition awareness provider.
      * @param retryPolicyOverride Retry policy override.
      * @param schemaVersionOverride Schema version override.
+     * @param expectNotifications Whether to expect notifications as a result of the operation.
+     * @param tx Transaction.
      * @param <T> Result type.
      * @return Future representing pending completion of the operation.
      */
