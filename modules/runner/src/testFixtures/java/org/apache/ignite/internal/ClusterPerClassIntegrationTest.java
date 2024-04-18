@@ -367,7 +367,7 @@ public abstract class ClusterPerClassIntegrationTest extends IgniteIntegrationTe
                 .query(query);
 
         if (zoneId != null) {
-            builder.timeZoneId(zoneId);
+            builder.timeZone(zoneId);
         }
 
         Statement statement = builder.build();

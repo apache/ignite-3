@@ -38,10 +38,12 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.PublicApiThreadingTests;
 import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.sql.Statement;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
@@ -56,8 +58,6 @@ class ItSqlApiThreadingTest extends ClusterPerClassIntegrationTest {
     private static final String SELECT_QUERY = "SELECT * FROM " + TABLE_NAME;
     private static final String UPDATE_QUERY = "UPDATE " + TABLE_NAME + " SET val = val WHERE id = ?";
 
-    private static final int MORE_THAN_DEFAULT_STATEMENT_PAGE_SIZE = 2048;
-
     @Override
     protected int initialNodes() {
         return 1;
@@ -67,10 +67,9 @@ class ItSqlApiThreadingTest extends ClusterPerClassIntegrationTest {
     void createTable() {
         sql("CREATE TABLE " + TABLE_NAME + " (id INT PRIMARY KEY, val VARCHAR)");
 
-        // Putting more than the doubled default query page size rows to make sure that CriteriaQuerySource#query() returns a non-closed
+        // Putting more than the default query prefetch size rows to make sure that CriteriaQuerySource#query() returns a non-closed
         // cursor even after we call its second page.
-        // TODO: Instead, configure pageSize=1 on each #query() call when https://issues.apache.org/jira/browse/IGNITE-18647 is fixed.
-        Map<Integer, String> valuesForQuerying = IntStream.range(1, 1 + 2 * MORE_THAN_DEFAULT_STATEMENT_PAGE_SIZE)
+        Map<Integer, String> valuesForQuerying = IntStream.range(0, Commons.IN_BUFFER_SIZE + 1)
                 .boxed()
                 .collect(toMap(identity(), Object::toString));
         plainKeyValueView().putAll(null, valuesForQuerying);
@@ -135,7 +134,9 @@ class ItSqlApiThreadingTest extends ClusterPerClassIntegrationTest {
 
     private static AsyncResultSet<SqlRow> fetchFirstPage(IgniteSql igniteSql)
             throws InterruptedException, ExecutionException, TimeoutException {
-        return igniteSql.executeAsync(null, SELECT_QUERY).get(10, SECONDS);
+        Statement statement = igniteSql.statementBuilder().query(SELECT_QUERY).pageSize(1).build();
+
+        return igniteSql.executeAsync(null, statement).get(10, SECONDS);
     }
 
     @ParameterizedTest

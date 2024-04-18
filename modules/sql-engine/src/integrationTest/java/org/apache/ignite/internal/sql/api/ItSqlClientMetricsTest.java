@@ -22,8 +22,8 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.lang.ErrorGroups.Sql;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.MetricSet;
@@ -37,7 +37,6 @@ import org.apache.ignite.sql.Statement;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 
@@ -72,7 +71,6 @@ public class ItSqlClientMetricsTest extends BaseSqlIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18647")
     public void testNormalFlow() throws Exception {
         sql.execute(null, "SELECT * from " + DEFAULT_TABLE_NAME);
 
@@ -90,8 +88,9 @@ public class ItSqlClientMetricsTest extends BaseSqlIntegrationTest {
         rs1.forEachRemaining(c -> {});
         assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 0);
 
-        ResultSet<SqlRow> rs2 = sql.execute(null, "SELECT * from " + DEFAULT_TABLE_NAME);
-        ResultSet<SqlRow> rs3 = sql.execute(null, "SELECT * from " + DEFAULT_TABLE_NAME);
+        ResultSet<SqlRow> rs2 = sql.execute(null, statement);
+        ResultSet<SqlRow> rs3 = sql.execute(null, statement);
+
         assertMetricValue(clientMetricSet, SqlClientMetricSource.METRIC_OPEN_CURSORS, 2);
 
         rs2.close();
@@ -119,10 +118,10 @@ public class ItSqlClientMetricsTest extends BaseSqlIntegrationTest {
     }
 
     private void assertMetricValue(MetricSet metricSet, String metricName, Object expectedValue) throws InterruptedException {
-        assertTrue(
-                waitForCondition(
-                        () -> expectedValue.toString().equals(metricSet.get(metricName).getValueAsString()),
-                        1000)
-        );
+        waitForCondition(
+                () -> expectedValue.toString().equals(metricSet.get(metricName).getValueAsString()),
+                1000);
+
+        assertEquals(expectedValue.toString(), metricSet.get(metricName).getValueAsString());
     }
 }

@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.api;
 
 import java.time.ZoneId;
-import java.time.ZoneOffset;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.sql.Statement;
@@ -40,7 +39,8 @@ class StatementBuilderImpl implements StatementBuilder {
     /** Page size. */
     private Integer pageSize;
 
-    private ZoneId zoneId = ZoneOffset.UTC;
+    /** Time zone ID. */
+    private ZoneId timeZoneId;
 
     /** {@inheritDoc} */
     @Override
@@ -105,14 +105,14 @@ class StatementBuilderImpl implements StatementBuilder {
 
     /** {@inheritDoc} */
     @Override
-    public ZoneId timeZoneId() {
-        return zoneId;
+    public ZoneId timeZone() {
+        return timeZoneId;
     }
 
     /** {@inheritDoc} */
     @Override
-    public StatementBuilder timeZoneId(ZoneId zoneId) {
-        this.zoneId = Objects.requireNonNull(zoneId);
+    public StatementBuilder timeZone(ZoneId zoneId) {
+        this.timeZoneId = Objects.requireNonNull(zoneId);
 
         return this;
     }
@@ -120,7 +120,6 @@ class StatementBuilderImpl implements StatementBuilder {
     /** {@inheritDoc} */
     @Override
     public Statement build() {
-        // TODO https://issues.apache.org/jira/browse/IGNITE-18647
-        return new StatementImpl(query);
+        return new StatementImpl(query, defaultSchema, queryTimeoutMs, pageSize, timeZoneId);
     }
 }

@@ -23,6 +23,7 @@ import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import it.unimi.dsi.fastutil.longs.LongArrayList;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumSet;
@@ -51,6 +52,7 @@ import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.QueryProperty;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.property.SqlProperties;
+import org.apache.ignite.internal.sql.engine.property.SqlProperties.Builder;
 import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ArrayUtils;
@@ -81,6 +83,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
     public static final int DEFAULT_PAGE_SIZE = 1024;
 
     private static final IgniteLogger LOG = Loggers.forClass(IgniteSqlImpl.class);
+
     private static final int AWAIT_CURSOR_CLOSE_ON_STOP_IN_SECONDS = 10;
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -90,7 +93,6 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
     private final AtomicInteger cursorIdGen = new AtomicInteger();
 
     private final ConcurrentMap<Integer, AsyncSqlCursor<?>> openedCursors = new ConcurrentHashMap<>();
-
 
     private final QueryProcessor queryProcessor;
 
@@ -286,7 +288,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
             String query,
             @Nullable Object... arguments
     ) {
-        return executeAsyncInternal(transaction, query, DEFAULT_PAGE_SIZE, arguments);
+        return executeAsyncInternal(transaction, new StatementImpl(query), arguments);
     }
 
     /** {@inheritDoc} */
@@ -296,14 +298,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
             Statement statement,
             @Nullable Object... arguments
     ) {
-        int pageSize = statement.pageSize();
-
-        if (pageSize <= 0) {
-            pageSize = DEFAULT_PAGE_SIZE;
-        }
-
-        // TODO: IGNITE-17440 use all statement properties.
-        return executeAsyncInternal(transaction, statement.query(), pageSize, arguments);
+        return executeAsyncInternal(transaction, statement, arguments);
     }
 
     /** {@inheritDoc} */
@@ -327,11 +322,11 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
 
     private CompletableFuture<AsyncResultSet<SqlRow>> executeAsyncInternal(
             @Nullable Transaction transaction,
-            String query,
-            int pageSize,
+            Statement statement,
             @Nullable Object... arguments
     ) {
-        assert pageSize > 0 : pageSize;
+        int pageSize = statement.pageSize() > 0 ? statement.pageSize() : DEFAULT_PAGE_SIZE;
+        SqlProperties properties = buildProperties(statement);
 
         if (!busyLock.enterBusy()) {
             return CompletableFuture.failedFuture(nodeIsStoppingException());
@@ -340,11 +335,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
         CompletableFuture<AsyncResultSet<SqlRow>> result;
 
         try {
-            SqlProperties properties = SqlPropertiesHelper.newBuilder()
-                    .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.SINGLE_STMT_TYPES)
-                    .build();
-
-            result = queryProcessor.queryAsync(properties, transactions, (InternalTransaction) transaction, query, arguments)
+            result = queryProcessor.queryAsync(properties, transactions, (InternalTransaction) transaction, statement.query(), arguments)
                     .thenCompose(cur -> {
                                 if (!busyLock.enterBusy()) {
                                     cur.closeAsync();
@@ -614,6 +605,19 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
     @TestOnly
     List<AsyncSqlCursor<?>> openedCursors() {
         return List.copyOf(openedCursors.values());
+    }
+
+    private static SqlProperties buildProperties(Statement statement) {
+        Builder propertiesBuilder = SqlPropertiesHelper.newBuilder()
+                .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.SINGLE_STMT_TYPES)
+                // If the user has not explicitly specified a time zone, then we use the system default value.
+                .set(QueryProperty.TIME_ZONE_ID, Objects.requireNonNullElse(statement.timeZone(), ZoneId.systemDefault()));
+
+        if (statement.defaultSchema() != null) {
+            propertiesBuilder.set(QueryProperty.DEFAULT_SCHEMA, statement.defaultSchema());
+        }
+
+        return propertiesBuilder.build();
     }
 
     private static SqlException nodeIsStoppingException() {

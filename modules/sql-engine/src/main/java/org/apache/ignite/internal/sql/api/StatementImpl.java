@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.api;
 
 import java.time.ZoneId;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.sql.Statement;
 
@@ -28,13 +29,48 @@ class StatementImpl implements Statement {
     /** Query. */
     private final String query;
 
+    /** Default schema. */
+    private final String defaultSchema;
+
+    /** Query timeout. */
+    private final Long queryTimeoutMs;
+
+    /** Page size. */
+    private final Integer pageSize;
+
+    /** Time zone ID. */
+    private final ZoneId timeZoneId;
+
     /**
      * Constructor.
      *
      * @param query Query.
      */
-    public StatementImpl(String query) {
-        this.query = query;
+    StatementImpl(String query) {
+        this(query, null, null, null, null);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param query Query.
+     * @param defaultSchema Default schema.
+     * @param queryTimeoutMs Query timeout.
+     * @param pageSize Page size.
+     * @param timeZoneId Time zone.
+     */
+    StatementImpl(
+            String query,
+            String defaultSchema,
+            Long queryTimeoutMs,
+            Integer pageSize,
+            ZoneId timeZoneId
+    ) {
+        this.query = Objects.requireNonNull(query, "Query required.");
+        this.defaultSchema = defaultSchema;
+        this.queryTimeoutMs = queryTimeoutMs;
+        this.pageSize = pageSize;
+        this.timeZoneId = timeZoneId;
     }
 
     /** {@inheritDoc} */
@@ -46,37 +82,51 @@ class StatementImpl implements Statement {
     /** {@inheritDoc} */
     @Override
     public long queryTimeout(TimeUnit timeUnit) {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        Objects.requireNonNull(timeUnit);
+
+        return queryTimeoutMs == null ? 0 : timeUnit.convert(queryTimeoutMs, TimeUnit.MILLISECONDS);
     }
 
     /** {@inheritDoc} */
     @Override
     public String defaultSchema() {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        return defaultSchema;
     }
 
     /** {@inheritDoc} */
     @Override
     public int pageSize() {
-        // TODO https://issues.apache.org/jira/browse/IGNITE-18647
-        return 0;
+        return pageSize == null ? 0 : pageSize;
     }
 
     /** {@inheritDoc} */
     @Override
-    public ZoneId timeZoneId() {
-        throw new UnsupportedOperationException("Not implemented yet.");
+    public ZoneId timeZone() {
+        return timeZoneId;
     }
 
     /** {@inheritDoc} */
     @Override
     public StatementBuilder toBuilder() {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        var builder = new StatementBuilderImpl()
+                .query(query)
+                .defaultSchema(defaultSchema)
+                .timeZone(timeZoneId);
+
+        if (pageSize != null) {
+            builder.pageSize(pageSize);
+        }
+
+        if (queryTimeoutMs != null) {
+            builder.queryTimeout(queryTimeoutMs, TimeUnit.MILLISECONDS);
+        }
+
+        return builder;
     }
 
     /** {@inheritDoc} */
     @Override
     public void close() throws Exception {
-        throw new UnsupportedOperationException("Not implemented yet.");
+        // No-op.
     }
 }

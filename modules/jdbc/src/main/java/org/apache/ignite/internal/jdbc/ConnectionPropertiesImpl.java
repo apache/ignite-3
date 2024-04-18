@@ -25,7 +25,6 @@ import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.Properties;
 import java.util.StringTokenizer;
-import java.util.TimeZone;
 import java.util.stream.Collectors;
 import org.apache.ignite.client.ClientAuthenticationMode;
 import org.apache.ignite.client.IgniteClientConfiguration;
@@ -129,7 +128,7 @@ public class ConnectionPropertiesImpl implements ConnectionProperties, Serializa
 
     /** Client connection time zone ID. This property can be used by the client to change the time zone of the "session" on the server. */
     private final TimeZoneProperty connectionTimeZone = new TimeZoneProperty("connectionTimeZone",
-            "Client connection time zone ID", TimeZone.getDefault().toZoneId(), null, false, null);
+            "Client connection time zone ID", ZoneId.systemDefault(), null, false, null);
 
     /** Properties array. */
     private final ConnectionProperty[] propsArray = {

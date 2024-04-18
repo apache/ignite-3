@@ -63,8 +63,10 @@ public interface Statement extends AutoCloseable {
      * Returns time zone used for this statement.
      *
      * @return Time zone used for this statement.
+     *
+     * @see StatementBuilder#timeZone(ZoneId)
      */
-    ZoneId timeZoneId();
+    ZoneId timeZone();
 
     /**
      * Creates a statement builder from the current statement.
@@ -141,15 +143,24 @@ public interface Statement extends AutoCloseable {
         StatementBuilder pageSize(int pageSize);
 
         /** Returns a statement time zone. */
-        ZoneId timeZoneId();
+        ZoneId timeZone();
 
         /**
          * Sets a time zone for this statement.
          *
-         * @param timeZoneId Time zone ID.
+         * <p>This time zone is used in the following cases:
+         * <ol>
+         *     <li>When using SQL functions to obtain the current time (for example {@code SELECT CURRENT_TIME})</li>
+         *     <li>When converting a string literal to/from a TIMESTAMP WITH LOCAL TIME ZONE column
+         *     (for example {@code SELECT TIMESTAMP WITH LOCAL TIME ZONE '1992-01-18 02:30:00.123'}</li>
+         * </ol>
+         *
+         * <p>If the time zone has not been set explicitly, the current JVM default time zone will be used.
+         *
+         * @param timeZoneId Time zone.
          * @return {@code this} for chaining.
          */
-        StatementBuilder timeZoneId(ZoneId timeZoneId);
+        StatementBuilder timeZone(ZoneId timeZoneId);
 
         /**
          * Creates an SQL statement abject.
