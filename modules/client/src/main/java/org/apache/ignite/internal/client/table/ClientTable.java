@@ -296,7 +296,7 @@ public class ClientTable implements Table {
             BiConsumer<ClientSchema, PayloadOutputChannel> writer,
             Function<PayloadInputChannel, T> reader,
             @Nullable PartitionAwarenessProvider provider,
-            @Nullable ClientLazyTransaction tx) {
+            @Nullable Transaction tx) {
         return doSchemaOutInOpAsync(
                 opCode,
                 writer,
@@ -328,7 +328,7 @@ public class ClientTable implements Table {
             Function<PayloadInputChannel, T> reader,
             @Nullable PartitionAwarenessProvider provider,
             boolean expectNotifications,
-            @Nullable ClientLazyTransaction tx) {
+            @Nullable Transaction tx) {
         return doSchemaOutInOpAsync(
                 opCode,
                 writer,
@@ -360,7 +360,7 @@ public class ClientTable implements Table {
             Function<PayloadInputChannel, T> reader,
             @Nullable PartitionAwarenessProvider provider,
             @Nullable RetryPolicy retryPolicyOverride,
-            @Nullable ClientLazyTransaction tx) {
+            @Nullable Transaction tx) {
         return doSchemaOutInOpAsync(
                 opCode,
                 writer,
@@ -392,7 +392,7 @@ public class ClientTable implements Table {
             BiFunction<ClientSchema, PayloadInputChannel, T> reader,
             @Nullable T defaultValue,
             @Nullable PartitionAwarenessProvider provider,
-            @Nullable ClientLazyTransaction tx
+            @Nullable Transaction tx
     ) {
         return doSchemaOutInOpAsync(opCode, writer, reader, defaultValue, true, provider, null, null, false, tx);
     }
@@ -423,7 +423,7 @@ public class ClientTable implements Table {
             @Nullable RetryPolicy retryPolicyOverride,
             @Nullable Integer schemaVersionOverride,
             boolean expectNotifications,
-            @Nullable ClientLazyTransaction tx) {
+            @Nullable Transaction tx) {
         CompletableFuture<T> fut = new CompletableFuture<>();
 
         CompletableFuture<ClientSchema> schemaFut = getSchema(schemaVersionOverride == null ? latestSchemaVer : schemaVersionOverride);
@@ -437,10 +437,7 @@ public class ClientTable implements Table {
                     ClientSchema schema = schemaFut.getNow(null);
                     String preferredNodeName = getPreferredNodeName(provider, partitionsFut.getNow(null), schema);
 
-                    CompletableFuture<?> txFut = tx == null ? nullCompletedFuture() : tx.ensureStarted(ch, preferredNodeName);
-
-                    // Perform the operation.
-                    return txFut.thenCompose(unused ->
+                    return txFut(tx, preferredNodeName).thenCompose(unused ->
                         ch.serviceAsync(opCode,
                             w -> writer.accept(schema, w),
                             r -> readSchemaAndReadData(schema, r, reader, defaultValue, responseSchemaRequired),
@@ -502,6 +499,18 @@ public class ClientTable implements Table {
                 });
 
         return fut;
+    }
+
+    private CompletableFuture<?> txFut(@Nullable Transaction tx, @Nullable String preferredNodeName) {
+        if (tx == null) {
+            return nullCompletedFuture();
+        }
+
+        if (!(tx instanceof ClientLazyTransaction)) {
+            throw ClientTransaction.unsupportedTxTypeException(tx);
+        }
+
+        return ((ClientLazyTransaction) tx).ensureStarted(ch, preferredNodeName);
     }
 
     private <T> @Nullable Object readSchemaAndReadData(

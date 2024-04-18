@@ -30,6 +30,7 @@ import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Client transaction.
@@ -147,13 +148,11 @@ public class ClientTransaction implements Transaction {
      * @return Internal transaction.
      */
     public static ClientTransaction get(Transaction tx) {
-        if (!(tx instanceof ClientTransaction)) {
-            throw new IgniteException(INTERNAL_ERR, "Unsupported transaction implementation: '"
-                    + tx.getClass()
-                    + "'. Use IgniteClient.transactions() to start transactions.");
+        if (!(tx instanceof ClientLazyTransaction)) {
+            throw unsupportedTxTypeException(tx);
         }
 
-        ClientTransaction clientTx = (ClientTransaction) tx;
+        ClientTransaction clientTx = ((ClientLazyTransaction) tx).tx();
 
         int state = clientTx.state.get();
 
@@ -167,6 +166,12 @@ public class ClientTransaction implements Transaction {
         throw new TransactionException(
                 TX_ALREADY_FINISHED_ERR,
                 format("Transaction is already finished [id={}, state={}].", clientTx.id, stateStr));
+    }
+
+    public static @NotNull IgniteException unsupportedTxTypeException(Transaction tx) {
+        return new IgniteException(INTERNAL_ERR, "Unsupported transaction implementation: '"
+                + tx.getClass()
+                + "'. Use IgniteClient.transactions() to start transactions.");
     }
 
     private void setState(int state) {

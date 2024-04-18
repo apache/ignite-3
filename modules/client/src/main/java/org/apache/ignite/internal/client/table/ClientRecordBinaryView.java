@@ -73,7 +73,8 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
                 (s, w) -> ser.writeTuple(tx, keyRec, s, w, true),
                 (s, r) -> ClientTupleSerializer.readTuple(s, r.in(), false),
                 null,
-                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keyRec));
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keyRec),
+                tx);
     }
 
     @Override
@@ -94,7 +95,8 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
                 (s, w) -> ser.writeTuples(tx, keyRecs, s, w, true),
                 (s, r) -> ClientTupleSerializer.readTuplesNullable(s, r.in()),
                 Collections.emptyList(),
-                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keyRecs.iterator().next())
+                ClientTupleSerializer.getPartitionAwarenessProvider(tx, keyRecs.iterator().next()),
+                tx
         );
     }
 

@@ -96,4 +96,11 @@ public class ClientLazyTransaction implements Transaction {
         // TODO
         return CompletableFutures.nullCompletedFuture();
     }
+
+    public ClientTransaction tx() {
+        var tx0 = tx;
+        assert tx0 != null : "Transaction is not started";
+
+        return tx0;
+    }
 }
