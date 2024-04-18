@@ -420,6 +420,7 @@ public class ClientTable implements Table {
                 .thenCompose(v -> {
                     // TODO: If tx is present but not yet started, start it, using primary node for the given key.
                     // Modify the protocol to allow combining tx start with any transactional operation.
+                    // OR don't modify the protocol, pass transaction here and populate it as necessary.
                     ClientSchema schema = schemaFut.getNow(null);
                     String preferredNodeName = getPreferredNodeName(provider, partitionsFut.getNow(null), schema);
 
