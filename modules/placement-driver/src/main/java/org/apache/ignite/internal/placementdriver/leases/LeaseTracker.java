@@ -313,7 +313,14 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
                                     .update(lease.getExpirationTime(), lease);
 
                             for (ReplicationGroupId groupToNotify : needFireEventReplicaBecomePrimary(previousLease, lease)) {
-                                fireEventFutures.add(fireEventReplicaBecomePrimary(groupToNotify, event.revision(), lease));
+                                fireEventFutures.add(
+                                        fireEventReplicaBecomePrimary(
+                                                (TablePartitionId) groupToNotify,
+                                                (ZonePartitionId) grpId,
+                                                event.revision(),
+                                                lease
+                                        )
+                                );
                             }
                         }
 
@@ -545,7 +552,12 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
      * @param lease A new lease.
      * @return Future to notification complete.
      */
-    private CompletableFuture<Void> fireEventReplicaBecomePrimary(ReplicationGroupId groupId, long causalityToken, Lease lease) {
+    private CompletableFuture<Void> fireEventReplicaBecomePrimary(
+            TablePartitionId tablePartitionId,
+            ZonePartitionId zonePartitionId,
+            long causalityToken,
+            Lease lease
+    ) {
         String leaseholderId = lease.getLeaseholderId();
 
         assert leaseholderId != null : lease;
@@ -554,7 +566,7 @@ public class LeaseTracker extends AbstractEventProducer<PrimaryReplicaEvent, Pri
                 PRIMARY_REPLICA_ELECTED,
                 new PrimaryReplicaEventParameters(
                         causalityToken,
-                        groupId,
+                        new ZonePartitionId(zonePartitionId.zoneId(), tablePartitionId.tableId(), zonePartitionId.partitionId()),
                         leaseholderId,
                         lease.getLeaseholder(),
                         lease.getStartTime()

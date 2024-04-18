@@ -177,20 +177,16 @@ class IndexBuildController implements ManuallyCloseable {
 
     private CompletableFuture<?> onPrimaryReplicaElected(PrimaryReplicaEventParameters parameters) {
         return inBusyLockAsync(busyLock, () -> {
-            TablePartitionId tablePartitionId = (TablePartitionId) parameters.groupId();
+            ZonePartitionId zonePartitionId = (ZonePartitionId) parameters.groupId();
+
+            int tableId = zonePartitionId.tableId();
+
+            TablePartitionId tablePartitionId = new TablePartitionId(tableId, zonePartitionId.partitionId());
 
             if (isLocalNode(clusterService, parameters.leaseholderId())) {
-
                 // It is safe to get the latest version of the catalog because the PRIMARY_REPLICA_ELECTED event is handled on the
                 // metastore thread.
                 int catalogVersion = catalogService.latestCatalogVersion();
-
-                int tableId = tablePartitionId.tableId();
-
-                // TODO: temporary solution, zone id is not used, will be used after https://issues.apache.org/jira/browse/IGNITE-18991
-                int zoneId = 0;
-
-                ZonePartitionId zonePartitionId = new ZonePartitionId(zoneId, tableId, tablePartitionId.partitionId());
 
                 primaryReplicaIds.add(zonePartitionId);
 

@@ -201,22 +201,6 @@ public class TableTestUtils {
     }
 
     /**
-     * Returns zone descriptor form catalog.
-     *
-     * @param catalogService Catalog service.
-     * @param zoneName Zone name.
-     * @param timestamp Timestamp.
-     * @throws AssertionError If zone descriptor is absent.
-     */
-    public static CatalogZoneDescriptor getZoneStrict(CatalogService catalogService, String zoneName, long timestamp) {
-        CatalogZoneDescriptor zone = catalogService.zone(zoneName, timestamp);
-
-        assertNotNull(zone, "zoneName=" + zoneName + ", timestamp=" + timestamp);
-
-        return zone;
-    }
-
-    /**
      * Returns table descriptor form catalog.
      *
      * @param catalogService Catalog service.
@@ -255,6 +239,22 @@ public class TableTestUtils {
      */
     public static int getTableIdStrict(CatalogService catalogService, String tableName, long timestamp) {
         return getTableStrict(catalogService, tableName, timestamp).id();
+    }
+
+    /**
+     * Returns zone descriptor form catalog.
+     *
+     * @param catalogService Catalog service.
+     * @param zoneName Zone name.
+     * @param timestamp Timestamp.
+     * @throws AssertionError If zone descriptor is absent.
+     */
+    public static CatalogZoneDescriptor getZoneStrict(CatalogService catalogService, String zoneName, long timestamp) {
+        CatalogZoneDescriptor zone = catalogService.zone(zoneName, timestamp);
+
+        assertNotNull(zone, "zoneName=" + zoneName + ", timestamp=" + timestamp);
+
+        return zone;
     }
 
     /**

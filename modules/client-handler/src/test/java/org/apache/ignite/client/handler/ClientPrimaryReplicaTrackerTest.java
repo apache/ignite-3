@@ -43,6 +43,8 @@ class ClientPrimaryReplicaTrackerTest extends BaseIgniteAbstractTest {
 
     private static final int TABLE_ID = 123;
 
+    private static final int ZONE_ID = 123;
+
     private ClientPrimaryReplicaTracker tracker;
 
     private FakePlacementDriver driver;
@@ -52,7 +54,7 @@ class ClientPrimaryReplicaTrackerTest extends BaseIgniteAbstractTest {
     @BeforeEach
     public void setUp() throws Exception {
         driver = new FakePlacementDriver(PARTITIONS);
-        driver.setReplicas(List.of("s1", "s2"), TABLE_ID, 1);
+        driver.setReplicas(List.of("s1", "s2"), TABLE_ID, ZONE_ID,  1);
 
         InternalTable internalTable = mock(InternalTable.class);
         when(internalTable.partitions()).thenReturn(PARTITIONS);
@@ -90,7 +92,7 @@ class ClientPrimaryReplicaTrackerTest extends BaseIgniteAbstractTest {
         tracker.start();
 
         assertEquals(1, tracker.maxStartTime());
-        driver.updateReplica("s3", TABLE_ID, 0, 2);
+        driver.updateReplica("s3", TABLE_ID, ZONE_ID,  0, 2);
 
         assertEquals(2, tracker.maxStartTime());
 
@@ -102,11 +104,11 @@ class ClientPrimaryReplicaTrackerTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testNullReplicas() {
-        driver.updateReplica(null, TABLE_ID, 0, 2);
+        driver.updateReplica(null, TABLE_ID, ZONE_ID,  0, 2);
         tracker.start();
 
         assertEquals(1, tracker.maxStartTime());
-        driver.updateReplica(null, TABLE_ID, 1, 2);
+        driver.updateReplica(null, TABLE_ID, ZONE_ID,  1, 2);
 
         assertEquals(2, tracker.maxStartTime());
 
@@ -136,10 +138,10 @@ class ClientPrimaryReplicaTrackerTest extends BaseIgniteAbstractTest {
         tracker.start();
         tracker.primaryReplicasAsync(TABLE_ID, null).join(); // Start tracking the table.
 
-        driver.updateReplica("update-1", TABLE_ID, 0, 10);
-        driver.updateReplica("old-update-2", TABLE_ID, 0, 5);
-        driver.updateReplica("update-3", TABLE_ID, 0, 15);
-        driver.updateReplica("old-update-4", TABLE_ID, 0, 14);
+        driver.updateReplica("update-1", TABLE_ID, ZONE_ID,  0, 10);
+        driver.updateReplica("old-update-2", TABLE_ID, ZONE_ID,  0, 5);
+        driver.updateReplica("update-3", TABLE_ID, ZONE_ID,  0, 15);
+        driver.updateReplica("old-update-4", TABLE_ID, ZONE_ID,  0, 14);
 
         assertEquals(15, tracker.maxStartTime());
 

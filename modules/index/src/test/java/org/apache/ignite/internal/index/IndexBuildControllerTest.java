@@ -19,6 +19,7 @@ package org.apache.ignite.internal.index;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_SCHEMA_NAME;
+import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.pkIndexName;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.COLUMN_NAME;
@@ -32,6 +33,7 @@ import static org.apache.ignite.internal.table.TableTestUtils.createHashIndex;
 import static org.apache.ignite.internal.table.TableTestUtils.getIndexIdStrict;
 import static org.apache.ignite.internal.table.TableTestUtils.getIndexStrict;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
+import static org.apache.ignite.internal.table.TableTestUtils.getZoneIdStrict;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -298,12 +300,16 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
         return getTableIdStrict(catalogManager, TABLE_NAME, clock.nowLong());
     }
 
+    private int zoneId() {
+        return getZoneIdStrict(catalogManager, DEFAULT_ZONE_NAME, clock.nowLong());
+    }
+
     private int indexId(String indexName) {
         return getIndexIdStrict(catalogManager, indexName, clock.nowLong());
     }
 
     private ZonePartitionId replicaId(int partitionId) {
-        return new ZonePartitionId(0, tableId(), partitionId);
+        return new ZonePartitionId(zoneId(), tableId(), partitionId);
     }
 
     private ReplicaMeta replicaMetaForOneSecond(String leaseholder, String leaseholderId, HybridTimestamp startTime) {

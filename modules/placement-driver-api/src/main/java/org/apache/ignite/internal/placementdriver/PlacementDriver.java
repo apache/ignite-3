@@ -75,8 +75,9 @@ public interface PlacementDriver extends EventProducer<PrimaryReplicaEvent, Prim
      * @throws PrimaryReplicaAwaitTimeoutException If primary replica await timed out.
      * @throws PrimaryReplicaAwaitException If primary replica await failed with any other reason except timeout.
      */
+    @Deprecated
     default CompletableFuture<ReplicaMeta> awaitPrimaryReplicaForTable(
-            ZonePartitionId groupId,
+            ReplicationGroupId groupId,
             HybridTimestamp timestamp,
             long timeout,
             TimeUnit unit

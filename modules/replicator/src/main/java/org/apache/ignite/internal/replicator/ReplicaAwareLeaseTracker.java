@@ -83,12 +83,14 @@ public class ReplicaAwareLeaseTracker extends AbstractEventProducer<PrimaryRepli
 
     @Override
     public CompletableFuture<ReplicaMeta> awaitPrimaryReplicaForTable(
-            ZonePartitionId groupId,
+            ReplicationGroupId groupId,
             HybridTimestamp timestamp,
             long timeout,
             TimeUnit unit
     ) {
-        TablePartitionId tablePartitionId = new TablePartitionId(groupId.tableId(), groupId.partitionId());
+        ZonePartitionId zonePartitionId = (ZonePartitionId) groupId;
+
+        TablePartitionId tablePartitionId = new TablePartitionId(zonePartitionId.tableId(), zonePartitionId.partitionId());
 
         return delegate.awaitPrimaryReplica(tablePartitionId, timestamp, timeout, unit)
                 .thenCompose(replicaMeta -> {
