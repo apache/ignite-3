@@ -80,22 +80,25 @@ public class NodeUtils {
         LOG.info("Moving the primary replica [groupId={}, currentLeaseholder={}, preferablePrimary={}].", groupId, leaseholderNode.name(),
                 finalPreferablePrimary);
 
-        StopLeaseProlongationMessage msg = PLACEMENT_DRIVER_MESSAGES_FACTORY.stopLeaseProlongationMessage()
-                .groupId(groupId)
-                .redirectProposal(finalPreferablePrimary)
-                .build();
-
-        nodes.forEach(
-                n -> leaseholderNode.clusterService().messagingService().send(n.clusterService().topologyService().localMember(), msg)
-        );
-
-        ReplicaMeta[] newPrimaryReplica = new ReplicaMeta[1];;
+        ReplicaMeta[] newPrimaryReplica = new ReplicaMeta[1];
+        boolean stopLeaseNeeded[] = { true };
 
         boolean success = waitForCondition(() -> {
+            if (stopLeaseNeeded[0]) {
+                stopLeaseProlongation(nodes, leaseholderNode, groupId, finalPreferablePrimary);
+            }
+
+            ReplicaMeta previousPrimary = newPrimaryReplica[0] == null ? currentLeaseholder : newPrimaryReplica[0];
+
             newPrimaryReplica[0] = leaseholder(node, groupId);
 
+            // If the lease is changed to not suitable one, then stopLeaseProlongation will be retried, otherwise the cycle will be stopped.
+            stopLeaseNeeded[0] =
+                    !previousPrimary.getStartTime().equals(newPrimaryReplica[0].getStartTime())                // if lease changed
+                    || !previousPrimary.getExpirationTime().equals(newPrimaryReplica[0].getExpirationTime());  // if lease prolonged
+
             return newPrimaryReplica[0].getLeaseholder().equals(finalPreferablePrimary);
-        }, 10_000);
+        }, 30_000);
 
         if (success) {
             LOG.info("Primary replica moved successfully from [{}] to [{}].", currentLeaseholder.getLeaseholder(), finalPreferablePrimary);
@@ -106,6 +109,18 @@ public class NodeUtils {
         assertTrue(success);
 
         return finalPreferablePrimary;
+    }
+
+    private static void stopLeaseProlongation(Collection<IgniteImpl> nodes, IgniteImpl leaseholderNode, ReplicationGroupId groupId,
+            String preferablePrimary) {
+        StopLeaseProlongationMessage msg = PLACEMENT_DRIVER_MESSAGES_FACTORY.stopLeaseProlongationMessage()
+                .groupId(groupId)
+                .redirectProposal(preferablePrimary)
+                .build();
+
+        nodes.forEach(
+                n -> leaseholderNode.clusterService().messagingService().send(n.clusterService().topologyService().localMember(), msg)
+        );
     }
 
     private static ReplicaMeta leaseholder(IgniteImpl node, ReplicationGroupId groupId) {
