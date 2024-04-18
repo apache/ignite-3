@@ -265,6 +265,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
     @Test
     void testTransactionFromAnotherChannelThrows() throws Exception {
         Transaction tx = client().transactions().begin();
+        client().sql().execute(tx, "SELECT 1"); // Force lazy tx init.
 
         try (IgniteClient client2 = IgniteClient.builder().addresses(getNodeAddress()).build()) {
             RecordView<Tuple> recordView = client2.tables().tables().get(0).recordView();
