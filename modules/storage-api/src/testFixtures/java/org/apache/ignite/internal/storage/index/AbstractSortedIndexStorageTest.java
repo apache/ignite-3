@@ -43,10 +43,6 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.when;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -81,6 +77,9 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Base class for Sorted Index storage tests.
@@ -90,13 +89,7 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
 
     @Override
     protected SortedIndexStorage createIndexStorage(String name, ColumnType... columnTypes) {
-        return createIndexStorage(
-                name,
-                Stream.of(columnTypes)
-                        .map(AbstractIndexStorageTest::columnName)
-                        .map(columnName -> new CatalogIndexColumnDescriptor(columnName, ASC_NULLS_FIRST))
-                        .toArray(CatalogIndexColumnDescriptor[]::new)
-        );
+        return createIndexStorage(name, toCatalogIndexColumnDescriptors(columnTypes));
     }
 
     /**
@@ -119,30 +112,48 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
      * Creates a Sorted Index using the given index definition.
      */
     protected SortedIndexStorage createIndexStorage(String name, CatalogIndexColumnDescriptor... columns) {
-        CatalogTableDescriptor catalogTableDescriptor = catalogService.table(TABLE_NAME, clock.nowLong());
+        CatalogTableDescriptor tableDescriptor = catalogService.table(TABLE_NAME, clock.nowLong());
 
-        CatalogSortedIndexDescriptor catalogSortedIndexDescriptor = new CatalogSortedIndexDescriptor(
-                catalogId.getAndIncrement(),
-                name,
-                catalogTableDescriptor.id(),
-                false,
-                AVAILABLE,
-                catalogService.latestCatalogVersion(),
-                List.of(columns)
-        );
+        int tableId = tableDescriptor.id();
+        int indexId = catalogId.getAndIncrement();
 
-        when(catalogService.aliveIndex(eq(catalogSortedIndexDescriptor.name()), anyLong())).thenReturn(catalogSortedIndexDescriptor);
-        when(catalogService.index(eq(catalogSortedIndexDescriptor.id()), anyInt())).thenReturn(catalogSortedIndexDescriptor);
+        CatalogSortedIndexDescriptor indexDescriptor = createCatalogIndexDescriptor(tableId, indexId, name, columns);
 
         return tableStorage.getOrCreateSortedIndex(
                 TEST_PARTITION,
-                new StorageSortedIndexDescriptor(catalogTableDescriptor, catalogSortedIndexDescriptor)
+                new StorageSortedIndexDescriptor(tableDescriptor, indexDescriptor)
         );
     }
 
     @Override
     protected StorageSortedIndexDescriptor indexDescriptor(SortedIndexStorage index) {
         return index.indexDescriptor();
+    }
+
+    @Override
+    CatalogSortedIndexDescriptor createCatalogIndexDescriptor(int tableId, int indexId, String indexName, ColumnType... columnTypes) {
+        return createCatalogIndexDescriptor(tableId, indexId, indexName, toCatalogIndexColumnDescriptors(columnTypes));
+    }
+
+    private CatalogSortedIndexDescriptor createCatalogIndexDescriptor(
+            int tableId,
+            int indexId,
+            String indexName,
+            CatalogIndexColumnDescriptor... columns
+    ) {
+        var indexDescriptor = new CatalogSortedIndexDescriptor(
+                indexId,
+                indexName,
+                tableId,
+                false,
+                AVAILABLE,
+                catalogService.latestCatalogVersion(),
+                List.of(columns)
+        );
+
+        addToCatalog(indexDescriptor);
+
+        return indexDescriptor;
     }
 
     /**
@@ -166,11 +177,12 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
         assertThat(actual, is(equalTo(columns)));
     }
 
-    @Test
-    void testEmpty() {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void testEmpty(boolean readOnly) {
         SortedIndexStorage index = createIndexStorage(INDEX_NAME, shuffledRandomColumnParams());
 
-        assertThat(scan(index, null, null, 0), is(empty()));
+        assertThat(scan(index, null, null, 0, readOnly), is(empty()));
     }
 
     /**
@@ -205,7 +217,7 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
         put(index, row2);
         put(index, row3);
 
-        List<Object[]> actualColumns = scan(index, null, null, 0);
+        List<Object[]> actualColumns = scan(index, null, null, 0, false);
 
         assertThat(actualColumns, contains(columnValues2, columnValues1, columnValues1));
     }
@@ -233,28 +245,28 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
         put(index, row2);
         put(index, row3);
 
-        List<Object[]> actualColumns = scan(index, null, null, 0);
+        List<Object[]> actualColumns = scan(index, null, null, 0, false);
 
         assertThat(actualColumns, contains(columnValues2, columnValues1, columnValues1));
 
         // Test that rows with the same indexed columns can be removed individually
         remove(index, row2);
 
-        actualColumns = scan(index, null, null, 0);
+        actualColumns = scan(index, null, null, 0, false);
 
         assertThat(actualColumns, contains(columnValues2, columnValues1));
 
         // Test that removing a non-existent row does nothing
         remove(index, row2);
 
-        actualColumns = scan(index, null, null, 0);
+        actualColumns = scan(index, null, null, 0, false);
 
         assertThat(actualColumns, contains(columnValues2, columnValues1));
 
         // Test that the first row can be actually removed
         remove(index, row1);
 
-        actualColumns = scan(index, null, null, 0);
+        actualColumns = scan(index, null, null, 0, false);
 
         assertThat(actualColumns, contains((Object) columnValues2));
     }
@@ -271,7 +283,19 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
      * Tests the happy case of the {@link SortedIndexStorage#scan} method.
      */
     @RepeatedTest(5)
-    void testScan() {
+    void testReadWriteScan() {
+        testScan(false);
+    }
+
+    /**
+     * Tests the happy case of the {@link SortedIndexStorage#readOnlyScan} method.
+     */
+    @RepeatedTest(5)
+    void testReadOnlyScan() {
+        testScan(true);
+    }
+
+    private void testScan(boolean readOnly) {
         SortedIndexStorage indexStorage = createIndexStorage(INDEX_NAME, shuffledColumnParams());
 
         List<TestIndexRow> entries = IntStream.range(0, 10)
@@ -297,7 +321,10 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
 
         assertThat(expected, hasSize(greaterThanOrEqualTo(lastIndex - firstIndex + 1)));
 
-        try (Cursor<IndexRow> cursor = indexStorage.scan(first.prefix(), last.prefix(), GREATER_OR_EQUAL | LESS_OR_EQUAL)) {
+        try (Cursor<IndexRow> cursor = readOnly
+                ? indexStorage.readOnlyScan(first.prefix(), last.prefix(), GREATER_OR_EQUAL | LESS_OR_EQUAL)
+                : indexStorage.scan(first.prefix(), last.prefix(), GREATER_OR_EQUAL | LESS_OR_EQUAL)
+        ) {
             List<IndexRow> actual = cursor.stream().collect(toList());
 
             assertThat(actual, hasSize(expected.size()));
@@ -308,8 +335,9 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
         }
     }
 
-    @Test
-    public void testBoundsAndOrder() {
+    @ParameterizedTest()
+    @ValueSource(booleans = {true, false})
+    public void testBoundsAndOrder(boolean readOnly) {
         ColumnType string = ColumnType.STRING;
         ColumnType int32 = ColumnType.INT32;
 
@@ -341,65 +369,67 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
 
         // Test without bounds.
         assertThat(
-                scan(index1, null, null, 0),
+                scan(index1, null, null, 0, readOnly),
                 contains(val1080, val1090, val2080, val2090)
         );
 
         assertThat(
-                scan(index2, null, null, 0),
+                scan(index2, null, null, 0, readOnly),
                 contains(val1090, val1080, val2090, val2080)
         );
 
         // Lower bound exclusive.
         assertThat(
-                scan(index1, prefix(index1, "10"), null, GREATER),
+                scan(index1, prefix(index1, "10"), null, GREATER, readOnly),
                 contains(val2080, val2090)
         );
 
         assertThat(
-                scan(index2, prefix(index2, "10"), null, GREATER),
+                scan(index2, prefix(index2, "10"), null, GREATER, readOnly),
                 contains(val2090, val2080)
         );
 
         // Lower bound inclusive.
         assertThat(
-                scan(index1, prefix(index1, "10"), null, GREATER_OR_EQUAL),
+                scan(index1, prefix(index1, "10"), null, GREATER_OR_EQUAL, readOnly),
                 contains(val1080, val1090, val2080, val2090)
         );
 
         assertThat(
-                scan(index2, prefix(index2, "10"), null, GREATER_OR_EQUAL),
+                scan(index2, prefix(index2, "10"), null, GREATER_OR_EQUAL, readOnly),
                 contains(val1090, val1080, val2090, val2080)
         );
 
         // Upper bound exclusive.
         assertThat(
-                scan(index1, null, prefix(index1, "20"), LESS),
+                scan(index1, null, prefix(index1, "20"), LESS, readOnly),
                 contains(val1080, val1090)
         );
 
         assertThat(
-                scan(index2, null, prefix(index2, "20"), LESS),
+                scan(index2, null, prefix(index2, "20"), LESS, readOnly),
                 contains(val1090, val1080)
         );
 
         // Upper bound inclusive.
         assertThat(
-                scan(index1, null, prefix(index1, "20"), LESS_OR_EQUAL),
+                scan(index1, null, prefix(index1, "20"), LESS_OR_EQUAL, readOnly),
                 contains(val1080, val1090, val2080, val2090)
         );
 
         assertThat(
-                scan(index2, null, prefix(index2, "20"), LESS_OR_EQUAL),
+                scan(index2, null, prefix(index2, "20"), LESS_OR_EQUAL, readOnly),
                 contains(val1090, val1080, val2090, val2080)
         );
     }
 
     /**
-     * Tests that an empty range is returned if {@link SortedIndexStorage#scan} method is called using overlapping keys.
+     * Tests that an empty range is returned if {@link SortedIndexStorage#scan} and {@link SortedIndexStorage#readOnlyScan} methods
+     * are called using overlapping keys.
      */
-    @Test
-    void testEmptyRange() {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void testEmptyRange(boolean readOnly) {
         List<ColumnParams> indexSchema = shuffledRandomColumnParams();
 
         SortedIndexStorage indexStorage = createIndexStorage(INDEX_NAME, indexSchema);
@@ -416,18 +446,20 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
         put(indexStorage, entry1);
         put(indexStorage, entry2);
 
-        try (Cursor<IndexRow> cursor = indexStorage.scan(
+        try (Cursor<IndexRow> cursor = getIndexRowCursor(
+                indexStorage,
                 entry2.prefix(indexSchema.size()).prefix(),
                 entry1.prefix(indexSchema.size()).prefix(),
-                0
+                0,
+                readOnly
         )) {
             assertThat(cursor.stream().collect(toList()), is(empty()));
         }
     }
 
     @ParameterizedTest
-    @VariableSource("ALL_TYPES_COLUMN_PARAMS")
-    void testNullValues(ColumnParams columnParams) {
+    @MethodSource("allTypesColumnParamsAndReadOnly")
+    void testNullValues(ColumnParams columnParams, boolean readOnly) {
         SortedIndexStorage storage = createIndexStorage(INDEX_NAME, List.of(columnParams));
 
         TestIndexRow entry1 = TestIndexRow.randomRow(storage, TEST_PARTITION);
@@ -449,10 +481,12 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
             entry1 = t;
         }
 
-        try (Cursor<IndexRow> cursor = storage.scan(
+        try (Cursor<IndexRow> cursor = getIndexRowCursor(
+                storage,
                 entry1.prefix(1).prefix(),
                 entry2.prefix(1).prefix(),
-                GREATER_OR_EQUAL | LESS_OR_EQUAL
+                GREATER_OR_EQUAL | LESS_OR_EQUAL,
+                readOnly
         )) {
             assertThat(
                     cursor.stream().map(row -> row.indexColumns().byteBuffer()).collect(toList()),
@@ -464,8 +498,9 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
     /**
      * Checks simple scenarios for a scanning cursor.
      */
-    @Test
-    void testScanSimple() {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void testScanSimple(boolean readOnly) {
         SortedIndexStorage indexStorage = createIndexStorage(INDEX_NAME, ColumnType.INT32);
 
         BinaryTupleRowSerializer serializer = new BinaryTupleRowSerializer(indexStorage.indexDescriptor());
@@ -476,7 +511,7 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
 
         // Checking without borders.
         assertThat(
-                scan(indexStorage, null, null, 0, AbstractSortedIndexStorageTest::firstArrayElement),
+                scan(indexStorage, null, null, 0, AbstractSortedIndexStorageTest::firstArrayElement, readOnly),
                 contains(0, 1, 2, 3, 4)
         );
 
@@ -487,7 +522,8 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
                         serializer.serializeRowPrefix(0),
                         serializer.serializeRowPrefix(4),
                         (GREATER_OR_EQUAL | LESS_OR_EQUAL),
-                        AbstractSortedIndexStorageTest::firstArrayElement
+                        AbstractSortedIndexStorageTest::firstArrayElement,
+                        readOnly
                 ),
                 contains(0, 1, 2, 3, 4)
         );
@@ -498,7 +534,8 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
                         serializer.serializeRowPrefix(0),
                         serializer.serializeRowPrefix(4),
                         (GREATER_OR_EQUAL | LESS),
-                        AbstractSortedIndexStorageTest::firstArrayElement
+                        AbstractSortedIndexStorageTest::firstArrayElement,
+                        readOnly
                 ),
                 contains(0, 1, 2, 3)
         );
@@ -509,7 +546,8 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
                         serializer.serializeRowPrefix(0),
                         serializer.serializeRowPrefix(4),
                         (GREATER | LESS_OR_EQUAL),
-                        AbstractSortedIndexStorageTest::firstArrayElement
+                        AbstractSortedIndexStorageTest::firstArrayElement,
+                        readOnly
                 ),
                 contains(1, 2, 3, 4)
         );
@@ -520,7 +558,8 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
                         serializer.serializeRowPrefix(0),
                         serializer.serializeRowPrefix(4),
                         (GREATER | LESS),
-                        AbstractSortedIndexStorageTest::firstArrayElement
+                        AbstractSortedIndexStorageTest::firstArrayElement,
+                        readOnly
                 ),
                 contains(1, 2, 3)
         );
@@ -532,7 +571,8 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
                         serializer.serializeRowPrefix(1),
                         null,
                         (GREATER_OR_EQUAL | LESS_OR_EQUAL),
-                        AbstractSortedIndexStorageTest::firstArrayElement
+                        AbstractSortedIndexStorageTest::firstArrayElement,
+                        readOnly
                 ),
                 contains(1, 2, 3, 4)
         );
@@ -543,7 +583,8 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
                         serializer.serializeRowPrefix(1),
                         null,
                         (GREATER_OR_EQUAL | LESS),
-                        AbstractSortedIndexStorageTest::firstArrayElement
+                        AbstractSortedIndexStorageTest::firstArrayElement,
+                        readOnly
                 ),
                 contains(1, 2, 3, 4)
         );
@@ -554,7 +595,8 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
                         serializer.serializeRowPrefix(1),
                         null,
                         (GREATER | LESS_OR_EQUAL),
-                        AbstractSortedIndexStorageTest::firstArrayElement
+                        AbstractSortedIndexStorageTest::firstArrayElement,
+                        readOnly
                 ),
                 contains(2, 3, 4)
         );
@@ -565,7 +607,8 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
                         serializer.serializeRowPrefix(1),
                         null,
                         (GREATER | LESS),
-                        AbstractSortedIndexStorageTest::firstArrayElement
+                        AbstractSortedIndexStorageTest::firstArrayElement,
+                        readOnly
                 ),
                 contains(2, 3, 4)
         );
@@ -577,7 +620,8 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
                         null,
                         serializer.serializeRowPrefix(3),
                         (GREATER_OR_EQUAL | LESS_OR_EQUAL),
-                        AbstractSortedIndexStorageTest::firstArrayElement
+                        AbstractSortedIndexStorageTest::firstArrayElement,
+                        readOnly
                 ),
                 contains(0, 1, 2, 3)
         );
@@ -588,7 +632,8 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
                         null,
                         serializer.serializeRowPrefix(3),
                         (GREATER_OR_EQUAL | LESS),
-                        AbstractSortedIndexStorageTest::firstArrayElement
+                        AbstractSortedIndexStorageTest::firstArrayElement,
+                        readOnly
                 ),
                 contains(0, 1, 2)
         );
@@ -599,7 +644,8 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
                         null,
                         serializer.serializeRowPrefix(3),
                         (GREATER | LESS_OR_EQUAL),
-                        AbstractSortedIndexStorageTest::firstArrayElement
+                        AbstractSortedIndexStorageTest::firstArrayElement,
+                        readOnly
                 ),
                 contains(0, 1, 2, 3)
         );
@@ -610,7 +656,8 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
                         null,
                         serializer.serializeRowPrefix(3),
                         (GREATER | LESS),
-                        AbstractSortedIndexStorageTest::firstArrayElement
+                        AbstractSortedIndexStorageTest::firstArrayElement,
+                        readOnly
                 ),
                 contains(0, 1, 2)
         );
@@ -637,6 +684,24 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
 
         assertFalse(scan.hasNext());
         assertThrows(NoSuchElementException.class, scan::next);
+    }
+
+    @Test
+    void testReadOnlyScanContractUpdateAfterScan() {
+        SortedIndexStorage indexStorage = createIndexStorage(INDEX_NAME, ColumnType.INT32);
+
+        BinaryTupleRowSerializer serializer = new BinaryTupleRowSerializer(indexStorage.indexDescriptor());
+
+        // Put before scan, should be visible.
+        put(indexStorage, serializer.serializeRow(new Object[]{0}, new RowId(TEST_PARTITION)));
+
+        Cursor<IndexRow> scan = indexStorage.readOnlyScan(null, null, 0);
+
+        // Put after scan, should not be visible.
+        put(indexStorage, serializer.serializeRow(new Object[]{1}, new RowId(TEST_PARTITION)));
+
+        assertEquals(0, serializer.deserializeColumns(scan.next())[0]);
+        assertFalse(scan::hasNext);
     }
 
     @Test
@@ -1458,26 +1523,52 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
             SortedIndexStorage index,
             @Nullable BinaryTuplePrefix lowerBound,
             @Nullable BinaryTuplePrefix upperBound,
-            @MagicConstant(flagsFromClass = SortedIndexStorage.class) int flags
+            @MagicConstant(flagsFromClass = SortedIndexStorage.class) int flags,
+            boolean readOnly
     ) {
-        return scan(index, lowerBound, upperBound, flags, identity());
+        return scan(index, lowerBound, upperBound, flags, identity(), readOnly);
     }
 
     private static <T> List<T> scan(
-            SortedIndexStorage index,
+            SortedIndexStorage storage,
             @Nullable BinaryTuplePrefix lowerBound,
             @Nullable BinaryTuplePrefix upperBound,
             @MagicConstant(flagsFromClass = SortedIndexStorage.class) int flags,
-            Function<Object[], T> mapper
+            Function<Object[], T> mapper,
+            boolean readOnly
     ) {
-        var serializer = new BinaryTupleRowSerializer(index.indexDescriptor());
+        var serializer = new BinaryTupleRowSerializer(storage.indexDescriptor());
 
-        try (Cursor<IndexRow> cursor = index.scan(lowerBound, upperBound, flags)) {
+        try (Cursor<IndexRow> cursor = readOnly
+                ? storage.readOnlyScan(lowerBound, upperBound, flags)
+                : storage.scan(lowerBound, upperBound, flags)
+        ) {
             return cursor.stream()
                     .map(serializer::deserializeColumns)
                     .map(mapper)
                     .collect(toUnmodifiableList());
         }
+    }
+
+    private static Cursor<IndexRow> getIndexRowCursor(
+            SortedIndexStorage indexStorage,
+            BinaryTuplePrefix lowerBound,
+            BinaryTuplePrefix upperBound,
+            int flags,
+            boolean readOnly
+    ) {
+        return readOnly
+                ? indexStorage.readOnlyScan(lowerBound, upperBound, flags)
+                : indexStorage.scan(lowerBound, upperBound, flags);
+    }
+
+    private static Stream<Arguments> allTypesColumnParamsAndReadOnly() {
+        return Stream.concat(
+                ALL_TYPES_COLUMN_PARAMS.stream()
+                        .map(param -> Arguments.of(param, false)),
+                ALL_TYPES_COLUMN_PARAMS.stream()
+                        .map(param -> Arguments.of(param, true))
+        );
     }
 
     private static <T> Function<IndexRow, T> firstColumn(BinaryTupleRowSerializer serializer) {
@@ -1517,5 +1608,12 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
         private static <T> SimpleRow<T> of(IndexRow indexRow, Function<IndexRow, T> mapper) {
             return new SimpleRow<>(mapper.apply(indexRow), indexRow.rowId());
         }
+    }
+
+    private static CatalogIndexColumnDescriptor[] toCatalogIndexColumnDescriptors(ColumnType... columnTypes) {
+        return Stream.of(columnTypes)
+                .map(AbstractIndexStorageTest::columnName)
+                .map(columnName -> new CatalogIndexColumnDescriptor(columnName, ASC_NULLS_FIRST))
+                .toArray(CatalogIndexColumnDescriptor[]::new);
     }
 }

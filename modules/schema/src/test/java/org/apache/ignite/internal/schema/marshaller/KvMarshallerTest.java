@@ -55,6 +55,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.io.Serializable;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.ByteBuffer;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -97,9 +99,12 @@ import org.apache.ignite.table.mapper.Mapper;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DynamicNode;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestFactory;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * KvMarshaller test.
@@ -108,6 +113,7 @@ public class KvMarshallerTest {
     private static final Column[] SINGLE_INT64_ID_COLUMNS = {
             new Column("id", INT64, false)
     };
+    private static final Logger log = LoggerFactory.getLogger(KvMarshallerTest.class);
 
     /**
      * Return list of marshaller factories for test.
@@ -703,6 +709,46 @@ public class KvMarshallerTest {
             TestObjectKeyPart keyPart = marshaller.unmarshalKey(Row.wrapBinaryRow(descriptor, row));
             assertEquals(key.col2, keyPart.col2);
             assertEquals(key.col4, keyPart.col4);
+        }
+    }
+
+    @Test
+    public void testVariableLengthBigDecimalAndBytes() throws MarshallerException {
+        List<Map.Entry<Integer, Integer>> args = new ArrayList<>();
+        // Breaks marshalling if big decimal size does not include 2 additional bytes
+        // used by length
+        args.add(Map.entry(6, 251));
+
+        for (int i = 0; i < 100; i++) {
+            args.add(Map.entry(rnd.nextInt(8) + 1, rnd.nextInt(512) + 1));
+        }
+
+        for (Map.Entry<Integer, Integer> arg : args) {
+            int keyLength = arg.getKey();
+            int valLength = arg.getValue();
+
+            StringBuilder sb = new StringBuilder();
+            for (int j = 0; j < keyLength; j++) {
+                sb.append(rnd.nextInt(10));
+            }
+
+            BigDecimal key = new BigDecimal(sb.toString());
+            byte[] val = new byte[valLength];
+
+            log.info("key: {}, val: {} (length)", key, valLength);
+
+            Column[] keyCols = {new Column("KEY", NativeTypes.decimalOf(12, 3), false)};
+            Column[] valCols = {new Column("VAL", BYTES, false)};
+
+            SchemaDescriptor schema = new SchemaDescriptor(1, keyCols, valCols);
+
+            ReflectionMarshallerFactory factory = new ReflectionMarshallerFactory();
+            KvMarshaller<BigDecimal, byte[]> marshaller = factory.create(schema,
+                    Mapper.of(BigDecimal.class, "KEY"), Mapper.of(byte[].class, "VAL"));
+
+            Row row = marshaller.marshal(key, val);
+            assertEquals(key, row.decimalValue(0).setScale(0, RoundingMode.UNNECESSARY));
+            assertArrayEquals(row.bytesValue(1), val);
         }
     }
 

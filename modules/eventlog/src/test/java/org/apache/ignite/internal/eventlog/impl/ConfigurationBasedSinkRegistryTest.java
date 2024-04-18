@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.eventlog.config.schema.EventLogConfiguration;
+import org.apache.ignite.internal.eventlog.ser.EventSerializerFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -43,7 +44,7 @@ class ConfigurationBasedSinkRegistryTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        registry = new ConfigurationBasedSinkRegistry(cfg, SinkFactory.DEFAULT);
+        registry = new ConfigurationBasedSinkRegistry(cfg, new LogSinkFactory(new EventSerializerFactory().createEventSerializer()));
     }
 
     @Test

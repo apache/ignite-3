@@ -81,11 +81,6 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
     }
 
     @Override
-    public ReplicaMeta currentLease(ReplicationGroupId groupId) {
-        return getReplicaMetaFuture().join();
-    }
-
-    @Override
     public CompletableFuture<Void> fireEvent(PrimaryReplicaEvent event, PrimaryReplicaEventParameters parameters) {
         return super.fireEvent(event, parameters);
     }

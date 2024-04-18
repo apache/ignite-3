@@ -99,7 +99,8 @@ public class NewSystemViewEntry implements UpdateEntry, Fireable {
                 catalog.time(),
                 catalog.objectIdGenState(),
                 catalog.zones(),
-                CatalogUtils.replaceSchema(newSystemSchema, catalog.schemas())
+                CatalogUtils.replaceSchema(newSystemSchema, catalog.schemas()),
+                catalog.defaultZone().id()
         );
     }
 

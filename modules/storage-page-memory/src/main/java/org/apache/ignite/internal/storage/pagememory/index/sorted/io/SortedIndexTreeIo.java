@@ -56,7 +56,7 @@ import org.apache.ignite.internal.storage.pagememory.index.sorted.SortedIndexRow
  */
 public interface SortedIndexTreeIo {
     /** Item size without index columns in bytes. */
-    int ITEM_SIZE_WITHOUT_COLUMNS = Short.SIZE // Inlined index columns size.
+    int ITEM_SIZE_WITHOUT_COLUMNS = Short.BYTES // Inlined index columns size.
             + PARTITIONLESS_LINK_SIZE_BYTES // Index columns link.
             + 2 * Long.BYTES; // Row ID.
 

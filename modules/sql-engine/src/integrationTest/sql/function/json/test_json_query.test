@@ -1,0 +1,96 @@
+# name: test/sql/function/json/test_json_query.test
+# description: JSON_QUERY function (is a part of T821 "Basic SQL/JSON query operators")
+#   feature T828 “JSON_QUERY”
+#   feature T829 “JSON_QUERY: array wrapper options"
+#   feature T825 “SQL/JSON: ON EMPTY and ON ERROR clauses” (json_query only tests)
+# group: [json]
+
+# SQL 16 6.34 <JSON query>
+# Syntax Rules
+# 3) If <JSON query empty behavior> is not specified, then NULL ON EMPTY is implicit.
+# 4) If <JSON query error behavior> is not specified, then NULL ON ERROR is implicit.
+# 5) If <JSON query wrapper behavior> is not specified, then WITHOUT ARRAY is implicit
+# 6) If <JSON query wrapper behavior> specifies WITH and neither CONDITIONAL nor UNCONDITIONAL
+#    is specified, then UNCONDITIONAL is implicit.
+
+query T
+select json_query('{"foo":100}', '$.foo')
+----
+NULL
+
+query T
+select json_query('{"foo":100}', '$.foo' empty object on error)
+----
+{}
+
+query T
+select json_query('{"foo":100}', '$.foo' empty array on error)
+----
+[]
+
+statement error
+select json_query('{"foo":100}', '$.foo' error on error)
+
+statement error
+select json_query('{"foo":100}', 'strict $.foo' error on error)
+
+# lax mode
+query T
+select json_query('{"foo":100}', 'lax $.foo' error on error)
+----
+NULL
+
+statement error
+select json_query('{"foo":100}', 'lax $.foo' error on empty)
+
+query T
+select json_query('{"foo":100}', 'lax $.foo' empty object on empty)
+----
+{}
+
+query T
+select json_query('{"foo":100}', 'lax $.foo' empty array on empty)
+----
+[]
+
+query T
+select JSON_QUERY('{"info":{"type": 1, "address":[{"town":"Paris"},{"town":"London"}]}}', '$.info.address')
+----
+[{"town":"Paris"},{"town":"London"}]
+
+query T
+select JSON_QUERY('{"info":{"type": 1, "address":[{"town":"Paris"},{"town":"London"}]}}', '$.info.address[1]')
+----
+{"town":"London"}
+
+# WITHOUT ARRAY is implicit
+query T
+select JSON_QUERY('{"foo":100}', '$.foo')
+----
+NULL
+
+query T
+select JSON_QUERY('{"foo":100}', '$.foo' without array wrapper)
+----
+NULL
+
+query T
+select JSON_QUERY('{"foo":100}', '$.foo' with wrapper)
+----
+[100]
+
+# UNCONDITIONAL is implicit
+query T
+select JSON_QUERY('{"foo":[100]}', '$.foo' with wrapper)
+----
+[[100]]
+
+query T
+select JSON_QUERY('{"foo":[100]}', '$.foo' with unconditional wrapper)
+----
+[[100]]
+
+query T
+select JSON_QUERY('{"foo":[100]}', '$.foo' with conditional wrapper)
+----
+[100]

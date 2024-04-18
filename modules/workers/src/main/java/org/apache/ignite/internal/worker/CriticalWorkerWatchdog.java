@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.worker;
 
+import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
 import static org.apache.ignite.internal.failure.FailureType.SYSTEM_WORKER_BLOCKED;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.CriticalWorkers.SYSTEM_WORKER_BLOCKED_ERR;
@@ -112,6 +113,16 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
     }
 
     private void probeLiveness() {
+        try {
+            doProbeLiveness();
+        } catch (Exception | AssertionError e) {
+            LOG.debug("Error while probing liveness", e);
+        } catch (Error e) {
+            failureProcessor.process(new FailureContext(CRITICAL_ERROR, e));
+        }
+    }
+
+    private void doProbeLiveness() {
         long maxAllowedLag = configuration.maxAllowedLag().value();
 
         Long2LongMap delayedThreadIdsToDelays = getDelayedThreadIdsAndDelays(maxAllowedLag);

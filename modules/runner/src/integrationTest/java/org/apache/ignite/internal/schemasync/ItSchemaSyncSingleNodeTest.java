@@ -120,15 +120,11 @@ class ItSchemaSyncSingleNodeTest extends ClusterPerTestIntegrationTest {
     }
 
     private void createTable() {
-        cluster.doInSession(0, session -> {
-            executeUpdate("CREATE TABLE " + TABLE_NAME + " (id int, val varchar, PRIMARY KEY USING HASH (id))", session);
-        });
+        executeUpdate("CREATE TABLE " + TABLE_NAME + " (id int, val varchar, PRIMARY KEY USING HASH (id))", node.sql());
     }
 
     private void alterTable(String tableName) {
-        cluster.doInSession(0, session -> {
-            executeUpdate("ALTER TABLE " + tableName + " ADD COLUMN added int", session);
-        });
+        executeUpdate("ALTER TABLE " + tableName + " ADD COLUMN added int", node.sql());
     }
 
     private static void putPreExistingValueTo(Table table) {

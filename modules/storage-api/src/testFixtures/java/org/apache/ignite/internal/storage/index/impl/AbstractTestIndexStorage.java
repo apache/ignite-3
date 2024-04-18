@@ -41,12 +41,15 @@ abstract class AbstractTestIndexStorage implements IndexStorage {
 
     private final int partitionId;
 
+    private final boolean pk;
+
     /** Amount of cursors that opened and still do not close. */
     protected final AtomicInteger pendingCursors = new AtomicInteger();
 
-    AbstractTestIndexStorage(int partitionId) {
+    AbstractTestIndexStorage(int partitionId, boolean pk) {
         this.partitionId = partitionId;
-        nextRowIdToBuild = initialRowIdToBuild(partitionId);
+        this.pk = pk;
+        nextRowIdToBuild = pk ? null : initialRowIdToBuild(partitionId);
     }
 
     /**
@@ -114,7 +117,7 @@ abstract class AbstractTestIndexStorage implements IndexStorage {
     private void clearAndReset() {
         clear0();
 
-        nextRowIdToBuild = initialRowIdToBuild(partitionId);
+        nextRowIdToBuild = pk ? null : initialRowIdToBuild(partitionId);
     }
 
     public void destroy() {

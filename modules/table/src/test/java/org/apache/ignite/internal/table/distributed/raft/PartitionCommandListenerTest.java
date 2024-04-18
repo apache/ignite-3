@@ -166,7 +166,11 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
             1,
             new TestHashIndexStorage(
                     PARTITION_ID,
-                    new StorageHashIndexDescriptor(1, List.of(new StorageHashIndexColumnDescriptor("key", NativeTypes.INT32, false)))
+                    new StorageHashIndexDescriptor(
+                            TABLE_ID,
+                            List.of(new StorageHashIndexColumnDescriptor("key", NativeTypes.INT32, false)),
+                            true
+                    )
             ),
             BinaryRowConverter.keyExtractor(SCHEMA)
     );

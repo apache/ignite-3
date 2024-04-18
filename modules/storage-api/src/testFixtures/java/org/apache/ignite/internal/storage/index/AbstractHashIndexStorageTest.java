@@ -25,10 +25,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.sameInstance;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.when;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
@@ -45,30 +41,39 @@ import org.junit.jupiter.api.Test;
 public abstract class AbstractHashIndexStorageTest extends AbstractIndexStorageTest<HashIndexStorage, StorageHashIndexDescriptor> {
     @Override
     protected HashIndexStorage createIndexStorage(String name, ColumnType... columnTypes) {
-        CatalogTableDescriptor catalogTableDescriptor = catalogService.table(TABLE_NAME, clock.nowLong());
+        CatalogTableDescriptor tableDescriptor = catalogService.table(TABLE_NAME, clock.nowLong());
 
-        CatalogHashIndexDescriptor catalogHashIndexDescriptor = new CatalogHashIndexDescriptor(
-                catalogId.getAndIncrement(),
-                name,
-                catalogTableDescriptor.id(),
-                false,
-                AVAILABLE,
-                catalogService.latestCatalogVersion(),
-                Stream.of(columnTypes).map(AbstractIndexStorageTest::columnName).collect(toList())
-        );
+        int tableId = tableDescriptor.id();
+        int indexId = catalogId.getAndIncrement();
 
-        when(catalogService.aliveIndex(eq(name), anyLong())).thenReturn(catalogHashIndexDescriptor);
-        when(catalogService.index(eq(catalogHashIndexDescriptor.id()), anyInt())).thenReturn(catalogHashIndexDescriptor);
+        CatalogHashIndexDescriptor indexDescriptor = createCatalogIndexDescriptor(tableId, indexId, name, columnTypes);
 
         return tableStorage.getOrCreateHashIndex(
                 TEST_PARTITION,
-                new StorageHashIndexDescriptor(catalogTableDescriptor, catalogHashIndexDescriptor)
+                new StorageHashIndexDescriptor(tableDescriptor, indexDescriptor)
         );
     }
 
     @Override
     protected StorageHashIndexDescriptor indexDescriptor(HashIndexStorage index) {
         return index.indexDescriptor();
+    }
+
+    @Override
+    CatalogHashIndexDescriptor createCatalogIndexDescriptor(int tableId, int indexId, String indexName, ColumnType... columnTypes) {
+        var indexDescriptor = new CatalogHashIndexDescriptor(
+                indexId,
+                indexName,
+                tableId,
+                false,
+                AVAILABLE,
+                catalogService.latestCatalogVersion(),
+                Stream.of(columnTypes).map(AbstractIndexStorageTest::columnName).collect(toList())
+        );
+
+        addToCatalog(indexDescriptor);
+
+        return indexDescriptor;
     }
 
     @Test

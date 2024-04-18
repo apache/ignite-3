@@ -57,11 +57,6 @@ class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEvent, Pri
         throw new UnsupportedOperationException();
     }
 
-    @Override
-    public ReplicaMeta currentLease(ReplicationGroupId groupId) {
-        return primaryReplicaMetaFutureById.get(groupId).join();
-    }
-
     CompletableFuture<Void> setPrimaryReplicaMeta(
             long causalityToken,
             TablePartitionId replicaId,

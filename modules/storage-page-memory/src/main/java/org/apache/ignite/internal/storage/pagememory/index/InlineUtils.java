@@ -83,6 +83,8 @@ public class InlineUtils {
                 return Math.min(MAX_VARLEN_INLINE_SIZE, ((VarlenNativeType) nativeType).length());
 
             case DECIMAL:
+                return Short.BYTES + BIG_NUMBER_INLINE_SIZE;
+
             case NUMBER:
                 return BIG_NUMBER_INLINE_SIZE;
 
