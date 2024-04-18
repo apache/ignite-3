@@ -111,7 +111,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
     public void setup(TestInfo testInfo) throws Exception {
         super.setup(testInfo);
 
-        String zoneSql = "create zone test_zone with partitions=10, replicas=" + REPLICAS
+        String zoneSql = "create zone test_zone with partitions=20, replicas=" + REPLICAS
                 + ", storage_profiles='" + DEFAULT_STORAGE_PROFILE + "'";
         String sql = "create table " + TABLE_NAME + " (key bigint primary key, val varchar(20)) with primary_zone='TEST_ZONE'";
 
