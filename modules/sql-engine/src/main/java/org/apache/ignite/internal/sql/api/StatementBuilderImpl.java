@@ -40,13 +40,7 @@ class StatementBuilderImpl implements StatementBuilder {
     private Integer pageSize;
 
     /** Time zone ID. */
-    private ZoneId timeZoneId;
-
-    /** {@inheritDoc} */
-    @Override
-    public String query() {
-        return query;
-    }
+    private ZoneId timeZone;
 
     /** {@inheritDoc} */
     @Override
@@ -54,14 +48,6 @@ class StatementBuilderImpl implements StatementBuilder {
         query = sql;
 
         return this;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public long queryTimeout(TimeUnit timeUnit) {
-        Objects.requireNonNull(timeUnit);
-
-        return timeUnit.convert(queryTimeoutMs == null ? 0 : queryTimeoutMs, TimeUnit.MILLISECONDS);
     }
 
     /** {@inheritDoc} */
@@ -76,22 +62,10 @@ class StatementBuilderImpl implements StatementBuilder {
 
     /** {@inheritDoc} */
     @Override
-    public String defaultSchema() {
-        return defaultSchema;
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public StatementBuilder defaultSchema(String schema) {
         defaultSchema = schema;
 
         return this;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public int pageSize() {
-        return pageSize == null ? 0 : pageSize;
     }
 
     /** {@inheritDoc} */
@@ -105,14 +79,8 @@ class StatementBuilderImpl implements StatementBuilder {
 
     /** {@inheritDoc} */
     @Override
-    public ZoneId timeZone() {
-        return timeZoneId;
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public StatementBuilder timeZone(ZoneId zoneId) {
-        this.timeZoneId = Objects.requireNonNull(zoneId);
+    public StatementBuilder timeZone(ZoneId timeZone) {
+        this.timeZone = timeZone;
 
         return this;
     }
@@ -120,6 +88,6 @@ class StatementBuilderImpl implements StatementBuilder {
     /** {@inheritDoc} */
     @Override
     public Statement build() {
-        return new StatementImpl(query, defaultSchema, queryTimeoutMs, pageSize, timeZoneId);
+        return new StatementImpl(query, defaultSchema, queryTimeoutMs, pageSize, timeZone);
     }
 }

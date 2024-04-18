@@ -81,27 +81,12 @@ public interface Statement extends AutoCloseable {
      */
     interface StatementBuilder {
         /**
-         * Returns a string representation of an SQL statement.
-         *
-         * @return SQL statement string.
-         */
-        String query();
-
-        /**
          * Sets an SQL statement string.
          *
          * @param sql SQL query.
          * @return {@code this} for chaining.
          */
         StatementBuilder query(String sql);
-
-        /**
-         * Returns query timeout.
-         *
-         * @param timeUnit Timeunit to convert timeout to.
-         * @return Query timeout in the given timeunit.
-         */
-        long queryTimeout(TimeUnit timeUnit);
 
         /**
          * Sets a query timeout.
@@ -113,13 +98,6 @@ public interface Statement extends AutoCloseable {
         StatementBuilder queryTimeout(long timeout, TimeUnit timeUnit);
 
         /**
-         * Returns a statement default schema.
-         *
-         * @return Default schema for the statement.
-         */
-        String defaultSchema();
-
-        /**
          * Sets a default schema for the statement.
          *
          * @param schema Default schema.
@@ -128,22 +106,12 @@ public interface Statement extends AutoCloseable {
         StatementBuilder defaultSchema(String schema);
 
         /**
-         * Returns a page size - the maximum number of result rows that can be fetched at a time.
-         *
-         * @return Maximum number of rows per page.
-         */
-        int pageSize();
-
-        /**
          * Sets a page size - the maximum number of result rows that can be fetched at a time.
          *
          * @param pageSize Maximum number of rows per page.
          * @return {@code this} for chaining.
          */
         StatementBuilder pageSize(int pageSize);
-
-        /** Returns a statement time zone. */
-        ZoneId timeZone();
 
         /**
          * Sets a time zone for this statement.

@@ -66,7 +66,7 @@ class StatementImpl implements Statement {
             Integer pageSize,
             ZoneId timeZoneId
     ) {
-        this.query = Objects.requireNonNull(query, "Query required.");
+        this.query = Objects.requireNonNull(query, "Parameter 'query' cannot be null");
         this.defaultSchema = defaultSchema;
         this.queryTimeoutMs = queryTimeoutMs;
         this.pageSize = pageSize;
