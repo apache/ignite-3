@@ -27,7 +27,19 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.Period;
+import java.util.BitSet;
 import java.util.Random;
+import java.util.UUID;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -35,7 +47,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Ignite unsafe data input/output byte order sanity tests.
  */
-class IgniteUnsafeDataInputOutputByteOrderTest {
+class IgniteUnsafeDataInputOutputByteOrderTest extends BaseIgniteAbstractTest {
     /** Array length. */
     private static final int ARR_LEN = 16;
 
@@ -236,5 +248,102 @@ class IgniteUnsafeDataInputOutputByteOrderTest {
         }
 
         assertArrayEquals(arr, in.readDoubleArray(ARR_LEN), 0);
+    }
+
+    @Test
+    public void testLocalTime() throws IOException {
+        LocalTime val = LocalTime.of(RND.nextInt(24), RND.nextInt(60), RND.nextInt(60), RND.nextInt(10000));
+
+        out.writeLocalTime(val);
+
+        assertEquals(val, in.readLocalTime());
+    }
+
+    @Test
+    public void testLocalDate() throws IOException {
+        LocalDate val = LocalDate.of(RND.nextInt(500) + 1900, RND.nextInt(12) + 1, 1 + RND.nextInt(27));
+
+        out.writeLocalDate(val);
+
+        assertEquals(val, in.readLocalDate());
+    }
+
+    @Test
+    public void testLocalDateTime() throws IOException {
+        LocalTime time = LocalTime.of(RND.nextInt(24), RND.nextInt(60), RND.nextInt(60), RND.nextInt(10000));
+        LocalDate date = LocalDate.of(RND.nextInt(500) + 1900, RND.nextInt(12) + 1, 1 + RND.nextInt(27));
+        LocalDateTime val = LocalDateTime.of(date, time);
+
+        out.writeLocalDateTime(val);
+
+        assertEquals(val, in.readLocalDateTime());
+    }
+
+    @Test
+    public void testInstant() throws IOException {
+        Instant val = Instant.ofEpochMilli(Math.abs(RND.nextLong()));
+
+        out.writeInstant(val);
+
+        assertEquals(val, in.readInstant());
+    }
+
+    @Test
+    public void testBigInteger() throws IOException {
+        BigInteger val = BigInteger.valueOf(RND.nextLong());
+
+        out.writeBigInteger(val);
+
+        assertEquals(val, in.readBigInteger());
+    }
+
+    @Test
+    public void testBigDecimal() throws IOException {
+        BigDecimal val = new BigDecimal(BigInteger.valueOf(RND.nextLong()), RND.nextInt(120));
+
+        out.writeBigDecimal(val);
+
+        assertEquals(val, in.readBigDecimal());
+    }
+
+    @Test
+    public void testPeriod() throws IOException {
+        Period val = Period.of(RND.nextInt(10_000), RND.nextInt(10_000), RND.nextInt(10_000));
+
+        out.writePeriod(val);
+
+        assertEquals(val, in.readPeriod());
+    }
+
+    @Test
+    public void testDuration() throws IOException {
+        Duration val = Duration.ofSeconds(RND.nextInt(100_000), RND.nextInt(100_000));
+
+        out.writeDuration(val);
+
+        assertEquals(val, in.readDuration());
+    }
+
+    @Test
+    public void testUuid() throws IOException {
+        UUID val = UUID.randomUUID();
+
+        out.writeUuid(val);
+
+        assertEquals(val, in.readUuid());
+    }
+
+    @Test
+    public void testBitSet() throws IOException {
+        BitSet val = new BitSet();
+
+        for (int i = 0; i < RND.nextInt(100); i++) {
+            int b = RND.nextInt(256);
+            val.set(Math.abs(b));
+        };
+
+        out.writeBitSet(val);
+
+        assertEquals(val, in.readBitSet());
     }
 }
