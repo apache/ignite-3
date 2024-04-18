@@ -19,22 +19,24 @@ package org.apache.ignite.internal.client.tx;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.ReliableChannel;
-import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
+import org.apache.ignite.tx.TransactionOptions;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Lazy client transaction. Will be actually started on the first operation.
  */
 public class ClientLazyTransaction implements Transaction {
-    private final boolean readOnly;
+    private final long observableTimestamp;
 
-    private volatile ClientTransaction tx;
+    private final @Nullable TransactionOptions options;
 
-    public ClientLazyTransaction(boolean readOnly) {
-        // TODO: Preserve start timestamp for RO tx?
-        this.readOnly = readOnly;
+    private volatile CompletableFuture<ClientTransaction> tx;
+
+    ClientLazyTransaction(long observableTimestamp, @Nullable TransactionOptions options) {
+        this.observableTimestamp = observableTimestamp;
+        this.options = options;
     }
 
     @Override
@@ -46,7 +48,7 @@ public class ClientLazyTransaction implements Transaction {
             return;
         }
 
-        tx0.commit();
+        tx0.join().commit();
     }
 
     @Override
@@ -58,7 +60,7 @@ public class ClientLazyTransaction implements Transaction {
             return CompletableFuture.completedFuture(null);
         }
 
-        return tx0.commitAsync();
+        return tx0.thenCompose(ClientTransaction::commitAsync);
     }
 
     @Override
@@ -70,7 +72,7 @@ public class ClientLazyTransaction implements Transaction {
             return;
         }
 
-        tx0.rollback();
+        tx0.join().rollback();
     }
 
     @Override
@@ -82,25 +84,35 @@ public class ClientLazyTransaction implements Transaction {
             return CompletableFuture.completedFuture(null);
         }
 
-        return tx0.rollbackAsync();
+        return tx0.thenCompose(ClientTransaction::rollbackAsync);
     }
 
     @Override
     public boolean isReadOnly() {
-        return readOnly;
+        return options != null && options.readOnly();
     }
 
-    public CompletableFuture<Void> ensureStarted(
+    public synchronized CompletableFuture<ClientTransaction> ensureStarted(
             ReliableChannel ch,
             @Nullable String preferredNodeName) {
-        // TODO
-        return CompletableFutures.nullCompletedFuture();
+        var tx0 = tx;
+
+        if (tx0 != null) {
+            return tx0;
+        }
+
+        tx0 = ClientTransactions.beginAsync(ch, preferredNodeName, options, observableTimestamp);
+        tx = tx0;
+
+        return tx0;
     }
 
     public ClientTransaction tx() {
         var tx0 = tx;
-        assert tx0 != null : "Transaction is not started";
 
-        return tx0;
+        assert tx0 != null : "Transaction is not started";
+        assert tx0.isDone() : "Transaction is starting";
+
+        return tx0.join();
     }
 }
