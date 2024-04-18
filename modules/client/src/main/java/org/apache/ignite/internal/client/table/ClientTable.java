@@ -40,6 +40,7 @@ import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
 import org.apache.ignite.internal.client.sql.ClientSql;
+import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
@@ -407,7 +408,8 @@ public class ClientTable implements Table {
             @Nullable PartitionAwarenessProvider provider,
             @Nullable RetryPolicy retryPolicyOverride,
             @Nullable Integer schemaVersionOverride,
-            boolean expectNotifications) {
+            boolean expectNotifications,
+            @Nullable ClientLazyTransaction tx) {
         CompletableFuture<T> fut = new CompletableFuture<>();
 
         CompletableFuture<ClientSchema> schemaFut = getSchema(schemaVersionOverride == null ? latestSchemaVer : schemaVersionOverride);
@@ -418,19 +420,20 @@ public class ClientTable implements Table {
         // Wait for schema and partition assignment.
         CompletableFuture.allOf(schemaFut, partitionsFut)
                 .thenCompose(v -> {
-                    // TODO: If tx is present but not yet started, start it, using primary node for the given key.
-                    // Modify the protocol to allow combining tx start with any transactional operation.
-                    // OR don't modify the protocol, pass transaction here and populate it as necessary.
                     ClientSchema schema = schemaFut.getNow(null);
                     String preferredNodeName = getPreferredNodeName(provider, partitionsFut.getNow(null), schema);
 
+                    CompletableFuture<?> txFut = tx == null ? nullCompletedFuture() : tx.ensureStarted(ch, preferredNodeName);
+
                     // Perform the operation.
-                    return ch.serviceAsync(opCode,
+                    return txFut.thenCompose(unused ->
+                        ch.serviceAsync(opCode,
                             w -> writer.accept(schema, w),
                             r -> readSchemaAndReadData(schema, r, reader, defaultValue, responseSchemaRequired),
                             preferredNodeName,
                             retryPolicyOverride,
-                            expectNotifications);
+                            expectNotifications)
+                    );
                 })
 
                 // Read resulting schema and the rest of the response.
@@ -450,7 +453,7 @@ public class ClientTable implements Table {
                             int expectedVersion = ((ClientSchemaVersionMismatchException) cause).expectedVersion();
 
                             doSchemaOutInOpAsync(opCode, writer, reader, defaultValue, responseSchemaRequired, provider,
-                                    retryPolicyOverride, expectedVersion, expectNotifications)
+                                    retryPolicyOverride, expectedVersion, expectNotifications, tx)
                                     .whenComplete((res0, err0) -> {
                                         if (err0 != null) {
                                             fut.completeExceptionally(err0);
@@ -466,7 +469,7 @@ public class ClientTable implements Table {
                             schemas.remove(UNKNOWN_SCHEMA_VERSION);
 
                             doSchemaOutInOpAsync(opCode, writer, reader, defaultValue, responseSchemaRequired, provider,
-                                    retryPolicyOverride, UNKNOWN_SCHEMA_VERSION, expectNotifications)
+                                    retryPolicyOverride, UNKNOWN_SCHEMA_VERSION, expectNotifications, tx)
                                     .whenComplete((res0, err0) -> {
                                         if (err0 != null) {
                                             fut.completeExceptionally(err0);

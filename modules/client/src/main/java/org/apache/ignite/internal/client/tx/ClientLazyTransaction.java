@@ -18,8 +18,11 @@
 package org.apache.ignite.internal.client.tx;
 
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.client.ReliableChannel;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Lazy client transaction. Will be actually started on the first operation.
@@ -30,7 +33,7 @@ public class ClientLazyTransaction implements Transaction {
     private volatile ClientTransaction tx;
 
     public ClientLazyTransaction(boolean readOnly) {
-        // TODO: Preserve start timestamp?
+        // TODO: Preserve start timestamp for RO tx?
         this.readOnly = readOnly;
     }
 
@@ -85,5 +88,12 @@ public class ClientLazyTransaction implements Transaction {
     @Override
     public boolean isReadOnly() {
         return readOnly;
+    }
+
+    public CompletableFuture<Void> ensureStarted(
+            ReliableChannel ch,
+            @Nullable String preferredNodeName) {
+        // TODO
+        return CompletableFutures.nullCompletedFuture();
     }
 }
