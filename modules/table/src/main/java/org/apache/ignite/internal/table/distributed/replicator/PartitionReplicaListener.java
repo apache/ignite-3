@@ -445,6 +445,11 @@ public class PartitionReplicaListener implements ReplicaListener {
                 });
     }
 
+    @Override
+    public RaftCommandRunner raftClient() {
+        return raftClient;
+    }
+
     private CompletableFuture<?> processRequest(ReplicaRequest request, @Nullable Boolean isPrimary, String senderId,
             @Nullable Long leaseStartTime) {
         if (request instanceof SchemaVersionAwareReplicaRequest) {
