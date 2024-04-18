@@ -81,7 +81,7 @@ public class NodeUtils {
                 finalPreferablePrimary);
 
         ReplicaMeta[] newPrimaryReplica = new ReplicaMeta[1];
-        boolean stopLeaseNeeded[] = { true };
+        boolean[] stopLeaseNeeded = { true };
 
         boolean success = waitForCondition(() -> {
             if (stopLeaseNeeded[0]) {
