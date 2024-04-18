@@ -45,7 +45,6 @@ import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParam
 import org.apache.ignite.internal.placementdriver.leases.Lease;
 import org.apache.ignite.internal.placementdriver.leases.LeaseBatch;
 import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.network.ClusterNodeResolver;
@@ -76,7 +75,7 @@ public class LeaseTrackerTest extends BaseIgniteAbstractTest {
                 msManager,
                 mock(ClusterNodeResolver.class),
                 new TestClockService(new HybridClockImpl()),
-                tablePartitionId -> new ZonePartitionId(tablePartitionId.tableId(), tablePartitionId.partitionId())
+                tablePartitionId -> new ZonePartitionId(0, tablePartitionId.tableId(), tablePartitionId.partitionId())
         );
         leaseTracker.startTrack(0L);
 
@@ -86,8 +85,8 @@ public class LeaseTrackerTest extends BaseIgniteAbstractTest {
             return falseCompletedFuture();
         });
 
-        TablePartitionId partId0 = new TablePartitionId(0, 0);
-        TablePartitionId partId1 = new TablePartitionId(0, 1);
+        ZonePartitionId partId0 = new ZonePartitionId(0, 0);
+        ZonePartitionId partId1 = new ZonePartitionId(0, 1);
 
         HybridTimestamp startTime = new HybridTimestamp(1, 0);
         HybridTimestamp expirationTime = new HybridTimestamp(1000, 0);
