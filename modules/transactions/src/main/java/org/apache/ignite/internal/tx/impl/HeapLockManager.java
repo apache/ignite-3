@@ -509,6 +509,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
          * Attempts to release a lock for the specified {@code key} in exclusive mode.
          *
          * @param txId Transaction id.
+         * @param lockKey Lock key.
          * @return {@code True} if the queue is empty.
          */
         boolean tryRelease(UUID txId, LockKey lockKey) {
@@ -531,6 +532,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
          *
          * @param txId Transaction id.
          * @param lockMode Lock mode.
+         * @param lockKey Lock key.
          * @return If the value is true, no one waits of any lock of the key, false otherwise.
          */
         boolean tryRelease(UUID txId, LockMode lockMode, LockKey lockKey) {
@@ -564,6 +566,7 @@ public class HeapLockManager extends AbstractEventProducer<LockEvent, LockEventP
          * Releases all locks are held by a specific transaction. This method should be invoked synchronously.
          *
          * @param txId Transaction id.
+         * @param lockKey Lock key.
          * @return List of waiters to notify.
          */
         private List<WaiterImpl> release(UUID txId, LockKey lockKey) {
