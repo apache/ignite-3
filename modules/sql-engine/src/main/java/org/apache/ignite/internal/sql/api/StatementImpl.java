@@ -38,8 +38,8 @@ class StatementImpl implements Statement {
     /** Page size. */
     private final Integer pageSize;
 
-    /** Time zone ID. */
-    private final ZoneId timeZoneId;
+    /** Time zone. */
+    private final ZoneId timeZone;
 
     /**
      * Constructor.
@@ -57,20 +57,20 @@ class StatementImpl implements Statement {
      * @param defaultSchema Default schema.
      * @param queryTimeoutMs Query timeout.
      * @param pageSize Page size.
-     * @param timeZoneId Time zone.
+     * @param timeZone Time zone.
      */
     StatementImpl(
             String query,
             String defaultSchema,
             Long queryTimeoutMs,
             Integer pageSize,
-            ZoneId timeZoneId
+            ZoneId timeZone
     ) {
         this.query = Objects.requireNonNull(query, "Parameter 'query' cannot be null");
         this.defaultSchema = defaultSchema;
         this.queryTimeoutMs = queryTimeoutMs;
         this.pageSize = pageSize;
-        this.timeZoneId = timeZoneId;
+        this.timeZone = timeZone;
     }
 
     /** {@inheritDoc} */
@@ -102,7 +102,7 @@ class StatementImpl implements Statement {
     /** {@inheritDoc} */
     @Override
     public ZoneId timeZone() {
-        return timeZoneId;
+        return timeZone;
     }
 
     /** {@inheritDoc} */
@@ -111,7 +111,7 @@ class StatementImpl implements Statement {
         var builder = new StatementBuilderImpl()
                 .query(query)
                 .defaultSchema(defaultSchema)
-                .timeZone(timeZoneId);
+                .timeZone(timeZone);
 
         if (pageSize != null) {
             builder.pageSize(pageSize);

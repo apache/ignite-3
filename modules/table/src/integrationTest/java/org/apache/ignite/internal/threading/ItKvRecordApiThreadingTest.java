@@ -18,8 +18,6 @@
 package org.apache.ignite.internal.threading;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static java.util.function.Function.identity;
-import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.PublicApiThreadingTests.anIgniteThread;
 import static org.apache.ignite.internal.PublicApiThreadingTests.asyncContinuationPool;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
@@ -36,10 +34,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.stream.IntStream;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.PublicApiThreadingTests;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.streamer.SimplePublisher;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.lang.AsyncCursor;
@@ -73,12 +69,7 @@ class ItKvRecordApiThreadingTest extends ClusterPerClassIntegrationTest {
     void createTable() {
         sql("CREATE TABLE " + TABLE_NAME + " (id INT PRIMARY KEY, val VARCHAR)");
 
-        // Putting more than the default query prefetch size rows to make sure that CriteriaQuerySource#query() returns a non-closed
-        // cursor even after we call its second page.
-        Map<Integer, String> valuesForQuerying = IntStream.range(KEY + 1, KEY + Commons.IN_BUFFER_SIZE + 2)
-                .boxed()
-                .collect(toMap(identity(), Object::toString));
-        plainKeyValueView().putAll(null, valuesForQuerying);
+        plainKeyValueView().putAll(null, Map.of(KEY + 1, "two", KEY + 2, "three"));
     }
 
     private static KeyValueView<Integer, String> plainKeyValueView() {

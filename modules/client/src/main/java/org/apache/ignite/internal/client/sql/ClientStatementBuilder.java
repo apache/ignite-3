@@ -74,7 +74,7 @@ public class ClientStatementBuilder implements Statement.StatementBuilder {
     }
 
     @Override
-    public StatementBuilder timeZone(ZoneId timeZoneId) {
+    public StatementBuilder timeZone(ZoneId timeZone) {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-21568
         throw new UnsupportedOperationException("Not implemented yet");
     }

@@ -125,10 +125,10 @@ public interface Statement extends AutoCloseable {
          *
          * <p>If the time zone has not been set explicitly, the current JVM default time zone will be used.
          *
-         * @param timeZoneId Time zone.
+         * @param timeZone Time zone.
          * @return {@code this} for chaining.
          */
-        StatementBuilder timeZone(ZoneId timeZoneId);
+        StatementBuilder timeZone(ZoneId timeZone);
 
         /**
          * Creates an SQL statement abject.

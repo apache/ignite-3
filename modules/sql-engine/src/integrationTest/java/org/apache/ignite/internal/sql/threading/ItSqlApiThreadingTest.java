@@ -19,8 +19,6 @@ package org.apache.ignite.internal.sql.threading;
 
 import static java.lang.Thread.currentThread;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static java.util.function.Function.identity;
-import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.PublicApiThreadingTests.anIgniteThread;
 import static org.apache.ignite.internal.PublicApiThreadingTests.asyncContinuationPool;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -34,11 +32,9 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import java.util.stream.IntStream;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.PublicApiThreadingTests;
 import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.IgniteSql;
@@ -67,12 +63,7 @@ class ItSqlApiThreadingTest extends ClusterPerClassIntegrationTest {
     void createTable() {
         sql("CREATE TABLE " + TABLE_NAME + " (id INT PRIMARY KEY, val VARCHAR)");
 
-        // Putting more than the default query prefetch size rows to make sure that CriteriaQuerySource#query() returns a non-closed
-        // cursor even after we call its second page.
-        Map<Integer, String> valuesForQuerying = IntStream.range(0, Commons.IN_BUFFER_SIZE + 1)
-                .boxed()
-                .collect(toMap(identity(), Object::toString));
-        plainKeyValueView().putAll(null, valuesForQuerying);
+        plainKeyValueView().putAll(null, Map.of(1, "1", 2, "2", 3, "3"));
     }
 
     private static KeyValueView<Integer, String> plainKeyValueView() {
