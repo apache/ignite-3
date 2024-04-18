@@ -84,6 +84,7 @@ dependencies {
     implementation project(':ignite-catalog-dsl')
     implementation project(':ignite-eventlog')
     implementation project(':ignite-low-watermark')
+    implementation project(':ignite-otel-ext')
     implementation libs.jetbrains.annotations
     implementation libs.micronaut.inject
     implementation libs.micronaut.validation
