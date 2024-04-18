@@ -71,11 +71,13 @@ public class ObservableTimestampPropagationTest extends BaseIgniteAbstractTest {
         assertNull(lastObservableTimestamp());
 
         // RW TX does not propagate timestamp.
-        client.transactions().begin();
+        var rwTx = client.transactions().begin();
+        client.sql().execute(rwTx, "SELECT 1");
         assertNull(lastObservableTimestamp());
 
         // RO TX propagates timestamp.
-        client.transactions().begin(new TransactionOptions().readOnly(true));
+        var roTx = client.transactions().begin(new TransactionOptions().readOnly(true));
+        client.sql().execute(roTx, "SELECT 1");
         assertEquals(1, lastObservableTimestamp());
 
         // Increase timestamp on server - client does not know about it initially.
